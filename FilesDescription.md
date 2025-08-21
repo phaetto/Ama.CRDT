@@ -21,9 +21,10 @@
 | `$/Modern.CRDT/Models/CrdtPatch.cs` | Encapsulates a list of CRDT operations that represent the difference between two JSON documents. |
 | `$/Modern.CRDT/Models/OperationType.cs` | Defines the types of operations (Upsert, Remove) for a CRDT patch. |
 | `$/Modern.CRDT/Modern.CRDT.csproj` | No description provided. |
-| `$/Modern.CRDT/Services/IJsonCrdtApplicator.cs` | Defines the contract for a service that applies a `CrdtPatch` to a `JsonNode`. |
-| `$/Modern.CRDT/Services/IJsonCrdtPatcher.cs` | Defines the contract for the service that compares two JSON documents and generates a CRDT patch. |
-| `$/Modern.CRDT/Services/IJsonCrdtService.cs` | Defines the public facade service for orchestrating CRDT operations. |
+| `$/Modern.CRDT/Services/IJsonCrdtApplicator.cs` | Defines the contract for a service that applies a CRDT patch to a JSON document, respecting Last-Writer-Wins (LWW) semantics. |
+| `$/Modern.CRDT/Services/IJsonCrdtPatcher.cs` | Defines the contract for a service that compares two JSON documents and generates a CRDT patch based on Last-Writer-Wins (LWW) semantics. |
+| `$/Modern.CRDT/Services/IJsonCrdtService.cs` | Defines the public facade service for orchestrating CRDT operations, providing a high-level API for patch generation and merging. |
 | `$/Modern.CRDT/Services/JsonCrdtApplicator.cs` | Implements the patch application logic, including path creation and Last-Writer-Wins (LWW) conflict resolution. |
 | `$/Modern.CRDT/Services/JsonCrdtPatcher.cs` | Implements the logic to recursively compare two `JsonNode` objects and generate a list of `CrdtOperation`s. |
 | `$/Modern.CRDT/Services/JsonCrdtService.cs` | Implements the high-level facade service for CRDT operations. |
+| `$/README.md` | The main documentation for the Modern.CRDT library, including usage examples and an overview of the architecture. |

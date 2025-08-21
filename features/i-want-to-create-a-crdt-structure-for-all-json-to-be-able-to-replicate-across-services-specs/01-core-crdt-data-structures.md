@@ -168,3 +168,4 @@ Here you add comments about the implementation that didn't fit on the previous s
 Usually stuff are not working as we expect. This section is for the extra info that we make after this implementation.
 This section is reserved for AI and human, but add only when you are instructed to.
 --->
+- **NOTE**: After imnplemeting the JSON CRDTs, the basic CRDTs are not needed and _have been removed_!
