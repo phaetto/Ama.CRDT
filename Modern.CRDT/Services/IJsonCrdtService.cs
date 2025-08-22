@@ -10,29 +10,12 @@ using Modern.CRDT.Models;
 public interface IJsonCrdtService
 {
     /// <summary>
-    /// Creates a patch that represents the changes between an original and a modified document.
-    /// </summary>
-    /// <param name="original">The original document state.</param>
-    /// <param name="modified">The modified document state.</param>
-    /// <returns>A <see cref="CrdtPatch"/> containing the operations to transform the original into the modified document.</returns>
-    CrdtPatch CreatePatch(CrdtDocument original, CrdtDocument modified);
-
-    /// <summary>
     /// Applies a patch to a document to produce a new, merged document state.
     /// </summary>
     /// <param name="original">The document to which the patch will be applied.</param>
     /// <param name="patch">The patch containing the changes.</param>
     /// <returns>A new <see cref="CrdtDocument"/> with the patch applied.</returns>
     CrdtDocument Merge(CrdtDocument original, CrdtPatch patch);
-
-    /// <summary>
-    /// A convenience method that creates a patch from two documents and immediately applies it to the original.
-    /// This effectively merges the changes from 'modified' into 'original'.
-    /// </summary>
-    /// <param name="original">The base document state.</param>
-    /// <param name="modified">The document state with changes to merge.</param>
-    /// <returns>A new <see cref="CrdtDocument"/> representing the merged state.</returns>
-    CrdtDocument Merge(CrdtDocument original, CrdtDocument modified);
 
     /// <summary>
     /// Creates a patch that represents the changes between an original and a modified document, using generic POCOs.

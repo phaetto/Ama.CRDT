@@ -1,99 +1,93 @@
-using Modern.CRDT.Models;
-using System.Text.Json.Nodes;
-
 namespace Modern.CRDT.Services;
 
-public sealed class JsonCrdtPatcher : IJsonCrdtPatcher
+using Modern.CRDT.Models;
+using Modern.CRDT.Services.Strategies;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
+
+public sealed class JsonCrdtPatcher(ICrdtStrategyManager strategyManager) : IJsonCrdtPatcher
 {
-    public CrdtPatch GeneratePatch(CrdtDocument from, CrdtDocument to)
+    private readonly ICrdtStrategyManager strategyManager = strategyManager ?? throw new ArgumentNullException(nameof(strategyManager));
+    private readonly ICrdtStrategy defaultStrategy = new LwwStrategy(); 
+    private static readonly JsonSerializerOptions serializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false };
+
+    public CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, CrdtDocument<T> to) where T : class
     {
+        ArgumentNullException.ThrowIfNull(from);
+        ArgumentNullException.ThrowIfNull(to);
+
         var operations = new List<CrdtOperation>();
-        CompareNodes("$", from.Data, from.Metadata, to.Data, to.Metadata, operations);
+        var fromData = from.Data is not null ? JsonSerializer.SerializeToNode(from.Data, serializerOptions)?.AsObject() : null;
+        var toData = to.Data is not null ? JsonSerializer.SerializeToNode(to.Data, serializerOptions)?.AsObject() : null;
+
+        CompareObjectProperties("$", typeof(T), fromData, from.Metadata?.AsObject(), toData, to.Metadata?.AsObject(), operations);
+
         return new CrdtPatch(operations);
     }
-
-    private void CompareNodes(string path, JsonNode? fromData, JsonNode? fromMeta, JsonNode? toData, JsonNode? toMeta, List<CrdtOperation> operations)
-    {
-        if (JsonNode.DeepEquals(fromData, toData))
-        {
-            return;
-        }
-
-        if (fromData is JsonObject fromObj && toData is JsonObject toObj)
-        {
-            CompareJsonObjects(path, fromObj, fromMeta as JsonObject, toObj, toMeta as JsonObject, operations);
-            return;
-        }
-
-        if (fromData is JsonArray fromArr && toData is JsonArray toArr)
-        {
-            CompareJsonArrays(path, fromArr, fromMeta as JsonArray, toArr, toMeta as JsonArray, operations);
-            return;
-        }
-
-        var toTimestamp = GetTimestamp(toMeta);
-        var fromTimestamp = GetTimestamp(fromMeta);
-
-        if (toTimestamp <= fromTimestamp)
-        {
-            return;
-        }
-
-        if (toData is null)
-        {
-            operations.Add(new CrdtOperation(path, OperationType.Remove, null, toTimestamp));
-        }
-        else
-        {
-            operations.Add(new CrdtOperation(path, OperationType.Upsert, toData.DeepClone(), toTimestamp));
-        }
-    }
     
-    private void CompareJsonObjects(string path, JsonObject fromData, JsonObject? fromMeta, JsonObject toData, JsonObject? toMeta, List<CrdtOperation> operations)
+    private void CompareObjectProperties(string path, Type type, JsonObject? fromData, JsonObject? fromMeta, JsonObject? toData, JsonObject? toMeta, List<CrdtOperation> operations)
     {
-        var allKeys = fromData.Select(kvp => kvp.Key).Union(toData.Select(kvp => kvp.Key)).ToHashSet();
+        var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.CanRead && p.GetCustomAttribute<JsonIgnoreAttribute>() == null);
 
-        foreach (var key in allKeys)
+        foreach (var property in properties)
         {
-            var currentPath = $"{path}.{key}";
-            fromData.TryGetPropertyValue(key, out var fromValue);
-            toData.TryGetPropertyValue(key, out var toValue);
+            var jsonPropertyName = serializerOptions.PropertyNamingPolicy?.ConvertName(property.Name) ?? property.Name;
+            var currentPath = path == "$" ? $"$.{jsonPropertyName}" : $"{path}.{jsonPropertyName}";
+
+            JsonNode? fromValue = null;
+            fromData?.TryGetPropertyValue(jsonPropertyName, out fromValue);
+            
+            JsonNode? toValue = null;
+            toData?.TryGetPropertyValue(jsonPropertyName, out toValue);
             
             JsonNode? fromMetaValue = null;
-            fromMeta?.TryGetPropertyValue(key, out fromMetaValue);
+            fromMeta?.TryGetPropertyValue(jsonPropertyName, out fromMetaValue);
             
             JsonNode? toMetaValue = null;
-            toMeta?.TryGetPropertyValue(key, out toMetaValue);
+            toMeta?.TryGetPropertyValue(jsonPropertyName, out toMetaValue);
 
-            CompareNodes(currentPath, fromValue, fromMetaValue, toValue, toMetaValue, operations);
+            if (JsonNode.DeepEquals(fromValue, toValue)) continue;
+
+            if (fromValue is JsonObject || toValue is JsonObject)
+            {
+                CompareObjectProperties(currentPath, property.PropertyType, fromValue?.AsObject(), fromMetaValue?.AsObject(), toValue?.AsObject(), toMetaValue?.AsObject(), operations);
+            }
+            else if (fromValue is JsonArray || toValue is JsonArray)
+            {
+                CompareJsonArrays(currentPath, fromValue?.AsArray(), fromMetaValue?.AsArray(), toValue?.AsArray(), toMetaValue?.AsArray(), operations);
+            }
+            else
+            {
+                var strategy = strategyManager.GetStrategy(property);
+                operations.AddRange(strategy.GeneratePatch(currentPath, fromValue, toValue, fromMetaValue, toMetaValue));
+            }
         }
     }
 
-    private void CompareJsonArrays(string path, JsonArray fromData, JsonArray? fromMeta, JsonArray toData, JsonArray? toMeta, List<CrdtOperation> operations)
+    private void CompareJsonArrays(string path, JsonArray? fromData, JsonArray? fromMeta, JsonArray? toData, JsonArray? toMeta, List<CrdtOperation> operations)
     {
-        var fromCount = fromData.Count;
-        var toCount = toData.Count;
+        if (fromData is null && toData is null) return;
+        
+        var fromCount = fromData?.Count ?? 0;
+        var toCount = toData?.Count ?? 0;
         var maxCount = Math.Max(fromCount, toCount);
 
         for (var i = 0; i < maxCount; i++)
         {
             var currentPath = $"{path}[{i}]";
-            var fromItem = i < fromCount ? fromData[i] : null;
-            var toItem = i < toCount ? toData[i] : null;
+            var fromItem = i < fromCount ? fromData?[i] : null;
+            var toItem = i < toCount ? toData?[i] : null;
 
             var fromMetaItem = (fromMeta is not null && i < fromMeta.Count) ? fromMeta[i] : null;
             var toMetaItem = (toMeta is not null && i < toMeta.Count) ? toMeta[i] : null;
-
-            CompareNodes(currentPath, fromItem, fromMetaItem, toItem, toMetaItem, operations);
+            
+            operations.AddRange(defaultStrategy.GeneratePatch(currentPath, fromItem, toItem, fromMetaItem, toMetaItem));
         }
-    }
-    
-    private static long GetTimestamp(JsonNode? metaNode)
-    {
-        if (metaNode is JsonValue value && value.TryGetValue<long>(out var timestamp))
-        {
-            return timestamp;
-        }
-        return 0;
     }
 }
