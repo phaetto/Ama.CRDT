@@ -79,7 +79,7 @@ public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : I
         }
 
         // 3. State Update: If applied, record it as a seen exception until the vector is advanced.
-        if (applied)
+        if (applied) // TODO: Should this only be special case for (strategy is not wwStrategy)?
         {
             metadata.SeenExceptions.Add(operation);
         }

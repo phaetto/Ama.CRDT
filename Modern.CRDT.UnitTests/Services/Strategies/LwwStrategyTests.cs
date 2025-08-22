@@ -21,7 +21,7 @@ public sealed class LwwStrategyTests
 
     public LwwStrategyTests()
     {
-        strategy = new LwwStrategy(Options.Create(new CrdtOptions()));
+        strategy = new LwwStrategy(Options.Create(new CrdtOptions { ReplicaId = Guid.NewGuid().ToString() }));
     }
 
     [Fact]

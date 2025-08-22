@@ -25,7 +25,7 @@ public sealed class JsonCrdtApplicatorTests
 
     public JsonCrdtApplicatorTests()
     {
-        var options = Options.Create(new CrdtOptions());
+        var options = Options.Create(new CrdtOptions { ReplicaId = Guid.NewGuid().ToString() });
         var timestampProvider = new EpochTimestampProvider();
         var lwwStrategy = new LwwStrategy(options);
         var counterStrategy = new CounterStrategy(timestampProvider, options);

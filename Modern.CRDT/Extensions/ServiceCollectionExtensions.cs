@@ -11,13 +11,16 @@ namespace Modern.CRDT.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddJsonCrdt(this IServiceCollection services, Action<CrdtOptions>? configureOptions = null)
+    public static IServiceCollection AddJsonCrdt(this IServiceCollection services, Action<CrdtOptions> configureOptions)
     {
-        services.AddOptions<CrdtOptions>();
-        if (configureOptions is not null)
+        if (configureOptions is null)
         {
-            services.Configure(configureOptions);
+            throw new ArgumentNullException(nameof(configureOptions), "CRDT options configuration cannot be null.");
         }
+        
+        services.AddOptions<CrdtOptions>()
+            .Configure(configureOptions)
+            .Validate(options => !string.IsNullOrWhiteSpace(options.ReplicaId), "CrdtOptions.ReplicaId cannot be null or empty.");
         
         services.TryAddSingleton<IJsonCrdtPatcher, JsonCrdtPatcher>();
         services.TryAddSingleton<IJsonCrdtApplicator, JsonCrdtApplicator>();
