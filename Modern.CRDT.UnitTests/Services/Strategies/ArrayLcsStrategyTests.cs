@@ -5,11 +5,13 @@ using Modern.CRDT.Services;
 using Modern.CRDT.Services.Strategies;
 using Moq;
 using Shouldly;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Xunit;
 using static Modern.CRDT.Services.Strategies.ArrayLcsStrategy;
+using static Modern.CRDT.Services.Strategies.JsonNodeComparerProvider;
 
 public sealed class ArrayLcsStrategyTests
 {
@@ -24,8 +26,13 @@ public sealed class ArrayLcsStrategyTests
         public string? Value { get; init; }
     }
     
-    private sealed class NestedModelIdComparer : IEqualityComparer<JsonNode>
+    private sealed class NestedModelIdComparer : IJsonNodeComparer
     {
+        public bool CanCompare(Type type)
+        {
+            return type == typeof(NestedModel);
+        }
+
         public bool Equals(JsonNode? x, JsonNode? y)
         {
             if (x is not JsonObject objX || y is not JsonObject objY)
@@ -52,12 +59,25 @@ public sealed class ArrayLcsStrategyTests
     }
 
     private readonly Mock<IJsonCrdtPatcher> mockPatcher = new();
-    
+    private readonly Mock<IJsonNodeComparerProvider> mockComparerProvider = new();
+    private readonly ArrayLcsStrategy strategy;
+
+    public ArrayLcsStrategyTests()
+    {
+        strategy = new ArrayLcsStrategy(mockComparerProvider.Object);
+        mockComparerProvider
+            .Setup(p => p.GetComparer(It.IsAny<Type>()))
+            .Returns<IEqualityComparer<JsonNode>>(null);
+    }
+
     [Fact]
     public void GeneratePatch_WithCustomIdComparer_WhenObjectInArrayIsModified_ShouldCallPatcherDifferentiateObject()
     {
         // Arrange
-        var strategy = new ArrayLcsStrategy(new NestedModelIdComparer());
+        mockComparerProvider
+            .Setup(p => p.GetComparer(typeof(NestedModel)))
+            .Returns(new NestedModelIdComparer());
+
         var operations = new List<CrdtOperation>();
         var path = "$.items";
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Items))!;
@@ -106,7 +126,6 @@ public sealed class ArrayLcsStrategyTests
     public void ApplyOperation_Upsert_ShouldInsertItemIntoArray()
     {
         // Arrange
-        var strategy = new ArrayLcsStrategy();
         var rootNode = new JsonObject { ["items"] = new JsonArray("a", "c") };
         var operation = new CrdtOperation("$.items[1]", OperationType.Upsert, JsonValue.Create("b"), 1L);
 
@@ -125,7 +144,6 @@ public sealed class ArrayLcsStrategyTests
     public void ApplyOperation_Remove_ShouldRemoveItemFromArray()
     {
         // Arrange
-        var strategy = new ArrayLcsStrategy();
         var rootNode = new JsonObject { ["items"] = new JsonArray("a", "b", "c") };
         var operation = new CrdtOperation("$.items[1]", OperationType.Remove, null, 1L);
 
@@ -145,12 +163,11 @@ public sealed class ArrayLcsStrategyTests
     public void Diff_WhenArraysAreIdentical_ShouldReturnAllMatches()
     {
         // Arrange
-        var strategy = new ArrayLcsStrategy();
         var from = new JsonArray(1, 2, 3);
         var to = new JsonArray(1, 2, 3);
 
         // Act
-        var diff = strategy.Diff(from, to);
+        var diff = strategy.Diff(from, to, JsonNodeDeepEqualityComparer.Instance);
 
         // Assert
         diff.ShouldBe(new List<LcsDiffEntry>
@@ -165,12 +182,11 @@ public sealed class ArrayLcsStrategyTests
     public void Diff_WhenItemIsAdded_ShouldReturnAddOperation()
     {
         // Arrange
-        var strategy = new ArrayLcsStrategy();
         var from = new JsonArray("A", "C");
         var to = new JsonArray("A", "B", "C");
 
         // Act
-        var diff = strategy.Diff(from, to);
+        var diff = strategy.Diff(from, to, JsonNodeDeepEqualityComparer.Instance);
 
         // Assert
         diff.ShouldBe(new List<LcsDiffEntry>
@@ -185,12 +201,11 @@ public sealed class ArrayLcsStrategyTests
     public void Diff_WhenItemIsRemoved_ShouldReturnRemoveOperation()
     {
         // Arrange
-        var strategy = new ArrayLcsStrategy();
         var from = new JsonArray("A", "B", "C");
         var to = new JsonArray("A", "C");
 
         // Act
-        var diff = strategy.Diff(from, to);
+        var diff = strategy.Diff(from, to, JsonNodeDeepEqualityComparer.Instance);
 
         // Assert
         diff.ShouldBe(new List<LcsDiffEntry>

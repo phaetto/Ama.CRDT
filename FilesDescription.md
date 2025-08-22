@@ -13,7 +13,7 @@
 | `$/Modern.CRDT/Attributes/CrdtCounterAttribute.cs` | An attribute to explicitly mark a numeric property to use the CRDT Counter strategy. |
 | `$/Modern.CRDT/Attributes/CrdtStrategyAttribute.cs` | The base abstract attribute for marking properties with a specific CRDT merge strategy. Contains the strategy type. |
 | `$/Modern.CRDT/Attributes/LwwStrategyAttribute.cs` | An attribute to explicitly mark a property to use the Last-Writer-Wins (LWW) strategy. |
-| `$/Modern.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup, including registration of strategies and the strategy manager. |
+| `$/Modern.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup, including registration of strategies, the strategy manager, and custom array element comparers. |
 | `$/Modern.CRDT/Models/CrdtDocument.cs` | Encapsulates a JSON document and its associated LWW metadata as `JsonNode`s. Used for patch generation. |
 | `$/Modern.CRDT/Models/CrdtDocumentOfT.cs` | A generic version of `CrdtDocument` for working with POCOs. Used for patch generation. |
 | `$/Modern.CRDT/Models/CrdtMetadata.cs` | Encapsulates the state required for conflict resolution (LWW timestamps, seen operation IDs), externalizing it from the data model. |
@@ -28,11 +28,14 @@
 | `$/Modern.CRDT/Services/JsonCrdtApplicator.cs` | Implements the patch application logic for POCOs. It acts as the central authority for conflict resolution by using an external `CrdtMetadata` object to check operations before delegating the data manipulation to the appropriate strategy. |
 | `$/Modern.CRDT/Services/JsonCrdtPatcher.cs` | Implements the logic to recursively compare two POCOs, using a strategy manager to delegate property-level comparisons, including array diffing. |
 | `$/Modern.CRDT/Services/JsonCrdtService.cs` | Implements the high-level facade service for CRDT operations, delegating to the patcher and applicator services. |
-| `$/Modern.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements a CRDT strategy for arrays using LCS. `GeneratePatch` creates diffs, and the simplified `ApplyOperation` unconditionally manipulates the data array. |
+| `$/Modern.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements a CRDT strategy for arrays using LCS, with support for type-specific element comparers. `GeneratePatch` creates diffs, and `ApplyOperation` unconditionally manipulates the data array. |
 | `$/Modern.CRDT/Services/Strategies/CounterStrategy.cs` | Implements the CRDT Counter strategy. `GeneratePatch` creates `Increment` operations, and the simplified `ApplyOperation` unconditionally applies the numeric delta. |
 | `$/Modern.CRDT/Services/Strategies/CrdtStrategyManager.cs` | Implements the strategy resolution logic, finding the correct strategy for a property via reflection or returning a default (LWW or ArrayLcs). |
 | `$/Modern.CRDT/Services/Strategies/ICrdtStrategy.cs` | Defines the contract for a strategy, including `GeneratePatch` for creating operations and a simplified `ApplyOperation` for unconditional data manipulation. |
 | `$/Modern.CRDT/Services/Strategies/ICrdtStrategyManager.cs` | Defines the contract for a service that resolves the appropriate CRDT strategy for a property. |
+| `$/Modern.CRDT/Services/Strategies/IJsonNodeComparer.cs` | Defines the contract for a type-specific equality comparer for JsonNode instances, used by ArrayLcsStrategy. |
+| `$/Modern.CRDT/Services/Strategies/IJsonNodeComparerProvider.cs` | Defines the contract for a service that provides the correct IEqualityComparer<JsonNode> for a given array element type. |
+| `$/Modern.CRDT/Services/Strategies/JsonNodeComparerProvider.cs` | Implements the provider logic to select a registered IJsonNodeComparer or a default, for use by ArrayLcsStrategy. |
 | `$/Modern.CRDT/Services/Strategies/LwwStrategy.cs` | Implements the LWW strategy. `GeneratePatch` creates operations based on timestamps, and the simplified `ApplyOperation` unconditionally applies changes to nodes. |
 | `$/Modern.CRDT.sln` | No description provided. |
 | `$/README.md` | The main documentation for the Modern.CRDT library, including usage examples and an overview of the architecture. |
