@@ -1,5 +1,6 @@
 namespace Modern.CRDT.UnitTests.Services.Strategies;
 
+using Microsoft.Extensions.Options;
 using Modern.CRDT.Models;
 using Modern.CRDT.Services;
 using Modern.CRDT.Services.Strategies;
@@ -60,14 +61,15 @@ public sealed class ArrayLcsStrategyTests
 
     private readonly Mock<IJsonCrdtPatcher> mockPatcher = new();
     private readonly Mock<IJsonNodeComparerProvider> mockComparerProvider = new();
+    private readonly Mock<ICrdtTimestampProvider> mockTimestampProvider = new();
     private readonly ArrayLcsStrategy strategy;
 
     public ArrayLcsStrategyTests()
     {
-        strategy = new ArrayLcsStrategy(mockComparerProvider.Object);
+        strategy = new ArrayLcsStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, Options.Create(new CrdtOptions { ReplicaId = "test-array-strategy" }));
         mockComparerProvider
             .Setup(p => p.GetComparer(It.IsAny<Type>()))
-            .Returns<IEqualityComparer<JsonNode>>(null);
+            .Returns(JsonNodeDeepEqualityComparer.Instance);
     }
 
     [Fact]
@@ -98,10 +100,10 @@ public sealed class ArrayLcsStrategyTests
         var modifiedMeta = new JsonArray { new JsonObject(), new JsonObject { ["value"] = ts + 1 } };
 
         mockPatcher
-            .Setup(p => p.DifferentiateObject(It.IsAny<string>(), It.IsAny<System.Type>(), It.IsAny<JsonObject>(), It.IsAny<JsonObject>(), It.IsAny<JsonObject>(), It.IsAny<JsonObject>(), It.IsAny<List<CrdtOperation>>()))
-            .Callback<string, System.Type, JsonObject, JsonObject, JsonObject, JsonObject, List<CrdtOperation>>((itemPath, _, _, _, toObject, _, ops) =>
+            .Setup(p => p.DifferentiateObject(It.IsAny<string>(), It.IsAny<Type>(), It.IsAny<JsonObject>(), It.IsAny<JsonObject>(), It.IsAny<JsonObject>(), It.IsAny<JsonObject>(), It.IsAny<List<CrdtOperation>>()))
+            .Callback<string, Type, JsonObject, JsonObject, JsonObject, JsonObject, List<CrdtOperation>>((itemPath, _, _, _, toObject, _, ops) =>
             {
-                ops.Add(new CrdtOperation($"{itemPath}.value", OperationType.Upsert, toObject["value"]!.DeepClone(), 0));
+                ops.Add(new CrdtOperation(Guid.NewGuid(), "mock-replica", $"{itemPath}.value", OperationType.Upsert, toObject["value"]!.DeepClone(), new EpochTimestamp(0)));
             });
         
         // Act
@@ -127,7 +129,7 @@ public sealed class ArrayLcsStrategyTests
     {
         // Arrange
         var rootNode = new JsonObject { ["items"] = new JsonArray("a", "c") };
-        var operation = new CrdtOperation("$.items[1]", OperationType.Upsert, JsonValue.Create("b"), 1L);
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.items[1]", OperationType.Upsert, JsonValue.Create("b"), new EpochTimestamp(1L));
 
         // Act
         strategy.ApplyOperation(rootNode, operation);
@@ -145,7 +147,7 @@ public sealed class ArrayLcsStrategyTests
     {
         // Arrange
         var rootNode = new JsonObject { ["items"] = new JsonArray("a", "b", "c") };
-        var operation = new CrdtOperation("$.items[1]", OperationType.Remove, null, 1L);
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.items[1]", OperationType.Remove, null, new EpochTimestamp(1L));
 
         // Act
         strategy.ApplyOperation(rootNode, operation);

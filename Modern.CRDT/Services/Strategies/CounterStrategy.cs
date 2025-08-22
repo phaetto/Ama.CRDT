@@ -1,5 +1,6 @@
 namespace Modern.CRDT.Services.Strategies;
 
+using Microsoft.Extensions.Options;
 using Modern.CRDT.Models;
 using Modern.CRDT.Services.Helpers;
 using System;
@@ -14,6 +15,21 @@ using System.Text.Json.Nodes;
 /// </summary>
 public sealed class CounterStrategy : ICrdtStrategy
 {
+    private readonly ICrdtTimestampProvider timestampProvider;
+    private readonly string replicaId;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CounterStrategy"/> class.
+    /// </summary>
+    /// <param name="timestampProvider">The provider for generating timestamps.</param>
+    /// <param name="options">Configuration options containing the replica ID.</param>
+    public CounterStrategy(ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options)
+    {
+        this.timestampProvider = timestampProvider ?? throw new ArgumentNullException(nameof(timestampProvider));
+        ArgumentNullException.ThrowIfNull(options?.Value);
+        this.replicaId = options.Value.ReplicaId;
+    }
+
     /// <inheritdoc/>
     public void GeneratePatch(IJsonCrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, JsonNode? originalValue, JsonNode? modifiedValue, JsonNode? originalMetadata, JsonNode? modifiedMetadata)
     {
@@ -27,9 +43,13 @@ public sealed class CounterStrategy : ICrdtStrategy
             return;
         }
         
-        var timestamp = GetTimestamp(modifiedMetadata) > 0 ? GetTimestamp(modifiedMetadata) : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var timestamp = GetTimestamp(modifiedMetadata);
+        if (timestamp.CompareTo(EpochTimestamp.MinValue) == 0)
+        {
+            timestamp = timestampProvider.Now();
+        }
 
-        var operation = new CrdtOperation(path, OperationType.Increment, JsonValue.Create(delta), timestamp);
+        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, JsonValue.Create(delta), timestamp);
         operations.Add(operation);
     }
 
@@ -37,7 +57,6 @@ public sealed class CounterStrategy : ICrdtStrategy
     public void ApplyOperation(JsonNode rootNode, CrdtOperation operation)
     {
         ArgumentNullException.ThrowIfNull(rootNode);
-        ArgumentNullException.ThrowIfNull(operation);
 
         if (operation.Type != OperationType.Increment)
         {
@@ -57,13 +76,13 @@ public sealed class CounterStrategy : ICrdtStrategy
         JsonNodePathHelper.SetChildNode(dataParent, lastSegment, JsonValue.Create(newValue));
     }
     
-    private static long GetTimestamp(JsonNode? metaNode)
+    private static ICrdtTimestamp GetTimestamp(JsonNode? metaNode)
     {
         if (metaNode is JsonValue value && value.TryGetValue<long>(out var timestamp))
         {
-            return timestamp;
+            return new EpochTimestamp(timestamp);
         }
-        return 0;
+        return EpochTimestamp.MinValue;
     }
     
     private static decimal GetNumericValue(JsonNode? node)

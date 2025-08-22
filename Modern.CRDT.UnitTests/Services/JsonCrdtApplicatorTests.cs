@@ -1,5 +1,6 @@
 namespace Modern.CRDT.UnitTests.Services;
 
+using Microsoft.Extensions.Options;
 using Modern.CRDT.Attributes;
 using Modern.CRDT.Models;
 using Modern.CRDT.Services;
@@ -7,7 +8,6 @@ using Modern.CRDT.Services.Strategies;
 using Shouldly;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text.Json.Nodes;
 using Xunit;
 
@@ -19,157 +19,178 @@ public sealed class JsonCrdtApplicatorTests
 
         [CrdtCounter]
         public int Likes { get; init; }
-
-        [CrdtCounter]
-        public int Shares { get; init; }
-
-        [CrdtArrayLcsStrategy]
-        public List<string>? Tags { get; init; }
     }
 
     private readonly IJsonCrdtApplicator applicator;
 
     public JsonCrdtApplicatorTests()
     {
-        var lwwStrategy = new LwwStrategy();
-        var counterStrategy = new CounterStrategy();
-        var comparerProvider = new JsonNodeComparerProvider(Enumerable.Empty<IJsonNodeComparer>());
-        var arrayStrategy = new ArrayLcsStrategy(comparerProvider);
-        var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayStrategy };
+        var options = Options.Create(new CrdtOptions());
+        var timestampProvider = new EpochTimestampProvider();
+        var lwwStrategy = new LwwStrategy(options);
+        var counterStrategy = new CounterStrategy(timestampProvider, options);
+        var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy };
         var strategyManager = new CrdtStrategyManager(strategies);
         applicator = new JsonCrdtApplicator(strategyManager);
     }
-
+    
     [Fact]
-    public void ApplyPatch_WithMixedOperations_ShouldUpdatePocoCorrectly_And_UpdateMetadata()
+    public void ApplyPatch_WithNewLwwOperation_ShouldApplyAndAddToExceptions()
     {
         // Arrange
-        var ts1 = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var model = new TestModel { Name = "Initial", Likes = 10, Tags = new List<string> { "tech", "crdt" } };
+        var model = new TestModel { Name = "Initial" };
         var metadata = new CrdtMetadata();
-        metadata.LwwTimestamps["$.name"] = ts1;
-        
-        var ts2 = ts1 + 100;
-        var ts3 = ts1 + 200;
-        var ts4 = ts1 + 300;
-        var ts5 = ts1 + 400;
-
-        var patch = new CrdtPatch(new List<CrdtOperation>
-        {
-            new("$.name", OperationType.Upsert, JsonValue.Create("Updated"), ts2),
-            new("$.likes", OperationType.Increment, JsonValue.Create(5), ts3),
-            new("$.tags[1]", OperationType.Remove, null, ts4),
-            new("$.tags[1]", OperationType.Upsert, JsonValue.Create("new-tag"), ts5)
-        });
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, JsonValue.Create("Updated"), new EpochTimestamp(100));
+        var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
         // Act
         var result = applicator.ApplyPatch(model, patch, metadata);
 
         // Assert
-        result.ShouldNotBeNull();
         result.Name.ShouldBe("Updated");
-        result.Likes.ShouldBe(15);
-        result.Tags.ShouldBe(new List<string> { "tech", "new-tag" });
-
-        metadata.LwwTimestamps["$.name"].ShouldBe(ts2);
-        metadata.SeenOperationIds.ShouldContainKey("$.likes");
-        metadata.SeenOperationIds["$.likes"].ShouldContain(ts3);
-        metadata.SeenOperationIds.ShouldContainKey("$.tags");
-        metadata.SeenOperationIds["$.tags"].ShouldContain(ts4);
-        metadata.SeenOperationIds["$.tags"].ShouldContain(ts5);
+        metadata.Lww["$.name"].ShouldBe(operation.Timestamp);
+        metadata.SeenExceptions.ShouldContain(operation);
     }
-    
+
     [Fact]
-    public void ApplyPatch_WithStaleLwwTimestamp_ShouldNotApplyOperation()
+    public void ApplyPatch_WithStaleLwwOperation_ShouldNotApply()
     {
         // Arrange
-        var currentTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var model = new TestModel { Name = "Initial" };
         var metadata = new CrdtMetadata();
-        metadata.LwwTimestamps["$.name"] = currentTs;
+        metadata.Lww["$.name"] = new EpochTimestamp(200);
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, JsonValue.Create("Stale"), new EpochTimestamp(100));
+        var patch = new CrdtPatch(new List<CrdtOperation> { operation });
         
-        var staleTimestamp = currentTs - 100;
-        var patch = new CrdtPatch(new List<CrdtOperation>
-        {
-            new("$.name", OperationType.Upsert, JsonValue.Create("Should Not Update"), staleTimestamp)
-        });
-
         // Act
         var result = applicator.ApplyPatch(model, patch, metadata);
 
         // Assert
         result.Name.ShouldBe("Initial");
-        metadata.LwwTimestamps["$.name"].ShouldBe(currentTs);
+        metadata.Lww["$.name"].ShouldBe(new EpochTimestamp(200));
+        metadata.SeenExceptions.ShouldBeEmpty();
     }
-
+    
     [Fact]
-    public void ApplyPatch_WithSeenOperationIdForCounter_ShouldNotApplyOperation()
+    public void ApplyPatch_WithOperationCoveredByVersionVector_ShouldNotApply()
     {
         // Arrange
-        var seenTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var model = new TestModel { Likes = 10 };
         var metadata = new CrdtMetadata();
-        metadata.SeenOperationIds["$.likes"] = new HashSet<long> { seenTs };
+        metadata.VersionVector["replica-A"] = new EpochTimestamp(200);
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(150));
+        var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
-        var patch = new CrdtPatch(new List<CrdtOperation>
-        {
-            new("$.likes", OperationType.Increment, JsonValue.Create(5), seenTs)
-        });
-        
         // Act
         var result = applicator.ApplyPatch(model, patch, metadata);
 
         // Assert
         result.Likes.ShouldBe(10);
-        metadata.SeenOperationIds["$.likes"].Count.ShouldBe(1);
+        metadata.SeenExceptions.ShouldBeEmpty();
     }
     
     [Fact]
-    public void ApplyPatch_WithSeenOperationIdForArray_ShouldNotApplyOperation()
+    public void ApplyPatch_WithOperationInSeenExceptions_ShouldNotApply()
     {
         // Arrange
-        var seenTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var model = new TestModel { Tags = new List<string> { "a" } };
+        var model = new TestModel { Likes = 10 };
         var metadata = new CrdtMetadata();
-        metadata.SeenOperationIds["$.tags"] = new HashSet<long> { seenTs };
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(150));
+        metadata.SeenExceptions.Add(operation);
+        var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
-        var patch = new CrdtPatch(new List<CrdtOperation>
-        {
-            new("$.tags[1]", OperationType.Upsert, JsonValue.Create("b"), seenTs)
-        });
+        // Act
+        var result = applicator.ApplyPatch(model, patch, metadata);
         
+        // Assert
+        result.Likes.ShouldBe(10);
+        metadata.SeenExceptions.Count.ShouldBe(1);
+    }
+    
+    [Fact]
+    public void ApplyPatch_WithNewCounterOperation_ShouldApplyAndAddToExceptions()
+    {
+        // Arrange
+        var model = new TestModel { Likes = 10 };
+        var metadata = new CrdtMetadata();
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(100));
+        var patch = new CrdtPatch(new List<CrdtOperation> { operation });
+
         // Act
         var result = applicator.ApplyPatch(model, patch, metadata);
 
         // Assert
-        result.Tags.ShouldBe(new List<string> { "a" });
-        metadata.SeenOperationIds["$.tags"].Count.ShouldBe(1);
+        result.Likes.ShouldBe(15);
+        metadata.SeenExceptions.ShouldContain(operation);
     }
 
     [Fact]
-    public void ApplyPatch_WithSameTimestampOnDifferentNodes_ShouldApplyBoth()
+    public void ApplyPatch_WhenAppliedMultipleTimes_IsIdempotent()
     {
         // Arrange
-        var model = new TestModel { Likes = 10, Shares = 5 };
+        var model = new TestModel { Name = "Initial", Likes = 10 };
         var metadata = new CrdtMetadata();
-        var sameTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-        var patch = new CrdtPatch(new List<CrdtOperation>
-        {
-            new("$.likes", OperationType.Increment, JsonValue.Create(1), sameTs),
-            new("$.shares", OperationType.Increment, JsonValue.Create(2), sameTs)
-        });
+        var lwwOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, JsonValue.Create("Updated"), new EpochTimestamp(100));
+        var counterOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(100));
+        var patch = new CrdtPatch(new List<CrdtOperation> { lwwOperation, counterOperation });
 
         // Act
-        var result = applicator.ApplyPatch(model, patch, metadata);
+        // First application
+        var result1 = applicator.ApplyPatch(model, patch, metadata);
+
+        // Second application
+        var result2 = applicator.ApplyPatch(result1, patch, metadata);
 
         // Assert
-        result.Likes.ShouldBe(11);
-        result.Shares.ShouldBe(7);
+        // State after first application
+        result1.Name.ShouldBe("Updated");
+        result1.Likes.ShouldBe(15);
+        metadata.Lww["$.name"].ShouldBe(lwwOperation.Timestamp);
+        metadata.SeenExceptions.Count.ShouldBe(2);
+        metadata.SeenExceptions.ShouldContain(lwwOperation);
+        metadata.SeenExceptions.ShouldContain(counterOperation);
 
-        metadata.SeenOperationIds.ShouldContainKey("$.likes");
-        metadata.SeenOperationIds["$.likes"].ShouldContain(sameTs);
-        metadata.SeenOperationIds.ShouldContainKey("$.shares");
-        metadata.SeenOperationIds["$.shares"].ShouldContain(sameTs);
+        // State after second application (should be unchanged)
+        result2.Name.ShouldBe("Updated");
+        result2.Likes.ShouldBe(15);
+        metadata.Lww["$.name"].ShouldBe(lwwOperation.Timestamp);
+        metadata.SeenExceptions.Count.ShouldBe(2); // No new exceptions added
+    }
+    
+    [Fact]
+    public void ApplyPatch_WithConcurrentPatches_IsCommutative()
+    {
+        // Arrange
+        var initialModel = new TestModel { Name = "Initial", Likes = 10 };
+
+        // Patch A from replica A
+        var opA_Lww = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, JsonValue.Create("Name A"), new EpochTimestamp(100));
+        var opA_Counter = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(110));
+        var patchA = new CrdtPatch(new List<CrdtOperation> { opA_Lww, opA_Counter });
+
+        // Patch B from replica B
+        var opB_Lww = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.name", OperationType.Upsert, JsonValue.Create("Name B"), new EpochTimestamp(200)); // Higher timestamp wins
+        var opB_Counter = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.likes", OperationType.Increment, JsonValue.Create(3), new EpochTimestamp(120));
+        var patchB = new CrdtPatch(new List<CrdtOperation> { opB_Lww, opB_Counter });
+
+        // Scenario 1: Apply A, then B
+        var metadata_AB = new CrdtMetadata();
+        var model_afterA = applicator.ApplyPatch(initialModel, patchA, metadata_AB);
+        var result_AB = applicator.ApplyPatch(model_afterA, patchB, metadata_AB);
+
+        // Scenario 2: Apply B, then A
+        var metadata_BA = new CrdtMetadata();
+        var model_afterB = applicator.ApplyPatch(initialModel, patchB, metadata_BA);
+        var result_BA = applicator.ApplyPatch(model_afterB, patchA, metadata_BA);
+        
+        // Assert
+        // Both scenarios should converge to the same state.
+        // LWW: 'Name B' wins due to higher timestamp.
+        // Counter: 10 + 5 + 3 = 18.
+        result_AB.Name.ShouldBe("Name B");
+        result_AB.Likes.ShouldBe(18);
+        
+        result_BA.Name.ShouldBe("Name B");
+        result_BA.Likes.ShouldBe(18);
     }
 }

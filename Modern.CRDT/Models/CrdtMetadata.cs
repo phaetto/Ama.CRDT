@@ -1,8 +1,8 @@
 namespace Modern.CRDT.Models;
 
 /// <summary>
-/// Encapsulates the state required for conflict resolution in a state-based CRDT system.
-/// This object is managed by the client and passed through the API to ensure idempotency and correct merge outcomes.
+/// Encapsulates the state required for conflict resolution (LWW timestamps, seen operation IDs),
+/// externalizing it from the data model.
 /// </summary>
 public sealed class CrdtMetadata
 {
@@ -10,12 +10,18 @@ public sealed class CrdtMetadata
     /// Gets a dictionary that stores the last-seen timestamp for properties managed by the Last-Writer-Wins (LWW) strategy.
     /// The key is the JSON Path to the property.
     /// </summary>
-    public IDictionary<string, long> LwwTimestamps { get; } = new Dictionary<string, long>();
+    public IDictionary<string, ICrdtTimestamp> Lww { get; } = new Dictionary<string, ICrdtTimestamp>();
 
     /// <summary>
-    /// Gets a dictionary that stores the unique timestamps of operations that have already been applied for a specific property path.
-    /// This is used by non-LWW strategies (like Counter and ArrayLcs) to ensure that operations are only applied once (idempotency).
-    /// The key is the JSON Path to the property (e.g., "$.tags", "$.likes"), and the value is a set of seen operation timestamps for that property.
+    /// A version vector mapping a ReplicaId to the latest contiguous timestamp received from that replica.
+    /// Operations with timestamps less than or equal to this value are considered seen and are ignored.
     /// </summary>
-    public IDictionary<string, ISet<long>> SeenOperationIds { get; } = new Dictionary<string, ISet<long>>();
+    public IDictionary<string, ICrdtTimestamp> VersionVector { get; } = new Dictionary<string, ICrdtTimestamp>();
+
+    /// <summary>
+    /// Stores operations that have been received out of order (i.e., their timestamp is newer than what's
+    /// in the version vector for that replica). This set is used for idempotency checks and can be compacted
+    /// once the version vector advances.
+    /// </summary>
+    public ISet<CrdtOperation> SeenExceptions { get; } = new HashSet<CrdtOperation>();
 }
