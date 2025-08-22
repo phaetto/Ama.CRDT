@@ -6,7 +6,6 @@ using Modern.CRDT.Services.Strategies;
 using Moq;
 using Shouldly;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text.Json.Nodes;
 using Xunit;
 
@@ -50,70 +49,46 @@ public sealed class LwwStrategyTests
 
         operations.ShouldBeEmpty();
     }
-    
+
     [Fact]
-    public void GeneratePatch_WhenModifiedIsSameTimestamp_ShouldGenerateNothing()
+    public void ApplyOperation_Upsert_ShouldUpdateValue()
     {
-        var originalValue = JsonValue.Create(10);
-        var modifiedValue = JsonValue.Create(20);
-        var originalMeta = JsonValue.Create(200L);
-        var modifiedMeta = JsonValue.Create(200L);
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
+        // Arrange
+        var rootNode = new JsonObject { ["value"] = 10 };
+        var operation = new CrdtOperation("$.value", OperationType.Upsert, JsonValue.Create(20), 200L);
 
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
+        // Act
+        strategy.ApplyOperation(rootNode, operation);
 
-        operations.ShouldBeEmpty();
-    }
-    
-    [Fact]
-    public void GeneratePatch_WhenValueIsRemovedAndTimestampIsNewer_ShouldGenerateRemove()
-    {
-        var originalValue = JsonValue.Create(10);
-        JsonNode? modifiedValue = null;
-        var originalMeta = JsonValue.Create(100L);
-        var modifiedMeta = JsonValue.Create(200L);
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
-
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
-        
-        operations.Count.ShouldBe(1);
-        var op = operations[0];
-        op.Type.ShouldBe(OperationType.Remove);
-        op.JsonPath.ShouldBe("$.value");
-        op.Value.ShouldBeNull();
-        op.Timestamp.ShouldBe(200L);
+        // Assert
+        rootNode["value"]!.GetValue<int>().ShouldBe(20);
     }
 
     [Fact]
-    public void GeneratePatch_WhenValueIsAdded_ShouldGenerateUpsert()
+    public void ApplyOperation_Upsert_ShouldAddValueWhenItDoesNotExist()
     {
-        JsonNode? originalValue = null;
-        var modifiedValue = JsonValue.Create("new");
-        JsonNode? originalMeta = null;
-        var modifiedMeta = JsonValue.Create(200L);
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
+        // Arrange
+        var rootNode = new JsonObject();
+        var operation = new CrdtOperation("$.value", OperationType.Upsert, JsonValue.Create(20), 200L);
 
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
+        // Act
+        strategy.ApplyOperation(rootNode, operation);
 
-        operations.Count.ShouldBe(1);
-        var op = operations[0];
-        op.Type.ShouldBe(OperationType.Upsert);
-        op.JsonPath.ShouldBe("$.value");
-        op.Value!.GetValue<string>().ShouldBe("new");
-        op.Timestamp.ShouldBe(200L);
+        // Assert
+        rootNode["value"]!.GetValue<int>().ShouldBe(20);
     }
-    
+
     [Fact]
-    public void GeneratePatch_WhenValuesAreIdentical_ShouldGenerateNothing()
+    public void ApplyOperation_Remove_ShouldRemoveValue()
     {
-        var originalValue = JsonValue.Create(10);
-        var modifiedValue = JsonValue.Create(10);
-        var originalMeta = JsonValue.Create(100L);
-        var modifiedMeta = JsonValue.Create(200L);
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
+        // Arrange
+        var rootNode = new JsonObject { ["value"] = 10 };
+        var operation = new CrdtOperation("$.value", OperationType.Remove, null, 200L);
 
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
+        // Act
+        strategy.ApplyOperation(rootNode, operation);
 
-        operations.ShouldBeEmpty();
+        // Assert
+        rootNode.ContainsKey("value").ShouldBeFalse();
     }
 }

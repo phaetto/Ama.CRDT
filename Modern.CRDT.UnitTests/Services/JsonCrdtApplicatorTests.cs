@@ -36,63 +36,106 @@ public sealed class JsonCrdtApplicatorTests
     }
 
     [Fact]
-    public void ApplyPatch_WithMixedOperations_ShouldUpdatePocoCorrectly()
+    public void ApplyPatch_WithMixedOperations_ShouldUpdatePocoCorrectly_And_UpdateMetadata()
     {
         // Arrange
         var ts1 = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var model = new TestModel { Name = "Initial", Likes = 10, Tags = ["tech", "crdt"] };
-        var metadata = JsonNode.Parse($"{{\"name\":{ts1},\"likes\":{ts1},\"tags\":[{ts1},{ts1}]}}");
-        var document = new CrdtDocument<TestModel>(model, metadata);
+        var model = new TestModel { Name = "Initial", Likes = 10, Tags = new List<string> { "tech", "crdt" } };
+        var metadata = new CrdtMetadata();
+        metadata.LwwTimestamps["$.name"] = ts1;
         
         var ts2 = ts1 + 100;
         var ts3 = ts1 + 200;
         var ts4 = ts1 + 300;
+        var ts5 = ts1 + 400;
 
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
             new("$.name", OperationType.Upsert, JsonValue.Create("Updated"), ts2),
             new("$.likes", OperationType.Increment, JsonValue.Create(5), ts3),
             new("$.tags[1]", OperationType.Remove, null, ts4),
-            new("$.tags[1]", OperationType.Upsert, JsonValue.Create("new-tag"), ts4)
+            new("$.tags[1]", OperationType.Upsert, JsonValue.Create("new-tag"), ts5)
         });
 
         // Act
-        var result = applicator.ApplyPatch(document, patch);
+        var result = applicator.ApplyPatch(model, patch, metadata);
 
         // Assert
-        result.Data.ShouldNotBeNull();
-        result.Data.Name.ShouldBe("Updated");
-        result.Data.Likes.ShouldBe(15);
-        result.Data.Tags.ShouldBe(new List<string> { "tech", "new-tag" });
+        result.ShouldNotBeNull();
+        result.Name.ShouldBe("Updated");
+        result.Likes.ShouldBe(15);
+        result.Tags.ShouldBe(new List<string> { "tech", "new-tag" });
 
-        var finalMeta = result.Metadata?.AsObject();
-        finalMeta.ShouldNotBeNull();
-        finalMeta["name"]!.GetValue<long>().ShouldBe(ts2);
-        finalMeta["likes"]!.GetValue<long>().ShouldBe(ts3);
-        finalMeta["tags"]!.AsArray()[1]!.GetValue<long>().ShouldBe(ts4);
+        metadata.LwwTimestamps["$.name"].ShouldBe(ts2);
+        metadata.SeenOperationIds.ShouldContain(ts3);
+        metadata.SeenOperationIds.ShouldContain(ts4);
+        metadata.SeenOperationIds.ShouldContain(ts5);
     }
     
     [Fact]
-    public void ApplyPatch_WithStaleTimestamp_ShouldNotApplyOperation()
+    public void ApplyPatch_WithStaleLwwTimestamp_ShouldNotApplyOperation()
     {
         // Arrange
-        var ts1 = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var currentTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var model = new TestModel { Name = "Initial" };
-        var metadata = JsonNode.Parse($"{{\"name\":{ts1}}}");
-        var document = new CrdtDocument<TestModel>(model, metadata);
+        var metadata = new CrdtMetadata();
+        metadata.LwwTimestamps["$.name"] = currentTs;
         
-        var staleTimestamp = ts1 - 100;
+        var staleTimestamp = currentTs - 100;
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
             new("$.name", OperationType.Upsert, JsonValue.Create("Should Not Update"), staleTimestamp)
         });
 
         // Act
-        var result = applicator.ApplyPatch(document, patch);
+        var result = applicator.ApplyPatch(model, patch, metadata);
 
         // Assert
-        result.Data.ShouldNotBeNull();
-        result.Data.Name.ShouldBe("Initial");
-        result.Metadata?.AsObject()["name"]!.GetValue<long>().ShouldBe(ts1);
+        result.Name.ShouldBe("Initial");
+        metadata.LwwTimestamps["$.name"].ShouldBe(currentTs);
+    }
+
+    [Fact]
+    public void ApplyPatch_WithSeenOperationIdForCounter_ShouldNotApplyOperation()
+    {
+        // Arrange
+        var seenTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var model = new TestModel { Likes = 10 };
+        var metadata = new CrdtMetadata();
+        metadata.SeenOperationIds.Add(seenTs);
+
+        var patch = new CrdtPatch(new List<CrdtOperation>
+        {
+            new("$.likes", OperationType.Increment, JsonValue.Create(5), seenTs)
+        });
+        
+        // Act
+        var result = applicator.ApplyPatch(model, patch, metadata);
+
+        // Assert
+        result.Likes.ShouldBe(10);
+        metadata.SeenOperationIds.Count.ShouldBe(1);
+    }
+    
+    [Fact]
+    public void ApplyPatch_WithSeenOperationIdForArray_ShouldNotApplyOperation()
+    {
+        // Arrange
+        var seenTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var model = new TestModel { Tags = new List<string> { "a" } };
+        var metadata = new CrdtMetadata();
+        metadata.SeenOperationIds.Add(seenTs);
+
+        var patch = new CrdtPatch(new List<CrdtOperation>
+        {
+            new("$.tags[1]", OperationType.Upsert, JsonValue.Create("b"), seenTs)
+        });
+        
+        // Act
+        var result = applicator.ApplyPatch(model, patch, metadata);
+
+        // Assert
+        result.Tags.ShouldBe(new List<string> { "a" });
+        metadata.SeenOperationIds.Count.ShouldBe(1);
     }
 }

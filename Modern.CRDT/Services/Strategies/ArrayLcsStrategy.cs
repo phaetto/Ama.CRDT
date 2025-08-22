@@ -1,16 +1,15 @@
 namespace Modern.CRDT.Services.Strategies;
 
 using Modern.CRDT.Models;
+using Modern.CRDT.Services.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 
 public sealed class ArrayLcsStrategy : ICrdtStrategy
 {
-    private static readonly Regex PathRegex = new(@"\.([^.\[\]]+)|\[(\d+)\]", RegexOptions.Compiled);
     private readonly IEqualityComparer<JsonNode> itemComparer;
 
     /// <summary>
@@ -90,23 +89,26 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
 
         operations.AddRange(removeOps.OrderByDescending(op =>
         {
-            var lastMatch = PathRegex.Matches(op.JsonPath).Cast<Match>().LastOrDefault();
-            if (lastMatch is null || !lastMatch.Groups[2].Success)
+            var segments = JsonNodePathHelper.ParsePath(op.JsonPath);
+            var lastSegment = segments.LastOrDefault();
+            if (lastSegment is not null && int.TryParse(lastSegment, out var index))
             {
-                return -1;
+                return index;
             }
-            return int.Parse(lastMatch.Groups[2].Value);
+            return -1;
         }));
         
         operations.AddRange(addOps);
     }
     
-    public void ApplyOperation(JsonNode rootNode, JsonNode metadataNode, CrdtOperation operation)
+    public void ApplyOperation(JsonNode rootNode, CrdtOperation operation)
     {
-        var (dataParent, lastDataSegment) = FindParent(rootNode, operation.JsonPath);
-        var (metaParent, _) = FindParent(metadataNode, operation.JsonPath);
+        ArgumentNullException.ThrowIfNull(rootNode);
+        ArgumentNullException.ThrowIfNull(operation);
 
-        if (dataParent is not JsonArray dataArray || metaParent is not JsonArray metaArray)
+        var (dataParent, lastDataSegment) = JsonNodePathHelper.FindParentNode(rootNode, operation.JsonPath);
+
+        if (dataParent is not JsonArray dataArray)
         {
             return;
         }
@@ -121,7 +123,6 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
             if (arrayIndex <= dataArray.Count)
             {
                 dataArray.Insert(arrayIndex, operation.Value?.DeepClone());
-                metaArray.Insert(arrayIndex, JsonValue.Create(operation.Timestamp));
             }
         }
         else if (operation.Type == OperationType.Remove)
@@ -129,7 +130,6 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
             if (arrayIndex < dataArray.Count)
             {
                 dataArray.RemoveAt(arrayIndex);
-                metaArray.RemoveAt(arrayIndex);
             }
         }
     }
@@ -180,51 +180,6 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
 
         diff.Reverse();
         return diff;
-    }
-    
-    private static (JsonNode?, string) FindParent(JsonNode? root, string jsonPath)
-    {
-        if (root is null || string.IsNullOrWhiteSpace(jsonPath) || jsonPath == "$")
-        {
-            return (root, string.Empty);
-        }
-
-        var segments = ParsePath(jsonPath);
-        if (segments.Count == 0)
-        {
-            return (root, string.Empty);
-        }
-
-        JsonNode? currentNode = root;
-        for (var i = 0; i < segments.Count - 1; i++)
-        {
-            var segment = segments[i];
-            if (currentNode is null) return (null, string.Empty);
-
-            if (int.TryParse(segment, out var index))
-            {
-                currentNode = currentNode is JsonArray arr && arr.Count > index ? arr[index] : null;
-            }
-            else
-            {
-                currentNode = currentNode is JsonObject obj && obj.TryGetPropertyValue(segment, out var node) ? node : null;
-            }
-        }
-
-        return (currentNode, segments.Last());
-    }
-
-    private static List<string> ParsePath(string jsonPath)
-    {
-        var segments = new List<string>();
-        if (string.IsNullOrWhiteSpace(jsonPath) || jsonPath == "$") return segments;
-        
-        var matches = PathRegex.Matches(jsonPath);
-        foreach (Match match in matches.Cast<Match>())
-        {
-            segments.Add(match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value);
-        }
-        return segments;
     }
     
     private static long GetTimestamp(JsonNode? metaNode)
