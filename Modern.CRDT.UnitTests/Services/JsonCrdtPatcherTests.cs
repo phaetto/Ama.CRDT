@@ -39,7 +39,8 @@ public sealed class JsonCrdtPatcherTests
     {
         var lwwStrategy = new LwwStrategy();
         var counterStrategy = new CounterStrategy();
-        var arrayStrategy = new ArrayLcsStrategy();
+        var comparerProvider = new JsonNodeComparerProvider(Enumerable.Empty<IJsonNodeComparer>());
+        var arrayStrategy = new ArrayLcsStrategy(comparerProvider);
         var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayStrategy };
         var strategyManager = new CrdtStrategyManager(strategies);
         patcher = new JsonCrdtPatcher(strategyManager);

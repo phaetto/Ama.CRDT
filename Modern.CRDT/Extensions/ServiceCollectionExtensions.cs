@@ -20,6 +20,9 @@ public static class ServiceCollectionExtensions
         // Register the strategy manager
         services.TryAddSingleton<ICrdtStrategyManager, CrdtStrategyManager>();
 
+        // Register the comparer provider for ArrayLcsStrategy
+        services.TryAddSingleton<IJsonNodeComparerProvider, JsonNodeComparerProvider>();
+        
         // Register concrete strategies as singletons so the manager can resolve them.
         services.TryAddSingleton<LwwStrategy>();
         services.TryAddSingleton<CounterStrategy>();
@@ -30,6 +33,19 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
         services.AddSingleton<ICrdtStrategy, ArrayLcsStrategy>(sp => sp.GetRequiredService<ArrayLcsStrategy>());
 
+        return services;
+    }
+    
+    /// <summary>
+    /// Registers a custom JSON node comparer for the Array LCS strategy.
+    /// </summary>
+    /// <typeparam name="TComparer">The type of the comparer to register. Must implement <see cref="IJsonNodeComparer"/>.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/> to add the service to.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    public static IServiceCollection AddJsonCrdtComparer<TComparer>(this IServiceCollection services)
+        where TComparer : class, IJsonNodeComparer
+    {
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IJsonNodeComparer, TComparer>());
         return services;
     }
 }

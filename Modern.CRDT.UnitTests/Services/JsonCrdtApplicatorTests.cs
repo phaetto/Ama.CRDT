@@ -7,6 +7,7 @@ using Modern.CRDT.Services.Strategies;
 using Shouldly;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json.Nodes;
 using Xunit;
 
@@ -29,7 +30,8 @@ public sealed class JsonCrdtApplicatorTests
     {
         var lwwStrategy = new LwwStrategy();
         var counterStrategy = new CounterStrategy();
-        var arrayStrategy = new ArrayLcsStrategy();
+        var comparerProvider = new JsonNodeComparerProvider(Enumerable.Empty<IJsonNodeComparer>());
+        var arrayStrategy = new ArrayLcsStrategy(comparerProvider);
         var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayStrategy };
         var strategyManager = new CrdtStrategyManager(strategies);
         applicator = new JsonCrdtApplicator(strategyManager);

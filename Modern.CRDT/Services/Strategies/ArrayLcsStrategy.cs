@@ -10,23 +10,15 @@ using System.Text.Json.Nodes;
 
 public sealed class ArrayLcsStrategy : ICrdtStrategy
 {
-    private readonly IEqualityComparer<JsonNode> itemComparer;
+    private readonly IJsonNodeComparerProvider comparerProvider;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ArrayLcsStrategy"/> class with the default deep equality comparer for JSON nodes.
+    /// Initializes a new instance of the <see cref="ArrayLcsStrategy"/> class.
     /// </summary>
-    public ArrayLcsStrategy()
-        : this(JsonNodeDeepEqualityComparer.Instance)
+    /// <param name="comparerProvider">The provider for resolving type-specific JSON node comparers.</param>
+    public ArrayLcsStrategy(IJsonNodeComparerProvider comparerProvider)
     {
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ArrayLcsStrategy"/> class with a custom equality comparer for JSON nodes.
-    /// </summary>
-    /// <param name="itemComparer">The custom equality comparer to use for matching items within arrays.</param>
-    public ArrayLcsStrategy(IEqualityComparer<JsonNode> itemComparer)
-    {
-        this.itemComparer = itemComparer ?? throw new ArgumentNullException(nameof(itemComparer));
+        this.comparerProvider = comparerProvider ?? throw new ArgumentNullException(nameof(comparerProvider));
     }
 
     /// <summary>
@@ -49,7 +41,9 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
         var fromMeta = originalMetadata?.AsArray();
         var toMeta = modifiedMetadata?.AsArray();
 
-        var diff = Diff(fromArray, toArray);
+        var elementType = property.PropertyType.GetGenericArguments().FirstOrDefault() ?? property.PropertyType.GetElementType() ?? typeof(object);
+        var comparer = comparerProvider.GetComparer(elementType);
+        var diff = Diff(fromArray, toArray, comparer);
 
         var removeOps = new List<CrdtOperation>();
         var addOps = new List<CrdtOperation>();
@@ -63,8 +57,7 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
                 
                 if (!JsonNode.DeepEquals(fromItem, toItem) && fromItem is JsonObject fromObj && toItem is JsonObject toObj)
                 {
-                    var elementType = property.PropertyType.GetGenericArguments().FirstOrDefault() ?? property.PropertyType.GetElementType();
-                    if (elementType is not null)
+                    if (elementType != typeof(object))
                     {
                         var itemPath = $"{path}[{entry.OldIndex}]";
                         var fromItemMeta = fromMeta is not null && entry.OldIndex < fromMeta.Count ? fromMeta[entry.OldIndex]?.AsObject() : null;
@@ -134,7 +127,7 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
         }
     }
     
-    internal List<LcsDiffEntry> Diff(JsonArray from, JsonArray to)
+    internal List<LcsDiffEntry> Diff(JsonArray from, JsonArray to, IEqualityComparer<JsonNode> itemComparer)
     {
         var n = from.Count;
         var m = to.Count;
@@ -185,25 +178,5 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
     private static long GetTimestamp(JsonNode? metaNode)
     {
         return metaNode is JsonValue value && value.TryGetValue<long>(out var timestamp) ? timestamp : 0;
-    }
-    
-    public sealed class JsonNodeDeepEqualityComparer : IEqualityComparer<JsonNode>
-    {
-        public static readonly JsonNodeDeepEqualityComparer Instance = new();
-
-        public bool Equals(JsonNode? x, JsonNode? y)
-        {
-            return JsonNode.DeepEquals(x, y);
-        }
-
-        public int GetHashCode(JsonNode obj)
-        {
-            if (obj is null)
-            {
-                return 0;
-            }
-            
-            return obj.ToJsonString().GetHashCode();
-        }
     }
 }
