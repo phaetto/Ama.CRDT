@@ -22,7 +22,7 @@ public sealed class CounterStrategyTests
 
     public CounterStrategyTests()
     {
-        strategy = new CounterStrategy(mockTimestampProvider.Object, Options.Create(new CrdtOptions()));
+        strategy = new CounterStrategy(mockTimestampProvider.Object, Options.Create(new CrdtOptions { ReplicaId = Guid.NewGuid().ToString() }));
     }
 
     [Theory]
