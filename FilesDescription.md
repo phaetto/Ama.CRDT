@@ -14,6 +14,7 @@
 | `$/Modern.CRDT.UnitTests/Services/JsonCrdtApplicatorTests.cs` | Contains unit tests for the `JsonCrdtApplicator` service. |
 | `$/Modern.CRDT.UnitTests/Services/JsonCrdtPatcherTests.cs` | Contains unit tests for the `JsonCrdtPatcher` service, covering various JSON diffing scenarios. |
 | `$/Modern.CRDT.UnitTests/Services/JsonCrdtServiceTests.cs` | Contains end-to-end integration tests for the `JsonCrdtService`. |
+| `$/Modern.CRDT/Attributes/CrdtStrategyAttribute.cs` | The base abstract attribute for marking properties with a specific CRDT merge strategy. |
 | `$/Modern.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup. |
 | `$/Modern.CRDT/Models/CrdtDocument.cs` | Encapsulates a JSON document and its associated LWW metadata as `JsonNode`s. |
 | `$/Modern.CRDT/Models/CrdtDocumentOfT.cs` | A generic version of `CrdtDocument` for working with POCOs. |
@@ -27,4 +28,5 @@
 | `$/Modern.CRDT/Services/JsonCrdtApplicator.cs` | Implements the patch application logic, including path creation and Last-Writer-Wins (LWW) conflict resolution. |
 | `$/Modern.CRDT/Services/JsonCrdtPatcher.cs` | Implements the logic to recursively compare two `JsonNode` objects and generate a list of `CrdtOperation`s. |
 | `$/Modern.CRDT/Services/JsonCrdtService.cs` | Implements the high-level facade service for CRDT operations. |
+| `$/Modern.CRDT/Services/Strategies/ICrdtStrategy.cs` | Defines the contract for a strategy that handles CRDT patch generation and application for a property. |
 | `$/README.md` | The main documentation for the Modern.CRDT library, including usage examples and an overview of the architecture. |

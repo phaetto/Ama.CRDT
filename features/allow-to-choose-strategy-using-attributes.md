@@ -43,7 +43,7 @@ No other alternatives have been considered.
 
 <!---AI--->
 ## Implementation Specs
-- [ ] `$/features/allow-to-choose-strategy-using-attributes-specs/01-crdt-strategy-attribute-and-interface.md`: `Create the core attribute and interface for the CRDT strategy pattern.`
+- [X] `$/features/allow-to-choose-strategy-using-attributes-specs/01-crdt-strategy-attribute-and-interface.md`: `Create the core attribute and interface for the CRDT strategy pattern.`
 - [ ] `$/features/allow-to-choose-strategy-using-attributes-specs/02-lww-strategy-implementation.md`: `Implement the default Last-Writer-Wins (LWW) strategy.`
 - [ ] `$/features/allow-to-choose-strategy-using-attributes-specs/03-counter-strategy-implementation.md`: `Implement a new 'Counter' strategy for numeric fields.`
 - [ ] `$/features/allow-to-choose-strategy-using-attributes-specs/04-refactor-patcher-to-use-strategies.md`: `Refactor the JsonCrdtPatcher to use the strategy pattern for patch generation.`
