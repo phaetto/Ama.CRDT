@@ -13,8 +13,9 @@ public sealed class CrdtMetadata
     public IDictionary<string, long> LwwTimestamps { get; } = new Dictionary<string, long>();
 
     /// <summary>
-    /// Gets a set that stores the unique timestamps of operations that have already been applied.
+    /// Gets a dictionary that stores the unique timestamps of operations that have already been applied for a specific property path.
     /// This is used by non-LWW strategies (like Counter and ArrayLcs) to ensure that operations are only applied once (idempotency).
+    /// The key is the JSON Path to the property (e.g., "$.tags", "$.likes"), and the value is a set of seen operation timestamps for that property.
     /// </summary>
-    public ISet<long> SeenOperationIds { get; } = new HashSet<long>();
+    public IDictionary<string, ISet<long>> SeenOperationIds { get; } = new Dictionary<string, ISet<long>>();
 }

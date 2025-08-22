@@ -19,7 +19,10 @@ public sealed class JsonCrdtApplicatorTests
 
         [CrdtCounter]
         public int Likes { get; init; }
-        
+
+        [CrdtCounter]
+        public int Shares { get; init; }
+
         [CrdtArrayLcsStrategy]
         public List<string>? Tags { get; init; }
     }
@@ -69,9 +72,11 @@ public sealed class JsonCrdtApplicatorTests
         result.Tags.ShouldBe(new List<string> { "tech", "new-tag" });
 
         metadata.LwwTimestamps["$.name"].ShouldBe(ts2);
-        metadata.SeenOperationIds.ShouldContain(ts3);
-        metadata.SeenOperationIds.ShouldContain(ts4);
-        metadata.SeenOperationIds.ShouldContain(ts5);
+        metadata.SeenOperationIds.ShouldContainKey("$.likes");
+        metadata.SeenOperationIds["$.likes"].ShouldContain(ts3);
+        metadata.SeenOperationIds.ShouldContainKey("$.tags");
+        metadata.SeenOperationIds["$.tags"].ShouldContain(ts4);
+        metadata.SeenOperationIds["$.tags"].ShouldContain(ts5);
     }
     
     [Fact]
@@ -104,7 +109,7 @@ public sealed class JsonCrdtApplicatorTests
         var seenTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var model = new TestModel { Likes = 10 };
         var metadata = new CrdtMetadata();
-        metadata.SeenOperationIds.Add(seenTs);
+        metadata.SeenOperationIds["$.likes"] = new HashSet<long> { seenTs };
 
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
@@ -116,7 +121,7 @@ public sealed class JsonCrdtApplicatorTests
 
         // Assert
         result.Likes.ShouldBe(10);
-        metadata.SeenOperationIds.Count.ShouldBe(1);
+        metadata.SeenOperationIds["$.likes"].Count.ShouldBe(1);
     }
     
     [Fact]
@@ -126,7 +131,7 @@ public sealed class JsonCrdtApplicatorTests
         var seenTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var model = new TestModel { Tags = new List<string> { "a" } };
         var metadata = new CrdtMetadata();
-        metadata.SeenOperationIds.Add(seenTs);
+        metadata.SeenOperationIds["$.tags"] = new HashSet<long> { seenTs };
 
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
@@ -138,6 +143,33 @@ public sealed class JsonCrdtApplicatorTests
 
         // Assert
         result.Tags.ShouldBe(new List<string> { "a" });
-        metadata.SeenOperationIds.Count.ShouldBe(1);
+        metadata.SeenOperationIds["$.tags"].Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void ApplyPatch_WithSameTimestampOnDifferentNodes_ShouldApplyBoth()
+    {
+        // Arrange
+        var model = new TestModel { Likes = 10, Shares = 5 };
+        var metadata = new CrdtMetadata();
+        var sameTs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        var patch = new CrdtPatch(new List<CrdtOperation>
+        {
+            new("$.likes", OperationType.Increment, JsonValue.Create(1), sameTs),
+            new("$.shares", OperationType.Increment, JsonValue.Create(2), sameTs)
+        });
+
+        // Act
+        var result = applicator.ApplyPatch(model, patch, metadata);
+
+        // Assert
+        result.Likes.ShouldBe(11);
+        result.Shares.ShouldBe(7);
+
+        metadata.SeenOperationIds.ShouldContainKey("$.likes");
+        metadata.SeenOperationIds["$.likes"].ShouldContain(sameTs);
+        metadata.SeenOperationIds.ShouldContainKey("$.shares");
+        metadata.SeenOperationIds["$.shares"].ShouldContain(sameTs);
     }
 }

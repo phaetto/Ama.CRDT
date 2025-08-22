@@ -64,7 +64,14 @@ public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : I
         }
         else
         {
-            if (metadata.SeenOperationIds.Add(operation.Timestamp))
+            var nodePath = GetNodePath(operation.JsonPath);
+            if (!metadata.SeenOperationIds.TryGetValue(nodePath, out var seenIds))
+            {
+                seenIds = new HashSet<long>();
+                metadata.SeenOperationIds[nodePath] = seenIds;
+            }
+
+            if (seenIds.Add(operation.Timestamp))
             {
                 strategy.ApplyOperation(dataNode, operation);
                 return true;
@@ -72,6 +79,16 @@ public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : I
         }
 
         return false;
+    }
+
+    private string GetNodePath(string jsonPath)
+    {
+        var arrayIndexStart = jsonPath.IndexOf('[');
+        if (arrayIndexStart != -1)
+        {
+            return jsonPath[..arrayIndexStart];
+        }
+        return jsonPath;
     }
 
     private PropertyInfo FindPropertyFromPath(Type rootType, string jsonPath)
