@@ -14,11 +14,15 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IJsonCrdtService, JsonCrdtService>();
 
         // Register the strategy manager
-        services.TryAddScoped<ICrdtStrategyManager, CrdtStrategyManager>();
+        services.TryAddSingleton<ICrdtStrategyManager, CrdtStrategyManager>();
 
-        // Register concrete strategies as transient so the manager can resolve them.
-        services.AddTransient<LwwStrategy>();
-        services.AddTransient<CounterStrategy>();
+        // Register concrete strategies as singletons so the manager can resolve them.
+        services.TryAddSingleton<LwwStrategy>();
+        services.TryAddSingleton<CounterStrategy>();
+        
+        // This allows the CrdtStrategyManager to get all registered strategies
+        services.AddSingleton<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
+        services.AddSingleton<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
 
         return services;
     }

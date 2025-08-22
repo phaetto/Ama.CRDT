@@ -28,63 +28,89 @@ To integrate the new strategy pattern into the `JsonCrdtPatcher` service. The pa
 
 <!---AI - Stage 1--->
 # Proposed Solutions [AI - Stage 1]
-<!---
-Here you will need to put a number of solutions that would fit for this problem.
-Add the solutions that you rejected as well.
---->
+1.  **Direct Instantiation with `Activator`:** The `JsonCrdtPatcher` would directly use reflection to find the `CrdtStrategyAttribute` on a property, get the `StrategyType` from it, and use `Activator.CreateInstance(strategyType)` to create a new strategy instance for each property it processes.
+    *   **Pros:** Simple implementation with no new services.
+    *   **Cons:** Inefficient due to repeated object creation. Prevents strategies from having their own dependencies injected via DI. Harder to unit test, as strategies cannot be mocked.
+2.  **DI-Powered Strategy Manager (Recommended):** Introduce a new service, `ICrdtStrategyManager`, responsible for resolving the correct strategy for a given property. This service would be injected with all registered `ICrdtStrategy` implementations. It would inspect a property's attributes and return the corresponding strategy instance from its collection. The `JsonCrdtPatcher` would be injected with this manager and use it to delegate strategy selection.
+    *   **Pros:** Adheres to SOLID principles (Single Responsibility, Dependency Inversion). Highly testable by mocking the manager. Efficient, as strategy instances are singletons managed by the DI container. Allows strategies to have their own dependencies.
+    *   **Cons:** Requires creating a new service and interface, adding slightly more upfront complexity.
+3.  **In-Patcher Cached Dictionary:** The `JsonCrdtPatcher` would receive an `IEnumerable<ICrdtStrategy>` in its constructor. It would then build and cache an internal `Dictionary<Type, ICrdtStrategy>` mapping strategy types to their instances. When processing a property, it would find the attribute and use its type to look up the strategy in the dictionary.
+    *   **Pros:** Uses DI and is more efficient than direct instantiation.
+    *   **Cons:** Violates the Single Responsibility Principle by placing strategy resolution logic inside the patcher instead of a dedicated service. This makes the patcher more complex and less cohesive.
 
+**Recommendation:** Solution 2 is strongly recommended. It provides the cleanest separation of concerns, aligns with modern DI practices, and results in a more maintainable, scalable, and testable system.
 <!---AI - Stage 1--->
 # Proposed Techical Steps
-<!---
-Here you should append the tasks that you probably need to do.
-An example would be like what files you need to create and what functionality those files would have.
---->
-
+1.  **Create Strategy Manager Interface:**
+    *   Create a new file for `$/Modern.CRDT/Services/Strategies/ICrdtStrategyManager.cs`.
+    *   Define the interface with a single method: `ICrdtStrategy GetStrategy(PropertyInfo propertyInfo)`.
+2.  **Implement Strategy Manager:**
+    *   Create a new file for `$/Modern.CRDT/Services/Strategies/CrdtStrategyManager.cs`.
+    *   Inject `IEnumerable<ICrdtStrategy>` into the constructor.
+    *   Build a dictionary mapping strategy `Type` to `ICrdtStrategy` instance for fast lookups.
+    *   Implement the `GetStrategy` method:
+        *   Use `propertyInfo.GetCustomAttribute<CrdtStrategyAttribute>()` to find a strategy attribute.
+        *   If an attribute is found, look up its `StrategyType` in the dictionary and return the corresponding instance.
+        *   If no attribute is found, find and return the `LwwStrategy` instance as the default.
+3.  **Update DI Container Setup:**
+    *   Modify `$/Modern.CRDT/Extensions/ServiceCollectionExtensions.cs`.
+    *   Register all `ICrdtStrategy` implementations (`LwwStrategy`, `CounterStrategy`) as singletons.
+    *   Register `CrdtStrategyManager` as a singleton implementation of `ICrdtStrategyManager`.
+4.  **Refactor `JsonCrdtPatcher`:**
+    *   Modify `$/Modern.CRDT/Services/IJsonCrdtPatcher.cs` to add the new method: `CrdtPatch GeneratePatch<T>(CrdtDocument<T> original, CrdtDocument<T> current) where T : class;`.
+    *   Modify `$/Modern.CRDT/Services/JsonCrdtPatcher.cs`:
+        *   Inject `ICrdtStrategyManager` into the constructor.
+        *   Implement the new `GeneratePatch<T>` method. This will be the public entry point.
+        *   Create a private, recursive helper method `GenerateOperationsRecursive` that takes the current path, old and new values, and metadata.
+        *   Inside the recursive helper, iterate through the properties of the current object type.
+        *   For each property, call `_strategyManager.GetStrategy(propertyInfo)`.
+        *   Invoke `strategy.GenerateOperations(...)` and add the results to a list.
+        *   The recursive method should handle nested objects/properties correctly by building the JSON path and continuing the recursion.
+        *   Aggregate all operations and return a `CrdtPatch`.
+5.  **Update Unit Tests:**
+    *   Modify `$/Modern.CRDT.UnitTests/Services/JsonCrdtPatcherTests.cs`.
+    *   Add a test POCO class with properties using different strategies (or no strategy).
+    *   Write new tests for `GeneratePatch<T>`:
+        *   Test that an object with no changes produces an empty patch.
+        *   Test properties using the default LWW strategy.
+        *   Test properties using the `CrdtCounterAttribute`.
+        *   Test a mix of strategies in a single object.
+        *   Test nested objects to ensure paths are generated correctly.
+        *   Use `Moq` to verify that `ICrdtStrategyManager` is called as expected.
 <!---AI - Stage 1--->
 # Proposed Files Needed
-<!---
-Here you need to list the files you need to load in order to get the correct context for your solution to build and test.
-Put in this list only the exising files that need to be modified/loaded. Not the new ones that need to be created.
-Format this list in the following way:
-	- `$/<Full file path from solution root>` (Reason to be used/loaded)
-With each file in one line.
-Remember to ask to load any unit tests if they are related to any files you will want tochange.
---->
-
-<!---AI - Stage 2--->
+- `$/Modern.CRDT/Services/IJsonCrdtPatcher.cs` (To add the new generic `GeneratePatch` method)
+- `$/Modern.CRDT/Services/JsonCrdtPatcher.cs` (To implement the new logic using the strategy manager)
+- `$/Modern.CRDT/Services/Strategies/ICrdtStrategy.cs` (To understand the strategy contract)
+- `$/Modern.CRDT/Services/Strategies/LwwStrategy.cs` (Reference for the default strategy)
+- `$/Modern.CRDT/Services/Strategies/CounterStrategy.cs` (Reference for a specific strategy)
+- `$/Modern.CRDT/Attributes/CrdtStrategyAttribute.cs` (To understand the base attribute for reflection)
+- `$/Modern.CRDT/Models/CrdtDocumentOfT.cs` (Input parameter for the new method)
+- `$/Modern.CRDT/Models/CrdtPatch.cs` (Return type of the new method)
+- `$/Modern.CRDT/Extensions/ServiceCollectionExtensions.cs` (To register the new services)
+- `$/Modern.CRDT.UnitTests/Services/JsonCrdtPatcherTests.cs` (To add new unit tests for the changes)
+<!---AI - Stage 1--->
 # Changes Done
-<!---
-Here you add detailed information about all the changes actually done.
-Format this list in the following way:
-	- `$/<Full file path from solution root>` (Reason to be used/loaded)
-Add all the things that you did in a different way than expected.
---->
-
+<!---AI - Stage 2--->
+- `$/Modern.CRDT/Services/Strategies/ICrdtStrategyManager.cs` (Created new interface to define the contract for resolving CRDT strategies for properties.)
+- `$/Modern.CRDT/Services/Strategies/CrdtStrategyManager.cs` (Created new service that implements `ICrdtStrategyManager`. It uses DI to receive all registered `ICrdtStrategy` implementations and resolves the correct one for a property by inspecting its attributes.)
+- `$/Modern.CRDT/Extensions/ServiceCollectionExtensions.cs` (Updated DI setup to register the new `ICrdtStrategyManager` and all `ICrdtStrategy` implementations as singletons, making them available for injection.)
+- `$/Modern.CRDT/Services/IJsonCrdtPatcher.cs` (Ensured the interface includes the generic `GeneratePatch<T>` method to work with POCOs.)
+- `$/Modern.CRDT/Services/JsonCrdtPatcher.cs` (Refactored the service to inject and use `ICrdtStrategyManager`. The patch generation logic now delegates property-level comparisons to the resolved strategy, making the patcher extensible.)
+- `$/Modern.CRDT.UnitTests/Services/JsonCrdtPatcherTests.cs` (Created comprehensive unit tests for `JsonCrdtPatcher`. The tests verify that the correct strategies are resolved and used for properties with and without attributes, including for nested objects.)
 <!---AI - Stage 2--->
 # Manual Changes Needed
-<!---
-Here you add detailed information about all the manual changes that might be needed to be done from a human.
-Example types of changes are:
-	- Configuration settings
-	- Environment variables
-	- Deployments/Scripts/Setups external to this app
-	- Dependencies to external projects that would need changes (like nuget packages for example)
-	- Settings in other systems (for example, enable some flag or permissions in Github)
-If there are none, then just write "No manual changes needed to be applied."
---->
-
+<!---AI - Stage 2--->
+No manual changes needed to be applied.
 <!---AI - Stage 2--->
 ## Possible Techical Debt
-<!---
-Here you add comments about possible technical debt you encountered or implemented but it was too much to change or out of scope.
---->
-
+<!---AI - Stage 2--->
+The current implementation of array comparison in `JsonCrdtPatcher` is basic; it iterates through arrays and applies the default `LwwStrategy` to each element by index. This does not handle cases where items are inserted or removed from the middle of the array, which would lead to incorrect diffs. A more sophisticated array diffing algorithm (e.g., Longest Common Subsequence) would be needed for robust array support, but this was out of scope for the current task.
 <!---AI - Stage 2--->
 ## Last notes and implementation details
-<!---
-Here you add comments about the implementation that didn't fit on the previous section.
---->
-
+<!---AI - Stage 2--->
+The implementation follows the recommended "DI-Powered Strategy Manager" approach. This provides a clean separation of concerns, where the `JsonCrdtPatcher` is responsible for traversing the object graph, and the `CrdtStrategyManager` is responsible for selecting the appropriate comparison logic. The strategies themselves (`LwwStrategy`, `CounterStrategy`) encapsulate the rules for generating operations. Unit tests were written to verify this new architecture, using a real `CrdtStrategyManager` instance rather than a mock to provide more robust, integration-style testing of the core patch generation logic. All strategies and the manager are registered as singletons as they are stateless and this is more efficient. The `JsonCrdtPatcher` now correctly uses reflection to identify properties and then delegates to the manager to find the right strategy, falling back to LWW if no attribute is specified.
+<!---AI - Stage 2--->
 # Code Revisions
 <!---
 Usually stuff are not working as we expect. This section is for the extra info that we make after this implementation.
