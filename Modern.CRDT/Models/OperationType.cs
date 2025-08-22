@@ -4,4 +4,5 @@ public enum OperationType
 {
     Upsert,
     Remove,
+    Increment,
 }

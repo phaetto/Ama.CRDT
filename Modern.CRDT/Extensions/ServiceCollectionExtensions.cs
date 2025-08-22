@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
 
         // Register concrete strategies as transient so the manager can resolve them.
         services.AddTransient<LwwStrategy>();
+        services.AddTransient<CounterStrategy>();
 
         return services;
     }
