@@ -1,5 +1,6 @@
 namespace Modern.CRDT.UnitTests.Services;
 
+using Microsoft.Extensions.Options;
 using Modern.CRDT.Attributes;
 using Modern.CRDT.Models;
 using Modern.CRDT.Services;
@@ -37,10 +38,12 @@ public sealed class JsonCrdtPatcherTests
 
     public JsonCrdtPatcherTests()
     {
-        var lwwStrategy = new LwwStrategy();
-        var counterStrategy = new CounterStrategy();
+        var options = Options.Create(new CrdtOptions { ReplicaId = "test-patcher" });
+        var timestampProvider = new EpochTimestampProvider();
+        var lwwStrategy = new LwwStrategy(options);
+        var counterStrategy = new CounterStrategy(timestampProvider, options);
         var comparerProvider = new JsonNodeComparerProvider(Enumerable.Empty<IJsonNodeComparer>());
-        var arrayStrategy = new ArrayLcsStrategy(comparerProvider);
+        var arrayStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, options);
         var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayStrategy };
         var strategyManager = new CrdtStrategyManager(strategies);
         patcher = new JsonCrdtPatcher(strategyManager);
@@ -86,7 +89,7 @@ public sealed class JsonCrdtPatcherTests
         var lwwOp = patch.Operations.FirstOrDefault(op => op.JsonPath == "$.name");
         lwwOp!.Type.ShouldBe(OperationType.Upsert);
         lwwOp.Value!.AsValue().GetValue<string>().ShouldBe("Updated");
-        lwwOp.Timestamp.ShouldBe(ts2);
+        lwwOp.Timestamp.ShouldBe(new EpochTimestamp(ts2));
 
         var counterOp = patch.Operations.FirstOrDefault(op => op.JsonPath == "$.likes");
         counterOp!.Type.ShouldBe(OperationType.Increment);
@@ -145,7 +148,7 @@ public sealed class JsonCrdtPatcherTests
         op.JsonPath.ShouldBe("$.nested.value");
         op.Type.ShouldBe(OperationType.Upsert);
         op.Value!.AsValue().GetValue<string>().ShouldBe("Nested Updated");
-        op.Timestamp.ShouldBe(ts2);
+        op.Timestamp.ShouldBe(new EpochTimestamp(ts2));
     }
     
     [Fact]
@@ -172,7 +175,7 @@ public sealed class JsonCrdtPatcherTests
         op.JsonPath.ShouldBe("$.nested.value");
         op.Type.ShouldBe(OperationType.Upsert);
         op.Value!.AsValue().GetValue<string>().ShouldBe("Added");
-        op.Timestamp.ShouldBe(ts2);
+        op.Timestamp.ShouldBe(new EpochTimestamp(ts2));
     }
     
     [Fact]
@@ -199,7 +202,7 @@ public sealed class JsonCrdtPatcherTests
         op.JsonPath.ShouldBe("$.nested.value");
         op.Type.ShouldBe(OperationType.Remove);
         op.Value.ShouldBeNull();
-        op.Timestamp.ShouldBe(ts2);
+        op.Timestamp.ShouldBe(new EpochTimestamp(ts2));
     }
     
     [Fact]
@@ -225,6 +228,6 @@ public sealed class JsonCrdtPatcherTests
         var op = patch.Operations.Single();
         op.JsonPath.ShouldBe("$.name");
         op.Type.ShouldBe(OperationType.Upsert);
-        op.Timestamp.ShouldBe(ts2);
+        op.Timestamp.ShouldBe(new EpochTimestamp(ts2));
     }
 }

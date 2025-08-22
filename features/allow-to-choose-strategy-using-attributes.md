@@ -50,5 +50,6 @@ No other alternatives have been considered.
 - [X] `$/features/allow-to-choose-strategy-using-attributes-specs/05-refactor-applicator-to-use-strategies.md`: `Refactor the JsonCrdtApplicator to use the strategy pattern for patch application.`
 - [X] `$/features/allow-to-choose-strategy-using-attributes-specs/05-01-arraylcsstrategy-needs-to-check-deep-objects.md`: `05-01 ArrayLcsStrategy needs to check deep objects`
 - [X] `$/features/allow-to-choose-strategy-using-attributes-specs/05-02-manage-metadata-state-deifferently-in-strategies.md`: `05-02 Manage metadata state deifferently in strategies`
+- [X] `$/features/allow-to-choose-strategy-using-attributes-specs/05-03-make-sure-there-are-reset-functions-for-the-state-to-keep-it-small.md`: `05-03 Make sure there are reset functions for the state to keep it small`
 - [ ] `$/features/allow-to-choose-strategy-using-attributes-specs/06-create-benchmark-project.md`: `Create a benchmark project to monitor performance.`
 - [ ] `$/features/allow-to-choose-strategy-using-attributes-specs/07-update-readme-documentation.md`: `Update the README file with documentation for the new features.`

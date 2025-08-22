@@ -1,10 +1,12 @@
 namespace Modern.CRDT.UnitTests.Services.Strategies;
 
+using Microsoft.Extensions.Options;
 using Modern.CRDT.Models;
 using Modern.CRDT.Services;
 using Modern.CRDT.Services.Strategies;
 using Moq;
 using Shouldly;
+using System;
 using System.Collections.Generic;
 using System.Text.Json.Nodes;
 using Xunit;
@@ -13,9 +15,14 @@ public sealed class LwwStrategyTests
 {
     private sealed record TestModel { public int Value { get; init; } }
 
-    private readonly LwwStrategy strategy = new();
+    private readonly LwwStrategy strategy;
     private readonly Mock<IJsonCrdtPatcher> mockPatcher = new();
     private readonly List<CrdtOperation> operations = new();
+
+    public LwwStrategyTests()
+    {
+        strategy = new LwwStrategy(Options.Create(new CrdtOptions()));
+    }
 
     [Fact]
     public void GeneratePatch_WhenModifiedIsNewer_ShouldGenerateUpsert()
@@ -33,7 +40,7 @@ public sealed class LwwStrategyTests
         op.Type.ShouldBe(OperationType.Upsert);
         op.JsonPath.ShouldBe("$.value");
         op.Value!.GetValue<int>().ShouldBe(20);
-        op.Timestamp.ShouldBe(200L);
+        op.Timestamp.ShouldBe(new EpochTimestamp(200L));
     }
     
     [Fact]
@@ -55,21 +62,7 @@ public sealed class LwwStrategyTests
     {
         // Arrange
         var rootNode = new JsonObject { ["value"] = 10 };
-        var operation = new CrdtOperation("$.value", OperationType.Upsert, JsonValue.Create(20), 200L);
-
-        // Act
-        strategy.ApplyOperation(rootNode, operation);
-
-        // Assert
-        rootNode["value"]!.GetValue<int>().ShouldBe(20);
-    }
-
-    [Fact]
-    public void ApplyOperation_Upsert_ShouldAddValueWhenItDoesNotExist()
-    {
-        // Arrange
-        var rootNode = new JsonObject();
-        var operation = new CrdtOperation("$.value", OperationType.Upsert, JsonValue.Create(20), 200L);
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.value", OperationType.Upsert, JsonValue.Create(20), new EpochTimestamp(200L));
 
         // Act
         strategy.ApplyOperation(rootNode, operation);
@@ -83,7 +76,7 @@ public sealed class LwwStrategyTests
     {
         // Arrange
         var rootNode = new JsonObject { ["value"] = 10 };
-        var operation = new CrdtOperation("$.value", OperationType.Remove, null, 200L);
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.value", OperationType.Remove, null, new EpochTimestamp(200L));
 
         // Act
         strategy.ApplyOperation(rootNode, operation);

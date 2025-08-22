@@ -3,7 +3,9 @@
 | `$/.gitignore` | No description provided. |
 | `$/CodingStandards.md` | No description provided. |
 | `$/Modern.CRDT.UnitTests/Modern.CRDT.UnitTests.csproj` | No description provided. |
-| `$/Modern.CRDT.UnitTests/Services/JsonCrdtApplicatorTests.cs` | Contains unit tests for the strategy-driven, generic `JsonCrdtApplicator` service, focusing on its role as the central authority for conflict resolution and idempotency using an external `CrdtMetadata` object. |
+| `$/Modern.CRDT.UnitTests/Models/EpochTimestampTests.cs` | Contains unit tests for the `EpochTimestamp` implementation of `ICrdtTimestamp`. |
+| `$/Modern.CRDT.UnitTests/Services/CrdtMetadataManagerTests.cs` | Contains unit tests for the `CrdtMetadataManager`, verifying LWW pruning and version vector advancement logic. |
+| `$/Modern.CRDT.UnitTests/Services/JsonCrdtApplicatorTests.cs` | Contains unit tests for the strategy-driven, generic `JsonCrdtApplicator` service. Verifies correct conflict resolution, state management, and CRDT properties like idempotency and commutativity. |
 | `$/Modern.CRDT.UnitTests/Services/JsonCrdtPatcherTests.cs` | Contains unit tests for the `JsonCrdtPatcher` service, covering POCO-based diffing with CRDT strategies including advanced array diffing. |
 | `$/Modern.CRDT.UnitTests/Services/JsonCrdtServiceTests.cs` | Contains unit tests for the `JsonCrdtService`, verifying that it correctly delegates patching and merging operations to the appropriate services. |
 | `$/Modern.CRDT.UnitTests/Services/Strategies/ArrayLcsStrategyTests.cs` | Contains unit tests for the `ArrayLcsStrategy`, especially for recursive object diffing within arrays and its simplified, unconditional data application logic. |
@@ -13,15 +15,22 @@
 | `$/Modern.CRDT/Attributes/CrdtCounterAttribute.cs` | An attribute to explicitly mark a numeric property to use the CRDT Counter strategy. |
 | `$/Modern.CRDT/Attributes/CrdtStrategyAttribute.cs` | The base abstract attribute for marking properties with a specific CRDT merge strategy. Contains the strategy type. |
 | `$/Modern.CRDT/Attributes/LwwStrategyAttribute.cs` | An attribute to explicitly mark a property to use the Last-Writer-Wins (LWW) strategy. |
-| `$/Modern.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup, including registration of strategies, the strategy manager, and custom array element comparers. |
+| `$/Modern.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup, including registration of strategies, the strategy manager, custom array element comparers, and a customizable timestamp provider. |
 | `$/Modern.CRDT/Models/CrdtDocument.cs` | Encapsulates a JSON document and its associated LWW metadata as `JsonNode`s. Used for patch generation. |
 | `$/Modern.CRDT/Models/CrdtDocumentOfT.cs` | A generic version of `CrdtDocument` for working with POCOs. Used for patch generation. |
 | `$/Modern.CRDT/Models/CrdtMetadata.cs` | Encapsulates the state required for conflict resolution (LWW timestamps, seen operation IDs), externalizing it from the data model. |
 | `$/Modern.CRDT/Models/CrdtOperation.cs` | Represents a single CRDT operation in a patch, including the target JSON Path, type, value, and timestamp. |
+| `$/Modern.CRDT/Models/CrdtOptions.cs` | Provides configuration options for the CRDT library, such as the `ReplicaId`. |
 | `$/Modern.CRDT/Models/CrdtPatch.cs` | Encapsulates a list of CRDT operations that represent the difference between two JSON documents. |
+| `$/Modern.CRDT/Models/EpochTimestamp.cs` | A default, backward-compatible implementation of `ICrdtTimestamp` that wraps a `long` value representing Unix milliseconds. |
+| `$/Modern.CRDT/Models/ICrdtTimestamp.cs` | Represents a logical point in time for a CRDT operation, allowing for different timestamping mechanisms. |
 | `$/Modern.CRDT/Models/OperationType.cs` | Defines the types of operations (Upsert, Remove) for a CRDT patch. |
 | `$/Modern.CRDT/Modern.CRDT.csproj` | No description provided. |
+| `$/Modern.CRDT/Services/CrdtMetadataManager.cs` | Implements the logic for managing and compacting CRDT metadata. |
+| `$/Modern.CRDT/Services/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `EpochTimestamp` based on Unix milliseconds. |
 | `$/Modern.CRDT/Services/Helpers/JsonNodePathHelper.cs` | A static utility class containing shared helper methods for parsing JSON paths and manipulating JsonNode structures. |
+| `$/Modern.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing and compacting CRDT metadata to prevent unbounded state growth. |
+| `$/Modern.CRDT/Services/ICrdtTimestampProvider.cs` | Defines a service for generating CRDT timestamps, allowing for custom timestamp implementations. |
 | `$/Modern.CRDT/Services/IJsonCrdtApplicator.cs` | Defines the contract for a service that applies a CRDT patch to a document, using an external `CrdtMetadata` object for conflict resolution. |
 | `$/Modern.CRDT/Services/IJsonCrdtPatcher.cs` | Defines the contract for a service that compares two POCOs and generates a CRDT patch based on property-specific strategies. |
 | `$/Modern.CRDT/Services/IJsonCrdtService.cs` | Defines the public facade service for orchestrating CRDT operations, providing a high-level API for patch generation and merging with externalized state management. |

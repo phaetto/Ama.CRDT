@@ -25,15 +25,13 @@ public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : I
 
         if (patch.Operations is null || patch.Operations.Count == 0)
         {
-            var json = JsonSerializer.Serialize(document, SerializerOptions);
-            return JsonSerializer.Deserialize<T>(json, SerializerOptions)!;
+            return document;
         }
 
         var dataNode = JsonSerializer.SerializeToNode(document, SerializerOptions);
 
         if (dataNode is null)
         {
-            // Should not happen if document is not null, but as a safeguard.
             return document;
         }
 
@@ -42,9 +40,7 @@ public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : I
             var targetProperty = FindPropertyFromPath(typeof(T), operation.JsonPath);
             var strategy = strategyManager.GetStrategy(targetProperty);
 
-            var applied = ApplyOperationWithStateCheck(strategy, dataNode, operation, metadata);
-            
-            // NOTE: Add logging here for skipped operations if needed.
+            ApplyOperationWithStateCheck(strategy, dataNode, operation, metadata);
         }
 
         return dataNode.Deserialize<T>(SerializerOptions)!;
@@ -52,45 +48,45 @@ public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : I
 
     private bool ApplyOperationWithStateCheck(ICrdtStrategy strategy, JsonNode dataNode, CrdtOperation operation, CrdtMetadata metadata)
     {
+        // 1. Idempotency Check: Is the operation already seen?
+        metadata.VersionVector.TryGetValue(operation.ReplicaId, out var vectorTs);
+        if (vectorTs is not null && operation.Timestamp.CompareTo(vectorTs) <= 0)
+        {
+            return false; // Already covered by the version vector.
+        }
+
+        if (metadata.SeenExceptions.Contains(operation))
+        {
+            return false; // Seen as a previous out-of-order operation.
+        }
+
+        // 2. Application Logic: Should the operation be applied based on its strategy?
+        var applied = false;
         if (strategy is LwwStrategy)
         {
-            metadata.LwwTimestamps.TryGetValue(operation.JsonPath, out var existingTimestamp);
-            if (operation.Timestamp > existingTimestamp)
+            metadata.Lww.TryGetValue(operation.JsonPath, out var lwwTs);
+            if (lwwTs is null || operation.Timestamp.CompareTo(lwwTs) > 0)
             {
                 strategy.ApplyOperation(dataNode, operation);
-                metadata.LwwTimestamps[operation.JsonPath] = operation.Timestamp;
-                return true;
+                metadata.Lww[operation.JsonPath] = operation.Timestamp;
+                applied = true;
             }
         }
-        else
+        else // For Counter, ArrayLcs, etc., apply if it's a new operation.
         {
-            var nodePath = GetNodePath(operation.JsonPath);
-            if (!metadata.SeenOperationIds.TryGetValue(nodePath, out var seenIds))
-            {
-                seenIds = new HashSet<long>();
-                metadata.SeenOperationIds[nodePath] = seenIds;
-            }
-
-            if (seenIds.Add(operation.Timestamp))
-            {
-                strategy.ApplyOperation(dataNode, operation);
-                return true;
-            }
+            strategy.ApplyOperation(dataNode, operation);
+            applied = true;
         }
 
-        return false;
-    }
-
-    private string GetNodePath(string jsonPath)
-    {
-        var arrayIndexStart = jsonPath.IndexOf('[');
-        if (arrayIndexStart != -1)
+        // 3. State Update: If applied, record it as a seen exception until the vector is advanced.
+        if (applied)
         {
-            return jsonPath[..arrayIndexStart];
+            metadata.SeenExceptions.Add(operation);
         }
-        return jsonPath;
-    }
 
+        return applied;
+    }
+    
     private PropertyInfo FindPropertyFromPath(Type rootType, string jsonPath)
     {
         var cacheKey = $"{rootType.FullName}:{jsonPath}";

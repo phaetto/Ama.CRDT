@@ -1,22 +1,29 @@
 namespace Modern.CRDT.UnitTests.Services.Strategies;
 
-using Modern.CRDT.Services.Strategies;
-using System.Text.Json.Nodes;
-using Shouldly;
-using System.Linq;
+using Microsoft.Extensions.Options;
 using Modern.CRDT.Models;
+using Modern.CRDT.Services;
+using Modern.CRDT.Services.Strategies;
+using Moq;
+using Shouldly;
 using System;
 using System.Collections.Generic;
-using Moq;
-using Modern.CRDT.Services;
+using System.Linq;
+using System.Text.Json.Nodes;
 using Xunit;
 
 public sealed class CounterStrategyTests
 {
     private sealed record TestModel { public int Score { get; init; } }
     
-    private readonly CounterStrategy strategy = new();
+    private readonly CounterStrategy strategy;
     private readonly Mock<IJsonCrdtPatcher> mockPatcher = new();
+    private readonly Mock<ICrdtTimestampProvider> mockTimestampProvider = new();
+
+    public CounterStrategyTests()
+    {
+        strategy = new CounterStrategy(mockTimestampProvider.Object, Options.Create(new CrdtOptions()));
+    }
 
     [Theory]
     [InlineData(10, 15, 5)]
@@ -30,6 +37,8 @@ public sealed class CounterStrategyTests
         var modifiedNode = JsonValue.Create(modified);
         var path = "$.Score";
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
+        var expectedTimestamp = new EpochTimestamp(12345);
+        mockTimestampProvider.Setup(p => p.Now()).Returns(expectedTimestamp);
 
         // Act
         strategy.GeneratePatch(mockPatcher.Object, operations, path, property, originalNode, modifiedNode, null, null);
@@ -41,6 +50,7 @@ public sealed class CounterStrategyTests
         op.JsonPath.ShouldBe(path);
         op.Value.ShouldNotBeNull();
         op.Value.GetValue<decimal>().ShouldBe(delta);
+        op.Timestamp.ShouldBe(expectedTimestamp);
     }
 
     [Theory]
@@ -51,7 +61,7 @@ public sealed class CounterStrategyTests
     {
         // Arrange
         var rootNode = new JsonObject { ["Score"] = initial };
-        var operation = new CrdtOperation("$.Score", OperationType.Increment, JsonValue.Create(increment), 2L);
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, JsonValue.Create(increment), new EpochTimestamp(2L));
 
         // Act
         strategy.ApplyOperation(rootNode, operation);
@@ -66,7 +76,7 @@ public sealed class CounterStrategyTests
     {
         // Arrange
         var rootNode = new JsonObject { ["Id"] = "A" };
-        var operation = new CrdtOperation("$.Score", OperationType.Increment, JsonValue.Create(5), 1L);
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(1L));
 
         // Act
         strategy.ApplyOperation(rootNode, operation);
@@ -81,7 +91,7 @@ public sealed class CounterStrategyTests
     {
         // Arrange
         var rootNode = new JsonObject { ["Score"] = "not a number" };
-        var operation = new CrdtOperation("$.Score", OperationType.Increment, JsonValue.Create(5), 1L);
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(1L));
 
         // Act & Assert
         Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(rootNode, operation));
@@ -92,7 +102,7 @@ public sealed class CounterStrategyTests
     {
         // Arrange
         var rootNode = new JsonObject();
-        var operation = new CrdtOperation("$.Score", OperationType.Upsert, JsonValue.Create(5), 1L);
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Upsert, JsonValue.Create(5), new EpochTimestamp(1L));
 
         // Act & Assert
         Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(rootNode, operation));

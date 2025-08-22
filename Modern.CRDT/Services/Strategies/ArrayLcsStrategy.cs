@@ -1,5 +1,6 @@
 namespace Modern.CRDT.Services.Strategies;
 
+using Microsoft.Extensions.Options;
 using Modern.CRDT.Models;
 using Modern.CRDT.Services.Helpers;
 using System;
@@ -11,14 +12,21 @@ using System.Text.Json.Nodes;
 public sealed class ArrayLcsStrategy : ICrdtStrategy
 {
     private readonly IJsonNodeComparerProvider comparerProvider;
+    private readonly ICrdtTimestampProvider timestampProvider;
+    private readonly string replicaId;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ArrayLcsStrategy"/> class.
     /// </summary>
     /// <param name="comparerProvider">The provider for resolving type-specific JSON node comparers.</param>
-    public ArrayLcsStrategy(IJsonNodeComparerProvider comparerProvider)
+    /// <param name="timestampProvider">The provider for generating timestamps.</param>
+    /// <param name="options">Configuration options containing the replica ID.</param>
+    public ArrayLcsStrategy(IJsonNodeComparerProvider comparerProvider, ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options)
     {
         this.comparerProvider = comparerProvider ?? throw new ArgumentNullException(nameof(comparerProvider));
+        this.timestampProvider = timestampProvider ?? throw new ArgumentNullException(nameof(timestampProvider));
+        ArgumentNullException.ThrowIfNull(options?.Value);
+        this.replicaId = options.Value.ReplicaId;
     }
 
     /// <summary>
@@ -69,14 +77,19 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
             else if (entry.Type == LcsDiffEntryType.Add)
             {
                 var addPath = $"{path}[{entry.NewIndex}]";
-                var timestamp = toMeta is not null && entry.NewIndex < toMeta.Count ? GetTimestamp(toMeta[entry.NewIndex]) : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                addOps.Add(new CrdtOperation(addPath, OperationType.Upsert, toArray[entry.NewIndex]?.DeepClone(), timestamp));
+                var timestampNode = toMeta is not null && entry.NewIndex < toMeta.Count ? toMeta[entry.NewIndex] : null;
+                var timestamp = GetTimestamp(timestampNode);
+                if (timestamp.CompareTo(EpochTimestamp.MinValue) == 0)
+                {
+                    timestamp = timestampProvider.Now();
+                }
+                addOps.Add(new CrdtOperation(Guid.NewGuid(), replicaId, addPath, OperationType.Upsert, toArray[entry.NewIndex]?.DeepClone(), timestamp));
             }
             else if (entry.Type == LcsDiffEntryType.Remove)
             {
                 var removePath = $"{path}[{entry.OldIndex}]";
-                var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(); // Timestamp for removes needs a source. Defaulting to now.
-                removeOps.Add(new CrdtOperation(removePath, OperationType.Remove, null, timestamp));
+                var timestamp = timestampProvider.Now();
+                removeOps.Add(new CrdtOperation(Guid.NewGuid(), replicaId, removePath, OperationType.Remove, null, timestamp));
             }
         }
 
@@ -97,7 +110,6 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
     public void ApplyOperation(JsonNode rootNode, CrdtOperation operation)
     {
         ArgumentNullException.ThrowIfNull(rootNode);
-        ArgumentNullException.ThrowIfNull(operation);
 
         var (dataParent, lastDataSegment) = JsonNodePathHelper.FindParentNode(rootNode, operation.JsonPath);
 
@@ -175,8 +187,12 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
         return diff;
     }
     
-    private static long GetTimestamp(JsonNode? metaNode)
+    private static ICrdtTimestamp GetTimestamp(JsonNode? metaNode)
     {
-        return metaNode is JsonValue value && value.TryGetValue<long>(out var timestamp) ? timestamp : 0;
+        if (metaNode is JsonValue value && value.TryGetValue<long>(out var timestamp))
+        {
+            return new EpochTimestamp(timestamp);
+        }
+        return EpochTimestamp.MinValue;
     }
 }
