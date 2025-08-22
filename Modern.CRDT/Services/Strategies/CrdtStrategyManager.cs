@@ -1,17 +1,28 @@
 namespace Modern.CRDT.Services.Strategies;
 
-using Microsoft.Extensions.DependencyInjection;
 using Modern.CRDT.Attributes;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 /// <summary>
-/// Manages the resolution of CRDT strategies based on property attributes.
-/// It uses a DI container to instantiate strategies, allowing them to have dependencies.
+/// Implements the strategy resolution logic. It inspects property attributes
+/// to find the correct strategy from a collection of registered strategies.
 /// </summary>
-public sealed class CrdtStrategyManager(IServiceProvider serviceProvider) : ICrdtStrategyManager
+public sealed class CrdtStrategyManager : ICrdtStrategyManager
 {
-    private readonly IServiceProvider serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+    private readonly IReadOnlyDictionary<Type, ICrdtStrategy> strategies;
+    private readonly ICrdtStrategy defaultStrategy;
+
+    public CrdtStrategyManager(IEnumerable<ICrdtStrategy> strategies)
+    {
+        ArgumentNullException.ThrowIfNull(strategies);
+
+        this.strategies = strategies.ToDictionary(s => s.GetType());
+        this.defaultStrategy = this.strategies.Values.OfType<LwwStrategy>().FirstOrDefault()
+            ?? throw new InvalidOperationException($"The default '{nameof(LwwStrategy)}' is not registered in the DI container.");
+    }
 
     /// <inheritdoc/>
     public ICrdtStrategy GetStrategy(PropertyInfo propertyInfo)
@@ -19,11 +30,11 @@ public sealed class CrdtStrategyManager(IServiceProvider serviceProvider) : ICrd
         ArgumentNullException.ThrowIfNull(propertyInfo);
 
         var attribute = propertyInfo.GetCustomAttribute<CrdtStrategyAttribute>();
+        if (attribute is not null && strategies.TryGetValue(attribute.StrategyType, out var strategy))
+        {
+            return strategy;
+        }
 
-        var strategyType = attribute?.StrategyType ?? typeof(LwwStrategy);
-
-        var strategy = serviceProvider.GetService(strategyType) as ICrdtStrategy;
-
-        return strategy ?? throw new InvalidOperationException($"Strategy of type '{strategyType.Name}' is not registered in the DI container. Make sure to register it using `services.AddTransient<LwwStrategy>();` or similar.");
+        return defaultStrategy;
     }
 }

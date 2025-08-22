@@ -8,11 +8,9 @@ using System.Reflection;
 public interface ICrdtStrategyManager
 {
     /// <summary>
-    /// Gets the <see cref="ICrdtStrategy"/> for a specified property.
-    /// It resolves the strategy based on the <see cref="Attributes.CrdtStrategyAttribute"/> decorating the property.
-    /// If no attribute is found, it returns the default strategy (LWW).
+    /// Gets the appropriate <see cref="ICrdtStrategy"/> for a property based on its attributes.
     /// </summary>
-    /// <param name="propertyInfo">The property for which to resolve the strategy.</param>
-    /// <returns>An instance of the resolved <see cref="ICrdtStrategy"/>.</returns>
+    /// <param name="propertyInfo">The <see cref="PropertyInfo"/> of the property to analyze.</param>
+    /// <returns>The resolved <see cref="ICrdtStrategy"/>. Returns the default strategy (e.g., LwwStrategy) if no specific strategy attribute is found.</returns>
     ICrdtStrategy GetStrategy(PropertyInfo propertyInfo);
 }

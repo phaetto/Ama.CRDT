@@ -52,9 +52,9 @@ public sealed class JsonCrdtPatcher(ICrdtStrategyManager strategyManager) : IJso
             JsonNode? toMetaValue = null;
             toMeta?.TryGetPropertyValue(jsonPropertyName, out toMetaValue);
 
-            if (JsonNode.DeepEquals(fromValue, toValue)) continue;
+            if (JsonNode.DeepEquals(fromValue?.DeepClone(), toValue?.DeepClone())) continue;
 
-            if (fromValue is JsonObject || toValue is JsonObject)
+            if (property.PropertyType.IsClass && property.PropertyType != typeof(string))
             {
                 CompareObjectProperties(currentPath, property.PropertyType, fromValue?.AsObject(), fromMetaValue?.AsObject(), toValue?.AsObject(), toMetaValue?.AsObject(), operations);
             }
