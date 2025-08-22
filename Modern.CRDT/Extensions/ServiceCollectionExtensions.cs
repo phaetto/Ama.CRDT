@@ -23,10 +23,12 @@ public static class ServiceCollectionExtensions
         // Register concrete strategies as singletons so the manager can resolve them.
         services.TryAddSingleton<LwwStrategy>();
         services.TryAddSingleton<CounterStrategy>();
-        
+        services.TryAddSingleton<ArrayLcsStrategy>();
+
         // This allows the CrdtStrategyManager to get all registered strategies
         services.AddSingleton<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
         services.AddSingleton<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
+        services.AddSingleton<ICrdtStrategy, ArrayLcsStrategy>(sp => sp.GetRequiredService<ArrayLcsStrategy>());
 
         return services;
     }

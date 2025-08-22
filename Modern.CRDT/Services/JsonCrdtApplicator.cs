@@ -1,4 +1,7 @@
+namespace Modern.CRDT.Services;
+
 using Modern.CRDT.Models;
+using Modern.CRDT.Services.Helpers;
 using Modern.CRDT.Services.Strategies;
 using System;
 using System.Collections.Concurrent;
@@ -8,32 +11,29 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
-
-namespace Modern.CRDT.Services;
 
 public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : IJsonCrdtApplicator
 {
-    private readonly ICrdtStrategyManager strategyManager = strategyManager ?? throw new ArgumentNullException(nameof(strategyManager));
     private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false };
     private static readonly ConcurrentDictionary<string, PropertyInfo> PropertyCache = new();
-    private static readonly Regex PathRegex = new(@"\.([^.\[\]]+)|\[(\d+)\]", RegexOptions.Compiled);
 
-    public CrdtDocument<T> ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class
+    public T ApplyPatch<T>(T document, CrdtPatch patch, CrdtMetadata metadata) where T : class
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(patch);
+        ArgumentNullException.ThrowIfNull(metadata);
 
         if (patch.Operations is null || patch.Operations.Count == 0)
         {
-            return new CrdtDocument<T>(document.Data, document.Metadata?.DeepClone());
+            var json = JsonSerializer.Serialize(document, SerializerOptions);
+            return JsonSerializer.Deserialize<T>(json, SerializerOptions)!;
         }
 
-        var dataNode = document.Data is not null ? JsonSerializer.SerializeToNode(document.Data, SerializerOptions) : new JsonObject();
-        var metaNode = document.Metadata?.DeepClone() ?? new JsonObject();
+        var dataNode = JsonSerializer.SerializeToNode(document, SerializerOptions);
 
         if (dataNode is null)
         {
+            // Should not happen if document is not null, but as a safeguard.
             return document;
         }
 
@@ -41,33 +41,39 @@ public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : I
         {
             var targetProperty = FindPropertyFromPath(typeof(T), operation.JsonPath);
             var strategy = strategyManager.GetStrategy(targetProperty);
-            strategy.ApplyOperation(dataNode, metaNode, operation);
+
+            var applied = ApplyOperationWithStateCheck(strategy, dataNode, operation, metadata);
+            
+            // NOTE: Add logging here for skipped operations if needed.
         }
 
-        var finalPoco = dataNode.Deserialize<T>(SerializerOptions);
-        return new CrdtDocument<T>(finalPoco, metaNode);
+        return dataNode.Deserialize<T>(SerializerOptions)!;
     }
-    
-    public CrdtDocument ApplyPatch(CrdtDocument document, CrdtPatch patch)
+
+    private bool ApplyOperationWithStateCheck(ICrdtStrategy strategy, JsonNode dataNode, CrdtOperation operation, CrdtMetadata metadata)
     {
-        if (patch.Operations is null || patch.Operations.Count == 0)
+        if (strategy is LwwStrategy)
         {
-            return new CrdtDocument(document.Data?.DeepClone(), document.Metadata?.DeepClone());
+            metadata.LwwTimestamps.TryGetValue(operation.JsonPath, out var existingTimestamp);
+            if (operation.Timestamp > existingTimestamp)
+            {
+                strategy.ApplyOperation(dataNode, operation);
+                metadata.LwwTimestamps[operation.JsonPath] = operation.Timestamp;
+                return true;
+            }
+        }
+        else
+        {
+            if (metadata.SeenOperationIds.Add(operation.Timestamp))
+            {
+                strategy.ApplyOperation(dataNode, operation);
+                return true;
+            }
         }
 
-        var resultData = document.Data?.DeepClone();
-        var resultMeta = document.Metadata?.DeepClone();
-        
-        var lwwStrategy = new LwwStrategy();
-
-        foreach (var operation in patch.Operations)
-        {
-            lwwStrategy.ApplyOperation(resultData ?? new JsonObject(), resultMeta ?? new JsonObject(), operation);
-        }
-
-        return new CrdtDocument(resultData, resultMeta);
+        return false;
     }
-    
+
     private PropertyInfo FindPropertyFromPath(Type rootType, string jsonPath)
     {
         var cacheKey = $"{rootType.FullName}:{jsonPath}";
@@ -76,7 +82,7 @@ public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : I
             return property;
         }
 
-        var segments = ParsePath(jsonPath);
+        var segments = JsonNodePathHelper.ParsePath(jsonPath);
         if (segments.Count == 0)
         {
             throw new ArgumentException($"Could not parse segments from path '{jsonPath}'.", nameof(jsonPath));
@@ -89,12 +95,6 @@ public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : I
         {
             if (int.TryParse(segment, out _))
             {
-                if (currentType.IsGenericType && typeof(IEnumerable<>).IsAssignableFrom(currentType.GetGenericTypeDefinition()))
-                {
-                    currentType = currentType.GetGenericArguments()[0];
-                    continue;
-                }
-                
                 if (currentType.IsArray)
                 {
                     currentType = currentType.GetElementType()!;
@@ -133,18 +133,5 @@ public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : I
 
         PropertyCache.TryAdd(cacheKey, currentProperty);
         return currentProperty;
-    }
-
-    private static List<string> ParsePath(string jsonPath)
-    {
-        var segments = new List<string>();
-        if (string.IsNullOrWhiteSpace(jsonPath) || jsonPath == "$") return segments;
-        
-        var matches = PathRegex.Matches(jsonPath);
-        foreach (Match match in matches.Cast<Match>())
-        {
-            segments.Add(match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value);
-        }
-        return segments;
     }
 }

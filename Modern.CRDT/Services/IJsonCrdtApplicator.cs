@@ -1,34 +1,22 @@
-using Modern.CRDT.Models;
-using System.Text.Json.Nodes;
-
 namespace Modern.CRDT.Services;
+
+using Modern.CRDT.Models;
 
 /// <summary>
 /// Defines the contract for a service that applies a CRDT patch to a document.
-/// The applicator is responsible for interpreting the operations in a patch and modifying
-/// a document to converge its state, respecting the CRDT strategies defined for the data model.
+/// The applicator is the central authority for conflict resolution and idempotency,
+/// using an external metadata object to track state.
 /// </summary>
 public interface IJsonCrdtApplicator
 {
     /// <summary>
-    /// Applies a set of CRDT operations from a patch to a base document represented by a POCO.
-    /// The process uses a strategy-driven approach, resolving the correct CRDT merge logic
-    /// for each property based on its attributes or type.
+    /// Applies a set of CRDT operations from a patch to a POCO document.
+    /// The process is strategy-driven, idempotent, and resolves conflicts based on the provided metadata.
     /// </summary>
     /// <typeparam name="T">The type of the POCO model representing the document structure.</typeparam>
-    /// <param name="document">The base document (data and metadata) to which the patch will be applied.</param>
+    /// <param name="document">The base document object to which the patch will be applied.</param>
     /// <param name="patch">A <see cref="CrdtPatch"/> containing the list of operations to apply.</param>
-    /// <returns>A new <see cref="CrdtDocument{T}"/> instance representing the merged state. The original document is not modified.</returns>
-    CrdtDocument<T> ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class;
-    
-    /// <summary>
-    /// Applies a set of CRDT operations from a patch to a base document.
-    /// The process is idempotent; applying the same patch multiple times yields the same result.
-    /// Conflict resolution is handled via Last-Writer-Wins (LWW): an operation is only
-    /// applied if its timestamp is greater than the timestamp of the existing data at the target path.
-    /// </summary>
-    /// <param name="document">The base document (data and metadata) to which the patch will be applied.</param>
-    /// <param name="patch">A <see cref="CrdtPatch"/> containing the list of operations to apply.</param>
-    /// <returns>A new <see cref="CrdtDocument"/> instance representing the merged state. The original document is not modified.</returns>
-    CrdtDocument ApplyPatch(CrdtDocument document, CrdtPatch patch);
+    /// <param name="metadata">The <see cref="CrdtMetadata"/> object containing the current state for conflict resolution.</param>
+    /// <returns>A new instance of the document with the patch applied. The original document is not modified.</returns>
+    T ApplyPatch<T>(T document, CrdtPatch patch, CrdtMetadata metadata) where T : class;
 }

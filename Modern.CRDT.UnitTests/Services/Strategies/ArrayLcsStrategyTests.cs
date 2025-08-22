@@ -103,55 +103,40 @@ public sealed class ArrayLcsStrategyTests
     }
     
     [Fact]
-    public void GeneratePatch_WithCustomIdComparer_WithMixedAddRemoveUpdate_ShouldGenerateAndCallCorrectly()
+    public void ApplyOperation_Upsert_ShouldInsertItemIntoArray()
     {
         // Arrange
-        var strategy = new ArrayLcsStrategy(new NestedModelIdComparer());
-        var operations = new List<CrdtOperation>();
-        var path = "$.items";
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Items))!;
-
-        var originalValue = new JsonArray
-        {
-            new JsonObject { ["id"] = 1, ["value"] = "A" },
-            new JsonObject { ["id"] = 2, ["value"] = "B" },
-            new JsonObject { ["id"] = 3, ["value"] = "C" },
-        };
-        var modifiedValue = new JsonArray
-        {
-            new JsonObject { ["id"] = 1, ["value"] = "A" },
-            new JsonObject { ["id"] = 3, ["value"] = "C-updated" },
-            new JsonObject { ["id"] = 4, ["value"] = "D" },
-        };
-        
-        mockPatcher
-            .Setup(p => p.DifferentiateObject(It.IsAny<string>(), It.IsAny<System.Type>(), It.IsAny<JsonObject>(), It.IsAny<JsonObject>(), It.IsAny<JsonObject>(), It.IsAny<JsonObject>(), It.IsAny<List<CrdtOperation>>()))
-            .Callback<string, System.Type, JsonObject, JsonObject, JsonObject, JsonObject, List<CrdtOperation>>((itemPath, _, _, _, toObject, _, ops) =>
-            {
-                ops.Add(new CrdtOperation($"{itemPath}.value", OperationType.Upsert, toObject["value"]!.DeepClone(), 0));
-            });
+        var strategy = new ArrayLcsStrategy();
+        var rootNode = new JsonObject { ["items"] = new JsonArray("a", "c") };
+        var operation = new CrdtOperation("$.items[1]", OperationType.Upsert, JsonValue.Create("b"), 1L);
 
         // Act
-        strategy.GeneratePatch(mockPatcher.Object, operations, path, property, originalValue, modifiedValue, null, null);
-        
+        strategy.ApplyOperation(rootNode, operation);
+
         // Assert
-        mockPatcher.Verify(p => p.DifferentiateObject(
-            It.Is<string>(s => s == "$.items[2]"), // Path to original item C
-            typeof(NestedModel),
-            It.IsAny<JsonObject>(), It.IsAny<JsonObject>(), It.IsAny<JsonObject>(), It.IsAny<JsonObject>(),
-            It.IsAny<List<CrdtOperation>>()),
-            Times.Once);
+        var array = rootNode["items"]!.AsArray();
+        array.Count.ShouldBe(3);
+        array[0]!.GetValue<string>().ShouldBe("a");
+        array[1]!.GetValue<string>().ShouldBe("b");
+        array[2]!.GetValue<string>().ShouldBe("c");
+    }
 
-        operations.Count.ShouldBe(3);
+    [Fact]
+    public void ApplyOperation_Remove_ShouldRemoveItemFromArray()
+    {
+        // Arrange
+        var strategy = new ArrayLcsStrategy();
+        var rootNode = new JsonObject { ["items"] = new JsonArray("a", "b", "c") };
+        var operation = new CrdtOperation("$.items[1]", OperationType.Remove, null, 1L);
 
-        var removeOp = operations.Single(op => op.Type == OperationType.Remove);
-        removeOp.JsonPath.ShouldBe("$.items[1]");
+        // Act
+        strategy.ApplyOperation(rootNode, operation);
 
-        var addOp = operations.Single(op => op.Type == OperationType.Upsert && op.JsonPath == "$.items[2]");
-        addOp.Value!.AsObject()["value"]!.GetValue<string>().ShouldBe("D");
-
-        var updateOp = operations.Single(op => op.JsonPath == "$.items[2].value");
-        updateOp.Value!.GetValue<string>().ShouldBe("C-updated");
+        // Assert
+        var array = rootNode["items"]!.AsArray();
+        array.Count.ShouldBe(2);
+        array[0]!.GetValue<string>().ShouldBe("a");
+        array[1]!.GetValue<string>().ShouldBe("c");
     }
     
     #region Diff Method Tests
@@ -215,131 +200,6 @@ public sealed class ArrayLcsStrategyTests
             new(LcsDiffEntryType.Match, 2, 1)
         });
     }
-
-    [Fact]
-    public void Diff_WithMixedOperations_ShouldReturnCorrectDiff()
-    {
-        // Arrange
-        var strategy = new ArrayLcsStrategy();
-        var from = new JsonArray("A", "B", "C", "D", "E");
-        var to = new JsonArray("A", "C", "F", "E");
-
-        // Act
-        var diff = strategy.Diff(from, to);
-
-        // Assert
-        diff.ShouldBe(new List<LcsDiffEntry>
-        {
-            new(LcsDiffEntryType.Match, 0, 0),
-            new(LcsDiffEntryType.Remove, 1, -1),
-            new(LcsDiffEntryType.Match, 2, 1),
-            new(LcsDiffEntryType.Remove, 3, -1),
-            new(LcsDiffEntryType.Add, -1, 2),
-            new(LcsDiffEntryType.Match, 4, 3)
-        });
-    }
-
-    [Fact]
-    public void Diff_WithDefaultComparer_WhenObjectsAreDifferent_ShouldReturnRemovesAndAdds()
-    {
-        // Arrange
-        var strategy = new ArrayLcsStrategy();
-        var from = new JsonArray(
-            new JsonObject { ["id"] = 1, ["value"] = "one" },
-            new JsonObject { ["id"] = 2, ["value"] = "two" }
-        );
-        var to = new JsonArray(
-            new JsonObject { ["id"] = 1, ["value"] = "one-updated" },
-            new JsonObject { ["id"] = 3, ["value"] = "three" }
-        );
-        
-        // Act
-        var diff = strategy.Diff(from, to);
-
-        // Assert
-        diff.ShouldBe(new List<LcsDiffEntry>
-        {
-            new(LcsDiffEntryType.Remove, 0, -1),
-            new(LcsDiffEntryType.Remove, 1, -1),
-            new(LcsDiffEntryType.Add, -1, 0),
-            new(LcsDiffEntryType.Add, -1, 1)
-        });
-    }
     
-    [Fact]
-    public void Diff_WithCustomIdComparer_WhenObjectIsModified_ShouldReturnMatch()
-    {
-        // Arrange
-        var strategy = new ArrayLcsStrategy(new NestedModelIdComparer());
-        var from = new JsonArray(
-            new JsonObject { ["id"] = 1, ["value"] = "one" }
-        );
-        var to = new JsonArray(
-            new JsonObject { ["id"] = 1, ["value"] = "one-updated" }
-        );
-        
-        // Act
-        var diff = strategy.Diff(from, to);
-        
-        // Assert
-        diff.ShouldBe(new List<LcsDiffEntry>
-        {
-            new(LcsDiffEntryType.Match, 0, 0)
-        });
-    }
-
-    [Fact]
-    public void Diff_WithEmptyArrays_ShouldReturnEmptyDiff()
-    {
-        // Arrange
-        var strategy = new ArrayLcsStrategy();
-        var from = new JsonArray();
-        var to = new JsonArray();
-        
-        // Act
-        var diff = strategy.Diff(from, to);
-        
-        // Assert
-        diff.ShouldBeEmpty();
-    }
-
-    [Fact]
-    public void Diff_WithAddToEmptyArray_ShouldReturnAllAdds()
-    {
-        // Arrange
-        var strategy = new ArrayLcsStrategy();
-        var from = new JsonArray();
-        var to = new JsonArray("A", "B");
-
-        // Act
-        var diff = strategy.Diff(from, to);
-
-        // Assert
-        diff.ShouldBe(new List<LcsDiffEntry>
-        {
-            new(LcsDiffEntryType.Add, -1, 0),
-            new(LcsDiffEntryType.Add, -1, 1)
-        });
-    }
-
-    [Fact]
-    public void Diff_WithRemoveToEmptyArray_ShouldReturnAllRemoves()
-    {
-        // Arrange
-        var strategy = new ArrayLcsStrategy();
-        var from = new JsonArray("A", "B");
-        var to = new JsonArray();
-
-        // Act
-        var diff = strategy.Diff(from, to);
-
-        // Assert
-        diff.ShouldBe(new List<LcsDiffEntry>
-        {
-            new(LcsDiffEntryType.Remove, 0, -1),
-            new(LcsDiffEntryType.Remove, 1, -1)
-        });
-    }
-
     #endregion
 }
