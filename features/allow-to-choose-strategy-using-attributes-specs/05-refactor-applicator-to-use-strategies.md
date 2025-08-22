@@ -11,6 +11,9 @@ To update the `JsonCrdtApplicator` service to correctly apply patches that conta
 - Based on the `CrdtStrategyAttribute` on that property (or lack thereof), it will resolve the correct `ICrdtStrategy` instance.
 - It will then call the `ApplyOperation` method of the resolved strategy to perform the merge.
 - The applicator must correctly handle new `OperationType`s like `Increment` by dispatching them to the appropriate strategy (`CounterStrategy`).
+- Make sure you implement correctly all the `ApplyOperation` of strategies
+
+The current implementation of array comparison in `JsonCrdtPatcher` is basic; it iterates through arrays and applies the default `LwwStrategy` to each element by index. This does not handle cases where items are inserted or removed from the middle of the array, which would lead to incorrect diffs. A more sophisticated array diffing algorithm (e.g., Longest Common Subsequence) is needed for robust array support, implement this as well as part of this task.
 
 <!---Human--->
 ## Requirements context
@@ -31,6 +34,17 @@ To update the `JsonCrdtApplicator` service to correctly apply patches that conta
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.
 --->
+1.  **Recommended: POCO-First Applicator with a Dedicated Array Strategy.**
+    *   **Description:** This solution involves two main efforts. First, refactor the `JsonCrdtApplicator` to be generic and strategy-driven. A new method `ApplyPatch<T>` will use reflection on the POCO type `T` and an injected `ICrdtStrategyManager` to resolve the correct strategy for each operation in a patch. It will then delegate the merge logic to the strategy's `ApplyOperation` method. Second, to handle the new array diffing requirement, a new `ArrayLcsStrategy` will be created. This strategy will encapsulate a Longest Common Subsequence (LCS) algorithm to intelligently diff arrays, correctly identifying insertions and deletions. The `CrdtStrategyManager` will be updated to use this as the default strategy for array properties.
+    *   **Reasoning:** This approach is the most modular and maintainable. It aligns the applicator's design with the patcher's strategy pattern, promoting consistency and code reuse. Creating a dedicated `ArrayLcsStrategy` cleanly separates the complex array-handling logic from the core applicator and other simpler strategies, adhering to the Single Responsibility Principle and making the system easier to test and extend.
+
+2.  **Rejected: Monolithic Patcher/Applicator with Hardcoded Logic.**
+    *   **Description:** Instead of creating a dedicated strategy for arrays, the LCS diffing logic would be implemented directly within the `JsonCrdtPatcher`'s main recursive method. Similarly, the logic for applying array patches (handling insertions/deletions at specific indices) would be hardcoded into the `JsonCrdtApplicator`.
+    *   **Reasoning:** This violates the strategy pattern that the project is adopting. It would make the `JsonCrdtPatcher` and `JsonCrdtApplicator` classes significantly more complex, increasing their responsibility and making them harder to understand, test, and maintain.
+
+3.  **Rejected: Treat Entire Array as a Single LWW Value.**
+    *   **Description:** This approach would ignore the requirement for a sophisticated diffing algorithm. The entire array would be treated as a single atomic value. If any element in the array changes, a single `Upsert` operation would be generated to replace the entire old array with the entire new one, governed by the standard Last-Writer-Wins (LWW) strategy.
+    *   **Reasoning:** This is a naive solution that is highly inefficient, especially for large arrays, as it generates excessive patch data for minor changes. More critically, it leads to data loss in concurrent scenarios. If two clients add different items to the same list concurrently, the LWW rule would cause one of the additions to be completely overwritten and lost. This fails to meet the core requirements for robust CRDT behavior.
 
 <!---AI - Stage 1--->
 # Proposed Techical Steps
@@ -38,6 +52,34 @@ Add the solutions that you rejected as well.
 Here you should append the tasks that you probably need to do.
 An example would be like what files you need to create and what functionality those files would have.
 --->
+1.  **Create New Array Strategy:**
+    *   Create a new file `$/Modern.CRDT/Services/Strategies/ArrayLcsStrategy.cs` that implements `ICrdtStrategy`. This will be the dedicated strategy for handling arrays.
+    *   Create a corresponding attribute `$/Modern.CRDT/Attributes/CrdtArrayLcsStrategyAttribute.cs` for explicit declaration, although it will be the default.
+
+2.  **Implement `CreatePatch` in `ArrayLcsStrategy`:**
+    *   The `CreatePatch` method will implement a Longest Common Subsequence (LCS) algorithm to compare two `JsonArray` nodes.
+    *   It will generate `Remove` operations for elements present in the original array but not in the LCS, and `Upsert` operations for elements present in the new array but not in the LCS.
+    *   The operations must be generated in an order that allows correct application (e.g., removals from highest index to lowest).
+
+3.  **Implement `ApplyOperation` in All Strategies:**
+    *   **`LwwStrategy.cs`**: Implement `ApplyOperation` to handle `Upsert` and `Remove`. It will perform a timestamp check against the metadata and update the content and metadata nodes if the operation is newer.
+    *   **`CounterStrategy.cs`**: Implement `ApplyOperation` to handle `Increment`. It will read the current value, add the increment from the operation's value, and update the content node, also respecting LWW timestamp rules.
+    *   **`ArrayLcsStrategy.cs`**: Implement `ApplyOperation` to handle `Upsert` (inserting into the `JsonArray` at an index) and `Remove` (removing from the `JsonArray` at an index).
+
+4.  **Update `CrdtStrategyManager`:**
+    *   Modify `CrdtStrategyManager.cs` to identify array properties (e.g., `IsAssignableTo(typeof(IEnumerable))` but not `string`) and assign `ArrayLcsStrategy` as their default strategy.
+
+5.  **Refactor `IJsonCrdtApplicator` and `JsonCrdtApplicator`:**
+    *   In `IJsonCrdtApplicator.cs`, add the new generic method signature: `CrdtDocument<T> ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class;`.
+    *   In `JsonCrdtApplicator.cs`, inject `ICrdtStrategyManager`.
+    *   Implement the generic `ApplyPatch<T>` method. This method will loop through each `CrdtOperation`.
+    *   For each operation, a private helper will parse the JSON path and use reflection on `typeof(T)` to find the corresponding `PropertyInfo`.
+    *   The `PropertyInfo` will be used to resolve the correct `ICrdtStrategy` via the strategy manager.
+    *   The resolved strategy's `ApplyOperation` method will be called to perform the actual data merge on the `JsonNode`.
+
+6.  **Update Unit Tests:**
+    *   In `JsonCrdtPatcherTests.cs`, add new tests specifically for array diffing to verify that insertions, deletions, and mixed changes produce the correct, minimal patch using the new `ArrayLcsStrategy`.
+    *   In `JsonCrdtApplicatorTests.cs`, add new tests for the generic `ApplyPatch<T>` method. These tests should use a POCO with mixed property types (LWW, Counter, Array) and apply a patch with mixed operations (`Upsert`, `Increment`, array modifications) to verify that all operations are routed to the correct strategy and the final state of the object is as expected.
 
 <!---AI - Stage 1--->
 # Proposed Files Needed
@@ -49,40 +91,48 @@ Format this list in the following way:
 With each file in one line.
 Remember to ask to load any unit tests if they are related to any files you will want tochange.
 --->
+	- `$/Modern.CRDT/Services/IJsonCrdtApplicator.cs` (To add the new generic `ApplyPatch<T>` method signature.)
+	- `$/Modern.CRDT/Services/JsonCrdtApplicator.cs` (To implement the generic, strategy-driven patch application logic.)
+	- `$/Modern.CRDT/Services/JsonCrdtPatcher.cs` (To ensure it correctly delegates array properties to the new strategy.)
+	- `$/Modern.CRDT/Services/Strategies/ICrdtStrategy.cs` (To ensure the `ApplyOperation` method contract is correctly defined and implemented by all strategies.)
+	- `$/Modern.CRDT/Services/Strategies/CrdtStrategyManager.cs` (To modify it to return a new default strategy for array types.)
+	- `$/Modern.CRDT/Services/Strategies/LwwStrategy.cs` (To implement the `ApplyOperation` method.)
+	- `$/Modern.CRDT/Services/Strategies/CounterStrategy.cs` (To implement the `ApplyOperation` method.)
+	- `$/Modern.CRDT.UnitTests/Services/JsonCrdtApplicatorTests.cs` (To add new tests for the strategy-aware applicator.)
+	- `$/Modern.CRDT.UnitTests/Services/JsonCrdtPatcherTests.cs` (To add new tests for the advanced array diffing.)
+	- `$/Modern.CRDT/Models/OperationType.cs` (To confirm the existence of `Increment` and other required types.)
 
 <!---AI - Stage 2--->
 # Changes Done
-<!---
-Here you add detailed information about all the changes actually done.
-Format this list in the following way:
-	- `$/<Full file path from solution root>` (Reason to be used/loaded)
-Add all the things that you did in a different way than expected.
---->
+- **`$/Modern.CRDT/Attributes/CrdtArrayLcsStrategyAttribute.cs`**: Created a new attribute to explicitly assign the `ArrayLcsStrategy` to collection properties.
+- **`$/Modern.CRDT/Services/Strategies/ArrayLcsStrategy.cs`**: Created the new strategy for handling arrays. It uses a Longest Common Subsequence (LCS) algorithm in `GeneratePatch` to produce efficient diffs for insertions and deletions. `ApplyOperation` correctly handles inserting and removing elements from `JsonArray` nodes.
+- **`$/Modern.CRDT/Services/Strategies/CrdtStrategyManager.cs`**: Modified `GetStrategy` to recognize collection properties (`IEnumerable` but not `string`) and assign `ArrayLcsStrategy` as their default strategy.
+- **`$/Modern.CRDT/Services/JsonCrdtPatcher.cs`**: Refactored the main patching logic to delegate array comparisons to the strategy manager. The old, naive `CompareJsonArrays` method has been removed, ensuring that collection properties are now processed by the `ArrayLcsStrategy`.
+- **`$/Modern.CRDT/Services/IJsonCrdtApplicator.cs`**: Added the new generic `ApplyPatch<T>(...)` method to support strongly-typed patch application on POCOs.
+- **`$/Modern.CRDT/Services/JsonCrdtApplicator.cs`**: Completely reimplemented the service to be strategy-driven. The new generic `ApplyPatch<T>` method now uses reflection to find the target property for each operation, resolves the correct strategy via `ICrdtStrategyManager`, and calls the strategy's `ApplyOperation` method to perform the merge. A property info cache was added for performance.
+- **`$/Modern.CRDT/Services/Strategies/LwwStrategy.cs`**: Implemented the `ApplyOperation` method. It now correctly finds the parent node using the operation's JSON path, checks the timestamp in the metadata, and applies the `Upsert` or `Remove` operation if it's newer.
+- **`$/Modern.CRDT/Services/Strategies/CounterStrategy.cs`**: Updated the `ApplyOperation` method to include LWW conflict resolution. It now checks the operation's timestamp against the metadata before applying an increment, ensuring that stale operations are ignored.
+- **`$/Modern.CRDT.UnitTests/Services/JsonCrdtApplicatorTests.cs`**: Created new unit tests for the refactored `JsonCrdtApplicator`, verifying that patches with mixed operation types (`Upsert`, `Increment`, array modifications) are correctly applied to a test model.
+- **`$/Modern.CRDT.UnitTests/Services/JsonCrdtPatcherTests.cs`**: Added new tests to validate the `ArrayLcsStrategy`. The tests confirm that insertions, deletions, and mixed changes to an array property generate the correct and minimal set of patch operations.
+- **`$/FilesDescription.md`**: Updated with descriptions for the new and modified files.
 
 <!---AI - Stage 2--->
 # Manual Changes Needed
-<!---
-Here you add detailed information about all the manual changes that might be needed to be done from a human.
-Example types of changes are:
-	- Configuration settings
-	- Environment variables
-	- Deployments/Scripts/Setups external to this app
-	- Dependencies to external projects that would need changes (like nuget packages for example)
-	- Settings in other systems (for example, enable some flag or permissions in Github)
-If there are none, then just write "No manual changes needed to be applied."
---->
+No manual changes needed to be applied.
 
 <!---AI - Stage 2--->
 ## Possible Techical Debt
-<!---
-Here you add comments about possible technical debt you encountered or implemented but it was too much to change or out of scope.
---->
+The property resolution logic in `JsonCrdtApplicator.FindPropertyFromPath` uses reflection and string manipulation for every operation. While a cache has been implemented to mitigate performance impact for repeated paths, this could still be a bottleneck in high-throughput scenarios with highly varied document structures. A more performant solution might involve pre-compiling expression trees for property access, but this would add significant complexity.
+
+The `ArrayLcsStrategy` currently treats array elements as atomic values when performing the LCS comparison (using `JsonNode.DeepEquals`). It does not recursively generate patches for items that have been modified in place. For example, if an array contains complex objects and a property of one of those objects changes, the current strategy would see the old object and the new object as completely different, generating a `Remove` and an `Upsert` rather than a more granular patch for the nested property change. A fully recursive array strategy would be more efficient but also substantially more complex to implement.
 
 <!---AI - Stage 2--->
 ## Last notes and implementation details
-<!---
-Here you add comments about the implementation that didn't fit on the previous section.
---->
+The core of this feature is the shift of the `JsonCrdtApplicator` from a monolithic, path-parsing service to a delegating orchestrator. It now smartly combines reflection on the generic type `T` with the `ICrdtStrategyManager` to ensure each part of a patch is handled by the correct logic. This makes the system far more extensible, as adding new CRDT types (like a Set or a Rich Text type) is now a matter of creating a new `ICrdtStrategy` implementation and applying an attribute.
+
+All `ApplyOperation` implementations now include robust Last-Writer-Wins (LWW) logic, checking the operation's timestamp against the corresponding timestamp in the metadata document before making any changes. This is crucial for ensuring convergence and preventing stale or out-of-order operations from corrupting the document state.
+
+The introduction of the `ArrayLcsStrategy` as the default for collections is a major improvement for handling arrays, making patches smaller and merges more accurate. The implementation uses a standard dynamic programming approach for the Longest Common Subsequence algorithm, which provides a good balance of performance and correctness for typical use cases.
 
 # Code Revisions
 <!---

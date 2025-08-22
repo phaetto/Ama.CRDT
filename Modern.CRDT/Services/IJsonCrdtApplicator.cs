@@ -1,14 +1,26 @@
 using Modern.CRDT.Models;
+using System.Text.Json.Nodes;
 
 namespace Modern.CRDT.Services;
 
 /// <summary>
-/// Defines the contract for a service that applies a CRDT patch to a JSON document.
+/// Defines the contract for a service that applies a CRDT patch to a document.
 /// The applicator is responsible for interpreting the operations in a patch and modifying
-/// a document to converge its state, respecting Last-Writer-Wins (LWW) semantics.
+/// a document to converge its state, respecting the CRDT strategies defined for the data model.
 /// </summary>
 public interface IJsonCrdtApplicator
 {
+    /// <summary>
+    /// Applies a set of CRDT operations from a patch to a base document represented by a POCO.
+    /// The process uses a strategy-driven approach, resolving the correct CRDT merge logic
+    /// for each property based on its attributes or type.
+    /// </summary>
+    /// <typeparam name="T">The type of the POCO model representing the document structure.</typeparam>
+    /// <param name="document">The base document (data and metadata) to which the patch will be applied.</param>
+    /// <param name="patch">A <see cref="CrdtPatch"/> containing the list of operations to apply.</param>
+    /// <returns>A new <see cref="CrdtDocument{T}"/> instance representing the merged state. The original document is not modified.</returns>
+    CrdtDocument<T> ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class;
+    
     /// <summary>
     /// Applies a set of CRDT operations from a patch to a base document.
     /// The process is idempotent; applying the same patch multiple times yields the same result.

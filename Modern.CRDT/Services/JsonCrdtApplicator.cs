@@ -1,13 +1,53 @@
 using Modern.CRDT.Models;
+using Modern.CRDT.Services.Strategies;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace Modern.CRDT.Services;
 
-public sealed class JsonCrdtApplicator : IJsonCrdtApplicator
+public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : IJsonCrdtApplicator
 {
+    private readonly ICrdtStrategyManager strategyManager = strategyManager ?? throw new ArgumentNullException(nameof(strategyManager));
+    private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false };
+    private static readonly ConcurrentDictionary<string, PropertyInfo> PropertyCache = new();
     private static readonly Regex PathRegex = new(@"\.([^.\[\]]+)|\[(\d+)\]", RegexOptions.Compiled);
 
+    public CrdtDocument<T> ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(patch);
+
+        if (patch.Operations is null || patch.Operations.Count == 0)
+        {
+            return new CrdtDocument<T>(document.Data, document.Metadata?.DeepClone());
+        }
+
+        var dataNode = document.Data is not null ? JsonSerializer.SerializeToNode(document.Data, SerializerOptions) : new JsonObject();
+        var metaNode = document.Metadata?.DeepClone() ?? new JsonObject();
+
+        if (dataNode is null)
+        {
+            return document;
+        }
+
+        foreach (var operation in patch.Operations)
+        {
+            var targetProperty = FindPropertyFromPath(typeof(T), operation.JsonPath);
+            var strategy = strategyManager.GetStrategy(targetProperty);
+            strategy.ApplyOperation(dataNode, metaNode, operation);
+        }
+
+        var finalPoco = dataNode.Deserialize<T>(SerializerOptions);
+        return new CrdtDocument<T>(finalPoco, metaNode);
+    }
+    
     public CrdtDocument ApplyPatch(CrdtDocument document, CrdtPatch patch)
     {
         if (patch.Operations is null || patch.Operations.Count == 0)
@@ -17,209 +57,94 @@ public sealed class JsonCrdtApplicator : IJsonCrdtApplicator
 
         var resultData = document.Data?.DeepClone();
         var resultMeta = document.Metadata?.DeepClone();
+        
+        var lwwStrategy = new LwwStrategy();
 
-        var rootOperation = patch.Operations.FirstOrDefault(op => op.JsonPath == "$");
-        if (rootOperation != default)
+        foreach (var operation in patch.Operations)
         {
-            ApplyRootOperation(ref resultData, ref resultMeta, rootOperation);
-            // Root operations are exclusive.
-            return new CrdtDocument(resultData, resultMeta);
-        }
-
-        var upserts = patch.Operations.Where(o => o.Type == OperationType.Upsert && o.JsonPath != "$").ToList();
-        var removes = patch.Operations.Where(o => o.Type == OperationType.Remove && o.JsonPath != "$")
-            .OrderByDescending(o => o.JsonPath)
-            .ToList();
-
-        foreach (var operation in upserts)
-        {
-            ApplySingleOperation(ref resultData, ref resultMeta, operation, createPath: true);
-        }
-
-        foreach (var operation in removes)
-        {
-            ApplySingleOperation(ref resultData, ref resultMeta, operation, createPath: false);
+            lwwStrategy.ApplyOperation(resultData ?? new JsonObject(), resultMeta ?? new JsonObject(), operation);
         }
 
         return new CrdtDocument(resultData, resultMeta);
     }
-
-    private void ApplyRootOperation(ref JsonNode? dataNode, ref JsonNode? metaNode, CrdtOperation operation)
+    
+    private PropertyInfo FindPropertyFromPath(Type rootType, string jsonPath)
     {
-        var existingTimestamp = GetTimestamp(metaNode);
-        if (operation.Timestamp <= existingTimestamp)
+        var cacheKey = $"{rootType.FullName}:{jsonPath}";
+        if (PropertyCache.TryGetValue(cacheKey, out var property))
         {
-            return;
+            return property;
         }
 
-        if (operation.Type == OperationType.Remove)
+        var segments = ParsePath(jsonPath);
+        if (segments.Count == 0)
         {
-            dataNode = null;
-            metaNode = null;
-        }
-        else // Upsert
-        {
-            dataNode = operation.Value?.DeepClone();
-            metaNode = JsonValue.Create(operation.Timestamp);
-        }
-    }
-
-    private void ApplySingleOperation(ref JsonNode? dataNode, ref JsonNode? metaNode, CrdtOperation operation, bool createPath)
-    {
-        var pathSegments = ParsePath(operation.JsonPath);
-        if (pathSegments.Count == 0) return;
-
-        if (createPath)
-        {
-            var isArrayRoot = int.TryParse(pathSegments[0], out _);
-            dataNode ??= isArrayRoot ? new JsonArray() : new JsonObject();
-            metaNode ??= isArrayRoot ? new JsonArray() : new JsonObject();
+            throw new ArgumentException($"Could not parse segments from path '{jsonPath}'.", nameof(jsonPath));
         }
 
-        if (dataNode is null || metaNode is null) return;
-        
-        RecursiveApply(dataNode, metaNode, new Queue<string>(pathSegments), operation, createPath);
-    }
+        var currentType = rootType;
+        PropertyInfo? currentProperty = null;
 
-    private void RecursiveApply(JsonNode currentData, JsonNode currentMeta, Queue<string> pathSegments, CrdtOperation operation, bool createPath)
-    {
-        var segment = pathSegments.Dequeue();
-        var isLastSegment = pathSegments.Count == 0;
-
-        if (int.TryParse(segment, out var index))
+        foreach (var segment in segments)
         {
-            HandleArrayNavigation(currentData, currentMeta, index, pathSegments, operation, createPath, isLastSegment);
-        }
-        else
-        {
-            HandleObjectNavigation(currentData, currentMeta, segment, pathSegments, operation, createPath, isLastSegment);
-        }
-    }
-
-    private void HandleArrayNavigation(JsonNode currentData, JsonNode currentMeta, int index, Queue<string> pathSegments, CrdtOperation operation, bool createPath, bool isLastSegment)
-    {
-        if (currentData is not JsonArray dataArray || currentMeta is not JsonArray metaArray) return;
-
-        if (isLastSegment)
-        {
-            ExecuteOperationOnArray(dataArray, metaArray, index, operation);
-            return;
-        }
-        
-        if (createPath)
-        {
-            while (dataArray.Count <= index) dataArray.Add(null);
-            while (metaArray.Count <= index) metaArray.Add(null);
-        }
-
-        if (index >= dataArray.Count || dataArray[index] is null) return;
-        
-        var nextDataNode = dataArray[index];
-        var nextMetaNode = metaArray[index];
-
-        if (nextDataNode is null && createPath)
-        {
-            var nextSegment = pathSegments.Peek();
-            var isNextArray = int.TryParse(nextSegment, out _);
-            nextDataNode = isNextArray ? new JsonArray() : new JsonObject();
-            nextMetaNode = isNextArray ? new JsonArray() : new JsonObject();
-            dataArray[index] = nextDataNode;
-            metaArray[index] = nextMetaNode;
-        }
-        
-        if (nextDataNode is null || nextMetaNode is null) return;
-
-        RecursiveApply(nextDataNode, nextMetaNode, pathSegments, operation, createPath);
-    }
-
-    private void HandleObjectNavigation(JsonNode currentData, JsonNode currentMeta, string key, Queue<string> pathSegments, CrdtOperation operation, bool createPath, bool isLastSegment)
-    {
-        if (currentData is not JsonObject dataObject || currentMeta is not JsonObject metaObject) return;
-
-        if (isLastSegment)
-        {
-            ExecuteOperationOnObject(dataObject, metaObject, key, operation);
-            return;
-        }
-        
-        dataObject.TryGetPropertyValue(key, out var nextDataNode);
-        metaObject.TryGetPropertyValue(key, out var nextMetaNode);
-        
-        if (nextDataNode is null && createPath)
-        {
-            var nextSegment = pathSegments.Peek();
-            var isNextArray = int.TryParse(nextSegment, out _);
-            nextDataNode = isNextArray ? new JsonArray() : new JsonObject();
-            nextMetaNode = isNextArray ? new JsonArray() : new JsonObject();
-            dataObject[key] = nextDataNode;
-            metaObject[key] = nextMetaNode;
-        }
-
-        if (nextDataNode is null || nextMetaNode is null) return;
-
-        RecursiveApply(nextDataNode, nextMetaNode, pathSegments, operation, createPath);
-    }
-
-    private void ExecuteOperationOnObject(JsonObject dataParent, JsonObject metaParent, string key, CrdtOperation operation)
-    {
-        metaParent.TryGetPropertyValue(key, out var existingMetaNode);
-        var existingTimestamp = GetTimestamp(existingMetaNode);
-        
-        if (operation.Timestamp <= existingTimestamp) return;
-
-        if (operation.Type == OperationType.Remove)
-        {
-            dataParent.Remove(key);
-            metaParent.Remove(key);
-        }
-        else // Upsert
-        {
-            dataParent[key] = operation.Value?.DeepClone();
-            metaParent[key] = JsonValue.Create(operation.Timestamp);
-        }
-    }
-
-    private void ExecuteOperationOnArray(JsonArray dataParent, JsonArray metaParent, int index, CrdtOperation operation)
-    {
-        if (operation.Type == OperationType.Remove)
-        {
-            if (index < dataParent.Count)
+            if (int.TryParse(segment, out _))
             {
-                dataParent.RemoveAt(index);
-                metaParent.RemoveAt(index);
+                if (currentType.IsGenericType && typeof(IEnumerable<>).IsAssignableFrom(currentType.GetGenericTypeDefinition()))
+                {
+                    currentType = currentType.GetGenericArguments()[0];
+                    continue;
+                }
+                
+                if (currentType.IsArray)
+                {
+                    currentType = currentType.GetElementType()!;
+                    continue;
+                }
+                
+                var ienumerable = currentType.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+                if (ienumerable != null)
+                {
+                    currentType = ienumerable.GetGenericArguments()[0];
+                    continue;
+                }
+                
+                throw new InvalidOperationException($"Cannot determine element type for collection path segment in '{jsonPath}'.");
             }
-            return;
+            
+            var propertyName = segment;
+            
+            var properties = currentType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.CanRead && p.GetCustomAttribute<JsonIgnoreAttribute>() == null);
+
+            currentProperty = properties.FirstOrDefault(p => (SerializerOptions.PropertyNamingPolicy?.ConvertName(p.Name) ?? p.Name)
+                .Equals(propertyName, StringComparison.OrdinalIgnoreCase));
+
+            if (currentProperty is null)
+            {
+                throw new InvalidOperationException($"Property for path segment '{segment}' not found on type '{currentType.Name}' from path '{jsonPath}'.");
+            }
+            currentType = currentProperty.PropertyType;
         }
-        
-        while (dataParent.Count <= index) dataParent.Add(null);
-        while (metaParent.Count <= index) metaParent.Add(null);
-        
-        var existingTimestamp = (index < metaParent.Count && metaParent[index] is not null) ? GetTimestamp(metaParent[index]) : 0;
-        
-        if (operation.Timestamp > existingTimestamp)
+
+        if (currentProperty is null)
         {
-            dataParent[index] = operation.Value?.DeepClone();
-            metaParent[index] = JsonValue.Create(operation.Timestamp);
+            throw new InvalidOperationException($"Could not resolve property for path '{jsonPath}' on type '{rootType.Name}'.");
         }
+
+        PropertyCache.TryAdd(cacheKey, currentProperty);
+        return currentProperty;
     }
 
-    private List<string> ParsePath(string jsonPath)
+    private static List<string> ParsePath(string jsonPath)
     {
         var segments = new List<string>();
+        if (string.IsNullOrWhiteSpace(jsonPath) || jsonPath == "$") return segments;
+        
         var matches = PathRegex.Matches(jsonPath);
         foreach (Match match in matches.Cast<Match>())
         {
             segments.Add(match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value);
         }
         return segments;
-    }
-    
-    private static long GetTimestamp(JsonNode? metaNode)
-    {
-        if (metaNode is JsonValue value && value.TryGetValue<long>(out var timestamp))
-        {
-            return timestamp;
-        }
-        return 0;
     }
 }
