@@ -1,23 +1,21 @@
-using Modern.CRDT.Models;
-
 namespace Modern.CRDT.Services;
 
+using Modern.CRDT.Models;
+
 /// <summary>
-/// Defines the contract for a service that compares two JSON documents and generates a CRDT patch.
-/// The patcher identifies differences and creates a list of operations that can be applied
-/// to another replica to achieve eventual consistency.
+/// Defines the contract for a service that compares two versions of a data model
+/// and generates a CRDT patch based on Last-Writer-Wins (LWW) semantics and property-specific strategies.
 /// </summary>
 public interface IJsonCrdtPatcher
 {
     /// <summary>
-    /// Compares two <see cref="CrdtDocument"/> instances and generates a <see cref="CrdtPatch"/>
-    /// containing the operations needed to transform the 'from' state into the 'to' state.
-    /// The comparison uses Last-Writer-Wins (LWW) semantics: an operation is only generated
-    /// for a change if the timestamp in the 'to' document's metadata is greater than the
-    /// corresponding timestamp in the 'from' document's metadata.
+    /// Compares two instances of a POCO and generates a CRDT patch.
+    /// It recursively traverses the object graph, using reflection to find properties
+    /// and applying the appropriate CRDT strategy for each one.
     /// </summary>
-    /// <param name="from">The original or source document state.</param>
-    /// <param name="to">The modified or target document state.</param>
-    /// <returns>A <see cref="CrdtPatch"/> containing the list of CRDT operations.</returns>
-    CrdtPatch GeneratePatch(CrdtDocument from, CrdtDocument to);
+    /// <typeparam name="T">The type of the data model.</typeparam>
+    /// <param name="from">The original document, containing the original state of the data and its metadata.</param>
+    /// <param name="to">The modified document, containing the new state of the data and its metadata.</param>
+    /// <returns>A <see cref="CrdtPatch"/> containing the operations to transform 'from' into 'to'.</returns>
+    CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, CrdtDocument<T> to) where T : class;
 }

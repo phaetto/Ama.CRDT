@@ -8,28 +8,14 @@ public sealed class JsonCrdtService(IJsonCrdtPatcher patcher, IJsonCrdtApplicato
 {
     private static readonly JsonSerializerOptions serializerOptions = new() { PropertyNameCaseInsensitive = true };
 
-    public CrdtPatch CreatePatch(CrdtDocument original, CrdtDocument modified)
-    {
-        return patcher.GeneratePatch(original, modified);
-    }
-
     public CrdtDocument Merge(CrdtDocument original, CrdtPatch patch)
     {
         return applicator.ApplyPatch(original, patch);
     }
 
-    public CrdtDocument Merge(CrdtDocument original, CrdtDocument modified)
-    {
-        var patch = CreatePatch(original, modified);
-        return Merge(original, patch);
-    }
-
     public CrdtPatch CreatePatch<T>(CrdtDocument<T> original, CrdtDocument<T> modified) where T : class
     {
-        var originalDoc = ToCrdtDocument(original);
-        var modifiedDoc = ToCrdtDocument(modified);
-
-        return CreatePatch(originalDoc, modifiedDoc);
+        return patcher.GeneratePatch(original, modified);
     }
 
     public CrdtDocument<T> Merge<T>(CrdtDocument<T> original, CrdtPatch patch) where T : class
