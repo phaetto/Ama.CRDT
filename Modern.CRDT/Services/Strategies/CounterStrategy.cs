@@ -3,7 +3,9 @@ namespace Modern.CRDT.Services.Strategies;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Modern.CRDT.Models;
 
 /// <summary>
@@ -13,8 +15,10 @@ using Modern.CRDT.Models;
 /// </summary>
 public sealed class CounterStrategy : ICrdtStrategy
 {
+    private static readonly Regex PathRegex = new(@"\.([^.\[\]]+)|\[(\d+)\]", RegexOptions.Compiled);
+    
     /// <inheritdoc/>
-    public IEnumerable<CrdtOperation> GeneratePatch(string path, JsonNode? originalValue, JsonNode? modifiedValue, JsonNode? originalMetadata, JsonNode? modifiedMetadata)
+    public void GeneratePatch(IJsonCrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, JsonNode? originalValue, JsonNode? modifiedValue, JsonNode? originalMetadata, JsonNode? modifiedMetadata)
     {
         var originalNumeric = GetNumericValue(originalValue);
         var modifiedNumeric = GetNumericValue(modifiedValue);
@@ -23,76 +27,127 @@ public sealed class CounterStrategy : ICrdtStrategy
 
         if (delta == 0)
         {
-            return Enumerable.Empty<CrdtOperation>();
+            return;
         }
         
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var timestamp = GetTimestamp(modifiedMetadata) > 0 ? GetTimestamp(modifiedMetadata) : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         var operation = new CrdtOperation(path, OperationType.Increment, JsonValue.Create(delta), timestamp);
-        return [operation];
+        operations.Add(operation);
     }
 
     /// <inheritdoc/>
     public void ApplyOperation(JsonNode rootNode, JsonNode metadataNode, CrdtOperation operation)
     {
         ArgumentNullException.ThrowIfNull(rootNode);
+        ArgumentNullException.ThrowIfNull(metadataNode);
         ArgumentNullException.ThrowIfNull(operation);
 
         if (operation.Type != OperationType.Increment)
         {
             throw new InvalidOperationException($"CounterStrategy can only handle 'Increment' operations, but received '{operation.Type}'.");
         }
+        
+        var (dataParent, lastSegment) = FindParent(rootNode, operation.JsonPath);
+        var (metaParent, _) = FindParent(metadataNode, operation.JsonPath);
 
-        var (parentNode, propertyName) = FindParentNode(rootNode, operation.JsonPath);
+        if (dataParent is null || metaParent is null || string.IsNullOrEmpty(lastSegment)) return;
+        
+        var existingMetaNode = GetChildNode(metaParent, lastSegment);
+        var existingTimestamp = GetTimestamp(existingMetaNode);
+        
+        if (operation.Timestamp <= existingTimestamp)
+        {
+            return;
+        }
 
         var incrementValue = GetNumericValue(operation.Value);
-        var existingNode = parentNode[propertyName];
+        
+        var existingNode = GetChildNode(dataParent, lastSegment);
         var existingValue = GetNumericValue(existingNode);
-
         var newValue = existingValue + incrementValue;
-
-        parentNode[propertyName] = JsonValue.Create(newValue);
+        SetChildNode(dataParent, lastSegment, JsonValue.Create(newValue));
+        
+        SetChildNode(metaParent, lastSegment, JsonValue.Create(operation.Timestamp));
     }
-
-    private static (JsonObject parentNode, string propertyName) FindParentNode(JsonNode root, string jsonPath)
+    
+    private static (JsonNode?, string) FindParent(JsonNode? root, string jsonPath)
     {
-        if (string.IsNullOrWhiteSpace(jsonPath) || !jsonPath.StartsWith("$."))
+        if (root is null || string.IsNullOrWhiteSpace(jsonPath) || jsonPath == "$")
         {
-            throw new ArgumentException("Invalid JSON path. Path must start with '$.' and specify a property.", nameof(jsonPath));
+            return (root, string.Empty);
         }
 
-        var segments = jsonPath.Substring(2).Split('.');
-        if (segments.Length == 0 || segments.Any(string.IsNullOrEmpty))
+        var segments = ParsePath(jsonPath);
+        if (segments.Count == 0)
         {
-            throw new ArgumentException($"Invalid JSON path format: '{jsonPath}'", nameof(jsonPath));
+            return (root, string.Empty);
         }
 
-        var currentNode = root;
-
-        for (var i = 0; i < segments.Length - 1; i++)
+        JsonNode? currentNode = root;
+        for (var i = 0; i < segments.Count - 1; i++)
         {
             var segment = segments[i];
-            if (currentNode is not JsonObject currentObject)
-            {
-                throw new InvalidOperationException($"Path segment '{segment}' in '{jsonPath}' requires an object, but the node is of type '{currentNode?.GetType().Name}'.");
-            }
+            if (currentNode is null) return (null, string.Empty);
 
-            var nextNode = currentObject[segment];
-            if (nextNode == null)
+            if (int.TryParse(segment, out var index))
             {
-                throw new InvalidOperationException($"Path '{jsonPath}' does not exist in the document. Cannot find segment '{segment}'.");
+                currentNode = currentNode is JsonArray arr && arr.Count > index ? arr[index] : null;
             }
-            currentNode = nextNode;
+            else
+            {
+                currentNode = currentNode is JsonObject obj && obj.TryGetPropertyValue(segment, out var node) ? node : null;
+            }
         }
 
-        if (currentNode is not JsonObject parent)
-        {
-            throw new InvalidOperationException($"The parent path of '{jsonPath}' is not an object.");
-        }
-
-        return (parent, segments.Last());
+        return (currentNode, segments.Last());
     }
 
+    private static List<string> ParsePath(string jsonPath)
+    {
+        var segments = new List<string>();
+        var matches = PathRegex.Matches(jsonPath);
+        foreach (Match match in matches.Cast<Match>())
+        {
+            segments.Add(match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value);
+        }
+        return segments;
+    }
+    
+    private static JsonNode? GetChildNode(JsonNode parent, string segment)
+    {
+        if (int.TryParse(segment, out var index))
+        {
+            return parent is JsonArray arr && arr.Count > index ? arr[index] : null;
+        }
+        return parent is JsonObject obj && obj.TryGetPropertyValue(segment, out var node) ? node : null;
+    }
+    
+    private static void SetChildNode(JsonNode parent, string segment, JsonNode? value)
+    {
+        if (int.TryParse(segment, out var index))
+        {
+            if (parent is JsonArray arr)
+            {
+                while (arr.Count <= index) arr.Add(null);
+                arr[index] = value;
+            }
+        }
+        else if (parent is JsonObject obj)
+        {
+            obj[segment] = value;
+        }
+    }
+    
+    private static long GetTimestamp(JsonNode? metaNode)
+    {
+        if (metaNode is JsonValue value && value.TryGetValue<long>(out var timestamp))
+        {
+            return timestamp;
+        }
+        return 0;
+    }
+    
     private static decimal GetNumericValue(JsonNode? node)
     {
         if (node is null)

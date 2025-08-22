@@ -1,3 +1,7 @@
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("Modern.CRDT.UnitTests")]
+
 namespace Modern.CRDT.Extensions;
 
 using Microsoft.Extensions.DependencyInjection;

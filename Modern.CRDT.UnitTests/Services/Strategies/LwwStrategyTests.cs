@@ -1,15 +1,22 @@
 namespace Modern.CRDT.UnitTests.Services.Strategies;
 
 using Modern.CRDT.Models;
+using Modern.CRDT.Services;
 using Modern.CRDT.Services.Strategies;
+using Moq;
 using Shouldly;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Xunit;
 
 public sealed class LwwStrategyTests
 {
+    private sealed record TestModel { public int Value { get; init; } }
+
     private readonly LwwStrategy strategy = new();
+    private readonly Mock<IJsonCrdtPatcher> mockPatcher = new();
+    private readonly List<CrdtOperation> operations = new();
 
     [Fact]
     public void GeneratePatch_WhenModifiedIsNewer_ShouldGenerateUpsert()
@@ -18,11 +25,12 @@ public sealed class LwwStrategyTests
         var modifiedValue = JsonValue.Create(20);
         var originalMeta = JsonValue.Create(100L);
         var modifiedMeta = JsonValue.Create(200L);
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
-        var ops = strategy.GeneratePatch("$.value", originalValue, modifiedValue, originalMeta, modifiedMeta).ToList();
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
 
-        ops.Count.ShouldBe(1);
-        var op = ops[0];
+        operations.Count.ShouldBe(1);
+        var op = operations[0];
         op.Type.ShouldBe(OperationType.Upsert);
         op.JsonPath.ShouldBe("$.value");
         op.Value!.GetValue<int>().ShouldBe(20);
@@ -36,10 +44,11 @@ public sealed class LwwStrategyTests
         var modifiedValue = JsonValue.Create(20);
         var originalMeta = JsonValue.Create(200L);
         var modifiedMeta = JsonValue.Create(100L);
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
-        var ops = strategy.GeneratePatch("$.value", originalValue, modifiedValue, originalMeta, modifiedMeta).ToList();
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
 
-        ops.ShouldBeEmpty();
+        operations.ShouldBeEmpty();
     }
     
     [Fact]
@@ -49,10 +58,11 @@ public sealed class LwwStrategyTests
         var modifiedValue = JsonValue.Create(20);
         var originalMeta = JsonValue.Create(200L);
         var modifiedMeta = JsonValue.Create(200L);
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
-        var ops = strategy.GeneratePatch("$.value", originalValue, modifiedValue, originalMeta, modifiedMeta).ToList();
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
 
-        ops.ShouldBeEmpty();
+        operations.ShouldBeEmpty();
     }
     
     [Fact]
@@ -62,11 +72,12 @@ public sealed class LwwStrategyTests
         JsonNode? modifiedValue = null;
         var originalMeta = JsonValue.Create(100L);
         var modifiedMeta = JsonValue.Create(200L);
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
-        var ops = strategy.GeneratePatch("$.value", originalValue, modifiedValue, originalMeta, modifiedMeta).ToList();
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
         
-        ops.Count.ShouldBe(1);
-        var op = ops[0];
+        operations.Count.ShouldBe(1);
+        var op = operations[0];
         op.Type.ShouldBe(OperationType.Remove);
         op.JsonPath.ShouldBe("$.value");
         op.Value.ShouldBeNull();
@@ -80,11 +91,12 @@ public sealed class LwwStrategyTests
         var modifiedValue = JsonValue.Create("new");
         JsonNode? originalMeta = null;
         var modifiedMeta = JsonValue.Create(200L);
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
-        var ops = strategy.GeneratePatch("$.value", originalValue, modifiedValue, originalMeta, modifiedMeta).ToList();
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
 
-        ops.Count.ShouldBe(1);
-        var op = ops[0];
+        operations.Count.ShouldBe(1);
+        var op = operations[0];
         op.Type.ShouldBe(OperationType.Upsert);
         op.JsonPath.ShouldBe("$.value");
         op.Value!.GetValue<string>().ShouldBe("new");
@@ -98,9 +110,10 @@ public sealed class LwwStrategyTests
         var modifiedValue = JsonValue.Create(10);
         var originalMeta = JsonValue.Create(100L);
         var modifiedMeta = JsonValue.Create(200L);
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
-        var ops = strategy.GeneratePatch("$.value", originalValue, modifiedValue, originalMeta, modifiedMeta).ToList();
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
 
-        ops.ShouldBeEmpty();
+        operations.ShouldBeEmpty();
     }
 }

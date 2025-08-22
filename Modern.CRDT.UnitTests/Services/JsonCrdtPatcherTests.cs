@@ -6,6 +6,7 @@ using Modern.CRDT.Services;
 using Modern.CRDT.Services.Strategies;
 using Shouldly;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Xunit;
@@ -22,6 +23,8 @@ public sealed class JsonCrdtPatcherTests
         public NestedModel? Nested { get; init; }
 
         public long Unchanged { get; init; }
+        
+        public List<string>? Tags { get; init; }
     }
 
     private sealed record NestedModel
@@ -36,7 +39,8 @@ public sealed class JsonCrdtPatcherTests
     {
         var lwwStrategy = new LwwStrategy();
         var counterStrategy = new CounterStrategy();
-        var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy };
+        var arrayStrategy = new ArrayLcsStrategy();
+        var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayStrategy };
         var strategyManager = new CrdtStrategyManager(strategies);
         patcher = new JsonCrdtPatcher(strategyManager);
     }
@@ -79,13 +83,41 @@ public sealed class JsonCrdtPatcherTests
         patch.Operations.Count.ShouldBe(2);
 
         var lwwOp = patch.Operations.FirstOrDefault(op => op.JsonPath == "$.name");
-        lwwOp.Type.ShouldBe(OperationType.Upsert);
-        lwwOp.Value.AsValue().GetValue<string>().ShouldBe("Updated");
+        lwwOp!.Type.ShouldBe(OperationType.Upsert);
+        lwwOp.Value!.AsValue().GetValue<string>().ShouldBe("Updated");
         lwwOp.Timestamp.ShouldBe(ts2);
 
         var counterOp = patch.Operations.FirstOrDefault(op => op.JsonPath == "$.likes");
-        counterOp.Type.ShouldBe(OperationType.Increment);
-        counterOp.Value.AsValue().GetValue<decimal>().ShouldBe(10); // 15 - 5
+        counterOp!.Type.ShouldBe(OperationType.Increment);
+        counterOp.Value!.AsValue().GetValue<decimal>().ShouldBe(10); // 15 - 5
+    }
+    
+    [Fact]
+    public void GeneratePatch_WithArrayChanges_ShouldGenerateLcsPatch()
+    {
+        // Arrange
+        var ts1 = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var fromModel = new TestModel { Tags = ["a", "b", "c"] };
+        var fromMeta = JsonNode.Parse($"{{\"tags\":[{ts1},{ts1},{ts1}]}}");
+        var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
+
+        var ts2 = ts1 + 100;
+        var toModel = new TestModel { Tags = ["a", "x", "c"] }; // "b" removed, "x" inserted
+        var toMeta = JsonNode.Parse($"{{\"tags\":[{ts1},{ts2},{ts1}]}}");
+        var to = new CrdtDocument<TestModel>(toModel, toMeta);
+
+        // Act
+        var patch = patcher.GeneratePatch(from, to);
+
+        // Assert
+        patch.Operations.Count.ShouldBe(2);
+        
+        var removeOp = patch.Operations.SingleOrDefault(o => o.Type == OperationType.Remove);
+        removeOp.JsonPath.ShouldBe("$.tags[1]");
+
+        var upsertOp = patch.Operations.SingleOrDefault(o => o.Type == OperationType.Upsert);
+        upsertOp.JsonPath.ShouldBe("$.tags[1]");
+        upsertOp.Value!.AsValue().GetValue<string>().ShouldBe("x");
     }
 
     [Fact]
@@ -111,7 +143,7 @@ public sealed class JsonCrdtPatcherTests
         var op = patch.Operations.Single();
         op.JsonPath.ShouldBe("$.nested.value");
         op.Type.ShouldBe(OperationType.Upsert);
-        op.Value.AsValue().GetValue<string>().ShouldBe("Nested Updated");
+        op.Value!.AsValue().GetValue<string>().ShouldBe("Nested Updated");
         op.Timestamp.ShouldBe(ts2);
     }
     
@@ -138,7 +170,7 @@ public sealed class JsonCrdtPatcherTests
         var op = patch.Operations.Single();
         op.JsonPath.ShouldBe("$.nested.value");
         op.Type.ShouldBe(OperationType.Upsert);
-        op.Value.AsValue().GetValue<string>().ShouldBe("Added");
+        op.Value!.AsValue().GetValue<string>().ShouldBe("Added");
         op.Timestamp.ShouldBe(ts2);
     }
     
@@ -153,7 +185,7 @@ public sealed class JsonCrdtPatcherTests
 
         var ts2 = ts1 + 100;
         var toModel = new TestModel { Name = "Test", Nested = null };
-        var toMeta = JsonNode.Parse($"{{\"name\":{ts1},\"nested\":{{\"value\":{ts2}}}}}");
+        var toMeta = JsonNode.Parse($"{{\"name\":{ts1},\"nested\":{{\"value\":{ts2}}}}}"); // Meta retains timestamp for LWW
         var to = new CrdtDocument<TestModel>(toModel, toMeta);
 
         // Act

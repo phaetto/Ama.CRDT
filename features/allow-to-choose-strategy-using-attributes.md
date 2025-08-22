@@ -47,6 +47,8 @@ No other alternatives have been considered.
 - [X] `$/features/allow-to-choose-strategy-using-attributes-specs/02-lww-strategy-implementation.md`: `Implement the default Last-Writer-Wins (LWW) strategy.`
 - [X] `$/features/allow-to-choose-strategy-using-attributes-specs/03-counter-strategy-implementation.md`: `Implement a new 'Counter' strategy for numeric fields.`
 - [X] `$/features/allow-to-choose-strategy-using-attributes-specs/04-refactor-patcher-to-use-strategies.md`: `Refactor the JsonCrdtPatcher to use the strategy pattern for patch generation.`
-- [ ] `$/features/allow-to-choose-strategy-using-attributes-specs/05-refactor-applicator-to-use-strategies.md`: `Refactor the JsonCrdtApplicator to use the strategy pattern for patch application.`
+- [X] `$/features/allow-to-choose-strategy-using-attributes-specs/05-refactor-applicator-to-use-strategies.md`: `Refactor the JsonCrdtApplicator to use the strategy pattern for patch application.`
+- [X] `$/features/allow-to-choose-strategy-using-attributes-specs/05-01-arraylcsstrategy-needs-to-check-deep-objects.md`: `05-01 ArrayLcsStrategy needs to check deep objects`
+- [ ] `$/features/allow-to-choose-strategy-using-attributes-specs/05-02-manage-metadata-state-deifferently-in-strategies.md`: `05-02 Manage metadata state deifferently in strategies`
 - [ ] `$/features/allow-to-choose-strategy-using-attributes-specs/06-create-benchmark-project.md`: `Create a benchmark project to monitor performance.`
 - [ ] `$/features/allow-to-choose-strategy-using-attributes-specs/07-update-readme-documentation.md`: `Update the README file with documentation for the new features.`
