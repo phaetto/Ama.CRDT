@@ -29,9 +29,9 @@ public interface IJsonCrdtPatcher
     /// <param name="path">The base JSON path for the comparison.</param>
     /// <param name="type">The CLR type that defines the schema of the objects.</param>
     /// <param name="fromData">The original JsonObject.</param>
-    /// <param name="fromMeta">The metadata for the original object.</param>
+    /// <param name="fromMeta">The JsonObject representation of the metadata for the original object.</param>
     /// <param name="toData">The modified JsonObject.</param>
-    /// <param name="toMeta">The metadata for the modified object.</param>
+    /// <param name="toMeta">The JsonObject representation of the metadata for the modified object.</param>
     /// <param name="operations">The list to which generated operations will be added.</param>
     void DifferentiateObject(string path, Type type, JsonObject? fromData, JsonObject? fromMeta, JsonObject? toData, JsonObject? toMeta, List<CrdtOperation> operations);
 }
