@@ -95,93 +95,105 @@ public sealed class SortedSetStrategy : ICrdtStrategy
     {
         ArgumentNullException.ThrowIfNull(root);
         
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-
-        if (parent is null) return;
-        
-        IList? list;
-        Type? elementType = null;
-
-        if (parent is IList listFromParent)
-        {
-            list = listFromParent;
-        }
-        else if (property is not null && property.GetValue(parent) is IList listFromProperty)
-        {
-            list = listFromProperty;
-            var propType = property.PropertyType;
-            if (propType.IsGenericType)
-            {
-                elementType = propType.GetGenericArguments().FirstOrDefault();
-            }
-        }
-        else
+        if (metadata.SeenExceptions.Contains(operation))
         {
             return;
         }
 
-        if (list is null) return;
-        
-        if (elementType is null)
+        try
         {
-            var listType = list.GetType();
-            elementType = listType.IsGenericType
-                ? listType.GetGenericArguments().FirstOrDefault()
-                : listType.GetElementType();
-        }
+            var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
 
-        if (elementType is null)
-        {
-            elementType = typeof(object);
-        }
+            if (parent is null) return;
 
-        var comparer = comparerProvider.GetComparer(elementType);
+            IList? list;
+            Type? elementType = null;
 
-        if (operation.Type == OperationType.Upsert)
-        {
-            var newValue = DeserializeValue(operation.Value, elementType);
-            if (newValue is null) return;
-
-            var existingIndex = -1;
-            for (var i = 0; i < list.Count; i++)
+            if (parent is IList listFromParent)
             {
-                if (comparer.Equals(list[i], newValue))
-                {
-                    existingIndex = i;
-                    break;
-                }
+                list = listFromParent;
             }
-
-            if (existingIndex != -1)
+            else if (property is not null && property.GetValue(parent) is IList listFromProperty)
             {
-                list[existingIndex] = newValue;
+                list = listFromProperty;
+                var propType = property.PropertyType;
+                if (propType.IsGenericType)
+                {
+                    elementType = propType.GetGenericArguments().FirstOrDefault();
+                }
             }
             else
             {
-                list.Add(newValue);
+                return;
             }
-            
-            SortList(list);
-        }
-        else if (operation.Type == OperationType.Remove)
-        {
-            if (operation.Value is null) return;
-            var valueToRemove = DeserializeValue(operation.Value, elementType);
 
-            var indexToRemove = -1;
-            for (var i = 0; i < list.Count; i++)
+            if (list is null) return;
+
+            if (elementType is null)
             {
-                if (comparer.Equals(list[i], valueToRemove))
+                var listType = list.GetType();
+                elementType = listType.IsGenericType
+                    ? listType.GetGenericArguments().FirstOrDefault()
+                    : listType.GetElementType();
+            }
+
+            if (elementType is null)
+            {
+                elementType = typeof(object);
+            }
+
+            var comparer = comparerProvider.GetComparer(elementType);
+
+            if (operation.Type == OperationType.Upsert)
+            {
+                var newValue = DeserializeValue(operation.Value, elementType);
+                if (newValue is null) return;
+
+                var existingIndex = -1;
+                for (var i = 0; i < list.Count; i++)
                 {
-                    indexToRemove = i;
-                    break;
+                    if (comparer.Equals(list[i], newValue))
+                    {
+                        existingIndex = i;
+                        break;
+                    }
+                }
+
+                if (existingIndex != -1)
+                {
+                    list[existingIndex] = newValue;
+                }
+                else
+                {
+                    list.Add(newValue);
+                }
+
+                SortList(list);
+            }
+            else if (operation.Type == OperationType.Remove)
+            {
+                if (operation.Value is null) return;
+                var valueToRemove = DeserializeValue(operation.Value, elementType);
+
+                var indexToRemove = -1;
+                for (var i = 0; i < list.Count; i++)
+                {
+                    if (comparer.Equals(list[i], valueToRemove))
+                    {
+                        indexToRemove = i;
+                        break;
+                    }
+                }
+
+                if (indexToRemove != -1)
+                {
+                    list.RemoveAt(indexToRemove);
                 }
             }
-
-            if (indexToRemove != -1)
-            {
-                list.RemoveAt(indexToRemove);
-            }
+        }
+        finally
+        {
+            metadata.SeenExceptions.Add(operation);
         }
     }
     

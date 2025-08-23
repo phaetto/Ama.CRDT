@@ -87,31 +87,43 @@ public sealed class ArrayLcsStrategy(
 
     public void ApplyOperation(object root, CrdtMetadata metadata, CrdtOperation operation)
     {
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
-        
-        if (!metadata.PositionalTrackers.TryGetValue(operation.JsonPath, out var positions))
+        if (metadata.SeenExceptions.Contains(operation))
         {
-            positions = new List<PositionalIdentifier>();
-            metadata.PositionalTrackers[operation.JsonPath] = positions;
-        }
-        
-        if (list.Count > 0 && positions.Count == 0)
-        {
-            for (var i = 0; i < list.Count; i++)
-            {
-                positions.Add(new PositionalIdentifier((i + 1).ToString(CultureInfo.InvariantCulture), Guid.Empty));
-            }
+            return;
         }
 
-        switch (operation.Type)
+        try
         {
-            case OperationType.Upsert:
-                ApplyUpsert(list, positions, operation);
-                break;
-            case OperationType.Remove:
-                ApplyRemove(list, positions, operation);
-                break;
+            var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+            if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
+
+            if (!metadata.PositionalTrackers.TryGetValue(operation.JsonPath, out var positions))
+            {
+                positions = new List<PositionalIdentifier>();
+                metadata.PositionalTrackers[operation.JsonPath] = positions;
+            }
+
+            if (list.Count > 0 && positions.Count == 0)
+            {
+                for (var i = 0; i < list.Count; i++)
+                {
+                    positions.Add(new PositionalIdentifier((i + 1).ToString(CultureInfo.InvariantCulture), Guid.Empty));
+                }
+            }
+
+            switch (operation.Type)
+            {
+                case OperationType.Upsert:
+                    ApplyUpsert(list, positions, operation);
+                    break;
+                case OperationType.Remove:
+                    ApplyRemove(list, positions, operation);
+                    break;
+            }
+        }
+        finally
+        {
+            metadata.SeenExceptions.Add(operation);
         }
     }
 

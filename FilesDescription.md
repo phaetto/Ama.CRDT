@@ -30,9 +30,9 @@
 | `$/Ama.CRDT/Attributes/CounterStrategyAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/CrdtArrayLcsStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Array LCS strategy, which leverages positional identifiers for stable, causally-correct ordering of elements. |
 | `$/Ama.CRDT/Attributes/CrdtCounterAttribute.cs` | An attribute to explicitly mark a numeric property to use the CRDT Counter strategy. |
+| `$/Ama.CRDT/Attributes/CrdtSortedSetStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Sorted Set strategy. It uses LCS for diffing and maintains a sorted order. |
 | `$/Ama.CRDT/Attributes/CrdtStrategyAttribute.cs` | The base abstract attribute for marking properties with a specific CRDT merge strategy. Contains the strategy type. |
 | `$/Ama.CRDT/Attributes/LwwStrategyAttribute.cs` | An attribute to explicitly mark a property to use the Last-Writer-Wins (LWW) strategy. |
-| `$/Ama.CRDT/Attributes/SortedSetStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Sorted Set strategy, which maintains a sorted order. |
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup, including registration of strategies, the strategy manager, custom array element comparers, a customizable timestamp provider, and a factory for creating replica-specific patchers. |
 | `$/Ama.CRDT/Models/CrdtDocumentOfT.cs` | A generic version of `CrdtDocument` that holds a POCO and its associated `CrdtMetadata`, unifying the API for patch generation and application. |
 | `$/Ama.CRDT/Models/CrdtMetadata.cs` | Encapsulates the state required for conflict resolution (LWW timestamps, seen operation IDs), externalizing it from the data model. |
