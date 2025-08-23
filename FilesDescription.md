@@ -34,10 +34,10 @@
 | `$/Modern.CRDT/Models/ICrdtTimestamp.cs` | Represents a logical point in time for a CRDT operation, allowing for different timestamping mechanisms. |
 | `$/Modern.CRDT/Models/OperationType.cs` | Defines the types of operations (Upsert, Remove) for a CRDT patch. |
 | `$/Modern.CRDT/Modern.CRDT.csproj` | No description provided. |
-| `$/Modern.CRDT/Services/CrdtMetadataManager.cs` | Implements the logic for managing and compacting CRDT metadata. |
+| `$/Modern.CRDT/Services/CrdtMetadataManager.cs` | Implements the logic for managing and compacting CRDT metadata. It can also initialize LWW metadata for a document by reflecting on its properties. |
 | `$/Modern.CRDT/Services/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `EpochTimestamp` based on Unix milliseconds. |
 | `$/Modern.CRDT/Services/Helpers/JsonNodePathHelper.cs` | A static utility class containing shared helper methods for parsing JSON paths and manipulating JsonNode structures. |
-| `$/Modern.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing and compacting CRDT metadata to prevent unbounded state growth. |
+| `$/Modern.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing and compacting CRDT metadata to prevent unbounded state growth. It also provides methods to initialize metadata based on a document's state. |
 | `$/Modern.CRDT/Services/ICrdtTimestampProvider.cs` | Defines a service for generating CRDT timestamps, allowing for custom timestamp implementations. |
 | `$/Modern.CRDT/Services/IJsonCrdtApplicator.cs` | Defines the contract for a service that applies a CRDT patch to a document, using an external `CrdtMetadata` object for conflict resolution. |
 | `$/Modern.CRDT/Services/IJsonCrdtPatcher.cs` | Defines the contract for a service that compares two POCOs and generates a CRDT patch based on property-specific strategies. |

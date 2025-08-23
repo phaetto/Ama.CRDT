@@ -1,10 +1,9 @@
+namespace Modern.CRDT.Services.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-
-namespace Modern.CRDT.Services.Helpers;
 
 /// <summary>
 /// A static utility class containing shared helper methods for parsing JSON paths and manipulating JsonNode structures.

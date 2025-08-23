@@ -8,6 +8,27 @@ using Modern.CRDT.Models;
 public interface ICrdtMetadataManager
 {
     /// <summary>
+    /// Initializes or updates LWW metadata for a given document based on its current state and a provided timestamp.
+    /// It inspects the document for properties managed by the LWW strategy and recursively assigns the timestamp to them in the metadata.
+    /// This is useful for creating metadata for a new or modified document before generating a patch.
+    /// </summary>
+    /// <typeparam name="T">The type of the document.</typeparam>
+    /// <param name="metadata">The metadata object to update.</param>
+    /// <param name="document">The document instance whose LWW properties will be timestamped.</param>
+    /// <param name="timestamp">The timestamp to assign to the LWW properties.</param>
+    void InitializeLwwMetadata<T>(CrdtMetadata metadata, T document, ICrdtTimestamp timestamp) where T : class;
+
+    /// <summary>
+    /// Initializes or updates LWW metadata for a given document based on its current state, using the current time from <see cref="ICrdtTimestampProvider"/>.
+    /// It inspects the document for properties managed by the LWW strategy and recursively assigns the current timestamp to them in the metadata.
+    /// This is useful for creating metadata for a new or modified document before generating a patch.
+    /// </summary>
+    /// <typeparam name="T">The type of the document.</typeparam>
+    /// <param name="metadata">The metadata object to update.</param>
+    /// <param name="document">The document instance whose LWW properties will be timestamped.</param>
+    void InitializeLwwMetadata<T>(CrdtMetadata metadata, T document) where T : class;
+
+    /// <summary>
     /// Removes entries from the LWW metadata dictionary if their timestamp is older than a specified threshold.
     /// This is useful for garbage collecting tombstones for deleted fields.
     /// </summary>

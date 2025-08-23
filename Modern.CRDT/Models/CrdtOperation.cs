@@ -1,6 +1,5 @@
-using System.Text.Json.Nodes;
-
 namespace Modern.CRDT.Models;
+using System.Text.Json.Nodes;
 
 /// <summary>
 /// Represents a single CRDT operation in a patch.

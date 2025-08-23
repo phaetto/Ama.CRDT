@@ -1,3 +1,4 @@
+namespace Modern.CRDT.UnitTests.Services;
 using Microsoft.Extensions.Options;
 using Modern.CRDT.Attributes;
 using Modern.CRDT.Models;
@@ -6,8 +7,6 @@ using Modern.CRDT.Services.Strategies;
 using Shouldly;
 using System.Text.Json.Nodes;
 using Xunit;
-
-namespace Modern.CRDT.UnitTests.Services;
 
 public sealed class JsonCrdtPatcherTests
 {

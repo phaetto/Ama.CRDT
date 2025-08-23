@@ -1,8 +1,7 @@
+namespace Modern.CRDT.ShowCase.Services;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Modern.CRDT.Models;
-
-namespace Modern.CRDT.ShowCase.Services;
 
 /// <summary>
 /// An implementation of <see cref="IInMemoryDatabaseService"/> using <see cref="ConcurrentDictionary{TKey,TValue}"/>

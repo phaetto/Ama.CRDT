@@ -1,6 +1,5 @@
-using Modern.CRDT.Attributes;
-
 namespace Modern.CRDT.ShowCase.Models;
+using Modern.CRDT.Attributes;
 
 public sealed class UserStats
 {

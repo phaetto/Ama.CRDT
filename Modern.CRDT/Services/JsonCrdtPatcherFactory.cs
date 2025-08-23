@@ -1,10 +1,9 @@
+namespace Modern.CRDT.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Modern.CRDT.Models;
 using Modern.CRDT.Services.Strategies;
 using System;
-
-namespace Modern.CRDT.Services;
 
 internal sealed class JsonCrdtPatcherFactory(IServiceProvider serviceProvider) : IJsonCrdtPatcherFactory
 {
