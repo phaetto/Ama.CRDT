@@ -4,7 +4,7 @@ A .NET library for achieving eventual consistency in distributed systems using C
 
 ## Features
 
-- **Attribute-Driven Strategies**: Define conflict resolution logic directly on your POCO properties using attributes like `[LwwStrategy]`, `[CrdtCounter]`, and `[CrdtArrayLcsStrategy]`.
+- **Attribute-Driven Strategies**: Define conflict resolution logic directly on your POCO properties using attributes like `[LwwStrategy]`, `[CrdtCounter]`, `[CrdtArrayLcsStrategy]`, and `[SortedSetStrategy]`.
 - **POCO-First**: Work directly with your C# objects. The library handles recursive diffing and patching seamlessly.
 - **Clean Data/Metadata Separation**: Keeps your data models pure by storing CRDT state (timestamps, version vectors) in a parallel `CrdtMetadata` object.
 - **Extensible**: Easily create and register your own custom CRDT strategies.
@@ -45,6 +45,8 @@ This library uses attributes on your POCO properties to determine how to merge c
 
 -   **`[CrdtArrayLcsStrategy]`**: This is the default strategy for collections (`List<T>`, arrays). It uses a Longest Common Subsequence (LCS) algorithm to intelligently handle insertions and deletions. This is more efficient than replacing the entire array, as it only generates operations for the items that were actually added or removed.
 
+-   **`[SortedSetStrategy]`**: Use this for collections that must be maintained in a sorted order. It uses an LCS-based diff to handle insertions and deletions efficiently and re-sorts the collection after any change to maintain a consistent order across all replicas. This is useful for leaderboards or sorted lists of tags. This strategy is not a default and must be explicitly applied.
+
 ### Define Your Model
 
 First, decorate your POCO properties with the desired CRDT strategy attributes. This model will be used in the following examples.
@@ -60,7 +62,7 @@ public class UserStats
     [CrdtCounter]
     public long LoginCount { get; set; }
 
-    [CrdtArrayLcsStrategy] // Can be omitted as it's the default for collections
+    [SortedSetStrategy] // This collection will be kept sorted.
     public List<string> Badges { get; set; } = [];
 }
 ```
@@ -97,7 +99,7 @@ crdtService.Merge(stateToMerge, patch, metadataToMerge);
 
 // 6. Assert the new state is correct
 // stateToMerge.LoginCount is now 6
-// stateToMerge.Badges now contains "newcomer" and "explorer"
+// stateToMerge.Badges now contains "explorer" and "newcomer" (sorted)
 ```
 
 ## Advanced Usage: Multi-Replica Synchronization
@@ -134,7 +136,7 @@ var docB = new CrdtDocument<UserStats>(
 
 // 5. Modify both replicas independently
 // Replica A: User logs in again and earns a new badge
-var modifiedA = new UserStats { LastSeenLocation = "Lobby", LoginCount = 11, Badges = new List<string> { "welcome", "veteran" } };
+var modifiedA = new UserStats { LastSeenLocation = "Lobby", LoginCount = 11, Badges = new List<string> { "veteran", "welcome" } };
 
 // Replica B: User changes location and also logs in
 var modifiedB = new UserStats { LastSeenLocation = "Marketplace", LoginCount = 11, Badges = new List<string> { "welcome" } };
@@ -156,7 +158,7 @@ applicator.ApplyPatch(docA.Data, patchFromB, docA.Metadata);
 // docA.Data and docB.Data are now identical.
 // - LastSeenLocation: "Marketplace" (LWW from B wins)
 // - LoginCount: 12 (Counter incremented by both, 10 + 1 + 1)
-// - Badges: ["welcome", "veteran"] (LCS merge adds "veteran")
+// - Badges: ["veteran", "welcome"] (SortedSet merge adds "veteran" and maintains sort order)
 ```
 
 ## Managing Metadata Size
@@ -254,7 +256,7 @@ Beyond creating custom strategies, you can also customize other core components 
 
 ### Customizing Array Element Comparison
 
-The default `[CrdtArrayLcsStrategy]` uses `object.Equals` to compare elements in a collection. This works for simple types like `string` or `int`, but it's often insufficient for complex objects where uniqueness is determined by a specific property, like an `Id`.
+The default `[CrdtArrayLcsStrategy]` uses `object.Equals` to compare elements in a collection. This works for simple types like `string` or `int`, but it's often insufficient for complex objects where uniqueness is determined by a specific property, like an `Id`. The `[SortedSetStrategy]` also benefits from this customization for identifying elements before sorting.
 
 To solve this, you can implement the `IElementComparer` interface to provide type-specific comparison logic. The strategy manager will automatically find and use your custom comparer for the specified type.
 
@@ -322,7 +324,7 @@ builder.Services.AddCrdt(options => { /* ... */ });
 builder.Services.AddCrdtComparer<UserComparer>();
 ```
 
-Now, whenever `CrdtArrayLcsStrategy` processes a `List<User>`, it will use `UserComparer` to correctly identify and diff the elements.
+Now, whenever `CrdtArrayLcsStrategy` or `SortedSetStrategy` processes a `List<User>`, it will use `UserComparer` to correctly identify and diff the elements.
 
 ### Providing a Custom Timestamp
 

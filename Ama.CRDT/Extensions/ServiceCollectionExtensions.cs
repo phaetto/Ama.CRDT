@@ -54,12 +54,12 @@ public static class ServiceCollectionExtensions
         // The factory will create new instances for other replicas.
         services.TryAddSingleton<LwwStrategy>();
         services.TryAddSingleton<CounterStrategy>();
-        services.TryAddSingleton<ArrayLcsStrategy>();
+        services.TryAddSingleton<SortedSetStrategy>();
 
         // This allows the CrdtStrategyManager to get all registered strategies
         services.AddSingleton<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
         services.AddSingleton<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
-        services.AddSingleton<ICrdtStrategy, ArrayLcsStrategy>(sp => sp.GetRequiredService<ArrayLcsStrategy>());
+        services.AddSingleton<ICrdtStrategy, SortedSetStrategy>(sp => sp.GetRequiredService<SortedSetStrategy>());
 
         return services;
     }

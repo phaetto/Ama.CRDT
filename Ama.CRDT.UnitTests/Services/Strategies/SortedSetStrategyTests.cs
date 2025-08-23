@@ -14,9 +14,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using Xunit;
-using static Ama.CRDT.Services.Strategies.ArrayLcsStrategy;
+using static Ama.CRDT.Services.Strategies.SortedSetStrategy;
 
-public sealed class ArrayLcsStrategyTests
+public sealed class SortedSetStrategyTests
 {
     private sealed class TestModel
     {
@@ -61,11 +61,11 @@ public sealed class ArrayLcsStrategyTests
     private readonly Mock<ICrdtPatcher> mockPatcher = new();
     private readonly Mock<IElementComparerProvider> mockComparerProvider = new();
     private readonly Mock<ICrdtTimestampProvider> mockTimestampProvider = new();
-    private readonly ArrayLcsStrategy strategy;
+    private readonly SortedSetStrategy strategy;
 
-    public ArrayLcsStrategyTests()
+    public SortedSetStrategyTests()
     {
-        strategy = new ArrayLcsStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, Options.Create(new CrdtOptions { ReplicaId = "test-array-strategy" }));
+        strategy = new SortedSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, Options.Create(new CrdtOptions { ReplicaId = "test-array-strategy" }));
         mockComparerProvider
             .Setup(p => p.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
@@ -182,7 +182,7 @@ public sealed class ArrayLcsStrategyTests
 
     private sealed record ConvergenceTestModel
     {
-        [CrdtArrayLcsStrategy]
+        [SortedSetStrategy]
         public List<User> Users { get; init; } = new();
     }
     
@@ -235,7 +235,7 @@ public sealed class ArrayLcsStrategyTests
 
         var lwwStrategy = new LwwStrategy(options);
         var counterStrategy = new CounterStrategy(timestampProvider, options);
-        var arrayLcsStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, options);
+        var arrayLcsStrategy = new SortedSetStrategy(comparerProvider, timestampProvider, options);
         var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayLcsStrategy };
         
         var strategyManager = new CrdtStrategyManager(strategies);

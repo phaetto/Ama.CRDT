@@ -28,7 +28,7 @@ public sealed class CrdtStrategyManager : ICrdtStrategyManager
         defaultStrategy = this.strategies.Values.OfType<LwwStrategy>().FirstOrDefault()
             ?? throw new InvalidOperationException($"The default '{nameof(LwwStrategy)}' is not registered in the DI container.");
         
-        defaultArrayStrategy = this.strategies.Values.OfType<ArrayLcsStrategy>().FirstOrDefault() ?? defaultStrategy;
+        defaultArrayStrategy = this.strategies.Values.OfType<SortedSetStrategy>().FirstOrDefault() ?? defaultStrategy;
     }
 
     /// <inheritdoc/>

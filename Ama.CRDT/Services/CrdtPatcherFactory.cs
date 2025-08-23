@@ -24,7 +24,7 @@ internal sealed class CrdtPatcherFactory(IServiceProvider serviceProvider) : ICr
 
         var lwwStrategy = new LwwStrategy(options);
         var counterStrategy = new CounterStrategy(timestampProvider, options);
-        var arrayLcsStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, options);
+        var arrayLcsStrategy = new SortedSetStrategy(comparerProvider, timestampProvider, options);
 
         var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayLcsStrategy };
 

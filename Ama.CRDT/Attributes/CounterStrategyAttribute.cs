@@ -10,4 +10,4 @@ using System;
 /// where concurrent additions and subtractions must be correctly aggregated.
 /// </summary>
 [AttributeUsage(AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
-public sealed class CrdtCounterAttribute() : CrdtStrategyAttribute(typeof(CounterStrategy));
+public sealed class CounterStrategyAttribute() : CrdtStrategyAttribute(typeof(CounterStrategy));
