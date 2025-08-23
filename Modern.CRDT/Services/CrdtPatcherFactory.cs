@@ -5,11 +5,11 @@ using Modern.CRDT.Models;
 using Modern.CRDT.Services.Strategies;
 using System;
 
-internal sealed class JsonCrdtPatcherFactory(IServiceProvider serviceProvider) : IJsonCrdtPatcherFactory
+internal sealed class CrdtPatcherFactory(IServiceProvider serviceProvider) : ICrdtPatcherFactory
 {
     private readonly IServiceProvider serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
 
-    public IJsonCrdtPatcher Create(string replicaId)
+    public ICrdtPatcher Create(string replicaId)
     {
         if (string.IsNullOrWhiteSpace(replicaId))
         {
@@ -19,7 +19,7 @@ internal sealed class JsonCrdtPatcherFactory(IServiceProvider serviceProvider) :
         var options = Options.Create(new CrdtOptions { ReplicaId = replicaId });
 
         var timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
-        var comparerProvider = serviceProvider.GetRequiredService<IJsonNodeComparerProvider>();
+        var comparerProvider = serviceProvider.GetRequiredService<IElementComparerProvider>();
 
         var lwwStrategy = new LwwStrategy(options);
         var counterStrategy = new CounterStrategy(timestampProvider, options);
@@ -29,6 +29,6 @@ internal sealed class JsonCrdtPatcherFactory(IServiceProvider serviceProvider) :
 
         var strategyManager = new CrdtStrategyManager(strategies);
 
-        return new JsonCrdtPatcher(strategyManager);
+        return new CrdtPatcher(strategyManager);
     }
 }

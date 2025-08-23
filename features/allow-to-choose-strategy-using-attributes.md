@@ -54,4 +54,5 @@ No other alternatives have been considered.
 - [ ] `$/features/allow-to-choose-strategy-using-attributes-specs/05-04-use-long-counter-instead-of-timestamp-for-crdts.md`: `05-04 Use long counter instead of timestamp for crdts`
 - [X] `$/features/allow-to-choose-strategy-using-attributes-specs/06-create-benchmark-project.md`: `Create a benchmark project to monitor performance.`
 - [X] `$/features/allow-to-choose-strategy-using-attributes-specs/06-01-optimize-the-application-benchmarks.md`: `06-01 Optimize the application benchmarks`
+- [X] `$/features/allow-to-choose-strategy-using-attributes-specs/06-02-rewrite-node-management-to-reflection.md`: `06-02 Rewrite node management to reflection`
 - [ ] `$/features/allow-to-choose-strategy-using-attributes-specs/07-update-readme-documentation.md`: `Update the README file with documentation for the new features.`

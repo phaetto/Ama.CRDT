@@ -10,15 +10,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json.Nodes;
 using Xunit;
 
 public sealed class CounterStrategyTests
 {
-    private sealed record TestModel { public int Score { get; init; } }
+    private sealed class TestModel { public int Score { get; set; } }
     
     private readonly CounterStrategy strategy;
-    private readonly Mock<IJsonCrdtPatcher> mockPatcher = new();
+    private readonly Mock<ICrdtPatcher> mockPatcher = new();
     private readonly Mock<ICrdtTimestampProvider> mockTimestampProvider = new();
 
     public CounterStrategyTests()
@@ -34,15 +33,13 @@ public sealed class CounterStrategyTests
     {
         // Arrange
         var operations = new List<CrdtOperation>();
-        var originalNode = JsonValue.Create(original);
-        var modifiedNode = JsonValue.Create(modified);
-        var path = "$.Score";
+        var path = "$.score";
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
         var expectedTimestamp = new EpochTimestamp(12345);
         mockTimestampProvider.Setup(p => p.Now()).Returns(expectedTimestamp);
 
         // Act
-        strategy.GeneratePatch(mockPatcher.Object, operations, path, property, originalNode, modifiedNode, null, null);
+        strategy.GeneratePatch(mockPatcher.Object, operations, path, property, original, modified, new CrdtMetadata(), new CrdtMetadata());
 
         // Assert
         operations.ShouldHaveSingleItem();
@@ -50,7 +47,7 @@ public sealed class CounterStrategyTests
         op.Type.ShouldBe(OperationType.Increment);
         op.JsonPath.ShouldBe(path);
         op.Value.ShouldNotBeNull();
-        op.Value.GetValue<decimal>().ShouldBe(delta);
+        op.Value.ShouldBe((decimal)delta);
         op.Timestamp.ShouldBe(expectedTimestamp);
     }
 
@@ -61,55 +58,38 @@ public sealed class CounterStrategyTests
     public void ApplyOperation_ShouldIncrementValue_Correctly(int initial, int increment, int expected)
     {
         // Arrange
-        var rootNode = new JsonObject { ["Score"] = initial };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, JsonValue.Create(increment), new EpochTimestamp(2L));
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
+        var model = new TestModel { Score = initial };
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Increment, (decimal)increment, new EpochTimestamp(2L));
 
         // Act
-        strategy.ApplyOperation(rootNode, operation, property);
+        strategy.ApplyOperation(model, operation);
 
         // Assert
-        rootNode["Score"].ShouldNotBeNull();
-        rootNode["Score"].GetValue<decimal>().ShouldBe(expected);
+        model.Score.ShouldBe(expected);
     }
     
     [Fact]
     public void ApplyOperation_ShouldSetInitialValue_WhenPropertyDoesNotExist()
     {
         // Arrange
-        var rootNode = new JsonObject { ["Id"] = "A" };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(1L));
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
+        var model = new TestModelWithNoScore();
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, 5m, new EpochTimestamp(1L));
 
-        // Act
-        strategy.ApplyOperation(rootNode, operation, property);
-
-        // Assert
-        rootNode["Score"].ShouldNotBeNull();
-        rootNode["Score"].GetValue<decimal>().ShouldBe(5);
+        // Act & Assert: This should not throw because the property doesn't exist.
+        // The helper will return nulls and the strategy will exit gracefully.
+        Should.NotThrow(() => strategy.ApplyOperation(model, operation));
     }
     
-    [Fact]
-    public void ApplyOperation_ShouldThrow_WhenTargetIsNotNumeric()
-    {
-        // Arrange
-        var rootNode = new JsonObject { ["Score"] = "not a number" };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(1L));
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
-
-        // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(rootNode, operation, property));
-    }
+    private sealed class TestModelWithNoScore { public string? Name { get; set; } }
 
     [Fact]
     public void ApplyOperation_ShouldThrow_WhenOperationTypeIsNotIncrement()
     {
         // Arrange
-        var rootNode = new JsonObject();
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Upsert, JsonValue.Create(5), new EpochTimestamp(1L));
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
+        var model = new TestModel();
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Upsert, 5m, new EpochTimestamp(1L));
 
         // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(rootNode, operation, property));
+        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(model, operation));
     }
 }

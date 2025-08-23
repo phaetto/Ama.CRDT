@@ -2,13 +2,13 @@ namespace Modern.CRDT.Services.Strategies;
 
 using System;
 using System.Collections.Generic;
-using System.Text.Json.Nodes;
 
 /// <summary>
-/// Defines a contract for a type-specific equality comparer for JsonNode instances,
+/// Defines a contract for a type-specific equality comparer for collection elements,
 /// intended for use within the ArrayLcsStrategy.
+/// This is used to uniquely identify elements within an array (e.g., by an 'Id' property).
 /// </summary>
-public interface IJsonNodeComparer : IEqualityComparer<JsonNode>
+public interface IElementComparer : IEqualityComparer<object>
 {
     /// <summary>
     /// Determines whether this comparer can be used for the specified element type.

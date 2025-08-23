@@ -11,7 +11,7 @@ namespace Modern.CRDT.Benchmarks.Benchmarks;
 [MemoryDiagnoser]
 public class ApplicatorBenchmarks
 {
-    private IJsonCrdtApplicator applicator = null!;
+    private ICrdtApplicator applicator = null!;
     private SimplePoco simplePocoBase = null!;
     private CrdtPatch simplePocoPatch;
     private CrdtMetadata simpleMetadata = null!;
@@ -27,8 +27,8 @@ public class ApplicatorBenchmarks
         services.AddJsonCrdt(options => options.ReplicaId = "benchmark-replica");
         var serviceProvider = services.BuildServiceProvider();
 
-        applicator = serviceProvider.GetRequiredService<IJsonCrdtApplicator>();
-        var patcher = serviceProvider.GetRequiredService<IJsonCrdtPatcher>();
+        applicator = serviceProvider.GetRequiredService<ICrdtApplicator>();
+        var patcher = serviceProvider.GetRequiredService<ICrdtPatcher>();
         var metadataManager = serviceProvider.GetRequiredService<ICrdtMetadataManager>();
         
         // Simple POCO setup
@@ -76,17 +76,34 @@ public class ApplicatorBenchmarks
         complexPocoPatch = patcher.GeneratePatch(complexPocoFromDoc, complexPocoToDoc);
         complexMetadata = new CrdtMetadata();
     }
+    
+    private SimplePoco CreateSimplePocoClone() => new() { Id = simplePocoBase.Id, Name = simplePocoBase.Name, Score = simplePocoBase.Score };
+    private ComplexPoco CreateComplexPocoClone() => new()
+    {
+        Id = complexPocoBase.Id,
+        Description = complexPocoBase.Description,
+        ViewCount = complexPocoBase.ViewCount,
+        Details = new Details
+        {
+            Author = complexPocoBase.Details.Author,
+            CreatedAt = complexPocoBase.Details.CreatedAt,
+            IsActive = complexPocoBase.Details.IsActive,
+        },
+        Tags = new List<Tag>(complexPocoBase.Tags.Select(t => new Tag { Id = t.Id, Value = t.Value })),
+    };
+
 
     [Benchmark]
     public SimplePoco ApplyPatchSimple()
     {
-        return applicator.ApplyPatch(simplePocoBase, simplePocoPatch, simpleMetadata);
+        // Applicator now modifies in place, so we need to clone for a fair benchmark.
+        return applicator.ApplyPatch(CreateSimplePocoClone(), simplePocoPatch, simpleMetadata);
     }
 
     [Benchmark]
     public ComplexPoco ApplyPatchComplex()
     {
-        return applicator.ApplyPatch(complexPocoBase, complexPocoPatch, complexMetadata);
+        return applicator.ApplyPatch(CreateComplexPocoClone(), complexPocoPatch, complexMetadata);
     }
     
     private CrdtMetadata CloneMetadata(CrdtMetadata original)

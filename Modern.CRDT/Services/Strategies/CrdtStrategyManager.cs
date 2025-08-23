@@ -1,6 +1,8 @@
 namespace Modern.CRDT.Services.Strategies;
 
 using Modern.CRDT.Attributes;
+using Modern.CRDT.Models;
+using Modern.CRDT.Services.Helpers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -47,5 +49,23 @@ public sealed class CrdtStrategyManager : ICrdtStrategyManager
         }
 
         return defaultStrategy;
+    }
+    
+    public ICrdtStrategy GetStrategy(CrdtOperation operation, object root)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(root);
+
+        var (_, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        
+        if (property is null)
+        {
+            // If the path leads to a property that doesn't exist (e.g., adding a new property),
+            // we can't reflect on its attributes. We must infer the strategy.
+            // For now, we assume LWW is a safe default for non-array paths.
+            return operation.JsonPath.Contains('[') ? defaultArrayStrategy : defaultStrategy;
+        }
+
+        return GetStrategy(property);
     }
 }

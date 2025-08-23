@@ -2,18 +2,17 @@ namespace Modern.CRDT.Services.Strategies;
 
 using System;
 using System.Collections.Generic;
-using System.Text.Json.Nodes;
 
 /// <summary>
 /// Defines a contract for a service that provides the appropriate
-/// <see cref="IEqualityComparer{JsonNode}"/> for a given element type.
+/// <see cref="IEqualityComparer{Object}"/> for a given element type.
 /// </summary>
-public interface IJsonNodeComparerProvider
+public interface IElementComparerProvider
 {
     /// <summary>
     /// Gets the equality comparer for the specified element type.
     /// </summary>
     /// <param name="elementType">The type of the elements in the array to compare.</param>
-    /// <returns>An appropriate <see cref="IEqualityComparer{JsonNode}"/>.</returns>
-    IEqualityComparer<JsonNode> GetComparer(Type elementType);
+    /// <returns>An appropriate <see cref="IEqualityComparer{Object}"/>.</returns>
+    IEqualityComparer<object> GetComparer(Type elementType);
 }

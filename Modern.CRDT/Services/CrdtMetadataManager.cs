@@ -84,7 +84,7 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
         var type = obj.GetType();
         foreach (var propertyInfo in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            if (!propertyInfo.CanRead || propertyInfo.GetIndexParameters().Length > 0)
+            if (!propertyInfo.CanRead || propertyInfo.GetIndexParameters().Length > 0 || propertyInfo.GetCustomAttribute<JsonIgnoreAttribute>() is not null)
             {
                 continue;
             }
@@ -95,9 +95,8 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
                 continue;
             }
     
-            var jsonPropertyNameAttr = propertyInfo.GetCustomAttribute<JsonPropertyNameAttribute>();
-            var jsonPropertyName = jsonPropertyNameAttr?.Name ?? DefaultJsonSerializerOptions.PropertyNamingPolicy?.ConvertName(propertyInfo.Name) ?? propertyInfo.Name;
-            var propertyPath = $"{path}.{jsonPropertyName}";
+            var jsonPropertyName = DefaultJsonSerializerOptions.PropertyNamingPolicy?.ConvertName(propertyInfo.Name) ?? propertyInfo.Name;
+            var propertyPath = path == "$" ? $"$.{jsonPropertyName}" : $"{path}.{jsonPropertyName}";
     
             var strategy = strategyManager.GetStrategy(propertyInfo);
     
@@ -106,26 +105,18 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
                 metadata.Lww[propertyPath] = timestamp;
             }
     
-            // Recurse into complex types, but avoid collections (string is also a collection of chars).
-            if (propertyValue is IEnumerable)
+            if (propertyValue is IEnumerable and not string)
             {
+                // We don't recurse into collections for LWW metadata initialization.
+                // Array strategies manage their own metadata if needed.
                 continue;
             }
     
             var propertyType = propertyInfo.PropertyType;
-            if (propertyType.IsClass || (propertyType.IsValueType && !propertyType.IsPrimitive && !propertyType.IsEnum && !IsWellKnownStruct(propertyType)))
+            if (propertyType.IsClass && propertyType != typeof(string))
             {
                 PopulateLwwMetadataRecursive(metadata, propertyValue, propertyPath, timestamp);
             }
         }
-    }
-
-    private static bool IsWellKnownStruct(Type type)
-    {
-        return type == typeof(decimal)
-            || type == typeof(DateTime)
-            || type == typeof(DateTimeOffset)
-            || type == typeof(TimeSpan)
-            || type == typeof(Guid);
     }
 }

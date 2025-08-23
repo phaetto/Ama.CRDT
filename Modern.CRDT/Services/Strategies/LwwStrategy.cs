@@ -5,13 +5,13 @@ using Modern.CRDT.Models;
 using Modern.CRDT.Services.Helpers;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Reflection;
-using System.Text.Json.Nodes;
 
 /// <summary>
 /// Implements the Last-Writer-Wins (LWW) strategy. It generates an operation
 /// only if the 'modified' value has a more recent timestamp than the 'original' value.
-/// This strategy does not recurse into child nodes; it treats the given nodes as atomic values.
 /// </summary>
 public sealed class LwwStrategy : ICrdtStrategy
 {
@@ -28,22 +28,29 @@ public sealed class LwwStrategy : ICrdtStrategy
     }
 
     /// <inheritdoc/>
-    public void GeneratePatch(IJsonCrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, JsonNode? originalValue, JsonNode? modifiedValue, JsonNode? originalMetadata, JsonNode? modifiedMetadata)
+    public void GeneratePatch(ICrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, object? originalValue, object? modifiedValue, CrdtMetadata originalMeta, CrdtMetadata modifiedMeta)
     {
-        if (JsonNode.DeepEquals(originalValue, modifiedValue))
+        var propertyType = property.PropertyType;
+        if (propertyType.IsClass && propertyType != typeof(string) && !CrdtPatcher.IsCollection(propertyType))
+        {
+            patcher.DifferentiateObject(path, property.PropertyType, originalValue, originalMeta, modifiedValue, modifiedMeta, operations);
+            return;
+        }
+
+        if (Equals(originalValue, modifiedValue))
+        {
+            return;
+        }
+        
+        modifiedMeta.Lww.TryGetValue(path, out var modifiedTimestamp);
+        originalMeta.Lww.TryGetValue(path, out var originalTimestamp);
+        
+        if (modifiedTimestamp is null || (originalTimestamp is not null && modifiedTimestamp.CompareTo(originalTimestamp) <= 0))
         {
             return;
         }
 
-        var modifiedTimestamp = GetTimestamp(modifiedMetadata);
-        var originalTimestamp = GetTimestamp(originalMetadata);
-
-        if (modifiedTimestamp.CompareTo(originalTimestamp) <= 0)
-        {
-            return;
-        }
-
-        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue?.DeepClone(), modifiedTimestamp);
+        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, modifiedTimestamp);
         
         if (modifiedValue is null)
         {
@@ -54,31 +61,92 @@ public sealed class LwwStrategy : ICrdtStrategy
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(JsonNode rootNode, CrdtOperation operation, PropertyInfo property)
+    public void ApplyOperation(object root, CrdtOperation operation)
     {
-        ArgumentNullException.ThrowIfNull(rootNode);
+        ArgumentNullException.ThrowIfNull(root);
 
-        var (dataParent, lastSegment) = JsonNodePathHelper.FindOrCreateParentNode(rootNode, operation.JsonPath);
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
 
-        if (dataParent is null || string.IsNullOrEmpty(lastSegment)) return;
+        if (parent is null)
+        {
+            return;
+        }
+
+        if (property is null)
+        {
+            var propertyName = finalSegment as string;
+            if (propertyName is not null)
+            {
+                property = parent.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
+            }
+        }
+
+        if (property is null || !property.CanWrite)
+        {
+            return;
+        }
         
         if (operation.Type == OperationType.Remove)
         {
-            JsonNodePathHelper.RemoveChildNode(dataParent, lastSegment);
+            property.SetValue(parent, null);
+            return;
         }
-        else if (operation.Type == OperationType.Upsert)
+
+        if (operation.Type == OperationType.Upsert)
         {
-            JsonNodePathHelper.SetChildNode(dataParent, lastSegment, operation.Value?.DeepClone());
+            var value = DeserializeValue(operation.Value, property.PropertyType);
+            property.SetValue(parent, value);
         }
     }
 
-    private static ICrdtTimestamp GetTimestamp(JsonNode? metaNode)
+    private static object? DeserializeValue(object? value, Type targetType)
     {
-        if (metaNode is JsonValue value && value.TryGetValue<long>(out var timestamp))
+        if (value is null)
         {
-            return new EpochTimestamp(timestamp);
+            return null;
         }
 
-        return EpochTimestamp.MinValue;
+        if (targetType.IsInstanceOfType(value))
+        {
+            return value;
+        }
+
+        var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+        if (value is IConvertible)
+        {
+            try
+            {
+                return Convert.ChangeType(value, underlyingType, CultureInfo.InvariantCulture);
+            }
+            catch (Exception ex) when (ex is InvalidCastException || ex is FormatException || ex is OverflowException)
+            {
+                // Fall through to dictionary mapping logic.
+            }
+        }
+
+        if (value is IDictionary<string, object> dictionary && !underlyingType.IsPrimitive && underlyingType != typeof(string))
+        {
+            var instance = Activator.CreateInstance(underlyingType);
+            if (instance is null)
+            {
+                return null;
+            }
+
+            var properties = underlyingType.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite);
+
+            foreach (var property in properties)
+            {
+                var key = dictionary.Keys.FirstOrDefault(k => string.Equals(k, property.Name, StringComparison.OrdinalIgnoreCase));
+                if (key != null)
+                {
+                    var propValue = dictionary[key];
+                    property.SetValue(instance, DeserializeValue(propValue, property.PropertyType));
+                }
+            }
+            return instance;
+        }
+
+        throw new InvalidOperationException($"Failed to convert value of type '{value.GetType().Name}' to '{targetType.Name}'.");
     }
 }
