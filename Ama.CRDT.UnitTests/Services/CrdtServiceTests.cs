@@ -2,7 +2,6 @@ namespace Ama.CRDT.UnitTests.Services;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Models;
 using Moq;
 using Shouldly;
 using System.Collections.Generic;
