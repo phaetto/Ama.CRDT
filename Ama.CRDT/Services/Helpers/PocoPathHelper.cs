@@ -58,50 +58,55 @@ internal static partial class PocoPathHelper
             return (null, null, null);
         }
 
-        object? parent = root;
+        object? parentOfCurrent = null;
+        object? currentObject = root;
+        PropertyInfo? lastProperty = null;
 
-        // Traverse until the second-to-last segment to find the direct parent of the target
+        // Traverse until the second-to-last segment
         for (var i = 0; i < segments.Length - 1; i++)
         {
-            if (parent is null) return (null, null, null);
+            if (currentObject is null) return (null, null, null);
             var segment = segments[i];
+
+            parentOfCurrent = currentObject;
 
             if (int.TryParse(segment, out var index))
             {
-                if (parent is IList list && list.Count > index)
+                if (currentObject is IList list && list.Count > index)
                 {
-                    parent = list[index];
+                    currentObject = list[index];
+                    lastProperty = null; // We are inside an item, property context is reset
                 }
-                else { return (null, null, null); }
+                else { return (null, null, null); } // Index out of bounds
             }
             else
             {
-                var properties = GetPropertiesForType(parent.GetType());
+                var properties = GetPropertiesForType(currentObject.GetType());
                 if (properties.TryGetValue(segment, out var propertyInfo))
                 {
-                    parent = propertyInfo.GetValue(parent);
+                    lastProperty = propertyInfo;
+                    currentObject = propertyInfo.GetValue(currentObject);
                 }
-                else { return (null, null, null); }
+                else { return (null, null, null); } // Property not found
             }
         }
         
-        if (parent is null) return (null, null, null);
+        if (currentObject is null) return (null, null, null);
 
-        // Now, resolve the last segment against the direct parent
+        // Now, resolve the last segment against the parent
         var lastSegment = segments.Last();
         if (int.TryParse(lastSegment, out var lastIndex))
         {
-            // The parent should be a list, and we are targeting an index.
-            // There is no property, just the index on the parent (list).
-            return (parent, null, lastIndex);
+            // The target is an index in a collection.
+            // currentObject is the collection. We need its parent.
+            return (parentOfCurrent ?? root, lastProperty, lastIndex);
         }
         
-        // The parent is an object, and we are targeting a property by name.
-        var parentType = parent.GetType();
-        var parentProperties = GetPropertiesForType(parentType);
+        // The target is a property on an object.
+        var parentProperties = GetPropertiesForType(currentObject.GetType());
         if (parentProperties.TryGetValue(lastSegment, out var finalProperty))
         {
-            return (parent, finalProperty, lastSegment);
+            return (currentObject, finalProperty, lastSegment);
         }
         
         return (null, null, null); // Could not resolve the final segment.

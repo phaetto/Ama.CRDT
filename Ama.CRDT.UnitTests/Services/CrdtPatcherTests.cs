@@ -14,7 +14,7 @@ public sealed class CrdtPatcherTests
     {
         public string? Name { get; init; }
 
-        [CounterStrategy]
+        [CrdtCounterStrategy]
         public int Likes { get; init; }
 
         public NestedModel? Nested { get; init; }
@@ -26,7 +26,7 @@ public sealed class CrdtPatcherTests
 
     private sealed record NestedModel
     {
-        [LwwStrategy]
+        [CrdtLwwStrategy]
         public string? Value { get; init; }
     }
 

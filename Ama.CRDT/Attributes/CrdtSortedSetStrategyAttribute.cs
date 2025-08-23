@@ -9,12 +9,12 @@ using System;
 /// and ensures the collection remains sorted based on a natural or specified order.
 /// </summary>
 [AttributeUsage(AttributeTargets.Property)]
-public sealed class SortedSetStrategyAttribute : CrdtStrategyAttribute
+public sealed class CrdtSortedSetStrategyAttribute : CrdtStrategyAttribute
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="SortedSetStrategyAttribute"/> class.
+    /// Initializes a new instance of the <see cref="CrdtSortedSetStrategyAttribute"/> class.
     /// </summary>
-    public SortedSetStrategyAttribute() : base(typeof(SortedSetStrategy))
+    public CrdtSortedSetStrategyAttribute() : base(typeof(SortedSetStrategy))
     {
     }
 }

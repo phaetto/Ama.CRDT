@@ -129,7 +129,7 @@ public sealed class SortedSetStrategyTests
         mockComparerProvider.Setup(p => p.GetComparer(typeof(string))).Returns(EqualityComparer<object>.Default);
 
         // Act
-        strategy.ApplyOperation(model, operation);
+        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
 
         // Assert
         var list = model.Items;
@@ -148,7 +148,7 @@ public sealed class SortedSetStrategyTests
         mockComparerProvider.Setup(p => p.GetComparer(typeof(string))).Returns(EqualityComparer<object>.Default);
 
         // Act
-        strategy.ApplyOperation(model, operation);
+        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
 
         // Assert
         var list = model.Items;
@@ -182,7 +182,7 @@ public sealed class SortedSetStrategyTests
 
     private sealed record ConvergenceTestModel
     {
-        [SortedSetStrategy]
+        [CrdtSortedSetStrategy]
         public List<User> Users { get; init; } = new();
     }
     

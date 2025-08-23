@@ -3,7 +3,6 @@ namespace Ama.CRDT.Services.Strategies;
 using System.Collections.Generic;
 using System.Reflection;
 using Ama.CRDT.Models;
-using Ama.CRDT.Services;
 
 /// <summary>
 /// Defines the contract for a strategy that handles a specific type of CRDT data.
@@ -26,9 +25,11 @@ public interface ICrdtStrategy
     
     /// <summary>
     /// Applies a single CRDT operation to a POCO document.
-    /// This method performs the direct data manipulation without any conflict resolution checks.
+    /// This method performs the direct data manipulation and can modify document metadata.
+    /// Conflict resolution checks (like LWW timestamp comparison or seen operation checks) are expected to be performed by the applicator before this method is called.
     /// </summary>
     /// <param name="root">The root POCO of the document to be modified.</param>
+    /// <param name="metadata">The metadata associated with the document, which the strategy can read from or write to.</param>
     /// <param name="operation">The CRDT operation to apply.</param>
-    void ApplyOperation(object root, CrdtOperation operation);
+    void ApplyOperation(object root, CrdtMetadata metadata, CrdtOperation operation);
 }

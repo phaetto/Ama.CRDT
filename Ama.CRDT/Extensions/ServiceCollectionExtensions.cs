@@ -55,11 +55,13 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<LwwStrategy>();
         services.TryAddSingleton<CounterStrategy>();
         services.TryAddSingleton<SortedSetStrategy>();
+        services.TryAddSingleton<ArrayLcsStrategy>();
 
         // This allows the CrdtStrategyManager to get all registered strategies
         services.AddSingleton<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
         services.AddSingleton<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
         services.AddSingleton<ICrdtStrategy, SortedSetStrategy>(sp => sp.GetRequiredService<SortedSetStrategy>());
+        services.AddSingleton<ICrdtStrategy, ArrayLcsStrategy>(sp => sp.GetRequiredService<ArrayLcsStrategy>());
 
         return services;
     }
