@@ -42,7 +42,6 @@ public interface ICrdtMetadataManager
     /// covered by the new version vector timestamp.
     /// </summary>
     /// <param name="metadata">The metadata object to update.</param>
-    /// <param name="replicaId">The ID of the replica whose vector is being advanced.</param>
-    /// <param name="newTimestamp">The new, higher timestamp to set for the replica's version vector entry.</param>
-    void AdvanceVersionVector(CrdtMetadata metadata, string replicaId, ICrdtTimestamp newTimestamp);
+    /// <param name="operation">The operation that will advance the timestamp from the give replica.</param>
+    void AdvanceVersionVector(CrdtMetadata metadata, CrdtOperation operation);
 }

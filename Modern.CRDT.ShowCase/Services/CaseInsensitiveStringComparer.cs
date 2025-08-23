@@ -1,24 +1,24 @@
 namespace Modern.CRDT.ShowCase.Services;
+
 using System;
 using Modern.CRDT.Services.Strategies;
-using Modern.CRDT.ShowCase.Models;
 
 /// <summary>
 /// A custom implementation of <see cref="IElementComparer"/> that allows the <see cref="ArrayLcsStrategy"/>
-/// to identify unique <see cref="User"/> objects based on their <c>Id</c> property, rather than by object reference.
+/// to identify unique strings using a case-insensitive comparison.
 /// </summary>
-public sealed class UserByIdComparer : IElementComparer
+public sealed class CaseInsensitiveStringComparer : IElementComparer
 {
-    public bool CanCompare(Type type) => type == typeof(User);
+    public bool CanCompare(Type type) => type == typeof(string);
 
     public new bool Equals(object? x, object? y)
     {
         if (ReferenceEquals(x, y)) return true;
         if (x is null || y is null) return false;
 
-        if (x is User userX && y is User userY)
+        if (x is string strX && y is string strY)
         {
-            return userX.Id == userY.Id;
+            return string.Equals(strX, strY, StringComparison.OrdinalIgnoreCase);
         }
 
         return object.Equals(x, y);
@@ -28,9 +28,9 @@ public sealed class UserByIdComparer : IElementComparer
     {
         ArgumentNullException.ThrowIfNull(obj);
 
-        if (obj is User user)
+        if (obj is string str)
         {
-            return user.Id.GetHashCode();
+            return str.GetHashCode(StringComparison.OrdinalIgnoreCase);
         }
 
         return obj.GetHashCode();

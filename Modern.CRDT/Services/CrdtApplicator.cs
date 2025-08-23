@@ -26,21 +26,9 @@ public sealed class CrdtApplicator(ICrdtStrategyManager strategyManager) : ICrdt
 
     private bool ApplyOperationWithStateCheck(object document, CrdtOperation operation, CrdtMetadata metadata)
     {
-        // 1. Idempotency Check: Is the operation already seen?
-        metadata.VersionVector.TryGetValue(operation.ReplicaId, out var vectorTs);
-        if (vectorTs is not null && operation.Timestamp.CompareTo(vectorTs) <= 0)
-        {
-            return false; // Already covered by the version vector.
-        }
-
-        if (metadata.SeenExceptions.Contains(operation))
-        {
-            return false; // Seen as a previous out-of-order operation.
-        }
-        
         var strategy = strategyManager.GetStrategy(operation, document);
 
-        // 2. Application Logic: Should the operation be applied based on its strategy?
+        // Application Logic: The operation should be applied based on its strategy
         var applied = false;
         if (strategy is LwwStrategy)
         {
@@ -54,13 +42,13 @@ public sealed class CrdtApplicator(ICrdtStrategyManager strategyManager) : ICrdt
         }
         else // For Counter, ArrayLcs, etc., apply if it's a new operation.
         {
+            if (metadata.SeenExceptions.Contains(operation))
+            {
+                return false; // Seen as a previous out-of-order operation.
+            }
+
             strategy.ApplyOperation(document, operation);
             applied = true;
-        }
-
-        // 3. State Update: If applied, record it as a seen exception until the vector is advanced.
-        if (applied)
-        {
             metadata.SeenExceptions.Add(operation);
         }
 

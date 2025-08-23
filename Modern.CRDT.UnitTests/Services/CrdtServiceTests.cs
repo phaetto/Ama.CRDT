@@ -7,7 +7,7 @@ using Shouldly;
 using System.Collections.Generic;
 using Xunit;
 
-public sealed class JsonCrdtServiceTests
+public sealed class CrdtServiceTests
 {
     private sealed record TestModel(string Name);
 
@@ -15,7 +15,7 @@ public sealed class JsonCrdtServiceTests
     private readonly Mock<ICrdtApplicator> applicatorMock = new();
     private readonly CrdtService service;
     
-    public JsonCrdtServiceTests()
+    public CrdtServiceTests()
     {
         service = new CrdtService(patcherMock.Object, applicatorMock.Object);
     }

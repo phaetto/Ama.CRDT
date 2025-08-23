@@ -7,7 +7,7 @@ public sealed class UserStats
     public long ProcessedItemsCount { get; set; }
 
     [CrdtArrayLcsStrategy]
-    public List<User> UniqueUsers { get; set; } = [];
+    public List<string> UniqueUserNames { get; set; } = [];
 
     [LwwStrategy]
     public string LastProcessedUserName { get; set; } = string.Empty;

@@ -17,8 +17,8 @@ public static class Program
                     options.ReplicaId = "default-replica"; 
                 });
 
-                // Register the custom comparer for the User type in arrays.
-                services.AddJsonCrdtComparer<UserByIdComparer>();
+                // Register the custom comparer for the string type in arrays.
+                services.AddJsonCrdtComparer<CaseInsensitiveStringComparer>();
                 
                 // Register services for the simulation.
                 services.AddSingleton<IInMemoryDatabaseService, InMemoryDatabaseService>();
@@ -30,8 +30,5 @@ public static class Program
         
         var runner = host.Services.GetRequiredService<SimulationRunner>();
         await runner.RunAsync();
-        
-        Console.WriteLine("\nSimulation finished. Press any key to exit.");
-        Console.ReadKey();
     }
 }

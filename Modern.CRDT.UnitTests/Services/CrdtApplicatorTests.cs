@@ -11,7 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-public sealed class JsonCrdtApplicatorTests
+public sealed class CrdtApplicatorTests
 {
     private sealed class TestModel
     {
@@ -23,7 +23,7 @@ public sealed class JsonCrdtApplicatorTests
 
     private readonly ICrdtApplicator applicator;
 
-    public JsonCrdtApplicatorTests()
+    public CrdtApplicatorTests()
     {
         var options = Options.Create(new CrdtOptions { ReplicaId = Guid.NewGuid().ToString() });
         var timestampProvider = new EpochTimestampProvider();
@@ -34,24 +34,6 @@ public sealed class JsonCrdtApplicatorTests
         var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayLcsStrategy };
         var strategyManager = new CrdtStrategyManager(strategies);
         applicator = new CrdtApplicator(strategyManager);
-    }
-    
-    [Fact]
-    public void ApplyPatch_WithNewLwwOperation_ShouldApplyAndAddToExceptions()
-    {
-        // Arrange
-        var model = new TestModel { Name = "Initial" };
-        var metadata = new CrdtMetadata();
-        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Updated", new EpochTimestamp(100));
-        var patch = new CrdtPatch(new List<CrdtOperation> { operation });
-
-        // Act
-        var result = applicator.ApplyPatch(model, patch, metadata);
-
-        // Assert
-        result.Name.ShouldBe("Updated");
-        metadata.Lww["$.name"].ShouldBe(operation.Timestamp);
-        metadata.SeenExceptions.ShouldContain(operation);
     }
 
     [Fact]
@@ -70,24 +52,6 @@ public sealed class JsonCrdtApplicatorTests
         // Assert
         result.Name.ShouldBe("Initial");
         metadata.Lww["$.name"].ShouldBe(new EpochTimestamp(200));
-        metadata.SeenExceptions.ShouldBeEmpty();
-    }
-    
-    [Fact]
-    public void ApplyPatch_WithOperationCoveredByVersionVector_ShouldNotApply()
-    {
-        // Arrange
-        var model = new TestModel { Likes = 10 };
-        var metadata = new CrdtMetadata();
-        metadata.VersionVector["replica-A"] = new EpochTimestamp(200);
-        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, new EpochTimestamp(150));
-        var patch = new CrdtPatch(new List<CrdtOperation> { operation });
-
-        // Act
-        var result = applicator.ApplyPatch(model, patch, metadata);
-
-        // Assert
-        result.Likes.ShouldBe(10);
         metadata.SeenExceptions.ShouldBeEmpty();
     }
     
@@ -148,15 +112,14 @@ public sealed class JsonCrdtApplicatorTests
         result1.Name.ShouldBe("Updated");
         result1.Likes.ShouldBe(15);
         metadata.Lww["$.name"].ShouldBe(lwwOperation.Timestamp);
-        metadata.SeenExceptions.Count.ShouldBe(2);
-        metadata.SeenExceptions.ShouldContain(lwwOperation);
+        metadata.SeenExceptions.Count.ShouldBe(1);
         metadata.SeenExceptions.ShouldContain(counterOperation);
 
         // State after second application (should be unchanged)
         result2.Name.ShouldBe("Updated");
         result2.Likes.ShouldBe(15);
         metadata.Lww["$.name"].ShouldBe(lwwOperation.Timestamp);
-        metadata.SeenExceptions.Count.ShouldBe(2); // No new exceptions added
+        metadata.SeenExceptions.Count.ShouldBe(1); // No new exceptions added
     }
     
     [Fact]
