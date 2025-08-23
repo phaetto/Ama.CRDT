@@ -2,6 +2,12 @@
 | --- | --- |
 | `$/.gitignore` | No description provided. |
 | `$/CodingStandards.md` | No description provided. |
+| `$/Modern.CRDT.Benchmarks/Benchmarks/ApplicatorBenchmarks.cs` | Contains benchmarks for the `JsonCrdtApplicator` service. |
+| `$/Modern.CRDT.Benchmarks/Benchmarks/PatcherBenchmarks.cs` | Contains benchmarks for the `JsonCrdtPatcher` service. |
+| `$/Modern.CRDT.Benchmarks/Models/ComplexPoco.cs` | A complex data model with nested objects and arrays for benchmarking recursive and collection-based scenarios. |
+| `$/Modern.CRDT.Benchmarks/Models/SimplePoco.cs` | A simple data model for benchmarking basic scenarios. |
+| `$/Modern.CRDT.Benchmarks/Modern.CRDT.Benchmarks.csproj` | The project file for the benchmarks application. |
+| `$/Modern.CRDT.Benchmarks/Program.cs` | The entry point for the benchmark runner. |
 | `$/Modern.CRDT.ShowCase/Models/User.cs` | A simple data model representing a user, used as an element in the CRDT-managed array. |
 | `$/Modern.CRDT.ShowCase/Models/UserStats.cs` | The main POCO representing the shared state, decorated with CRDT strategy attributes (`CrdtCounter`, `CrdtArrayLcsStrategy`, `LwwStrategy`). |
 | `$/Modern.CRDT.ShowCase/Modern.CRDT.ShowCase.csproj` | The project file for the showcase console application. |

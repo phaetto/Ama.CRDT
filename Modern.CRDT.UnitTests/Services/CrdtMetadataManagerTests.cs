@@ -2,13 +2,24 @@ namespace Modern.CRDT.UnitTests.Services;
 
 using Modern.CRDT.Models;
 using Modern.CRDT.Services;
+using Modern.CRDT.Services.Strategies;
+using Moq;
 using Shouldly;
 using System;
 using Xunit;
 
 public sealed class CrdtMetadataManagerTests
 {
-    private readonly CrdtMetadataManager manager = new();
+    private readonly CrdtMetadataManager manager;
+    private readonly Mock<ICrdtStrategyManager> strategyManagerMock;
+    private readonly Mock<ICrdtTimestampProvider> timestampProviderMock;
+
+    public CrdtMetadataManagerTests()
+    {
+        strategyManagerMock = new Mock<ICrdtStrategyManager>();
+        timestampProviderMock = new Mock<ICrdtTimestampProvider>();
+        manager = new CrdtMetadataManager(strategyManagerMock.Object, timestampProviderMock.Object);
+    }
 
     [Fact]
     public void PruneLwwTombstones_ShouldRemoveOlderEntries()

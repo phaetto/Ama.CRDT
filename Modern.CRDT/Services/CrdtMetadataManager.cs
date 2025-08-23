@@ -2,6 +2,7 @@ namespace Modern.CRDT.Services;
 
 using Modern.CRDT.Models;
 using Modern.CRDT.Services.Strategies;
+using System;
 using System.Collections;
 using System.Linq;
 using System.Reflection;
@@ -112,10 +113,19 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
             }
     
             var propertyType = propertyInfo.PropertyType;
-            if (propertyType.IsClass || (propertyType.IsValueType && !propertyType.IsPrimitive && !propertyType.IsEnum))
+            if (propertyType.IsClass || (propertyType.IsValueType && !propertyType.IsPrimitive && !propertyType.IsEnum && !IsWellKnownStruct(propertyType)))
             {
                 PopulateLwwMetadataRecursive(metadata, propertyValue, propertyPath, timestamp);
             }
         }
+    }
+
+    private static bool IsWellKnownStruct(Type type)
+    {
+        return type == typeof(decimal)
+            || type == typeof(DateTime)
+            || type == typeof(DateTimeOffset)
+            || type == typeof(TimeSpan)
+            || type == typeof(Guid);
     }
 }

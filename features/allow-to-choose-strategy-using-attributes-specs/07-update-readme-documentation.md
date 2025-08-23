@@ -24,6 +24,9 @@ To update the main `README.md` file to thoroughly document the new attribute-bas
 - `$/features/allow-to-choose-strategy-using-attributes-specs/03-counter-strategy-implementation.md`
 - `$/features/allow-to-choose-strategy-using-attributes-specs/04-refactor-patcher-to-use-strategies.md`
 - `$/features/allow-to-choose-strategy-using-attributes-specs/05-refactor-applicator-to-use-strategies.md`
+- `$/features/allow-to-choose-strategy-using-attributes-specs/05-01-arraylcsstrategy-needs-to-check-deep-objects.md`: `05-01 ArrayLcsStrategy needs to check deep objects`
+- `$/features/allow-to-choose-strategy-using-attributes-specs/05-02-manage-metadata-state-deifferently-in-strategies.md`: `05-02 Manage metadata state deifferently in strategies`
+- `$/features/allow-to-choose-strategy-using-attributes-specs/05-03-make-sure-there-are-reset-functions-for-the-state-to-keep-it-small.md`: `05-03 Make sure there are reset functions for the state to keep it small`
 - `$/features/allow-to-choose-strategy-using-attributes-specs/06-create-benchmark-project.md`
 
 <!---Human--->
