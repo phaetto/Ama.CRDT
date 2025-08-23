@@ -6,8 +6,8 @@ using System.Text.Json.Nodes;
 using Modern.CRDT.Models;
 
 /// <summary>
-/// Defines the contract for a strategy that handles CRDT patch generation and application for a property.
-/// Each strategy is responsible for a specific type of data (e.g., LWW for simple values, Counter for numbers).
+/// Defines the contract for a strategy that handles a specific type of CRDT data.
+/// Each strategy is responsible for generating property-specific patch operations and applying them.
 /// </summary>
 public interface ICrdtStrategy
 {
@@ -25,10 +25,11 @@ public interface ICrdtStrategy
     void GeneratePatch(IJsonCrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, JsonNode? originalValue, JsonNode? modifiedValue, JsonNode? originalMetadata, JsonNode? modifiedMetadata);
     
     /// <summary>
-    /// Applies a single CRDT operation to a JSON document, modifying it in place.
-    /// This method should only perform the data manipulation logic without any state or conflict checks.
+    /// Applies a single CRDT operation to a document's `JsonNode` representation.
+    /// This method performs the direct data manipulation without any conflict resolution checks.
     /// </summary>
-    /// <param name="rootNode">The root JsonNode of the document to modify.</param>
+    /// <param name="rootNode">The root `JsonNode` of the document to be modified.</param>
     /// <param name="operation">The CRDT operation to apply.</param>
-    void ApplyOperation(JsonNode rootNode, CrdtOperation operation);
+    /// <param name="property">The reflection metadata for the property being targeted, which provides context for the operation (e.g., for array element types).</param>
+    void ApplyOperation(JsonNode rootNode, CrdtOperation operation, PropertyInfo property);
 }

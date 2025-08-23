@@ -89,7 +89,8 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
             {
                 var removePath = $"{path}[{entry.OldIndex}]";
                 var timestamp = timestampProvider.Now();
-                removeOps.Add(new CrdtOperation(Guid.NewGuid(), replicaId, removePath, OperationType.Remove, null, timestamp));
+                var removedItem = fromArray[entry.OldIndex];
+                removeOps.Add(new CrdtOperation(Guid.NewGuid(), replicaId, removePath, OperationType.Remove, removedItem?.DeepClone(), timestamp));
             }
         }
 
@@ -107,34 +108,71 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
         operations.AddRange(addOps);
     }
     
-    public void ApplyOperation(JsonNode rootNode, CrdtOperation operation)
+    public void ApplyOperation(JsonNode rootNode, CrdtOperation operation, PropertyInfo property)
     {
         ArgumentNullException.ThrowIfNull(rootNode);
+        ArgumentNullException.ThrowIfNull(property);
 
-        var (dataParent, lastDataSegment) = JsonNodePathHelper.FindParentNode(rootNode, operation.JsonPath);
-
-        if (dataParent is not JsonArray dataArray)
+        // For an array operation, the path points to an element, so we need the parent path to find the array itself.
+        var (parentPath, _) = JsonNodePathHelper.SplitPath(operation.JsonPath);
+        if (parentPath is null)
         {
             return;
         }
 
-        if (!int.TryParse(lastDataSegment, out var arrayIndex))
+        var (dataParent, lastDataSegment) = JsonNodePathHelper.FindParentNode(rootNode, parentPath);
+        if (dataParent?[lastDataSegment] is not JsonArray dataArray)
         {
             return;
         }
+        
+        var elementType = property.PropertyType.GetGenericArguments().FirstOrDefault() ?? property.PropertyType.GetElementType() ?? typeof(object);
+        var comparer = comparerProvider.GetComparer(elementType);
 
         if (operation.Type == OperationType.Upsert)
         {
-            if (arrayIndex <= dataArray.Count)
+            var newValue = operation.Value?.DeepClone();
+            if (newValue is null) return;
+            
+            var existingIndex = -1;
+            for (var i = 0; i < dataArray.Count; i++)
             {
-                dataArray.Insert(arrayIndex, operation.Value?.DeepClone());
+                if (comparer.Equals(dataArray[i], newValue))
+                {
+                    existingIndex = i;
+                    break;
+                }
             }
+
+            if (existingIndex != -1)
+            {
+                dataArray[existingIndex] = newValue;
+            }
+            else
+            {
+                dataArray.Add(newValue);
+            }
+            
+            SortJsonArray(dataArray);
         }
         else if (operation.Type == OperationType.Remove)
         {
-            if (arrayIndex < dataArray.Count)
+            var itemToRemove = operation.Value;
+            if (itemToRemove is null) return;
+
+            var indexToRemove = -1;
+            for (var i = 0; i < dataArray.Count; i++)
             {
-                dataArray.RemoveAt(arrayIndex);
+                if (comparer.Equals(dataArray[i], itemToRemove))
+                {
+                    indexToRemove = i;
+                    break;
+                }
+            }
+
+            if (indexToRemove != -1)
+            {
+                dataArray.RemoveAt(indexToRemove);
             }
         }
     }
@@ -194,5 +232,40 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
             return new EpochTimestamp(timestamp);
         }
         return EpochTimestamp.MinValue;
+    }
+
+    private static void SortJsonArray(JsonArray jsonArray)
+    {
+        var items = jsonArray.ToList();
+        jsonArray.Clear();
+
+        items.Sort((x, y) =>
+        {
+            var keyX = GetSortKey(x);
+            var keyY = GetSortKey(y);
+            return string.Compare(keyX, keyY, StringComparison.Ordinal);
+        });
+
+        foreach (var item in items)
+        {
+            jsonArray.Add(item);
+        }
+    }
+
+    private static string GetSortKey(JsonNode? node)
+    {
+        if (node is JsonObject obj)
+        {
+            if (obj.TryGetPropertyValue("id", out var idNode) && idNode is not null)
+            {
+                return idNode.ToString();
+            }
+            if (obj.TryGetPropertyValue("Id", out var idNodeUpper) && idNodeUpper is not null)
+            {
+                return idNodeUpper.ToString();
+            }
+        }
+        
+        return node?.ToJsonString() ?? string.Empty;
     }
 }

@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Modern.CRDT.Models;
 using Modern.CRDT.Services;
 using Modern.CRDT.Services.Strategies;
@@ -22,7 +23,17 @@ public static class ServiceCollectionExtensions
             .Configure(configureOptions)
             .Validate(options => !string.IsNullOrWhiteSpace(options.ReplicaId), "CrdtOptions.ReplicaId cannot be null or empty.");
         
-        services.TryAddSingleton<IJsonCrdtPatcher, JsonCrdtPatcher>();
+        services.TryAddSingleton<IJsonCrdtPatcherFactory, JsonCrdtPatcherFactory>();
+        
+        // The default IJsonCrdtPatcher is a singleton created via the factory with the globally configured ReplicaId.
+        // This maintains the original behavior for single-replica applications.
+        services.TryAddSingleton<IJsonCrdtPatcher>(sp =>
+        {
+            var factory = sp.GetRequiredService<IJsonCrdtPatcherFactory>();
+            var options = sp.GetRequiredService<IOptions<CrdtOptions>>();
+            return factory.Create(options.Value.ReplicaId);
+        });
+
         services.TryAddSingleton<IJsonCrdtApplicator, JsonCrdtApplicator>();
         services.TryAddSingleton<IJsonCrdtService, JsonCrdtService>();
 
@@ -38,7 +49,8 @@ public static class ServiceCollectionExtensions
         // Register the default timestamp provider
         services.TryAddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>();
         
-        // Register concrete strategies as singletons so the manager can resolve them.
+        // Register concrete strategies as singletons so the manager can resolve them for the *default* replica.
+        // The factory will create new instances for other replicas.
         services.TryAddSingleton<LwwStrategy>();
         services.TryAddSingleton<CounterStrategy>();
         services.TryAddSingleton<ArrayLcsStrategy>();

@@ -8,6 +8,7 @@ using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using Xunit;
 
@@ -63,9 +64,10 @@ public sealed class LwwStrategyTests
         // Arrange
         var rootNode = new JsonObject { ["value"] = 10 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.value", OperationType.Upsert, JsonValue.Create(20), new EpochTimestamp(200L));
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
         // Act
-        strategy.ApplyOperation(rootNode, operation);
+        strategy.ApplyOperation(rootNode, operation, property);
 
         // Assert
         rootNode["value"]!.GetValue<int>().ShouldBe(20);
@@ -77,9 +79,10 @@ public sealed class LwwStrategyTests
         // Arrange
         var rootNode = new JsonObject { ["value"] = 10 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.value", OperationType.Remove, null, new EpochTimestamp(200L));
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
         // Act
-        strategy.ApplyOperation(rootNode, operation);
+        strategy.ApplyOperation(rootNode, operation, property);
 
         // Assert
         rootNode.ContainsKey("value").ShouldBeFalse();
