@@ -54,7 +54,7 @@ public sealed class LwwStrategy : ICrdtStrategy
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(JsonNode rootNode, CrdtOperation operation)
+    public void ApplyOperation(JsonNode rootNode, CrdtOperation operation, PropertyInfo property)
     {
         ArgumentNullException.ThrowIfNull(rootNode);
 

@@ -1,14 +1,18 @@
 namespace Modern.CRDT.UnitTests.Services.Strategies;
 
 using Microsoft.Extensions.Options;
+using Modern.CRDT.Attributes;
 using Modern.CRDT.Models;
 using Modern.CRDT.Services;
 using Modern.CRDT.Services.Strategies;
+using Modern.CRDT.ShowCase.Models;
+using Modern.CRDT.ShowCase.Services;
 using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Xunit;
 using static Modern.CRDT.Services.Strategies.ArrayLcsStrategy;
@@ -25,6 +29,11 @@ public sealed class ArrayLcsStrategyTests
     {
         public int Id { get; init; }
         public string? Value { get; init; }
+    }
+    
+    private sealed record StringListModel
+    {
+        public List<string> Items { get; init; } = new();
     }
     
     private sealed class NestedModelIdComparer : IJsonNodeComparer
@@ -130,9 +139,11 @@ public sealed class ArrayLcsStrategyTests
         // Arrange
         var rootNode = new JsonObject { ["items"] = new JsonArray("a", "c") };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.items[1]", OperationType.Upsert, JsonValue.Create("b"), new EpochTimestamp(1L));
+        var property = typeof(StringListModel).GetProperty(nameof(StringListModel.Items))!;
+        mockComparerProvider.Setup(p => p.GetComparer(typeof(string))).Returns(JsonNodeDeepEqualityComparer.Instance);
 
         // Act
-        strategy.ApplyOperation(rootNode, operation);
+        strategy.ApplyOperation(rootNode, operation, property);
 
         // Assert
         var array = rootNode["items"]!.AsArray();
@@ -147,10 +158,12 @@ public sealed class ArrayLcsStrategyTests
     {
         // Arrange
         var rootNode = new JsonObject { ["items"] = new JsonArray("a", "b", "c") };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.items[1]", OperationType.Remove, null, new EpochTimestamp(1L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.items[1]", OperationType.Remove, JsonValue.Create("b"), new EpochTimestamp(1L));
+        var property = typeof(StringListModel).GetProperty(nameof(StringListModel.Items))!;
+        mockComparerProvider.Setup(p => p.GetComparer(typeof(string))).Returns(JsonNodeDeepEqualityComparer.Instance);
 
         // Act
-        strategy.ApplyOperation(rootNode, operation);
+        strategy.ApplyOperation(rootNode, operation, property);
 
         // Assert
         var array = rootNode["items"]!.AsArray();
@@ -219,4 +232,105 @@ public sealed class ArrayLcsStrategyTests
     }
     
     #endregion
+
+    private sealed record ConvergenceTestModel
+    {
+        [CrdtArrayLcsStrategy]
+        public List<User> Users { get; init; } = new();
+    }
+    
+    [Fact]
+    public void ApplyPatch_WithConcurrentArrayInsertions_ShouldBeCommutativeAndConverge()
+    {
+        // NOTE: This test is expected to FAIL with the current implementation.
+        // It demonstrates a convergence bug where applying concurrent "add" operations
+        // in different orders results in different final states for an array.
+        // The root cause is that `JsonArray.Insert(index, ...)` is not a commutative operation.
+
+        // Arrange
+        var userA = new User(Guid.NewGuid(), "Alice");
+        var userB = new User(Guid.NewGuid(), "Bob");
+
+        // We need two sets of services to simulate two different replicas.
+        // The applicator can be shared as it's stateless.
+        var (patcherA, applicator) = CreateCrdtServices("replica-A");
+        var (patcherB, _) = CreateCrdtServices("replica-B");
+    
+        // --- Generate Patches ---
+
+        // Replica A generates a patch to add User A to an empty list.
+        // This results in an operation: Upsert at path '$.users[0]'.
+        var patchA = patcherA.GeneratePatch(
+            new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel()), 
+            new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }));
+
+        // Replica B generates a patch to add User B to an empty list.
+        // This also results in an operation: Upsert at path '$.users[0]'.
+        var patchB = patcherB.GeneratePatch(
+            new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel()), 
+            new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userB] }));
+
+        patchA.Operations.ShouldHaveSingleItem().JsonPath.ShouldBe("$.users[0]");
+        patchB.Operations.ShouldHaveSingleItem().JsonPath.ShouldBe("$.users[0]");
+
+        // --- Simulation ---
+
+        // Scenario 1: Apply Patch A, then Patch B
+        var metadataAb = new CrdtMetadata();
+        var modelAbAfterA = applicator.ApplyPatch(new ConvergenceTestModel(), patchA, metadataAb);
+        var finalModelAb = applicator.ApplyPatch(modelAbAfterA, patchB, metadataAb);
+
+        // Scenario 2: Apply Patch B, then Patch A
+        var metadataBa = new CrdtMetadata();
+        var modelBaAfterB = applicator.ApplyPatch(new ConvergenceTestModel(), patchB, metadataBa);
+        var finalModelBa = applicator.ApplyPatch(modelBaAfterB, patchA, metadataBa);
+    
+        // --- Assert ---
+
+        // Verify that both scenarios produced the same final state.
+        // The current implementation will fail here because:
+        // Scenario 1 (A then B):
+        // 1. Apply A: Users = [userA]
+        // 2. Apply B (insert at index 0): Users = [userB, userA]
+        //
+        // Scenario 2 (B then A):
+        // 1. Apply B: Users = [userB]
+        // 2. Apply A (insert at index 0): Users = [userA, userB]
+        // The final lists are not equal.
+    
+        // To make this test pass, the array strategy would need a commutative way
+        // of handling insertions, e.g., by always sorting the array by a stable key
+        // after an operation.
+    
+        JsonSerializer.Serialize(finalModelAb).ShouldBe(JsonSerializer.Serialize(finalModelBa));
+        
+        // Secondary assertions to confirm the content is correct, even if order is not.
+        finalModelAb.Users.Count.ShouldBe(2);
+        finalModelBa.Users.Count.ShouldBe(2);
+        finalModelAb.Users.ShouldContain(userA);
+        finalModelAb.Users.ShouldContain(userB);
+        finalModelBa.Users.ShouldContain(userA);
+        finalModelBa.Users.ShouldContain(userB);
+    }
+    
+    private (IJsonCrdtPatcher patcher, IJsonCrdtApplicator applicator) CreateCrdtServices(string replicaId)
+    {
+        var options = Options.Create(new CrdtOptions { ReplicaId = replicaId });
+        var timestampProvider = new EpochTimestampProvider();
+
+        var userComparer = new UserByIdComparer();
+        var comparerProvider = new JsonNodeComparerProvider([userComparer]);
+
+        var lwwStrategy = new LwwStrategy(options);
+        var counterStrategy = new CounterStrategy(timestampProvider, options);
+        var arrayLcsStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, options);
+        var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayLcsStrategy };
+        
+        var strategyManager = new CrdtStrategyManager(strategies);
+        
+        var patcher = new JsonCrdtPatcher(strategyManager);
+        var applicator = new JsonCrdtApplicator(strategyManager);
+        
+        return (patcher, applicator);
+    }
 }

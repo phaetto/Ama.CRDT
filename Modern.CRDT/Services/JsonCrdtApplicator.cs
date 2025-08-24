@@ -40,13 +40,13 @@ public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : I
             var targetProperty = FindPropertyFromPath(typeof(T), operation.JsonPath);
             var strategy = strategyManager.GetStrategy(targetProperty);
 
-            ApplyOperationWithStateCheck(strategy, dataNode, operation, metadata);
+            ApplyOperationWithStateCheck(strategy, dataNode, operation, metadata, targetProperty);
         }
 
         return dataNode.Deserialize<T>(SerializerOptions)!;
     }
 
-    private bool ApplyOperationWithStateCheck(ICrdtStrategy strategy, JsonNode dataNode, CrdtOperation operation, CrdtMetadata metadata)
+    private bool ApplyOperationWithStateCheck(ICrdtStrategy strategy, JsonNode dataNode, CrdtOperation operation, CrdtMetadata metadata, PropertyInfo targetProperty)
     {
         // 1. Idempotency Check: Is the operation already seen?
         metadata.VersionVector.TryGetValue(operation.ReplicaId, out var vectorTs);
@@ -67,19 +67,19 @@ public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : I
             metadata.Lww.TryGetValue(operation.JsonPath, out var lwwTs);
             if (lwwTs is null || operation.Timestamp.CompareTo(lwwTs) > 0)
             {
-                strategy.ApplyOperation(dataNode, operation);
+                strategy.ApplyOperation(dataNode, operation, targetProperty);
                 metadata.Lww[operation.JsonPath] = operation.Timestamp;
                 applied = true;
             }
         }
         else // For Counter, ArrayLcs, etc., apply if it's a new operation.
         {
-            strategy.ApplyOperation(dataNode, operation);
+            strategy.ApplyOperation(dataNode, operation, targetProperty);
             applied = true;
         }
 
         // 3. State Update: If applied, record it as a seen exception until the vector is advanced.
-        if (applied) // TODO: Should this only be special case for (strategy is not wwStrategy)?
+        if (applied) // TODO: Should this only be special case for (strategy is not LwwStrategy)?
         {
             metadata.SeenExceptions.Add(operation);
         }
@@ -96,7 +96,7 @@ public sealed class JsonCrdtApplicator(ICrdtStrategyManager strategyManager) : I
         }
 
         var segments = JsonNodePathHelper.ParsePath(jsonPath);
-        if (segments.Count == 0)
+        if (segments.Length == 0)
         {
             throw new ArgumentException($"Could not parse segments from path '{jsonPath}'.", nameof(jsonPath));
         }

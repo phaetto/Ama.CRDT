@@ -9,6 +9,7 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using Xunit;
 
@@ -62,9 +63,10 @@ public sealed class CounterStrategyTests
         // Arrange
         var rootNode = new JsonObject { ["Score"] = initial };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, JsonValue.Create(increment), new EpochTimestamp(2L));
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
 
         // Act
-        strategy.ApplyOperation(rootNode, operation);
+        strategy.ApplyOperation(rootNode, operation, property);
 
         // Assert
         rootNode["Score"].ShouldNotBeNull();
@@ -77,9 +79,10 @@ public sealed class CounterStrategyTests
         // Arrange
         var rootNode = new JsonObject { ["Id"] = "A" };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(1L));
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
 
         // Act
-        strategy.ApplyOperation(rootNode, operation);
+        strategy.ApplyOperation(rootNode, operation, property);
 
         // Assert
         rootNode["Score"].ShouldNotBeNull();
@@ -92,9 +95,10 @@ public sealed class CounterStrategyTests
         // Arrange
         var rootNode = new JsonObject { ["Score"] = "not a number" };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(1L));
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
 
         // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(rootNode, operation));
+        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(rootNode, operation, property));
     }
 
     [Fact]
@@ -103,8 +107,9 @@ public sealed class CounterStrategyTests
         // Arrange
         var rootNode = new JsonObject();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Upsert, JsonValue.Create(5), new EpochTimestamp(1L));
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
 
         // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(rootNode, operation));
+        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(rootNode, operation, property));
     }
 }
