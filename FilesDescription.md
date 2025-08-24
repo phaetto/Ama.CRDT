@@ -31,33 +31,45 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/ArrayLcsStrategyTests.cs` | Contains unit tests for `ArrayLcsStrategy`, focusing on convergence properties under concurrent operations. This file includes a test that specifically reproduces a known bug related to the non-commutative application of array insertion patches. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/AverageRegisterStrategyTests.cs` | Contains unit tests for the `AverageRegisterStrategy`, verifying convergence, idempotence, and commutativity. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/BoundedCounterStrategyTests.cs` | Contains unit tests for the `BoundedCounterStrategy`, verifying that values are correctly clamped within their defined bounds. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/CausalTreeStrategyTests.cs` | Contains unit tests for the `CausalTreeStrategy`, verifying convergence for concurrent inserts and deletes. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/CounterStrategyTests.cs` | Contains unit tests for the `CounterStrategy` implementation, verifying both patch generation and its simplified, unconditional data application logic. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/FixedSizeArrayStrategyTests.cs` | Contains unit tests for the `FixedSizeArrayStrategy`, verifying convergence and idempotence for concurrent updates. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GCounterStrategyTests.cs` | Contains unit tests for the `GCounterStrategy`, ensuring it only generates and applies positive increments. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GSetStrategyTests.cs` | Contains unit tests for the `GSetStrategy`, verifying its add-only behavior, idempotence, and commutativity. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/LseqStrategyTests.cs` | Contains unit tests for the `LseqStrategy`, verifying convergence and idempotence under concurrent operations. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LwwSetStrategyTests.cs` | Contains unit tests for the `LwwSetStrategy`, verifying that conflicts are resolved based on the last-write-wins rule, allowing elements to be re-added after removal. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LwwStrategyTests.cs` | Contains unit tests for the `LwwStrategy` implementation, verifying both patch generation and its simplified, unconditional data application logic. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/MaxWinsStrategyTests.cs` | Contains unit tests for the `MaxWinsStrategy`, verifying that conflicts are resolved by choosing the highest value. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/MinWinsStrategyTests.cs` | Contains unit tests for the `MinWinsStrategy`, verifying that conflicts are resolved by choosing the lowest value. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/OrSetStrategyTests.cs` | Contains unit tests for the `OrSetStrategy`, verifying that it correctly handles concurrent additions and removals without anomalies, allowing for proper re-addition of elements. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/PriorityQueueStrategyTests.cs` | Contains unit tests for the `PriorityQueueStrategy`, verifying that concurrent updates converge and the list remains sorted by priority. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/RgaStrategyTests.cs` | Contains unit tests for the `RgaStrategy`, verifying convergence, idempotence, and commutativity for concurrent inserts, deletes, and moves. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/SortedSetStrategyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseSetStrategyTests.cs` | Contains unit tests for the `TwoPhaseSetStrategy`, verifying that elements can be added and removed, but not re-added after removal. |
 | `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging. |
 | `$/Ama.CRDT/Attributes/CrdtArrayLcsStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Array LCS strategy, which leverages positional identifiers for stable, causally-correct ordering of elements. |
 | `$/Ama.CRDT/Attributes/CrdtAverageRegisterStrategyAttribute.cs` | An attribute to mark a property as an Average Register, where its value converges to the average of all replica contributions. |
 | `$/Ama.CRDT/Attributes/CrdtBoundedCounterStrategyAttribute.cs` | An attribute to mark a numeric property as a Bounded Counter, which clamps its value within a specified min/max range. |
+| `$/Ama.CRDT/Attributes/CrdtCausalTreeStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Causal Tree (CT) strategy for sequence management. |
 | `$/Ama.CRDT/Attributes/CrdtCounterStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/CrdtFixedSizeArrayStrategyAttribute.cs` | An attribute to mark a collection property as a fixed-size array, where each index is an LWW-Register. |
 | `$/Ama.CRDT/Attributes/CrdtGCounterStrategyAttribute.cs` | An attribute to mark a numeric property as a G-Counter (Grow-Only Counter), which only permits positive increments. |
 | `$/Ama.CRDT/Attributes/CrdtGSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the G-Set (Grow-Only Set) strategy. |
+| `$/Ama.CRDT/Attributes/CrdtLseqStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the LSEQ strategy for managing ordered sequences with dense identifiers. |
 | `$/Ama.CRDT/Attributes/CrdtLwwSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the LWW-Set (Last-Writer-Wins Set) strategy. |
 | `$/Ama.CRDT/Attributes/CrdtLwwStrategyAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/CrdtMaxWinsStrategyAttribute.cs` | An attribute to mark a property as a Max-Wins Register, where conflicts are resolved by choosing the highest value. |
 | `$/Ama.CRDT/Attributes/CrdtMinWinsStrategyAttribute.cs` | An attribute to mark a property as a Min-Wins Register, where conflicts are resolved by choosing the lowest value. |
 | `$/Ama.CRDT/Attributes/CrdtOrSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the OR-Set (Observed-Remove Set) strategy. |
+| `$/Ama.CRDT/Attributes/CrdtPriorityQueueStrategyAttribute.cs` | An attribute to mark a collection as a priority queue, which is managed as an LWW-Set and kept sorted by a specified property. |
+| `$/Ama.CRDT/Attributes/CrdtRgaStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the RGA (Replicated Growable Array) strategy for stable, concurrent list management. |
 | `$/Ama.CRDT/Attributes/CrdtSortedSetStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Sorted Set strategy. It uses LCS for diffing and maintains a sorted order. |
 | `$/Ama.CRDT/Attributes/CrdtStrategyAttribute.cs` | The base abstract attribute for marking properties with a specific CRDT merge strategy. Contains the strategy type. |
 | `$/Ama.CRDT/Attributes/CrdtTwoPhaseSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the 2P-Set (Two-Phase Set) strategy. |
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup, including registration of the patch builder, strategies, the strategy manager, custom array element comparers, a customizable timestamp provider, and a factory for creating replica-specific patchers. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
+| `$/Ama.CRDT/Models/CausalAtom.cs` | A class representing a node in a Causal Tree, containing its unique ID, causal link, value, and tombstone status. |
+| `$/Ama.CRDT/Models/CausalAtomId.cs` | A record struct for the unique, comparable identifier of a CausalAtom, composed of a timestamp and replica ID. |
 | `$/Ama.CRDT/Models/CrdtDocumentOfT.cs` | A generic version of `CrdtDocument` that holds a POCO and its associated `CrdtMetadata`, unifying the API for patch generation and application. |
 | `$/Ama.CRDT/Models/CrdtMetadata.cs` | Encapsulates the state required for conflict resolution (LWW timestamps, seen operation IDs), externalizing it from the data model. |
 | `$/Ama.CRDT/Models/CrdtOperation.cs` | Represents a single CRDT operation in a patch, including the target JSON Path, type, value, timestamp, and the ID of the replica that generated it. |
@@ -65,10 +77,15 @@
 | `$/Ama.CRDT/Models/CrdtPatch.cs` | Encapsulates a list of CRDT operations that represent the difference between two JSON documents. |
 | `$/Ama.CRDT/Models/EpochTimestamp.cs` | A default, backward-compatible implementation of `ICrdtTimestamp` that wraps a `long` value representing Unix milliseconds. |
 | `$/Ama.CRDT/Models/ICrdtTimestamp.cs` | Represents a logical point in time for a CRDT operation, allowing for different timestamping mechanisms. |
-| `$/Ama.CRDT/Models/OperationType.cs` | Defines the types of operations (Upsert, Remove, Increment) for a CRDT patch. |
+| `$/Ama.CRDT/Models/LseqIdentifier.cs` | A record struct for the dense, ordered identifier used in LSEQ, composed of a path of positions and replica IDs. |
+| `$/Ama.CRDT/Models/LseqItem.cs` | A record struct that pairs an LseqIdentifier with its corresponding value in the LSEQ metadata. |
+| `$/Ama.CRDT/Models/MovePayload.cs` | A data structure for the payload of a `Move` operation, containing the stable identifier of the element and its new parent. |
+| `$/Ama.CRDT/Models/OperationType.cs` | Defines the types of operations (Upsert, Remove, Increment, Move) for a CRDT patch. |
 | `$/Ama.CRDT/Models/OrSetItem.cs` | Contains payload record structs (`OrSetAddItem`, `OrSetRemoveItem`) for OR-Set (Observed-Remove Set) operations, bundling values with unique tags. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
+| `$/Ama.CRDT/Models/RgaIdentifier.cs` | A record struct representing the stable, unique identifier for an item in an RGA (Replicated Growable Array). |
+| `$/Ama.CRDT/Models/RgaItem.cs` | A class that encapsulates the metadata for a single item within an RGA, including its stable ID, parent ID, value, and tombstone status. |
 | `$/Ama.CRDT/PublicAPI.Shipped.txt` | Tracks the shipped public API surface of the library to detect breaking changes. This file should be updated when new APIs are officially released in a stable version. |
 | `$/Ama.CRDT/PublicAPI.Unshipped.txt` | Tracks new public APIs that have not yet been included in a stable release. This file must be empty before a manual, stable publish. Build will fail if new public APIs are added without being added to this file first. |
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | No description provided. |
@@ -90,20 +107,25 @@
 | `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements a CRDT strategy for arrays using LCS, with support for type-specific element comparers. `GeneratePatch` creates diffs, and `ApplyOperation` unconditionally manipulates the data array. |
 | `$/Ama.CRDT/Services/Strategies/AverageRegisterStrategy.cs` | Implements the Average Register strategy, where each replica contributes a value and the final state is the average of all contributions. |
 | `$/Ama.CRDT/Services/Strategies/BoundedCounterStrategy.cs` | Implements a counter that is clamped within a specified minimum and maximum value, configured via an attribute. |
+| `$/Ama.CRDT/Services/Strategies/CausalTreeStrategy.cs` | Implements the Causal Tree (CT) strategy, which models a sequence as a tree of atoms to preserve causal edit history, ideal for collaborative text. |
 | `$/Ama.CRDT/Services/Strategies/CounterStrategy.cs` | Implements the CRDT Counter strategy. `GeneratePatch` creates `Increment` operations, and the simplified `ApplyOperation` unconditionally applies the numeric delta. |
 | `$/Ama.CRDT/Services/Strategies/CrdtStrategyManager.cs` | Implements the strategy resolution logic, finding the correct strategy for a property via reflection or returning a default (LWW or ArrayLcs). |
 | `$/Ama.CRDT/Services/Strategies/ElementComparerProvider.cs` | Implements the provider logic to select a registered IElementComparer or a default, for use by ArrayLcsStrategy. |
+| `$/Ama.CRDT/Services/Strategies/FixedSizeArrayStrategy.cs` | Implements a strategy for fixed-size arrays where each index is an LWW-Register. |
 | `$/Ama.CRDT/Services/Strategies/GCounterStrategy.cs` | Implements the G-Counter (Grow-Only Counter) strategy, which only allows for positive increments. |
 | `$/Ama.CRDT/Services/Strategies/GSetStrategy.cs` | Implements the G-Set (Grow-Only Set) CRDT strategy, where elements can only be added. |
 | `$/Ama.CRDT/Services/Strategies/ICrdtStrategy.cs` | Defines the contract for a strategy, including `GeneratePatch` for creating operations and a simplified `ApplyOperation` for unconditional data manipulation. |
 | `$/Ama.CRDT/Services/Strategies/ICrdtStrategyManager.cs` | Defines the contract for a service that resolves the appropriate CRDT strategy for a property. |
 | `$/Ama.CRDT/Services/Strategies/IElementComparer.cs` | Defines the contract for a type-specific equality comparer for collection elements, used by ArrayLcsStrategy. |
 | `$/Ama.CRDT/Services/Strategies/IElementComparerProvider.cs` | Defines the contract for a service that provides the correct IEqualityComparer<object> for a given array element type. |
+| `$/Ama.CRDT/Services/Strategies/LseqStrategy.cs` | Implements the LSEQ strategy, which manages ordered sequences using dense, sortable identifiers to ensure convergence. |
 | `$/Ama.CRDT/Services/Strategies/LwwSetStrategy.cs` | Implements the LWW-Set (Last-Writer-Wins Set) CRDT strategy, where element membership is determined by the latest timestamp. |
 | `$/Ama.CRDT/Services/Strategies/LwwStrategy.cs` | Implements the LWW strategy. `GeneratePatch` creates operations based on timestamps, and the simplified `ApplyOperation` unconditionally applies changes to nodes. |
 | `$/Ama.CRDT/Services/Strategies/MaxWinsStrategy.cs` | Implements the Max-Wins Register strategy, where conflicts are resolved by always choosing the highest value. |
 | `$/Ama.CRDT/Services/Strategies/MinWinsStrategy.cs` | Implements the Min-Wins Register strategy, where conflicts are resolved by always choosing the lowest value. |
 | `$/Ama.CRDT/Services/Strategies/OrSetStrategy.cs` | Implements the OR-Set (Observed-Remove Set) CRDT strategy, which uses unique tags to correctly handle concurrent additions and removals. |
+| `$/Ama.CRDT/Services/Strategies/PriorityQueueStrategy.cs` | Implements a strategy for collections that behave as a priority queue, sorted by a specified property. |
+| `$/Ama.CRDT/Services/Strategies/RgaStrategy.cs` | Implements the RGA (Replicated Growable Array) strategy, which uses stable identifiers and causal links to merge concurrent list modifications, including moves. |
 | `$/Ama.CRDT/Services/Strategies/SortedSetStrategy.cs` | Implements a CRDT strategy for collections that are treated as sorted sets. It uses LCS for diffing and ensures the collection remains sorted after operations. |
 | `$/Ama.CRDT/Services/Strategies/TwoPhaseSetStrategy.cs` | Implements the 2P-Set (Two-Phase Set) CRDT strategy, where an element, once removed, cannot be re-added. |
 | `$/CodingStandards.md` | Contains the coding standards for the project, including versioning and publishing guidelines. |
