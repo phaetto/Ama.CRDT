@@ -1,5 +1,6 @@
 namespace Modern.CRDT.Services.Strategies;
 
+using Modern.CRDT.Models;
 using System.Reflection;
 
 /// <summary>
@@ -13,4 +14,5 @@ public interface ICrdtStrategyManager
     /// <param name="propertyInfo">The <see cref="PropertyInfo"/> of the property to analyze.</param>
     /// <returns>The resolved <see cref="ICrdtStrategy"/>. Returns the default strategy (e.g., LwwStrategy) if no specific strategy attribute is found.</returns>
     ICrdtStrategy GetStrategy(PropertyInfo propertyInfo);
+    ICrdtStrategy GetStrategy(CrdtOperation operation, object root);
 }

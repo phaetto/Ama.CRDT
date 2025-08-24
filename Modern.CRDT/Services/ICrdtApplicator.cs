@@ -7,7 +7,7 @@ using Modern.CRDT.Models;
 /// The applicator is the central authority for conflict resolution and idempotency,
 /// using an external metadata object to track state.
 /// </summary>
-public interface IJsonCrdtApplicator
+public interface ICrdtApplicator
 {
     /// <summary>
     /// Applies a set of CRDT operations from a patch to a POCO document.
@@ -17,6 +17,6 @@ public interface IJsonCrdtApplicator
     /// <param name="document">The base document object to which the patch will be applied.</param>
     /// <param name="patch">A <see cref="CrdtPatch"/> containing the list of operations to apply.</param>
     /// <param name="metadata">The <see cref="CrdtMetadata"/> object containing the current state for conflict resolution.</param>
-    /// <returns>A new instance of the document with the patch applied. The original document is not modified.</returns>
+    /// <returns>The original document instance with the patch applied. The document is modified in place.</returns>
     T ApplyPatch<T>(T document, CrdtPatch patch, CrdtMetadata metadata) where T : class;
 }

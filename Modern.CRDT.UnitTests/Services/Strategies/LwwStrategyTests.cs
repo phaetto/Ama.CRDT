@@ -9,15 +9,14 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Text.Json.Nodes;
 using Xunit;
 
 public sealed class LwwStrategyTests
 {
-    private sealed record TestModel { public int Value { get; init; } }
+    private sealed class TestModel { public int Value { get; set; } }
 
     private readonly LwwStrategy strategy;
-    private readonly Mock<IJsonCrdtPatcher> mockPatcher = new();
+    private readonly Mock<ICrdtPatcher> mockPatcher = new();
     private readonly List<CrdtOperation> operations = new();
 
     public LwwStrategyTests()
@@ -28,10 +27,10 @@ public sealed class LwwStrategyTests
     [Fact]
     public void GeneratePatch_WhenModifiedIsNewer_ShouldGenerateUpsert()
     {
-        var originalValue = JsonValue.Create(10);
-        var modifiedValue = JsonValue.Create(20);
-        var originalMeta = JsonValue.Create(100L);
-        var modifiedMeta = JsonValue.Create(200L);
+        var originalValue = 10;
+        var modifiedValue = 20;
+        var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = new EpochTimestamp(100L) } };
+        var modifiedMeta = new CrdtMetadata { Lww = { ["$.value"] = new EpochTimestamp(200L) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
         strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
@@ -40,17 +39,17 @@ public sealed class LwwStrategyTests
         var op = operations[0];
         op.Type.ShouldBe(OperationType.Upsert);
         op.JsonPath.ShouldBe("$.value");
-        op.Value!.GetValue<int>().ShouldBe(20);
+        op.Value.ShouldBe(20);
         op.Timestamp.ShouldBe(new EpochTimestamp(200L));
     }
     
     [Fact]
     public void GeneratePatch_WhenModifiedIsOlder_ShouldGenerateNothing()
     {
-        var originalValue = JsonValue.Create(10);
-        var modifiedValue = JsonValue.Create(20);
-        var originalMeta = JsonValue.Create(200L);
-        var modifiedMeta = JsonValue.Create(100L);
+        var originalValue = 10;
+        var modifiedValue = 20;
+        var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = new EpochTimestamp(200L) } };
+        var modifiedMeta = new CrdtMetadata { Lww = { ["$.value"] = new EpochTimestamp(100L) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
         strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
@@ -62,29 +61,32 @@ public sealed class LwwStrategyTests
     public void ApplyOperation_Upsert_ShouldUpdateValue()
     {
         // Arrange
-        var rootNode = new JsonObject { ["value"] = 10 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.value", OperationType.Upsert, JsonValue.Create(20), new EpochTimestamp(200L));
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
+        var model = new TestModel { Value = 10 };
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, new EpochTimestamp(200L));
 
         // Act
-        strategy.ApplyOperation(rootNode, operation, property);
+        strategy.ApplyOperation(model, operation);
 
         // Assert
-        rootNode["value"]!.GetValue<int>().ShouldBe(20);
+        model.Value.ShouldBe(20);
     }
 
     [Fact]
-    public void ApplyOperation_Remove_ShouldRemoveValue()
+    public void ApplyOperation_Remove_ShouldSetValueToNull()
     {
         // Arrange
-        var rootNode = new JsonObject { ["value"] = 10 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.value", OperationType.Remove, null, new EpochTimestamp(200L));
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
-
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Remove, null, new EpochTimestamp(200L));
+        
+        // This test is for when the property is nullable. For non-nullable value types, it will set to default.
+        // Let's test a nullable property.
+        var nullableModel = new NullableTestModel { Value = 10 };
+        
         // Act
-        strategy.ApplyOperation(rootNode, operation, property);
+        strategy.ApplyOperation(nullableModel, operation);
 
         // Assert
-        rootNode.ContainsKey("value").ShouldBeFalse();
+        nullableModel.Value.ShouldBeNull();
     }
+
+    private sealed class NullableTestModel { public int? Value { get; set; } }
 }

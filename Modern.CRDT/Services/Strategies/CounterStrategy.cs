@@ -5,8 +5,8 @@ using Modern.CRDT.Models;
 using Modern.CRDT.Services.Helpers;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Reflection;
-using System.Text.Json.Nodes;
 
 /// <summary>
 /// A CRDT strategy for handling numeric properties as counters.
@@ -31,10 +31,10 @@ public sealed class CounterStrategy : ICrdtStrategy
     }
 
     /// <inheritdoc/>
-    public void GeneratePatch(IJsonCrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, JsonNode? originalValue, JsonNode? modifiedValue, JsonNode? originalMetadata, JsonNode? modifiedMetadata)
+    public void GeneratePatch(ICrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, object? originalValue, object? modifiedValue, CrdtMetadata originalMeta, CrdtMetadata modifiedMeta)
     {
-        var originalNumeric = GetNumericValue(originalValue);
-        var modifiedNumeric = GetNumericValue(modifiedValue);
+        var originalNumeric = Convert.ToDecimal(originalValue ?? 0);
+        var modifiedNumeric = Convert.ToDecimal(modifiedValue ?? 0);
 
         var delta = modifiedNumeric - originalNumeric;
 
@@ -43,68 +43,40 @@ public sealed class CounterStrategy : ICrdtStrategy
             return;
         }
         
-        var timestamp = GetTimestamp(modifiedMetadata);
-        if (timestamp.CompareTo(EpochTimestamp.MinValue) == 0)
+        modifiedMeta.Lww.TryGetValue(path, out var timestamp);
+        if (timestamp is null)
         {
             timestamp = timestampProvider.Now();
         }
 
-        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, JsonValue.Create(delta), timestamp);
+        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, delta, timestamp);
         operations.Add(operation);
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(JsonNode rootNode, CrdtOperation operation, PropertyInfo property)
+    public void ApplyOperation(object root, CrdtOperation operation)
     {
-        ArgumentNullException.ThrowIfNull(rootNode);
+        ArgumentNullException.ThrowIfNull(root);
 
         if (operation.Type != OperationType.Increment)
         {
             throw new InvalidOperationException($"CounterStrategy can only handle 'Increment' operations, but received '{operation.Type}'.");
         }
         
-        var (dataParent, lastSegment) = JsonNodePathHelper.FindOrCreateParentNode(rootNode, operation.JsonPath);
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
 
-        if (dataParent is null || string.IsNullOrEmpty(lastSegment)) return;
-
-        var incrementValue = GetNumericValue(operation.Value);
+        if (parent is null || property is null || !property.CanWrite) return;
         
-        var existingNode = JsonNodePathHelper.GetChildNode(dataParent, lastSegment);
-        var existingValue = GetNumericValue(existingNode);
-        var newValue = existingValue + incrementValue;
+        var incrementValue = Convert.ToDecimal(operation.Value ?? 0, CultureInfo.InvariantCulture);
         
-        JsonNodePathHelper.SetChildNode(dataParent, lastSegment, JsonValue.Create(newValue));
-    }
-    
-    private static ICrdtTimestamp GetTimestamp(JsonNode? metaNode)
-    {
-        if (metaNode is JsonValue value && value.TryGetValue<long>(out var timestamp))
-        {
-            return new EpochTimestamp(timestamp);
-        }
-        return EpochTimestamp.MinValue;
-    }
-    
-    private static decimal GetNumericValue(JsonNode? node)
-    {
-        if (node is null)
-        {
-            return 0;
-        }
+        var existingValue = property.GetValue(parent) ?? 0;
+        var existingNumeric = Convert.ToDecimal(existingValue, CultureInfo.InvariantCulture);
+        
+        var newValue = existingNumeric + incrementValue;
+        
+        var targetType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+        var convertedNewValue = Convert.ChangeType(newValue, targetType, CultureInfo.InvariantCulture);
 
-        if (node is not JsonValue jsonValue)
-        {
-            throw new InvalidOperationException($"Counter strategy requires a numeric JsonValue, but received a node of type {node.GetType().Name}.");
-        }
-
-        if (jsonValue.TryGetValue<decimal>(out var decValue)) return decValue;
-        if (jsonValue.TryGetValue<int>(out var intValue)) return intValue;
-        if (jsonValue.TryGetValue<long>(out var longValue)) return longValue;
-        if (jsonValue.TryGetValue<double>(out var doubleValue)) return (decimal)doubleValue;
-        if (jsonValue.TryGetValue<float>(out var floatValue)) return (decimal)floatValue;
-        if (jsonValue.TryGetValue<short>(out var shortValue)) return shortValue;
-        if (jsonValue.TryGetValue<byte>(out var byteValue)) return byteValue;
-
-        throw new InvalidOperationException($"Counter strategy requires a numeric value, but the value '{jsonValue}' could not be converted.");
+        property.SetValue(parent, convertedNewValue);
     }
 }

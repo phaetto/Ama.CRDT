@@ -11,7 +11,7 @@ namespace Modern.CRDT.Benchmarks.Benchmarks;
 [MemoryDiagnoser]
 public class PatcherBenchmarks
 {
-    private IJsonCrdtPatcher patcher = null!;
+    private ICrdtPatcher patcher = null!;
     private CrdtDocument<SimplePoco> simplePocoFrom;
     private CrdtDocument<SimplePoco> simplePocoTo;
     private CrdtDocument<ComplexPoco> complexPocoFrom;
@@ -25,7 +25,7 @@ public class PatcherBenchmarks
         services.AddJsonCrdt(options => options.ReplicaId = "benchmark-replica");
         var serviceProvider = services.BuildServiceProvider();
 
-        patcher = serviceProvider.GetRequiredService<IJsonCrdtPatcher>();
+        patcher = serviceProvider.GetRequiredService<ICrdtPatcher>();
         metadataManager = serviceProvider.GetRequiredService<ICrdtMetadataManager>();
         
         // Simple POCO setup

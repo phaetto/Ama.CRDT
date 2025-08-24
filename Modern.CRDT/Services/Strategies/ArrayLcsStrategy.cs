@@ -4,24 +4,26 @@ using Microsoft.Extensions.Options;
 using Modern.CRDT.Models;
 using Modern.CRDT.Services.Helpers;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json.Nodes;
+using System.Text;
 
 public sealed class ArrayLcsStrategy : ICrdtStrategy
 {
-    private readonly IJsonNodeComparerProvider comparerProvider;
+    private readonly IElementComparerProvider comparerProvider;
     private readonly ICrdtTimestampProvider timestampProvider;
     private readonly string replicaId;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ArrayLcsStrategy"/> class.
     /// </summary>
-    /// <param name="comparerProvider">The provider for resolving type-specific JSON node comparers.</param>
+    /// <param name="comparerProvider">The provider for resolving type-specific element comparers.</param>
     /// <param name="timestampProvider">The provider for generating timestamps.</param>
     /// <param name="options">Configuration options containing the replica ID.</param>
-    public ArrayLcsStrategy(IJsonNodeComparerProvider comparerProvider, ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options)
+    public ArrayLcsStrategy(IElementComparerProvider comparerProvider, ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options)
     {
         this.comparerProvider = comparerProvider ?? throw new ArgumentNullException(nameof(comparerProvider));
         this.timestampProvider = timestampProvider ?? throw new ArgumentNullException(nameof(timestampProvider));
@@ -42,15 +44,14 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
     /// <param name="NewIndex">The index in the new array. -1 for a Remove operation.</param>
     public readonly record struct LcsDiffEntry(LcsDiffEntryType Type, int OldIndex, int NewIndex);
     
-    public void GeneratePatch(IJsonCrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, JsonNode? originalValue, JsonNode? modifiedValue, JsonNode? originalMetadata, JsonNode? modifiedMetadata)
+    public void GeneratePatch(ICrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, object? originalValue, object? modifiedValue, CrdtMetadata originalMeta, CrdtMetadata modifiedMeta)
     {
-        var fromArray = originalValue?.AsArray() ?? new JsonArray();
-        var toArray = modifiedValue?.AsArray() ?? new JsonArray();
-        var fromMeta = originalMetadata?.AsArray();
-        var toMeta = modifiedMetadata?.AsArray();
+        var fromArray = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
+        var toArray = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
 
         var elementType = property.PropertyType.GetGenericArguments().FirstOrDefault() ?? property.PropertyType.GetElementType() ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
+        
         var diff = Diff(fromArray, toArray, comparer);
 
         var removeOps = new List<CrdtOperation>();
@@ -63,81 +64,87 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
                 var fromItem = fromArray[entry.OldIndex];
                 var toItem = toArray[entry.NewIndex];
                 
-                if (!JsonNode.DeepEquals(fromItem, toItem) && fromItem is JsonObject fromObj && toItem is JsonObject toObj)
+                if (!Equals(fromItem, toItem))
                 {
-                    if (elementType != typeof(object))
-                    {
-                        var itemPath = $"{path}[{entry.OldIndex}]";
-                        var fromItemMeta = fromMeta is not null && entry.OldIndex < fromMeta.Count ? fromMeta[entry.OldIndex]?.AsObject() : null;
-                        var toItemMeta = toMeta is not null && entry.NewIndex < toMeta.Count ? toMeta[entry.NewIndex]?.AsObject() : null;
-                        patcher.DifferentiateObject(itemPath, elementType, fromObj, fromItemMeta, toObj, toItemMeta, operations);
-                    }
+                    var itemPath = $"{path}[{entry.OldIndex}]"; // Path is based on original index for item identity
+                    patcher.DifferentiateObject(itemPath, elementType, fromItem, originalMeta, toItem, modifiedMeta, operations);
                 }
             }
             else if (entry.Type == LcsDiffEntryType.Add)
             {
                 var addPath = $"{path}[{entry.NewIndex}]";
-                var timestampNode = toMeta is not null && entry.NewIndex < toMeta.Count ? toMeta[entry.NewIndex] : null;
-                var timestamp = GetTimestamp(timestampNode);
-                if (timestamp.CompareTo(EpochTimestamp.MinValue) == 0)
-                {
-                    timestamp = timestampProvider.Now();
-                }
-                addOps.Add(new CrdtOperation(Guid.NewGuid(), replicaId, addPath, OperationType.Upsert, toArray[entry.NewIndex]?.DeepClone(), timestamp));
+                var timestamp = timestampProvider.Now();
+                var addedItem = toArray[entry.NewIndex];
+                addOps.Add(new CrdtOperation(Guid.NewGuid(), replicaId, addPath, OperationType.Upsert, addedItem, timestamp));
             }
             else if (entry.Type == LcsDiffEntryType.Remove)
             {
                 var removePath = $"{path}[{entry.OldIndex}]";
                 var timestamp = timestampProvider.Now();
                 var removedItem = fromArray[entry.OldIndex];
-                removeOps.Add(new CrdtOperation(Guid.NewGuid(), replicaId, removePath, OperationType.Remove, removedItem?.DeepClone(), timestamp));
+                removeOps.Add(new CrdtOperation(Guid.NewGuid(), replicaId, removePath, OperationType.Remove, removedItem, timestamp));
             }
         }
 
-        operations.AddRange(removeOps.OrderByDescending(op =>
-        {
-            var segments = JsonNodePathHelper.ParsePath(op.JsonPath);
-            var lastSegment = segments.LastOrDefault();
-            if (lastSegment is not null && int.TryParse(lastSegment, out var index))
-            {
-                return index;
-            }
-            return -1;
-        }));
-        
+        operations.AddRange(removeOps);
         operations.AddRange(addOps);
     }
     
-    public void ApplyOperation(JsonNode rootNode, CrdtOperation operation, PropertyInfo property)
+    public void ApplyOperation(object root, CrdtOperation operation)
     {
-        ArgumentNullException.ThrowIfNull(rootNode);
-        ArgumentNullException.ThrowIfNull(property);
-
-        // For an array operation, the path points to an element, so we need the parent path to find the array itself.
-        var (parentPath, _) = JsonNodePathHelper.SplitPath(operation.JsonPath);
-        if (parentPath is null)
-        {
-            return;
-        }
-
-        var (dataParent, lastDataSegment) = JsonNodePathHelper.FindParentNode(rootNode, parentPath);
-        if (dataParent?[lastDataSegment] is not JsonArray dataArray)
-        {
-            return;
-        }
+        ArgumentNullException.ThrowIfNull(root);
         
-        var elementType = property.PropertyType.GetGenericArguments().FirstOrDefault() ?? property.PropertyType.GetElementType() ?? typeof(object);
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+
+        if (parent is null) return;
+        
+        IList? list;
+        Type? elementType = null;
+
+        if (parent is IList listFromParent)
+        {
+            list = listFromParent;
+        }
+        else if (property is not null && property.GetValue(parent) is IList listFromProperty)
+        {
+            list = listFromProperty;
+            var propType = property.PropertyType;
+            if (propType.IsGenericType)
+            {
+                elementType = propType.GetGenericArguments().FirstOrDefault();
+            }
+        }
+        else
+        {
+            return;
+        }
+
+        if (list is null) return;
+        
+        if (elementType is null)
+        {
+            var listType = list.GetType();
+            elementType = listType.IsGenericType
+                ? listType.GetGenericArguments().FirstOrDefault()
+                : listType.GetElementType();
+        }
+
+        if (elementType is null)
+        {
+            elementType = typeof(object);
+        }
+
         var comparer = comparerProvider.GetComparer(elementType);
 
         if (operation.Type == OperationType.Upsert)
         {
-            var newValue = operation.Value?.DeepClone();
+            var newValue = DeserializeValue(operation.Value, elementType);
             if (newValue is null) return;
-            
+
             var existingIndex = -1;
-            for (var i = 0; i < dataArray.Count; i++)
+            for (var i = 0; i < list.Count; i++)
             {
-                if (comparer.Equals(dataArray[i], newValue))
+                if (comparer.Equals(list[i], newValue))
                 {
                     existingIndex = i;
                     break;
@@ -146,24 +153,24 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
 
             if (existingIndex != -1)
             {
-                dataArray[existingIndex] = newValue;
+                list[existingIndex] = newValue;
             }
             else
             {
-                dataArray.Add(newValue);
+                list.Add(newValue);
             }
             
-            SortJsonArray(dataArray);
+            SortList(list);
         }
         else if (operation.Type == OperationType.Remove)
         {
-            var itemToRemove = operation.Value;
-            if (itemToRemove is null) return;
+            if (operation.Value is null) return;
+            var valueToRemove = DeserializeValue(operation.Value, elementType);
 
             var indexToRemove = -1;
-            for (var i = 0; i < dataArray.Count; i++)
+            for (var i = 0; i < list.Count; i++)
             {
-                if (comparer.Equals(dataArray[i], itemToRemove))
+                if (comparer.Equals(list[i], valueToRemove))
                 {
                     indexToRemove = i;
                     break;
@@ -172,12 +179,12 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
 
             if (indexToRemove != -1)
             {
-                dataArray.RemoveAt(indexToRemove);
+                list.RemoveAt(indexToRemove);
             }
         }
     }
     
-    internal List<LcsDiffEntry> Diff(JsonArray from, JsonArray to, IEqualityComparer<JsonNode> itemComparer)
+    internal List<LcsDiffEntry> Diff(List<object> from, List<object> to, IEqualityComparer<object> itemComparer)
     {
         var n = from.Count;
         var m = to.Count;
@@ -187,7 +194,7 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
         {
             for (var j = 1; j <= m; j++)
             {
-                if (itemComparer.Equals(from[i - 1], to[j - 1]))
+                if (itemComparer.Equals(from[i-1], to[j-1]))
                 {
                     dp[i, j] = dp[i - 1, j - 1] + 1;
                 }
@@ -225,47 +232,111 @@ public sealed class ArrayLcsStrategy : ICrdtStrategy
         return diff;
     }
     
-    private static ICrdtTimestamp GetTimestamp(JsonNode? metaNode)
+    private static void SortList(IList list)
     {
-        if (metaNode is JsonValue value && value.TryGetValue<long>(out var timestamp))
+        var items = new List<object>();
+        foreach (var item in list)
         {
-            return new EpochTimestamp(timestamp);
+            items.Add(item);
         }
-        return EpochTimestamp.MinValue;
-    }
-
-    private static void SortJsonArray(JsonArray jsonArray)
-    {
-        var items = jsonArray.ToList();
-        jsonArray.Clear();
-
+        
         items.Sort((x, y) =>
         {
             var keyX = GetSortKey(x);
             var keyY = GetSortKey(y);
             return string.Compare(keyX, keyY, StringComparison.Ordinal);
         });
-
+        
+        list.Clear();
         foreach (var item in items)
         {
-            jsonArray.Add(item);
+            list.Add(item);
         }
     }
 
-    private static string GetSortKey(JsonNode? node)
+    private static string GetSortKey(object? obj)
     {
-        if (node is JsonObject obj)
+        if (obj is null)
         {
-            if (obj.TryGetPropertyValue("id", out var idNode) && idNode is not null)
+            return string.Empty;
+        }
+
+        var type = obj.GetType();
+        var idProp = type.GetProperty("Id", BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+
+        if (idProp is not null)
+        {
+            return idProp.GetValue(obj)?.ToString() ?? string.Empty;
+        }
+
+        if (type.IsClass && type != typeof(string))
+        {
+            // Fallback for complex types without an 'Id' property.
+            // Create a stable sort key by concatenating property values.
+            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.CanRead)
+                .OrderBy(p => p.Name);
+            
+            var keyBuilder = new StringBuilder();
+            foreach (var prop in properties)
             {
-                return idNode.ToString();
+                keyBuilder.Append(prop.GetValue(obj)?.ToString() ?? "null");
+                keyBuilder.Append('|');
             }
-            if (obj.TryGetPropertyValue("Id", out var idNodeUpper) && idNodeUpper is not null)
+            return keyBuilder.ToString();
+        }
+
+        return obj.ToString() ?? string.Empty;
+    }
+    
+    private static object? DeserializeValue(object? value, Type targetType)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        if (targetType.IsInstanceOfType(value))
+        {
+            return value;
+        }
+
+        var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+        if (value is IConvertible)
+        {
+            try
             {
-                return idNodeUpper.ToString();
+                return Convert.ChangeType(value, underlyingType, CultureInfo.InvariantCulture);
+            }
+            catch (Exception ex) when (ex is InvalidCastException || ex is FormatException || ex is OverflowException)
+            {
+                // Fall through to dictionary mapping logic.
             }
         }
-        
-        return node?.ToJsonString() ?? string.Empty;
+
+        if (value is IDictionary<string, object> dictionary && !underlyingType.IsPrimitive && underlyingType != typeof(string))
+        {
+            var instance = Activator.CreateInstance(underlyingType);
+            if (instance is null)
+            {
+                return null;
+            }
+
+            var properties = underlyingType.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite);
+
+            foreach (var property in properties)
+            {
+                var key = dictionary.Keys.FirstOrDefault(k => string.Equals(k, property.Name, StringComparison.OrdinalIgnoreCase));
+                if (key != null)
+                {
+                    var propValue = dictionary[key];
+                    property.SetValue(instance, DeserializeValue(propValue, property.PropertyType));
+                }
+            }
+            return instance;
+        }
+
+        throw new InvalidOperationException($"Failed to convert value of type '{value.GetType().Name}' to '{targetType.Name}'.");
     }
 }

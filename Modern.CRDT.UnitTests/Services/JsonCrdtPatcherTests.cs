@@ -30,7 +30,7 @@ public sealed class JsonCrdtPatcherTests
         public string? Value { get; init; }
     }
 
-    private readonly IJsonCrdtPatcher patcher;
+    private readonly ICrdtPatcher patcher;
 
     public JsonCrdtPatcherTests()
     {
@@ -38,11 +38,11 @@ public sealed class JsonCrdtPatcherTests
         var timestampProvider = new EpochTimestampProvider();
         var lwwStrategy = new LwwStrategy(options);
         var counterStrategy = new CounterStrategy(timestampProvider, options);
-        var comparerProvider = new JsonNodeComparerProvider(Enumerable.Empty<IJsonNodeComparer>());
+        var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
         var arrayStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, options);
         var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayStrategy };
         var strategyManager = new CrdtStrategyManager(strategies);
-        patcher = new JsonCrdtPatcher(strategyManager);
+        patcher = new CrdtPatcher(strategyManager);
     }
 
     [Fact]
@@ -94,12 +94,12 @@ public sealed class JsonCrdtPatcherTests
 
         var lwwOp = patch.Operations.FirstOrDefault(op => op.JsonPath == "$.name");
         lwwOp!.Type.ShouldBe(OperationType.Upsert);
-        lwwOp.Value!.AsValue().GetValue<string>().ShouldBe("Updated");
+        lwwOp.Value!.ShouldBe("Updated");
         lwwOp.Timestamp.ShouldBe(new EpochTimestamp(ts2));
 
         var counterOp = patch.Operations.FirstOrDefault(op => op.JsonPath == "$.likes");
         counterOp!.Type.ShouldBe(OperationType.Increment);
-        counterOp.Value!.AsValue().GetValue<decimal>().ShouldBe(10); // 15 - 5
+        counterOp.Value!.ShouldBe(10); // 15 - 5
     }
 
     [Fact]
@@ -109,17 +109,13 @@ public sealed class JsonCrdtPatcherTests
         var ts1 = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var fromModel = new TestModel { Tags = ["a", "b", "c"] };
         var fromMeta = new CrdtMetadata();
-        fromMeta.Lww["$.tags[0]"] = new EpochTimestamp(ts1);
-        fromMeta.Lww["$.tags[1]"] = new EpochTimestamp(ts1);
-        fromMeta.Lww["$.tags[2]"] = new EpochTimestamp(ts1);
+        fromMeta.Lww["$.tags"] = new EpochTimestamp(ts1);
         var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
 
         var ts2 = ts1 + 100;
         var toModel = new TestModel { Tags = ["a", "x", "c"] }; // "b" removed, "x" inserted
         var toMeta = new CrdtMetadata();
-        toMeta.Lww["$.tags[0]"] = new EpochTimestamp(ts1);
-        toMeta.Lww["$.tags[1]"] = new EpochTimestamp(ts2);
-        toMeta.Lww["$.tags[2]"] = new EpochTimestamp(ts1);
+        toMeta.Lww["$.tags"] = new EpochTimestamp(ts2);
         var to = new CrdtDocument<TestModel>(toModel, toMeta);
 
         // Act
@@ -133,7 +129,7 @@ public sealed class JsonCrdtPatcherTests
 
         var upsertOp = patch.Operations.SingleOrDefault(o => o.Type == OperationType.Upsert);
         upsertOp.JsonPath.ShouldBe("$.tags[1]");
-        upsertOp.Value!.AsValue().GetValue<string>().ShouldBe("x");
+        upsertOp.Value!.ShouldBe("x");
     }
 
     [Fact]
@@ -161,7 +157,7 @@ public sealed class JsonCrdtPatcherTests
         var op = patch.Operations.Single();
         op.JsonPath.ShouldBe("$.nested.value");
         op.Type.ShouldBe(OperationType.Upsert);
-        op.Value!.AsValue().GetValue<string>().ShouldBe("Nested Updated");
+        op.Value!.ShouldBe("Nested Updated");
         op.Timestamp.ShouldBe(new EpochTimestamp(ts2));
     }
 
@@ -191,7 +187,7 @@ public sealed class JsonCrdtPatcherTests
         var op = patch.Operations.Single();
         op.JsonPath.ShouldBe("$.nested.value");
         op.Type.ShouldBe(OperationType.Upsert);
-        op.Value!.AsValue().GetValue<string>().ShouldBe("Added");
+        op.Value!.ShouldBe("Added");
         op.Timestamp.ShouldBe(new EpochTimestamp(ts2));
     }
 
@@ -208,7 +204,7 @@ public sealed class JsonCrdtPatcherTests
 
         var ts2 = ts1 + 100;
         var toModel = new TestModel { Name = "Test", Nested = null };
-        var toMeta = new CrdtMetadata(); // Meta for 'to' state doesn't need old value, but LWW needs a timestamp for the 'remove' action.
+        var toMeta = new CrdtMetadata();
         toMeta.Lww["$.name"] = new EpochTimestamp(ts1);
         toMeta.Lww["$.nested.value"] = new EpochTimestamp(ts2);
         var to = new CrdtDocument<TestModel>(toModel, toMeta);

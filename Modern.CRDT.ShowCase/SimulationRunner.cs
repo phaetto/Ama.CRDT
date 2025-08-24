@@ -11,8 +11,8 @@ using Modern.CRDT.ShowCase.Services;
 /// communicating via channels to demonstrate CRDT convergence without locks.
 /// </summary>
 public sealed class SimulationRunner(
-    IJsonCrdtPatcherFactory patcherFactory,
-    IJsonCrdtApplicator applicator,
+    ICrdtPatcherFactory patcherFactory,
+    ICrdtApplicator applicator,
     IInMemoryDatabaseService database,
     ICrdtMetadataManager metadataManager)
 {
@@ -78,7 +78,7 @@ public sealed class SimulationRunner(
         Console.WriteLine("-> Producer: Finished. All items sent to mappers.");
     }
 
-    private async Task MapAsync(ChannelReader<User> reader, IReadOnlyList<ChannelWriter<CrdtPatch>> writers, IJsonCrdtPatcher patcher, string replicaId)
+    private async Task MapAsync(ChannelReader<User> reader, IReadOnlyList<ChannelWriter<CrdtPatch>> writers, ICrdtPatcher patcher, string replicaId)
     {
         Console.WriteLine($"  -> Mapper '{replicaId}': Started.");
         var count = 0;

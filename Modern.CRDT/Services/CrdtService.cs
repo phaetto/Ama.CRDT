@@ -2,8 +2,11 @@ namespace Modern.CRDT.Services;
 
 using Modern.CRDT.Models;
 
-public sealed class JsonCrdtService(IJsonCrdtPatcher patcher, IJsonCrdtApplicator applicator) : IJsonCrdtService
+public sealed class CrdtService(ICrdtPatcher patcher, ICrdtApplicator applicator) : ICrdtService
 {
+    private readonly ICrdtPatcher patcher = patcher;
+    private readonly ICrdtApplicator applicator = applicator;
+
     public CrdtPatch CreatePatch<T>(CrdtDocument<T> original, CrdtDocument<T> modified) where T : class
     {
         return patcher.GeneratePatch(original, modified);

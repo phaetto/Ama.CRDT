@@ -11,13 +11,13 @@ public sealed class JsonCrdtServiceTests
 {
     private sealed record TestModel(string Name);
 
-    private readonly Mock<IJsonCrdtPatcher> patcherMock = new();
-    private readonly Mock<IJsonCrdtApplicator> applicatorMock = new();
-    private readonly JsonCrdtService service;
+    private readonly Mock<ICrdtPatcher> patcherMock = new();
+    private readonly Mock<ICrdtApplicator> applicatorMock = new();
+    private readonly CrdtService service;
     
     public JsonCrdtServiceTests()
     {
-        service = new JsonCrdtService(patcherMock.Object, applicatorMock.Object);
+        service = new CrdtService(patcherMock.Object, applicatorMock.Object);
     }
 
     [Fact]

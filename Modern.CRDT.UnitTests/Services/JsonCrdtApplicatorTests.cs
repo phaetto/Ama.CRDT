@@ -8,20 +8,20 @@ using Modern.CRDT.Services.Strategies;
 using Shouldly;
 using System;
 using System.Collections.Generic;
-using System.Text.Json.Nodes;
+using System.Linq;
 using Xunit;
 
 public sealed class JsonCrdtApplicatorTests
 {
-    private sealed record TestModel
+    private sealed class TestModel
     {
-        public string? Name { get; init; }
+        public string? Name { get; set; }
 
         [CrdtCounter]
-        public int Likes { get; init; }
+        public int Likes { get; set; }
     }
 
-    private readonly IJsonCrdtApplicator applicator;
+    private readonly ICrdtApplicator applicator;
 
     public JsonCrdtApplicatorTests()
     {
@@ -29,9 +29,11 @@ public sealed class JsonCrdtApplicatorTests
         var timestampProvider = new EpochTimestampProvider();
         var lwwStrategy = new LwwStrategy(options);
         var counterStrategy = new CounterStrategy(timestampProvider, options);
-        var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy };
+        var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
+        var arrayLcsStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, options);
+        var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayLcsStrategy };
         var strategyManager = new CrdtStrategyManager(strategies);
-        applicator = new JsonCrdtApplicator(strategyManager);
+        applicator = new CrdtApplicator(strategyManager);
     }
     
     [Fact]
@@ -40,7 +42,7 @@ public sealed class JsonCrdtApplicatorTests
         // Arrange
         var model = new TestModel { Name = "Initial" };
         var metadata = new CrdtMetadata();
-        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, JsonValue.Create("Updated"), new EpochTimestamp(100));
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Updated", new EpochTimestamp(100));
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
         // Act
@@ -59,7 +61,7 @@ public sealed class JsonCrdtApplicatorTests
         var model = new TestModel { Name = "Initial" };
         var metadata = new CrdtMetadata();
         metadata.Lww["$.name"] = new EpochTimestamp(200);
-        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, JsonValue.Create("Stale"), new EpochTimestamp(100));
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Stale", new EpochTimestamp(100));
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
         
         // Act
@@ -78,7 +80,7 @@ public sealed class JsonCrdtApplicatorTests
         var model = new TestModel { Likes = 10 };
         var metadata = new CrdtMetadata();
         metadata.VersionVector["replica-A"] = new EpochTimestamp(200);
-        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(150));
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, new EpochTimestamp(150));
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
         // Act
@@ -95,7 +97,7 @@ public sealed class JsonCrdtApplicatorTests
         // Arrange
         var model = new TestModel { Likes = 10 };
         var metadata = new CrdtMetadata();
-        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(150));
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, new EpochTimestamp(150));
         metadata.SeenExceptions.Add(operation);
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
@@ -113,7 +115,7 @@ public sealed class JsonCrdtApplicatorTests
         // Arrange
         var model = new TestModel { Likes = 10 };
         var metadata = new CrdtMetadata();
-        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(100));
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, new EpochTimestamp(100));
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
         // Act
@@ -130,8 +132,8 @@ public sealed class JsonCrdtApplicatorTests
         // Arrange
         var model = new TestModel { Name = "Initial", Likes = 10 };
         var metadata = new CrdtMetadata();
-        var lwwOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, JsonValue.Create("Updated"), new EpochTimestamp(100));
-        var counterOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(100));
+        var lwwOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Updated", new EpochTimestamp(100));
+        var counterOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, new EpochTimestamp(100));
         var patch = new CrdtPatch(new List<CrdtOperation> { lwwOperation, counterOperation });
 
         // Act
@@ -164,23 +166,23 @@ public sealed class JsonCrdtApplicatorTests
         var initialModel = new TestModel { Name = "Initial", Likes = 10 };
 
         // Patch A from replica A
-        var opA_Lww = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, JsonValue.Create("Name A"), new EpochTimestamp(100));
-        var opA_Counter = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, JsonValue.Create(5), new EpochTimestamp(110));
+        var opA_Lww = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Name A", new EpochTimestamp(100));
+        var opA_Counter = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, new EpochTimestamp(110));
         var patchA = new CrdtPatch(new List<CrdtOperation> { opA_Lww, opA_Counter });
 
         // Patch B from replica B
-        var opB_Lww = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.name", OperationType.Upsert, JsonValue.Create("Name B"), new EpochTimestamp(200)); // Higher timestamp wins
-        var opB_Counter = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.likes", OperationType.Increment, JsonValue.Create(3), new EpochTimestamp(120));
+        var opB_Lww = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.name", OperationType.Upsert, "Name B", new EpochTimestamp(200)); // Higher timestamp wins
+        var opB_Counter = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.likes", OperationType.Increment, 3m, new EpochTimestamp(120));
         var patchB = new CrdtPatch(new List<CrdtOperation> { opB_Lww, opB_Counter });
 
         // Scenario 1: Apply A, then B
         var metadata_AB = new CrdtMetadata();
-        var model_afterA = applicator.ApplyPatch(initialModel, patchA, metadata_AB);
+        var model_afterA = applicator.ApplyPatch(new TestModel { Name = initialModel.Name, Likes = initialModel.Likes }, patchA, metadata_AB);
         var result_AB = applicator.ApplyPatch(model_afterA, patchB, metadata_AB);
 
         // Scenario 2: Apply B, then A
         var metadata_BA = new CrdtMetadata();
-        var model_afterB = applicator.ApplyPatch(initialModel, patchB, metadata_BA);
+        var model_afterB = applicator.ApplyPatch(new TestModel { Name = initialModel.Name, Likes = initialModel.Likes }, patchB, metadata_BA);
         var result_BA = applicator.ApplyPatch(model_afterB, patchA, metadata_BA);
         
         // Assert
