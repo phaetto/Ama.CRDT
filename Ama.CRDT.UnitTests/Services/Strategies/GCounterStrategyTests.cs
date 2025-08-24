@@ -36,7 +36,7 @@ public sealed class GCounterStrategyTests
         var strategyManager = new CrdtStrategyManager(strategies);
         
         applicator = new CrdtApplicator(strategyManager);
-        metadataManager = new CrdtMetadataManager(strategyManager, timestampProvider);
+        metadataManager = new CrdtMetadataManager(strategyManager, timestampProvider, comparerProvider);
     }
 
     [Fact]

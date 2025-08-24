@@ -58,7 +58,7 @@ public sealed class ArrayLcsStrategyTests
         
         var strategyManagerApplicator = new CrdtStrategyManager(strategiesA);
         applicator = new CrdtApplicator(strategyManagerApplicator);
-        metadataManager = new CrdtMetadataManager(strategyManagerA, timestampProvider);
+        metadataManager = new CrdtMetadataManager(strategyManagerA, timestampProvider, comparerProvider);
     }
     
     [Fact]
