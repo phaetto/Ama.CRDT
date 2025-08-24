@@ -1,9 +1,8 @@
+namespace Modern.CRDT.ShowCase.Services;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Modern.CRDT.Services.Strategies;
 using Modern.CRDT.ShowCase.Models;
-
-namespace Modern.CRDT.ShowCase.Services;
 
 /// <summary>
 /// A custom implementation of <see cref="IJsonNodeComparer"/> that allows the <see cref="ArrayLcsStrategy"/>

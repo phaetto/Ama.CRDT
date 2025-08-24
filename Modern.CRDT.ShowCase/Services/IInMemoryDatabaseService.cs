@@ -1,6 +1,5 @@
-using Modern.CRDT.Models;
-
 namespace Modern.CRDT.ShowCase.Services;
+using Modern.CRDT.Models;
 
 /// <summary>
 /// Defines the contract for a simple in-memory key-value store to simulate persistence

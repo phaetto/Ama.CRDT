@@ -1,12 +1,10 @@
+namespace Modern.CRDT.ShowCase;
 using System.Linq;
-using System.Text.Json;
 using System.Threading.Channels;
 using Modern.CRDT.Models;
 using Modern.CRDT.Services;
 using Modern.CRDT.ShowCase.Models;
 using Modern.CRDT.ShowCase.Services;
-
-namespace Modern.CRDT.ShowCase;
 
 /// <summary>
 /// Orchestrates a distributed map-reduce simulation using concurrent producers, mappers, and convergers
@@ -15,7 +13,8 @@ namespace Modern.CRDT.ShowCase;
 public sealed class SimulationRunner(
     IJsonCrdtPatcherFactory patcherFactory,
     IJsonCrdtApplicator applicator,
-    IInMemoryDatabaseService database)
+    IInMemoryDatabaseService database,
+    ICrdtMetadataManager metadataManager)
 {
     private const int TotalItems = 200;
     private const int MapperCount = 5;
@@ -79,13 +78,13 @@ public sealed class SimulationRunner(
         Console.WriteLine("-> Producer: Finished. All items sent to mappers.");
     }
 
-    private static async Task MapAsync(ChannelReader<User> reader, IReadOnlyList<ChannelWriter<CrdtPatch>> writers, IJsonCrdtPatcher patcher, string replicaId)
+    private async Task MapAsync(ChannelReader<User> reader, IReadOnlyList<ChannelWriter<CrdtPatch>> writers, IJsonCrdtPatcher patcher, string replicaId)
     {
         Console.WriteLine($"  -> Mapper '{replicaId}': Started.");
         var count = 0;
         await foreach (var user in reader.ReadAllAsync())
         {
-            await Task.Delay(Random.Shared.Next(1, 5));
+            await Task.Delay(Random.Shared.Next(1, 10));
 
             // A mapper generates a patch representing a single conceptual operation.
             // We do this by diffing an empty state against a state with just this one operation applied.
@@ -104,8 +103,7 @@ public sealed class SimulationRunner(
             // The 'to' document must contain metadata for its LWW properties
             // to allow the patcher to generate correct operations.
             var toMeta = new CrdtMetadata();
-            toMeta.Lww["$.lastProcessedUserName"] = new EpochTimestamp(now);
-            toMeta.Lww["$.lastProcessedTimestamp"] = new EpochTimestamp(now);
+            metadataManager.InitializeLwwMetadata(toMeta, to);
             
             var toDoc = new CrdtDocument<UserStats>(to, toMeta);
 

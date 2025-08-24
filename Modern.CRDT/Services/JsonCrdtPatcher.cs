@@ -1,3 +1,4 @@
+namespace Modern.CRDT.Services;
 using System.Collections;
 using System.Reflection;
 using System.Text.Json;
@@ -6,8 +7,6 @@ using System.Text.Json.Serialization;
 using Modern.CRDT.Models;
 using Modern.CRDT.Services.Helpers;
 using Modern.CRDT.Services.Strategies;
-
-namespace Modern.CRDT.Services;
 
 public sealed class JsonCrdtPatcher(ICrdtStrategyManager strategyManager) : IJsonCrdtPatcher
 {
