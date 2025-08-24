@@ -27,6 +27,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check for unshipped APIs
+        run: |
+          UNSHIPPED_API_FILE="Ama.CRDT/PublicAPI.Unshipped.txt"
+          if [ -f "$UNSHIPPED_API_FILE" ] && [ -s "$UNSHIPPED_API_FILE" ]; then
+            echo "Error: PublicAPI.Unshipped.txt is not empty, indicating unshipped APIs."
+            echo "To publish a stable release, first 'ship' these APIs by moving them to PublicAPI.Shipped.txt and clearing PublicAPI.Unshipped.txt."
+            exit 1
+          fi
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -56,5 +65,8 @@ jobs:
       - name: Pack
         run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }} -p:PackageVersion=${{ env.PACKAGE_VERSION }}
 
+      - name: List created packages
+        run: ls -R ${{ env.PACKAGE_OUTPUT_DIRECTORY }}
+
       - name: Push to NuGet
-        run: dotnet nuget push "${{ env.PACKAGE_OUTPUT_DIRECTORY }}/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json"
+        run: dotnet nuget push "${{ env.PACKAGE_OUTPUT_DIRECTORY }}/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate

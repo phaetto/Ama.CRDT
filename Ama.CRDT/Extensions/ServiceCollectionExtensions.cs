@@ -18,11 +18,30 @@ namespace Ama.CRDT.Extensions;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds the core CRDT services to the specified <see cref="IServiceCollection"/>.
+    /// Adds the core CRDT services to the specified <see cref="IServiceCollection"/>. This includes the default strategies,
+    /// patcher, applicator, and supporting services required for the library to function.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection"/> to add services to.</param>
-    /// <param name="configureOptions">An <see cref="Action{CrdtOptions}"/> to configure the provided <see cref="CrdtOptions"/>.</param>
+    /// <param name="configureOptions">An <see cref="Action{CrdtOptions}"/> to configure the provided <see cref="CrdtOptions"/>, typically used to set the default replica ID.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var builder = WebApplication.CreateBuilder(args);
+    /// 
+    /// builder.Services.AddCrdt(options =>
+    /// {
+    ///     // This replica ID is used for the default ICrdtService.
+    ///     options.ReplicaId = "server-default";
+    /// });
+    ///
+    /// var app = builder.Build();
+    ///
+    /// // You can now resolve ICrdtService, ICrdtPatcherFactory, etc.
+    /// var crdtService = app.Services.GetRequiredService<ICrdtService>();
+    /// ]]>
+    /// </code>
+    /// </example>
     public static IServiceCollection AddCrdt(this IServiceCollection services, [DisallowNull] Action<CrdtOptions> configureOptions)
     {
         ArgumentNullException.ThrowIfNull(configureOptions);
