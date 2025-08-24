@@ -55,6 +55,25 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
     }
 
     /// <inheritdoc/>
+    public void Reset<T>(CrdtMetadata metadata, T document) where T : class
+    {
+        Reset(metadata, document, timestampProvider.Now());
+    }
+
+    /// <inheritdoc/>
+    public void Reset<T>(CrdtMetadata metadata, T document, ICrdtTimestamp timestamp) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(timestamp);
+
+        metadata.Lww.Clear();
+        metadata.PositionalTrackers.Clear();
+
+        PopulateMetadataRecursive(metadata, document, "$", timestamp);
+    }
+
+    /// <inheritdoc/>
     public void PruneLwwTombstones(CrdtMetadata metadata, ICrdtTimestamp threshold)
     {
         ArgumentNullException.ThrowIfNull(metadata);

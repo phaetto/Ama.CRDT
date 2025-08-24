@@ -14,7 +14,8 @@ public sealed class SimulationRunner(
     ICrdtPatcherFactory patcherFactory,
     ICrdtApplicator applicator,
     IInMemoryDatabaseService database,
-    ICrdtMetadataManager metadataManager)
+    ICrdtMetadataManager metadataManager,
+    ICrdtPatchBuilder patchBuilder)
 {
     private const int TotalItems = 200;
     private const int MapperCount = 5;
@@ -86,24 +87,41 @@ public sealed class SimulationRunner(
         {
             await Task.Delay(Random.Shared.Next(1, 10));
 
-            // A mapper generates a patch representing a single conceptual operation.
-            // We do this by diffing an empty state against a state with just this one operation applied.
-            var from = new UserStats(); 
-            var fromDoc = new CrdtDocument<UserStats>(from);
+            /*
+             * You can either make the patch by comparing what you have in the database:
+             * You need the active metadata document for it (from the db too), 
+             * here we built a new one.
+             * 
+             
+                var from = new UserStats(); 
+                var fromDoc = new CrdtDocument<UserStats>(from);
+
+                var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                var to = new UserStats
+                {
+                    ProcessedItemsCount = 1, // This will become an "increment by 1" operation
+                    UniqueUserNames = [user.Name],    // This becomes an "add user name" operation
+                    LastProcessedUserName = user.Name,
+                    LastProcessedTimestamp = now
+                };
+
+                var toMeta = metadataManager.Initialize(to);
+                var toDoc = new CrdtDocument<UserStats>(to, toMeta);
+                var patch = patcher.GeneratePatch(fromDoc, toDoc);
+
+             * 
+             * Or you can craft a manual patch like the following.
+             * It should be extremely easy for clients to make that from their local state.
+             */
 
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var to = new UserStats
-            {
-                ProcessedItemsCount = 1, // This will become an "increment by 1" operation
-                UniqueUserNames = [user.Name],    // This becomes an "add user name" operation
-                LastProcessedUserName = user.Name,
-                LastProcessedTimestamp = now
-            };
+            var patch = patchBuilder.New()
+                .Increment<UserStats>(x => x.ProcessedItemsCount)
+                .Upsert<UserStats, string>(x => x.UniqueUserNames[0], user.Name)
+                .Upsert<UserStats, string>(x => x.LastProcessedUserName, user.Name)
+                .Upsert<UserStats, long>(x => x.LastProcessedTimestamp, now)
+                .Build();
 
-            var toMeta = metadataManager.Initialize(to);
-            var toDoc = new CrdtDocument<UserStats>(to, toMeta);
-            var patch = patcher.GeneratePatch(fromDoc, toDoc);
-            
             // Broadcast the patch to all converger channels in parallel.
             var writeTasks = new List<Task>(writers.Count);
             foreach (var writer in writers)

@@ -1,4 +1,5 @@
 namespace Ama.CRDT.Models;
+
 /// <summary>
 /// Represents a single CRDT operation in a patch.
 /// </summary>

@@ -38,6 +38,8 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<ICrdtApplicator, CrdtApplicator>();
         services.TryAddSingleton<ICrdtService, CrdtService>();
 
+        services.AddTransient<ICrdtPatchBuilder, CrdtPatchBuilder>();
+
         // Register the metadata manager
         services.TryAddSingleton<ICrdtMetadataManager, CrdtMetadataManager>();
 
