@@ -1,0 +1,196 @@
+namespace Ama.CRDT.UnitTests.Services.Strategies;
+
+using Ama.CRDT.Attributes;
+using Ama.CRDT.Models;
+using Ama.CRDT.Services;
+using Ama.CRDT.Services.Strategies;
+using Microsoft.Extensions.Options;
+using Shouldly;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using Xunit;
+
+public sealed class PriorityQueueStrategyTests
+{
+    private sealed class Item(string id, int priority)
+    {
+        public string Id { get; set; } = id;
+        public int Priority { get; set; } = priority;
+    }
+
+    private sealed class ItemComparer : IElementComparer
+    {
+        public bool CanCompare([DisallowNull] Type type)
+        {
+            return type == typeof(Item);
+        }
+
+        public bool Equals(object? x, object? y) => (x as Item)?.Id == (y as Item)?.Id;
+        public int GetHashCode(object obj) => (obj as Item)?.Id?.GetHashCode() ?? 0;
+    }
+
+    private sealed class TestModel
+    {
+        [CrdtPriorityQueueStrategy(nameof(Item.Priority))]
+        public List<Item> Items { get; set; } = new();
+    }
+
+    private readonly CrdtPatcher patcherA;
+    private readonly CrdtPatcher patcherB;
+    private readonly CrdtApplicator applicator;
+    private readonly CrdtMetadataManager metadataManager;
+
+    public PriorityQueueStrategyTests()
+    {
+        var timestampProvider = new EpochTimestampProvider();
+        var comparerProvider = new ElementComparerProvider([new ItemComparer()]);
+        
+        var optionsA = Options.Create(new CrdtOptions { ReplicaId = "A" });
+        var optionsB = Options.Create(new CrdtOptions { ReplicaId = "B" });
+
+        var lwwStrategy = new LwwStrategy(optionsA);
+        var priorityQueueStrategyA = new PriorityQueueStrategy(comparerProvider, timestampProvider, optionsA);
+        var strategiesA = new ICrdtStrategy[] { lwwStrategy, priorityQueueStrategyA };
+        var strategyManagerA = new CrdtStrategyManager(strategiesA);
+        patcherA = new CrdtPatcher(strategyManagerA);
+
+        var lwwStrategyB = new LwwStrategy(optionsB);
+        var priorityQueueStrategyB = new PriorityQueueStrategy(comparerProvider, timestampProvider, optionsB);
+        var strategiesB = new ICrdtStrategy[] { lwwStrategyB, priorityQueueStrategyB };
+        var strategyManagerB = new CrdtStrategyManager(strategiesB);
+        patcherB = new CrdtPatcher(strategyManagerB);
+
+        var strategyManagerApplicator = new CrdtStrategyManager(strategiesA);
+        applicator = new CrdtApplicator(strategyManagerApplicator);
+        metadataManager = new CrdtMetadataManager(strategyManagerA, timestampProvider, comparerProvider);
+    }
+    
+    [Fact]
+    public void ApplyOperation_ShouldKeepListSortedByPriority()
+    {
+        // Arrange
+        var model = new TestModel { Items = [new("A", 10), new("C", 30)] };
+        var meta = metadataManager.Initialize(model);
+        var modifiedMeta = metadataManager.Initialize(model);
+
+        var patch = patcherA.GeneratePatch(
+            new CrdtDocument<TestModel>(model, meta),
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 20), new("C", 30)] }, modifiedMeta));
+
+        // Act
+        applicator.ApplyPatch(model, patch, meta);
+
+        // Assert
+        model.Items.Select(i => i.Id).ShouldBe(new[] { "A", "B", "C" });
+        model.Items.Select(i => i.Priority).ShouldBe(new[] { 10, 20, 30 });
+    }
+
+    [Fact]
+    public void Converge_WhenApplyingConcurrentAdds_ShouldBeCommutative()
+    {
+        // Arrange
+        var ancestor = new TestModel { Items = [new("A", 10)] };
+        var metaAncestor = metadataManager.Initialize(ancestor);
+        
+        var patchB = patcherA.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 20)] }, metadataManager.Initialize(ancestor)));
+        
+        var patchC = patcherB.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("C", 5)] }, metadataManager.Initialize(ancestor)));
+        
+        // Scenario 1: B then C
+        var model1 = new TestModel { Items = [..ancestor.Items] };
+        var meta1 = metadataManager.Initialize(model1);
+        applicator.ApplyPatch(model1, patchB, meta1);
+        applicator.ApplyPatch(model1, patchC, meta1);
+
+        // Scenario 2: C then B
+        var model2 = new TestModel { Items = [..ancestor.Items] };
+        var meta2 = metadataManager.Initialize(model2);
+        applicator.ApplyPatch(model2, patchC, meta2);
+        applicator.ApplyPatch(model2, patchB, meta2);
+        
+        // Assert
+        var expectedOrder = new[] { "C", "A", "B" };
+        model1.Items.Select(i => i.Id).ShouldBe(expectedOrder);
+        model2.Items.Select(i => i.Id).ShouldBe(expectedOrder);
+    }
+    
+    [Fact]
+    public void Converge_WhenPriorityIsUpdatedConcurrently_LwwWins()
+    {
+        // Arrange
+        var ancestor = new TestModel { Items = [new("A", 10), new("B", 20)] };
+        var metaAncestor = metadataManager.Initialize(ancestor);
+        
+        // Replica A changes priority of B to 5
+        var patchA = patcherA.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 5)] }, metadataManager.Initialize(ancestor)));
+
+        // Replica B changes priority of B to 30 (later)
+        Thread.Sleep(5);
+        var patchB = patcherB.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 30)] }, metadataManager.Initialize(ancestor)));
+
+        patchA.Operations.ShouldHaveSingleItem();
+        patchB.Operations.ShouldHaveSingleItem();
+
+        var opA = patchA.Operations.Single();
+        var opB = patchB.Operations.Single();
+        
+        // Act
+        var model = new TestModel { Items = [..ancestor.Items] };
+        var meta = metadataManager.Initialize(model);
+        applicator.ApplyPatch(model, patchA, meta);
+        applicator.ApplyPatch(model, patchB, meta);
+
+        // Assert
+        opB.Timestamp.CompareTo(opA.Timestamp).ShouldBeGreaterThan(0);
+        model.Items.Select(i => i.Id).ShouldBe(["A", "B"]);
+        model.Items.Single(i => i.Id == "B").Priority.ShouldBe(30);
+    }
+    
+    [Fact]
+    public void Converge_WhenItemIsReAddedAfterRemoval_ShouldReappear()
+    {
+        // Arrange
+        var ancestor = new TestModel { Items = [new("A", 10)] };
+        var metaAncestor = metadataManager.Initialize(ancestor);
+
+        // Replica A removes A
+        var patchRemove = patcherA.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Items = [] }, metadataManager.Initialize(ancestor)));
+
+        // Replica B re-adds A with a new priority (later)
+        Thread.Sleep(5);
+        var patchAdd = patcherB.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 5)] }, metadataManager.Initialize(ancestor)));
+        
+        patchRemove.Operations.ShouldHaveSingleItem();
+        patchAdd.Operations.ShouldHaveSingleItem();
+
+        var opRemove = patchRemove.Operations.Single();
+        var opAdd = patchAdd.Operations.Single();
+        var addWins = opAdd.Timestamp.CompareTo(opRemove.Timestamp) > 0;
+        addWins.ShouldBeTrue();
+
+        // Act
+        var model = new TestModel { Items = [..ancestor.Items] };
+        applicator.ApplyPatch(model, patchRemove, metaAncestor);
+        applicator.ApplyPatch(model, patchAdd, metaAncestor);
+        
+        // Assert
+        model.Items.ShouldHaveSingleItem();
+        model.Items[0].Priority.ShouldBe(5);
+    }
+}

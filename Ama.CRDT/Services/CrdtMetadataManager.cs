@@ -6,6 +6,7 @@ using Ama.CRDT.Services.Strategies;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
@@ -80,6 +81,8 @@ public sealed class CrdtMetadataManager(
         metadata.TwoPhaseSets.Clear();
         metadata.LwwSets.Clear();
         metadata.OrSets.Clear();
+        metadata.PriorityQueues.Clear();
+        metadata.LseqTrackers.Clear();
 
         PopulateMetadataRecursive(metadata, document, "$", timestamp);
     }
@@ -203,15 +206,39 @@ public sealed class CrdtMetadataManager(
                 metadata.Lww[propertyPath] = timestamp;
                 break;
             case ArrayLcsStrategy:
-                if (propertyValue is IList list)
+                if (propertyValue is IList lcsList)
                 {
                     metadata.PositionalTrackers[propertyPath] = new List<PositionalIdentifier>(
-                        Enumerable.Range(0, list.Count).Select(i => new PositionalIdentifier((i + 1).ToString(), Guid.Empty)));
+                        Enumerable.Range(0, lcsList.Count).Select(i => new PositionalIdentifier((i + 1).ToString(), Guid.Empty)));
+                }
+                break;
+            case FixedSizeArrayStrategy:
+                if (propertyValue is IList fixedList && propertyInfo.GetCustomAttribute<CrdtFixedSizeArrayStrategyAttribute>() is { } fixedSizeAttr)
+                {
+                    for (var i = 0; i < Math.Min(fixedList.Count, fixedSizeAttr.Size); i++)
+                    {
+                        metadata.Lww[$"{propertyPath}[{i}]"] = timestamp;
+                    }
+                }
+                break;
+            case LseqStrategy:
+                if (propertyValue is IList lseqList)
+                {
+                    var lseqItems = new List<LseqItem>();
+                    var baseIdentifier = ImmutableList<(int, string)>.Empty;
+                    const int step = 10;
+                    for (var i = 0; i < lseqList.Count; i++)
+                    {
+                        var path = baseIdentifier.Add(((i + 1) * step, "initial"));
+                        lseqItems.Add(new LseqItem(new LseqIdentifier(path), lseqList[i]));
+                    }
+                    metadata.LseqTrackers[propertyPath] = lseqItems;
                 }
                 break;
             case TwoPhaseSetStrategy:
             case LwwSetStrategy:
             case OrSetStrategy:
+            case PriorityQueueStrategy:
                 InitializeSetMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
                 break;
         }
@@ -243,6 +270,11 @@ public sealed class CrdtMetadataManager(
                 metadata.OrSets[propertyPath] = (
                     collectionAsObjects.ToDictionary(k => k, _ => (ISet<Guid>)new HashSet<Guid> { Guid.NewGuid() }, comparer),
                     new Dictionary<object, ISet<Guid>>(comparer));
+                break;
+            case PriorityQueueStrategy:
+                metadata.PriorityQueues[propertyPath] = (
+                    collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
+                    new Dictionary<object, ICrdtTimestamp>(comparer));
                 break;
         }
     }

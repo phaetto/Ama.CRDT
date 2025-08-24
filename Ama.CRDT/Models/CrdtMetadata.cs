@@ -53,4 +53,17 @@ public sealed class CrdtMetadata
     /// The key is the JSON Path to the property. The value tuple contains dictionaries mapping an element to a set of unique tags for both 'Adds' and 'Removes'.
     /// </summary>
     public IDictionary<string, (IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes)> OrSets { get; } = new Dictionary<string, (IDictionary<object, ISet<Guid>>, IDictionary<object, ISet<Guid>>)>();
+
+    /// <summary>
+    /// Gets a dictionary that stores the state for properties managed by the Priority Queue strategy.
+    /// It functions similarly to an LWW-Set, tracking additions and removals with timestamps.
+    /// The key is the JSON Path to the property.
+    /// </summary>
+    public IDictionary<string, (IDictionary<object, ICrdtTimestamp> Adds, IDictionary<object, ICrdtTimestamp> Removes)> PriorityQueues { get; } = new Dictionary<string, (IDictionary<object, ICrdtTimestamp>, IDictionary<object, ICrdtTimestamp>)>();
+        
+    /// <summary>
+    /// Gets a dictionary that stores the state for properties managed by the LSEQ strategy.
+    /// The key is the JSON Path to the array. The value is a list of items, each pairing a dense identifier with a value.
+    /// </summary>
+    public IDictionary<string, List<LseqItem>> LseqTrackers { get; } = new Dictionary<string, List<LseqItem>>();
 }
