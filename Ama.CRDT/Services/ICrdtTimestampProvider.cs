@@ -3,7 +3,8 @@ namespace Ama.CRDT.Services;
 using Ama.CRDT.Models;
 
 /// <summary>
-/// Defines a service for generating CRDT timestamps.
+/// Defines a service for generating CRDT timestamps. This allows for custom timestamping
+/// mechanisms, such as logical clocks, to be integrated.
 /// </summary>
 public interface ICrdtTimestampProvider
 {

@@ -20,6 +20,57 @@ public sealed class CrdtMetadataManagerTests
         timestampProviderMock = new Mock<ICrdtTimestampProvider>();
         manager = new CrdtMetadataManager(strategyManagerMock.Object, timestampProviderMock.Object);
     }
+    
+    [Theory]
+    [InlineData(true, false, false, false)]
+    [InlineData(false, true, false, false)]
+    [InlineData(false, false, true, false)]
+    [InlineData(false, false, false, true)]
+    public void PublicMethods_WithNullArguments_ShouldThrowArgumentNullException(bool testInitialize, bool testReset, bool testPrune, bool testAdvanceVector)
+    {
+        // Arrange
+        var doc = new object();
+        var metadata = new CrdtMetadata();
+        var timestamp = new EpochTimestamp(1);
+        var operation = new CrdtOperation();
+        
+        // Act & Assert
+        if (testInitialize)
+        {
+            Should.Throw<ArgumentNullException>(() => manager.Initialize<object>(null!));
+            Should.Throw<ArgumentNullException>(() => manager.Initialize<object>(null!, timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.Initialize(doc, null!));
+            Should.Throw<ArgumentNullException>(() => manager.InitializeLwwMetadata(null!, doc));
+            Should.Throw<ArgumentNullException>(() => manager.InitializeLwwMetadata<string>(metadata, null!));
+            Should.Throw<ArgumentNullException>(() => manager.InitializeLwwMetadata(null!, doc, timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.InitializeLwwMetadata<string>(metadata, null!, timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.InitializeLwwMetadata(metadata, doc, null!));
+        }
+        
+        if (testReset)
+        {
+            Should.Throw<ArgumentNullException>(() => manager.Reset(null!, doc));
+            Should.Throw<ArgumentNullException>(() => manager.Reset<string>(metadata, null!));
+            Should.Throw<ArgumentNullException>(() => manager.Reset(null!, doc, timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.Reset<string>(metadata, null!, timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.Reset(metadata, doc, null!));
+        }
+        
+        if (testPrune)
+        {
+            Should.Throw<ArgumentNullException>(() => manager.PruneLwwTombstones(null!, timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.PruneLwwTombstones(metadata, null!));
+        }
+        
+        if (testAdvanceVector)
+        {
+            Should.Throw<ArgumentNullException>(() => manager.AdvanceVersionVector(null!, operation));
+            Should.Throw<ArgumentNullException>(() => manager.AdvanceVersionVector(null!, "r", timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.AdvanceVersionVector(metadata, "r", null!));
+            Should.Throw<ArgumentException>(() => manager.AdvanceVersionVector(metadata, null!, timestamp));
+            Should.Throw<ArgumentException>(() => manager.AdvanceVersionVector(metadata, " ", timestamp));
+        }
+    }
 
     [Fact]
     public void PruneLwwTombstones_ShouldRemoveOlderEntries()
@@ -57,8 +108,7 @@ public sealed class CrdtMetadataManagerTests
         metadata.SeenExceptions.Add(op3);
 
         var newTimestamp = new EpochTimestamp(150);
-
-        var refOp = new CrdtOperation(Guid.NewGuid(), replicaId, "path", OperationType.Upsert, null, new EpochTimestamp(150));
+        var refOp = new CrdtOperation(Guid.NewGuid(), replicaId, "path", OperationType.Upsert, null, newTimestamp);
 
         // Act
         manager.AdvanceVersionVector(metadata, refOp);
@@ -67,8 +117,8 @@ public sealed class CrdtMetadataManagerTests
         metadata.VersionVector[replicaId].ShouldBe(newTimestamp);
         metadata.SeenExceptions.Count.ShouldBe(2);
         metadata.SeenExceptions.ShouldNotContain(op1);
-        metadata.SeenExceptions.ShouldContain(op2); // Still in the future
-        metadata.SeenExceptions.ShouldContain(op3); // Different replica
+        metadata.SeenExceptions.ShouldContain(op2);
+        metadata.SeenExceptions.ShouldContain(op3);
     }
     
     [Fact]

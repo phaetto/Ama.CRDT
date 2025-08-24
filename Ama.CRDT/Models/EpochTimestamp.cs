@@ -1,11 +1,13 @@
 namespace Ama.CRDT.Models;
+
 /// <summary>
-/// A default, backward-compatible implementation of ICrdtTimestamp that wraps a long value representing Unix milliseconds.
+/// A default, backward-compatible implementation of <see cref="ICrdtTimestamp"/> that wraps a <see langword="long"/> value representing Unix milliseconds.
 /// </summary>
+/// <param name="Value">The number of milliseconds since the Unix epoch.</param>
 public readonly record struct EpochTimestamp(long Value) : ICrdtTimestamp
 {
     /// <summary>
-    /// Represents the earliest possible timestamp.
+    /// Represents the earliest possible timestamp (0 milliseconds since epoch).
     /// </summary>
     public static readonly EpochTimestamp MinValue = new(0);
 

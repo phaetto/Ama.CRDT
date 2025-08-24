@@ -6,14 +6,13 @@ using Ama.CRDT.Services.Strategies;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-/// <summary>
-/// Implements the logic for managing and compacting CRDT metadata.
-/// </summary>
+/// <inheritdoc/>
 public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, ICrdtTimestampProvider timestampProvider) : ICrdtMetadataManager
 {
     private static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new()
@@ -22,13 +21,14 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
     };
     
     /// <inheritdoc/>
-    public CrdtMetadata Initialize<T>(T document) where T : class
+    public CrdtMetadata Initialize<T>([DisallowNull] T document) where T : class
     {
+        ArgumentNullException.ThrowIfNull(document);
         return Initialize(document, timestampProvider.Now());
     }
 
     /// <inheritdoc/>
-    public CrdtMetadata Initialize<T>(T document, ICrdtTimestamp timestamp) where T : class
+    public CrdtMetadata Initialize<T>([DisallowNull] T document, [DisallowNull] ICrdtTimestamp timestamp) where T : class
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(timestamp);
@@ -39,13 +39,15 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
     }
 
     /// <inheritdoc/>
-    public void InitializeLwwMetadata<T>(CrdtMetadata metadata, T document) where T : class
+    public void InitializeLwwMetadata<T>([DisallowNull] CrdtMetadata metadata, [DisallowNull] T document) where T : class
     {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(document);
         InitializeLwwMetadata(metadata, document, timestampProvider.Now());
     }
 
     /// <inheritdoc/>
-    public void InitializeLwwMetadata<T>(CrdtMetadata metadata, T document, ICrdtTimestamp timestamp) where T : class
+    public void InitializeLwwMetadata<T>([DisallowNull] CrdtMetadata metadata, [DisallowNull] T document, [DisallowNull] ICrdtTimestamp timestamp) where T : class
     {
         ArgumentNullException.ThrowIfNull(metadata);
         ArgumentNullException.ThrowIfNull(document);
@@ -55,13 +57,15 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
     }
 
     /// <inheritdoc/>
-    public void Reset<T>(CrdtMetadata metadata, T document) where T : class
+    public void Reset<T>([DisallowNull] CrdtMetadata metadata, [DisallowNull] T document) where T : class
     {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(document);
         Reset(metadata, document, timestampProvider.Now());
     }
 
     /// <inheritdoc/>
-    public void Reset<T>(CrdtMetadata metadata, T document, ICrdtTimestamp timestamp) where T : class
+    public void Reset<T>([DisallowNull] CrdtMetadata metadata, [DisallowNull] T document, [DisallowNull] ICrdtTimestamp timestamp) where T : class
     {
         ArgumentNullException.ThrowIfNull(metadata);
         ArgumentNullException.ThrowIfNull(document);
@@ -73,8 +77,10 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
         PopulateMetadataRecursive(metadata, document, "$", timestamp);
     }
 
+
+
     /// <inheritdoc/>
-    public void PruneLwwTombstones(CrdtMetadata metadata, ICrdtTimestamp threshold)
+    public void PruneLwwTombstones([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold)
     {
         ArgumentNullException.ThrowIfNull(metadata);
         ArgumentNullException.ThrowIfNull(threshold);
@@ -91,17 +97,22 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
     }
     
     /// <inheritdoc/>
-    public void AdvanceVersionVector(CrdtMetadata metadata, CrdtOperation operation)
+    public void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
     {
         ArgumentNullException.ThrowIfNull(metadata);
-
         AdvanceVersionVector(metadata, operation.ReplicaId, operation.Timestamp);
     }
 
     /// <inheritdoc/>
-    public void AdvanceVersionVector(CrdtMetadata metadata, string replicaId, ICrdtTimestamp timestamp)
+    public void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, string replicaId, [DisallowNull] ICrdtTimestamp timestamp)
     {
         ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(timestamp);
+
+        if (string.IsNullOrWhiteSpace(replicaId))
+        {
+            throw new ArgumentException("Replica ID cannot be null or whitespace.", nameof(replicaId));
+        }
 
         if (metadata.VersionVector.TryGetValue(replicaId, out var currentTimestamp) && timestamp.CompareTo(currentTimestamp) <= 0)
         {

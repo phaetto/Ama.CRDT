@@ -4,7 +4,7 @@ A .NET library for achieving eventual consistency in distributed systems using C
 
 ## Features
 
-- **Attribute-Driven Strategies**: Define conflict resolution logic directly on your POCO properties using attributes like `[CrdtLwwStrategy]`, `[CrdtCounter]`, `[CrdtArrayLcsStrategy]`, and `[CrdtSortedSetStrategy]`.
+- **Attribute-Driven Strategies**: Define conflict resolution logic directly on your POCO properties using attributes like `[CrdtLwwStrategy]`, `[CrdtCounterStrategy]`, `[CrdtArrayLcsStrategy]`, and `[CrdtSortedSetStrategy]`.
 - **POCO-First**: Work directly with your C# objects. The library handles recursive diffing and patching seamlessly.
 - **Clean Data/Metadata Separation**: Keeps your data models pure by storing CRDT state (timestamps, version vectors) in a parallel `CrdtMetadata` object.
 - **Extensible**: Easily create and register your own custom CRDT strategies.
@@ -61,7 +61,7 @@ This library uses attributes on your POCO properties to determine how to merge c
 
 -   **`[CrdtLwwStrategy]` (Last-Writer-Wins)**: This is the default strategy for simple properties (strings, numbers, booleans, etc.). When a conflict occurs, the value with the most recent timestamp wins. You can omit this attribute, as it is the default.
 
--   **`[CrdtCounter]`**: Use this for numeric properties (`int`, `long`, etc.) that should behave like a counter. Instead of overwriting values, the library treats changes as increments or decrements. This ensures that concurrent additions (e.g., two users liking a post at the same time) are both counted, resulting in a final value that reflects the sum of all changes.
+-   **`[CrdtCounterStrategy]`**: Use this for numeric properties (`int`, `long`, etc.) that should behave like a counter. Instead of overwriting values, the library treats changes as increments or decrements. This ensures that concurrent additions (e.g., two users liking a post at the same time) are both counted, resulting in a final value that reflects the sum of all changes.
 
 -   **`[CrdtArrayLcsStrategy]`**: This is the default strategy for collections (`List<T>`, arrays). It uses a Longest Common Subsequence (LCS) algorithm to intelligently handle insertions and deletions. This is more efficient than replacing the entire array, as it only generates operations for the items that were actually added or removed.
 
@@ -79,7 +79,7 @@ public class UserStats
     [CrdtLwwStrategy] // Can be omitted as it's the default for simple types
     public string LastSeenLocation { get; set; } = string.Empty;
 
-    [CrdtCounter]
+    [CrdtCounterStrategy]
     public long LoginCount { get; set; }
 
     [CrdtSortedSetStrategy] // This collection will be kept sorted.
@@ -119,7 +119,7 @@ crdtService.Merge(stateToMerge, patch, metadataToMerge);
 
 // 6. Assert the new state is correct
 // stateToMerge.LoginCount is now 6
-// stateToMerge.Badges now contains "explorer" and "newcomer" (sorted)
+// stateToMerge.Badges now contains ["explorer", "newcomer"] (sorted)
 ```
 
 ## Advanced Usage: Multi-Replica Synchronization
@@ -176,7 +176,7 @@ applicator.ApplyPatch(docA.Data, patchFromB, docA.Metadata);
 // 8. Assert Convergence
 // Both replicas now have the same converged state.
 // docA.Data and docB.Data are now identical.
-// - LastSeenLocation: "Marketplace" (LWW from B wins)
+// - LastSeenLocation: "Marketplace" (LWW from B wins, assuming later timestamp)
 // - LoginCount: 12 (Counter incremented by both, 10 + 1 + 1)
 // - Badges: ["veteran", "welcome"] (SortedSet merge adds "veteran" and maintains sort order)
 ```
@@ -392,7 +392,7 @@ builder.Services.AddCrdtTimestampProvider<MyCustomTimestampProvider>();
 -   **`ICrdtService`**: The high-level facade for simple use cases. It internally uses the `ICrdtPatcher` and `ICrdtApplicator` registered with the default replica ID.
 -   **`ICrdtPatcher`**: Takes two `CrdtDocument<T>` objects (`from` and `to`) and generates a `CrdtPatch`. It recursively compares the POCOs, using the `ICrdtStrategyManager` to find the correct strategy for each property. It also updates the `to` document's metadata with new timestamps for any changed values.
 -   **`ICrdtApplicator`**: Takes a POCO, a `CrdtPatch`, and the POCO's `CrdtMetadata`. It processes each operation in the patch, first checking the metadata to prevent applying stale or duplicate operations (ensuring idempotency). If an operation is valid, it uses the `ICrdtStrategyManager` to find the correct strategy to modify the POCO.
--   **`ICrdtStrategyManager`**: A service that inspects a property's attributes (e.g., `[CrdtCounter]`) to resolve and return the appropriate `ICrdtStrategy` implementation from the DI container. It provides default strategies (LWW for simple types, LCS for collections) if no attribute is present.
+-   **`ICrdtStrategyManager`**: A service that inspects a property's attributes (e.g., `[CrdtCounterStrategy]`) to resolve and return the appropriate `ICrdtStrategy` implementation from the DI container. It provides default strategies (LWW for simple types, LCS for collections) if no attribute is present.
 -   **`ICrdtPatcherFactory`**: A factory for creating `ICrdtPatcher` instances, each configured with a unique `ReplicaId`. This is crucial for correctly attributing changes in a multi-replica environment.
 -   **`ICrdtMetadataManager`**: A helper service for managing the `CrdtMetadata` object. It can initialize metadata from a POCO, compact it to save space, and perform other state management tasks.
 

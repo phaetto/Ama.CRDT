@@ -2,13 +2,18 @@ namespace Ama.CRDT.Services;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Strategies;
+using System.Diagnostics.CodeAnalysis;
 
+/// <summary>
+/// Applies a CRDT patch to a document, handling conflict resolution and idempotency.
+/// This implementation is thread-safe.
+/// </summary>
 public sealed class CrdtApplicator(ICrdtStrategyManager strategyManager) : ICrdtApplicator
 {
-    public T ApplyPatch<T>(T document, CrdtPatch patch, CrdtMetadata metadata) where T : class
+    /// <inheritdoc/>
+    public T ApplyPatch<T>([DisallowNull] T document, CrdtPatch patch, [DisallowNull] CrdtMetadata metadata) where T : class
     {
         ArgumentNullException.ThrowIfNull(document);
-        ArgumentNullException.ThrowIfNull(patch);
         ArgumentNullException.ThrowIfNull(metadata);
 
         if (patch.Operations is null || patch.Operations.Count == 0)

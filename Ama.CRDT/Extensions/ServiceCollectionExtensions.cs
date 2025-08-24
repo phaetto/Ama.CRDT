@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
@@ -11,14 +12,20 @@ using Microsoft.Extensions.Options;
 
 namespace Ama.CRDT.Extensions;
 
+/// <summary>
+/// Provides extension methods for setting up CRDT services in an <see cref="IServiceCollection"/>.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddCrdt(this IServiceCollection services, Action<CrdtOptions> configureOptions)
+    /// <summary>
+    /// Adds the core CRDT services to the specified <see cref="IServiceCollection"/>.
+    /// </summary>
+    /// <param name="services">The <see cref="IServiceCollection"/> to add services to.</param>
+    /// <param name="configureOptions">An <see cref="Action{CrdtOptions}"/> to configure the provided <see cref="CrdtOptions"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    public static IServiceCollection AddCrdt(this IServiceCollection services, [DisallowNull] Action<CrdtOptions> configureOptions)
     {
-        if (configureOptions is null)
-        {
-            throw new ArgumentNullException(nameof(configureOptions), "CRDT options configuration cannot be null.");
-        }
+        ArgumentNullException.ThrowIfNull(configureOptions);
         
         services.AddOptions<CrdtOptions>()
             .Configure(configureOptions)
@@ -26,8 +33,6 @@ public static class ServiceCollectionExtensions
         
         services.TryAddSingleton<ICrdtPatcherFactory, CrdtPatcherFactory>();
         
-        // The default ICrdtPatcher is a singleton created via the factory with the globally configured ReplicaId.
-        // This maintains the original behavior for single-replica applications.
         services.TryAddSingleton(sp =>
         {
             var factory = sp.GetRequiredService<ICrdtPatcherFactory>();
@@ -40,26 +45,16 @@ public static class ServiceCollectionExtensions
 
         services.AddTransient<ICrdtPatchBuilder, CrdtPatchBuilder>();
 
-        // Register the metadata manager
         services.TryAddSingleton<ICrdtMetadataManager, CrdtMetadataManager>();
-
-        // Register the strategy manager
         services.TryAddSingleton<ICrdtStrategyManager, CrdtStrategyManager>();
-
-        // Register the comparer provider for ArrayLcsStrategy
         services.TryAddSingleton<IElementComparerProvider, ElementComparerProvider>();
-        
-        // Register the default timestamp provider
         services.TryAddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>();
         
-        // Register concrete strategies as singletons so the manager can resolve them for the *default* replica.
-        // The factory will create new instances for other replicas.
         services.TryAddSingleton<LwwStrategy>();
         services.TryAddSingleton<CounterStrategy>();
         services.TryAddSingleton<SortedSetStrategy>();
         services.TryAddSingleton<ArrayLcsStrategy>();
 
-        // This allows the CrdtStrategyManager to get all registered strategies
         services.AddSingleton<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
         services.AddSingleton<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
         services.AddSingleton<ICrdtStrategy, SortedSetStrategy>(sp => sp.GetRequiredService<SortedSetStrategy>());

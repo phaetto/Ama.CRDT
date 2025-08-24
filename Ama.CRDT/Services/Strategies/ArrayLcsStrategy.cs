@@ -6,11 +6,13 @@ using Microsoft.Extensions.Options;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 
+/// <inheritdoc/>
 public sealed class ArrayLcsStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,
@@ -18,6 +20,7 @@ public sealed class ArrayLcsStrategy(
 {
     private readonly string replicaId = options.Value.ReplicaId;
 
+    /// <inheritdoc/>
     public void GeneratePatch(ICrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, object? originalValue, object? modifiedValue, CrdtMetadata originalMeta, CrdtMetadata modifiedMeta)
     {
         var originalList = (originalValue as IList)?.Cast<object>().ToList() ?? new List<object>();
@@ -47,7 +50,6 @@ public sealed class ArrayLcsStrategy(
         
         var lcs = LongestCommonSubsequence(originalList, modifiedList, comparer);
         
-        // Handle removals
         var lcsOriginalIndices = lcs.Select(t => t.Item1).ToHashSet();
         for (var i = 0; i < originalList.Count; i++)
         {
@@ -58,7 +60,6 @@ public sealed class ArrayLcsStrategy(
             }
         }
 
-        // Handle additions by iterating through the gaps between LCS items
         var lcsWithBoundaries = new List<(int, int)> { (-1, -1) };
         lcsWithBoundaries.AddRange(lcs);
         lcsWithBoundaries.Add((originalList.Count, modifiedList.Count));
@@ -68,13 +69,11 @@ public sealed class ArrayLcsStrategy(
             var start = lcsWithBoundaries[i];
             var end = lcsWithBoundaries[i+1];
 
-            // Determine the positional boundaries for this gap
             var beforePos = start.Item1 >= 0 ? originalPositions[start.Item1].Position : null;
             var afterPos = end.Item1 < originalList.Count ? originalPositions[end.Item1].Position : null;
 
             var lastGeneratedPos = beforePos;
 
-            // For every item in the modified list that falls in this gap, it's an insertion
             for (var modIdx = start.Item2 + 1; modIdx < end.Item2; modIdx++)
             {
                 var newPos = GeneratePositionBetween(lastGeneratedPos, afterPos);
@@ -85,8 +84,12 @@ public sealed class ArrayLcsStrategy(
         }
     }
 
-    public void ApplyOperation(object root, CrdtMetadata metadata, CrdtOperation operation)
+    /// <inheritdoc/>
+    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
     {
+        ArgumentNullException.ThrowIfNull(root);
+        ArgumentNullException.ThrowIfNull(metadata);
+
         if (metadata.SeenExceptions.Contains(operation))
         {
             return;

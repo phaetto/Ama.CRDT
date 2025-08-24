@@ -1,17 +1,19 @@
 namespace Ama.CRDT.Models;
+
 /// <summary>
-/// Represents a document containing data and its associated CRDT metadata.
+/// Represents a document containing a data model and its associated CRDT metadata.
+/// This structure is used to pass state and metadata together to CRDT services.
 /// </summary>
-/// <typeparam name="T">The type of the data model.</typeparam>
+/// <typeparam name="T">The type of the data model, which must be a class.</typeparam>
 public readonly record struct CrdtDocument<T> where T : class
 {
     /// <summary>
-    /// The data model instance.
+    /// Gets the data model instance.
     /// </summary>
     public T? Data { get; }
 
     /// <summary>
-    /// The CRDT metadata associated with the data.
+    /// Gets the CRDT metadata associated with the data.
     /// </summary>
     public CrdtMetadata? Metadata { get; }
 
@@ -27,7 +29,7 @@ public readonly record struct CrdtDocument<T> where T : class
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CrdtDocument{T}"/> struct with empty metadata.
+    /// Initializes a new instance of the <see cref="CrdtDocument{T}"/> struct with new, empty metadata.
     /// </summary>
     /// <param name="data">The data model instance.</param>
     public CrdtDocument(T? data)

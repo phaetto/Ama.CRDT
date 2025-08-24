@@ -2,11 +2,13 @@ namespace Ama.CRDT.Services;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Microsoft.Extensions.Options;
 
+/// <inheritdoc/>
 public sealed class CrdtPatchBuilder(ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options) : ICrdtPatchBuilder
 {
     private readonly CrdtOptions options = options.Value;
@@ -42,7 +44,7 @@ public sealed class CrdtPatchBuilder(ICrdtTimestampProvider timestampProvider, I
         }
 
         /// <inheritdoc/>
-        public IPatchContext Remove<T>(Expression<Func<T, object?>> pathExpression, ICrdtTimestamp? timestamp = null)
+        public IPatchContext Remove<T>([DisallowNull] Expression<Func<T, object?>> pathExpression, ICrdtTimestamp? timestamp = null)
         {
             EnsureNotBuilt();
             ArgumentNullException.ThrowIfNull(pathExpression);
@@ -61,7 +63,7 @@ public sealed class CrdtPatchBuilder(ICrdtTimestampProvider timestampProvider, I
         }
 
         /// <inheritdoc/>
-        public IPatchContext Increment<T>(Expression<Func<T, object?>> pathExpression, long incrementBy = 1, ICrdtTimestamp? timestamp = null)
+        public IPatchContext Increment<T>([DisallowNull] Expression<Func<T, object?>> pathExpression, long incrementBy = 1, ICrdtTimestamp? timestamp = null)
         {
             EnsureNotBuilt();
             ArgumentNullException.ThrowIfNull(pathExpression);
