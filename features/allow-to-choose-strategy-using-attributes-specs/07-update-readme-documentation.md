@@ -37,7 +37,7 @@ To update the main `README.md` file to thoroughly document the new attribute-bas
 Manual review of the final `README.md` file by a developer. The review should check for clarity, accuracy of code examples, and completeness of the documentation for the new features.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

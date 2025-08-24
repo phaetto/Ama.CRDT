@@ -81,7 +81,7 @@ Add the testing methodology (manual, unit, integration, end-to-end tests?)
 - **Benchmarks:** The existing benchmark project (`Modern.CRDT.Benchmarks`) will be used to measure the performance before and after the changes. The primary success metrics will be a significant reduction in mean execution time and, crucially, a large decrease in allocated memory for the `GeneratePatch` benchmarks.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

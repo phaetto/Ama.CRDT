@@ -27,7 +27,7 @@ Format this list in the following way:
 - Reflection-based tests to ensure the `CrdtStrategyAttribute` can be correctly identified on POCO properties.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

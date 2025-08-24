@@ -65,7 +65,7 @@ Add the testing methodology (manual, unit, integration, end-to-end tests?)
 Lots of unit tests, for the strategy and the applicator.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

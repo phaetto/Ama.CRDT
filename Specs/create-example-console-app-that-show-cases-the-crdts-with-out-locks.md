@@ -47,7 +47,7 @@ Manual testing will be performed by running the console application and observin
 3. The Last-Writer-Wins properties reflect a value from one of the last-applied patches.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

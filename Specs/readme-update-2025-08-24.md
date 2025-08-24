@@ -31,7 +31,7 @@ Add the testing methodology (manual, unit, integration, end-to-end tests?)
 - **Manual Verification**: The `README.md` file will be manually reviewed to ensure all code examples and API descriptions are accurate and reflect the changes made.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

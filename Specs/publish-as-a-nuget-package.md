@@ -40,7 +40,7 @@ The testing for this feature will be manual. It involves the following steps:
 4. Confirming that a new version of the package is published to nuget.org with the correctly formatted version number (e.g., `0.1.YYMMDDHHMM`).
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.
