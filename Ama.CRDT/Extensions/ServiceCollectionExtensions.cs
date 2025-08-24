@@ -78,6 +78,10 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<MaxWinsStrategy>();
         services.TryAddSingleton<MinWinsStrategy>();
         services.TryAddSingleton<AverageRegisterStrategy>();
+        services.TryAddSingleton<GSetStrategy>();
+        services.TryAddSingleton<TwoPhaseSetStrategy>();
+        services.TryAddSingleton<LwwSetStrategy>();
+        services.TryAddSingleton<OrSetStrategy>();
 
         services.AddSingleton<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
         services.AddSingleton<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
@@ -88,6 +92,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICrdtStrategy, MaxWinsStrategy>(sp => sp.GetRequiredService<MaxWinsStrategy>());
         services.AddSingleton<ICrdtStrategy, MinWinsStrategy>(sp => sp.GetRequiredService<MinWinsStrategy>());
         services.AddSingleton<ICrdtStrategy, AverageRegisterStrategy>(sp => sp.GetRequiredService<AverageRegisterStrategy>());
+        services.AddSingleton<ICrdtStrategy, GSetStrategy>(sp => sp.GetRequiredService<GSetStrategy>());
+        services.AddSingleton<ICrdtStrategy, TwoPhaseSetStrategy>(sp => sp.GetRequiredService<TwoPhaseSetStrategy>());
+        services.AddSingleton<ICrdtStrategy, LwwSetStrategy>(sp => sp.GetRequiredService<LwwSetStrategy>());
+        services.AddSingleton<ICrdtStrategy, OrSetStrategy>(sp => sp.GetRequiredService<OrSetStrategy>());
 
         return services;
     }

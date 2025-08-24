@@ -1,7 +1,7 @@
 namespace Ama.CRDT.Services;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
-
 using Ama.CRDT.Services.Strategies;
 using System;
 using System.Collections;
@@ -13,7 +13,10 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 /// <inheritdoc/>
-public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, ICrdtTimestampProvider timestampProvider) : ICrdtMetadataManager
+public sealed class CrdtMetadataManager(
+    ICrdtStrategyManager strategyManager, 
+    ICrdtTimestampProvider timestampProvider,
+    IElementComparerProvider elementComparerProvider) : ICrdtMetadataManager
 {
     private static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new()
     {
@@ -74,6 +77,9 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
         metadata.Lww.Clear();
         metadata.PositionalTrackers.Clear();
         metadata.AverageRegisters.Clear();
+        metadata.TwoPhaseSets.Clear();
+        metadata.LwwSets.Clear();
+        metadata.OrSets.Clear();
 
         PopulateMetadataRecursive(metadata, document, "$", timestamp);
     }
@@ -178,36 +184,66 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
             var propertyPath = path == "$" ? $"$.{jsonPropertyName}" : $"{path}.{jsonPropertyName}";
 
             var strategy = strategyManager.GetStrategy(propertyInfo);
-
-            if (strategy is LwwStrategy)
-            {
-                metadata.Lww[propertyPath] = timestamp;
-            }
-            else if (strategy is ArrayLcsStrategy)
-            {
-                if (propertyValue is IList list)
-                {
-                    if (list.Count > 0)
-                    {
-                        var tracker = new List<PositionalIdentifier>(list.Count);
-                        for (var i = 0; i < list.Count; i++)
-                        {
-                            tracker.Add(new PositionalIdentifier((i + 1).ToString(), Guid.Empty));
-                        }
-                        metadata.PositionalTrackers[propertyPath] = tracker;
-                    }
-                    else
-                    {
-                        metadata.PositionalTrackers.Remove(propertyPath);
-                    }
-                }
-            }
+            
+            InitializeStrategyMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
             
             var propertyType = propertyInfo.PropertyType;
             if ((propertyValue is IEnumerable and not string) || (propertyType.IsClass && propertyType != typeof(string)))
             {
                 PopulateMetadataRecursive(metadata, propertyValue, propertyPath, timestamp);
             }
+        }
+    }
+
+    private void InitializeStrategyMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)
+    {
+        switch (strategy)
+        {
+            case LwwStrategy:
+                metadata.Lww[propertyPath] = timestamp;
+                break;
+            case ArrayLcsStrategy:
+                if (propertyValue is IList list)
+                {
+                    metadata.PositionalTrackers[propertyPath] = new List<PositionalIdentifier>(
+                        Enumerable.Range(0, list.Count).Select(i => new PositionalIdentifier((i + 1).ToString(), Guid.Empty)));
+                }
+                break;
+            case TwoPhaseSetStrategy:
+            case LwwSetStrategy:
+            case OrSetStrategy:
+                InitializeSetMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
+                break;
+        }
+    }
+
+    private void InitializeSetMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)
+    {
+        if (propertyValue is not IEnumerable collection) return;
+
+        var elementType = propertyInfo.PropertyType.IsGenericType
+            ? propertyInfo.PropertyType.GetGenericArguments()[0]
+            : propertyInfo.PropertyType.GetElementType() ?? typeof(object);
+        var comparer = elementComparerProvider.GetComparer(elementType);
+        var collectionAsObjects = collection.Cast<object>().ToList();
+
+        switch (strategy)
+        {
+            case TwoPhaseSetStrategy:
+                metadata.TwoPhaseSets[propertyPath] = (
+                    new HashSet<object>(collectionAsObjects, comparer),
+                    new HashSet<object>(comparer));
+                break;
+            case LwwSetStrategy:
+                metadata.LwwSets[propertyPath] = (
+                    collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
+                    new Dictionary<object, ICrdtTimestamp>(comparer));
+                break;
+            case OrSetStrategy:
+                metadata.OrSets[propertyPath] = (
+                    collectionAsObjects.ToDictionary(k => k, _ => (ISet<Guid>)new HashSet<Guid> { Guid.NewGuid() }, comparer),
+                    new Dictionary<object, ISet<Guid>>(comparer));
+                break;
         }
     }
 }

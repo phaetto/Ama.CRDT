@@ -35,4 +35,22 @@ public sealed class CrdtMetadata
     /// The outer key is the JSON Path to the property, the inner key is the ReplicaId.
     /// </summary>
     public IDictionary<string, IDictionary<string, AverageRegisterValue>> AverageRegisters { get; } = new Dictionary<string, IDictionary<string, AverageRegisterValue>>();
+    
+    /// <summary>
+    /// Gets a dictionary that stores the state for properties managed by the Two-Phase Set (2P-Set) strategy.
+    /// The key is the JSON Path to the property. The value tuple contains an 'Adds' set and a 'Tombstones' set.
+    /// </summary>
+    public IDictionary<string, (ISet<object> Adds, ISet<object> Tomstones)> TwoPhaseSets { get; } = new Dictionary<string, (ISet<object>, ISet<object>)>();
+
+    /// <summary>
+    /// Gets a dictionary that stores the state for properties managed by the Last-Writer-Wins Set (LWW-Set) strategy.
+    /// The key is the JSON Path to the property. The value tuple contains dictionaries for 'Adds' and 'Removes' with their associated timestamps.
+    /// </summary>
+    public IDictionary<string, (IDictionary<object, ICrdtTimestamp> Adds, IDictionary<object, ICrdtTimestamp> Removes)> LwwSets { get; } = new Dictionary<string, (IDictionary<object, ICrdtTimestamp>, IDictionary<object, ICrdtTimestamp>)>();
+
+    /// <summary>
+    /// Gets a dictionary that stores the state for properties managed by the Observed-Remove Set (OR-Set) strategy.
+    /// The key is the JSON Path to the property. The value tuple contains dictionaries mapping an element to a set of unique tags for both 'Adds' and 'Removes'.
+    /// </summary>
+    public IDictionary<string, (IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes)> OrSets { get; } = new Dictionary<string, (IDictionary<object, ISet<Guid>>, IDictionary<object, ISet<Guid>>)>();
 }
