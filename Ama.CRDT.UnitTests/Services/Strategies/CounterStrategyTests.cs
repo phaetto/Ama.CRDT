@@ -1,5 +1,6 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
@@ -13,15 +14,29 @@ using Xunit;
 
 public sealed class CounterStrategyTests
 {
-    private sealed class TestModel { public int Score { get; set; } }
+    private sealed class TestModel { [CrdtCounterStrategy] public int Score { get; set; } }
     
     private readonly CounterStrategy strategy;
     private readonly Mock<ICrdtPatcher> mockPatcher = new();
-    private readonly Mock<ICrdtTimestampProvider> mockTimestampProvider = new();
+    
+    private readonly CrdtApplicator applicator;
+    private readonly CrdtMetadataManager metadataManager;
 
     public CounterStrategyTests()
     {
-        strategy = new CounterStrategy(mockTimestampProvider.Object, Options.Create(new CrdtOptions { ReplicaId = Guid.NewGuid().ToString() }));
+        var timestampProvider = new EpochTimestampProvider();
+        var optionsA = Options.Create(new CrdtOptions { ReplicaId = "A" });
+
+        strategy = new CounterStrategy(timestampProvider, optionsA);
+        
+        var lwwStrategy = new LwwStrategy(optionsA);
+        var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
+        var arrayLcsStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, optionsA);
+        var strategies = new ICrdtStrategy[] { lwwStrategy, strategy, arrayLcsStrategy };
+        var strategyManager = new CrdtStrategyManager(strategies);
+        
+        applicator = new CrdtApplicator(strategyManager);
+        metadataManager = new CrdtMetadataManager(strategyManager, timestampProvider);
     }
 
     [Theory]
@@ -34,11 +49,14 @@ public sealed class CounterStrategyTests
         var operations = new List<CrdtOperation>();
         var path = "$.score";
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
+        
+        var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
         var expectedTimestamp = new EpochTimestamp(12345);
         mockTimestampProvider.Setup(p => p.Now()).Returns(expectedTimestamp);
+        var localStrategy = new CounterStrategy(mockTimestampProvider.Object, Options.Create(new CrdtOptions { ReplicaId = "test" }));
 
         // Act
-        strategy.GeneratePatch(mockPatcher.Object, operations, path, property, original, modified, new CrdtMetadata(), new CrdtMetadata());
+        localStrategy.GeneratePatch(mockPatcher.Object, operations, path, property, original, modified, new CrdtMetadata(), new CrdtMetadata());
 
         // Assert
         operations.ShouldHaveSingleItem();
@@ -90,5 +108,64 @@ public sealed class CounterStrategyTests
 
         // Act & Assert
         Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(model, new CrdtMetadata(), operation));
+    }
+    
+    [Fact]
+    public void ApplyPatch_IsIdempotent()
+    {
+        // Arrange
+        var model = new TestModel { Score = 10 };
+        var meta = metadataManager.Initialize(model);
+        var patch = new CrdtPatch(new List<CrdtOperation>
+        {
+            new(Guid.NewGuid(), "r1", "$.Score", OperationType.Increment, 5m, new EpochTimestamp(1L))
+        });
+
+        // Act
+        applicator.ApplyPatch(model, patch, meta);
+        var scoreAfterFirst = model.Score;
+        applicator.ApplyPatch(model, patch, meta);
+
+        // Assert
+        model.Score.ShouldBe(scoreAfterFirst);
+        model.Score.ShouldBe(15);
+    }
+
+    [Fact]
+    public void ApplyPatch_IsCommutativeAndAssociative()
+    {
+        // Arrange
+        var patch1 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r1", "$.Score", OperationType.Increment, 10m, new EpochTimestamp(1L)) });
+        var patch2 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r2", "$.Score", OperationType.Increment, -5m, new EpochTimestamp(2L)) });
+        var patch3 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r3", "$.Score", OperationType.Increment, 20m, new EpochTimestamp(3L)) });
+
+        var patches = new[] { patch1, patch2, patch3 };
+        var permutations = GetPermutations(patches, 3);
+        var finalScores = new List<int>();
+
+        // Act
+        foreach (var p in permutations)
+        {
+            var model = new TestModel { Score = 10 };
+            var meta = metadataManager.Initialize(model);
+            foreach (var patch in p)
+            {
+                applicator.ApplyPatch(model, patch, meta);
+            }
+            finalScores.Add(model.Score);
+        }
+
+        // Assert
+        // Expected: 10 + 10 - 5 + 20 = 35
+        finalScores.ShouldAllBe(s => s == 35);
+    }
+    
+    private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
+    {
+        if (length == 1) return list.Select(t => new T[] { t });
+        var enumerable = list as T[] ?? list.ToArray();
+        return GetPermutations(enumerable, length - 1)
+            .SelectMany(t => enumerable.Where(e => !t.Contains(e)),
+                (t1, t2) => t1.Concat(new T[] { t2 }));
     }
 }

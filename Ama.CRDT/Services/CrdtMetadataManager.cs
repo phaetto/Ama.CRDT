@@ -73,6 +73,7 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
 
         metadata.Lww.Clear();
         metadata.PositionalTrackers.Clear();
+        metadata.AverageRegisters.Clear();
 
         PopulateMetadataRecursive(metadata, document, "$", timestamp);
     }
