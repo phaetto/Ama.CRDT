@@ -58,8 +58,10 @@ public sealed class CrdtMetadataManagerTests
 
         var newTimestamp = new EpochTimestamp(150);
 
+        var refOp = new CrdtOperation(Guid.NewGuid(), replicaId, "path", OperationType.Upsert, null, new EpochTimestamp(150));
+
         // Act
-        manager.AdvanceVersionVector(metadata, replicaId, newTimestamp);
+        manager.AdvanceVersionVector(metadata, refOp);
 
         // Assert
         metadata.VersionVector[replicaId].ShouldBe(newTimestamp);
@@ -77,8 +79,10 @@ public sealed class CrdtMetadataManagerTests
         var replicaId = "replica-1";
         var newTimestamp = new EpochTimestamp(100);
 
+        var refOp = new CrdtOperation(Guid.NewGuid(), replicaId, "path", OperationType.Upsert, null, newTimestamp);
+        
         // Act
-        manager.AdvanceVersionVector(metadata, replicaId, newTimestamp);
+        manager.AdvanceVersionVector(metadata, refOp);
         
         // Assert
         metadata.VersionVector[replicaId].ShouldBe(newTimestamp);

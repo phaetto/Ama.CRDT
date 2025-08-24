@@ -53,18 +53,21 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
     }
     
     /// <inheritdoc/>
-    public void AdvanceVersionVector(CrdtMetadata metadata, string replicaId, ICrdtTimestamp newTimestamp)
+    public void AdvanceVersionVector(CrdtMetadata metadata, CrdtOperation operation)
     {
         ArgumentNullException.ThrowIfNull(metadata);
-        ArgumentException.ThrowIfNullOrEmpty(replicaId);
-        ArgumentNullException.ThrowIfNull(newTimestamp);
 
-        metadata.VersionVector[replicaId] = newTimestamp;
+        if (metadata.VersionVector.TryGetValue(operation.ReplicaId, out var currentTimestamp) && operation.Timestamp.CompareTo(currentTimestamp) <= 0)
+        {
+            return;
+        }
+
+        metadata.VersionVector[operation.ReplicaId] = operation.Timestamp;
 
         if (metadata.SeenExceptions.Count > 0)
         {
             var exceptionsToRemove = metadata.SeenExceptions
-                .Where(op => op.ReplicaId == replicaId && op.Timestamp.CompareTo(newTimestamp) <= 0)
+                .Where(op => op.ReplicaId == operation.ReplicaId && op.Timestamp.CompareTo(operation.Timestamp) <= 0)
                 .ToList();
 
             foreach (var exception in exceptionsToRemove)

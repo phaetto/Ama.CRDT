@@ -8,7 +8,7 @@ using Shouldly;
 using System.Text.Json.Nodes;
 using Xunit;
 
-public sealed class JsonCrdtPatcherTests
+public sealed class CrdtPatcherTests
 {
     private sealed record TestModel
     {
@@ -32,7 +32,7 @@ public sealed class JsonCrdtPatcherTests
 
     private readonly ICrdtPatcher patcher;
 
-    public JsonCrdtPatcherTests()
+    public CrdtPatcherTests()
     {
         var options = Options.Create(new CrdtOptions { ReplicaId = "test-patcher" });
         var timestampProvider = new EpochTimestampProvider();

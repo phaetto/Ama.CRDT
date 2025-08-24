@@ -95,7 +95,7 @@ public sealed class SimulationRunner(
             var to = new UserStats
             {
                 ProcessedItemsCount = 1, // This will become an "increment by 1" operation
-                UniqueUsers = [user],    // This becomes an "add user" operation
+                UniqueUserNames = [user.Name],    // This becomes an "add user name" operation
                 LastProcessedUserName = user.Name,
                 LastProcessedTimestamp = now
             };
@@ -134,6 +134,8 @@ public sealed class SimulationRunner(
             var (document, metadata) = await database.GetStateAsync<UserStats>(replicaId);
             
             var newDocument = applicator.ApplyPatch(document, patch, metadata);
+
+            metadataManager.AdvanceVersionVector(metadata, patch.Operations.First());
 
             await database.SaveStateAsync(replicaId, newDocument, metadata);
 
@@ -195,7 +197,7 @@ public sealed class SimulationRunner(
         var firstReplicaId = finalStates.First().Key;
         Console.WriteLine($"\n--- Final Stats (from '{firstReplicaId}') ---");
         Console.WriteLine($"Total processed items: {finalState.ProcessedItemsCount} (Expected: {TotalItems})");
-        Console.WriteLine($"Total unique users: {finalState.UniqueUsers.Count}");
+        Console.WriteLine($"Total unique user names: {finalState.UniqueUserNames.Count}");
         Console.WriteLine($"Last processed user name: '{finalState.LastProcessedUserName}'");
         
         if (finalState.ProcessedItemsCount != TotalItems)
@@ -228,30 +230,30 @@ public sealed class SimulationRunner(
             ReportDivergence(replicaId, nameof(UserStats.LastProcessedTimestamp), reference.LastProcessedTimestamp, current.LastProcessedTimestamp);
         }
         
-        if (reference.UniqueUsers.Count != current.UniqueUsers.Count)
+        if (reference.UniqueUserNames.Count != current.UniqueUserNames.Count)
         {
             converged = false;
-            ReportDivergence(replicaId, "UniqueUsers.Count", reference.UniqueUsers.Count, current.UniqueUsers.Count);
+            ReportDivergence(replicaId, "UniqueUserNames.Count", reference.UniqueUserNames.Count, current.UniqueUserNames.Count);
         }
-        else if (!reference.UniqueUsers.SequenceEqual(current.UniqueUsers))
+        else if (!reference.UniqueUserNames.SequenceEqual(current.UniqueUserNames))
         {
             converged = false;
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"❌ DIVERGENCE in '{replicaId}': Property '{nameof(UserStats.UniqueUsers)}' lists have different content or order.");
+            Console.WriteLine($"❌ DIVERGENCE in '{replicaId}': Property '{nameof(UserStats.UniqueUserNames)}' lists have different content or order.");
             
-            var referenceSet = new HashSet<User>(reference.UniqueUsers);
-            var currentSet = new HashSet<User>(current.UniqueUsers);
+            var referenceSet = new HashSet<string>(reference.UniqueUserNames);
+            var currentSet = new HashSet<string>(current.UniqueUserNames);
             
             if (referenceSet.SetEquals(currentSet))
             {
-                Console.WriteLine("  - Note: The sets of users are identical; the divergence is in the ordering.");
+                Console.WriteLine("  - Note: The sets of user names are identical; the divergence is in the ordering.");
             }
             else
             {
                 var missing = referenceSet.Except(currentSet).ToList();
                 var extra = currentSet.Except(referenceSet).ToList();
-                if(missing.Any()) Console.WriteLine($"  - Users missing from '{replicaId}': {string.Join(", ", missing.Select(u => u.Name))}");
-                if(extra.Any()) Console.WriteLine($"  - Users found only in '{replicaId}': {string.Join(", ", extra.Select(u => u.Name))}");
+                if(missing.Any()) Console.WriteLine($"  - User names missing from '{replicaId}': {string.Join(", ", missing)}");
+                if(extra.Any()) Console.WriteLine($"  - User names found only in '{replicaId}': {string.Join(", ", extra)}");
             }
             Console.ResetColor();
         }

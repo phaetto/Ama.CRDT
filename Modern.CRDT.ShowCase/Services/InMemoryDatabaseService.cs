@@ -11,7 +11,6 @@ public sealed class InMemoryDatabaseService : IInMemoryDatabaseService
 {
     private readonly ConcurrentDictionary<string, string> documents = new();
     private readonly ConcurrentDictionary<string, CrdtMetadata> metadata = new();
-    private readonly JsonSerializerOptions jsonOptions = new(JsonSerializerDefaults.Web);
 
     public Task<(T document, CrdtMetadata metadata)> GetStateAsync<T>(string key) where T : class, new()
     {
@@ -21,7 +20,7 @@ public sealed class InMemoryDatabaseService : IInMemoryDatabaseService
         }
 
         var doc = documents.TryGetValue(key, out var json)
-            ? JsonSerializer.Deserialize<T>(json, jsonOptions) ?? new T()
+            ? JsonSerializer.Deserialize<T>(json) ?? new T()
             : new T();
 
         var meta = metadata.TryGetValue(key, out var m) ? m : new CrdtMetadata();
@@ -38,7 +37,7 @@ public sealed class InMemoryDatabaseService : IInMemoryDatabaseService
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(metadata);
 
-        var json = JsonSerializer.Serialize(document, jsonOptions);
+        var json = JsonSerializer.Serialize(document);
         documents[key] = json;
         this.metadata[key] = metadata;
 
