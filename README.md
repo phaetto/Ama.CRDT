@@ -1,4 +1,4 @@
-# Modern.CRDT
+# Ama.CRDT
 
 A .NET library for achieving eventual consistency in distributed systems using Conflict-free Replicated Data Types (CRDTs). It provides a simple, high-level API to compare, patch, and merge POCOs (Plain Old C# Objects), with merge behavior controlled by attributes.
 
@@ -18,7 +18,7 @@ A .NET library for achieving eventual consistency in distributed systems using C
 In your `Program.cs` or service configuration file, register the CRDT services.
 
 ```csharp
-using Modern.CRDT.Extensions;
+using Ama.CRDT.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,7 +50,7 @@ This library uses attributes on your POCO properties to determine how to merge c
 First, decorate your POCO properties with the desired CRDT strategy attributes. This model will be used in the following examples.
 
 ```csharp
-using Modern.CRDT.Attributes;
+using Ama.CRDT.Attributes;
 
 public class UserStats
 {
@@ -70,8 +70,8 @@ public class UserStats
 For single-replica applications or simple use cases, the `ICrdtService` provides a straightforward facade. It uses the default `ReplicaId` configured during setup.
 
 ```csharp
-using Modern.CRDT.Models;
-using Modern.CRDT.Services;
+using Ama.CRDT.Models;
+using Ama.CRDT.Services;
 
 // 1. Inject services from DI container
 // ICrdtService crdtService = ...;
@@ -105,8 +105,8 @@ crdtService.Merge(stateToMerge, patch, metadataToMerge);
 For distributed systems with multiple writers, you need a unique `ICrdtPatcher` for each replica. The `ICrdtPatcherFactory` allows you to create these. This example shows two replicas modifying the same object concurrently and converging to a consistent state.
 
 ```csharp
-using Modern.CRDT.Models;
-using Modern.CRDT.Services;
+using Ama.CRDT.Models;
+using Ama.CRDT.Services;
 
 // 1. Inject services from DI container
 // ICrdtPatcherFactory patcherFactory = ...;
@@ -170,8 +170,8 @@ When you remove a property from your object, its corresponding timestamp in the 
 You can periodically prune old tombstones using the `ICrdtMetadataManager`. This is a trade-off: you save space, but you increase the risk of an old, offline replica re-introducing a value if it comes back online after the tombstone has been pruned. A common strategy is to prune tombstones older than a reasonable time window (e.g., 30 days).
 
 ```csharp
-using Modern.CRDT.Services;
-using Modern.CRDT.Models;
+using Ama.CRDT.Services;
+using Ama.CRDT.Models;
 
 // 1. Inject the manager and timestamp provider
 // ICrdtMetadataManager metadataManager = ...;
@@ -272,4 +272,4 @@ dotnet test
 ```
 
 ## License
-The code is provided as is, use it the way you want.
+The code is licensed under MIT.
