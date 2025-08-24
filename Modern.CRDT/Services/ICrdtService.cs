@@ -5,16 +5,17 @@ using Modern.CRDT.Models;
 /// <summary>
 /// Defines the public facade service for orchestrating CRDT operations.
 /// This service provides a high-level, user-friendly API that encapsulates the
-/// underlying complexity of patch generation and application.
+/// underlying complexity of patch generation and application for a single, default replica.
 /// </summary>
 public interface ICrdtService
 {
     /// <summary>
-    /// Creates a patch that represents the changes between an original and a modified document, using generic POCOs.
+    /// Creates a patch that represents the changes between an original and a modified document.
+    /// This operation uses the default replica ID configured during dependency injection.
     /// </summary>
     /// <typeparam name="T">The type of the POCO data.</typeparam>
     /// <param name="original">The original document state, wrapping a POCO and its metadata.</param>
-    /// <param name="modified">The modified document state, wrapping a POCO and its metadata.</param>
+    /// <param name="modified">The modified document state, wrapping a POCO and its metadata. The metadata within this object will be updated by the patcher.</param>
     /// <returns>A <see cref="CrdtPatch"/> containing the operations to transform the original into the modified document.</returns>
     CrdtPatch CreatePatch<T>(CrdtDocument<T> original, CrdtDocument<T> modified) where T : class;
 

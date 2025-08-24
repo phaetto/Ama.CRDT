@@ -66,7 +66,7 @@
 | `$/Modern.CRDT/Models/OperationType.cs` | Defines the types of operations (Upsert, Remove) for a CRDT patch. |
 | `$/Modern.CRDT/Modern.CRDT.csproj` | No description provided. |
 | `$/Modern.CRDT/Services/CrdtApplicator.cs` | No description provided. |
-| `$/Modern.CRDT/Services/CrdtMetadataManager.cs` | Implements the logic for managing and compacting CRDT metadata. It can also initialize LWW metadata for a document by reflecting on its properties. |
+| `$/Modern.CRDT/Services/CrdtMetadataManager.cs` | Implements the logic for managing and compacting CRDT metadata. It provides helper methods like `Initialize(document)` to create a metadata object from a POCO by reflecting on its properties. |
 | `$/Modern.CRDT/Services/CrdtPatcher.cs` | Implements the logic to recursively compare two objects and generate a CRDT patch by delegating to property-specific strategies. |
 | `$/Modern.CRDT/Services/CrdtPatcherFactory.cs` | No description provided. |
 | `$/Modern.CRDT/Services/CrdtService.cs` | No description provided. |

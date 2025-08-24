@@ -18,6 +18,23 @@ public sealed class CrdtMetadataManager(ICrdtStrategyManager strategyManager, IC
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
+    
+    /// <inheritdoc/>
+    public CrdtMetadata Initialize<T>(T document) where T : class
+    {
+        return Initialize(document, timestampProvider.Now());
+    }
+
+    /// <inheritdoc/>
+    public CrdtMetadata Initialize<T>(T document, ICrdtTimestamp timestamp) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(timestamp);
+
+        var metadata = new CrdtMetadata();
+        PopulateLwwMetadataRecursive(metadata, document, "$", timestamp);
+        return metadata;
+    }
 
     /// <inheritdoc/>
     public void InitializeLwwMetadata<T>(CrdtMetadata metadata, T document) where T : class
