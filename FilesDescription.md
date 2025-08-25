@@ -43,6 +43,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/OrSetStrategyTests.cs` | Contains unit tests for the `OrSetStrategy`, verifying that it correctly handles concurrent additions and removals without anomalies, allowing for proper re-addition of elements. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/PriorityQueueStrategyTests.cs` | Contains unit tests for the `PriorityQueueStrategy`, verifying that concurrent updates converge and the list remains sorted by priority. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/SortedSetStrategyTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/StateMachineStrategyTests.cs` | Contains unit tests for `StateMachineStrategy`, verifying valid/invalid transitions and LWW-based conflict resolution. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseSetStrategyTests.cs` | Contains unit tests for the `TwoPhaseSetStrategy`, verifying that elements can be added and removed, but not re-added after removal. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTests.cs` | Contains unit tests for the `VoteCounterStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent voting scenarios. |
 | `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging. |
@@ -61,6 +62,7 @@
 | `$/Ama.CRDT/Attributes/CrdtOrSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the OR-Set (Observed-Remove Set) strategy. |
 | `$/Ama.CRDT/Attributes/CrdtPriorityQueueStrategyAttribute.cs` | An attribute to mark a collection as a priority queue, which is managed as an LWW-Set and kept sorted by a specified property. |
 | `$/Ama.CRDT/Attributes/CrdtSortedSetStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Sorted Set strategy. It uses LCS for diffing and maintains a sorted order. |
+| `$/Ama.CRDT/Attributes/CrdtStateMachineStrategyAttribute.cs` | An attribute to mark a property to be managed by the State Machine strategy, which enforces valid state transitions. |
 | `$/Ama.CRDT/Attributes/CrdtStrategyAttribute.cs` | The base abstract attribute for marking properties with a specific CRDT merge strategy. Contains the strategy type. |
 | `$/Ama.CRDT/Attributes/CrdtTwoPhaseSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the 2P-Set (Two-Phase Set) strategy. |
 | `$/Ama.CRDT/Attributes/CrdtVoteCounterStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the Vote Counter strategy. This strategy ensures each voter has only one active vote, with changes resolved by Last-Writer-Wins. |
@@ -116,6 +118,7 @@
 | `$/Ama.CRDT/Services/Strategies/ICrdtStrategyManager.cs` | Defines the contract for a service that resolves the appropriate CRDT strategy for a property. |
 | `$/Ama.CRDT/Services/Strategies/IElementComparer.cs` | Defines the contract for a type-specific equality comparer for collection elements, used by ArrayLcsStrategy. |
 | `$/Ama.CRDT/Services/Strategies/IElementComparerProvider.cs` | Defines the contract for a service that provides the correct IEqualityComparer<object> for a given array element type. |
+| `$/Ama.CRDT/Services/Strategies/IStateMachine.cs` | Defines the contract for a state machine validator, which can be implemented by users to define custom transition logic. |
 | `$/Ama.CRDT/Services/Strategies/LseqStrategy.cs` | Implements the LSEQ strategy, which manages ordered sequences using dense, sortable identifiers to ensure convergence. |
 | `$/Ama.CRDT/Services/Strategies/LwwSetStrategy.cs` | Implements the LWW-Set (Last-Writer-Wins Set) CRDT strategy, where element membership is determined by the latest timestamp. |
 | `$/Ama.CRDT/Services/Strategies/LwwStrategy.cs` | Implements the LWW strategy. `GeneratePatch` creates operations based on timestamps, and the simplified `ApplyOperation` unconditionally applies changes to nodes. |
@@ -124,6 +127,7 @@
 | `$/Ama.CRDT/Services/Strategies/OrSetStrategy.cs` | Implements the OR-Set (Observed-Remove Set) CRDT strategy, which uses unique tags to correctly handle concurrent additions and removals. |
 | `$/Ama.CRDT/Services/Strategies/PriorityQueueStrategy.cs` | Implements a strategy for collections that behave as a priority queue, sorted by a specified property. |
 | `$/Ama.CRDT/Services/Strategies/SortedSetStrategy.cs` | Implements a CRDT strategy for collections that are treated as sorted sets. It uses LCS for diffing and ensures the collection remains sorted after operations. |
+| `$/Ama.CRDT/Services/Strategies/StateMachineStrategy.cs` | Implements the State Machine strategy. It uses a user-provided validator to check state transitions and LWW for conflict resolution. |
 | `$/Ama.CRDT/Services/Strategies/TwoPhaseSetStrategy.cs` | Implements the 2P-Set (Two-Phase Set) CRDT strategy, where an element, once removed, cannot be re-added. |
 | `$/Ama.CRDT/Services/Strategies/VoteCounterStrategy.cs` | Implements the Vote Counter strategy. It manages a dictionary of options to voter sets, ensuring each voter can only have one active vote at a time, with conflicts resolved by Last-Writer-Wins. |
 | `$/CodingStandards.md` | Contains the coding standards for the project, including versioning and publishing guidelines. |

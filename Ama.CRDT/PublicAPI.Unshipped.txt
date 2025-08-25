@@ -24,8 +24,13 @@ Ama.CRDT.Attributes.CrdtOrSetStrategyAttribute.CrdtOrSetStrategyAttribute() -> v
 Ama.CRDT.Attributes.CrdtPriorityQueueStrategyAttribute
 Ama.CRDT.Attributes.CrdtPriorityQueueStrategyAttribute.CrdtPriorityQueueStrategyAttribute(string! priorityPropertyName) -> void
 Ama.CRDT.Attributes.CrdtPriorityQueueStrategyAttribute.PriorityPropertyName.get -> string!
+Ama.CRDT.Attributes.CrdtStateMachineStrategyAttribute
+Ama.CRDT.Attributes.CrdtStateMachineStrategyAttribute.CrdtStateMachineStrategyAttribute(System.Type! validatorType) -> void
+Ama.CRDT.Attributes.CrdtStateMachineStrategyAttribute.ValidatorType.get -> System.Type!
 Ama.CRDT.Attributes.CrdtTwoPhaseSetStrategyAttribute
 Ama.CRDT.Attributes.CrdtTwoPhaseSetStrategyAttribute.CrdtTwoPhaseSetStrategyAttribute() -> void
+Ama.CRDT.Attributes.CrdtVoteCounterStrategyAttribute
+Ama.CRDT.Attributes.CrdtVoteCounterStrategyAttribute.CrdtVoteCounterStrategyAttribute() -> void
 Ama.CRDT.Attributes.Strategies.AssociativeAttribute
 Ama.CRDT.Attributes.Strategies.AssociativeAttribute.AssociativeAttribute() -> void
 Ama.CRDT.Attributes.Strategies.CommutativeAttribute
@@ -97,6 +102,15 @@ Ama.CRDT.Models.OrSetRemoveItem.Value.get -> object!
 Ama.CRDT.Models.OrSetRemoveItem.Value.init -> void
 Ama.CRDT.Models.Serialization.CrdtMetadataJsonResolver
 Ama.CRDT.Models.Serialization.CrdtMetadataJsonResolver.CrdtMetadataJsonResolver() -> void
+Ama.CRDT.Models.VotePayload
+Ama.CRDT.Models.VotePayload.Deconstruct(out object! Voter, out object! Option) -> void
+Ama.CRDT.Models.VotePayload.Equals(Ama.CRDT.Models.VotePayload other) -> bool
+Ama.CRDT.Models.VotePayload.Option.get -> object!
+Ama.CRDT.Models.VotePayload.Option.init -> void
+Ama.CRDT.Models.VotePayload.VotePayload() -> void
+Ama.CRDT.Models.VotePayload.VotePayload(object! Voter, object! Option) -> void
+Ama.CRDT.Models.VotePayload.Voter.get -> object!
+Ama.CRDT.Models.VotePayload.Voter.init -> void
 Ama.CRDT.Services.CrdtMetadataManager.Clone(Ama.CRDT.Models.CrdtMetadata! metadata) -> Ama.CRDT.Models.CrdtMetadata!
 Ama.CRDT.Services.CrdtMetadataManager.CrdtMetadataManager(Ama.CRDT.Services.Strategies.ICrdtStrategyManager! strategyManager, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.Strategies.IElementComparerProvider! elementComparerProvider) -> void
 Ama.CRDT.Services.CrdtMetadataManager.Initialize<T>(Ama.CRDT.Models.CrdtMetadata! metadata, T! document) -> void
@@ -124,6 +138,8 @@ Ama.CRDT.Services.Strategies.GSetStrategy
 Ama.CRDT.Services.Strategies.GSetStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.GSetStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
 Ama.CRDT.Services.Strategies.GSetStrategy.GSetStrategy(Ama.CRDT.Services.Strategies.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider, Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options) -> void
+Ama.CRDT.Services.Strategies.IStateMachine<TState>
+Ama.CRDT.Services.Strategies.IStateMachine<TState>.IsValidTransition(TState from, TState to) -> bool
 Ama.CRDT.Services.Strategies.LseqStrategy
 Ama.CRDT.Services.Strategies.LseqStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.LseqStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
@@ -148,10 +164,18 @@ Ama.CRDT.Services.Strategies.PriorityQueueStrategy
 Ama.CRDT.Services.Strategies.PriorityQueueStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.PriorityQueueStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
 Ama.CRDT.Services.Strategies.PriorityQueueStrategy.PriorityQueueStrategy(Ama.CRDT.Services.Strategies.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider, Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options) -> void
+Ama.CRDT.Services.Strategies.StateMachineStrategy
+Ama.CRDT.Services.Strategies.StateMachineStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
+Ama.CRDT.Services.Strategies.StateMachineStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.StateMachineStrategy.StateMachineStrategy(Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options, System.IServiceProvider! serviceProvider) -> void
 Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy
 Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
 Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.TwoPhaseSetStrategy(Ama.CRDT.Services.Strategies.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider, Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options) -> void
+Ama.CRDT.Services.Strategies.VoteCounterStrategy
+Ama.CRDT.Services.Strategies.VoteCounterStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
+Ama.CRDT.Services.Strategies.VoteCounterStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.VoteCounterStrategy.VoteCounterStrategy(Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider) -> void
 override Ama.CRDT.Models.AverageRegisterValue.GetHashCode() -> int
 override Ama.CRDT.Models.LseqIdentifier.GetHashCode() -> int
 override Ama.CRDT.Models.LseqIdentifier.ToString() -> string!
@@ -160,6 +184,7 @@ override Ama.CRDT.Models.MovePayload.GetHashCode() -> int
 override Ama.CRDT.Models.OrSetAddItem.GetHashCode() -> int
 override Ama.CRDT.Models.OrSetRemoveItem.GetHashCode() -> int
 override Ama.CRDT.Models.Serialization.CrdtMetadataJsonResolver.GetTypeInfo(System.Type! type, System.Text.Json.JsonSerializerOptions! options) -> System.Text.Json.Serialization.Metadata.JsonTypeInfo!
+override Ama.CRDT.Models.VotePayload.GetHashCode() -> int
 static Ama.CRDT.Models.AverageRegisterValue.operator !=(Ama.CRDT.Models.AverageRegisterValue left, Ama.CRDT.Models.AverageRegisterValue right) -> bool
 static Ama.CRDT.Models.AverageRegisterValue.operator ==(Ama.CRDT.Models.AverageRegisterValue left, Ama.CRDT.Models.AverageRegisterValue right) -> bool
 static Ama.CRDT.Models.CrdtMetadata.JsonResolver.get -> System.Text.Json.Serialization.Metadata.IJsonTypeInfoResolver!
@@ -173,6 +198,9 @@ static Ama.CRDT.Models.OrSetAddItem.operator !=(Ama.CRDT.Models.OrSetAddItem lef
 static Ama.CRDT.Models.OrSetAddItem.operator ==(Ama.CRDT.Models.OrSetAddItem left, Ama.CRDT.Models.OrSetAddItem right) -> bool
 static Ama.CRDT.Models.OrSetRemoveItem.operator !=(Ama.CRDT.Models.OrSetRemoveItem left, Ama.CRDT.Models.OrSetRemoveItem right) -> bool
 static Ama.CRDT.Models.OrSetRemoveItem.operator ==(Ama.CRDT.Models.OrSetRemoveItem left, Ama.CRDT.Models.OrSetRemoveItem right) -> bool
+static Ama.CRDT.Models.VotePayload.operator !=(Ama.CRDT.Models.VotePayload left, Ama.CRDT.Models.VotePayload right) -> bool
+static Ama.CRDT.Models.VotePayload.operator ==(Ama.CRDT.Models.VotePayload left, Ama.CRDT.Models.VotePayload right) -> bool
+static Ama.CRDT.Services.Strategies.LwwStrategy.DeserializeValue(object? value, System.Type! targetType) -> object?
 ~override Ama.CRDT.Models.AverageRegisterValue.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.AverageRegisterValue.ToString() -> string
 ~override Ama.CRDT.Models.LseqIdentifier.Equals(object obj) -> bool
@@ -184,3 +212,5 @@ static Ama.CRDT.Models.OrSetRemoveItem.operator ==(Ama.CRDT.Models.OrSetRemoveIt
 ~override Ama.CRDT.Models.OrSetAddItem.ToString() -> string
 ~override Ama.CRDT.Models.OrSetRemoveItem.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.OrSetRemoveItem.ToString() -> string
+~override Ama.CRDT.Models.VotePayload.Equals(object obj) -> bool
+~override Ama.CRDT.Models.VotePayload.ToString() -> string
