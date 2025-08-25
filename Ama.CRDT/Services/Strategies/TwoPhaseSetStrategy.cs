@@ -1,0 +1,136 @@
+namespace Ama.CRDT.Services.Strategies;
+
+using Ama.CRDT.Models;
+using Ama.CRDT.Services.Helpers;
+using Microsoft.Extensions.Options;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Linq;
+using System.Reflection;
+using System.Text.Json;
+
+/// <summary>
+/// Implements the 2P-Set (Two-Phase Set) CRDT strategy.
+/// In a 2P-Set, an element can be added and removed, but once removed, it cannot be re-added.
+/// </summary>
+public sealed class TwoPhaseSetStrategy(
+    IElementComparerProvider comparerProvider,
+    ICrdtTimestampProvider timestampProvider,
+    IOptions<CrdtOptions> options) : ICrdtStrategy
+{
+    private readonly string replicaId = options.Value.ReplicaId;
+    
+    /// <inheritdoc/>
+    public void GeneratePatch(ICrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, object? originalValue, object? modifiedValue, CrdtMetadata originalMeta, CrdtMetadata modifiedMeta)
+    {
+        var originalSet = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
+        var modifiedSet = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
+        
+        var elementType = property.PropertyType.IsGenericType ? property.PropertyType.GetGenericArguments()[0] : typeof(object);
+        var comparer = comparerProvider.GetComparer(elementType);
+
+        var added = modifiedSet.Except(originalSet, comparer);
+        var removed = originalSet.Except(modifiedSet, comparer);
+
+        foreach (var item in added)
+        {
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, item, timestampProvider.Now()));
+        }
+
+        foreach (var item in removed)
+        {
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item, timestampProvider.Now()));
+        }
+    }
+
+    /// <inheritdoc/>
+    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        ArgumentNullException.ThrowIfNull(metadata);
+
+        if (metadata.SeenExceptions.Contains(operation))
+        {
+            return;
+        }
+
+        try
+        {
+            var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+            if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
+            
+            var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
+            var comparer = comparerProvider.GetComparer(elementType);
+
+            if (!metadata.TwoPhaseSets.TryGetValue(operation.JsonPath, out var state))
+            {
+                state = (new HashSet<object>(comparer), new HashSet<object>(comparer));
+                metadata.TwoPhaseSets[operation.JsonPath] = state;
+            }
+
+            var itemValue = DeserializeItemValue(operation.Value, elementType);
+            if (itemValue is null) return;
+            
+            switch (operation.Type)
+            {
+                case OperationType.Upsert:
+                    if (!state.Tomstones.Contains(itemValue))
+                    {
+                        state.Adds.Add(itemValue);
+                    }
+                    break;
+                case OperationType.Remove:
+                    state.Tomstones.Add(itemValue);
+                    break;
+            }
+
+            ReconstructList(list, state.Adds, state.Tomstones, comparer);
+        }
+        finally
+        {
+            metadata.SeenExceptions.Add(operation);
+        }
+    }
+    
+    private static void ReconstructList(IList list, ISet<object> adds, ISet<object> tombstones, IEqualityComparer<object> comparer)
+    {
+        var currentItems = new HashSet<object>(list.Cast<object>(), comparer);
+        var liveItems = new HashSet<object>(adds.Except(tombstones, comparer), comparer);
+        
+        var toAdd = liveItems.Except(currentItems, comparer).ToList();
+        var toRemove = currentItems.Except(liveItems, comparer).ToList();
+
+        foreach (var item in toRemove)
+        {
+            list.Remove(item);
+        }
+
+        foreach (var item in toAdd)
+        {
+            list.Add(item);
+        }
+    }
+    
+    private static object? DeserializeItemValue(object? value, Type targetType)
+    {
+        if (value is null) return null;
+        if (targetType.IsInstanceOfType(value)) return value;
+
+        if (value is JsonElement jsonElement)
+        {
+            return JsonSerializer.Deserialize(jsonElement.GetRawText(), targetType);
+        }
+
+        try
+        {
+            return Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+}

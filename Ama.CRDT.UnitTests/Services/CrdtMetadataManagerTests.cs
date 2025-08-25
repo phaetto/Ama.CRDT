@@ -14,12 +14,14 @@ public sealed class CrdtMetadataManagerTests
     private readonly CrdtMetadataManager manager;
     private readonly Mock<ICrdtStrategyManager> strategyManagerMock;
     private readonly Mock<ICrdtTimestampProvider> timestampProviderMock;
+    private readonly Mock<IElementComparerProvider> elementComparerProviderMock;
 
     public CrdtMetadataManagerTests()
     {
         strategyManagerMock = new Mock<ICrdtStrategyManager>();
         timestampProviderMock = new Mock<ICrdtTimestampProvider>();
-        manager = new CrdtMetadataManager(strategyManagerMock.Object, timestampProviderMock.Object);
+        elementComparerProviderMock = new Mock<IElementComparerProvider>();
+        manager = new CrdtMetadataManager(strategyManagerMock.Object, timestampProviderMock.Object, elementComparerProviderMock.Object);
     }
     
     [Theory]
