@@ -16,6 +16,7 @@ using Microsoft.Extensions.Options;
 [Commutative]
 [Associative]
 [IdempotentShortTermImplementation]
+[Mergeable]
 public sealed class BoundedCounterStrategy(ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options) : ICrdtStrategy
 {
     private readonly string replicaId = options.Value.ReplicaId;

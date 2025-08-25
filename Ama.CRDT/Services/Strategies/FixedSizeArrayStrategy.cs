@@ -17,6 +17,7 @@ using System.Text.Json;
 [Commutative]
 [Associative]
 [Idempotent]
+[Mergeable]
 public sealed class FixedSizeArrayStrategy(
     ICrdtTimestampProvider timestampProvider,
     IOptions<CrdtOptions> options) : ICrdtStrategy

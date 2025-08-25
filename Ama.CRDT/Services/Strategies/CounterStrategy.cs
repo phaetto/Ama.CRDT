@@ -18,6 +18,7 @@ using Ama.CRDT.Attributes.Strategies;
 [Commutative]
 [Associative]
 [IdempotentShortTermImplementation]
+[Mergeable]
 public sealed class CounterStrategy : ICrdtStrategy
 {
     private readonly ICrdtTimestampProvider timestampProvider;

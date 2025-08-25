@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 [Commutative]
 [Associative]
 [IdempotentShortTermImplementation]
+[Mergeable]
 public sealed class GCounterStrategy(ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options) : ICrdtStrategy
 {
     private readonly string replicaId = options.Value.ReplicaId;

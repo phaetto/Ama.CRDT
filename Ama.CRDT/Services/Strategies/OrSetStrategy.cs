@@ -20,6 +20,7 @@ using System.Text.Json;
 [Commutative]
 [Associative]
 [Idempotent]
+[Mergeable]
 public sealed class OrSetStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,

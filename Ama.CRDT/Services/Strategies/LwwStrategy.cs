@@ -18,6 +18,7 @@ using Ama.CRDT.Attributes.Strategies;
 [Commutative]
 [Associative]
 [Idempotent]
+[Mergeable]
 public sealed class LwwStrategy : ICrdtStrategy
 {
     private readonly string replicaId;

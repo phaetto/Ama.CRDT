@@ -33,6 +33,7 @@ public sealed class FixedSizeArrayStrategyTests
 
         var optionsA = Options.Create(new CrdtOptions { ReplicaId = "A" });
         var optionsB = Options.Create(new CrdtOptions { ReplicaId = "B" });
+        var optionsC = Options.Create(new CrdtOptions { ReplicaId = "C" });
 
         var lwwStrategy = new LwwStrategy(optionsA);
         var fixedSizeArrayStrategyA = new FixedSizeArrayStrategy(timestampProvider, optionsA);
@@ -45,7 +46,13 @@ public sealed class FixedSizeArrayStrategyTests
         var strategiesB = new ICrdtStrategy[] { lwwStrategyB, fixedSizeArrayStrategyB };
         var strategyManagerB = new CrdtStrategyManager(strategiesB);
         patcherB = new CrdtPatcher(strategyManagerB);
-        
+
+        var lwwStrategyC = new LwwStrategy(optionsC);
+        var fixedSizeArrayStrategyC = new FixedSizeArrayStrategy(timestampProvider, optionsC);
+        var strategiesC = new ICrdtStrategy[] { lwwStrategyC, fixedSizeArrayStrategyC };
+        var strategyManagerC = new CrdtStrategyManager(strategiesC);
+        patcherC = new CrdtPatcher(strategyManagerB);
+
         var strategyManagerApplicator = new CrdtStrategyManager(strategiesA);
         applicator = new CrdtApplicator(strategyManagerApplicator);
         metadataManager = new CrdtMetadataManager(strategyManagerA, timestampProvider, comparerProvider);

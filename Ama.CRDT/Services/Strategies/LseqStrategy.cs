@@ -18,6 +18,7 @@ using System.Text.Json;
 [Commutative]
 [Associative]
 [Idempotent]
+[SequentialOperations]
 public sealed class LseqStrategy : ICrdtStrategy
 {
     private readonly IElementComparerProvider elementComparerProvider;
@@ -50,7 +51,7 @@ public sealed class LseqStrategy : ICrdtStrategy
         }
 
         
-        var originalItemsByValue = originalItems.ToDictionary(i => i.Value, i => i, comparer);
+        var originalItemsByValue = originalItems.ToDictionary(i => i.Value!, i => i, comparer!);
         var sortedOriginalItems = originalItems.OrderBy(i => i.Identifier).ToList();
         var insertedItems = new Dictionary<object, LseqItem>(comparer);
 

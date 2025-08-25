@@ -18,6 +18,7 @@ using System.Text;
 [Commutative]
 [Associative]
 [Idempotent]
+[SequentialOperations]
 public sealed class SortedSetStrategy : ICrdtStrategy
 {
     private readonly IElementComparerProvider comparerProvider;

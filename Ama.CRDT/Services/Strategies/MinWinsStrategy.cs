@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 [Commutative]
 [Associative]
 [Idempotent]
+[Mergeable]
 public sealed class MinWinsStrategy(IOptions<CrdtOptions> options, ICrdtTimestampProvider timestampProvider) : ICrdtStrategy
 {
     private readonly string replicaId = options.Value.ReplicaId;

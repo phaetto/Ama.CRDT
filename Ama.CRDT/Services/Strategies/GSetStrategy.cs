@@ -20,6 +20,7 @@ using System.Text.Json;
 [Commutative]
 [Associative]
 [Idempotent]
+[Mergeable]
 public sealed class GSetStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,
