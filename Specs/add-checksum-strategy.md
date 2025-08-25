@@ -3,20 +3,14 @@
 <!---
 Add the purpose of this user story.
 --->
-Constraint-Based & Business Logic Strategies
+Implement the Checksum Strategy.
 
 <!---Human--->
 # Requirements
 <!---
 Add the requirements, technical or not.
 --->
-30. **Immutable Strategy:** For a property that can only be written once. The first write wins, and all subsequent writes are ignored.
-31. **State Machine Strategy:** Enforces valid state transitions. For example, a property can only change from `PENDING` to `PROCESSING`, but not directly to `SHIPPED`. Invalid transitions are rejected.
-32. **Validated String Strategy:** A string property that must conform to a specific format (e.g., a regular expression). Updates that do not match are ignored.
-33. **Relational Integrity Strategy:** A strategy for a foreign-key-like field. An ID can only be set if the corresponding entity exists in another replicated set, preventing orphaned references.
-34. **Ownership Strategy:** A strategy where a property or object can only be modified by its designated "owner" replica. Updates from other replicas are ignored.
-35. **Exclusive Lock Strategy (Optimistic):** A strategy where a replica can claim a temporary, exclusive "lock" on an object. Conflicting edits from other replicas are rejected or deferred until the lock is released.
-36. **Checksum Strategy:** Stores a value along with its checksum. An operation is only applied if the checksum is valid, preventing data corruption.
+**Checksum Strategy:** Stores a value along with its checksum. An operation is only applied if the checksum is valid, preventing data corruption.
 
 Make only the ones that do not break the public API, except the metadata and other models. Avoid breaking the interface public APIs.
 
