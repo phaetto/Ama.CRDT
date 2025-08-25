@@ -1,0 +1,60 @@
+name: Manual NuGet Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      major_version:
+        description: 'Major Version'
+        required: true
+        default: '0'
+      minor_version:
+        description: 'Minor Version'
+        required: true
+        default: '1'
+      patch_version:
+        description: 'Patch Version'
+        required: true
+        default: '0'
+
+env:
+  PROJECT_PATH: 'Ama.CRDT/Ama.CRDT.csproj'
+  PACKAGE_OUTPUT_DIRECTORY: '${{ github.workspace }}/nuget'
+
+jobs:
+  build-test-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Set Version
+        id: versioning
+        run: |
+          PACKAGE_VERSION="${{ inputs.major_version }}.${{ inputs.minor_version }}.${{ inputs.patch_version }}"
+          ASSEMBLY_VERSION="${{ inputs.major_version }}.${{ inputs.minor_version }}.${{ inputs.patch_version }}.0"
+          
+          echo "PACKAGE_VERSION=${PACKAGE_VERSION}" >> $GITHUB_ENV
+          echo "ASSEMBLY_VERSION=${ASSEMBLY_VERSION}" >> $GITHUB_ENV
+
+          echo "Package version: ${PACKAGE_VERSION}"
+          echo "Assembly version: ${ASSEMBLY_VERSION}"
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --verbosity normal -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
+
+      - name: Pack
+        run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }} -p:PackageVersion=${{ env.PACKAGE_VERSION }}
+
+      - name: Push to NuGet
+        run: dotnet nuget push "${{ env.PACKAGE_OUTPUT_DIRECTORY }}/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json"

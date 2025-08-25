@@ -11,6 +11,26 @@ A .NET library for achieving eventual consistency in distributed systems using C
 - **Multi-Replica Support**: Designed for scenarios with multiple concurrent writers, using a factory pattern to create services for each unique replica.
 - **Dependency Injection Friendly**: All services are designed to be registered and resolved through a standard DI container.
 
+## Installation
+
+You can install Ama.CRDT via the .NET CLI or the NuGet Package Manager in Visual Studio.
+
+### .NET CLI
+
+```bash
+dotnet add package Ama.CRDT
+```
+
+### NuGet Package Manager
+
+In Visual Studio, open the NuGet Package Manager Console and run:
+
+```powershell
+Install-Package Ama.CRDT
+```
+
+Or, you can search for `Ama.CRDT` in the NuGet Package Manager UI and install it from there.
+
 ## Getting Started
 
 ### Setup
