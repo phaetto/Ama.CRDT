@@ -1,0 +1,7 @@
+﻿[*.cs]
+
+# RS0036: Annotate nullability of public types and members in the declared API
+dotnet_diagnostic.RS0036.severity = none
+
+# RS0016: Add public types and members to the declared API
+dotnet_diagnostic.RS0016.severity = error

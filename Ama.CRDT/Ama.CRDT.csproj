@@ -1,32 +1,57 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+	<TargetFrameworks>net9.0;net8.0</TargetFrameworks>
+	<ImplicitUsings>enable</ImplicitUsings>
+	<Nullable>enable</Nullable>
+	<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
   <PropertyGroup>
-    <IsPackable>true</IsPackable>
-    <PackageId>Ama.CRDT</PackageId>
-    <Version>0.1.0</Version>
-    <Authors>Alexander Mantzoukas</Authors>
-    <Description>A .NET library for implementing Conflict-free Replicated Data Types (CRDTs) to enable real-time collaborative applications and distributed systems.</Description>
-    <RepositoryUrl>https://github.com/phaetto/Ama.CRDT</RepositoryUrl>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageTags>crdt;distributed-systems;collaboration;conflict-free</PackageTags>
+	<IsPackable>true</IsPackable>
+	<PackageId>Ama.CRDT</PackageId>
+	<Version>0.1.0</Version>
+	<Authors>Alexander Mantzoukas</Authors>
+	<Description>A .NET library for implementing Conflict-free Replicated Data Types (CRDTs) to enable real-time collaborative applications and distributed systems.</Description>
+	<RepositoryUrl>https://github.com/phaetto/Ama.CRDT</RepositoryUrl>
+	<RepositoryType>git</RepositoryType>
+	<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	<PackageTags>crdt;distributed-systems;collaboration;conflict-free</PackageTags>
 	<PackageReadmeFile>README.md</PackageReadmeFile>
+	
+	<!-- SourceLink and Symbol Configuration -->
+	<PublishRepositoryUrl>true</PublishRepositoryUrl>
+	<EmbedUntrackedSources>true</EmbedUntrackedSources>
+	<IncludeSymbols>true</IncludeSymbols>
+	<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+	
+	<!-- Generate XML documentation file -->
+	<GenerateDocumentationFile>true</GenerateDocumentationFile>
+	<!-- Suppress warning for missing comments on internal/private members -->
+	<NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\README.md" Pack="true" PackagePath="\"/>
+	<None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.8" />
-    <PackageReference Include="System.Collections.Immutable" Version="9.0.8" />
+	<!-- SourceLink Package -->
+	<PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+	<!-- Public API Analyzer -->
+	<PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="4.14.0" PrivateAssets="All" />
+  </ItemGroup>
+  
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+	<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+	<PackageReference Include="Microsoft.Extensions.Options" Version="8.0.0" />
+	<PackageReference Include="System.Collections.Immutable" Version="8.0.0" />
+  </ItemGroup>
+  
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+	<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.8" />
+	<PackageReference Include="Microsoft.Extensions.Options" Version="9.0.8" />
+	<PackageReference Include="System.Collections.Immutable" Version="9.0.8" />
   </ItemGroup>
 
 </Project>
