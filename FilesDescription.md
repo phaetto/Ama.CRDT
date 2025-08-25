@@ -84,6 +84,7 @@
 | `$/Ama.CRDT/Models/OrSetItem.cs` | Contains payload record structs (`OrSetAddItem`, `OrSetRemoveItem`) for OR-Set (Observed-Remove Set) operations, bundling values with unique tags. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
+| `$/Ama.CRDT/Models/Serialization/CrdtMetadataJsonResolver.cs` | Provides a custom `IJsonTypeInfoResolver` for `CrdtMetadata` to enable efficient serialization by omitting empty collections from the JSON output. |
 | `$/Ama.CRDT/PublicAPI.Shipped.txt` | Tracks the shipped public API surface of the library to detect breaking changes. This file should be updated when new APIs are officially released in a stable version. |
 | `$/Ama.CRDT/PublicAPI.Unshipped.txt` | Tracks new public APIs that have not yet been included in a stable release. This file must be empty before a manual, stable publish. Build will fail if new public APIs are added without being added to this file first. |
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | No description provided. |
@@ -159,3 +160,16 @@
 | `$/Specs/make-the-api-surface-better.md` | No description provided. |
 | `$/Specs/publish-as-a-nuget-package.md` | No description provided. |
 | `$/Specs/readme-update-2025-08-24.md` | No description provided. |
+var metadata = new CrdtMetadata();
+// ... populate some properties, but leave others empty ...
+
+var options = new JsonSerializerOptions 
+{ 
+    TypeInfoResolver = CrdtMetadata.JsonResolver,
+    WriteIndented = true 
+};
+
+// This JSON string will only contain the non-empty properties of the metadata object.
+string json = JsonSerializer.Serialize(metadata, options);
+
+Console.WriteLine(json);
