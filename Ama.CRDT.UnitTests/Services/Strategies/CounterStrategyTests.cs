@@ -111,7 +111,7 @@ public sealed class CounterStrategyTests
     }
     
     [Fact]
-    public void ApplyPatch_IsIdempotent()
+    public void ApplyPatch_IsIdempotent_WithSeenExceptionsCheck()
     {
         // Arrange
         var model = new TestModel { Score = 10 };
@@ -129,6 +129,30 @@ public sealed class CounterStrategyTests
         // Assert
         model.Score.ShouldBe(scoreAfterFirst);
         model.Score.ShouldBe(15);
+    }
+
+    [Fact]
+    public void ApplyPatch_IsNotIdempotent_WithoutSeenExceptionsCheck()
+    {
+        // Arrange
+        var model = new TestModel { Score = 10 };
+        var meta = metadataManager.Initialize(model);
+        var patch = new CrdtPatch(new List<CrdtOperation>
+        {
+            new(Guid.NewGuid(), "r1", "$.Score", OperationType.Increment, 5m, new EpochTimestamp(1L))
+        });
+
+        // Act
+        applicator.ApplyPatch(model, patch, meta);
+        model.Score.ShouldBe(15);
+
+        // Clear SeenExceptions to simulate re-application
+        meta.SeenExceptions.Clear();
+        applicator.ApplyPatch(model, patch, meta);
+
+        // Assert
+        // The increment is applied a second time, proving the strategy is not idempotent.
+        model.Score.ShouldBe(20);
     }
 
     [Fact]

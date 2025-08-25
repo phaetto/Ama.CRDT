@@ -72,6 +72,14 @@ public interface ICrdtMetadataManager
     void Reset<T>([DisallowNull] CrdtMetadata metadata, [DisallowNull] T document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
 
     /// <summary>
+    /// Creates a deep clone of the provided metadata object.
+    /// </summary>
+    /// <param name="metadata">The metadata object to clone.</param>
+    /// <returns>A new <see cref="CrdtMetadata"/> object with all properties copied.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
+    CrdtMetadata Clone([DisallowNull] CrdtMetadata metadata);
+
+    /// <summary>
     /// Removes LWW tombstones from the metadata that are older than the specified threshold.
     /// </summary>
     /// <param name="metadata">The metadata object to prune.</param>

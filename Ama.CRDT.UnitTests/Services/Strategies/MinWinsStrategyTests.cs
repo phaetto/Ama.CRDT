@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Shouldly;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 public sealed class MinWinsStrategyTests
@@ -119,5 +120,44 @@ public sealed class MinWinsStrategyTests
         model1.BestTime.ShouldBe(200); // min(300, 200, 250)
         model2.BestTime.ShouldBe(200);
         model1.BestTime.ShouldBe(model2.BestTime);
+    }
+    
+    [Fact]
+    public void ApplyOperation_IsAssociative()
+    {
+        // Arrange
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.bestTime", OperationType.Upsert, 200, new EpochTimestamp(2L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.bestTime", OperationType.Upsert, 250, new EpochTimestamp(3L));
+        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.bestTime", OperationType.Upsert, 150, new EpochTimestamp(4L));
+
+        var ops = new[] { op1, op2, op3 };
+        var permutations = GetPermutations(ops, ops.Length);
+        var finalTimes = new List<int>();
+
+        // Act
+        foreach (var p in permutations)
+        {
+            var model = new TestModel { BestTime = 300 };
+            var meta = new CrdtMetadata();
+            foreach (var op in p)
+            {
+                strategy.ApplyOperation(model, meta, op);
+            }
+            finalTimes.Add(model.BestTime);
+        }
+
+        // Assert
+        // The lowest value wins (op3 with value 150)
+        finalTimes.ShouldAllBe(t => t == 150);
+    }
+    
+    private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
+    {
+        if (length == 1) return list.Select(t => new T[] { t });
+
+        var enumerable = list as T[] ?? list.ToArray();
+        return GetPermutations(enumerable, length - 1)
+            .SelectMany(t => enumerable.Where(e => !t.Contains(e)),
+                (t1, t2) => t1.Concat(new T[] { t2 }));
     }
 }

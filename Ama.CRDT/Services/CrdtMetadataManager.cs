@@ -87,7 +87,64 @@ public sealed class CrdtMetadataManager(
         PopulateMetadataRecursive(metadata, document, "$", timestamp);
     }
 
+    /// <inheritdoc/>
+    public CrdtMetadata Clone([DisallowNull] CrdtMetadata metadata)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
 
+        var newMetadata = new CrdtMetadata();
+
+        foreach (var kvp in metadata.Lww) { newMetadata.Lww.Add(kvp.Key, kvp.Value); }
+        foreach (var kvp in metadata.PositionalTrackers) { newMetadata.PositionalTrackers.Add(kvp.Key, new List<PositionalIdentifier>(kvp.Value)); }
+        foreach (var kvp in metadata.AverageRegisters) { newMetadata.AverageRegisters.Add(kvp.Key, new Dictionary<string, AverageRegisterValue>(kvp.Value)); }
+        
+        foreach (var kvp in metadata.TwoPhaseSets)
+        {
+            newMetadata.TwoPhaseSets.Add(kvp.Key, (
+                Adds: new HashSet<object>(kvp.Value.Adds, (kvp.Value.Adds as HashSet<object>)?.Comparer),
+                Tomstones: new HashSet<object>(kvp.Value.Tomstones, (kvp.Value.Tomstones as HashSet<object>)?.Comparer)
+            ));
+        }
+
+        foreach (var kvp in metadata.LwwSets)
+        {
+            newMetadata.LwwSets.Add(kvp.Key, (
+                Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
+                Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
+            ));
+        }
+
+        foreach (var kvp in metadata.OrSets)
+        {
+            var addedComparer = (kvp.Value.Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var newAdded = kvp.Value.Adds.ToDictionary(
+                innerKvp => innerKvp.Key,
+                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                addedComparer);
+            
+            var removedComparer = (kvp.Value.Removes as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var newRemoved = kvp.Value.Removes.ToDictionary(
+                innerKvp => innerKvp.Key,
+                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                removedComparer);
+
+            newMetadata.OrSets.Add(kvp.Key, (Adds: newAdded, Removes: newRemoved));
+        }
+        
+        foreach (var kvp in metadata.PriorityQueues)
+        {
+            newMetadata.PriorityQueues.Add(kvp.Key, (
+                Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
+                Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
+            ));
+        }
+
+        foreach (var kvp in metadata.LseqTrackers) { newMetadata.LseqTrackers.Add(kvp.Key, new List<LseqItem>(kvp.Value)); }
+        foreach (var kvp in metadata.VersionVector) { newMetadata.VersionVector.Add(kvp.Key, kvp.Value); }
+        foreach (var op in metadata.SeenExceptions) { newMetadata.SeenExceptions.Add(op); }
+        
+        return newMetadata;
+    }
 
     /// <inheritdoc/>
     public void PruneLwwTombstones([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold)
@@ -258,23 +315,23 @@ public sealed class CrdtMetadataManager(
         {
             case TwoPhaseSetStrategy:
                 metadata.TwoPhaseSets[propertyPath] = (
-                    new HashSet<object>(collectionAsObjects, comparer),
-                    new HashSet<object>(comparer));
+                    Adds: new HashSet<object>(collectionAsObjects, comparer),
+                    Tomstones: new HashSet<object>(comparer));
                 break;
             case LwwSetStrategy:
                 metadata.LwwSets[propertyPath] = (
-                    collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
-                    new Dictionary<object, ICrdtTimestamp>(comparer));
+                    Adds: collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
+                    Removes: new Dictionary<object, ICrdtTimestamp>(comparer));
                 break;
             case OrSetStrategy:
                 metadata.OrSets[propertyPath] = (
-                    collectionAsObjects.ToDictionary(k => k, _ => (ISet<Guid>)new HashSet<Guid> { Guid.NewGuid() }, comparer),
-                    new Dictionary<object, ISet<Guid>>(comparer));
+                    Adds: collectionAsObjects.ToDictionary(k => k, _ => (ISet<Guid>)new HashSet<Guid> { Guid.NewGuid() }, comparer),
+                    Removes: new Dictionary<object, ISet<Guid>>(comparer));
                 break;
             case PriorityQueueStrategy:
                 metadata.PriorityQueues[propertyPath] = (
-                    collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
-                    new Dictionary<object, ICrdtTimestamp>(comparer));
+                    Adds: collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
+                    Removes: new Dictionary<object, ICrdtTimestamp>(comparer));
                 break;
         }
     }

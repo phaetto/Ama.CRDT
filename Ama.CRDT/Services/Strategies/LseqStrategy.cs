@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Microsoft.Extensions.Options;
@@ -14,12 +15,15 @@ using System.Text.Json;
 /// to list elements, which allows for generating a new identifier between any two existing ones.
 /// This avoids floating-point precision issues while providing a stable, convergent order.
 /// </summary>
+[Commutative]
+[Associative]
+[Idempotent]
 public sealed class LseqStrategy : ICrdtStrategy
 {
     private readonly IElementComparerProvider elementComparerProvider;
     private readonly string replicaId;
     private const int Base = 32;
-    
+
     /// <summary>
     /// Initializes a new instance of the <see cref="LseqStrategy"/> class.
     /// </summary>
@@ -39,10 +43,16 @@ public sealed class LseqStrategy : ICrdtStrategy
             ? property.PropertyType.GetGenericArguments()[0]
             : property.PropertyType.GetElementType() ?? typeof(object);
         var comparer = elementComparerProvider.GetComparer(elementType);
+        
+        if (!originalMeta.LseqTrackers.TryGetValue(path, out var originalItems))
+        {
+            originalItems = new List<LseqItem>();
+        }
 
-        if (!originalMeta.LseqTrackers.TryGetValue(path, out var originalItems)) return;
         
         var originalItemsByValue = originalItems.ToDictionary(i => i.Value, i => i, comparer);
+        var sortedOriginalItems = originalItems.OrderBy(i => i.Identifier).ToList();
+        var insertedItems = new Dictionary<object, LseqItem>(comparer);
 
         // Deletions
         foreach (var item in originalItems)
@@ -57,21 +67,51 @@ public sealed class LseqStrategy : ICrdtStrategy
         // Insertions
         for (var i = 0; i < modifiedList.Count; i++)
         {
-            var currentItem = modifiedList[i];
-            if (!originalItemsByValue.ContainsKey(currentItem))
+            var currentItem = modifiedList[i]!;
+            if (originalItemsByValue.ContainsKey(currentItem))
             {
-                var prevItem = i > 0 ? modifiedList[i - 1] : null;
-                var nextItem = i < originalList.Count ? originalList[i] : null;
-
-                var prevId = prevItem != null && originalItemsByValue.TryGetValue(prevItem, out var p) ? p.Identifier : (LseqIdentifier?)null;
-                var nextId = nextItem != null && originalItemsByValue.TryGetValue(nextItem, out var n) ? n.Identifier : (LseqIdentifier?)null;
-
-                var newId = GenerateIdentifierBetween(prevId, nextId, replicaId);
-                var newItem = new LseqItem(newId, currentItem);
-                
-                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, new EpochTimestamp(0));
-                operations.Add(op);
+                continue;
             }
+
+            // Find the identifier of the previous element in the modified list.
+            LseqIdentifier? prevId = null;
+            if (i > 0)
+            {
+                var prevItem = modifiedList[i - 1]!;
+                if (originalItemsByValue.TryGetValue(prevItem, out var p))
+                {
+                    prevId = p.Identifier;
+                }
+                else if (insertedItems.TryGetValue(prevItem, out var ins))
+                {
+                    prevId = ins.Identifier;
+                }
+            }
+
+            // Find the identifier of the next element in the original sequence.
+            LseqIdentifier? nextId = null;
+            if (prevId != null)
+            {
+                var prevIndex = sortedOriginalItems.FindIndex(item => item.Identifier.Equals(prevId));
+                if (prevIndex > -1 && prevIndex + 1 < sortedOriginalItems.Count)
+                {
+                    nextId = sortedOriginalItems[prevIndex + 1].Identifier;
+                }
+            }
+            else // This is an insert at the beginning of the list
+            {
+                if (sortedOriginalItems.Any())
+                {
+                    nextId = sortedOriginalItems[0].Identifier;
+                }
+            }
+
+            var newId = GenerateIdentifierBetween(prevId, nextId, replicaId);
+            var newItem = new LseqItem(newId, currentItem);
+            insertedItems.Add(currentItem, newItem);
+
+            var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, new EpochTimestamp(0));
+            operations.Add(op);
         }
     }
 
@@ -98,11 +138,11 @@ public sealed class LseqStrategy : ICrdtStrategy
                 lseqItems.RemoveAll(i => i.Identifier.Equals(idToRemove));
                 break;
         }
-        
+
         lseqItems.Sort((a, b) => a.Identifier.CompareTo(b.Identifier));
         ReconstructList(root, operation.JsonPath, lseqItems);
     }
-    
+
     private LseqIdentifier GenerateIdentifierBetween(LseqIdentifier? prev, LseqIdentifier? next, string replicaId)
     {
         var p1 = prev?.Path ?? ImmutableList<(int, string)>.Empty;
@@ -113,42 +153,33 @@ public sealed class LseqStrategy : ICrdtStrategy
 
         while (true)
         {
-            var node1 = level < p1.Count ? p1[level] : (0, replicaId);
-            var node2 = level < p2.Count ? p2[level] : (Base, replicaId);
+            var head1 = level < p1.Count ? p1[level] : (0, string.Empty);
+            var head2 = level < p2.Count ? p2[level] : (Base, string.Empty);
 
-            if (node1.Item1 > node2.Item1)
-            {
-                 // This shouldn't happen if identifiers are correctly ordered.
-                 // As a fallback, use the previous path and append a new level.
-                 newPath.AddRange(p1);
-                 newPath.Add((Random.Shared.Next(1, Base), replicaId));
-                 break;
-            }
-
-            var diff = node2.Item1 - node1.Item1;
+            var diff = head2.Item1 - head1.Item1;
             if (diff > 1)
             {
-                var newPos = Random.Shared.Next(node1.Item1 + 1, node2.Item1);
+                var newPos = head1.Item1 + 1;
                 newPath.Add((newPos, replicaId));
                 break;
             }
-            
-            // Positions are equal or adjacent, need to go deeper.
-            newPath.Add(node1);
+
+            var prefixNode = level < p1.Count ? p1[level] : head1;
+            newPath.Add(prefixNode);
             level++;
         }
 
         return new LseqIdentifier(newPath.ToImmutable());
     }
-    
+
     private static void ReconstructList(object root, string path, List<LseqItem> lseqItems)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
         if (parent is null || property is null) return;
-        
+
         var list = property.GetValue(parent) as IList;
         if (list is null) return;
-        
+
         var elementType = property.PropertyType.IsGenericType
             ? property.PropertyType.GetGenericArguments()[0]
             : property.PropertyType.GetElementType() ?? typeof(object);
@@ -157,12 +188,12 @@ public sealed class LseqStrategy : ICrdtStrategy
         foreach (var item in lseqItems)
         {
             var value = item.Value is JsonElement je
-                ? je.Deserialize(elementType)
+                ? je.Deserialize(elementType, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                 : item.Value;
             list.Add(value);
         }
     }
-    
+
     private static T? Deserialize<T>(object? value)
     {
         if (value is JsonElement je)

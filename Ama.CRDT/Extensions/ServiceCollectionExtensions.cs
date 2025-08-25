@@ -49,20 +49,12 @@ public static class ServiceCollectionExtensions
         services.AddOptions<CrdtOptions>()
             .Configure(configureOptions)
             .Validate(options => !string.IsNullOrWhiteSpace(options.ReplicaId), "CrdtOptions.ReplicaId cannot be null or empty.");
-        
+
         services.TryAddSingleton<ICrdtPatcherFactory, CrdtPatcherFactory>();
-        
-        services.TryAddSingleton(sp =>
-        {
-            var factory = sp.GetRequiredService<ICrdtPatcherFactory>();
-            var options = sp.GetRequiredService<IOptions<CrdtOptions>>();
-            return factory.Create(options.Value.ReplicaId);
-        });
 
         services.TryAddSingleton<ICrdtApplicator, CrdtApplicator>();
+        services.TryAddSingleton<ICrdtPatcher, CrdtPatcher>();
         services.TryAddSingleton<ICrdtService, CrdtService>();
-
-        services.AddTransient<ICrdtPatchBuilder, CrdtPatchBuilder>();
 
         services.TryAddSingleton<ICrdtMetadataManager, CrdtMetadataManager>();
         services.TryAddSingleton<ICrdtStrategyManager, CrdtStrategyManager>();
