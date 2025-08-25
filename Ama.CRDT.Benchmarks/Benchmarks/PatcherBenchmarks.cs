@@ -33,11 +33,11 @@ public class PatcherBenchmarks
         var simpleTo = new SimplePoco { Id = simpleFrom.Id, Name = "Updated", Score = 15 };
         
         var simpleFromMetadata = new CrdtMetadata();
-        metadataManager.InitializeLwwMetadata(simpleFromMetadata, simpleFrom, new EpochTimestamp(1));
+        metadataManager.Initialize(simpleFromMetadata, simpleFrom, new EpochTimestamp(1));
         simplePocoFrom = new CrdtDocument<SimplePoco>(simpleFrom, simpleFromMetadata);
         
         var simpleToMetadata = CloneMetadata(simpleFromMetadata);
-        metadataManager.InitializeLwwMetadata(simpleToMetadata, simpleTo, new EpochTimestamp(2));
+        metadataManager.Initialize(simpleToMetadata, simpleTo, new EpochTimestamp(2));
         simplePocoTo = new CrdtDocument<SimplePoco>(simpleTo, simpleToMetadata);
         
         // Complex POCO setup
@@ -60,11 +60,11 @@ public class PatcherBenchmarks
         };
 
         var complexFromMetadata = new CrdtMetadata();
-        metadataManager.InitializeLwwMetadata(complexFromMetadata, complexFrom, new EpochTimestamp(3));
+        metadataManager.Initialize(complexFromMetadata, complexFrom, new EpochTimestamp(3));
         complexPocoFrom = new CrdtDocument<ComplexPoco>(complexFrom, complexFromMetadata);
         
         var complexToMetadata = CloneMetadata(complexFromMetadata);
-        metadataManager.InitializeLwwMetadata(complexToMetadata, complexTo, new EpochTimestamp(4));
+        metadataManager.Initialize(complexToMetadata, complexTo, new EpochTimestamp(4));
         complexPocoTo = new CrdtDocument<ComplexPoco>(complexTo, complexToMetadata);
     }
 

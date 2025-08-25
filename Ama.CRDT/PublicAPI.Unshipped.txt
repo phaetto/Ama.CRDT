@@ -4,8 +4,6 @@ Ama.CRDT.Attributes.CrdtBoundedCounterStrategyAttribute
 Ama.CRDT.Attributes.CrdtBoundedCounterStrategyAttribute.CrdtBoundedCounterStrategyAttribute(long min, long max) -> void
 Ama.CRDT.Attributes.CrdtBoundedCounterStrategyAttribute.Max.get -> long
 Ama.CRDT.Attributes.CrdtBoundedCounterStrategyAttribute.Min.get -> long
-Ama.CRDT.Attributes.CrdtCausalTreeStrategyAttribute
-Ama.CRDT.Attributes.CrdtCausalTreeStrategyAttribute.CrdtCausalTreeStrategyAttribute() -> void
 Ama.CRDT.Attributes.CrdtFixedSizeArrayStrategyAttribute
 Ama.CRDT.Attributes.CrdtFixedSizeArrayStrategyAttribute.CrdtFixedSizeArrayStrategyAttribute(int size) -> void
 Ama.CRDT.Attributes.CrdtFixedSizeArrayStrategyAttribute.Size.get -> int
@@ -26,10 +24,20 @@ Ama.CRDT.Attributes.CrdtOrSetStrategyAttribute.CrdtOrSetStrategyAttribute() -> v
 Ama.CRDT.Attributes.CrdtPriorityQueueStrategyAttribute
 Ama.CRDT.Attributes.CrdtPriorityQueueStrategyAttribute.CrdtPriorityQueueStrategyAttribute(string! priorityPropertyName) -> void
 Ama.CRDT.Attributes.CrdtPriorityQueueStrategyAttribute.PriorityPropertyName.get -> string!
-Ama.CRDT.Attributes.CrdtRgaStrategyAttribute
-Ama.CRDT.Attributes.CrdtRgaStrategyAttribute.CrdtRgaStrategyAttribute() -> void
 Ama.CRDT.Attributes.CrdtTwoPhaseSetStrategyAttribute
 Ama.CRDT.Attributes.CrdtTwoPhaseSetStrategyAttribute.CrdtTwoPhaseSetStrategyAttribute() -> void
+Ama.CRDT.Attributes.Strategies.AssociativeAttribute
+Ama.CRDT.Attributes.Strategies.AssociativeAttribute.AssociativeAttribute() -> void
+Ama.CRDT.Attributes.Strategies.CommutativeAttribute
+Ama.CRDT.Attributes.Strategies.CommutativeAttribute.CommutativeAttribute() -> void
+Ama.CRDT.Attributes.Strategies.IdempotentAttribute
+Ama.CRDT.Attributes.Strategies.IdempotentAttribute.IdempotentAttribute() -> void
+Ama.CRDT.Attributes.Strategies.IdempotentShortTermImplementationAttribute
+Ama.CRDT.Attributes.Strategies.IdempotentShortTermImplementationAttribute.IdempotentShortTermImplementationAttribute() -> void
+Ama.CRDT.Attributes.Strategies.MergeableAttribute
+Ama.CRDT.Attributes.Strategies.MergeableAttribute.MergeableAttribute() -> void
+Ama.CRDT.Attributes.Strategies.SequentialOperationsAttribute
+Ama.CRDT.Attributes.Strategies.SequentialOperationsAttribute.SequentialOperationsAttribute() -> void
 Ama.CRDT.Models.AverageRegisterValue
 Ama.CRDT.Models.AverageRegisterValue.AverageRegisterValue() -> void
 Ama.CRDT.Models.AverageRegisterValue.AverageRegisterValue(decimal Value, Ama.CRDT.Models.ICrdtTimestamp! Timestamp) -> void
@@ -39,33 +47,11 @@ Ama.CRDT.Models.AverageRegisterValue.Timestamp.get -> Ama.CRDT.Models.ICrdtTimes
 Ama.CRDT.Models.AverageRegisterValue.Timestamp.init -> void
 Ama.CRDT.Models.AverageRegisterValue.Value.get -> decimal
 Ama.CRDT.Models.AverageRegisterValue.Value.init -> void
-Ama.CRDT.Models.CausalAtom
-Ama.CRDT.Models.CausalAtom.CausalAtom() -> void
-Ama.CRDT.Models.CausalAtom.Cause.get -> Ama.CRDT.Models.CausalAtomId?
-Ama.CRDT.Models.CausalAtom.Cause.set -> void
-Ama.CRDT.Models.CausalAtom.Id.get -> Ama.CRDT.Models.CausalAtomId
-Ama.CRDT.Models.CausalAtom.Id.set -> void
-Ama.CRDT.Models.CausalAtom.IsTombstone.get -> bool
-Ama.CRDT.Models.CausalAtom.IsTombstone.set -> void
-Ama.CRDT.Models.CausalAtom.Value.get -> object?
-Ama.CRDT.Models.CausalAtom.Value.set -> void
-Ama.CRDT.Models.CausalAtomId
-Ama.CRDT.Models.CausalAtomId.CausalAtomId() -> void
-Ama.CRDT.Models.CausalAtomId.CausalAtomId(Ama.CRDT.Models.ICrdtTimestamp! Timestamp, string! ReplicaId) -> void
-Ama.CRDT.Models.CausalAtomId.CompareTo(Ama.CRDT.Models.CausalAtomId other) -> int
-Ama.CRDT.Models.CausalAtomId.Deconstruct(out Ama.CRDT.Models.ICrdtTimestamp! Timestamp, out string! ReplicaId) -> void
-Ama.CRDT.Models.CausalAtomId.Equals(Ama.CRDT.Models.CausalAtomId other) -> bool
-Ama.CRDT.Models.CausalAtomId.ReplicaId.get -> string!
-Ama.CRDT.Models.CausalAtomId.ReplicaId.init -> void
-Ama.CRDT.Models.CausalAtomId.Timestamp.get -> Ama.CRDT.Models.ICrdtTimestamp!
-Ama.CRDT.Models.CausalAtomId.Timestamp.init -> void
 Ama.CRDT.Models.CrdtMetadata.AverageRegisters.get -> System.Collections.Generic.IDictionary<string!, System.Collections.Generic.IDictionary<string!, Ama.CRDT.Models.AverageRegisterValue>!>!
-Ama.CRDT.Models.CrdtMetadata.CausalTrees.get -> System.Collections.Generic.IDictionary<string!, System.Collections.Generic.List<Ama.CRDT.Models.CausalAtom!>!>!
 Ama.CRDT.Models.CrdtMetadata.LseqTrackers.get -> System.Collections.Generic.IDictionary<string!, System.Collections.Generic.List<Ama.CRDT.Models.LseqItem>!>!
 Ama.CRDT.Models.CrdtMetadata.LwwSets.get -> System.Collections.Generic.IDictionary<string!, (System.Collections.Generic.IDictionary<object!, Ama.CRDT.Models.ICrdtTimestamp!>! Adds, System.Collections.Generic.IDictionary<object!, Ama.CRDT.Models.ICrdtTimestamp!>! Removes)>!
 Ama.CRDT.Models.CrdtMetadata.OrSets.get -> System.Collections.Generic.IDictionary<string!, (System.Collections.Generic.IDictionary<object!, System.Collections.Generic.ISet<System.Guid>!>! Adds, System.Collections.Generic.IDictionary<object!, System.Collections.Generic.ISet<System.Guid>!>! Removes)>!
 Ama.CRDT.Models.CrdtMetadata.PriorityQueues.get -> System.Collections.Generic.IDictionary<string!, (System.Collections.Generic.IDictionary<object!, Ama.CRDT.Models.ICrdtTimestamp!>! Adds, System.Collections.Generic.IDictionary<object!, Ama.CRDT.Models.ICrdtTimestamp!>! Removes)>!
-Ama.CRDT.Models.CrdtMetadata.RgaTrackers.get -> System.Collections.Generic.IDictionary<string!, System.Collections.Generic.List<Ama.CRDT.Models.RgaItem!>!>!
 Ama.CRDT.Models.CrdtMetadata.TwoPhaseSets.get -> System.Collections.Generic.IDictionary<string!, (System.Collections.Generic.ISet<object!>! Adds, System.Collections.Generic.ISet<object!>! Tomstones)>!
 Ama.CRDT.Models.LseqIdentifier
 Ama.CRDT.Models.LseqIdentifier.CompareTo(Ama.CRDT.Models.LseqIdentifier other) -> int
@@ -91,7 +77,6 @@ Ama.CRDT.Models.MovePayload.MovePayload() -> void
 Ama.CRDT.Models.MovePayload.MovePayload(object! ElementIdentifier, object? TargetParentIdentifier) -> void
 Ama.CRDT.Models.MovePayload.TargetParentIdentifier.get -> object?
 Ama.CRDT.Models.MovePayload.TargetParentIdentifier.init -> void
-Ama.CRDT.Models.OperationType.Move = 3 -> Ama.CRDT.Models.OperationType
 Ama.CRDT.Models.OrSetAddItem
 Ama.CRDT.Models.OrSetAddItem.Deconstruct(out object! Value, out System.Guid Tag) -> void
 Ama.CRDT.Models.OrSetAddItem.Equals(Ama.CRDT.Models.OrSetAddItem other) -> bool
@@ -110,26 +95,13 @@ Ama.CRDT.Models.OrSetRemoveItem.Tags.get -> System.Collections.Generic.ISet<Syst
 Ama.CRDT.Models.OrSetRemoveItem.Tags.init -> void
 Ama.CRDT.Models.OrSetRemoveItem.Value.get -> object!
 Ama.CRDT.Models.OrSetRemoveItem.Value.init -> void
-Ama.CRDT.Models.RgaIdentifier
-Ama.CRDT.Models.RgaIdentifier.Deconstruct(out System.Guid Id) -> void
-Ama.CRDT.Models.RgaIdentifier.Equals(Ama.CRDT.Models.RgaIdentifier other) -> bool
-Ama.CRDT.Models.RgaIdentifier.Id.get -> System.Guid
-Ama.CRDT.Models.RgaIdentifier.Id.init -> void
-Ama.CRDT.Models.RgaIdentifier.RgaIdentifier() -> void
-Ama.CRDT.Models.RgaIdentifier.RgaIdentifier(System.Guid Id) -> void
-Ama.CRDT.Models.RgaItem
-Ama.CRDT.Models.RgaItem.Id.get -> Ama.CRDT.Models.RgaIdentifier
-Ama.CRDT.Models.RgaItem.Id.set -> void
-Ama.CRDT.Models.RgaItem.IsTombstone.get -> bool
-Ama.CRDT.Models.RgaItem.IsTombstone.set -> void
-Ama.CRDT.Models.RgaItem.ParentId.get -> Ama.CRDT.Models.RgaIdentifier?
-Ama.CRDT.Models.RgaItem.ParentId.set -> void
-Ama.CRDT.Models.RgaItem.RgaItem() -> void
-Ama.CRDT.Models.RgaItem.Value.get -> object?
-Ama.CRDT.Models.RgaItem.Value.set -> void
 Ama.CRDT.Services.CrdtMetadataManager.Clone(Ama.CRDT.Models.CrdtMetadata! metadata) -> Ama.CRDT.Models.CrdtMetadata!
 Ama.CRDT.Services.CrdtMetadataManager.CrdtMetadataManager(Ama.CRDT.Services.Strategies.ICrdtStrategyManager! strategyManager, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.Strategies.IElementComparerProvider! elementComparerProvider) -> void
+Ama.CRDT.Services.CrdtMetadataManager.Initialize<T>(Ama.CRDT.Models.CrdtMetadata! metadata, T! document) -> void
+Ama.CRDT.Services.CrdtMetadataManager.Initialize<T>(Ama.CRDT.Models.CrdtMetadata! metadata, T! document, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
 Ama.CRDT.Services.ICrdtMetadataManager.Clone(Ama.CRDT.Models.CrdtMetadata! metadata) -> Ama.CRDT.Models.CrdtMetadata!
+Ama.CRDT.Services.ICrdtMetadataManager.Initialize<T>(Ama.CRDT.Models.CrdtMetadata! metadata, T! document) -> void
+Ama.CRDT.Services.ICrdtMetadataManager.Initialize<T>(Ama.CRDT.Models.CrdtMetadata! metadata, T! document, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
 Ama.CRDT.Services.Strategies.AverageRegisterStrategy
 Ama.CRDT.Services.Strategies.AverageRegisterStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.AverageRegisterStrategy.AverageRegisterStrategy(Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider) -> void
@@ -138,10 +110,6 @@ Ama.CRDT.Services.Strategies.BoundedCounterStrategy
 Ama.CRDT.Services.Strategies.BoundedCounterStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.BoundedCounterStrategy.BoundedCounterStrategy(Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider, Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options) -> void
 Ama.CRDT.Services.Strategies.BoundedCounterStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
-Ama.CRDT.Services.Strategies.CausalTreeStrategy
-Ama.CRDT.Services.Strategies.CausalTreeStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.CausalTreeStrategy.CausalTreeStrategy(Ama.CRDT.Services.Strategies.IElementComparerProvider! elementComparerProvider, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider) -> void
-Ama.CRDT.Services.Strategies.CausalTreeStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
 Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy
 Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy.FixedSizeArrayStrategy(Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider, Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options) -> void
@@ -178,27 +146,19 @@ Ama.CRDT.Services.Strategies.PriorityQueueStrategy
 Ama.CRDT.Services.Strategies.PriorityQueueStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.PriorityQueueStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
 Ama.CRDT.Services.Strategies.PriorityQueueStrategy.PriorityQueueStrategy(Ama.CRDT.Services.Strategies.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider, Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options) -> void
-Ama.CRDT.Services.Strategies.RgaStrategy
-Ama.CRDT.Services.Strategies.RgaStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.RgaStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
-Ama.CRDT.Services.Strategies.RgaStrategy.RgaStrategy(Ama.CRDT.Services.Strategies.IElementComparerProvider! elementComparerProvider, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider) -> void
 Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy
 Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
 Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.TwoPhaseSetStrategy(Ama.CRDT.Services.Strategies.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider, Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options) -> void
 override Ama.CRDT.Models.AverageRegisterValue.GetHashCode() -> int
-override Ama.CRDT.Models.CausalAtomId.GetHashCode() -> int
 override Ama.CRDT.Models.LseqIdentifier.GetHashCode() -> int
 override Ama.CRDT.Models.LseqIdentifier.ToString() -> string!
 override Ama.CRDT.Models.LseqItem.GetHashCode() -> int
 override Ama.CRDT.Models.MovePayload.GetHashCode() -> int
 override Ama.CRDT.Models.OrSetAddItem.GetHashCode() -> int
 override Ama.CRDT.Models.OrSetRemoveItem.GetHashCode() -> int
-override Ama.CRDT.Models.RgaIdentifier.GetHashCode() -> int
 static Ama.CRDT.Models.AverageRegisterValue.operator !=(Ama.CRDT.Models.AverageRegisterValue left, Ama.CRDT.Models.AverageRegisterValue right) -> bool
 static Ama.CRDT.Models.AverageRegisterValue.operator ==(Ama.CRDT.Models.AverageRegisterValue left, Ama.CRDT.Models.AverageRegisterValue right) -> bool
-static Ama.CRDT.Models.CausalAtomId.operator !=(Ama.CRDT.Models.CausalAtomId left, Ama.CRDT.Models.CausalAtomId right) -> bool
-static Ama.CRDT.Models.CausalAtomId.operator ==(Ama.CRDT.Models.CausalAtomId left, Ama.CRDT.Models.CausalAtomId right) -> bool
 static Ama.CRDT.Models.LseqIdentifier.operator !=(Ama.CRDT.Models.LseqIdentifier left, Ama.CRDT.Models.LseqIdentifier right) -> bool
 static Ama.CRDT.Models.LseqIdentifier.operator ==(Ama.CRDT.Models.LseqIdentifier left, Ama.CRDT.Models.LseqIdentifier right) -> bool
 static Ama.CRDT.Models.LseqItem.operator !=(Ama.CRDT.Models.LseqItem left, Ama.CRDT.Models.LseqItem right) -> bool
@@ -209,12 +169,8 @@ static Ama.CRDT.Models.OrSetAddItem.operator !=(Ama.CRDT.Models.OrSetAddItem lef
 static Ama.CRDT.Models.OrSetAddItem.operator ==(Ama.CRDT.Models.OrSetAddItem left, Ama.CRDT.Models.OrSetAddItem right) -> bool
 static Ama.CRDT.Models.OrSetRemoveItem.operator !=(Ama.CRDT.Models.OrSetRemoveItem left, Ama.CRDT.Models.OrSetRemoveItem right) -> bool
 static Ama.CRDT.Models.OrSetRemoveItem.operator ==(Ama.CRDT.Models.OrSetRemoveItem left, Ama.CRDT.Models.OrSetRemoveItem right) -> bool
-static Ama.CRDT.Models.RgaIdentifier.operator !=(Ama.CRDT.Models.RgaIdentifier left, Ama.CRDT.Models.RgaIdentifier right) -> bool
-static Ama.CRDT.Models.RgaIdentifier.operator ==(Ama.CRDT.Models.RgaIdentifier left, Ama.CRDT.Models.RgaIdentifier right) -> bool
 ~override Ama.CRDT.Models.AverageRegisterValue.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.AverageRegisterValue.ToString() -> string
-~override Ama.CRDT.Models.CausalAtomId.Equals(object obj) -> bool
-~override Ama.CRDT.Models.CausalAtomId.ToString() -> string
 ~override Ama.CRDT.Models.LseqIdentifier.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.LseqItem.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.LseqItem.ToString() -> string
@@ -224,5 +180,3 @@ static Ama.CRDT.Models.RgaIdentifier.operator ==(Ama.CRDT.Models.RgaIdentifier l
 ~override Ama.CRDT.Models.OrSetAddItem.ToString() -> string
 ~override Ama.CRDT.Models.OrSetRemoveItem.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.OrSetRemoveItem.ToString() -> string
-~override Ama.CRDT.Models.RgaIdentifier.Equals(object obj) -> bool
-~override Ama.CRDT.Models.RgaIdentifier.ToString() -> string
