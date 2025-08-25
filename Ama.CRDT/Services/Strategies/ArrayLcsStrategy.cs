@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Microsoft.Extensions.Options;
@@ -13,6 +14,9 @@ using System.Reflection;
 using System.Text.Json;
 
 /// <inheritdoc/>
+[Commutative]
+[Associative]
+[IdempotentShortTermImplementation]
 public sealed class ArrayLcsStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,

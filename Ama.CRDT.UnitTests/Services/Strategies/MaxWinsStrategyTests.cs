@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Shouldly;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 public sealed class MaxWinsStrategyTests
@@ -119,5 +120,44 @@ public sealed class MaxWinsStrategyTests
         model1.HighScore.ShouldBe(200); // max(100, 200, 150)
         model2.HighScore.ShouldBe(200);
         model1.HighScore.ShouldBe(model2.HighScore);
+    }
+    
+    [Fact]
+    public void ApplyOperation_IsAssociative()
+    {
+        // Arrange
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.highScore", OperationType.Upsert, 200, new EpochTimestamp(2L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.highScore", OperationType.Upsert, 150, new EpochTimestamp(3L));
+        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.highScore", OperationType.Upsert, 250, new EpochTimestamp(4L));
+
+        var ops = new[] { op1, op2, op3 };
+        var permutations = GetPermutations(ops, ops.Length);
+        var finalScores = new List<int>();
+
+        // Act
+        foreach (var p in permutations)
+        {
+            var model = new TestModel { HighScore = 100 };
+            var meta = new CrdtMetadata();
+            foreach (var op in p)
+            {
+                strategy.ApplyOperation(model, meta, op);
+            }
+            finalScores.Add(model.HighScore);
+        }
+
+        // Assert
+        // The highest value wins (op3 with value 250)
+        finalScores.ShouldAllBe(s => s == 250);
+    }
+    
+    private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
+    {
+        if (length == 1) return list.Select(t => new T[] { t });
+
+        var enumerable = list as T[] ?? list.ToArray();
+        return GetPermutations(enumerable, length - 1)
+            .SelectMany(t => enumerable.Where(e => !t.Contains(e)),
+                (t1, t2) => t1.Concat(new T[] { t2 }));
     }
 }

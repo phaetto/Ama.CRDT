@@ -10,10 +10,14 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using Ama.CRDT.Attributes.Strategies;
 
 /// <summary>
 /// Implements the Last-Writer-Wins (LWW) strategy.
 /// </summary>
+[Commutative]
+[Associative]
+[Idempotent]
 public sealed class LwwStrategy : ICrdtStrategy
 {
     private readonly string replicaId;

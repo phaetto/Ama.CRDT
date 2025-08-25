@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Microsoft.Extensions.Options;
@@ -12,6 +13,9 @@ using Microsoft.Extensions.Options;
 /// <summary>
 /// Implements a Bounded Counter strategy, where the counter's value is clamped within a defined min/max range.
 /// </summary>
+[Commutative]
+[Associative]
+[IdempotentShortTermImplementation]
 public sealed class BoundedCounterStrategy(ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options) : ICrdtStrategy
 {
     private readonly string replicaId = options.Value.ReplicaId;

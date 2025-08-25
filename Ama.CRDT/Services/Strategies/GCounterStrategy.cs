@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Microsoft.Extensions.Options;
@@ -10,6 +11,9 @@ using Microsoft.Extensions.Options;
 /// <summary>
 /// Implements the G-Counter (Grow-Only Counter) strategy. This counter only supports positive increments.
 /// </summary>
+[Commutative]
+[Associative]
+[IdempotentShortTermImplementation]
 public sealed class GCounterStrategy(ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options) : ICrdtStrategy
 {
     private readonly string replicaId = options.Value.ReplicaId;

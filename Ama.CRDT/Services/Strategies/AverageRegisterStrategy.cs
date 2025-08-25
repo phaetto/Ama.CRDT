@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Microsoft.Extensions.Options;
@@ -11,6 +12,9 @@ using Microsoft.Extensions.Options;
 /// <summary>
 /// Implements an Average Register strategy. Each replica contributes a value, and the property converges to the average of all contributions.
 /// </summary>
+[Commutative]
+[Associative]
+[Idempotent]
 public sealed class AverageRegisterStrategy(IOptions<CrdtOptions> options, ICrdtTimestampProvider timestampProvider) : ICrdtStrategy
 {
     private readonly string replicaId = options.Value.ReplicaId;

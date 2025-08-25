@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using Shouldly;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Xunit;
 
 public sealed class LwwSetStrategyTests
@@ -22,11 +23,11 @@ public sealed class LwwSetStrategyTests
     private readonly CrdtPatcher patcherB;
     private readonly CrdtApplicator applicator;
     private readonly CrdtMetadataManager metadataManager;
-    private readonly TestTimestampProvider timestampProvider;
+    private readonly ICrdtTimestampProvider timestampProvider;
 
     public LwwSetStrategyTests()
     {
-        timestampProvider = new TestTimestampProvider();
+        timestampProvider = new EpochTimestampProvider();
         var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
         
         var optionsA = Options.Create(new CrdtOptions { ReplicaId = "A" });
@@ -62,7 +63,7 @@ public sealed class LwwSetStrategyTests
     }
     
     [Fact]
-    public void ApplyPatch_IsIdempotent()
+    public void ApplyPatch_IsTrulyIdempotent()
     {
         // Arrange
         var doc1 = new TestModel { Tags = { "A" } };
@@ -77,6 +78,8 @@ public sealed class LwwSetStrategyTests
         applicator.ApplyPatch(target, patch, targetMeta);
         var stateAfterFirst = new List<string>(target.Tags);
         
+        // Clear seen exceptions to test strategy's own idempotency based on timestamps
+        targetMeta.SeenExceptions.Clear();
         applicator.ApplyPatch(target, patch, targetMeta);
         
         // Assert
@@ -91,22 +94,21 @@ public sealed class LwwSetStrategyTests
         var ancestor = new TestModel();
         var metaAncestor = metadataManager.Initialize(ancestor);
         
-        timestampProvider.SetTime(1);
         var patchAdd = patcherA.GeneratePatch(new CrdtDocument<TestModel>(ancestor, metaAncestor), new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, metaAncestor));
-        
-        timestampProvider.SetTime(2);
+
+        Thread.Sleep(5);
         var patchRemove = patcherB.GeneratePatch(new CrdtDocument<TestModel>(ancestor, metaAncestor), new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, metaAncestor));
         patchRemove = new CrdtPatch(new List<CrdtOperation> { patchRemove.Operations.First() with { Type = OperationType.Remove } }); // Manually create remove
 
         // Scenario 1: Add (t=1), then Remove (t=2) -> Should be removed
         var model1 = new TestModel();
-        var meta1 = metadataManager.Initialize(model1);
+        var meta1 = metadataManager.Clone(metaAncestor);
         applicator.ApplyPatch(model1, patchAdd, meta1);
         applicator.ApplyPatch(model1, patchRemove, meta1);
         
         // Scenario 2: Remove (t=2), then Add (t=1) -> Should be removed
         var model2 = new TestModel();
-        var meta2 = metadataManager.Initialize(model2);
+        var meta2 = metadataManager.Clone(metaAncestor);
         applicator.ApplyPatch(model2, patchRemove, meta2);
         applicator.ApplyPatch(model2, patchAdd, meta2);
 
@@ -122,10 +124,8 @@ public sealed class LwwSetStrategyTests
         var ancestor = new TestModel { Tags = { "A" } };
         var metaAncestor = metadataManager.Initialize(ancestor);
         
-        timestampProvider.SetTime(1);
         var patchRemove = patcherA.GeneratePatch(new CrdtDocument<TestModel>(ancestor, metaAncestor), new CrdtDocument<TestModel>(new TestModel(), metaAncestor));
         
-        timestampProvider.SetTime(2);
         var patchAdd = patcherB.GeneratePatch(new CrdtDocument<TestModel>(ancestor, metaAncestor), new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, metaAncestor));
         
         // Scenario 1: Remove (t=1), then Add (t=2) -> Should be present
@@ -144,11 +144,67 @@ public sealed class LwwSetStrategyTests
         model1.Tags.ShouldBe(new[] { "A" });
         model2.Tags.ShouldBe(new[] { "A" });
     }
-
-    private sealed class TestTimestampProvider : ICrdtTimestampProvider
+    
+    [Fact]
+    public void Converge_WhenApplyingConcurrentOps_ShouldBeAssociative()
     {
-        private long currentTime = 1;
-        public ICrdtTimestamp Now() => new EpochTimestamp(currentTime);
-        public void SetTime(long time) => currentTime = time;
+        // Arrange
+        var ancestor = new TestModel { Tags = { "A", "B" } };
+        var metaAncestor = metadataManager.Initialize(ancestor);
+        
+        var patcherC = patcherB; // ReplicaId is the important part
+
+        var patch1 = patcherA.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "C" } }, metaAncestor)); // Remove B, Add C
+
+        var patch2 = patcherB.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Tags = { "B", "D" } }, metaAncestor)); // Remove A, Add D
+
+        var patch3 = patcherC.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "B", "E" } }, metaAncestor)); // Add E
+
+        var patches = new[] { patch1, patch2, patch3 };
+        var permutations = GetPermutations(patches, patches.Length);
+        var finalStates = new List<List<string>>();
+
+        // Act
+        foreach (var permutation in permutations)
+        {
+            var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
+            var meta = metadataManager.Clone(metaAncestor);
+            foreach (var patch in permutation)
+            {
+                applicator.ApplyPatch(model, patch, meta);
+            }
+            finalStates.Add(model.Tags);
+        }
+
+        // Assert
+        // A is removed at t=2.
+        // B is removed at t=1.
+        // C is added at t=1.
+        // D is added at t=2.
+        // E is added at t=3.
+        // Final state: C, D, E
+        var expected = new[] { "C", "D", "E" };
+        var firstState = finalStates.First();
+        firstState.ShouldBe(expected, ignoreOrder: true);
+        foreach (var state in finalStates.Skip(1))
+        {
+            state.ShouldBe(firstState, ignoreOrder: true);
+        }
+    }
+    
+    private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
+    {
+        if (length == 1) return list.Select(t => new T[] { t });
+
+        var enumerable = list as T[] ?? list.ToArray();
+        return GetPermutations(enumerable, length - 1)
+            .SelectMany(t => enumerable.Where(e => !t.Contains(e)),
+                (t1, t2) => t1.Concat(new T[] { t2 }));
     }
 }

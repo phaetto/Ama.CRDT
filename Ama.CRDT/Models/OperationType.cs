@@ -18,10 +18,5 @@ public enum OperationType
     /// <summary>
     /// Represents an operation that increments a numeric value (for CRDT Counters).
     /// </summary>
-    Increment,
-
-    /// <summary>
-    /// Represents an operation that moves an element from one position to another in an ordered collection.
-    /// </summary>
-    Move
+    Increment
 }

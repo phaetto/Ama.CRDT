@@ -22,6 +22,7 @@ public sealed class FixedSizeArrayStrategyTests
 
     private readonly CrdtPatcher patcherA;
     private readonly CrdtPatcher patcherB;
+    private readonly CrdtPatcher patcherC;
     private readonly CrdtApplicator applicator;
     private readonly CrdtMetadataManager metadataManager;
 
@@ -143,6 +144,55 @@ public sealed class FixedSizeArrayStrategyTests
     }
     
     [Fact]
+    public void Converge_WhenApplyingConcurrentUpdates_ShouldBeAssociative()
+    {
+        // Arrange
+        var ancestor = new TestModel { Values = [10, 20, 30] };
+        var metaAncestor = metadataManager.Initialize(ancestor);
+
+        // Replicas generate patches
+        var patchA = patcherA.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Values = [11, 20, 30] }, metaAncestor));
+        
+        Thread.Sleep(1);
+        var patchB = patcherB.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Values = [10, 22, 30] }, metaAncestor));
+
+        Thread.Sleep(1);
+        var patchC = patcherC.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Values = [10, 20, 33] }, metaAncestor));
+
+        var patches = new[] { patchA, patchB, patchC };
+        var permutations = GetPermutations(patches, patches.Length);
+        var finalStates = new List<List<int>>();
+
+        // Act
+        foreach (var p in permutations)
+        {
+            var model = new TestModel { Values = new List<int>(ancestor.Values) };
+            var meta = CloneMetadata(metaAncestor);
+            foreach (var patch in p)
+            {
+                applicator.ApplyPatch(model, patch, meta);
+            }
+            finalStates.Add(model.Values);
+        }
+
+        // Assert
+        var expected = new List<int> { 11, 22, 33 };
+        var firstState = finalStates.First();
+        firstState.ShouldBe(expected);
+
+        foreach (var state in finalStates.Skip(1))
+        {
+            state.ShouldBe(firstState);
+        }
+    }
+
+    [Fact]
     public void Converge_OnConflictingUpdate_LwwShouldWin()
     {
         // Arrange
@@ -192,5 +242,15 @@ public sealed class FixedSizeArrayStrategyTests
         // This is a shallow clone, sufficient for this strategy which only uses the Lww dictionary.
         // A full, deep clone would be required if strategies using other metadata properties were involved.
         return clone;
+    }
+    
+    private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
+    {
+        if (length == 1) return list.Select(t => new T[] { t });
+
+        var enumerable = list as T[] ?? list.ToArray();
+        return GetPermutations(enumerable, length - 1)
+            .SelectMany(t => enumerable.Where(e => !t.Contains(e)),
+                (t1, t2) => t1.Concat(new T[] { t2 }));
     }
 }

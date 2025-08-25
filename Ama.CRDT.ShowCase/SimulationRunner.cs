@@ -14,8 +14,7 @@ public sealed class SimulationRunner(
     ICrdtPatcherFactory patcherFactory,
     ICrdtApplicator applicator,
     IInMemoryDatabaseService database,
-    ICrdtMetadataManager metadataManager,
-    ICrdtPatchBuilder patchBuilder)
+    ICrdtMetadataManager metadataManager)
 {
     private const int TotalItems = 200;
     private const int MapperCount = 5;
@@ -86,12 +85,6 @@ public sealed class SimulationRunner(
         await foreach (var user in reader.ReadAllAsync())
         {
             await Task.Delay(Random.Shared.Next(1, 10));
-
-            /*
-             * You can either make the patch by comparing what you have in the database:
-             * You need the active metadata document for it (from the db too), 
-             * here we built a new one.
-             * 
              
                 var from = new UserStats(); 
                 var fromDoc = new CrdtDocument<UserStats>(from);
@@ -109,18 +102,14 @@ public sealed class SimulationRunner(
                 var toDoc = new CrdtDocument<UserStats>(to, toMeta);
                 var patch = patcher.GeneratePatch(fromDoc, toDoc);
 
-             * 
-             * Or you can craft a manual patch like the following.
-             * It should be extremely easy for clients to make that from their local state.
-             */
+            //var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            //var patch = patchBuilder.New()
+            //    .Increment<UserStats>(x => x.ProcessedItemsCount)
+            //    .Upsert<UserStats, string>(x => x.UniqueUserNames[0], user.Name)
+            //    .Upsert<UserStats, string>(x => x.LastProcessedUserName, user.Name)
+            //    .Upsert<UserStats, long>(x => x.LastProcessedTimestamp, now)
+            //    .Build();
 
-            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var patch = patchBuilder.New()
-                .Increment<UserStats>(x => x.ProcessedItemsCount)
-                .Upsert<UserStats, string>(x => x.UniqueUserNames[0], user.Name)
-                .Upsert<UserStats, string>(x => x.LastProcessedUserName, user.Name)
-                .Upsert<UserStats, long>(x => x.LastProcessedTimestamp, now)
-                .Build();
 
             // Broadcast the patch to all converger channels in parallel.
             var writeTasks = new List<Task>(writers.Count);

@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Microsoft.Extensions.Options;
@@ -16,6 +17,9 @@ using System.Text.Json;
 /// Implements the 2P-Set (Two-Phase Set) CRDT strategy.
 /// In a 2P-Set, an element can be added and removed, but once removed, it cannot be re-added.
 /// </summary>
+[Commutative]
+[Associative]
+[Idempotent]
 public sealed class TwoPhaseSetStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,

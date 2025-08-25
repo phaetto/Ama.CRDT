@@ -84,7 +84,7 @@ public sealed class ArrayLcsStrategyTests
     }
     
     [Fact]
-    public void ApplyPatch_IsIdempotent()
+    public void ApplyPatch_IsIdempotent_WithSeenExceptionsCheck()
     {
         // Arrange
         var initialModel = new TestModel { Tags = new List<string> { "A", "C" } };
@@ -109,6 +109,36 @@ public sealed class ArrayLcsStrategyTests
         targetModel.Tags.ShouldBe(stateAfterFirstApply);
         targetMeta.PositionalTrackers["$.tags"].Count.ShouldBe(trackersCountAfterFirstApply);
         targetModel.Tags.ShouldBe(new[] { "A", "B", "C" });
+    }
+
+    [Fact]
+    public void ApplyPatch_IsNotIdempotent_WithoutSeenExceptionsCheck()
+    {
+        // Arrange
+        var initialModel = new TestModel { Tags = new List<string> { "A", "C" } };
+        var initialMeta = metadataManager.Initialize(initialModel);
+
+        var modifiedModel = new TestModel { Tags = new List<string> { "A", "B", "C" } };
+        var patch = patcherA.GeneratePatch(
+            new CrdtDocument<TestModel>(initialModel, initialMeta),
+            new CrdtDocument<TestModel>(modifiedModel, initialMeta));
+
+        var targetModel = new TestModel { Tags = new List<string>(initialModel.Tags) };
+        var targetMeta = metadataManager.Initialize(targetModel);
+
+        // Act
+        // First apply works as expected
+        applicator.ApplyPatch(targetModel, patch, targetMeta);
+        targetModel.Tags.ShouldBe(new[] { "A", "B", "C" });
+
+        // Simulate losing metadata state (e.g., recreating it) and reapplying the same patch
+        targetMeta.SeenExceptions.Clear();
+        applicator.ApplyPatch(targetModel, patch, targetMeta);
+
+        // Assert
+        // Without the SeenExceptions guard, the insert operation is applied again, creating a duplicate.
+        // This demonstrates the strategy is not truly idempotent, but relies on the applicator's SeenExceptions mechanism.
+        targetModel.Tags.Count.ShouldBe(4);
     }
 
     [Fact]
