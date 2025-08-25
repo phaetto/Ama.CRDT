@@ -36,7 +36,7 @@ Unit tests will be created to validate the new recursive behavior of the `ArrayL
 Existing unit tests for other strategies and the `JsonCrdtPatcher` will be updated and verified to ensure they are not broken by the required interface changes.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

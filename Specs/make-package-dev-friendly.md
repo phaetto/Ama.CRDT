@@ -50,7 +50,7 @@ Add the testing methodology (manual, unit, integration, end-to-end tests?)
   2. The deployment logs for both the manual and automated publishing workflows should be inspected to confirm that both the `.nupkg` and `.snupkg` files are successfully pushed to the NuGet repository.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

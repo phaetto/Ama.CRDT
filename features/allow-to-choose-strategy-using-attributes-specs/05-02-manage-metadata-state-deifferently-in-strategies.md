@@ -43,7 +43,7 @@ Add the testing methodology (manual, unit, integration, end-to-end tests?)
 - **Integration Tests:** The `JsonCrdtServiceTests` will be updated to test the end-to-end flow of generating a patch and merging it, ensuring the external `CrdtMetadata` is correctly managed, passed, and updated throughout the process.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

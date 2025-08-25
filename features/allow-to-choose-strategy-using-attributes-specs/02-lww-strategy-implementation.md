@@ -20,7 +20,7 @@ To implement the default Last-Writer-Wins (LWW) strategy using the new strategy 
 - Integration tests will be updated to verify that the `JsonCrdtPatcher` correctly uses the `LwwStrategy` by default and when the `LwwStrategyAttribute` is explicitly used.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

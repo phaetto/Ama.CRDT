@@ -56,7 +56,7 @@ Add the testing methodology (manual, unit, integration, end-to-end tests?)
 - **Integration Testing:** The `JsonCrdtService` integration tests will be updated to ensure the public API behaves as expected after the internal overhaul. The ShowCase project will be used to manually verify end-to-end functionality.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

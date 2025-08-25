@@ -71,7 +71,7 @@ A multi-layered testing approach will be used to validate the new state manageme
 - During development, manually inspect the serialized JSON of the `CrdtMetadata` object before and after applying patches and running compaction logic. This will serve as a valuable sanity check to ensure the data structures are evolving as expected.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

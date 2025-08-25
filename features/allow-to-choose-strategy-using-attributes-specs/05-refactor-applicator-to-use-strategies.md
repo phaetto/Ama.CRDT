@@ -29,7 +29,7 @@ The current implementation of array comparison in `JsonCrdtPatcher` is basic; it
 - Verify that the final state of the POCO is correct after the patch is applied, confirming that each operation was routed to and handled by the correct strategy.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

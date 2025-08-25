@@ -27,7 +27,7 @@ To integrate the new strategy pattern into the `JsonCrdtPatcher` service. The pa
 - Verify that the correct strategy is invoked for each property and that the final patch is accurate.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 1.  **Direct Instantiation with `Activator`:** The `JsonCrdtPatcher` would directly use reflection to find the `CrdtStrategyAttribute` on a property, get the `StrategyType` from it, and use `Activator.CreateInstance(strategyType)` to create a new strategy instance for each property it processes.
     *   **Pros:** Simple implementation with no new services.
     *   **Cons:** Inefficient due to repeated object creation. Prevents strategies from having their own dependencies injected via DI. Harder to unit test, as strategies cannot be mocked.

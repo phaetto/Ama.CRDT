@@ -31,7 +31,7 @@ To create a dedicated benchmark project to measure and monitor the performance o
 The testing methodology is the benchmark process itself. By running the benchmarks using `BenchmarkDotNet`, we will get detailed performance statistics (mean execution time, allocations, etc.) for the core CRDT operations. The results will be analyzed to validate performance goals. This project will not have traditional unit tests.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

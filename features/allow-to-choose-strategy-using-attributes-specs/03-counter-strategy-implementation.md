@@ -29,7 +29,7 @@ To introduce a new CRDT strategy for handling numeric properties as counters (CR
 - Integration tests to verify that `JsonCrdtPatcher` and `JsonCrdtApplicator` correctly process POCOs with properties marked with `[CrdtCounter]`.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.
