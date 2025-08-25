@@ -6,25 +6,27 @@ using Ama.CRDT.Services.Helpers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 
-/// <summary>
-/// Implements the strategy resolution logic. It inspects property attributes
-/// to find the correct strategy from a collection of registered strategies.
-/// </summary>
+/// <inheritdoc/>
 public sealed class CrdtStrategyManager : ICrdtStrategyManager
 {
     private readonly IReadOnlyDictionary<Type, ICrdtStrategy> strategies;
     private readonly ICrdtStrategy defaultStrategy;
     private readonly ICrdtStrategy defaultArrayStrategy;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CrdtStrategyManager"/> class.
+    /// </summary>
+    /// <param name="strategies">An enumerable of all registered <see cref="ICrdtStrategy"/> instances.</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="strategies"/> is null.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if a required default strategy (like <see cref="LwwStrategy"/>) is not registered.</exception>
     public CrdtStrategyManager(IEnumerable<ICrdtStrategy> strategies)
     {
         ArgumentNullException.ThrowIfNull(strategies);
 
-        // Group by type and take the first to avoid duplicate keys if multiple
-        // instances of the same strategy type are passed (e.g., in test setups).
         this.strategies = strategies
             .GroupBy(s => s.GetType())
             .ToDictionary(g => g.Key, g => g.First());
@@ -38,7 +40,7 @@ public sealed class CrdtStrategyManager : ICrdtStrategyManager
     }
 
     /// <inheritdoc/>
-    public ICrdtStrategy GetStrategy(PropertyInfo propertyInfo)
+    public ICrdtStrategy GetStrategy([DisallowNull] PropertyInfo propertyInfo)
     {
         ArgumentNullException.ThrowIfNull(propertyInfo);
 
@@ -57,18 +59,15 @@ public sealed class CrdtStrategyManager : ICrdtStrategyManager
         return defaultStrategy;
     }
     
-    public ICrdtStrategy GetStrategy(CrdtOperation operation, object root)
+    /// <inheritdoc/>
+    public ICrdtStrategy GetStrategy(CrdtOperation operation, [DisallowNull] object root)
     {
-        ArgumentNullException.ThrowIfNull(operation);
         ArgumentNullException.ThrowIfNull(root);
 
         var (_, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
         
         if (property is null)
         {
-            // If the path leads to a property that doesn't exist (e.g., adding a new property),
-            // we can't reflect on its attributes. We must infer the strategy.
-            // For now, we assume LWW is a safe default for non-array paths.
             return operation.JsonPath.Contains('[') ? defaultArrayStrategy : defaultStrategy;
         }
 

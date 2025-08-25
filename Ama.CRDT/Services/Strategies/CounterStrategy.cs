@@ -6,13 +6,13 @@ using Microsoft.Extensions.Options;
 using Ama.CRDT.Services.Helpers;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
 
 /// <summary>
 /// A CRDT strategy for handling numeric properties as counters.
-/// It generates 'Increment' operations based on the delta between two values
-/// and applies these operations by adding the delta to the current value.
+/// It generates 'Increment' operations and applies them by adding the delta to the current value.
 /// </summary>
 public sealed class CounterStrategy : ICrdtStrategy
 {
@@ -55,9 +55,15 @@ public sealed class CounterStrategy : ICrdtStrategy
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(object root, CrdtMetadata metadata, CrdtOperation operation)
+    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
     {
         ArgumentNullException.ThrowIfNull(root);
+        ArgumentNullException.ThrowIfNull(metadata);
+
+        if (operation.Type != OperationType.Increment)
+        {
+            throw new InvalidOperationException($"{nameof(CounterStrategy)} only supports increment operations.");
+        }
 
         if (metadata.SeenExceptions.Contains(operation))
         {
@@ -68,8 +74,7 @@ public sealed class CounterStrategy : ICrdtStrategy
         {
             if (operation.Type != OperationType.Increment)
             {
-                throw new InvalidOperationException(
-                    $"CounterStrategy can only handle 'Increment' operations, but received '{operation.Type}'.");
+                return;
             }
 
             var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
@@ -77,12 +82,9 @@ public sealed class CounterStrategy : ICrdtStrategy
             if (parent is null || property is null || !property.CanWrite) return;
 
             var incrementValue = Convert.ToDecimal(operation.Value ?? 0, CultureInfo.InvariantCulture);
-
             var existingValue = property.GetValue(parent) ?? 0;
             var existingNumeric = Convert.ToDecimal(existingValue, CultureInfo.InvariantCulture);
-
             var newValue = existingNumeric + incrementValue;
-
             var targetType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
             var convertedNewValue = Convert.ChangeType(newValue, targetType, CultureInfo.InvariantCulture);
 

@@ -2,9 +2,7 @@ namespace Ama.CRDT.Services;
 
 using Ama.CRDT.Models;
 
-/// <summary>
-/// Implements the public facade service for orchestrating CRDT operations for a single, default replica.
-/// </summary>
+/// <inheritdoc/>
 public sealed class CrdtService(ICrdtPatcher patcher, ICrdtApplicator applicator) : ICrdtService
 {
     /// <inheritdoc/>

@@ -1,6 +1,9 @@
 namespace Ama.CRDT.Services;
+
+using System.Diagnostics.CodeAnalysis;
+
 /// <summary>
-/// A factory for creating instances of <see cref="ICrdtPatcher"/> for a specific replica.
+/// Defines a factory for creating instances of <see cref="ICrdtPatcher"/> for a specific replica.
 /// </summary>
 public interface ICrdtPatcherFactory
 {
@@ -9,5 +12,6 @@ public interface ICrdtPatcherFactory
     /// </summary>
     /// <param name="replicaId">The unique identifier for the replica.</param>
     /// <returns>A new <see cref="ICrdtPatcher"/> instance.</returns>
-    ICrdtPatcher Create(string replicaId);
+    /// <exception cref="ArgumentException">Thrown if <paramref name="replicaId"/> is null or whitespace.</exception>
+    ICrdtPatcher Create([DisallowNull] string replicaId);
 }

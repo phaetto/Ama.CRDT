@@ -2,21 +2,24 @@ namespace Ama.CRDT.Services;
 
 using System.Collections;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Strategies;
 
+/// <inheritdoc/>
 public sealed class CrdtPatcher(ICrdtStrategyManager strategyManager) : ICrdtPatcher
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropertyCache = new();
 
+    /// <inheritdoc/>
     public CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, CrdtDocument<T> to) where T : class
     {
-        ArgumentNullException.ThrowIfNull(from);
-        ArgumentNullException.ThrowIfNull(to);
+        ArgumentNullException.ThrowIfNull(from.Metadata, nameof(from));
+        ArgumentNullException.ThrowIfNull(to.Metadata, nameof(to));
 
         var operations = new List<CrdtOperation>();
         DifferentiateObject("$", typeof(T), from.Data, from.Metadata, to.Data, to.Metadata, operations);
@@ -24,8 +27,15 @@ public sealed class CrdtPatcher(ICrdtStrategyManager strategyManager) : ICrdtPat
         return new CrdtPatch(operations);
     }
     
-    public void DifferentiateObject(string path, Type type, object? fromObj, CrdtMetadata fromMeta, object? toObj, CrdtMetadata toMeta, List<CrdtOperation> operations)
+    /// <inheritdoc/>
+    public void DifferentiateObject(string path, [DisallowNull] Type type, object? fromObj, [DisallowNull] CrdtMetadata fromMeta, object? toObj, [DisallowNull] CrdtMetadata toMeta, [DisallowNull] List<CrdtOperation> operations)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(fromMeta);
+        ArgumentNullException.ThrowIfNull(toMeta);
+        ArgumentNullException.ThrowIfNull(operations);
+        
         if (fromObj is null && toObj is null)
         {
             return;

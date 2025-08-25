@@ -3,10 +3,11 @@ namespace Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Defines the contract for a service that compares two versions of a data model
-/// and generates a CRDT patch based on Last-Writer-Wins (LWW) semantics and property-specific strategies.
+/// and generates a CRDT patch.
 /// </summary>
 public interface ICrdtPatcher
 {
@@ -16,13 +17,14 @@ public interface ICrdtPatcher
     /// and applying the appropriate CRDT strategy for each one.
     /// </summary>
     /// <typeparam name="T">The type of the data model.</typeparam>
-    /// <param name="from">The original document, containing the original state of the data and its metadata.</param>
-    /// <param name="to">The modified document, containing the new state of the data and its metadata.</param>
+    /// <param name="from">The original document, containing the data and its metadata.</param>
+    /// <param name="to">The modified document, containing the new data and its metadata.</param>
     /// <returns>A <see cref="CrdtPatch"/> containing the operations to transform 'from' into 'to'.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if the <c>Metadata</c> property of <paramref name="from"/> or <paramref name="to"/> is null.</exception>
     CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, CrdtDocument<T> to) where T : class;
     
     /// <summary>
-    /// Compares two objects property by property based on the given type's schema and generates CRDT operations.
+    /// Compares two objects property by property and generates CRDT operations.
     /// This method is typically used by strategies for recursive diffing of nested objects.
     /// </summary>
     /// <param name="path">The base JSON path for the comparison.</param>
@@ -32,5 +34,7 @@ public interface ICrdtPatcher
     /// <param name="toObj">The modified object.</param>
     /// <param name="toMeta">The metadata for the modified object.</param>
     /// <param name="operations">The list to which generated operations will be added.</param>
-    void DifferentiateObject(string path, Type type, object? fromObj, CrdtMetadata fromMeta, object? toObj, CrdtMetadata toMeta, List<CrdtOperation> operations);
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="type"/>, <paramref name="fromMeta"/>, <paramref name="toMeta"/>, or <paramref name="operations"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="path"/> is null or whitespace.</exception>
+    void DifferentiateObject(string path, [DisallowNull] Type type, object? fromObj, [DisallowNull] CrdtMetadata fromMeta, object? toObj, [DisallowNull] CrdtMetadata toMeta, [DisallowNull] List<CrdtOperation> operations);
 }

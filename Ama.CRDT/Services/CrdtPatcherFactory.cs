@@ -5,17 +5,17 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Ama.CRDT.Models;
 using System;
+using System.Diagnostics.CodeAnalysis;
 
+/// <inheritdoc/>
 internal sealed class CrdtPatcherFactory(IServiceProvider serviceProvider) : ICrdtPatcherFactory
 {
     private readonly IServiceProvider serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
 
-    public ICrdtPatcher Create(string replicaId)
+    /// <inheritdoc/>
+    public ICrdtPatcher Create([DisallowNull] string replicaId)
     {
-        if (string.IsNullOrWhiteSpace(replicaId))
-        {
-            throw new ArgumentException("Replica ID cannot be null or whitespace.", nameof(replicaId));
-        }
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
 
         var options = Options.Create(new CrdtOptions { ReplicaId = replicaId });
 

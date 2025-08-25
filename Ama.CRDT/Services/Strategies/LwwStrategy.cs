@@ -6,13 +6,13 @@ using Microsoft.Extensions.Options;
 using Ama.CRDT.Services.Helpers;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
 
 /// <summary>
-/// Implements the Last-Writer-Wins (LWW) strategy. It generates an operation
-/// only if the 'modified' value has a more recent timestamp than the 'original' value.
+/// Implements the Last-Writer-Wins (LWW) strategy.
 /// </summary>
 public sealed class LwwStrategy : ICrdtStrategy
 {
@@ -62,9 +62,10 @@ public sealed class LwwStrategy : ICrdtStrategy
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(object root, CrdtMetadata metadata, CrdtOperation operation)
+    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
     {
         ArgumentNullException.ThrowIfNull(root);
+        ArgumentNullException.ThrowIfNull(metadata);
 
         metadata.Lww.TryGetValue(operation.JsonPath, out var lwwTs);
         if (lwwTs is not null && operation.Timestamp.CompareTo(lwwTs) <= 0)
@@ -74,24 +75,17 @@ public sealed class LwwStrategy : ICrdtStrategy
 
         var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
 
-        if (parent is null)
-        {
-            return;
-        }
+        if (parent is null) return;
 
         if (property is null)
         {
-            var propertyName = finalSegment as string;
-            if (propertyName is not null)
+            if (finalSegment is string propertyName)
             {
                 property = parent.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
             }
         }
 
-        if (property is null || !property.CanWrite)
-        {
-            return;
-        }
+        if (property is null || !property.CanWrite) return;
         
         if (operation.Type == OperationType.Remove)
         {
@@ -108,15 +102,8 @@ public sealed class LwwStrategy : ICrdtStrategy
 
     private static object? DeserializeValue(object? value, Type targetType)
     {
-        if (value is null)
-        {
-            return null;
-        }
-
-        if (targetType.IsInstanceOfType(value))
-        {
-            return value;
-        }
+        if (value is null) return null;
+        if (targetType.IsInstanceOfType(value)) return value;
 
         var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
 
@@ -135,10 +122,7 @@ public sealed class LwwStrategy : ICrdtStrategy
         if (value is IDictionary<string, object> dictionary && !underlyingType.IsPrimitive && underlyingType != typeof(string))
         {
             var instance = Activator.CreateInstance(underlyingType);
-            if (instance is null)
-            {
-                return null;
-            }
+            if (instance is null) return null;
 
             var properties = underlyingType.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite);
 

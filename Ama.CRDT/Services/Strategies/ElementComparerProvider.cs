@@ -3,25 +3,30 @@ namespace Ama.CRDT.Services.Strategies;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 
-/// <summary>
-/// Implements the provider logic to select a registered <see cref="IElementComparer"/> or a default one for use by ArrayLcsStrategy.
-/// </summary>
+/// <inheritdoc/>
 public sealed class ElementComparerProvider : IElementComparerProvider
 {
     private readonly IEnumerable<IElementComparer> comparers;
     private readonly ObjectDeepEqualityComparer defaultComparer = new();
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ElementComparerProvider"/> class.
+    /// </summary>
+    /// <param name="comparers">An enumerable of registered <see cref="IElementComparer"/> instances.</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="comparers"/> is null.</exception>
     public ElementComparerProvider(IEnumerable<IElementComparer> comparers)
     {
         this.comparers = comparers ?? throw new ArgumentNullException(nameof(comparers));
     }
 
     /// <inheritdoc/>
-    public IEqualityComparer<object> GetComparer(Type elementType)
+    public IEqualityComparer<object> GetComparer([DisallowNull] Type elementType)
     {
+        ArgumentNullException.ThrowIfNull(elementType);
         return comparers.FirstOrDefault(c => c.CanCompare(elementType)) ?? defaultComparer as IEqualityComparer<object>;
     }
     

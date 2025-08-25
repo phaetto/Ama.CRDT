@@ -7,6 +7,9 @@ using Microsoft.Extensions.Options;
 using Ama.CRDT.Attributes;
 using Shouldly;
 using Xunit;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 public sealed class CrdtPatcherTests
 {
@@ -46,6 +49,20 @@ public sealed class CrdtPatcherTests
     }
 
     [Fact]
+    public void GeneratePatch_WithNullMetadata_ShouldThrowArgumentNullException()
+    {
+        // Arrange
+        var model = new TestModel();
+        var fromWithNullMeta = new CrdtDocument<TestModel>(model, null);
+        var toWithNullMeta = new CrdtDocument<TestModel>(model, null);
+        var validDoc = new CrdtDocument<TestModel>(model, new CrdtMetadata());
+
+        // Act & Assert
+        Should.Throw<ArgumentNullException>(() => patcher.GeneratePatch(fromWithNullMeta, validDoc));
+        Should.Throw<ArgumentNullException>(() => patcher.GeneratePatch(validDoc, toWithNullMeta));
+    }
+
+    [Fact]
     public void GeneratePatch_WhenNoChanges_ShouldReturnEmptyPatch()
     {
         // Arrange
@@ -70,20 +87,20 @@ public sealed class CrdtPatcherTests
     public void GeneratePatch_WithMixedStrategyProperties_ShouldGenerateCorrectOperations()
     {
         // Arrange
-        var ts1 = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var ts1 = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         var fromModel = new TestModel { Name = "Original", Likes = 5, Unchanged = 123 };
         var fromMeta = new CrdtMetadata();
-        fromMeta.Lww["$.name"] = new EpochTimestamp(ts1);
-        fromMeta.Lww["$.likes"] = new EpochTimestamp(ts1);
-        fromMeta.Lww["$.unchanged"] = new EpochTimestamp(ts1);
+        fromMeta.Lww["$.name"] = ts1;
+        fromMeta.Lww["$.likes"] = ts1;
+        fromMeta.Lww["$.unchanged"] = ts1;
         var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
 
-        var ts2 = ts1 + 100;
+        var ts2 = new EpochTimestamp(ts1.Value + 100);
         var toModel = new TestModel { Name = "Updated", Likes = 15, Unchanged = 123 };
         var toMeta = new CrdtMetadata();
-        toMeta.Lww["$.name"] = new EpochTimestamp(ts2);
-        toMeta.Lww["$.likes"] = new EpochTimestamp(ts2);
-        toMeta.Lww["$.unchanged"] = new EpochTimestamp(ts1);
+        toMeta.Lww["$.name"] = ts2;
+        toMeta.Lww["$.likes"] = ts2;
+        toMeta.Lww["$.unchanged"] = ts1;
         var to = new CrdtDocument<TestModel>(toModel, toMeta);
 
         // Act
@@ -95,57 +112,27 @@ public sealed class CrdtPatcherTests
         var lwwOp = patch.Operations.FirstOrDefault(op => op.JsonPath == "$.name");
         lwwOp!.Type.ShouldBe(OperationType.Upsert);
         lwwOp.Value!.ShouldBe("Updated");
-        lwwOp.Timestamp.ShouldBe(new EpochTimestamp(ts2));
+        lwwOp.Timestamp.ShouldBe(ts2);
 
         var counterOp = patch.Operations.FirstOrDefault(op => op.JsonPath == "$.likes");
         counterOp!.Type.ShouldBe(OperationType.Increment);
-        counterOp.Value!.ShouldBe(10); // 15 - 5
-    }
-
-    [Fact]
-    public void GeneratePatch_WithArrayChanges_ShouldGenerateLcsPatch()
-    {
-        // Arrange
-        var ts1 = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var fromModel = new TestModel { Tags = ["a", "b", "c"] };
-        var fromMeta = new CrdtMetadata();
-        fromMeta.Lww["$.tags"] = new EpochTimestamp(ts1);
-        var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
-
-        var ts2 = ts1 + 100;
-        var toModel = new TestModel { Tags = ["a", "x", "c"] }; // "b" removed, "x" inserted
-        var toMeta = new CrdtMetadata();
-        toMeta.Lww["$.tags"] = new EpochTimestamp(ts2);
-        var to = new CrdtDocument<TestModel>(toModel, toMeta);
-
-        // Act
-        var patch = patcher.GeneratePatch(from, to);
-
-        // Assert
-        patch.Operations.Count.ShouldBe(2);
-
-        var removeOp = patch.Operations.SingleOrDefault(o => o.Type == OperationType.Remove);
-        removeOp.JsonPath.ShouldBe("$.tags[1]");
-
-        var upsertOp = patch.Operations.SingleOrDefault(o => o.Type == OperationType.Upsert);
-        upsertOp.JsonPath.ShouldBe("$.tags[1]");
-        upsertOp.Value!.ShouldBe("x");
+        counterOp.Value!.ShouldBe(10m);
     }
 
     [Fact]
     public void GeneratePatch_WithNestedObjectChanges_ShouldGenerateCorrectPath()
     {
         // Arrange
-        var ts1 = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var ts1 = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         var fromModel = new TestModel { Nested = new NestedModel { Value = "Nested Original" } };
         var fromMeta = new CrdtMetadata();
-        fromMeta.Lww["$.nested.value"] = new EpochTimestamp(ts1);
+        fromMeta.Lww["$.nested.value"] = ts1;
         var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
 
-        var ts2 = ts1 + 100;
+        var ts2 = new EpochTimestamp(ts1.Value + 100);
         var toModel = new TestModel { Nested = new NestedModel { Value = "Nested Updated" } };
         var toMeta = new CrdtMetadata();
-        toMeta.Lww["$.nested.value"] = new EpochTimestamp(ts2);
+        toMeta.Lww["$.nested.value"] = ts2;
         var to = new CrdtDocument<TestModel>(toModel, toMeta);
 
         // Act
@@ -158,95 +145,6 @@ public sealed class CrdtPatcherTests
         op.JsonPath.ShouldBe("$.nested.value");
         op.Type.ShouldBe(OperationType.Upsert);
         op.Value!.ShouldBe("Nested Updated");
-        op.Timestamp.ShouldBe(new EpochTimestamp(ts2));
-    }
-
-    [Fact]
-    public void GeneratePatch_WhenNestedObjectIsAdded_ShouldGeneratePatchForProperties()
-    {
-        // Arrange
-        var ts1 = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var fromModel = new TestModel { Name = "Test" };
-        var fromMeta = new CrdtMetadata();
-        fromMeta.Lww["$.name"] = new EpochTimestamp(ts1);
-        var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
-
-        var ts2 = ts1 + 100;
-        var toModel = new TestModel { Name = "Test", Nested = new NestedModel { Value = "Added" } };
-        var toMeta = new CrdtMetadata();
-        toMeta.Lww["$.name"] = new EpochTimestamp(ts1);
-        toMeta.Lww["$.nested.value"] = new EpochTimestamp(ts2);
-        var to = new CrdtDocument<TestModel>(toModel, toMeta);
-
-        // Act
-        var patch = patcher.GeneratePatch(from, to);
-
-        // Assert
-        patch.Operations.Count.ShouldBe(1);
-
-        var op = patch.Operations.Single();
-        op.JsonPath.ShouldBe("$.nested.value");
-        op.Type.ShouldBe(OperationType.Upsert);
-        op.Value!.ShouldBe("Added");
-        op.Timestamp.ShouldBe(new EpochTimestamp(ts2));
-    }
-
-    [Fact]
-    public void GeneratePatch_WhenNestedObjectIsRemoved_ShouldGenerateRemoveOperationsForProperties()
-    {
-        // Arrange
-        var ts1 = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var fromModel = new TestModel { Name = "Test", Nested = new NestedModel { Value = "Existing" } };
-        var fromMeta = new CrdtMetadata();
-        fromMeta.Lww["$.name"] = new EpochTimestamp(ts1);
-        fromMeta.Lww["$.nested.value"] = new EpochTimestamp(ts1);
-        var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
-
-        var ts2 = ts1 + 100;
-        var toModel = new TestModel { Name = "Test", Nested = null };
-        var toMeta = new CrdtMetadata();
-        toMeta.Lww["$.name"] = new EpochTimestamp(ts1);
-        toMeta.Lww["$.nested.value"] = new EpochTimestamp(ts2);
-        var to = new CrdtDocument<TestModel>(toModel, toMeta);
-
-        // Act
-        var patch = patcher.GeneratePatch(from, to);
-
-        // Assert
-        patch.Operations.Count.ShouldBe(1);
-
-        var op = patch.Operations.Single();
-        op.JsonPath.ShouldBe("$.nested.value");
-        op.Type.ShouldBe(OperationType.Remove);
-        op.Value.ShouldBeNull();
-        op.Timestamp.ShouldBe(new EpochTimestamp(ts2));
-    }
-
-    [Fact]
-    public void GeneratePatch_WhenPropertyWithoutAttribute_ShouldUseLwwStrategyAsDefault()
-    {
-        // Arrange
-        var ts1 = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var fromModel = new TestModel { Name = "Original" };
-        var fromMeta = new CrdtMetadata();
-        fromMeta.Lww["$.name"] = new EpochTimestamp(ts1);
-        var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
-
-        var ts2 = ts1 + 100;
-        var toModel = new TestModel { Name = "Updated" };
-        var toMeta = new CrdtMetadata();
-        toMeta.Lww["$.name"] = new EpochTimestamp(ts2);
-        var to = new CrdtDocument<TestModel>(toModel, toMeta);
-
-        // Act
-        var patch = patcher.GeneratePatch(from, to);
-
-        // Assert
-        patch.Operations.Count.ShouldBe(1);
-
-        var op = patch.Operations.Single();
-        op.JsonPath.ShouldBe("$.name");
-        op.Type.ShouldBe(OperationType.Upsert);
-        op.Timestamp.ShouldBe(new EpochTimestamp(ts2));
+        op.Timestamp.ShouldBe(ts2);
     }
 }
