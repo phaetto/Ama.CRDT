@@ -95,6 +95,8 @@ Ama.CRDT.Models.OrSetRemoveItem.Tags.get -> System.Collections.Generic.ISet<Syst
 Ama.CRDT.Models.OrSetRemoveItem.Tags.init -> void
 Ama.CRDT.Models.OrSetRemoveItem.Value.get -> object!
 Ama.CRDT.Models.OrSetRemoveItem.Value.init -> void
+Ama.CRDT.Models.Serialization.CrdtMetadataJsonResolver
+Ama.CRDT.Models.Serialization.CrdtMetadataJsonResolver.CrdtMetadataJsonResolver() -> void
 Ama.CRDT.Services.CrdtMetadataManager.Clone(Ama.CRDT.Models.CrdtMetadata! metadata) -> Ama.CRDT.Models.CrdtMetadata!
 Ama.CRDT.Services.CrdtMetadataManager.CrdtMetadataManager(Ama.CRDT.Services.Strategies.ICrdtStrategyManager! strategyManager, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.Strategies.IElementComparerProvider! elementComparerProvider) -> void
 Ama.CRDT.Services.CrdtMetadataManager.Initialize<T>(Ama.CRDT.Models.CrdtMetadata! metadata, T! document) -> void
@@ -157,8 +159,10 @@ override Ama.CRDT.Models.LseqItem.GetHashCode() -> int
 override Ama.CRDT.Models.MovePayload.GetHashCode() -> int
 override Ama.CRDT.Models.OrSetAddItem.GetHashCode() -> int
 override Ama.CRDT.Models.OrSetRemoveItem.GetHashCode() -> int
+override Ama.CRDT.Models.Serialization.CrdtMetadataJsonResolver.GetTypeInfo(System.Type! type, System.Text.Json.JsonSerializerOptions! options) -> System.Text.Json.Serialization.Metadata.JsonTypeInfo!
 static Ama.CRDT.Models.AverageRegisterValue.operator !=(Ama.CRDT.Models.AverageRegisterValue left, Ama.CRDT.Models.AverageRegisterValue right) -> bool
 static Ama.CRDT.Models.AverageRegisterValue.operator ==(Ama.CRDT.Models.AverageRegisterValue left, Ama.CRDT.Models.AverageRegisterValue right) -> bool
+static Ama.CRDT.Models.CrdtMetadata.JsonResolver.get -> System.Text.Json.Serialization.Metadata.IJsonTypeInfoResolver!
 static Ama.CRDT.Models.LseqIdentifier.operator !=(Ama.CRDT.Models.LseqIdentifier left, Ama.CRDT.Models.LseqIdentifier right) -> bool
 static Ama.CRDT.Models.LseqIdentifier.operator ==(Ama.CRDT.Models.LseqIdentifier left, Ama.CRDT.Models.LseqIdentifier right) -> bool
 static Ama.CRDT.Models.LseqItem.operator !=(Ama.CRDT.Models.LseqItem left, Ama.CRDT.Models.LseqItem right) -> bool

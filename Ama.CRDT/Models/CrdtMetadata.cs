@@ -1,3 +1,6 @@
+using Ama.CRDT.Models.Serialization;
+using System.Text.Json.Serialization.Metadata;
+
 namespace Ama.CRDT.Models;
 
 /// <summary>
@@ -6,6 +9,18 @@ namespace Ama.CRDT.Models;
 /// </summary>
 public sealed class CrdtMetadata
 {
+    /// <summary>
+    /// Gets a custom <see cref="IJsonTypeInfoResolver"/> for this type that enables
+    /// efficient serialization by omitting empty collections.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// var options = new JsonSerializerOptions { TypeInfoResolver = CrdtMetadata.JsonResolver };
+    /// var json = JsonSerializer.Serialize(metadata, options);
+    /// </code>
+    /// </example>
+    public static IJsonTypeInfoResolver JsonResolver { get; } = new CrdtMetadataJsonResolver();
+
     /// <summary>
     /// Gets a dictionary that stores the last-seen timestamp for properties managed by the Last-Writer-Wins (LWW) strategy.
     /// The key is the JSON Path to the property.
