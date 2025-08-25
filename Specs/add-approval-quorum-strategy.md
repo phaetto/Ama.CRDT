@@ -3,16 +3,14 @@
 <!---
 Add the purpose of this user story.
 --->
-Numeric & Value-Based Strategies
+Implement an Approval Quorum strategy.
 
 <!---Human--->
 # Requirements
 <!---
 Add the requirements, technical or not.
 --->
-37. **Vote Counter:** Tallies votes for different options, ensuring that each replica (or user ID) can only vote once.
-38. **Approval Quorum:** A boolean-like state that only becomes `true` after a certain number of unique replicas have registered an "approve" operation.
-39. **Leader Election Strategy:** A deterministic strategy where replicas can nominate themselves, and the one with the lexicographically highest replica ID (or other deterministic tie-breaker) becomes the "leader."
+**Approval Quorum:** A boolean-like state that only becomes `true` after a certain number of unique replicas have registered an "approve" operation.
 
 Make only the ones that do not break the public API, except the metadata and other models. Avoid breaking the interface public APIs.
 
@@ -25,12 +23,12 @@ Add files that we will load for the UI to add context for the solution design.
 Format this list in the following way:
 	- `$/<Full file path from solution root>` (Reason to be used/loaded)
 --->
-- `C:\sources\Ama.CRDT\Ama.CRDT\Models\CrdtMetadata.cs`
-- `C:\sources\Ama.CRDT\Ama.CRDT\Attributes\CrdtArrayLcsStrategyAttribute.cs`
-- `C:\sources\Ama.CRDT\Ama.CRDT\Services\Strategies\ArrayLcsStrategy.cs`
-- `C:\sources\Ama.CRDT\Ama.CRDT.UnitTests\Services\Strategies\ArrayLcsStrategyTests.cs`
-- `C:\sources\Ama.CRDT\Ama.CRDT\Services\CrdtMetadataManager.cs`
-- `C:\sources\Ama.CRDT\Ama.CRDT\Services\Helpers\PocoPathHelper.cs`
+- `$/Ama.CRDT/Models/CrdtMetadata.cs`
+- `$/Ama.CRDT/Attributes/CrdtArrayLcsStrategyAttribute.cs`
+- `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs`
+- `$/Ama.CRDT.UnitTests/Services/Strategies/ArrayLcsStrategyTests.cs`
+- `$/Ama.CRDT/Services/CrdtMetadataManager.cs`
+- `$/Ama.CRDT/Services/Helpers/PocoPathHelper.cs`
 
 <!---Human--->
 # Testing Methodology

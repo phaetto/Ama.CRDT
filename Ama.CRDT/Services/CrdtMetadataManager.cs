@@ -292,6 +292,9 @@ public sealed class CrdtMetadataManager(
                     metadata.LseqTrackers[propertyPath] = lseqItems;
                 }
                 break;
+            case VoteCounterStrategy:
+                InitializeVoteCounterMetadata(metadata, propertyPath, propertyValue, timestamp);
+                break;
             case TwoPhaseSetStrategy:
             case LwwSetStrategy:
             case OrSetStrategy:
@@ -334,5 +337,39 @@ public sealed class CrdtMetadataManager(
                     Removes: new Dictionary<object, ICrdtTimestamp>(comparer));
                 break;
         }
+    }
+
+    private void InitializeVoteCounterMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)
+    {
+        if (propertyValue is not IDictionary dictionary) return;
+
+        var voterMap = new Dictionary<object, object>();
+        foreach (DictionaryEntry entry in dictionary)
+        {
+            if (entry.Key is null || entry.Value is not IEnumerable voters) continue;
+            foreach (var voter in voters)
+            {
+                if (voter != null)
+                {
+                    voterMap[voter] = entry.Key;
+                }
+            }
+        }
+
+        foreach (var (voter, _) in voterMap)
+        {
+            var voterKey = GetVoterKey(voter);
+            var voterMetaPath = $"{propertyPath}.['{voterKey}']";
+            metadata.Lww[voterMetaPath] = timestamp;
+        }
+    }
+    
+    private static string GetVoterKey(object voter)
+    {
+        return voter switch
+        {
+            string s => s,
+            _ => JsonSerializer.Serialize(voter, DefaultJsonSerializerOptions)
+        };
     }
 }

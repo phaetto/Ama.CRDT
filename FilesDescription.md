@@ -44,6 +44,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/PriorityQueueStrategyTests.cs` | Contains unit tests for the `PriorityQueueStrategy`, verifying that concurrent updates converge and the list remains sorted by priority. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/SortedSetStrategyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseSetStrategyTests.cs` | Contains unit tests for the `TwoPhaseSetStrategy`, verifying that elements can be added and removed, but not re-added after removal. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTests.cs` | Contains unit tests for the `VoteCounterStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent voting scenarios. |
 | `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging. |
 | `$/Ama.CRDT/Attributes/CrdtArrayLcsStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Array LCS strategy, which leverages positional identifiers for stable, causally-correct ordering of elements. |
 | `$/Ama.CRDT/Attributes/CrdtAverageRegisterStrategyAttribute.cs` | An attribute to mark a property as an Average Register, where its value converges to the average of all replica contributions. |
@@ -62,6 +63,7 @@
 | `$/Ama.CRDT/Attributes/CrdtSortedSetStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Sorted Set strategy. It uses LCS for diffing and maintains a sorted order. |
 | `$/Ama.CRDT/Attributes/CrdtStrategyAttribute.cs` | The base abstract attribute for marking properties with a specific CRDT merge strategy. Contains the strategy type. |
 | `$/Ama.CRDT/Attributes/CrdtTwoPhaseSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the 2P-Set (Two-Phase Set) strategy. |
+| `$/Ama.CRDT/Attributes/CrdtVoteCounterStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the Vote Counter strategy. This strategy ensures each voter has only one active vote, with changes resolved by Last-Writer-Wins. |
 | `$/Ama.CRDT/Attributes/Strategies/AssociativeAttribute.cs` | Marks a CRDT strategy as having the associative property, meaning the order of operation grouping does not affect the outcome. |
 | `$/Ama.CRDT/Attributes/Strategies/CommutativeAttribute.cs` | Marks a CRDT strategy as having the commutative property, meaning the order of operations does not affect the outcome. |
 | `$/Ama.CRDT/Attributes/Strategies/IdempotentAttribute.cs` | Marks a CRDT strategy as having the idempotent property, meaning applying the same operation multiple times has the same effect as applying it once. |
@@ -85,6 +87,7 @@
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
 | `$/Ama.CRDT/Models/Serialization/CrdtMetadataJsonResolver.cs` | Provides a custom `IJsonTypeInfoResolver` for `CrdtMetadata` to enable efficient serialization by omitting empty collections from the JSON output. |
+| `$/Ama.CRDT/Models/VotePayload.cs` | A data structure for the payload of a vote operation, containing the voter's identifier and their chosen option. |
 | `$/Ama.CRDT/PublicAPI.Shipped.txt` | Tracks the shipped public API surface of the library to detect breaking changes. This file should be updated when new APIs are officially released in a stable version. |
 | `$/Ama.CRDT/PublicAPI.Unshipped.txt` | Tracks new public APIs that have not yet been included in a stable release. This file must be empty before a manual, stable publish. Build will fail if new public APIs are added without being added to this file first. |
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | No description provided. |
@@ -122,6 +125,7 @@
 | `$/Ama.CRDT/Services/Strategies/PriorityQueueStrategy.cs` | Implements a strategy for collections that behave as a priority queue, sorted by a specified property. |
 | `$/Ama.CRDT/Services/Strategies/SortedSetStrategy.cs` | Implements a CRDT strategy for collections that are treated as sorted sets. It uses LCS for diffing and ensures the collection remains sorted after operations. |
 | `$/Ama.CRDT/Services/Strategies/TwoPhaseSetStrategy.cs` | Implements the 2P-Set (Two-Phase Set) CRDT strategy, where an element, once removed, cannot be re-added. |
+| `$/Ama.CRDT/Services/Strategies/VoteCounterStrategy.cs` | Implements the Vote Counter strategy. It manages a dictionary of options to voter sets, ensuring each voter can only have one active vote at a time, with conflicts resolved by Last-Writer-Wins. |
 | `$/CodingStandards.md` | Contains the coding standards for the project, including versioning and publishing guidelines. |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/01-crdt-strategy-attribute-and-interface.md` | No description provided. |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/02-lww-strategy-implementation.md` | No description provided. |
@@ -145,6 +149,8 @@
 | `$/FilesDescription.md` | No description provided. |
 | `$/LICENSE` | No description provided. |
 | `$/README.md` | The main documentation for the Ama.CRDT library, including usage examples, architecture overview, and guides for advanced extensibility points like custom comparers and timestamp providers. |
+| `$/Specs/add-approval-quorum-strategy.md` | Specification file for implementing the Approval Quorum strategy. |
+| `$/Specs/add-leader-election-strategy.md` | Specification file for implementing the Leader Election strategy. |
 | `$/Specs/add-more-constraint-and-business-strategies.md` | No description provided. |
 | `$/Specs/add-more-list-and-sequence-strategies.md` | No description provided. |
 | `$/Specs/add-more-meta-and-hybrid-strategies.md` | No description provided. |
@@ -153,23 +159,9 @@
 | `$/Specs/add-more-set-strategies.md` | No description provided. |
 | `$/Specs/add-more-specialized-data-structure-strategies.md` | No description provided. |
 | `$/Specs/add-more-text-specific-strategies.md` | No description provided. |
-| `$/Specs/add-more-voting-and-quorum-strategies.md` | No description provided. |
+| `$/Specs/add-vote-counter-strategy.md` | Specification file for implementing the Vote Counter strategy. |
 | `$/Specs/create-example-console-app-that-show-cases-the-crdts-with-out-locks.md` | No description provided. |
 | `$/Specs/implement-correctly-lcs-list-strategy.md` | No description provided. |
 | `$/Specs/make-package-dev-friendly.md` | No description provided. |
 | `$/Specs/make-the-api-surface-better.md` | No description provided. |
 | `$/Specs/publish-as-a-nuget-package.md` | No description provided. |
-| `$/Specs/readme-update-2025-08-24.md` | No description provided. |
-var metadata = new CrdtMetadata();
-// ... populate some properties, but leave others empty ...
-
-var options = new JsonSerializerOptions 
-{ 
-    TypeInfoResolver = CrdtMetadata.JsonResolver,
-    WriteIndented = true 
-};
-
-// This JSON string will only contain the non-empty properties of the metadata object.
-string json = JsonSerializer.Serialize(metadata, options);
-
-Console.WriteLine(json);
