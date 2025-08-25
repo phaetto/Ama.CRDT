@@ -23,7 +23,7 @@ using Ama.CRDT.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add CRDT services to the DI container
-builder.Services.AddJsonCrdt(options =>
+builder.Services.AddCrdt(options =>
 {
     // A default replica ID is required, but can be overridden
     // when creating replica-specific services.
@@ -237,7 +237,7 @@ In `Program.cs`, register your new strategy as a singleton and also register it 
 ```csharp
 // In Program.cs
 // ...
-builder.Services.AddJsonCrdt(options => { /* ... */ });
+builder.Services.AddCrdt(options => { /* ... */ });
 
 // Register the custom strategy
 builder.Services.AddSingleton<MyCustomStrategy>();
@@ -247,6 +247,123 @@ builder.Services.AddSingleton<ICrdtStrategy>(sp => sp.GetRequiredService<MyCusto
 ```
 
 You can now use `[MyCustomStrategy]` on your POCO properties.
+
+## Advanced Extensibility
+
+Beyond creating custom strategies, you can also customize other core components of the library, such as array element comparison and timestamp generation.
+
+### Customizing Array Element Comparison
+
+The default `[CrdtArrayLcsStrategy]` uses `object.Equals` to compare elements in a collection. This works for simple types like `string` or `int`, but it's often insufficient for complex objects where uniqueness is determined by a specific property, like an `Id`.
+
+To solve this, you can implement the `IElementComparer` interface to provide type-specific comparison logic. The strategy manager will automatically find and use your custom comparer for the specified type.
+
+#### 1. Implement `IElementComparer`
+
+Create a class that implements `IElementComparer`. `CanCompare` tells the system which object type this comparer handles, and `Equals`/`GetHashCode` define the comparison logic.
+
+**Example:** Imagine a list of `User` objects that should be uniquely identified by their `Id` property.
+
+_Models/User.cs_
+```csharp
+public class User
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; }
+}
+```
+
+_Services/UserComparer.cs_
+```csharp
+using Ama.CRDT.Services.Strategies;
+using System.Diagnostics.CodeAnalysis;
+
+// Assuming User model is in this namespace
+using MyProject.Models; 
+
+public class UserComparer : IElementComparer
+{
+    public bool CanCompare(Type type)
+    {
+        // This comparer is responsible for User objects
+        return type == typeof(User);
+    }
+
+    public bool Equals(object? x, object? y)
+    {
+        if (x is not User userX || y is not User userY)
+        {
+            return object.Equals(x, y);
+        }
+        // Uniquely identify users by their Id
+        return userX.Id == userY.Id;
+    }
+
+    public int GetHashCode([DisallowNull] object obj)
+    {
+        if (obj is User user)
+        {
+            return user.Id.GetHashCode();
+        }
+        return obj.GetHashCode();
+    }
+}
+```
+
+#### 2. Register the Comparer
+
+Use the `AddCrdtComparer<TComparer>()` extension method in your service configuration to register your implementation.
+
+```csharp
+// In Program.cs
+builder.Services.AddCrdt(options => { /* ... */ });
+
+// Register the custom comparer
+builder.Services.AddCrdtComparer<UserComparer>();
+```
+
+Now, whenever `CrdtArrayLcsStrategy` processes a `List<User>`, it will use `UserComparer` to correctly identify and diff the elements.
+
+### Providing a Custom Timestamp
+
+By default, the library uses a timestamp based on `DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()`. While this is suitable for many scenarios, you may need to integrate a different time source or use a logical clock (like a Lamport timestamp or a version vector clock).
+
+You can replace the default timestamping mechanism by implementing `ICrdtTimestampProvider` and registering it.
+
+#### 1. Implement `ICrdtTimestampProvider`
+
+Your custom provider must return an object that implements `ICrdtTimestamp`. The timestamp object itself must be comparable.
+
+**Note**: This is an advanced scenario. A custom timestamp implementation must be carefully designed to be monotonic and, if necessary, globally unique to ensure correctness.
+
+_Services/MyCustomTimestampProvider.cs_
+```csharp
+using Ama.CRDT.Services;
+using Ama.CRDT.Models;
+
+public class MyCustomTimestampProvider : ICrdtTimestampProvider
+{
+    public ICrdtTimestamp Now()
+    {
+        // Your logic to generate a custom timestamp
+        // For example, from a hybrid logical clock service.
+        var customTimestampValue = GetTimestampFromHlcService(); 
+        return new EpochTimestamp(customTimestampValue); // Assuming it can fit in a long
+    }
+}
+```
+
+#### 2. Register the Provider
+
+Use the `AddCrdtTimestampProvider<TProvider>()` extension method to replace the default provider.
+
+```csharp
+// In Program.cs
+builder.Services.AddCrdt(options => { /* ... */ });
+
+// Replace the default provider with your custom one
+builder.Services.AddCrdtTimestampProvider<MyCustomTimestampProvider>();
+```
 
 ## How It Works
 
