@@ -150,8 +150,10 @@
 | `$/LICENSE` | No description provided. |
 | `$/README.md` | The main documentation for the Ama.CRDT library, including usage examples, architecture overview, and guides for advanced extensibility points like custom comparers and timestamp providers. |
 | `$/Specs/add-approval-quorum-strategy.md` | Specification file for implementing the Approval Quorum strategy. |
+| `$/Specs/add-checksum-strategy.md` | Specification file for implementing the Checksum strategy. |
+| `$/Specs/add-exclusive-lock-strategy.md` | Specification file for implementing the Exclusive Lock strategy. |
+| `$/Specs/add-immutable-strategy.md` | Specification file for implementing the Immutable strategy. |
 | `$/Specs/add-leader-election-strategy.md` | Specification file for implementing the Leader Election strategy. |
-| `$/Specs/add-more-constraint-and-business-strategies.md` | No description provided. |
 | `$/Specs/add-more-list-and-sequence-strategies.md` | No description provided. |
 | `$/Specs/add-more-meta-and-hybrid-strategies.md` | No description provided. |
 | `$/Specs/add-more-numeric-and-value-based-strategies.md` | No description provided. |
@@ -159,6 +161,10 @@
 | `$/Specs/add-more-set-strategies.md` | No description provided. |
 | `$/Specs/add-more-specialized-data-structure-strategies.md` | No description provided. |
 | `$/Specs/add-more-text-specific-strategies.md` | No description provided. |
+| `$/Specs/add-ownership-strategy.md` | Specification file for implementing the Ownership strategy. |
+| `$/Specs/add-relational-integrity-strategy.md` | Specification file for implementing the Relational Integrity strategy. |
+| `$/Specs/add-state-machine-strategy.md` | Specification file for implementing the State Machine strategy. |
+| `$/Specs/add-validated-string-strategy.md` | Specification file for implementing the Validated String strategy. |
 | `$/Specs/add-vote-counter-strategy.md` | Specification file for implementing the Vote Counter strategy. |
 | `$/Specs/create-example-console-app-that-show-cases-the-crdts-with-out-locks.md` | No description provided. |
 | `$/Specs/implement-correctly-lcs-list-strategy.md` | No description provided. |
