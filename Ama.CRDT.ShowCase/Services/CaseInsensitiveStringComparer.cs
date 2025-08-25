@@ -4,7 +4,7 @@ using System;
 using Ama.CRDT.Services.Strategies;
 
 /// <summary>
-/// A custom implementation of <see cref="IElementComparer"/> that allows the <see cref="ArrayLcsStrategy"/>
+/// A custom implementation of <see cref="IElementComparer"/> that allows the <see cref="SortedSetStrategy"/>
 /// to identify unique strings using a case-insensitive comparison.
 /// </summary>
 public sealed class CaseInsensitiveStringComparer : IElementComparer

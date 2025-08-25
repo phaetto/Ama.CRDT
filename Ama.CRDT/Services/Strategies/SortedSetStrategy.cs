@@ -12,19 +12,19 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 
-public sealed class ArrayLcsStrategy : ICrdtStrategy
+public sealed class SortedSetStrategy : ICrdtStrategy
 {
     private readonly IElementComparerProvider comparerProvider;
     private readonly ICrdtTimestampProvider timestampProvider;
     private readonly string replicaId;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ArrayLcsStrategy"/> class.
+    /// Initializes a new instance of the <see cref="SortedSetStrategy"/> class.
     /// </summary>
     /// <param name="comparerProvider">The provider for resolving type-specific element comparers.</param>
     /// <param name="timestampProvider">The provider for generating timestamps.</param>
     /// <param name="options">Configuration options containing the replica ID.</param>
-    public ArrayLcsStrategy(IElementComparerProvider comparerProvider, ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options)
+    public SortedSetStrategy(IElementComparerProvider comparerProvider, ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options)
     {
         this.comparerProvider = comparerProvider ?? throw new ArgumentNullException(nameof(comparerProvider));
         this.timestampProvider = timestampProvider ?? throw new ArgumentNullException(nameof(timestampProvider));

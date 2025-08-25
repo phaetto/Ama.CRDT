@@ -14,7 +14,7 @@ public sealed class CrdtPatcherTests
     {
         public string? Name { get; init; }
 
-        [CrdtCounter]
+        [CounterStrategy]
         public int Likes { get; init; }
 
         public NestedModel? Nested { get; init; }
@@ -39,7 +39,7 @@ public sealed class CrdtPatcherTests
         var lwwStrategy = new LwwStrategy(options);
         var counterStrategy = new CounterStrategy(timestampProvider, options);
         var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
-        var arrayStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, options);
+        var arrayStrategy = new SortedSetStrategy(comparerProvider, timestampProvider, options);
         var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayStrategy };
         var strategyManager = new CrdtStrategyManager(strategies);
         patcher = new CrdtPatcher(strategyManager);
