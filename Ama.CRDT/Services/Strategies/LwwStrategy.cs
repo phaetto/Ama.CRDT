@@ -105,7 +105,15 @@ public sealed class LwwStrategy : ICrdtStrategy
         }
     }
 
-    private static object? DeserializeValue(object? value, Type targetType)
+    /// <summary>
+    /// Deserializes a raw object value from a <see cref="CrdtOperation"/> into a specific target type.
+    /// This method handles primitive type conversions and can map dictionary-like objects to complex types.
+    /// </summary>
+    /// <param name="value">The value to deserialize.</param>
+    /// <param name="targetType">The target type to convert to.</param>
+    /// <returns>The deserialized object.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if conversion fails.</exception>
+    public static object? DeserializeValue(object? value, Type targetType)
     {
         if (value is null) return null;
         if (targetType.IsInstanceOfType(value)) return value;
