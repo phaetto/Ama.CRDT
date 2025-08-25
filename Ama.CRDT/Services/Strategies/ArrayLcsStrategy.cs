@@ -17,6 +17,7 @@ using System.Text.Json;
 [Commutative]
 [Associative]
 [IdempotentShortTermImplementation]
+[SequentialOperations]
 public sealed class ArrayLcsStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,
