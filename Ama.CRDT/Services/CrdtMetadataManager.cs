@@ -43,15 +43,15 @@ public sealed class CrdtMetadataManager(
     }
 
     /// <inheritdoc/>
-    public void InitializeLwwMetadata<T>([DisallowNull] CrdtMetadata metadata, [DisallowNull] T document) where T : class
+    public void Initialize<T>([DisallowNull] CrdtMetadata metadata, [DisallowNull] T document) where T : class
     {
         ArgumentNullException.ThrowIfNull(metadata);
         ArgumentNullException.ThrowIfNull(document);
-        InitializeLwwMetadata(metadata, document, timestampProvider.Now());
+        Initialize(metadata, document, timestampProvider.Now());
     }
 
     /// <inheritdoc/>
-    public void InitializeLwwMetadata<T>([DisallowNull] CrdtMetadata metadata, [DisallowNull] T document, [DisallowNull] ICrdtTimestamp timestamp) where T : class
+    public void Initialize<T>([DisallowNull] CrdtMetadata metadata, [DisallowNull] T document, [DisallowNull] ICrdtTimestamp timestamp) where T : class
     {
         ArgumentNullException.ThrowIfNull(metadata);
         ArgumentNullException.ThrowIfNull(document);
