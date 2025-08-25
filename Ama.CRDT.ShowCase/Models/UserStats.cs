@@ -3,10 +3,10 @@ using Ama.CRDT.Attributes;
 
 public sealed class UserStats
 {
-    [CrdtCounterStrategy]
+    [CrdtGCounterStrategy]
     public long ProcessedItemsCount { get; set; }
 
-    [CrdtSortedSetStrategy]
+    [CrdtLseqStrategy]
     public List<string> UniqueUserNames { get; set; } = [];
 
     [CrdtLwwStrategy]

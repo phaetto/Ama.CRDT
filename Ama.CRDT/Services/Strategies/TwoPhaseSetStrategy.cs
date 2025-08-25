@@ -92,7 +92,7 @@ public sealed class TwoPhaseSetStrategy(
                     break;
             }
 
-            ReconstructList(list, state.Adds, state.Tomstones, comparer);
+            ReconstructList(list, state.Adds, state.Tomstones);
         }
         finally
         {
@@ -100,20 +100,15 @@ public sealed class TwoPhaseSetStrategy(
         }
     }
     
-    private static void ReconstructList(IList list, ISet<object> adds, ISet<object> tombstones, IEqualityComparer<object> comparer)
+    private static void ReconstructList(IList list, ISet<object> adds, ISet<object> tombstones)
     {
-        var currentItems = new HashSet<object>(list.Cast<object>(), comparer);
-        var liveItems = new HashSet<object>(adds.Except(tombstones, comparer), comparer);
+        var liveItems = adds.Except(tombstones);
         
-        var toAdd = liveItems.Except(currentItems, comparer).ToList();
-        var toRemove = currentItems.Except(liveItems, comparer).ToList();
-
-        foreach (var item in toRemove)
-        {
-            list.Remove(item);
-        }
-
-        foreach (var item in toAdd)
+        // Sort the items to ensure a deterministic order across all replicas.
+        var sortedItems = liveItems.OrderBy(i => i.ToString(), StringComparer.Ordinal).ToList();
+        
+        list.Clear();
+        foreach (var item in sortedItems)
         {
             list.Add(item);
         }

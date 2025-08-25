@@ -104,7 +104,6 @@ public sealed class LwwSetStrategy(
     
     private static void ReconstructList(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, ICrdtTimestamp> removes, IEqualityComparer<object> comparer)
     {
-        var currentItems = new HashSet<object>(list.Cast<object>(), comparer);
         var liveItems = new HashSet<object>(comparer);
 
         foreach (var (item, addTimestamp) in adds)
@@ -115,15 +114,12 @@ public sealed class LwwSetStrategy(
             }
         }
         
-        var toAdd = liveItems.Except(currentItems, comparer).ToList();
-        var toRemove = currentItems.Except(liveItems, comparer).ToList();
-
-        foreach (var item in toRemove)
-        {
-            list.Remove(item);
-        }
-
-        foreach (var item in toAdd)
+        // Sort the items to ensure a deterministic order across all replicas.
+        // We sort by string representation as a universal, stable mechanism.
+        var sortedItems = liveItems.OrderBy(i => i.ToString(), StringComparer.Ordinal).ToList();
+        
+        list.Clear();
+        foreach (var item in sortedItems)
         {
             list.Add(item);
         }

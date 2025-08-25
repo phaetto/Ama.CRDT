@@ -139,7 +139,6 @@ public sealed class OrSetStrategy(
     
     private static void ReconstructList(IList list, IDictionary<object, ISet<Guid>> adds, IDictionary<object, ISet<Guid>> removes, IEqualityComparer<object> comparer)
     {
-        var currentItems = new HashSet<object>(list.Cast<object>(), comparer);
         var liveItems = new HashSet<object>(comparer);
 
         foreach (var (item, addTags) in adds)
@@ -157,15 +156,11 @@ public sealed class OrSetStrategy(
             }
         }
         
-        var toAdd = liveItems.Except(currentItems, comparer).ToList();
-        var toRemove = currentItems.Except(liveItems, comparer).ToList();
-
-        foreach (var item in toRemove)
-        {
-            list.Remove(item);
-        }
-
-        foreach (var item in toAdd)
+        // Sort the items to ensure a deterministic order across all replicas.
+        var sortedItems = liveItems.OrderBy(i => i.ToString(), StringComparer.Ordinal).ToList();
+        
+        list.Clear();
+        foreach (var item in sortedItems)
         {
             list.Add(item);
         }
