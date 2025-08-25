@@ -111,6 +111,39 @@ internal static partial class PocoPathHelper
         
         return (null, null, null); // Could not resolve the final segment.
     }
+
+    public static object? ConvertValue(object? value, Type targetType)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        if (targetType.IsInstanceOfType(value))
+        {
+            return value;
+        }
+        
+        if (value is JsonElement jsonElement)
+        {
+            return jsonElement.Deserialize(targetType, SerializerOptions);
+        }
+        
+        var underlyingType = Nullable.GetUnderlyingType(targetType);
+        if (underlyingType is not null)
+        {
+            targetType = underlyingType;
+        }
+
+        try
+        {
+            return Convert.ChangeType(value, targetType);
+        }
+        catch (Exception)
+        {
+            return value;
+        }
+    }
     
     private static IReadOnlyDictionary<string, PropertyInfo> GetPropertiesForType(Type type)
     {

@@ -29,4 +29,10 @@ public sealed class CrdtMetadata
     /// The key is the JSON Path to the array property.
     /// </summary>
     public IDictionary<string, List<PositionalIdentifier>> PositionalTrackers { get; } = new Dictionary<string, List<PositionalIdentifier>>();
+
+    /// <summary>
+    /// Gets a dictionary that stores the per-replica contributions for properties managed by the AverageRegisterStrategy.
+    /// The outer key is the JSON Path to the property, the inner key is the ReplicaId.
+    /// </summary>
+    public IDictionary<string, IDictionary<string, AverageRegisterValue>> AverageRegisters { get; } = new Dictionary<string, IDictionary<string, AverageRegisterValue>>();
 }

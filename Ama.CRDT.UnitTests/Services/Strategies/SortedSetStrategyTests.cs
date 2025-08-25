@@ -225,6 +225,87 @@ public sealed class SortedSetStrategyTests
         modelAb.Users.ShouldContain(u => u.Id == userB.Id);
     }
     
+    [Fact]
+    public void ApplyPatch_IsIdempotent()
+    {
+        // Arrange
+        var userA = new User(Guid.NewGuid(), "Alice");
+        var (patcher, applicator) = CreateCrdtServices("replica-A");
+        var patch = patcher.GeneratePatch(
+            new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), new CrdtMetadata()),
+            new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }, new CrdtMetadata()));
+    
+        var model = new ConvergenceTestModel();
+        var metadata = new CrdtMetadata();
+
+        // Act
+        applicator.ApplyPatch(model, patch, metadata);
+        var stateAfterFirst = JsonSerializer.Serialize(model);
+        applicator.ApplyPatch(model, patch, metadata);
+        var stateAfterSecond = JsonSerializer.Serialize(model);
+
+        // Assert
+        stateAfterSecond.ShouldBe(stateAfterFirst);
+        model.Users.Count.ShouldBe(1);
+        model.Users.ShouldContain(u => u.Id == userA.Id);
+    }
+
+    [Fact]
+    public void ApplyPatch_WithConcurrentArrayInsertions_ShouldBeCommutativeAndAssociativeAndConverge()
+    {
+        // Arrange
+        var userA = new User(Guid.NewGuid(), "Alice");
+        var userB = new User(Guid.NewGuid(), "Bob");
+        var userC = new User(Guid.NewGuid(), "Charlie");
+
+        var (patcherA, applicator) = CreateCrdtServices("replica-A");
+        var (patcherB, _) = CreateCrdtServices("replica-B");
+        var (patcherC, _) = CreateCrdtServices("replica-C");
+
+        var initialDoc = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), new CrdtMetadata());
+        var emptyMeta = new CrdtMetadata();
+
+        var patchA = patcherA.GeneratePatch(initialDoc, new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }, emptyMeta));
+        var patchB = patcherB.GeneratePatch(initialDoc, new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userB] }, emptyMeta));
+        var patchC = patcherC.GeneratePatch(initialDoc, new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userC] }, emptyMeta));
+
+        var patches = new[] { patchA, patchB, patchC };
+        var permutations = GetPermutations(patches, patches.Length);
+        var finalStates = new List<string>();
+
+        // Act
+        foreach (var permutation in permutations)
+        {
+            var model = new ConvergenceTestModel();
+            var meta = new CrdtMetadata();
+            foreach (var patch in permutation)
+            {
+                applicator.ApplyPatch(model, patch, meta);
+            }
+            finalStates.Add(JsonSerializer.Serialize(model));
+        }
+
+        // Assert
+        var firstState = finalStates.First();
+        var firstModel = JsonSerializer.Deserialize<ConvergenceTestModel>(firstState);
+        firstModel!.Users.Count.ShouldBe(3);
+    
+        foreach (var state in finalStates.Skip(1))
+        {
+            state.ShouldBe(firstState);
+        }
+    }
+
+    private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
+    {
+        if (length == 1) return list.Select(t => new T[] { t });
+
+        var enumerable = list as T[] ?? list.ToArray();
+        return GetPermutations(enumerable, length - 1)
+            .SelectMany(t => enumerable.Where(e => !t.Contains(e)),
+                (t1, t2) => t1.Concat(new T[] { t2 }));
+    }
+    
     private (ICrdtPatcher patcher, ICrdtApplicator applicator) CreateCrdtServices(string replicaId)
     {
         var options = Options.Create(new CrdtOptions { ReplicaId = replicaId });

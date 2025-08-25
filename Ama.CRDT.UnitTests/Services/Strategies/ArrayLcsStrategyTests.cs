@@ -22,6 +22,7 @@ public sealed class ArrayLcsStrategyTests
     
     private readonly CrdtPatcher patcherA;
     private readonly CrdtPatcher patcherB;
+    private readonly CrdtPatcher patcherC;
     private readonly CrdtApplicator applicator;
     private readonly CrdtMetadataManager metadataManager;
 
@@ -32,6 +33,7 @@ public sealed class ArrayLcsStrategyTests
         
         var optionsA = Options.Create(new CrdtOptions { ReplicaId = "A" });
         var optionsB = Options.Create(new CrdtOptions { ReplicaId = "B" });
+        var optionsC = Options.Create(new CrdtOptions { ReplicaId = "C" });
 
         var lwwStrategyA = new LwwStrategy(optionsA);
         var counterStrategyA = new CounterStrategy(timestampProvider, optionsA);
@@ -46,6 +48,13 @@ public sealed class ArrayLcsStrategyTests
         var strategiesB = new ICrdtStrategy[] { lwwStrategyB, counterStrategyB, arrayLcsStrategyB };
         var strategyManagerB = new CrdtStrategyManager(strategiesB);
         patcherB = new CrdtPatcher(strategyManagerB);
+        
+        var lwwStrategyC = new LwwStrategy(optionsC);
+        var counterStrategyC = new CounterStrategy(timestampProvider, optionsC);
+        var arrayLcsStrategyC = new ArrayLcsStrategy(comparerProvider, timestampProvider, optionsC);
+        var strategiesC = new ICrdtStrategy[] { lwwStrategyC, counterStrategyC, arrayLcsStrategyC };
+        var strategyManagerC = new CrdtStrategyManager(strategiesC);
+        patcherC = new CrdtPatcher(strategyManagerC);
         
         var strategyManagerApplicator = new CrdtStrategyManager(strategiesA);
         applicator = new CrdtApplicator(strategyManagerApplicator);
@@ -75,46 +84,76 @@ public sealed class ArrayLcsStrategyTests
     }
     
     [Fact]
-    public void Converge_WhenApplyingConcurrentInsertions_ShouldResultInSameFinalState()
+    public void ApplyPatch_IsIdempotent()
+    {
+        // Arrange
+        var initialModel = new TestModel { Tags = new List<string> { "A", "C" } };
+        var initialMeta = metadataManager.Initialize(initialModel);
+
+        var modifiedModel = new TestModel { Tags = new List<string> { "A", "B", "C" } };
+        var patch = patcherA.GeneratePatch(
+            new CrdtDocument<TestModel>(initialModel, initialMeta),
+            new CrdtDocument<TestModel>(modifiedModel, initialMeta));
+
+        var targetModel = new TestModel { Tags = new List<string>(initialModel.Tags) };
+        var targetMeta = metadataManager.Initialize(targetModel);
+
+        // Act
+        applicator.ApplyPatch(targetModel, patch, targetMeta);
+        var stateAfterFirstApply = new List<string>(targetModel.Tags);
+        var trackersCountAfterFirstApply = targetMeta.PositionalTrackers["$.tags"].Count;
+
+        applicator.ApplyPatch(targetModel, patch, targetMeta);
+
+        // Assert
+        targetModel.Tags.ShouldBe(stateAfterFirstApply);
+        targetMeta.PositionalTrackers["$.tags"].Count.ShouldBe(trackersCountAfterFirstApply);
+        targetModel.Tags.ShouldBe(new[] { "A", "B", "C" });
+    }
+
+    [Fact]
+    public void Converge_WhenApplyingConcurrentInsertions_ShouldBeCommutativeAndAssociative()
     {
         // Arrange
         var ancestor = new TestModel { Tags = new List<string> { "A", "D" } };
         var metaAncestor = metadataManager.Initialize(ancestor);
 
-        // Replica A inserts "B"
-        var replicaA = new TestModel { Tags = new List<string> { "A", "B", "D" } };
-        var patchAB = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor), 
-            new CrdtDocument<TestModel>(replicaA, metaAncestor));
+        // Replicas generate patches concurrently from the same state
+        var patchA = patcherA.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "B", "D" } }, metaAncestor));
 
-        // Replica B inserts "C"
-        var replicaB = new TestModel { Tags = new List<string> { "A", "C", "D" } };
-        var patchAC = patcherB.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor), 
-            new CrdtDocument<TestModel>(replicaB, metaAncestor));
+        var patchB = patcherB.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "C", "D" } }, metaAncestor));
+
+        var patchC = patcherC.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "X", "D" } }, metaAncestor));
+
+        var patches = new[] { patchA, patchB, patchC };
+        var permutations = GetPermutations(patches, patches.Length);
+        var finalStates = new List<List<string>>();
 
         // Act
-        // Scenario 1: Apply B then C
-        var finalModel_BC = new TestModel { Tags = new List<string>(ancestor.Tags) };
-        var finalMeta_BC = metadataManager.Initialize(finalModel_BC);
-        applicator.ApplyPatch(finalModel_BC, patchAB, finalMeta_BC);
-        applicator.ApplyPatch(finalModel_BC, patchAC, finalMeta_BC);
+        foreach (var permutation in permutations)
+        {
+            var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
+            var meta = metadataManager.Initialize(model);
+            foreach (var patch in permutation)
+            {
+                applicator.ApplyPatch(model, patch, meta);
+            }
+            finalStates.Add(model.Tags);
+        }
 
-        // Scenario 2: Apply C then B
-        var finalModel_CB = new TestModel { Tags = new List<string>(ancestor.Tags) };
-        var finalMeta_CB = metadataManager.Initialize(finalModel_CB);
-        applicator.ApplyPatch(finalModel_CB, patchAC, finalMeta_CB);
-        applicator.ApplyPatch(finalModel_CB, patchAB, finalMeta_CB);
-        
         // Assert
-        // The exact order depends on the generated position and GUID tie-breaker,
-        // but both outcomes must be identical.
-        finalModel_BC.Tags.ShouldBe(finalModel_CB.Tags);
-        finalModel_BC.Tags.Count.ShouldBe(4);
-        finalModel_BC.Tags.ShouldContain("A");
-        finalModel_BC.Tags.ShouldContain("B");
-        finalModel_BC.Tags.ShouldContain("C");
-        finalModel_BC.Tags.ShouldContain("D");
+        var firstState = finalStates.First();
+        firstState.Count.ShouldBe(5);
+        foreach (var state in finalStates.Skip(1))
+        {
+            state.ShouldBe(firstState, ignoreOrder: false);
+        }
     }
     
     [Fact]
@@ -204,5 +243,15 @@ public sealed class ArrayLcsStrategyTests
         var positionalItem = (PositionalItem)opY.Value!;
         positionalItem.Value.ShouldBe("Y");
         positionalItem.Position.ShouldBe("1.5");
+    }
+
+    private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
+    {
+        if (length == 1) return list.Select(t => new T[] { t });
+
+        var enumerable = list as T[] ?? list.ToArray();
+        return GetPermutations(enumerable, length - 1)
+            .SelectMany(t => enumerable.Where(e => !t.Contains(e)),
+                (t1, t2) => t1.Concat(new T[] { t2 }));
     }
 }

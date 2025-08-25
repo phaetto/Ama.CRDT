@@ -6,6 +6,7 @@ using Ama.CRDT.Services.Strategies;
 using Moq;
 using Shouldly;
 using System;
+using System.Collections.Generic;
 using Xunit;
 
 public sealed class CrdtMetadataManagerTests
@@ -72,6 +73,27 @@ public sealed class CrdtMetadataManagerTests
         }
     }
 
+    [Fact]
+    public void Reset_ShouldClearAllState()
+    {
+        // Arrange
+        var metadata = new CrdtMetadata();
+        metadata.Lww["$.a"] = new EpochTimestamp(100);
+        metadata.PositionalTrackers["$.b"] = [];
+        metadata.AverageRegisters["$.c"] = new Dictionary<string, AverageRegisterValue>();
+
+        var doc = new object();
+        timestampProviderMock.Setup(p => p.Now()).Returns(new EpochTimestamp(200));
+        
+        // Act
+        manager.Reset(metadata, doc);
+        
+        // Assert
+        metadata.Lww.ShouldBeEmpty();
+        metadata.PositionalTrackers.ShouldBeEmpty();
+        metadata.AverageRegisters.ShouldBeEmpty();
+    }
+    
     [Fact]
     public void PruneLwwTombstones_ShouldRemoveOlderEntries()
     {
