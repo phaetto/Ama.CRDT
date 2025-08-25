@@ -80,7 +80,7 @@ public sealed class GSetStrategyTests
     }
     
     [Fact]
-    public void ApplyPatch_IsIdempotent()
+    public void ApplyPatch_IsTrulyIdempotent()
     {
         // Arrange
         var doc1 = new TestModel { Tags = { "A" } };
@@ -95,6 +95,8 @@ public sealed class GSetStrategyTests
         applicator.ApplyPatch(target, patch, targetMeta);
         var stateAfterFirst = new List<string>(target.Tags);
         
+        // Clear SeenExceptions to prove the strategy logic itself is idempotent
+        targetMeta.SeenExceptions.Clear();
         applicator.ApplyPatch(target, patch, targetMeta);
         
         // Assert
@@ -149,5 +151,63 @@ public sealed class GSetStrategyTests
         var expected = new[] { "A", "B", "C" };
         model1.Tags.ShouldBe(expected, ignoreOrder: true);
         model2.Tags.ShouldBe(expected, ignoreOrder: true);
+    }
+    
+    [Fact]
+    public void Converge_WhenApplyingConcurrentAdds_ShouldBeAssociative()
+    {
+        // Arrange
+        var ancestor = new TestModel { Tags = { "A" } };
+        var metaAncestor = metadataManager.Initialize(ancestor);
+        
+        var patcherC = patcherB; // Doesn't matter for this test
+
+        var patch1 = patcherA.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "B" } }, metaAncestor));
+
+        var patch2 = patcherB.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "C" } }, metaAncestor));
+        
+        var patch3 = patcherC.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "D" } }, metaAncestor));
+
+        var patches = new[] { patch1, patch2, patch3 };
+        var permutations = GetPermutations(patches, patches.Length);
+        var finalStates = new List<List<string>>();
+
+        // Act
+        foreach (var permutation in permutations)
+        {
+            var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
+            var meta = metadataManager.Initialize(model);
+            foreach (var patch in permutation)
+            {
+                applicator.ApplyPatch(model, patch, meta);
+            }
+            finalStates.Add(model.Tags);
+        }
+
+        // Assert
+        var expected = new[] { "A", "B", "C", "D" };
+        var firstState = finalStates.First();
+        firstState.ShouldBe(expected, ignoreOrder: true);
+
+        foreach (var state in finalStates.Skip(1))
+        {
+            state.ShouldBe(firstState, ignoreOrder: true);
+        }
+    }
+    
+    private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
+    {
+        if (length == 1) return list.Select(t => new T[] { t });
+
+        var enumerable = list as T[] ?? list.ToArray();
+        return GetPermutations(enumerable, length - 1)
+            .SelectMany(t => enumerable.Where(e => !t.Contains(e)),
+                (t1, t2) => t1.Concat(new T[] { t2 }));
     }
 }

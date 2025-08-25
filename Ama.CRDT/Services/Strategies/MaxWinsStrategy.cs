@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Microsoft.Extensions.Options;
@@ -10,6 +11,9 @@ using Microsoft.Extensions.Options;
 /// <summary>
 /// Implements the Max-Wins Register strategy. Conflicts are resolved by choosing the highest value.
 /// </summary>
+[Commutative]
+[Associative]
+[Idempotent]
 public sealed class MaxWinsStrategy(IOptions<CrdtOptions> options, ICrdtTimestampProvider timestampProvider) : ICrdtStrategy
 {
     private readonly string replicaId = options.Value.ReplicaId;

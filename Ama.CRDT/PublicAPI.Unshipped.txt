@@ -127,7 +127,9 @@ Ama.CRDT.Models.RgaItem.ParentId.set -> void
 Ama.CRDT.Models.RgaItem.RgaItem() -> void
 Ama.CRDT.Models.RgaItem.Value.get -> object?
 Ama.CRDT.Models.RgaItem.Value.set -> void
+Ama.CRDT.Services.CrdtMetadataManager.Clone(Ama.CRDT.Models.CrdtMetadata! metadata) -> Ama.CRDT.Models.CrdtMetadata!
 Ama.CRDT.Services.CrdtMetadataManager.CrdtMetadataManager(Ama.CRDT.Services.Strategies.ICrdtStrategyManager! strategyManager, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.Strategies.IElementComparerProvider! elementComparerProvider) -> void
+Ama.CRDT.Services.ICrdtMetadataManager.Clone(Ama.CRDT.Models.CrdtMetadata! metadata) -> Ama.CRDT.Models.CrdtMetadata!
 Ama.CRDT.Services.Strategies.AverageRegisterStrategy
 Ama.CRDT.Services.Strategies.AverageRegisterStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.AverageRegisterStrategy.AverageRegisterStrategy(Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider) -> void
@@ -155,7 +157,7 @@ Ama.CRDT.Services.Strategies.GSetStrategy.GSetStrategy(Ama.CRDT.Services.Strateg
 Ama.CRDT.Services.Strategies.LseqStrategy
 Ama.CRDT.Services.Strategies.LseqStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.LseqStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
-Ama.CRDT.Services.Strategies.LseqStrategy.LseqStrategy(Ama.CRDT.Services.Strategies.IElementComparerProvider! elementComparerProvider) -> void
+Ama.CRDT.Services.Strategies.LseqStrategy.LseqStrategy(Ama.CRDT.Services.Strategies.IElementComparerProvider! elementComparerProvider, Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options) -> void
 Ama.CRDT.Services.Strategies.LwwSetStrategy
 Ama.CRDT.Services.Strategies.LwwSetStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.LwwSetStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void

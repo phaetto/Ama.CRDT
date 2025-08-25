@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Microsoft.Extensions.Options;
@@ -16,6 +17,9 @@ using System.Text.Json;
 /// Implements the G-Set (Grow-Only Set) CRDT strategy.
 /// In a G-Set, elements can only be added. Remove operations are ignored.
 /// </summary>
+[Commutative]
+[Associative]
+[Idempotent]
 public sealed class GSetStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,
@@ -49,30 +53,23 @@ public sealed class GSetStrategy(
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(metadata);
 
-        if (operation.Type == OperationType.Remove || metadata.SeenExceptions.Contains(operation))
+        if (operation.Type == OperationType.Remove)
         {
             return;
         }
 
-        try
-        {
-            var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-            if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
-            
-            var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
-            var itemValue = DeserializeItemValue(operation.Value, elementType);
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
 
-            if (itemValue is null) return;
-            
-            var comparer = comparerProvider.GetComparer(elementType);
-            if (!list.Cast<object>().Contains(itemValue, comparer))
-            {
-                list.Add(itemValue);
-            }
-        }
-        finally
+        var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
+        var itemValue = DeserializeItemValue(operation.Value, elementType);
+
+        if (itemValue is null) return;
+
+        var comparer = comparerProvider.GetComparer(elementType);
+        if (!list.Cast<object>().Contains(itemValue, comparer))
         {
-            metadata.SeenExceptions.Add(operation);
+            list.Add(itemValue);
         }
     }
     

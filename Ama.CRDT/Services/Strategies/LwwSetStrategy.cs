@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Microsoft.Extensions.Options;
@@ -16,6 +17,9 @@ using System.Text.Json;
 /// Implements the LWW-Set (Last-Writer-Wins Set) CRDT strategy.
 /// An element's membership is determined by the timestamp of its last add or remove operation.
 /// </summary>
+[Commutative]
+[Associative]
+[Idempotent]
 public sealed class LwwSetStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,
@@ -52,50 +56,49 @@ public sealed class LwwSetStrategy(
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(metadata);
 
-        if (metadata.SeenExceptions.Contains(operation))
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
+
+        var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
+        var comparer = comparerProvider.GetComparer(elementType);
+
+        if (!metadata.LwwSets.TryGetValue(operation.JsonPath, out var state))
         {
-            return;
+            var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
+            foreach (var item in list)
+            {
+                adds[item] = new EpochTimestamp(0);
+            }
+            state = (adds, new Dictionary<object, ICrdtTimestamp>(comparer));
+            metadata.LwwSets[operation.JsonPath] = state;
         }
 
-        try
+        var itemValue = DeserializeItemValue(operation.Value, elementType);
+        if (itemValue is null) return;
+
+        switch (operation.Type)
         {
-            var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-            if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
-            
-            var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
-            var comparer = comparerProvider.GetComparer(elementType);
-
-            if (!metadata.LwwSets.TryGetValue(operation.JsonPath, out var state))
-            {
-                state = (new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, ICrdtTimestamp>(comparer));
-                metadata.LwwSets[operation.JsonPath] = state;
-            }
-
-            var itemValue = DeserializeItemValue(operation.Value, elementType);
-            if (itemValue is null) return;
-            
-            switch (operation.Type)
-            {
-                case OperationType.Upsert:
-                    if (!state.Removes.TryGetValue(itemValue, out var removeTimestamp) || operation.Timestamp.CompareTo(removeTimestamp) > 0)
+            case OperationType.Upsert:
+                if (!state.Removes.TryGetValue(itemValue, out var removeTimestamp) || operation.Timestamp.CompareTo(removeTimestamp) > 0)
+                {
+                    if (!state.Adds.TryGetValue(itemValue, out var removeAddTimestamp) || operation.Timestamp.CompareTo(removeAddTimestamp) > 0)
                     {
                         state.Adds[itemValue] = operation.Timestamp;
                     }
-                    break;
-                case OperationType.Remove:
-                    if (!state.Adds.TryGetValue(itemValue, out var addTimestamp) || operation.Timestamp.CompareTo(addTimestamp) > 0)
+                }
+                break;
+            case OperationType.Remove:
+                if (!state.Adds.TryGetValue(itemValue, out var addTimestamp) || operation.Timestamp.CompareTo(addTimestamp) > 0)
+                {
+                    if (!state.Removes.TryGetValue(itemValue, out var addRemoveTimestamp) || operation.Timestamp.CompareTo(addRemoveTimestamp) > 0)
                     {
                         state.Removes[itemValue] = operation.Timestamp;
                     }
-                    break;
-            }
+                }
+                break;
+        }
 
-            ReconstructList(list, state.Adds, state.Removes, comparer);
-        }
-        finally
-        {
-            metadata.SeenExceptions.Add(operation);
-        }
+        ReconstructList(list, state.Adds, state.Removes, comparer);
     }
     
     private static void ReconstructList(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, ICrdtTimestamp> removes, IEqualityComparer<object> comparer)

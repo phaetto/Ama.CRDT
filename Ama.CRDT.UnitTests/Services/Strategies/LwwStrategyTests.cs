@@ -8,6 +8,7 @@ using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 public sealed class LwwStrategyTests
@@ -129,6 +130,45 @@ public sealed class LwwStrategyTests
         model1.Value.ShouldBe(30);
         model2.Value.ShouldBe(30);
     }
+    
+    [Fact]
+    public void ApplyOperation_IsAssociative()
+    {
+        // Arrange
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.Value", OperationType.Upsert, 20, new EpochTimestamp(200L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.Value", OperationType.Upsert, 30, new EpochTimestamp(300L));
+        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.Value", OperationType.Upsert, 15, new EpochTimestamp(150L));
+
+        var ops = new[] { op1, op2, op3 };
+        var permutations = GetPermutations(ops, ops.Length);
+        var finalValues = new List<int>();
+        
+        // Act
+        foreach (var permutation in permutations)
+        {
+            var model = new TestModel { Value = 10 };
+            var meta = new CrdtMetadata();
+            foreach (var op in permutation)
+            {
+                strategy.ApplyOperation(model, meta, op);
+            }
+            finalValues.Add(model.Value);
+        }
+
+        // Assert
+        // The highest timestamp wins (op2 with value 30)
+        finalValues.ShouldAllBe(v => v == 30);
+    }
 
     private sealed class NullableTestModel { public int? Value { get; set; } }
+    
+    private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
+    {
+        if (length == 1) return list.Select(t => new T[] { t });
+
+        var enumerable = list as T[] ?? list.ToArray();
+        return GetPermutations(enumerable, length - 1)
+            .SelectMany(t => enumerable.Where(e => !t.Contains(e)),
+                (t1, t2) => t1.Concat(new T[] { t2 }));
+    }
 }

@@ -88,6 +88,30 @@ public sealed class PriorityQueueStrategyTests
         model.Items.Select(i => i.Id).ShouldBe(new[] { "A", "B", "C" });
         model.Items.Select(i => i.Priority).ShouldBe(new[] { 10, 20, 30 });
     }
+    
+    [Fact]
+    public void ApplyPatch_IsTrulyIdempotent()
+    {
+        // Arrange
+        var model = new TestModel { Items = [new("A", 10)] };
+        var meta = metadataManager.Initialize(model);
+        
+        var patch = patcherA.GeneratePatch(
+            new CrdtDocument<TestModel>(model, meta),
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 5)] }, metadataManager.Initialize(model)));
+        
+        // Act
+        applicator.ApplyPatch(model, patch, meta);
+        var stateAfterFirst = model.Items.Select(i => i.Id).ToList();
+        
+        // Clear seen exceptions to test the strategy's own idempotency based on timestamps
+        meta.SeenExceptions.Clear();
+        applicator.ApplyPatch(model, patch, meta);
+
+        // Assert
+        model.Items.Select(i => i.Id).ShouldBe(stateAfterFirst);
+        model.Items.Select(i => i.Id).ShouldBe(new[] { "B", "A" });
+    }
 
     [Fact]
     public void Converge_WhenApplyingConcurrentAdds_ShouldBeCommutative()
@@ -123,6 +147,54 @@ public sealed class PriorityQueueStrategyTests
     }
     
     [Fact]
+    public void Converge_WhenApplyingConcurrentAdds_ShouldBeAssociative()
+    {
+        // Arrange
+        var ancestor = new TestModel { Items = [new("A", 10)] };
+        var metaAncestor = metadataManager.Initialize(ancestor);
+        
+        var patcherC = patcherB; // ReplicaId is what matters
+
+        var patch1 = patcherA.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 20)] }, metadataManager.Initialize(ancestor)));
+        
+        var patch2 = patcherB.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("C", 5)] }, metadataManager.Initialize(ancestor)));
+
+        var patch3 = patcherC.GeneratePatch(
+            new CrdtDocument<TestModel>(ancestor, metaAncestor),
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("D", 15)] }, metadataManager.Initialize(ancestor)));
+
+        var patches = new[] { patch1, patch2, patch3 };
+        var permutations = GetPermutations(patches, patches.Length);
+        var finalStates = new List<List<string>>();
+
+        // Act
+        foreach (var permutation in permutations)
+        {
+            var model = new TestModel { Items = [..ancestor.Items] };
+            var meta = metadataManager.Initialize(model);
+            foreach (var patch in permutation)
+            {
+                applicator.ApplyPatch(model, patch, meta);
+            }
+            finalStates.Add(model.Items.Select(i => i.Id).ToList());
+        }
+
+        // Assert
+        var expectedOrder = new[] { "C", "A", "D", "B" }; // Priorities: 5, 10, 15, 20
+        var firstState = finalStates.First();
+        firstState.ShouldBe(expectedOrder);
+        
+        foreach(var state in finalStates.Skip(1))
+        {
+            state.ShouldBe(firstState);
+        }
+    }
+    
+    [Fact]
     public void Converge_WhenPriorityIsUpdatedConcurrently_LwwWins()
     {
         // Arrange
@@ -148,7 +220,7 @@ public sealed class PriorityQueueStrategyTests
         
         // Act
         var model = new TestModel { Items = [..ancestor.Items] };
-        var meta = metadataManager.Initialize(model);
+        var meta = metadataManager.Clone(metaAncestor);
         applicator.ApplyPatch(model, patchA, meta);
         applicator.ApplyPatch(model, patchB, meta);
 
@@ -192,5 +264,15 @@ public sealed class PriorityQueueStrategyTests
         // Assert
         model.Items.ShouldHaveSingleItem();
         model.Items[0].Priority.ShouldBe(5);
+    }
+    
+    private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
+    {
+        if (length == 1) return list.Select(t => new T[] { t });
+
+        var enumerable = list as T[] ?? list.ToArray();
+        return GetPermutations(enumerable, length - 1)
+            .SelectMany(t => enumerable.Where(e => !t.Contains(e)),
+                (t1, t2) => t1.Concat(new T[] { t2 }));
     }
 }

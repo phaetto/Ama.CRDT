@@ -6,11 +6,11 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
-using Microsoft.Extensions.Options;
 using Moq;
 using Shouldly;
 using Xunit;
 using System.Linq;
+using Microsoft.Extensions.Options;
 
 public sealed class BoundedCounterStrategyTests
 {
@@ -89,7 +89,7 @@ public sealed class BoundedCounterStrategyTests
     }
     
     [Fact]
-    public void ApplyPatch_IsIdempotent()
+    public void ApplyPatch_IsIdempotent_WithSeenExceptionsCheck()
     {
         // Arrange
         var model = new TestModel { Level = 50 };
@@ -107,6 +107,30 @@ public sealed class BoundedCounterStrategyTests
         // Assert
         model.Level.ShouldBe(scoreAfterFirst);
         model.Level.ShouldBe(60);
+    }
+
+    [Fact]
+    public void ApplyPatch_IsNotIdempotent_WithoutSeenExceptionsCheck()
+    {
+        // Arrange
+        var model = new TestModel { Level = 50 };
+        var meta = metadataManager.Initialize(model);
+        var patch = new CrdtPatch(new List<CrdtOperation>
+        {
+            new(Guid.NewGuid(), "r1", "$.Level", OperationType.Increment, 10m, new EpochTimestamp(1L))
+        });
+
+        // Act
+        applicator.ApplyPatch(model, patch, meta);
+        model.Level.ShouldBe(60);
+
+        // Clear SeenExceptions to simulate re-application
+        meta.SeenExceptions.Clear();
+        applicator.ApplyPatch(model, patch, meta);
+
+        // Assert
+        // The increment is applied a second time, proving the strategy is not idempotent.
+        model.Level.ShouldBe(70);
     }
 
     [Fact]

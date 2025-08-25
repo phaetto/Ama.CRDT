@@ -9,11 +9,15 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
+using Ama.CRDT.Attributes.Strategies;
 
 /// <summary>
 /// A CRDT strategy for handling numeric properties as counters.
 /// It generates 'Increment' operations and applies them by adding the delta to the current value.
 /// </summary>
+[Commutative]
+[Associative]
+[IdempotentShortTermImplementation]
 public sealed class CounterStrategy : ICrdtStrategy
 {
     private readonly ICrdtTimestampProvider timestampProvider;
