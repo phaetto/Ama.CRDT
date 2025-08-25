@@ -4,7 +4,7 @@ A .NET library for achieving eventual consistency in distributed systems using C
 
 ## Features
 
-- **Attribute-Driven Strategies**: Define conflict resolution logic directly on your POCO properties using attributes like `[LwwStrategy]`, `[CrdtCounter]`, `[CrdtArrayLcsStrategy]`, and `[SortedSetStrategy]`.
+- **Attribute-Driven Strategies**: Define conflict resolution logic directly on your POCO properties using attributes like `[CrdtLwwStrategy]`, `[CrdtCounter]`, `[CrdtArrayLcsStrategy]`, and `[CrdtSortedSetStrategy]`.
 - **POCO-First**: Work directly with your C# objects. The library handles recursive diffing and patching seamlessly.
 - **Clean Data/Metadata Separation**: Keeps your data models pure by storing CRDT state (timestamps, version vectors) in a parallel `CrdtMetadata` object.
 - **Extensible**: Easily create and register your own custom CRDT strategies.
@@ -39,13 +39,13 @@ var app = builder.Build();
 
 This library uses attributes on your POCO properties to determine how to merge changes. You can control the conflict resolution logic for each property individually.
 
--   **`[LwwStrategy]` (Last-Writer-Wins)**: This is the default strategy for simple properties (strings, numbers, booleans, etc.). When a conflict occurs, the value with the most recent timestamp wins. You can omit this attribute, as it is the default.
+-   **`[CrdtLwwStrategy]` (Last-Writer-Wins)**: This is the default strategy for simple properties (strings, numbers, booleans, etc.). When a conflict occurs, the value with the most recent timestamp wins. You can omit this attribute, as it is the default.
 
 -   **`[CrdtCounter]`**: Use this for numeric properties (`int`, `long`, etc.) that should behave like a counter. Instead of overwriting values, the library treats changes as increments or decrements. This ensures that concurrent additions (e.g., two users liking a post at the same time) are both counted, resulting in a final value that reflects the sum of all changes.
 
 -   **`[CrdtArrayLcsStrategy]`**: This is the default strategy for collections (`List<T>`, arrays). It uses a Longest Common Subsequence (LCS) algorithm to intelligently handle insertions and deletions. This is more efficient than replacing the entire array, as it only generates operations for the items that were actually added or removed.
 
--   **`[SortedSetStrategy]`**: Use this for collections that must be maintained in a sorted order. It uses an LCS-based diff to handle insertions and deletions efficiently and re-sorts the collection after any change to maintain a consistent order across all replicas. This is useful for leaderboards or sorted lists of tags. This strategy is not a default and must be explicitly applied.
+-   **`[CrdtSortedSetStrategy]`**: Use this for collections that must be maintained in a sorted order. It uses an LCS-based diff to handle insertions and deletions efficiently and re-sorts the collection after any change to maintain a consistent order across all replicas. This is useful for leaderboards or sorted lists of tags. This strategy is not a default and must be explicitly applied.
 
 ### Define Your Model
 
@@ -56,13 +56,13 @@ using Ama.CRDT.Attributes;
 
 public class UserStats
 {
-    [LwwStrategy] // Can be omitted as it's the default for simple types
+    [CrdtLwwStrategy] // Can be omitted as it's the default for simple types
     public string LastSeenLocation { get; set; } = string.Empty;
 
     [CrdtCounter]
     public long LoginCount { get; set; }
 
-    [SortedSetStrategy] // This collection will be kept sorted.
+    [CrdtSortedSetStrategy] // This collection will be kept sorted.
     public List<string> Badges { get; set; } = [];
 }
 ```
@@ -256,7 +256,7 @@ Beyond creating custom strategies, you can also customize other core components 
 
 ### Customizing Array Element Comparison
 
-The default `[CrdtArrayLcsStrategy]` uses `object.Equals` to compare elements in a collection. This works for simple types like `string` or `int`, but it's often insufficient for complex objects where uniqueness is determined by a specific property, like an `Id`. The `[SortedSetStrategy]` also benefits from this customization for identifying elements before sorting.
+The default `[CrdtArrayLcsStrategy]` uses `object.Equals` to compare elements in a collection. This works for simple types like `string` or `int`, but it's often insufficient for complex objects where uniqueness is determined by a specific property, like an `Id`. The `[CrdtSortedSetStrategy]` also benefits from this customization for identifying elements before sorting.
 
 To solve this, you can implement the `IElementComparer` interface to provide type-specific comparison logic. The strategy manager will automatically find and use your custom comparer for the specified type.
 
@@ -324,7 +324,7 @@ builder.Services.AddCrdt(options => { /* ... */ });
 builder.Services.AddCrdtComparer<UserComparer>();
 ```
 
-Now, whenever `CrdtArrayLcsStrategy` or `SortedSetStrategy` processes a `List<User>`, it will use `UserComparer` to correctly identify and diff the elements.
+Now, whenever `CrdtArrayLcsStrategy` or `CrdtSortedSetStrategy` processes a `List<User>`, it will use `UserComparer` to correctly identify and diff the elements.
 
 ### Providing a Custom Timestamp
 

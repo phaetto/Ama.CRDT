@@ -66,6 +66,12 @@ public sealed class LwwStrategy : ICrdtStrategy
     {
         ArgumentNullException.ThrowIfNull(root);
 
+        metadata.Lww.TryGetValue(operation.JsonPath, out var lwwTs);
+        if (lwwTs is not null && operation.Timestamp.CompareTo(lwwTs) <= 0)
+        {
+            return;
+        }
+
         var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
 
         if (parent is null)
@@ -90,13 +96,13 @@ public sealed class LwwStrategy : ICrdtStrategy
         if (operation.Type == OperationType.Remove)
         {
             property.SetValue(parent, null);
-            return;
+            metadata.Lww[operation.JsonPath] = operation.Timestamp;
         }
-
-        if (operation.Type == OperationType.Upsert)
+        else if (operation.Type == OperationType.Upsert)
         {
             var value = DeserializeValue(operation.Value, property.PropertyType);
             property.SetValue(parent, value);
+            metadata.Lww[operation.JsonPath] = operation.Timestamp;
         }
     }
 

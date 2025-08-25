@@ -59,25 +59,38 @@ public sealed class CounterStrategy : ICrdtStrategy
     {
         ArgumentNullException.ThrowIfNull(root);
 
-        if (operation.Type != OperationType.Increment)
+        if (metadata.SeenExceptions.Contains(operation))
         {
-            throw new InvalidOperationException($"CounterStrategy can only handle 'Increment' operations, but received '{operation.Type}'.");
+            return;
         }
-        
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
 
-        if (parent is null || property is null || !property.CanWrite) return;
-        
-        var incrementValue = Convert.ToDecimal(operation.Value ?? 0, CultureInfo.InvariantCulture);
-        
-        var existingValue = property.GetValue(parent) ?? 0;
-        var existingNumeric = Convert.ToDecimal(existingValue, CultureInfo.InvariantCulture);
-        
-        var newValue = existingNumeric + incrementValue;
-        
-        var targetType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-        var convertedNewValue = Convert.ChangeType(newValue, targetType, CultureInfo.InvariantCulture);
+        try
+        {
+            if (operation.Type != OperationType.Increment)
+            {
+                throw new InvalidOperationException(
+                    $"CounterStrategy can only handle 'Increment' operations, but received '{operation.Type}'.");
+            }
 
-        property.SetValue(parent, convertedNewValue);
+            var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+
+            if (parent is null || property is null || !property.CanWrite) return;
+
+            var incrementValue = Convert.ToDecimal(operation.Value ?? 0, CultureInfo.InvariantCulture);
+
+            var existingValue = property.GetValue(parent) ?? 0;
+            var existingNumeric = Convert.ToDecimal(existingValue, CultureInfo.InvariantCulture);
+
+            var newValue = existingNumeric + incrementValue;
+
+            var targetType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+            var convertedNewValue = Convert.ChangeType(newValue, targetType, CultureInfo.InvariantCulture);
+
+            property.SetValue(parent, convertedNewValue);
+        }
+        finally
+        {
+            metadata.SeenExceptions.Add(operation);
+        }
     }
 }
