@@ -68,9 +68,20 @@ public sealed class GSetStrategy(
         if (itemValue is null) return;
 
         var comparer = comparerProvider.GetComparer(elementType);
-        if (!list.Cast<object>().Contains(itemValue, comparer))
+        var currentItems = list.Cast<object>().ToList();
+        
+        if (!currentItems.Contains(itemValue, comparer))
         {
-            list.Add(itemValue);
+            currentItems.Add(itemValue);
+            
+            // Sort the items to ensure a deterministic order across all replicas.
+            var sortedItems = currentItems.OrderBy(i => i.ToString(), StringComparer.Ordinal).ToList();
+            
+            list.Clear();
+            foreach (var item in sortedItems)
+            {
+                list.Add(item);
+            }
         }
     }
     
