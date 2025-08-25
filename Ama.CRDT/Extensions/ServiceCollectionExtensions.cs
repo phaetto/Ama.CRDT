@@ -78,6 +78,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<FixedSizeArrayStrategy>();
         services.TryAddSingleton<LseqStrategy>();
         services.TryAddSingleton<VoteCounterStrategy>();
+        services.TryAddSingleton<StateMachineStrategy>();
 
         services.AddSingleton<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
         services.AddSingleton<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
@@ -96,6 +97,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICrdtStrategy, FixedSizeArrayStrategy>(sp => sp.GetRequiredService<FixedSizeArrayStrategy>());
         services.AddSingleton<ICrdtStrategy, LseqStrategy>(sp => sp.GetRequiredService<LseqStrategy>());
         services.AddSingleton<ICrdtStrategy, VoteCounterStrategy>(sp => sp.GetRequiredService<VoteCounterStrategy>());
+        services.AddSingleton<ICrdtStrategy, StateMachineStrategy>(sp => sp.GetRequiredService<StateMachineStrategy>());
 
         return services;
     }

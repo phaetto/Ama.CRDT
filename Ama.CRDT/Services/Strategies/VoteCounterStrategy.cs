@@ -13,6 +13,7 @@ using System.Reflection;
 using System.Text.Json;
 
 [Commutative]
+[Associative]
 [Idempotent]
 [Mergeable]
 public sealed class VoteCounterStrategy(IOptions<CrdtOptions> options, ICrdtTimestampProvider timestampProvider) : ICrdtStrategy
