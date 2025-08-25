@@ -41,13 +41,13 @@ public sealed class CrdtMetadataManagerTests
         if (testInitialize)
         {
             Should.Throw<ArgumentNullException>(() => manager.Initialize<object>(null!));
-            Should.Throw<ArgumentNullException>(() => manager.Initialize<object>(null!, timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.Initialize<object>((object)null!, timestamp));
             Should.Throw<ArgumentNullException>(() => manager.Initialize(doc, null!));
-            Should.Throw<ArgumentNullException>(() => manager.InitializeLwwMetadata(null!, doc));
-            Should.Throw<ArgumentNullException>(() => manager.InitializeLwwMetadata<string>(metadata, null!));
-            Should.Throw<ArgumentNullException>(() => manager.InitializeLwwMetadata(null!, doc, timestamp));
-            Should.Throw<ArgumentNullException>(() => manager.InitializeLwwMetadata<string>(metadata, null!, timestamp));
-            Should.Throw<ArgumentNullException>(() => manager.InitializeLwwMetadata(metadata, doc, null!));
+            Should.Throw<ArgumentNullException>(() => manager.Initialize(null!, doc));
+            Should.Throw<ArgumentNullException>(() => manager.Initialize<string>(metadata, null!));
+            Should.Throw<ArgumentNullException>(() => manager.Initialize(null!, doc, timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.Initialize<string>(metadata, null!, timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.Initialize(metadata, doc, null!));
         }
         
         if (testReset)
