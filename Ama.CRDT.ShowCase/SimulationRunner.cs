@@ -7,7 +7,7 @@ using Ama.CRDT.ShowCase.Models;
 using Ama.CRDT.ShowCase.Services;
 
 /// <summary>
-/// Orchestrates a distributed map-reduce simulation using concurrent producers, mappers, and convergers
+/// Orchestrates a distributed multi-replica simulation using concurrent producers, write replicas, and passive replicas
 /// communicating via channels to demonstrate CRDT convergence without locks.
 /// </summary>
 public sealed class SimulationRunner(
@@ -17,51 +17,51 @@ public sealed class SimulationRunner(
     ICrdtMetadataManager metadataManager)
 {
     private const int TotalItems = 200;
-    private const int MapperCount = 5;
-    private const int ConvergerCount = 3;
+    private const int WriteReplicaCount = 5;
+    private const int PassiveReplicaCount = 3;
     private static readonly string[] Names = ["Alice", "Bob", "Charlie", "David", "Eve", "Frank", "Grace", "Heidi", "Ivan", "Judy"];
 
     public async Task RunAsync()
     {
-        Console.WriteLine($"Simulating {TotalItems} operations, broadcasting each from {MapperCount} mappers to {ConvergerCount} convergers.\n");
+        Console.WriteLine($"Simulating {TotalItems} operations, with each change from {WriteReplicaCount} write replicas broadcast to {PassiveReplicaCount} passive replicas.\n");
         
         var tasksChannel = Channel.CreateUnbounded<User>();
         
-        // Create a separate channel for each converger to enable broadcasting patches.
-        var convergerChannels = Enumerable.Range(0, ConvergerCount)
+        // Create a separate channel for each passive replica to enable broadcasting patches.
+        var replicaChannels = Enumerable.Range(0, PassiveReplicaCount)
             .Select(_ => Channel.CreateUnbounded<CrdtPatch>())
             .ToList();
-        var convergerWriters = convergerChannels.Select(c => c.Writer).ToList();
+        var replicaWriters = replicaChannels.Select(c => c.Writer).ToList();
 
         var producerTask = ProduceAsync(tasksChannel.Writer);
 
-        var mapperTasks = new List<Task>();
-        for (var i = 0; i < MapperCount; i++)
+        var writeReplicaTasks = new List<Task>();
+        for (var i = 0; i < WriteReplicaCount; i++)
         {
-            var replicaId = $"mapper-{i + 1}";
+            var replicaId = $"write-replica-{i + 1}";
             var patcher = patcherFactory.Create(replicaId);
-            // Each mapper will broadcast to all convergers.
-            mapperTasks.Add(MapAsync(tasksChannel.Reader, convergerWriters, patcher, replicaId));
+            // Each write replica will broadcast to all passive replicas.
+            writeReplicaTasks.Add(WriteReplicaAsync(tasksChannel.Reader, replicaWriters, patcher, replicaId));
         }
 
-        var convergerTasks = new List<Task>();
-        for (var i = 0; i < ConvergerCount; i++)
+        var passiveReplicaTasks = new List<Task>();
+        for (var i = 0; i < PassiveReplicaCount; i++)
         {
-            var replicaId = $"converger-{i + 1}";
-            // Each converger reads from its own dedicated channel.
-            convergerTasks.Add(ConvergeAsync(convergerChannels[i].Reader, replicaId));
+            var replicaId = $"passive-replica-{i + 1}";
+            // Each passive replica reads from its own dedicated channel.
+            passiveReplicaTasks.Add(PassiveReplicaAsync(replicaChannels[i].Reader, replicaId));
         }
 
         await producerTask;
-        await Task.WhenAll(mapperTasks);
+        await Task.WhenAll(writeReplicaTasks);
         
-        // All mappers are done, so we can complete all converger channels.
-        foreach (var writer in convergerWriters)
+        // All write replicas are done, so we can complete all passive replica channels.
+        foreach (var writer in replicaWriters)
         {
             writer.Complete();
         }
         
-        await Task.WhenAll(convergerTasks);
+        await Task.WhenAll(passiveReplicaTasks);
 
         await VerifyConvergence();
     }
@@ -75,58 +75,78 @@ public sealed class SimulationRunner(
             await writer.WriteAsync(user);
         }
         writer.Complete();
-        Console.WriteLine("-> Producer: Finished. All items sent to mappers.");
+        Console.WriteLine("-> Producer: Finished. All items sent to write replicas.");
     }
 
-    private async Task MapAsync(ChannelReader<User> reader, IReadOnlyList<ChannelWriter<CrdtPatch>> writers, ICrdtPatcher patcher, string replicaId)
+    private async Task WriteReplicaAsync(ChannelReader<User> reader, IReadOnlyList<ChannelWriter<CrdtPatch>> writers, ICrdtPatcher patcher, string replicaId)
     {
-        Console.WriteLine($"  -> Mapper '{replicaId}': Started.");
+        Console.WriteLine($"  -> Write Replica '{replicaId}': Started.");
         var count = 0;
         await foreach (var user in reader.ReadAllAsync())
         {
             await Task.Delay(Random.Shared.Next(1, 10));
-             
-                var from = new UserStats(); 
-                var fromDoc = new CrdtDocument<UserStats>(from);
-
-                var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                var to = new UserStats
-                {
-                    ProcessedItemsCount = 1, // This will become an "increment by 1" operation
-                    UniqueUserNames = [user.Name],    // This becomes an "add user name" operation
-                    LastProcessedUserName = user.Name,
-                    LastProcessedTimestamp = now
-                };
-
-                var toMeta = metadataManager.Initialize(to);
-                var toDoc = new CrdtDocument<UserStats>(to, toMeta);
-                var patch = patcher.GeneratePatch(fromDoc, toDoc);
-
-            //var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            //var patch = patchBuilder.New()
-            //    .Increment<UserStats>(x => x.ProcessedItemsCount)
-            //    .Upsert<UserStats, string>(x => x.UniqueUserNames[0], user.Name)
-            //    .Upsert<UserStats, string>(x => x.LastProcessedUserName, user.Name)
-            //    .Upsert<UserStats, long>(x => x.LastProcessedTimestamp, now)
-            //    .Build();
-
-
-            // Broadcast the patch to all converger channels in parallel.
-            var writeTasks = new List<Task>(writers.Count);
-            foreach (var writer in writers)
+    
+            // Each write replica operates on its own, consistent view of the data.
+            // It reads its own state, computes a change, generates a patch, and then updates its own state.
+            var (from, metadata) = await database.GetStateAsync<UserStats>(replicaId);
+            var fromDoc = new CrdtDocument<UserStats>(from, metadata);
+    
+            // The 'to' state must be a modification of the 'from' state for the diffing logic to work correctly.
+            // 1. Create a deep copy of the 'from' state to represent the new state.
+            var to = new UserStats
             {
-                writeTasks.Add(writer.WriteAsync(patch).AsTask());
+                ProcessedItemsCount = from.ProcessedItemsCount,
+                UniqueUserNames = new List<string>(from.UniqueUserNames),
+                LastProcessedUserName = from.LastProcessedUserName,
+                LastProcessedTimestamp = from.LastProcessedTimestamp
+            };
+    
+            // 2. Apply the intended changes to the 'to' state.
+            to.ProcessedItemsCount++;
+    
+            if (!to.UniqueUserNames.Contains(user.Name))
+            {
+                to.UniqueUserNames.Add(user.Name);
             }
-            await Task.WhenAll(writeTasks);
-
+    
+            to.LastProcessedUserName = user.Name;
+            to.LastProcessedTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    
+            var toMeta = metadataManager.Initialize(to);
+            var toDoc = new CrdtDocument<UserStats>(to, toMeta);
+    
+            // 3. Generate a patch based on the difference between the 'from' and 'to' states.
+            var patch = patcher.GeneratePatch(fromDoc, toDoc);
+    
+            // 4. Update the write replica's own local state with the changes it just made.
+            var newDocument = applicator.ApplyPatch(from, patch, metadata);
+    
+            if (patch.Operations.Any())
+            {
+                metadataManager.AdvanceVersionVector(metadata, patch.Operations.First());
+            }
+    
+            await database.SaveStateAsync(replicaId, newDocument, metadata);
+    
+            // 5. Broadcast the patch to all passive replicas.
+            if (patch.Operations.Any())
+            {
+                var writeTasks = new List<Task>(writers.Count);
+                foreach (var writer in writers)
+                {
+                    writeTasks.Add(writer.WriteAsync(patch).AsTask());
+                }
+                await Task.WhenAll(writeTasks);
+            }
+    
             ++count;
         }
-        Console.WriteLine($"  -> Mapper '{replicaId}': Finished. Items: {count}");
+        Console.WriteLine($"  -> Write Replica '{replicaId}': Finished. Items: {count}");
     }
 
-    private async Task ConvergeAsync(ChannelReader<CrdtPatch> reader, string replicaId)
+    private async Task PassiveReplicaAsync(ChannelReader<CrdtPatch> reader, string replicaId)
     {
-        Console.WriteLine($"    -> Converger '{replicaId}': Started. Applying patches...");
+        Console.WriteLine($"    -> Passive Replica '{replicaId}': Started. Applying patches...");
         var count = 0;
         await foreach (var patch in reader.ReadAllAsync())
         {
@@ -137,13 +157,16 @@ public sealed class SimulationRunner(
             
             var newDocument = applicator.ApplyPatch(document, patch, metadata);
 
-            metadataManager.AdvanceVersionVector(metadata, patch.Operations.First());
+            if(patch.Operations.Any())
+            {
+                metadataManager.AdvanceVersionVector(metadata, patch.Operations.First());
+            }
 
             await database.SaveStateAsync(replicaId, newDocument, metadata);
 
             ++count;
         }
-        Console.WriteLine($"    -> Converger '{replicaId}': Finished. Count: {count}");
+        Console.WriteLine($"    -> Passive Replica '{replicaId}': Finished. Count: {count}");
     }
 
     private async Task VerifyConvergence()
@@ -151,18 +174,18 @@ public sealed class SimulationRunner(
         Console.WriteLine("\n🏁 --- Verification --- 🏁");
         var finalStates = new Dictionary<string, UserStats>();
 
-        // Fetch the final state for each converger replica
-        for (var i = 0; i < ConvergerCount; i++)
+        // Fetch the final state for each passive replica
+        for (var i = 0; i < PassiveReplicaCount; i++)
         {
-            var replicaId = $"converger-{i + 1}";
-            var (state, _) = await database.GetStateAsync<UserStats>(replicaId);
+            var replicaId = $"passive-replica-{i + 1}";
+            var (state, meta) = await database.GetStateAsync<UserStats>(replicaId);
             finalStates.Add(replicaId, state);
         }
         
-        // There's nothing to compare if there are fewer than 2 convergers.
+        // There's nothing to compare if there are fewer than 2 replicas.
         if (finalStates.Count < 2)
         {
-            Console.WriteLine("Verification skipped: At least two convergers are needed to compare states.");
+            Console.WriteLine("Verification skipped: At least two passive replicas are needed to compare states.");
         }
         else
         {
@@ -183,13 +206,13 @@ public sealed class SimulationRunner(
             if (overallConvergence)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"\n✅ SUCCESS: All {ConvergerCount} convergers reached the same state.");
+                Console.WriteLine($"\n✅ SUCCESS: All {PassiveReplicaCount} passive replicas reached the same state.");
                 Console.ResetColor();
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("\n❌ FAILURE: Convergers have different final states. See details above.");
+                Console.WriteLine("\n❌ FAILURE: Passive replicas have different final states. See details above.");
                 Console.ResetColor();
             }
         }
@@ -232,31 +255,25 @@ public sealed class SimulationRunner(
             ReportDivergence(replicaId, nameof(UserStats.LastProcessedTimestamp), reference.LastProcessedTimestamp, current.LastProcessedTimestamp);
         }
         
-        if (reference.UniqueUserNames.Count != current.UniqueUserNames.Count)
+        var referenceNames = new HashSet<string>(reference.UniqueUserNames);
+        var currentNames = new HashSet<string>(current.UniqueUserNames);
+
+        if (!referenceNames.SetEquals(currentNames))
         {
             converged = false;
             ReportDivergence(replicaId, "UniqueUserNames.Count", reference.UniqueUserNames.Count, current.UniqueUserNames.Count);
+            
+            var missing = referenceNames.Except(currentNames).ToList();
+            var extra = currentNames.Except(referenceNames).ToList();
+            if(missing.Any()) Console.WriteLine($"  - User names missing from '{replicaId}': {string.Join(", ", missing)}");
+            if(extra.Any()) Console.WriteLine($"  - User names found only in '{replicaId}': {string.Join(", ", extra)}");
         }
         else if (!reference.UniqueUserNames.SequenceEqual(current.UniqueUserNames))
         {
+            // For LSEQ or other ordered lists, the final order must be identical.
             converged = false;
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"❌ DIVERGENCE in '{replicaId}': Property '{nameof(UserStats.UniqueUserNames)}' lists have different content or order.");
-            
-            var referenceSet = new HashSet<string>(reference.UniqueUserNames);
-            var currentSet = new HashSet<string>(current.UniqueUserNames);
-            
-            if (referenceSet.SetEquals(currentSet))
-            {
-                Console.WriteLine("  - Note: The sets of user names are identical; the divergence is in the ordering.");
-            }
-            else
-            {
-                var missing = referenceSet.Except(currentSet).ToList();
-                var extra = currentSet.Except(referenceSet).ToList();
-                if(missing.Any()) Console.WriteLine($"  - User names missing from '{replicaId}': {string.Join(", ", missing)}");
-                if(extra.Any()) Console.WriteLine($"  - User names found only in '{replicaId}': {string.Join(", ", extra)}");
-            }
+            Console.WriteLine($"❌ DIVERGENCE in '{replicaId}': Property '{nameof(UserStats.UniqueUserNames)}' lists have the same elements but different order.");
             Console.ResetColor();
         }
         

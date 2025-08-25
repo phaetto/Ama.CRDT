@@ -20,6 +20,7 @@ using System.Text.Json;
 [Commutative]
 [Associative]
 [Idempotent]
+[Mergeable]
 public sealed class TwoPhaseSetStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,
