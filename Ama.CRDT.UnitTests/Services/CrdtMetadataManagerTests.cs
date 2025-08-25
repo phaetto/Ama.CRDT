@@ -83,6 +83,8 @@ public sealed class CrdtMetadataManagerTests
         metadata.Lww["$.a"] = new EpochTimestamp(100);
         metadata.PositionalTrackers["$.b"] = [];
         metadata.AverageRegisters["$.c"] = new Dictionary<string, AverageRegisterValue>();
+        metadata.PriorityQueues["$.d"] = (new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, ICrdtTimestamp>());
+
 
         var doc = new object();
         timestampProviderMock.Setup(p => p.Now()).Returns(new EpochTimestamp(200));
@@ -94,6 +96,7 @@ public sealed class CrdtMetadataManagerTests
         metadata.Lww.ShouldBeEmpty();
         metadata.PositionalTrackers.ShouldBeEmpty();
         metadata.AverageRegisters.ShouldBeEmpty();
+        metadata.PriorityQueues.ShouldBeEmpty();
     }
     
     [Fact]

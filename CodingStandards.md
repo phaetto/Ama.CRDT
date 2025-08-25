@@ -30,6 +30,8 @@ Plugins for semantic kernel should always code to `$/<Project root>/Plugins` fol
 Global constants files should always code to `$/<Project root>/Constants.cs` file.
 Command files should always got to `$/<Project root>/Services/Commands` folder.
 
+Never change $/Ama.CRDT/PublicAPI.Unshipped.txt and $/Ama.CRDT/PublicAPI.Shipped.txt as they need to be used manually.
+
 # Versioning and Publishing
 The project uses semantic versioning in the format `Major.Minor.Patch`.
 

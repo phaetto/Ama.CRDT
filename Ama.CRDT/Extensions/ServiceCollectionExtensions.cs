@@ -82,6 +82,9 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<TwoPhaseSetStrategy>();
         services.TryAddSingleton<LwwSetStrategy>();
         services.TryAddSingleton<OrSetStrategy>();
+        services.TryAddSingleton<PriorityQueueStrategy>();
+        services.TryAddSingleton<FixedSizeArrayStrategy>();
+        services.TryAddSingleton<LseqStrategy>();
 
         services.AddSingleton<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
         services.AddSingleton<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
@@ -96,6 +99,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICrdtStrategy, TwoPhaseSetStrategy>(sp => sp.GetRequiredService<TwoPhaseSetStrategy>());
         services.AddSingleton<ICrdtStrategy, LwwSetStrategy>(sp => sp.GetRequiredService<LwwSetStrategy>());
         services.AddSingleton<ICrdtStrategy, OrSetStrategy>(sp => sp.GetRequiredService<OrSetStrategy>());
+        services.AddSingleton<ICrdtStrategy, PriorityQueueStrategy>(sp => sp.GetRequiredService<PriorityQueueStrategy>());
+        services.AddSingleton<ICrdtStrategy, FixedSizeArrayStrategy>(sp => sp.GetRequiredService<FixedSizeArrayStrategy>());
+        services.AddSingleton<ICrdtStrategy, LseqStrategy>(sp => sp.GetRequiredService<LseqStrategy>());
 
         return services;
     }
