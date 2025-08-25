@@ -91,7 +91,7 @@ public sealed class SortedSetStrategy : ICrdtStrategy
         operations.AddRange(addOps);
     }
     
-    public void ApplyOperation(object root, CrdtOperation operation)
+    public void ApplyOperation(object root, CrdtMetadata metadata, CrdtOperation operation)
     {
         ArgumentNullException.ThrowIfNull(root);
         

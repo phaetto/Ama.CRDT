@@ -100,13 +100,8 @@ public sealed class SimulationRunner(
                 LastProcessedTimestamp = now
             };
 
-            // The 'to' document must contain metadata for its LWW properties
-            // to allow the patcher to generate correct operations.
-            var toMeta = new CrdtMetadata();
-            metadataManager.InitializeLwwMetadata(toMeta, to);
-            
+            var toMeta = metadataManager.Initialize(to);
             var toDoc = new CrdtDocument<UserStats>(to, toMeta);
-
             var patch = patcher.GeneratePatch(fromDoc, toDoc);
             
             // Broadcast the patch to all converger channels in parallel.

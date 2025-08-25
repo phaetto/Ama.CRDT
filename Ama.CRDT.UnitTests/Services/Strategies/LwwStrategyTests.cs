@@ -64,7 +64,7 @@ public sealed class LwwStrategyTests
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, new EpochTimestamp(200L));
 
         // Act
-        strategy.ApplyOperation(model, operation);
+        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
 
         // Assert
         model.Value.ShouldBe(20);
@@ -81,7 +81,7 @@ public sealed class LwwStrategyTests
         var nullableModel = new NullableTestModel { Value = 10 };
         
         // Act
-        strategy.ApplyOperation(nullableModel, operation);
+        strategy.ApplyOperation(nullableModel, new CrdtMetadata(), operation);
 
         // Assert
         nullableModel.Value.ShouldBeNull();

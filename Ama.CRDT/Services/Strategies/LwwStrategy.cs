@@ -62,7 +62,7 @@ public sealed class LwwStrategy : ICrdtStrategy
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(object root, CrdtOperation operation)
+    public void ApplyOperation(object root, CrdtMetadata metadata, CrdtOperation operation)
     {
         ArgumentNullException.ThrowIfNull(root);
 

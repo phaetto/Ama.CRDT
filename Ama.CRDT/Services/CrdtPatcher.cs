@@ -44,11 +44,6 @@ public sealed class CrdtPatcher(ICrdtStrategyManager strategyManager) : ICrdtPat
             var fromValue = fromObj is not null ? property.GetValue(fromObj) : null;
             var toValue = toObj is not null ? property.GetValue(toObj) : null;
 
-            if (Equals(fromValue, toValue))
-            {
-                continue;
-            }
-
             var strategy = strategyManager.GetStrategy(property);
             
             strategy.GeneratePatch(this, operations, currentPath, property, fromValue, toValue, fromMeta, toMeta);

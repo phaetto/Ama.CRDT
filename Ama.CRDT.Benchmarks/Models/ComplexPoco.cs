@@ -9,7 +9,7 @@ public sealed class ComplexPoco
     public Details Details { get; set; } = new();
     public List<Tag> Tags { get; set; } = [];
 
-    [CounterStrategy]
+    [CrdtCounterStrategy]
     public long ViewCount { get; set; }
 }
 

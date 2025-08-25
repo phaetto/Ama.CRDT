@@ -23,12 +23,18 @@ public sealed class CrdtStrategyManager : ICrdtStrategyManager
     {
         ArgumentNullException.ThrowIfNull(strategies);
 
-        this.strategies = strategies.ToDictionary(s => s.GetType());
+        // Group by type and take the first to avoid duplicate keys if multiple
+        // instances of the same strategy type are passed (e.g., in test setups).
+        this.strategies = strategies
+            .GroupBy(s => s.GetType())
+            .ToDictionary(g => g.Key, g => g.First());
         
         defaultStrategy = this.strategies.Values.OfType<LwwStrategy>().FirstOrDefault()
             ?? throw new InvalidOperationException($"The default '{nameof(LwwStrategy)}' is not registered in the DI container.");
         
-        defaultArrayStrategy = this.strategies.Values.OfType<SortedSetStrategy>().FirstOrDefault() ?? defaultStrategy;
+        defaultArrayStrategy = this.strategies.Values.OfType<ArrayLcsStrategy>().FirstOrDefault() 
+            ?? this.strategies.Values.OfType<SortedSetStrategy>().FirstOrDefault() 
+            ?? defaultStrategy;
     }
 
     /// <inheritdoc/>

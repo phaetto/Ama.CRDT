@@ -17,7 +17,7 @@ public sealed class CrdtApplicatorTests
     {
         public string? Name { get; set; }
 
-        [CounterStrategy]
+        [CrdtCounterStrategy]
         public int Likes { get; set; }
     }
 
@@ -30,7 +30,7 @@ public sealed class CrdtApplicatorTests
         var lwwStrategy = new LwwStrategy(options);
         var counterStrategy = new CounterStrategy(timestampProvider, options);
         var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
-        var arrayLcsStrategy = new SortedSetStrategy(comparerProvider, timestampProvider, options);
+        var arrayLcsStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, options);
         var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayLcsStrategy };
         var strategyManager = new CrdtStrategyManager(strategies);
         applicator = new CrdtApplicator(strategyManager);

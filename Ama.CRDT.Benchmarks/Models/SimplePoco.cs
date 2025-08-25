@@ -7,6 +7,6 @@ public sealed class SimplePoco
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     
-    [CounterStrategy]
+    [CrdtCounterStrategy]
     public int Score { get; set; }
 }

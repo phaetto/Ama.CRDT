@@ -8,4 +8,4 @@ using System;
 /// This is the default strategy if no other attribute is specified.
 /// </summary>
 [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
-public sealed class LwwStrategyAttribute() : CrdtStrategyAttribute(typeof(LwwStrategy));
+public sealed class CrdtLwwStrategyAttribute() : CrdtStrategyAttribute(typeof(LwwStrategy));

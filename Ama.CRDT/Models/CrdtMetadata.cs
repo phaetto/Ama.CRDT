@@ -24,4 +24,10 @@ public sealed class CrdtMetadata
     /// once the version vector advances.
     /// </summary>
     public ISet<CrdtOperation> SeenExceptions { get; } = new HashSet<CrdtOperation>();
+    
+    /// <summary>
+    /// Stores the ordered list of positional identifiers for properties managed by the PositionalArrayStrategy.
+    /// The key is the JSON Path to the array property.
+    /// </summary>
+    public IDictionary<string, List<PositionalIdentifier>> PositionalTrackers { get; } = new Dictionary<string, List<PositionalIdentifier>>();
 }

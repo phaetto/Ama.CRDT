@@ -55,7 +55,7 @@ public sealed class CounterStrategy : ICrdtStrategy
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(object root, CrdtOperation operation)
+    public void ApplyOperation(object root, CrdtMetadata metadata, CrdtOperation operation)
     {
         ArgumentNullException.ThrowIfNull(root);
 

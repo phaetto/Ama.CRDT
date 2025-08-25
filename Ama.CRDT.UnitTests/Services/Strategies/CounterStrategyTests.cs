@@ -61,7 +61,7 @@ public sealed class CounterStrategyTests
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Increment, (decimal)increment, new EpochTimestamp(2L));
 
         // Act
-        strategy.ApplyOperation(model, operation);
+        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
 
         // Assert
         model.Score.ShouldBe(expected);
@@ -76,7 +76,7 @@ public sealed class CounterStrategyTests
 
         // Act & Assert: This should not throw because the property doesn't exist.
         // The helper will return nulls and the strategy will exit gracefully.
-        Should.NotThrow(() => strategy.ApplyOperation(model, operation));
+        Should.NotThrow(() => strategy.ApplyOperation(model, new CrdtMetadata(), operation));
     }
     
     private sealed class TestModelWithNoScore { public string? Name { get; set; } }
@@ -89,6 +89,6 @@ public sealed class CounterStrategyTests
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Upsert, 5m, new EpochTimestamp(1L));
 
         // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(model, operation));
+        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(model, new CrdtMetadata(), operation));
     }
 }

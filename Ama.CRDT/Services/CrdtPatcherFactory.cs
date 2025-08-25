@@ -21,12 +21,7 @@ internal sealed class CrdtPatcherFactory(IServiceProvider serviceProvider) : ICr
 
         var timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
         var comparerProvider = serviceProvider.GetRequiredService<IElementComparerProvider>();
-
-        var lwwStrategy = new LwwStrategy(options);
-        var counterStrategy = new CounterStrategy(timestampProvider, options);
-        var arrayLcsStrategy = new SortedSetStrategy(comparerProvider, timestampProvider, options);
-
-        var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayLcsStrategy };
+        var strategies = serviceProvider.GetServices<ICrdtStrategy>();
 
         var strategyManager = new CrdtStrategyManager(strategies);
 
