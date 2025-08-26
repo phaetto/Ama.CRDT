@@ -73,14 +73,15 @@ public sealed class LwwSetStrategyTests
 
         var target = new TestModel { Tags = { "A" } };
         var targetMeta = metadataManager.Initialize(target);
+        var targetDocument = new CrdtDocument<TestModel>(target, targetMeta);
         
         // Act
-        applicator.ApplyPatch(target, patch, targetMeta);
+        applicator.ApplyPatch(targetDocument, patch);
         var stateAfterFirst = new List<string>(target.Tags);
         
         // Clear seen exceptions to test strategy's own idempotency based on timestamps
         targetMeta.SeenExceptions.Clear();
-        applicator.ApplyPatch(target, patch, targetMeta);
+        applicator.ApplyPatch(targetDocument, patch);
         
         // Assert
         target.Tags.ShouldBe(stateAfterFirst);
@@ -103,14 +104,16 @@ public sealed class LwwSetStrategyTests
         // Scenario 1: Add (t=1), then Remove (t=2) -> Should be removed
         var model1 = new TestModel();
         var meta1 = metadataManager.Clone(metaAncestor);
-        applicator.ApplyPatch(model1, patchAdd, meta1);
-        applicator.ApplyPatch(model1, patchRemove, meta1);
+        var doc1 = new CrdtDocument<TestModel>(model1, meta1);
+        applicator.ApplyPatch(doc1, patchAdd);
+        applicator.ApplyPatch(doc1, patchRemove);
         
         // Scenario 2: Remove (t=2), then Add (t=1) -> Should be removed
         var model2 = new TestModel();
         var meta2 = metadataManager.Clone(metaAncestor);
-        applicator.ApplyPatch(model2, patchRemove, meta2);
-        applicator.ApplyPatch(model2, patchAdd, meta2);
+        var doc2 = new CrdtDocument<TestModel>(model2, meta2);
+        applicator.ApplyPatch(doc2, patchRemove);
+        applicator.ApplyPatch(doc2, patchAdd);
 
         // Assert
         model1.Tags.ShouldBeEmpty();
@@ -131,14 +134,16 @@ public sealed class LwwSetStrategyTests
         // Scenario 1: Remove (t=1), then Add (t=2) -> Should be present
         var model1 = new TestModel { Tags = { "A" } };
         var meta1 = metadataManager.Initialize(model1);
-        applicator.ApplyPatch(model1, patchRemove, meta1);
-        applicator.ApplyPatch(model1, patchAdd, meta1);
+        var doc1 = new CrdtDocument<TestModel>(model1, meta1);
+        applicator.ApplyPatch(doc1, patchRemove);
+        applicator.ApplyPatch(doc1, patchAdd);
         
         // Scenario 2: Add (t=2), then Remove (t=1) -> Should be present
         var model2 = new TestModel { Tags = { "A" } };
         var meta2 = metadataManager.Initialize(model2);
-        applicator.ApplyPatch(model2, patchAdd, meta2);
-        applicator.ApplyPatch(model2, patchRemove, meta2);
+        var doc2 = new CrdtDocument<TestModel>(model2, meta2);
+        applicator.ApplyPatch(doc2, patchAdd);
+        applicator.ApplyPatch(doc2, patchRemove);
 
         // Assert
         model1.Tags.ShouldBe(new[] { "A" });
@@ -177,9 +182,10 @@ public sealed class LwwSetStrategyTests
         {
             var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
             var meta = metadataManager.Clone(metaAncestor);
+            var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in permutation)
             {
-                applicator.ApplyPatch(model, patch, meta);
+                applicator.ApplyPatch(document, patch);
             }
             finalStates.Add(model.Tags);
         }

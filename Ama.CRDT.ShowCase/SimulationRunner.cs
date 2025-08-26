@@ -119,7 +119,7 @@ public sealed class SimulationRunner(
             var patch = patcher.GeneratePatch(fromDoc, toDoc);
     
             // 4. Update the write replica's own local state with the changes it just made.
-            var newDocument = applicator.ApplyPatch(from, patch, metadata);
+            var newDocument = applicator.ApplyPatch(new CrdtDocument<UserStats>(from, metadata), patch);
     
             if (patch.Operations.Any())
             {
@@ -155,7 +155,7 @@ public sealed class SimulationRunner(
 
             var (document, metadata) = await database.GetStateAsync<UserStats>(replicaId);
             
-            var newDocument = applicator.ApplyPatch(document, patch, metadata);
+            var newDocument = applicator.ApplyPatch(new CrdtDocument<UserStats>(document, metadata), patch);
 
             if(patch.Operations.Any())
             {

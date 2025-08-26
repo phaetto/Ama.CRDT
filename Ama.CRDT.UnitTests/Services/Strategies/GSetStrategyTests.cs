@@ -90,14 +90,15 @@ public sealed class GSetStrategyTests
 
         var target = new TestModel { Tags = { "A" } };
         var targetMeta = metadataManager.Initialize(target);
+        var targetDocument = new CrdtDocument<TestModel>(target, targetMeta);
         
         // Act
-        applicator.ApplyPatch(target, patch, targetMeta);
+        applicator.ApplyPatch(targetDocument, patch);
         var stateAfterFirst = new List<string>(target.Tags);
         
         // Clear SeenExceptions to prove the strategy logic itself is idempotent
         targetMeta.SeenExceptions.Clear();
-        applicator.ApplyPatch(target, patch, targetMeta);
+        applicator.ApplyPatch(targetDocument, patch);
         
         // Assert
         target.Tags.ShouldBe(stateAfterFirst);
@@ -110,11 +111,12 @@ public sealed class GSetStrategyTests
         // Arrange
         var doc = new TestModel { Tags = { "A", "B" } };
         var meta = metadataManager.Initialize(doc);
+        var document = new CrdtDocument<TestModel>(doc, meta);
         var removeOp = new CrdtOperation(System.Guid.NewGuid(), "A", "$.tags", OperationType.Remove, "A", new EpochTimestamp(1));
         var patch = new CrdtPatch(new List<CrdtOperation> { removeOp });
 
         // Act
-        applicator.ApplyPatch(doc, patch, meta);
+        applicator.ApplyPatch(document, patch);
 
         // Assert
         doc.Tags.ShouldBe(new[] { "A", "B" });
@@ -138,14 +140,16 @@ public sealed class GSetStrategyTests
         // Scenario 1: A then B
         var model1 = new TestModel { Tags = new List<string>(ancestor.Tags) };
         var meta1 = metadataManager.Initialize(model1);
-        applicator.ApplyPatch(model1, patchA, meta1);
-        applicator.ApplyPatch(model1, patchB, meta1);
+        var doc1 = new CrdtDocument<TestModel>(model1, meta1);
+        applicator.ApplyPatch(doc1, patchA);
+        applicator.ApplyPatch(doc1, patchB);
 
         // Scenario 2: B then A
         var model2 = new TestModel { Tags = new List<string>(ancestor.Tags) };
         var meta2 = metadataManager.Initialize(model2);
-        applicator.ApplyPatch(model2, patchB, meta2);
-        applicator.ApplyPatch(model2, patchA, meta2);
+        var doc2 = new CrdtDocument<TestModel>(model2, meta2);
+        applicator.ApplyPatch(doc2, patchB);
+        applicator.ApplyPatch(doc2, patchA);
 
         // Assert
         var expected = new[] { "A", "B", "C" };
@@ -183,9 +187,10 @@ public sealed class GSetStrategyTests
         {
             var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
             var meta = metadataManager.Initialize(model);
+            var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in permutation)
             {
-                applicator.ApplyPatch(model, patch, meta);
+                applicator.ApplyPatch(document, patch);
             }
             finalStates.Add(model.Tags);
         }

@@ -78,14 +78,15 @@ public sealed class OrSetStrategyTests
 
         var target = new TestModel { Tags = { "A" } };
         var targetMeta = metadataManager.Initialize(target);
+        var targetDocument = new CrdtDocument<TestModel>(target, targetMeta);
         
         // Act
-        applicator.ApplyPatch(target, patch, targetMeta);
+        applicator.ApplyPatch(targetDocument, patch);
         var stateAfterFirst = new List<string>(target.Tags);
         
         // Clear seen exceptions to test the strategy's own idempotency based on tags
         targetMeta.SeenExceptions.Clear();
-        applicator.ApplyPatch(target, patch, targetMeta);
+        applicator.ApplyPatch(targetDocument, patch);
         
         // Assert
         target.Tags.ShouldBe(stateAfterFirst);
@@ -112,14 +113,16 @@ public sealed class OrSetStrategyTests
         // Scenario 1: Remove then Add
         var model1 = new TestModel { Tags = { "A" } };
         var meta1 = metadataManager.Initialize(model1);
-        applicator.ApplyPatch(model1, patchRemove, meta1);
-        applicator.ApplyPatch(model1, patchAdd, meta1);
+        var doc1 = new CrdtDocument<TestModel>(model1, meta1);
+        applicator.ApplyPatch(doc1, patchRemove);
+        applicator.ApplyPatch(doc1, patchAdd);
         
         // Scenario 2: Add then Remove
         var model2 = new TestModel { Tags = { "A" } };
         var meta2 = metadataManager.Initialize(model2);
-        applicator.ApplyPatch(model2, patchAdd, meta2);
-        applicator.ApplyPatch(model2, patchRemove, meta2);
+        var doc2 = new CrdtDocument<TestModel>(model2, meta2);
+        applicator.ApplyPatch(doc2, patchAdd);
+        applicator.ApplyPatch(doc2, patchRemove);
 
         // Assert
         // The new instance of "A" added by B has a new tag not present in the remove op from A, so it survives.
@@ -160,9 +163,10 @@ public sealed class OrSetStrategyTests
         {
             var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
             var meta = metadataManager.Initialize(model);
+            var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in permutation)
             {
-                applicator.ApplyPatch(model, patch, meta);
+                applicator.ApplyPatch(document, patch);
             }
             finalStates.Add(model.Tags);
         }
@@ -187,12 +191,13 @@ public sealed class OrSetStrategyTests
         // Arrange
         var model = new TestModel { Tags = { "A" } };
         var meta = metadataManager.Initialize(model);
+        var document = new CrdtDocument<TestModel>(model, meta);
 
         // Remove "A"
         var patchRemove = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(model, meta), 
+            document, 
             new CrdtDocument<TestModel>(new TestModel(), meta));
-        applicator.ApplyPatch(model, patchRemove, meta);
+        applicator.ApplyPatch(document, patchRemove);
         model.Tags.ShouldBeEmpty();
         
         // Add "A" again
@@ -201,7 +206,7 @@ public sealed class OrSetStrategyTests
             new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, meta));
         
         // Act
-        applicator.ApplyPatch(model, patchAdd, meta);
+        applicator.ApplyPatch(document, patchAdd);
 
         // Assert
         model.Tags.ShouldBe(new[] { "A" });

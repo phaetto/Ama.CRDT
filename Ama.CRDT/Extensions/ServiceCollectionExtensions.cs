@@ -18,12 +18,14 @@ namespace Ama.CRDT.Extensions;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Adds the core CRDT services to the specified <see cref="IServiceCollection"/>. This includes the default strategies,
-    /// patcher, applicator, and supporting services required for the library to function.
+    /// Adds the core CRDT services to the specified <see cref="IServiceCollection"/>. This includes all default CRDT strategies
+    /// (e.g., LWW, Counter, ArrayLcs), the <see cref="ICrdtPatcherFactory"/> for creating replica-specific patchers,
+    /// the <see cref="ICrdtApplicator"/> for applying patches, and other essential supporting services.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection"/> to add services to.</param>
-    /// <param name="configureOptions">An <see cref="Action{CrdtOptions}"/> to configure the provided <see cref="CrdtOptions"/>, typically used to set the default replica ID.</param>
+    /// <param name="configureOptions">An action to configure the <see cref="CrdtOptions"/>. This is primarily used to set a default <c>ReplicaId</c> for services that might be resolved without a factory, although using the <see cref="ICrdtPatcherFactory"/> is the recommended approach in multi-replica environments.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="configureOptions"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -31,14 +33,16 @@ public static class ServiceCollectionExtensions
     /// 
     /// builder.Services.AddCrdt(options =>
     /// {
-    ///     // This replica ID is used for the default ICrdtService.
-    ///     options.ReplicaId = "server-default";
+    ///     // This replica ID is used for the default singleton ICrdtPatcher.
+    ///     options.ReplicaId = "server-node-1";
     /// });
     ///
     /// var app = builder.Build();
     ///
-    /// // You can now resolve ICrdtService, ICrdtPatcherFactory, etc.
-    /// var crdtService = app.Services.GetRequiredService<ICrdtService>();
+    /// // The recommended way to get a patcher is through the factory,
+    /// // especially in a multi-user or multi-node environment.
+    /// var patcherFactory = app.Services.GetRequiredService<ICrdtPatcherFactory>();
+    /// var userPatcher = patcherFactory.Create("user-session-abc");
     /// ]]>
     /// </code>
     /// </example>
@@ -104,11 +108,41 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers a custom POCO comparer for the Array LCS strategy.
+    /// Registers a custom comparer for identifying elements within collections managed by strategies like <see cref="ArrayLcsStrategy"/>.
+    /// This is necessary when reference or default equality is insufficient for determining if two objects represent the same entity (e.g., comparing by a unique ID property).
     /// </summary>
     /// <typeparam name="TComparer">The type of the comparer to register. Must implement <see cref="IElementComparer"/>.</typeparam>
     /// <param name="services">The <see cref="IServiceCollection"/> to add the service to.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// // Define a custom comparer for a User object that compares by ID.
+    /// public class UserComparer : IElementComparer
+    /// {
+    ///     public bool CanCompare(Type type) => type == typeof(User);
+    /// 
+    ///     public new bool Equals(object x, object y)
+    ///     {
+    ///         if (x is User userX && y is User userY)
+    ///         {
+    ///             return userX.Id == userY.Id;
+    ///         }
+    ///         return object.Equals(x, y);
+    ///     }
+    /// 
+    ///     public int GetHashCode(object obj)
+    ///     {
+    ///         return (obj is User user) ? user.Id.GetHashCode() : obj.GetHashCode();
+    ///     }
+    /// }
+    /// 
+    /// // In your DI setup:
+    /// builder.Services.AddCrdt(options => { ... });
+    /// builder.Services.AddCrdtComparer<UserComparer>();
+    /// ]]>
+    /// </code>
+    /// </example>
     public static IServiceCollection AddCrdtComparer<TComparer>(this IServiceCollection services)
         where TComparer : class, IElementComparer
     {
@@ -117,11 +151,33 @@ public static class ServiceCollectionExtensions
     }
     
     /// <summary>
-    /// Registers a custom timestamp provider. This will replace the default <see cref="EpochTimestampProvider"/>.
+    /// Registers a custom timestamp provider, replacing the default <see cref="EpochTimestampProvider"/>.
+    /// This allows for the integration of different clock types, such as logical or hybrid clocks, which can provide stronger causality guarantees in distributed systems than wall-clock time.
     /// </summary>
     /// <typeparam name="TProvider">The type of the timestamp provider to register. Must implement <see cref="ICrdtTimestampProvider"/>.</typeparam>
     /// <param name="services">The <see cref="IServiceCollection"/> to add the service to.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// // A simple logical clock timestamp provider.
+    /// public sealed class LogicalClockProvider : ICrdtTimestampProvider
+    /// {
+    ///     private long counter = 0;
+    /// 
+    ///     public ICrdtTimestamp Now()
+    ///     {
+    ///         long timestamp = Interlocked.Increment(ref counter);
+    ///         return new EpochTimestamp(timestamp); // Using EpochTimestamp to wrap the logical value.
+    ///     }
+    /// }
+    /// 
+    /// // In your DI setup:
+    /// builder.Services.AddCrdt(options => { ... });
+    /// builder.Services.AddCrdtTimestampProvider<LogicalClockProvider>();
+    /// ]]>
+    /// </code>
+    /// </example>
     public static IServiceCollection AddCrdtTimestampProvider<TProvider>(this IServiceCollection services)
         where TProvider : class, ICrdtTimestampProvider
     {

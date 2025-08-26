@@ -59,16 +59,16 @@ public sealed class LseqStrategyTests
             new LseqTestModel { Items = ["A", "C"] },
             metadataManager.Initialize(new LseqTestModel { Items = ["A", "C"] })
         );
-        applicator.ApplyPatch(doc1.Data, patchA, doc1.Metadata);
-        applicator.ApplyPatch(doc1.Data, patchB, doc1.Metadata);
+        applicator.ApplyPatch(doc1, patchA);
+        applicator.ApplyPatch(doc1, patchB);
 
         // Path 2: Apply B then A
         var doc2 = new CrdtDocument<LseqTestModel>(
             new LseqTestModel { Items = ["A", "C"] },
             metadataManager.Initialize(new LseqTestModel { Items = ["A", "C"] })
         );
-        applicator.ApplyPatch(doc2.Data, patchB, doc2.Metadata);
-        applicator.ApplyPatch(doc2.Data, patchA, doc2.Metadata);
+        applicator.ApplyPatch(doc2, patchB);
+        applicator.ApplyPatch(doc2, patchA);
 
         // Assert
         doc1.Data.Items.ShouldNotBeNull();
@@ -93,12 +93,12 @@ public sealed class LseqStrategyTests
         var patch = patcherA.GeneratePatch(document, new CrdtDocument<LseqTestModel>(modified, document.Metadata));
 
         // Act
-        applicator.ApplyPatch(document.Data, patch, document.Metadata);
+        applicator.ApplyPatch(document, patch);
         var stateAfterFirstApply = document.Data.Items.ToList();
         
         // Clear seen exceptions to test the strategy's own idempotency
         document.Metadata.SeenExceptions.Clear();
-        applicator.ApplyPatch(document.Data, patch, document.Metadata);
+        applicator.ApplyPatch(document, patch);
 
         // Assert
         stateAfterFirstApply.ShouldBe(new List<string> { "A", "C", "B" });
@@ -125,9 +125,10 @@ public sealed class LseqStrategyTests
         {
             var model = new LseqTestModel { Items = ["A", "D"] };
             var meta = metadataManager.Initialize(model);
+            var document = new CrdtDocument<LseqTestModel>(model, meta);
             foreach (var patch in p)
             {
-                applicator.ApplyPatch(model, patch, meta);
+                applicator.ApplyPatch(document, patch);
             }
             finalStates.Add(model.Items);
         }

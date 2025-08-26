@@ -96,13 +96,14 @@ public sealed class FixedSizeArrayStrategyTests
 
         var targetModel = new TestModel { Values = new List<int>(initialModel.Values) };
         var targetMeta = CloneMetadata(initialMeta);
+        var targetDocument = new CrdtDocument<TestModel>(targetModel, targetMeta);
 
         // Act
         patch.Operations.ShouldHaveSingleItem();
-        applicator.ApplyPatch(targetModel, patch, targetMeta);
+        applicator.ApplyPatch(targetDocument, patch);
         var stateAfterFirstApply = new List<int>(targetModel.Values);
         
-        applicator.ApplyPatch(targetModel, patch, targetMeta);
+        applicator.ApplyPatch(targetDocument, patch);
 
         // Assert
         targetModel.Values.ShouldBe(stateAfterFirstApply);
@@ -135,14 +136,16 @@ public sealed class FixedSizeArrayStrategyTests
         // Scenario 1: A then B
         var model1 = new TestModel { Values = new List<int>(ancestor.Values) };
         var meta1 = CloneMetadata(metaAncestor);
-        applicator.ApplyPatch(model1, patchA, meta1);
-        applicator.ApplyPatch(model1, patchB, meta1);
+        var doc1 = new CrdtDocument<TestModel>(model1, meta1);
+        applicator.ApplyPatch(doc1, patchA);
+        applicator.ApplyPatch(doc1, patchB);
 
         // Scenario 2: B then A
         var model2 = new TestModel { Values = new List<int>(ancestor.Values) };
         var meta2 = CloneMetadata(metaAncestor);
-        applicator.ApplyPatch(model2, patchB, meta2);
-        applicator.ApplyPatch(model2, patchA, meta2);
+        var doc2 = new CrdtDocument<TestModel>(model2, meta2);
+        applicator.ApplyPatch(doc2, patchB);
+        applicator.ApplyPatch(doc2, patchA);
 
         // Assert
         var expected = new List<int> { 11, 20, 33 };
@@ -181,9 +184,10 @@ public sealed class FixedSizeArrayStrategyTests
         {
             var model = new TestModel { Values = new List<int>(ancestor.Values) };
             var meta = CloneMetadata(metaAncestor);
+            var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in p)
             {
-                applicator.ApplyPatch(model, patch, meta);
+                applicator.ApplyPatch(document, patch);
             }
             finalStates.Add(model.Values);
         }
@@ -231,8 +235,9 @@ public sealed class FixedSizeArrayStrategyTests
         // Act
         var model = new TestModel { Values = new List<int>(ancestor.Values) };
         var meta = CloneMetadata(metaAncestor);
-        applicator.ApplyPatch(model, patchA, meta);
-        applicator.ApplyPatch(model, patchB, meta);
+        var document = new CrdtDocument<TestModel>(model, meta);
+        applicator.ApplyPatch(document, patchA);
+        applicator.ApplyPatch(document, patchB);
         
         // Assert
         model.Values[1].ShouldBe(winningValue);
