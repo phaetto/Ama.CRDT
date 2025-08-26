@@ -5,7 +5,6 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.Options;
-using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;

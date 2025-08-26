@@ -5,7 +5,6 @@ using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Options;
 
 [assembly: InternalsVisibleTo("Ama.CRDT.UnitTests")]
 [assembly: InternalsVisibleTo("Ama.CRDT.Benchmarks")]
