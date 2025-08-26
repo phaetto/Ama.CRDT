@@ -29,7 +29,7 @@ public sealed class PriorityQueueStrategyTests
             return type == typeof(Item);
         }
 
-        public bool Equals(object? x, object? y) => (x as Item)?.Id == (y as Item)?.Id;
+        public new bool Equals(object? x, object? y) => (x as Item)?.Id == (y as Item)?.Id;
         public int GetHashCode(object obj) => (obj as Item)?.Id?.GetHashCode() ?? 0;
     }
 

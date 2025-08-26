@@ -59,7 +59,7 @@ public interface ICrdtPatcher
     /// <exception cref="System.ArgumentNullException">Thrown if required parameters like <paramref name="type"/>, <paramref name="fromMeta"/>, <paramref name="toMeta"/>, or <paramref name="operations"/> are null.</exception>
     /// <exception cref="System.ArgumentException">Thrown if <paramref name="path"/> is null or whitespace.</exception>
     /// <remarks>
-    /// This method is typically not called directly by application code. It is used internally by the patcher and by custom <see cref="ICrdtStrategy"/> implementations
+    /// This method is typically not called directly by application code. It is used internally by the patcher implementation
     /// that need to handle complex or nested data structures.
     /// </remarks>
     void DifferentiateObject(string path, [DisallowNull] Type type, object? fromObj, [DisallowNull] CrdtMetadata fromMeta, object? toObj, [DisallowNull] CrdtMetadata toMeta, [DisallowNull] List<CrdtOperation> operations, object? fromRoot, object? toRoot);
