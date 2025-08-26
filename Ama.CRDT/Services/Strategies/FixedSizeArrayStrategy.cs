@@ -14,6 +14,7 @@ using System.Reflection;
 using System.Text.Json;
 
 /// <inheritdoc/>
+[CrdtSupportedType(typeof(IEnumerable))]
 [Commutative]
 [Associative]
 [Idempotent]

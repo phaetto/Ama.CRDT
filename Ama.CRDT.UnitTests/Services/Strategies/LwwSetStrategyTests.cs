@@ -163,12 +163,12 @@ public sealed class LwwSetStrategyTests
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
             new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "C" } }, metaAncestor)); // Remove B, Add C
 
-        Thread.Sleep(5);
+        Thread.Sleep(15);
         var patch2 = patcherB.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
             new CrdtDocument<TestModel>(new TestModel { Tags = { "B", "D" } }, metaAncestor)); // Remove A, Add D
 
-        Thread.Sleep(5);
+        Thread.Sleep(15);
         var patch3 = patcherC.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
             new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "B", "E" } }, metaAncestor)); // Add E

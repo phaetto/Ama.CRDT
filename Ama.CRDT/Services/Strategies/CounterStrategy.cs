@@ -9,12 +9,18 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 
 /// <summary>
 /// A CRDT strategy for handling numeric properties as counters.
 /// It generates 'Increment' operations and applies them by adding the delta to the current value.
 /// </summary>
+[CrdtSupportedType(typeof(decimal))]
+[CrdtSupportedType(typeof(double))]
+[CrdtSupportedType(typeof(float))]
+[CrdtSupportedType(typeof(int))]
+[CrdtSupportedType(typeof(long))]
 [Commutative]
 [Associative]
 [IdempotentShortTermImplementation]
