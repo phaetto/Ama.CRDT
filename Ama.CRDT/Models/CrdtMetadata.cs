@@ -1,7 +1,6 @@
+namespace Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization;
 using System.Text.Json.Serialization.Metadata;
-
-namespace Ama.CRDT.Models;
 
 /// <summary>
 /// A record struct that holds information about an exclusive lock on a property.

@@ -1,6 +1,5 @@
-using Ama.CRDT.Attributes;
-
 namespace Ama.CRDT.Benchmarks.Models;
+using Ama.CRDT.Attributes;
 
 public sealed class ComplexPoco
 {
