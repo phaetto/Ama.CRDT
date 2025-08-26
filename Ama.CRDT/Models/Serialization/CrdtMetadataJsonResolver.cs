@@ -1,8 +1,7 @@
+namespace Ama.CRDT.Models.Serialization;
 using System.Collections;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
-
-namespace Ama.CRDT.Models.Serialization;
 
 /// <summary>
 /// A custom JSON type info resolver for <see cref="CrdtMetadata"/>.

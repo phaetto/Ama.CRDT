@@ -1,6 +1,5 @@
-using BenchmarkDotNet.Running;
-
 namespace Ama.CRDT.Benchmarks;
+using BenchmarkDotNet.Running;
 
 /// <summary>
 /// Main entry point for the benchmark application.
@@ -14,8 +13,5 @@ public static class Program
     public static void Main(string[] args)
     {
         BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
-#if !DEBUG
-        Console.ReadLine();
-#endif
     }
 }
