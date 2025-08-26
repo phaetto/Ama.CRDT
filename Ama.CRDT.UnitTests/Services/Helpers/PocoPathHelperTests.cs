@@ -48,7 +48,7 @@ public sealed class PocoPathHelperTests
     [InlineData("a.b[0]", new[] { "a", "b", "0" })]
     [InlineData("[0]", new[] { "0" })]
     [InlineData("['name']", new[] { "name" })]
-    public void ParsePath_ShouldReturnCorrectSegments(string path, string[] expected)
+    public void ParsePath_ShouldReturnCorrectSegments(string? path, string[] expected)
     {
         // Act
         var result = PocoPathHelper.ParsePath(path);

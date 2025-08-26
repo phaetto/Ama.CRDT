@@ -49,7 +49,6 @@ public sealed class LseqStrategy : ICrdtStrategy
         {
             originalItems = new List<LseqItem>();
         }
-
         
         var originalItemsByValue = originalItems.ToDictionary(i => i.Value!, i => i, comparer!);
         var sortedOriginalItems = originalItems.OrderBy(i => i.Identifier).ToList();
