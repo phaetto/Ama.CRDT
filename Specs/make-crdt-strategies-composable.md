@@ -16,6 +16,7 @@ Add the requirements, technical or not.
 4.  **Pathing for Nested Elements:** The path provided for the recursive diff must be constructed using the element's stable index from the original collection (e.g., `$.myList[4].propertyName`).
 5.  **Scope Limitation for Unordered Sets:** Unordered set strategies (like `LwwSetStrategy`, `OrSetStrategy`, etc.) will not be refactored for composition in this phase. Their current behavior of treating an update as a "remove" of the old state and an "add" of the new state is considered correct, as there is no stable, index-based pathing for their elements. This behavior relies on the `IElementComparer` performing a deep equality check.
 6.  **No Core Service Changes:** The core `CrdtPatcher` and `CrdtApplicator` services are already architected to support this recursive model and should not require modification.
+7.	**Recursive behavior optional:** To increase the optimal performance for simple cases, the feature should be opt-in with a custom new attribute, otherwise it would have a significant cost.
 
 <!---Human--->
 ## Requirements context

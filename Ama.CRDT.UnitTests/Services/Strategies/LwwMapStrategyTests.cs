@@ -1,0 +1,110 @@
+namespace Ama.CRDT.UnitTests.Services.Strategies;
+
+using Ama.CRDT.Models;
+using Ama.CRDT.Services;
+using Ama.CRDT.Services.Strategies;
+using Microsoft.Extensions.Options;
+using Moq;
+using Shouldly;
+using System.Collections.Generic;
+using Xunit;
+
+public sealed class LwwMapStrategyTests
+{
+    private readonly Mock<IElementComparerProvider> comparerProviderMock = new();
+    private readonly Mock<ICrdtTimestampProvider> timestampProviderMock = new();
+    private readonly LwwMapStrategy strategy;
+    private int timestampCounter = 0;
+
+    public LwwMapStrategyTests()
+    {
+        var options = Options.Create(new CrdtOptions { ReplicaId = "A" });
+        comparerProviderMock.Setup(p => p.GetComparer(It.IsAny<System.Type>())).Returns(EqualityComparer<object>.Default);
+        timestampProviderMock.Setup(p => p.Now()).Returns(() => new EpochTimestamp(++timestampCounter));
+        strategy = new LwwMapStrategy(comparerProviderMock.Object, timestampProviderMock.Object, options);
+    }
+
+    private CrdtDocument<TestModel> CreateDocument(Dictionary<string, int> map)
+    {
+        var model = new TestModel { Map = map };
+        var metadata = new CrdtMetadata();
+        if (map is not null)
+        {
+            var timestamps = new Dictionary<object, ICrdtTimestamp>();
+            foreach(var key in map.Keys)
+            {
+                timestamps[key] = new EpochTimestamp(0);
+            }
+            metadata.LwwMaps["$.map"] = timestamps;
+        }
+        return new CrdtDocument<TestModel>(model, metadata);
+    }
+
+    [Fact]
+    public void ApplyOperation_Commutativity_ShouldConverge()
+    {
+        // Arrange
+        var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
+        var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
+
+        var op1 = new CrdtOperation(System.Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 2), new EpochTimestamp(1));
+        var op2 = new CrdtOperation(System.Guid.NewGuid(), "B", "$.map", OperationType.Remove, new KeyValuePair<object, object?>("a", null), new EpochTimestamp(2));
+
+        // Act: Apply op1 then op2
+        strategy.ApplyOperation(doc1.Data, doc1.Metadata, op1);
+        strategy.ApplyOperation(doc1.Data, doc1.Metadata, op2);
+
+        // Act: Apply op2 then op1
+        strategy.ApplyOperation(doc2.Data, doc2.Metadata, op2);
+        strategy.ApplyOperation(doc2.Data, doc2.Metadata, op1);
+
+        // Assert
+        doc1.Data.Map.ShouldBe(doc2.Data.Map);
+        doc1.Data.Map.ShouldNotContainKey("a");
+        doc1.Data.Map.ShouldContainKey("b");
+        doc1.Data.Map["b"].ShouldBe(2);
+    }
+
+    [Fact]
+    public void ApplyOperation_Idempotency_ShouldNotChangeState()
+    {
+        // Arrange
+        var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
+        var op = new CrdtOperation(System.Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), new EpochTimestamp(1));
+        
+        var expectedMap = new Dictionary<string, int> { { "a", 2 } };
+
+        // Act
+        strategy.ApplyOperation(doc.Data, doc.Metadata, op);
+        strategy.ApplyOperation(doc.Data, doc.Metadata, op);
+        strategy.ApplyOperation(doc.Data, doc.Metadata, op);
+
+        // Assert
+        doc.Data.Map.ShouldBe(expectedMap);
+    }
+
+    [Fact]
+    public void ApplyOperation_LwwWins_ShouldApplyNewerOperation()
+    {
+        // Arrange
+        var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
+        doc.Metadata.LwwMaps["$.map"]["a"] = new EpochTimestamp(10);
+        
+        var olderOp = new CrdtOperation(System.Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 0), new EpochTimestamp(5));
+        var newerOp = new CrdtOperation(System.Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), new EpochTimestamp(15));
+        
+        // Act
+        strategy.ApplyOperation(doc.Data, doc.Metadata, olderOp);
+        doc.Data.Map["a"].ShouldBe(1); // older op ignored
+
+        strategy.ApplyOperation(doc.Data, doc.Metadata, newerOp);
+        
+        // Assert
+        doc.Data.Map["a"].ShouldBe(2); // newer op applied
+    }
+
+    private sealed class TestModel
+    {
+        public Dictionary<string, int> Map { get; set; } = [];
+    }
+}

@@ -81,6 +81,8 @@ public sealed class CrdtMetadataManager(
         document.Metadata.PriorityQueues.Clear();
         document.Metadata.LseqTrackers.Clear();
         document.Metadata.ExclusiveLocks.Clear();
+        document.Metadata.LwwMaps.Clear();
+        document.Metadata.OrMaps.Clear();
 
         PopulateMetadataRecursive(document.Metadata, document.Data, "$", timestamp, document.Data);
     }
@@ -141,6 +143,28 @@ public sealed class CrdtMetadataManager(
         foreach (var kvp in metadata.VersionVector) { newMetadata.VersionVector.Add(kvp.Key, kvp.Value); }
         foreach (var op in metadata.SeenExceptions) { newMetadata.SeenExceptions.Add(op); }
         foreach (var kvp in metadata.ExclusiveLocks) { newMetadata.ExclusiveLocks.Add(kvp.Key, kvp.Value); }
+
+        foreach (var kvp in metadata.LwwMaps)
+        {
+            newMetadata.LwwMaps.Add(kvp.Key, new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer));
+        }
+
+        foreach (var kvp in metadata.OrMaps)
+        {
+            var addedComparer = (kvp.Value.Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var newAdded = kvp.Value.Adds.ToDictionary(
+                innerKvp => innerKvp.Key,
+                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                addedComparer);
+
+            var removedComparer = (kvp.Value.Removes as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var newRemoved = kvp.Value.Removes.ToDictionary(
+                innerKvp => innerKvp.Key,
+                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                removedComparer);
+
+            newMetadata.OrMaps.Add(kvp.Key, (Adds: newAdded, Removes: newRemoved));
+        }
         
         return newMetadata;
     }
@@ -235,6 +259,24 @@ public sealed class CrdtMetadataManager(
     {
         if (obj is null)
         {
+            return;
+        }
+
+        if (obj is IDictionary dictionary)
+        {
+            foreach (DictionaryEntry entry in dictionary)
+            {
+                if (entry.Value is not null)
+                {
+                    var valueType = entry.Value.GetType();
+                    if (valueType.IsClass && valueType != typeof(string))
+                    {
+                        var keyString = GetVoterKey(entry.Key);
+                        var newPath = $"{path}.['{keyString}']";
+                        PopulateMetadataRecursive(metadata, entry.Value, newPath, timestamp, root);
+                    }
+                }
+            }
             return;
         }
 
@@ -334,6 +376,10 @@ public sealed class CrdtMetadataManager(
             case PriorityQueueStrategy:
                 InitializeSetMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
                 break;
+            case LwwMapStrategy:
+            case OrMapStrategy:
+                InitializeMapMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
+                break;
         }
     }
     
@@ -376,6 +422,44 @@ public sealed class CrdtMetadataManager(
                 metadata.PriorityQueues[propertyPath] = (
                     Adds: collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
                     Removes: new Dictionary<object, ICrdtTimestamp>(comparer));
+                break;
+        }
+    }
+
+    private void InitializeMapMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)
+    {
+        if (propertyValue is not IDictionary dictionary) return;
+
+        var keyType = propertyInfo.PropertyType.IsGenericType ? propertyInfo.PropertyType.GetGenericArguments()[0] : typeof(object);
+        var comparer = elementComparerProvider.GetComparer(keyType);
+
+        switch (strategy)
+        {
+            case LwwMapStrategy:
+                var lwwMap = new Dictionary<object, ICrdtTimestamp>(comparer);
+                foreach (DictionaryEntry entry in dictionary)
+                {
+                    if (entry.Key != null)
+                    {
+                        lwwMap[entry.Key] = timestamp;
+                    }
+                }
+                metadata.LwwMaps[propertyPath] = lwwMap;
+                break;
+            case OrMapStrategy:
+                var orMapAdds = new Dictionary<object, ISet<Guid>>(comparer);
+                foreach (DictionaryEntry entry in dictionary)
+                {
+                    if (entry.Key is not null)
+                    {
+                        orMapAdds[entry.Key] = new HashSet<Guid> { Guid.NewGuid() };
+                        var keyString = GetVoterKey(entry.Key);
+                        metadata.Lww[$"{propertyPath}.['{keyString}']"] = timestamp;
+                    }
+                }
+                metadata.OrMaps[propertyPath] = (
+                    Adds: orMapAdds,
+                    Removes: new Dictionary<object, ISet<Guid>>(comparer));
                 break;
         }
     }
