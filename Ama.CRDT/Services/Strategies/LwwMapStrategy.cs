@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
@@ -17,6 +18,7 @@ using System.Text.Json;
 /// Implements the LWW-Map (Last-Writer-Wins Map) CRDT strategy.
 /// Each key-value pair is treated as an independent LWW-Register.
 /// </summary>
+[CrdtSupportedType(typeof(IDictionary))]
 [Commutative]
 [Associative]
 [Idempotent]

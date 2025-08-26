@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
@@ -17,6 +18,7 @@ using System.Text.Json;
 /// Implements the OR-Map (Observed-Remove Map) CRDT strategy.
 /// Key presence is managed using OR-Set logic, and value updates are handled with LWW logic.
 /// </summary>
+[CrdtSupportedType(typeof(IDictionary))]
 [Commutative]
 [Associative]
 [Idempotent]

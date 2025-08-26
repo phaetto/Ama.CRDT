@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
@@ -11,6 +12,11 @@ using Microsoft.Extensions.Options;
 /// <summary>
 /// Implements the G-Counter (Grow-Only Counter) strategy. This counter only supports positive increments.
 /// </summary>
+[CrdtSupportedType(typeof(decimal))]
+[CrdtSupportedType(typeof(double))]
+[CrdtSupportedType(typeof(float))]
+[CrdtSupportedType(typeof(int))]
+[CrdtSupportedType(typeof(long))]
 [Commutative]
 [Associative]
 [IdempotentShortTermImplementation]

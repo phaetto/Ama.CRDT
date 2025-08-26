@@ -21,6 +21,8 @@ Ama.CRDT.Attributes.CrdtGSetStrategyAttribute
 Ama.CRDT.Attributes.CrdtGSetStrategyAttribute.CrdtGSetStrategyAttribute() -> void
 Ama.CRDT.Attributes.CrdtLseqStrategyAttribute
 Ama.CRDT.Attributes.CrdtLseqStrategyAttribute.CrdtLseqStrategyAttribute() -> void
+Ama.CRDT.Attributes.CrdtLwwMapStrategyAttribute
+Ama.CRDT.Attributes.CrdtLwwMapStrategyAttribute.CrdtLwwMapStrategyAttribute() -> void
 Ama.CRDT.Attributes.CrdtLwwSetStrategyAttribute
 Ama.CRDT.Attributes.CrdtLwwSetStrategyAttribute.CrdtLwwSetStrategyAttribute() -> void
 Ama.CRDT.Attributes.CrdtLwwStrategyAttribute
@@ -29,6 +31,8 @@ Ama.CRDT.Attributes.CrdtMaxWinsStrategyAttribute
 Ama.CRDT.Attributes.CrdtMaxWinsStrategyAttribute.CrdtMaxWinsStrategyAttribute() -> void
 Ama.CRDT.Attributes.CrdtMinWinsStrategyAttribute
 Ama.CRDT.Attributes.CrdtMinWinsStrategyAttribute.CrdtMinWinsStrategyAttribute() -> void
+Ama.CRDT.Attributes.CrdtOrMapStrategyAttribute
+Ama.CRDT.Attributes.CrdtOrMapStrategyAttribute.CrdtOrMapStrategyAttribute() -> void
 Ama.CRDT.Attributes.CrdtOrSetStrategyAttribute
 Ama.CRDT.Attributes.CrdtOrSetStrategyAttribute.CrdtOrSetStrategyAttribute() -> void
 Ama.CRDT.Attributes.CrdtPriorityQueueStrategyAttribute
@@ -42,6 +46,9 @@ Ama.CRDT.Attributes.CrdtStateMachineStrategyAttribute.ValidatorType.get -> Syste
 Ama.CRDT.Attributes.CrdtStrategyAttribute
 Ama.CRDT.Attributes.CrdtStrategyAttribute.CrdtStrategyAttribute(System.Type! strategyType) -> void
 Ama.CRDT.Attributes.CrdtStrategyAttribute.StrategyType.get -> System.Type!
+Ama.CRDT.Attributes.CrdtSupportedTypeAttribute
+Ama.CRDT.Attributes.CrdtSupportedTypeAttribute.CrdtSupportedTypeAttribute(System.Type! supportedType) -> void
+Ama.CRDT.Attributes.CrdtSupportedTypeAttribute.SupportedType.get -> System.Type!
 Ama.CRDT.Attributes.CrdtTwoPhaseSetStrategyAttribute
 Ama.CRDT.Attributes.CrdtTwoPhaseSetStrategyAttribute.CrdtTwoPhaseSetStrategyAttribute() -> void
 Ama.CRDT.Attributes.CrdtVoteCounterStrategyAttribute
@@ -80,7 +87,9 @@ Ama.CRDT.Models.CrdtMetadata.CrdtMetadata() -> void
 Ama.CRDT.Models.CrdtMetadata.ExclusiveLocks.get -> System.Collections.Generic.IDictionary<string!, Ama.CRDT.Models.LockInfo?>!
 Ama.CRDT.Models.CrdtMetadata.LseqTrackers.get -> System.Collections.Generic.IDictionary<string!, System.Collections.Generic.List<Ama.CRDT.Models.LseqItem>!>!
 Ama.CRDT.Models.CrdtMetadata.Lww.get -> System.Collections.Generic.IDictionary<string!, Ama.CRDT.Models.ICrdtTimestamp!>!
+Ama.CRDT.Models.CrdtMetadata.LwwMaps.get -> System.Collections.Generic.IDictionary<string!, System.Collections.Generic.IDictionary<object!, Ama.CRDT.Models.ICrdtTimestamp!>!>!
 Ama.CRDT.Models.CrdtMetadata.LwwSets.get -> System.Collections.Generic.IDictionary<string!, (System.Collections.Generic.IDictionary<object!, Ama.CRDT.Models.ICrdtTimestamp!>! Adds, System.Collections.Generic.IDictionary<object!, Ama.CRDT.Models.ICrdtTimestamp!>! Removes)>!
+Ama.CRDT.Models.CrdtMetadata.OrMaps.get -> System.Collections.Generic.IDictionary<string!, (System.Collections.Generic.IDictionary<object!, System.Collections.Generic.ISet<System.Guid>!>! Adds, System.Collections.Generic.IDictionary<object!, System.Collections.Generic.ISet<System.Guid>!>! Removes)>!
 Ama.CRDT.Models.CrdtMetadata.OrSets.get -> System.Collections.Generic.IDictionary<string!, (System.Collections.Generic.IDictionary<object!, System.Collections.Generic.ISet<System.Guid>!>! Adds, System.Collections.Generic.IDictionary<object!, System.Collections.Generic.ISet<System.Guid>!>! Removes)>!
 Ama.CRDT.Models.CrdtMetadata.PositionalTrackers.get -> System.Collections.Generic.IDictionary<string!, System.Collections.Generic.List<Ama.CRDT.Models.PositionalIdentifier>!>!
 Ama.CRDT.Models.CrdtMetadata.PriorityQueues.get -> System.Collections.Generic.IDictionary<string!, (System.Collections.Generic.IDictionary<object!, Ama.CRDT.Models.ICrdtTimestamp!>! Adds, System.Collections.Generic.IDictionary<object!, Ama.CRDT.Models.ICrdtTimestamp!>! Removes)>!
@@ -115,14 +124,6 @@ Ama.CRDT.Models.CrdtPatch.Deconstruct(out System.Collections.Generic.IReadOnlyLi
 Ama.CRDT.Models.CrdtPatch.Equals(Ama.CRDT.Models.CrdtPatch other) -> bool
 Ama.CRDT.Models.CrdtPatch.Operations.get -> System.Collections.Generic.IReadOnlyList<Ama.CRDT.Models.CrdtOperation>!
 Ama.CRDT.Models.CrdtPatch.Operations.init -> void
-Ama.CRDT.Models.EpochTimestamp
-Ama.CRDT.Models.EpochTimestamp.CompareTo(Ama.CRDT.Models.ICrdtTimestamp? other) -> int
-Ama.CRDT.Models.EpochTimestamp.Deconstruct(out long Value) -> void
-Ama.CRDT.Models.EpochTimestamp.EpochTimestamp() -> void
-Ama.CRDT.Models.EpochTimestamp.EpochTimestamp(long Value) -> void
-Ama.CRDT.Models.EpochTimestamp.Equals(Ama.CRDT.Models.EpochTimestamp other) -> bool
-Ama.CRDT.Models.EpochTimestamp.Value.get -> long
-Ama.CRDT.Models.EpochTimestamp.Value.init -> void
 Ama.CRDT.Models.ExclusiveLockPayload
 Ama.CRDT.Models.ExclusiveLockPayload.Deconstruct(out object? Value, out string? LockHolderId) -> void
 Ama.CRDT.Models.ExclusiveLockPayload.Equals(Ama.CRDT.Models.ExclusiveLockPayload other) -> bool
@@ -170,6 +171,26 @@ Ama.CRDT.Models.OperationType
 Ama.CRDT.Models.OperationType.Increment = 2 -> Ama.CRDT.Models.OperationType
 Ama.CRDT.Models.OperationType.Remove = 1 -> Ama.CRDT.Models.OperationType
 Ama.CRDT.Models.OperationType.Upsert = 0 -> Ama.CRDT.Models.OperationType
+Ama.CRDT.Models.OrMapAddItem
+Ama.CRDT.Models.OrMapAddItem.Deconstruct(out object! Key, out object? Value, out System.Guid Tag) -> void
+Ama.CRDT.Models.OrMapAddItem.Equals(Ama.CRDT.Models.OrMapAddItem other) -> bool
+Ama.CRDT.Models.OrMapAddItem.Key.get -> object!
+Ama.CRDT.Models.OrMapAddItem.Key.init -> void
+Ama.CRDT.Models.OrMapAddItem.OrMapAddItem() -> void
+Ama.CRDT.Models.OrMapAddItem.OrMapAddItem(object! Key, object? Value, System.Guid Tag) -> void
+Ama.CRDT.Models.OrMapAddItem.Tag.get -> System.Guid
+Ama.CRDT.Models.OrMapAddItem.Tag.init -> void
+Ama.CRDT.Models.OrMapAddItem.Value.get -> object?
+Ama.CRDT.Models.OrMapAddItem.Value.init -> void
+Ama.CRDT.Models.OrMapRemoveItem
+Ama.CRDT.Models.OrMapRemoveItem.Deconstruct(out object! Key, out System.Collections.Generic.ISet<System.Guid>! Tags) -> void
+Ama.CRDT.Models.OrMapRemoveItem.Equals(Ama.CRDT.Models.OrMapRemoveItem other) -> bool
+Ama.CRDT.Models.OrMapRemoveItem.Key.get -> object!
+Ama.CRDT.Models.OrMapRemoveItem.Key.init -> void
+Ama.CRDT.Models.OrMapRemoveItem.OrMapRemoveItem() -> void
+Ama.CRDT.Models.OrMapRemoveItem.OrMapRemoveItem(object! Key, System.Collections.Generic.ISet<System.Guid>! Tags) -> void
+Ama.CRDT.Models.OrMapRemoveItem.Tags.get -> System.Collections.Generic.ISet<System.Guid>!
+Ama.CRDT.Models.OrMapRemoveItem.Tags.init -> void
 Ama.CRDT.Models.OrSetAddItem
 Ama.CRDT.Models.OrSetAddItem.Deconstruct(out object! Value, out System.Guid Tag) -> void
 Ama.CRDT.Models.OrSetAddItem.Equals(Ama.CRDT.Models.OrSetAddItem other) -> bool
@@ -319,6 +340,10 @@ Ama.CRDT.Services.Strategies.LseqStrategy
 Ama.CRDT.Services.Strategies.LseqStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.LseqStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
 Ama.CRDT.Services.Strategies.LseqStrategy.LseqStrategy(Ama.CRDT.Services.Strategies.IElementComparerProvider! elementComparerProvider, Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options) -> void
+Ama.CRDT.Services.Strategies.LwwMapStrategy
+Ama.CRDT.Services.Strategies.LwwMapStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
+Ama.CRDT.Services.Strategies.LwwMapStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.LwwMapStrategy.LwwMapStrategy(Ama.CRDT.Services.Strategies.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider, Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options) -> void
 Ama.CRDT.Services.Strategies.LwwSetStrategy
 Ama.CRDT.Services.Strategies.LwwSetStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.LwwSetStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
@@ -335,6 +360,10 @@ Ama.CRDT.Services.Strategies.MinWinsStrategy
 Ama.CRDT.Services.Strategies.MinWinsStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.MinWinsStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
 Ama.CRDT.Services.Strategies.MinWinsStrategy.MinWinsStrategy(Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider) -> void
+Ama.CRDT.Services.Strategies.OrMapStrategy
+Ama.CRDT.Services.Strategies.OrMapStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
+Ama.CRDT.Services.Strategies.OrMapStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.OrMapStrategy.OrMapStrategy(Ama.CRDT.Services.Strategies.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ICrdtTimestampProvider! timestampProvider, Microsoft.Extensions.Options.IOptions<Ama.CRDT.Models.CrdtOptions!>! options) -> void
 Ama.CRDT.Services.Strategies.OrSetStrategy
 Ama.CRDT.Services.Strategies.OrSetStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.Strategies.OrSetStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
@@ -378,7 +407,6 @@ override Ama.CRDT.Models.AverageRegisterValue.GetHashCode() -> int
 override Ama.CRDT.Models.CrdtDocument<T>.GetHashCode() -> int
 override Ama.CRDT.Models.CrdtOperation.GetHashCode() -> int
 override Ama.CRDT.Models.CrdtPatch.GetHashCode() -> int
-override Ama.CRDT.Models.EpochTimestamp.GetHashCode() -> int
 override Ama.CRDT.Models.ExclusiveLockPayload.GetHashCode() -> int
 override Ama.CRDT.Models.LockInfo.Equals(object? obj) -> bool
 override Ama.CRDT.Models.LockInfo.GetHashCode() -> int
@@ -387,6 +415,8 @@ override Ama.CRDT.Models.LseqIdentifier.GetHashCode() -> int
 override Ama.CRDT.Models.LseqIdentifier.ToString() -> string!
 override Ama.CRDT.Models.LseqItem.GetHashCode() -> int
 override Ama.CRDT.Models.MovePayload.GetHashCode() -> int
+override Ama.CRDT.Models.OrMapAddItem.GetHashCode() -> int
+override Ama.CRDT.Models.OrMapRemoveItem.GetHashCode() -> int
 override Ama.CRDT.Models.OrSetAddItem.GetHashCode() -> int
 override Ama.CRDT.Models.OrSetRemoveItem.GetHashCode() -> int
 override Ama.CRDT.Models.PositionalIdentifier.GetHashCode() -> int
@@ -404,8 +434,6 @@ static Ama.CRDT.Models.CrdtOperation.operator !=(Ama.CRDT.Models.CrdtOperation l
 static Ama.CRDT.Models.CrdtOperation.operator ==(Ama.CRDT.Models.CrdtOperation left, Ama.CRDT.Models.CrdtOperation right) -> bool
 static Ama.CRDT.Models.CrdtPatch.operator !=(Ama.CRDT.Models.CrdtPatch left, Ama.CRDT.Models.CrdtPatch right) -> bool
 static Ama.CRDT.Models.CrdtPatch.operator ==(Ama.CRDT.Models.CrdtPatch left, Ama.CRDT.Models.CrdtPatch right) -> bool
-static Ama.CRDT.Models.EpochTimestamp.operator !=(Ama.CRDT.Models.EpochTimestamp left, Ama.CRDT.Models.EpochTimestamp right) -> bool
-static Ama.CRDT.Models.EpochTimestamp.operator ==(Ama.CRDT.Models.EpochTimestamp left, Ama.CRDT.Models.EpochTimestamp right) -> bool
 static Ama.CRDT.Models.ExclusiveLockPayload.operator !=(Ama.CRDT.Models.ExclusiveLockPayload left, Ama.CRDT.Models.ExclusiveLockPayload right) -> bool
 static Ama.CRDT.Models.ExclusiveLockPayload.operator ==(Ama.CRDT.Models.ExclusiveLockPayload left, Ama.CRDT.Models.ExclusiveLockPayload right) -> bool
 static Ama.CRDT.Models.LockInfo.operator !=(Ama.CRDT.Models.LockInfo? left, Ama.CRDT.Models.LockInfo? right) -> bool
@@ -416,6 +444,10 @@ static Ama.CRDT.Models.LseqItem.operator !=(Ama.CRDT.Models.LseqItem left, Ama.C
 static Ama.CRDT.Models.LseqItem.operator ==(Ama.CRDT.Models.LseqItem left, Ama.CRDT.Models.LseqItem right) -> bool
 static Ama.CRDT.Models.MovePayload.operator !=(Ama.CRDT.Models.MovePayload left, Ama.CRDT.Models.MovePayload right) -> bool
 static Ama.CRDT.Models.MovePayload.operator ==(Ama.CRDT.Models.MovePayload left, Ama.CRDT.Models.MovePayload right) -> bool
+static Ama.CRDT.Models.OrMapAddItem.operator !=(Ama.CRDT.Models.OrMapAddItem left, Ama.CRDT.Models.OrMapAddItem right) -> bool
+static Ama.CRDT.Models.OrMapAddItem.operator ==(Ama.CRDT.Models.OrMapAddItem left, Ama.CRDT.Models.OrMapAddItem right) -> bool
+static Ama.CRDT.Models.OrMapRemoveItem.operator !=(Ama.CRDT.Models.OrMapRemoveItem left, Ama.CRDT.Models.OrMapRemoveItem right) -> bool
+static Ama.CRDT.Models.OrMapRemoveItem.operator ==(Ama.CRDT.Models.OrMapRemoveItem left, Ama.CRDT.Models.OrMapRemoveItem right) -> bool
 static Ama.CRDT.Models.OrSetAddItem.operator !=(Ama.CRDT.Models.OrSetAddItem left, Ama.CRDT.Models.OrSetAddItem right) -> bool
 static Ama.CRDT.Models.OrSetAddItem.operator ==(Ama.CRDT.Models.OrSetAddItem left, Ama.CRDT.Models.OrSetAddItem right) -> bool
 static Ama.CRDT.Models.OrSetRemoveItem.operator !=(Ama.CRDT.Models.OrSetRemoveItem left, Ama.CRDT.Models.OrSetRemoveItem right) -> bool
@@ -428,7 +460,6 @@ static Ama.CRDT.Models.VotePayload.operator !=(Ama.CRDT.Models.VotePayload left,
 static Ama.CRDT.Models.VotePayload.operator ==(Ama.CRDT.Models.VotePayload left, Ama.CRDT.Models.VotePayload right) -> bool
 static Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.operator !=(Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry left, Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry right) -> bool
 static Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.operator ==(Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry left, Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry right) -> bool
-static readonly Ama.CRDT.Models.EpochTimestamp.MinValue -> Ama.CRDT.Models.EpochTimestamp
 ~Ama.CRDT.Models.CrdtDocument<T>.Equals(Ama.CRDT.Models.CrdtDocument<T> other) -> bool
 ~override Ama.CRDT.Models.AverageRegisterValue.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.AverageRegisterValue.ToString() -> string
@@ -438,8 +469,6 @@ static readonly Ama.CRDT.Models.EpochTimestamp.MinValue -> Ama.CRDT.Models.Epoch
 ~override Ama.CRDT.Models.CrdtOperation.ToString() -> string
 ~override Ama.CRDT.Models.CrdtPatch.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.CrdtPatch.ToString() -> string
-~override Ama.CRDT.Models.EpochTimestamp.Equals(object obj) -> bool
-~override Ama.CRDT.Models.EpochTimestamp.ToString() -> string
 ~override Ama.CRDT.Models.ExclusiveLockPayload.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.ExclusiveLockPayload.ToString() -> string
 ~override Ama.CRDT.Models.LseqIdentifier.Equals(object obj) -> bool
@@ -447,6 +476,10 @@ static readonly Ama.CRDT.Models.EpochTimestamp.MinValue -> Ama.CRDT.Models.Epoch
 ~override Ama.CRDT.Models.LseqItem.ToString() -> string
 ~override Ama.CRDT.Models.MovePayload.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.MovePayload.ToString() -> string
+~override Ama.CRDT.Models.OrMapAddItem.Equals(object obj) -> bool
+~override Ama.CRDT.Models.OrMapAddItem.ToString() -> string
+~override Ama.CRDT.Models.OrMapRemoveItem.Equals(object obj) -> bool
+~override Ama.CRDT.Models.OrMapRemoveItem.ToString() -> string
 ~override Ama.CRDT.Models.OrSetAddItem.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.OrSetAddItem.ToString() -> string
 ~override Ama.CRDT.Models.OrSetRemoveItem.Equals(object obj) -> bool

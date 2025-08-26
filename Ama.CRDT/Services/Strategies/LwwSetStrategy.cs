@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
@@ -17,6 +18,7 @@ using System.Text.Json;
 /// Implements the LWW-Set (Last-Writer-Wins Set) CRDT strategy.
 /// An element's membership is determined by the timestamp of its last add or remove operation.
 /// </summary>
+[CrdtSupportedType(typeof(IEnumerable))]
 [Commutative]
 [Associative]
 [Idempotent]

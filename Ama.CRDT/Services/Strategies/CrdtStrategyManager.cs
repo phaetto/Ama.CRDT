@@ -40,7 +40,7 @@ public sealed class CrdtStrategyManager : ICrdtStrategyManager
             ?? defaultStrategy;
         
         defaultDictionaryStrategy = this.strategies.Values.OfType<OrMapStrategy>().FirstOrDefault()
-            ?? throw new InvalidOperationException($"The default '{nameof(OrMapStrategy)}' for dictionaries is not registered in the DI container.");
+            ?? defaultStrategy;
     }
 
     /// <inheritdoc/>

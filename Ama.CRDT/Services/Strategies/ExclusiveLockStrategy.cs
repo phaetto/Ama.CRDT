@@ -11,6 +11,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
 
+[CrdtSupportedType(typeof(object))]
 [Commutative]
 [Associative]
 [Idempotent]

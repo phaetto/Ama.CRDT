@@ -13,6 +13,11 @@ using Microsoft.Extensions.Options;
 /// <summary>
 /// Implements a Bounded Counter strategy, where the counter's value is clamped within a defined min/max range.
 /// </summary>
+[CrdtSupportedType(typeof(decimal))]
+[CrdtSupportedType(typeof(double))]
+[CrdtSupportedType(typeof(float))]
+[CrdtSupportedType(typeof(int))]
+[CrdtSupportedType(typeof(long))]
 [Commutative]
 [Associative]
 [IdempotentShortTermImplementation]

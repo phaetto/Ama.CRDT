@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
@@ -14,6 +15,7 @@ using System.Reflection;
 using System.Text.Json;
 
 /// <inheritdoc/>
+[CrdtSupportedType(typeof(IEnumerable))]
 [Commutative]
 [Associative]
 [IdempotentShortTermImplementation]

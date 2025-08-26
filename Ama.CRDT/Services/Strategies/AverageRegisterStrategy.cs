@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
@@ -12,6 +13,11 @@ using Microsoft.Extensions.Options;
 /// <summary>
 /// Implements an Average Register strategy. Each replica contributes a value, and the property converges to the average of all contributions.
 /// </summary>
+[CrdtSupportedType(typeof(decimal))]
+[CrdtSupportedType(typeof(double))]
+[CrdtSupportedType(typeof(float))]
+[CrdtSupportedType(typeof(int))]
+[CrdtSupportedType(typeof(long))]
 [Commutative]
 [Associative]
 [Idempotent]
