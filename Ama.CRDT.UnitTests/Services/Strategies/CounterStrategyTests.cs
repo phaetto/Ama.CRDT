@@ -56,7 +56,7 @@ public sealed class CounterStrategyTests
         var localStrategy = new CounterStrategy(mockTimestampProvider.Object, Options.Create(new CrdtOptions { ReplicaId = "test" }));
 
         // Act
-        localStrategy.GeneratePatch(mockPatcher.Object, operations, path, property, original, modified, new CrdtMetadata(), new CrdtMetadata());
+        localStrategy.GeneratePatch(mockPatcher.Object, operations, path, property, original, modified, new TestModel { Score = original }, new TestModel { Score = modified }, new CrdtMetadata(), new CrdtMetadata());
 
         // Assert
         operations.ShouldHaveSingleItem();

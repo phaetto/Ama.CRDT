@@ -13,6 +13,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 
 /// <inheritdoc/>
 [Commutative]
@@ -66,7 +67,7 @@ public sealed class SortedSetStrategy : ICrdtStrategy
     public readonly record struct LcsDiffEntry(LcsDiffEntryType Type, int OldIndex, int NewIndex);
     
     /// <inheritdoc/>
-    public void GeneratePatch(ICrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, object? originalValue, object? modifiedValue, CrdtMetadata originalMeta, CrdtMetadata modifiedMeta)
+    public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)
     {
         var fromArray = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var toArray = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
@@ -89,7 +90,7 @@ public sealed class SortedSetStrategy : ICrdtStrategy
                 if (!Equals(fromItem, toItem))
                 {
                     var itemPath = $"{path}[{entry.OldIndex}]";
-                    patcher.DifferentiateObject(itemPath, elementType, fromItem, originalMeta, toItem, modifiedMeta, operations);
+                    patcher.DifferentiateObject(itemPath, elementType, fromItem, originalMeta, toItem, modifiedMeta, operations, originalRoot, modifiedRoot);
                 }
             }
             else if (entry.Type == LcsDiffEntryType.Add)
@@ -118,32 +119,31 @@ public sealed class SortedSetStrategy : ICrdtStrategy
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(metadata);
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-
-        if (parent is null) return;
-
-        IList? list;
-        Type? elementType = null;
-
-        if (parent is IList listFromParent)
-        {
-            list = listFromParent;
-        }
-        else if (property is not null && property.GetValue(parent) is IList listFromProperty)
-        {
-            list = listFromProperty;
-            var propType = property.PropertyType;
-            if (propType.IsGenericType)
-            {
-                elementType = propType.GetGenericArguments().FirstOrDefault();
-            }
-        }
-        else
+        var lastBracket = operation.JsonPath.LastIndexOf('[');
+        if (lastBracket <= 0 || !operation.JsonPath.EndsWith("]"))
         {
             return;
         }
 
-        if (list is null) return;
+        var collectionPath = operation.JsonPath[..lastBracket];
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, collectionPath);
+
+        if (parent is null || property is null)
+        {
+            return;
+        }
+
+        if (property.GetValue(parent) is not IList list)
+        {
+            return;
+        }
+
+        Type? elementType = null;
+        var propType = property.PropertyType;
+        if (propType.IsGenericType)
+        {
+            elementType = propType.GetGenericArguments().FirstOrDefault();
+        }
 
         if (elementType is null)
         {
@@ -153,10 +153,7 @@ public sealed class SortedSetStrategy : ICrdtStrategy
                 : listType.GetElementType();
         }
 
-        if (elementType is null)
-        {
-            elementType = typeof(object);
-        }
+        elementType ??= typeof(object);
 
         var comparer = comparerProvider.GetComparer(elementType);
 
@@ -190,6 +187,7 @@ public sealed class SortedSetStrategy : ICrdtStrategy
         {
             if (operation.Value is null) return;
             var valueToRemove = DeserializeValue(operation.Value, elementType);
+            if (valueToRemove is null) return;
 
             var indexToRemove = -1;
             for (var i = 0; i < list.Count; i++)
@@ -323,6 +321,11 @@ public sealed class SortedSetStrategy : ICrdtStrategy
             return value;
         }
 
+        if (value is JsonElement jsonElement)
+        {
+            return jsonElement.Deserialize(targetType, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        }
+
         var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
 
         if (value is IConvertible)
@@ -358,7 +361,7 @@ public sealed class SortedSetStrategy : ICrdtStrategy
             }
             return instance;
         }
-
-        throw new InvalidOperationException($"Failed to convert value of type '{value.GetType().Name}' to '{targetType.Name}'.");
+        
+        return PocoPathHelper.ConvertValue(value, targetType);
     }
 }

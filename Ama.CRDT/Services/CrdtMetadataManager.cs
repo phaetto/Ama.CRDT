@@ -2,6 +2,7 @@ namespace Ama.CRDT.Services;
 
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Strategies;
 using System;
 using System.Collections;
@@ -38,7 +39,7 @@ public sealed class CrdtMetadataManager(
         ArgumentNullException.ThrowIfNull(timestamp);
 
         var metadata = new CrdtMetadata();
-        PopulateMetadataRecursive(metadata, document, "$", timestamp);
+        PopulateMetadataRecursive(metadata, document, "$", timestamp, document);
         return metadata;
     }
 
@@ -57,7 +58,7 @@ public sealed class CrdtMetadataManager(
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(timestamp);
 
-        PopulateMetadataRecursive(metadata, document, "$", timestamp);
+        PopulateMetadataRecursive(metadata, document, "$", timestamp, document);
     }
 
     /// <inheritdoc/>
@@ -83,8 +84,9 @@ public sealed class CrdtMetadataManager(
         metadata.OrSets.Clear();
         metadata.PriorityQueues.Clear();
         metadata.LseqTrackers.Clear();
+        metadata.ExclusiveLocks.Clear();
 
-        PopulateMetadataRecursive(metadata, document, "$", timestamp);
+        PopulateMetadataRecursive(metadata, document, "$", timestamp, document);
     }
 
     /// <inheritdoc/>
@@ -142,6 +144,7 @@ public sealed class CrdtMetadataManager(
         foreach (var kvp in metadata.LseqTrackers) { newMetadata.LseqTrackers.Add(kvp.Key, new List<LseqItem>(kvp.Value)); }
         foreach (var kvp in metadata.VersionVector) { newMetadata.VersionVector.Add(kvp.Key, kvp.Value); }
         foreach (var op in metadata.SeenExceptions) { newMetadata.SeenExceptions.Add(op); }
+        foreach (var kvp in metadata.ExclusiveLocks) { newMetadata.ExclusiveLocks.Add(kvp.Key, kvp.Value); }
         
         return newMetadata;
     }
@@ -201,7 +204,38 @@ public sealed class CrdtMetadataManager(
         }
     }
 
-    private void PopulateMetadataRecursive(CrdtMetadata metadata, object obj, string path, ICrdtTimestamp timestamp)
+    /// <inheritdoc/>
+    public void ExclusiveLock([DisallowNull] CrdtMetadata metadata, string path, string lockHolderId, [DisallowNull] ICrdtTimestamp timestamp)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentException.ThrowIfNullOrWhiteSpace(lockHolderId);
+        ArgumentNullException.ThrowIfNull(timestamp);
+
+        if (metadata.ExclusiveLocks.TryGetValue(path, out var currentLock) && currentLock is not null && timestamp.CompareTo(currentLock.Timestamp) <= 0)
+        {
+            return;
+        }
+
+        metadata.ExclusiveLocks[path] = new LockInfo(lockHolderId, timestamp);
+    }
+
+    /// <inheritdoc/>
+    public void ReleaseLock([DisallowNull] CrdtMetadata metadata, string path, [DisallowNull] ICrdtTimestamp timestamp)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(timestamp);
+        
+        if (metadata.ExclusiveLocks.TryGetValue(path, out var currentLock) && currentLock is not null && timestamp.CompareTo(currentLock.Timestamp) <= 0)
+        {
+            return;
+        }
+        
+        metadata.ExclusiveLocks[path] = null;
+    }
+
+    private void PopulateMetadataRecursive(CrdtMetadata metadata, object obj, string path, ICrdtTimestamp timestamp, object root)
     {
         if (obj is null)
         {
@@ -218,7 +252,7 @@ public sealed class CrdtMetadataManager(
                     var itemType = item.GetType();
                     if (itemType.IsClass && itemType != typeof(string))
                     {
-                        PopulateMetadataRecursive(metadata, item, $"{path}[{i}]", timestamp);
+                        PopulateMetadataRecursive(metadata, item, $"{path}[{i}]", timestamp, root);
                     }
                 }
                 i++;
@@ -245,22 +279,25 @@ public sealed class CrdtMetadataManager(
 
             var strategy = strategyManager.GetStrategy(propertyInfo);
             
-            InitializeStrategyMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
+            InitializeStrategyMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp, root);
             
             var propertyType = propertyInfo.PropertyType;
             if ((propertyValue is IEnumerable and not string) || (propertyType.IsClass && propertyType != typeof(string)))
             {
-                PopulateMetadataRecursive(metadata, propertyValue, propertyPath, timestamp);
+                PopulateMetadataRecursive(metadata, propertyValue, propertyPath, timestamp, root);
             }
         }
     }
 
-    private void InitializeStrategyMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)
+    private void InitializeStrategyMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, object root)
     {
         switch (strategy)
         {
             case LwwStrategy:
                 metadata.Lww[propertyPath] = timestamp;
+                break;
+            case ExclusiveLockStrategy:
+                InitializeExclusiveLockMetadata(metadata, propertyInfo, propertyPath, timestamp, root);
                 break;
             case ArrayLcsStrategy:
                 if (propertyValue is IList lcsList)
@@ -302,6 +339,14 @@ public sealed class CrdtMetadataManager(
                 InitializeSetMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
                 break;
         }
+    }
+    
+    private void InitializeExclusiveLockMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, string propertyPath, ICrdtTimestamp timestamp, object root)
+    {
+        if (propertyInfo.GetCustomAttribute<CrdtExclusiveLockStrategyAttribute>() is not { } attr) return;
+        
+        var (_, _, value) = PocoPathHelper.ResolvePath(root, attr.LockHolderPropertyPath);
+        metadata.ExclusiveLocks[propertyPath] = null;
     }
 
     private void InitializeSetMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)

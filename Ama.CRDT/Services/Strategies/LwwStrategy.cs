@@ -7,7 +7,6 @@ using Ama.CRDT.Services.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Ama.CRDT.Attributes.Strategies;
@@ -34,12 +33,12 @@ public sealed class LwwStrategy : ICrdtStrategy
     }
 
     /// <inheritdoc/>
-    public void GeneratePatch(ICrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, object? originalValue, object? modifiedValue, CrdtMetadata originalMeta, CrdtMetadata modifiedMeta)
+    public void GeneratePatch(ICrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, CrdtMetadata originalMeta, CrdtMetadata modifiedMeta)
     {
         var propertyType = property.PropertyType;
         if (propertyType.IsClass && propertyType != typeof(string) && !CrdtPatcher.IsCollection(propertyType))
         {
-            patcher.DifferentiateObject(path, property.PropertyType, originalValue, originalMeta, modifiedValue, modifiedMeta, operations);
+            patcher.DifferentiateObject(path, property.PropertyType, originalValue, originalMeta, modifiedValue, modifiedMeta, operations, originalRoot, modifiedRoot);
             return;
         }
 
@@ -99,58 +98,9 @@ public sealed class LwwStrategy : ICrdtStrategy
         }
         else if (operation.Type == OperationType.Upsert)
         {
-            var value = DeserializeValue(operation.Value, property.PropertyType);
+            var value = PocoPathHelper.ConvertValue(operation.Value, property.PropertyType);
             property.SetValue(parent, value);
             metadata.Lww[operation.JsonPath] = operation.Timestamp;
         }
-    }
-
-    /// <summary>
-    /// Deserializes a raw object value from a <see cref="CrdtOperation"/> into a specific target type.
-    /// This method handles primitive type conversions and can map dictionary-like objects to complex types.
-    /// </summary>
-    /// <param name="value">The value to deserialize.</param>
-    /// <param name="targetType">The target type to convert to.</param>
-    /// <returns>The deserialized object.</returns>
-    /// <exception cref="InvalidOperationException">Thrown if conversion fails.</exception>
-    public static object? DeserializeValue(object? value, Type targetType)
-    {
-        if (value is null) return null;
-        if (targetType.IsInstanceOfType(value)) return value;
-
-        var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-
-        if (value is IConvertible)
-        {
-            try
-            {
-                return Convert.ChangeType(value, underlyingType, CultureInfo.InvariantCulture);
-            }
-            catch (Exception ex) when (ex is InvalidCastException || ex is FormatException || ex is OverflowException)
-            {
-                // Fall through to dictionary mapping logic.
-            }
-        }
-
-        if (value is IDictionary<string, object> dictionary && !underlyingType.IsPrimitive && underlyingType != typeof(string))
-        {
-            var instance = Activator.CreateInstance(underlyingType);
-            if (instance is null) return null;
-
-            var properties = underlyingType.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite);
-
-            foreach (var property in properties)
-            {
-                var key = dictionary.Keys.FirstOrDefault(k => string.Equals(k, property.Name, StringComparison.OrdinalIgnoreCase));
-                if (key != null)
-                {
-                    var propValue = dictionary[key];
-                    property.SetValue(instance, DeserializeValue(propValue, property.PropertyType));
-                }
-            }
-            return instance;
-        }
-
-        throw new InvalidOperationException($"Failed to convert value of type '{value.GetType().Name}' to '{targetType.Name}'.");
     }
 }

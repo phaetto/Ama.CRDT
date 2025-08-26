@@ -33,7 +33,7 @@ public sealed class LwwStrategyTests
         var modifiedMeta = new CrdtMetadata { Lww = { ["$.value"] = new EpochTimestamp(200L) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, null, null, originalMeta, modifiedMeta);
 
         operations.Count.ShouldBe(1);
         var op = operations[0];
@@ -52,7 +52,7 @@ public sealed class LwwStrategyTests
         var modifiedMeta = new CrdtMetadata { Lww = { ["$.value"] = new EpochTimestamp(100L) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, originalMeta, modifiedMeta);
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, null, null, originalMeta, modifiedMeta);
 
         operations.ShouldBeEmpty();
     }

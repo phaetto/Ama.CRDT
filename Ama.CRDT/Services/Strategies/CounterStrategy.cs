@@ -37,7 +37,7 @@ public sealed class CounterStrategy : ICrdtStrategy
     }
 
     /// <inheritdoc/>
-    public void GeneratePatch(ICrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, object? originalValue, object? modifiedValue, CrdtMetadata originalMeta, CrdtMetadata modifiedMeta)
+    public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)
     {
         var originalNumeric = Convert.ToDecimal(originalValue ?? 0);
         var modifiedNumeric = Convert.ToDecimal(modifiedValue ?? 0);
