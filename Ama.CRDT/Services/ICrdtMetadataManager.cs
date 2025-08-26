@@ -120,4 +120,21 @@ public interface ICrdtMetadataManager
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="timestamp"/> is null.</exception>
     /// <exception cref="ArgumentException">Thrown if <paramref name="replicaId"/> is null or whitespace.</exception>
     void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, string replicaId, [DisallowNull] ICrdtTimestamp timestamp);
+    
+    /// <summary>
+    /// Manually acquires an exclusive lock on a property using a Last-Writer-Wins rule.
+    /// </summary>
+    /// <param name="metadata">The metadata object to update.</param>
+    /// <param name="path">The JSON path to the property to lock.</param>
+    /// <param name="lockHolderId">The identifier of the lock holder.</param>
+    /// <param name="timestamp">The timestamp of the lock operation.</param>
+    void ExclusiveLock([DisallowNull] CrdtMetadata metadata, string path, string lockHolderId, [DisallowNull] ICrdtTimestamp timestamp);
+
+    /// <summary>
+    /// Manually releases an exclusive lock on a property using a Last-Writer-Wins rule.
+    /// </summary>
+    /// <param name="metadata">The metadata object to update.</param>
+    /// <param name="path">The JSON path to the property to unlock.</param>
+    /// <param name="timestamp">The timestamp of the unlock operation.</param>
+    void ReleaseLock([DisallowNull] CrdtMetadata metadata, string path, [DisallowNull] ICrdtTimestamp timestamp);
 }

@@ -21,9 +21,11 @@ public interface ICrdtStrategy
     /// <param name="property">The reflection info for the property.</param>
     /// <param name="originalValue">The value of the property in the original document.</param>
     /// <param name="modifiedValue">The value of the property in the modified document.</param>
+    /// <param name="originalRoot">The root object of the original document, allowing strategies to access context from other properties.</param>
+    /// <param name="modifiedRoot">The root object of the modified document, allowing strategies to access context from other properties.</param>
     /// <param name="originalMeta">The metadata associated with the original document.</param>
     /// <param name="modifiedMeta">The metadata associated with the modified document.</param>
-    void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta);
+    void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta);
     
     /// <summary>
     /// Applies a single CRDT operation to a POCO document.

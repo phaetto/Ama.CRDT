@@ -31,7 +31,7 @@ public sealed class MaxWinsStrategyTests
         var property = typeof(TestModel).GetProperty(nameof(TestModel.HighScore))!;
         
         // Act
-        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.highScore", property, 100, 200, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.highScore", property, 100, 200, new TestModel { HighScore = 100 }, new TestModel { HighScore = 200 }, new CrdtMetadata(), new CrdtMetadata());
 
         // Assert
         var op = operations.ShouldHaveSingleItem();
@@ -47,7 +47,7 @@ public sealed class MaxWinsStrategyTests
         var property = typeof(TestModel).GetProperty(nameof(TestModel.HighScore))!;
         
         // Act
-        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.highScore", property, 200, 100, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.highScore", property, 200, 100, new TestModel { HighScore = 200 }, new TestModel { HighScore = 100 }, new CrdtMetadata(), new CrdtMetadata());
 
         // Assert
         operations.ShouldBeEmpty();

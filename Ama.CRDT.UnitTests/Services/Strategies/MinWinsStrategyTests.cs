@@ -31,7 +31,7 @@ public sealed class MinWinsStrategyTests
         var property = typeof(TestModel).GetProperty(nameof(TestModel.BestTime))!;
         
         // Act
-        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.bestTime", property, 200, 100, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.bestTime", property, 200, 100, new TestModel { BestTime = 200 }, new TestModel { BestTime = 100 }, new CrdtMetadata(), new CrdtMetadata());
 
         // Assert
         var op = operations.ShouldHaveSingleItem();
@@ -47,7 +47,7 @@ public sealed class MinWinsStrategyTests
         var property = typeof(TestModel).GetProperty(nameof(TestModel.BestTime))!;
         
         // Act
-        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.bestTime", property, 100, 200, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.bestTime", property, 100, 200, new TestModel { BestTime = 100 }, new TestModel { BestTime = 200 }, new CrdtMetadata(), new CrdtMetadata());
 
         // Assert
         operations.ShouldBeEmpty();

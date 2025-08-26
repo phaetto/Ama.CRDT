@@ -56,7 +56,7 @@ public sealed class VoteCounterStrategyTests
         var modifiedMeta = metadataManager.Initialize(modified);
 
         var operations = new List<CrdtOperation>();
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, originalMeta, modifiedMeta);
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, original, modified, originalMeta, modifiedMeta);
 
         operations.Count.ShouldBe(1);
         var op = operations[0];
@@ -75,7 +75,7 @@ public sealed class VoteCounterStrategyTests
         var modifiedMeta = metadataManager.Initialize(modified);
 
         var operations = new List<CrdtOperation>();
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, originalMeta, modifiedMeta);
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, original, modified, originalMeta, modifiedMeta);
 
         operations.Count.ShouldBe(1);
         var op = operations[0];

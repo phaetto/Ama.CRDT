@@ -49,7 +49,7 @@ public sealed class BoundedCounterStrategyTests
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Level))!;
         
         // Act
-        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.level", property, 50, 60, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.level", property, 50, 60, new TestModel { Level = 50 }, new TestModel { Level = 60 }, new CrdtMetadata(), new CrdtMetadata());
 
         // Assert
         var op = operations.ShouldHaveSingleItem();
