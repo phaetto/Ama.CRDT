@@ -4,10 +4,10 @@ A .NET library for achieving eventual consistency in distributed systems using C
 
 ## Features
 
-- **Attribute-Driven Strategies**: Define conflict resolution logic directly on your POCO properties using attributes like `[CrdtLwwStrategy]`, `[CrdtCounterStrategy]`, `[CrdtArrayLcsStrategy]`, and `[CrdtSortedSetStrategy]`.
+- **Attribute-Driven Strategies**: Define conflict resolution logic directly on your POCO properties using a rich set of attributes like `[CrdtLwwStrategy]`, `[CrdtCounterStrategy]`, `[CrdtOrSetStrategy]`, and `[CrdtStateMachineStrategy]`.
 - **POCO-First**: Work directly with your C# objects. The library handles recursive diffing and patching seamlessly.
 - **Clean Data/Metadata Separation**: Keeps your data models pure by storing CRDT state (timestamps, version vectors) in a parallel `CrdtMetadata` object.
-- **Extensible**: Easily create and register your own custom CRDT strategies.
+- **Extensible**: Easily create and register your own custom CRDT strategies, element comparers, and timestamp providers.
 - **Multi-Replica Support**: Designed for scenarios with multiple concurrent writers, using a factory pattern to create services for each unique replica.
 - **Dependency Injection Friendly**: All services are designed to be registered and resolved through a standard DI container.
 
@@ -33,7 +33,7 @@ Or, you can search for `Ama.CRDT` in the NuGet Package Manager UI and install it
 
 ## Getting Started
 
-### Setup
+### 1. Setup
 
 In your `Program.cs` or service configuration file, register the CRDT services.
 
@@ -45,8 +45,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add CRDT services to the DI container
 builder.Services.AddCrdt(options =>
 {
-    // A default replica ID is required, but can be overridden
-    // when creating replica-specific services.
+    // A default replica ID is required, but it's best practice to
+    // create replica-specific services using the ICrdtPatcherFactory.
     options.ReplicaId = "default-replica";
 });
 
@@ -55,72 +55,97 @@ builder.Services.AddCrdt(options =>
 var app = builder.Build();
 ```
 
-## Controlling Merge Behavior with CRDT Strategies
+### 2. Define Your Model
 
-This library uses attributes on your POCO properties to determine how to merge changes. You can control the conflict resolution logic for each property individually.
-
--   **`[CrdtLwwStrategy]` (Last-Writer-Wins)**: This is the default strategy for simple properties (strings, numbers, booleans, etc.). When a conflict occurs, the value with the most recent timestamp wins. You can omit this attribute, as it is the default.
-
--   **`[CrdtCounterStrategy]`**: Use this for numeric properties (`int`, `long`, etc.) that should behave like a counter. Instead of overwriting values, the library treats changes as increments or decrements. This ensures that concurrent additions (e.g., two users liking a post at the same time) are both counted, resulting in a final value that reflects the sum of all changes.
-
--   **`[CrdtArrayLcsStrategy]`**: This is the default strategy for collections (`List<T>`, arrays). It uses a Longest Common Subsequence (LCS) algorithm to intelligently handle insertions and deletions. This is more efficient than replacing the entire array, as it only generates operations for the items that were actually added or removed.
-
--   **`[CrdtSortedSetStrategy]`**: Use this for collections that must be maintained in a sorted order. It uses an LCS-based diff to handle insertions and deletions efficiently and re-sorts the collection after any change to maintain a consistent order across all replicas. This is useful for leaderboards or sorted lists of tags. This strategy is not a default and must be explicitly applied.
-
-### Define Your Model
-
-First, decorate your POCO properties with the desired CRDT strategy attributes. This model will be used in the following examples.
+Decorate your POCO properties with the desired CRDT strategy attributes. These attributes tell the library how to handle concurrent changes.
 
 ```csharp
 using Ama.CRDT.Attributes;
 
 public class UserStats
 {
-    [CrdtLwwStrategy] // Can be omitted as it's the default for simple types
+    // LwwStrategy is the default, so this attribute is optional.
+    // It's shown here for clarity.
+    [CrdtLwwStrategy]
     public string LastSeenLocation { get; set; } = string.Empty;
 
     [CrdtCounterStrategy]
     public long LoginCount { get; set; }
 
-    [CrdtSortedSetStrategy] // This collection will be kept sorted.
+    [CrdtOrSetStrategy] // Use OR-Set to allow badges to be re-added after removal.
     public List<string> Badges { get; set; } = [];
 }
 ```
 
-## High-Level Usage: `ICrdtService`
+## Basic Usage
 
-For single-replica applications or simple use cases, the `ICrdtService` provides a straightforward facade. It uses the default `ReplicaId` configured during setup.
+The core workflow involves creating a patch from a change and applying it to another replica.
 
 ```csharp
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 
 // 1. Inject services from DI container
-// ICrdtService crdtService = ...;
+// ICrdtPatcherFactory patcherFactory = ...;
+// ICrdtApplicator applicator = ...;
 // ICrdtMetadataManager metadataManager = ...;
 
-// 2. Establish an initial state
+// 2. Create a patcher for your replica
+var patcher = patcherFactory.Create("replica-A");
+
+// 3. Establish an initial state
 var originalState = new UserStats { LoginCount = 5, Badges = new List<string> { "newcomer" } };
 var originalMetadata = metadataManager.Initialize(originalState);
 var originalDocument = new CrdtDocument<UserStats>(originalState, originalMetadata);
 
-// 3. Modify the state
+// 4. Modify the state
 var modifiedState = new UserStats { LoginCount = 6, Badges = new List<string> { "newcomer", "explorer" } };
+// The metadata must be passed to the new document to track timestamps correctly.
 var modifiedDocument = new CrdtDocument<UserStats>(modifiedState, originalMetadata);
 
-// 4. Create a patch. The service internally updates the metadata in modifiedDocument.
-var patch = crdtService.CreatePatch(originalDocument, modifiedDocument);
+// 5. Create a patch. The patcher updates the metadata in modifiedDocument.
+var patch = patcher.GeneratePatch(originalDocument, modifiedDocument);
 
-// 5. Simulate receiving this patch elsewhere and applying it
+// 6. Simulate receiving this patch elsewhere and applying it
 var stateToMerge = new UserStats { LoginCount = 5, Badges = new List<string> { "newcomer" } };
 var metadataToMerge = metadataManager.Initialize(stateToMerge);
+var documentToMerge = new CrdtDocument<UserStats>(stateToMerge, metadataToMerge);
 
-crdtService.Merge(stateToMerge, patch, metadataToMerge);
+applicator.ApplyPatch(documentToMerge, patch);
 
-// 6. Assert the new state is correct
-// stateToMerge.LoginCount is now 6
-// stateToMerge.Badges now contains ["explorer", "newcomer"] (sorted)
+// 7. Assert the new state is correct
+// documentToMerge.Data.LoginCount is now 6
+// documentToMerge.Data.Badges now contains ["newcomer", "explorer"]
 ```
+
+## Controlling Merge Behavior with CRDT Strategies
+
+This library uses attributes on your POCO properties to determine how to merge changes. You can control the conflict resolution logic for each property individually.
+
+| Strategy | Description | Best Use Case |
+| :--- | :--- | :--- |
+| **Numeric & Value Strategies** | | |
+| `[CrdtLwwStrategy]` | (Default) Last-Writer-Wins. The value with the latest timestamp overwrites others. | Simple properties like names, statuses, or any field where the last update should be the final state. |
+| `[CrdtCounterStrategy]` | A simple counter that supports increments and decrements. | Likes, view counts, scores, or inventory quantities where changes are additive. |
+| `[CrdtGCounterStrategy]` | A Grow-Only Counter that only supports positive increments. | Counting events that can only increase, like page visits or successful transactions. |
+| `[CrdtBoundedCounterStrategy]` | A counter whose value is clamped within a specified minimum and maximum range. | Health bars in a game (0-100), volume controls, or any numeric value with hard limits. |
+| `[CrdtMaxWinsStrategy]` | A register where conflicts are resolved by choosing the highest numeric value. | High scores, auction bids, or tracking the peak value of a metric. |
+| `[CrdtMinWinsStrategy]` | A register where conflicts are resolved by choosing the lowest numeric value. | Best lap times, lowest price seen, or finding the earliest event timestamp. |
+| `[CrdtAverageRegisterStrategy]` | A register where the final value is the average of contributions from all replicas. | Aggregating sensor readings from multiple devices, user ratings, or calculating an average latency. |
+| **Set & Collection Strategies** | | |
+| `[CrdtArrayLcsStrategy]` | (Default for collections) Uses Longest Common Subsequence (LCS) to handle insertions and deletions efficiently. Preserves order. | Collaborative text editing, managing ordered lists of tasks, or any sequence where element order matters. |
+| `[CrdtSortedSetStrategy]` | Maintains a collection sorted by a natural or specified key. Uses LCS for diffing. | Leaderboards, sorted lists of tags, or displaying items in a consistent, sorted order. |
+| `[CrdtGSetStrategy]` | A Grow-Only Set. Elements can be added but never removed. | Storing tags, accumulating unique identifiers, or tracking event participation where removal is not allowed. |
+| `[CrdtTwoPhaseSetStrategy]` | A Two-Phase Set. Elements can be added and removed, but an element cannot be re-added once removed. | Managing feature flags or user roles where an item, once revoked, should stay revoked. |
+| `[CrdtLwwSetStrategy]` | A Last-Writer-Wins Set. Element membership is determined by the timestamp of its last add or remove operation. | A shopping cart, user preferences, or any set where the most recent decision to add or remove an item should win. |
+| `[CrdtOrSetStrategy]` | An Observed-Remove Set. Allows elements to be re-added after removal by tagging each addition uniquely. | Collaborative tagging systems or managing members in a group where users can leave and rejoin. |
+| `[CrdtPriorityQueueStrategy]` | Manages a collection as a priority queue, sorted by a specified property on the elements. | Task queues, notification lists, or any scenario where items need to be processed based on priority. |
+| `[CrdtFixedSizeArrayStrategy]` | Manages a fixed-size array where each index is an LWW-Register. Useful for representing grids or slots. | Game boards, seating charts, or fixed-size buffers where each position is updated independently. |
+| `[CrdtLseqStrategy]` | An ordered list strategy that generates fractional indexes to avoid conflicts during concurrent insertions. | Collaborative text editors and other real-time sequence editing applications requiring high-precision ordering. |
+| `[CrdtVoteCounterStrategy]` | Manages a dictionary of options to voter sets, ensuring each voter can only have one active vote at a time. | Polls, surveys, or any system where users vote for one of several options. |
+| **State & Locking Strategies** | | |
+| `[CrdtStateMachineStrategy]` | Enforces valid state transitions using a user-defined validator, with LWW for conflict resolution. | Order processing (Pending -> Shipped -> Delivered), workflows, or any property with a constrained lifecycle. |
+| `[CrdtExclusiveLockStrategy]` | An optimistic exclusive lock where the latest lock or unlock operation (based on LWW) wins. | Preventing concurrent edits on a sub-document or resource without a central locking service. |
 
 ## Advanced Usage: Multi-Replica Synchronization
 
@@ -143,42 +168,51 @@ var patcherB = patcherFactory.Create("replica-B");
 var baseState = new UserStats { LastSeenLocation = "Lobby", LoginCount = 10, Badges = new List<string> { "welcome" } };
 var baseMetadata = metadataManager.Initialize(baseState);
 
-// 4. Create two replicas from the base state
+// 4. Create two replicas from the base state (deep cloning data and metadata)
 var docA = new CrdtDocument<UserStats>(
     new UserStats { LastSeenLocation = "Lobby", LoginCount = 10, Badges = new List<string> { "welcome" } },
-    metadataManager.Initialize(baseState)
+    metadataManager.Clone(baseMetadata)
 );
 
 var docB = new CrdtDocument<UserStats>(
     new UserStats { LastSeenLocation = "Lobby", LoginCount = 10, Badges = new List<string> { "welcome" } },
-    metadataManager.Initialize(baseState)
+    metadataManager.Clone(baseMetadata)
 );
 
 // 5. Modify both replicas independently
 // Replica A: User logs in again and earns a new badge
-var modifiedA = new UserStats { LastSeenLocation = "Lobby", LoginCount = 11, Badges = new List<string> { "veteran", "welcome" } };
+var modifiedAState = docA.Data;
+modifiedAState.LoginCount++; // 11
+modifiedAState.Badges.Add("veteran");
 
 // Replica B: User changes location and also logs in
-var modifiedB = new UserStats { LastSeenLocation = "Marketplace", LoginCount = 11, Badges = new List<string> { "welcome" } };
+var modifiedBState = docB.Data;
+modifiedBState.LastSeenLocation = "Marketplace";
+modifiedBState.LoginCount++; // 11
 
 // 6. Generate patches
-// The patcher automatically updates the metadata for the 'to' document with new timestamps
-var patchFromA = patcherA.GeneratePatch(docA, new CrdtDocument<UserStats>(modifiedA, docA.Metadata));
-var patchFromB = patcherB.GeneratePatch(docB, new CrdtDocument<UserStats>(modifiedB, docB.Metadata));
+var patchFromA = patcherA.GeneratePatch(
+    new CrdtDocument<UserStats>(baseState, baseMetadata), // Compare against original base state
+    docA
+);
+var patchFromB = patcherB.GeneratePatch(
+    new CrdtDocument<UserStats>(baseState, baseMetadata),
+    docB
+);
 
 // 7. Synchronize: Cross-apply patches
 // Apply A's patch to B's document
-applicator.ApplyPatch(docB.Data, patchFromA, docB.Metadata);
+applicator.ApplyPatch(docB, patchFromA);
 
 // Apply B's patch to A's document
-applicator.ApplyPatch(docA.Data, patchFromB, docA.Metadata);
+applicator.ApplyPatch(docA, patchFromB);
 
 // 8. Assert Convergence
 // Both replicas now have the same converged state.
 // docA.Data and docB.Data are now identical.
 // - LastSeenLocation: "Marketplace" (LWW from B wins, assuming later timestamp)
 // - LoginCount: 12 (Counter incremented by both, 10 + 1 + 1)
-// - Badges: ["veteran", "welcome"] (SortedSet merge adds "veteran" and maintains sort order)
+// - Badges: ["veteran", "welcome"] (OR-Set merge adds "veteran")
 ```
 
 ## Managing Metadata Size
@@ -245,7 +279,7 @@ public sealed class MyCustomStrategy : ICrdtStrategy
         // Add custom diffing logic here
     }
 
-    public void ApplyOperation(object root, CrdtOperation operation)
+    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
     {
         // Add custom application logic here
     }
@@ -389,11 +423,10 @@ builder.Services.AddCrdtTimestampProvider<MyCustomTimestampProvider>();
 
 ## How It Works
 
--   **`ICrdtService`**: The high-level facade for simple use cases. It internally uses the `ICrdtPatcher` and `ICrdtApplicator` registered with the default replica ID.
--   **`ICrdtPatcher`**: Takes two `CrdtDocument<T>` objects (`from` and `to`) and generates a `CrdtPatch`. It recursively compares the POCOs, using the `ICrdtStrategyManager` to find the correct strategy for each property. It also updates the `to` document's metadata with new timestamps for any changed values.
--   **`ICrdtApplicator`**: Takes a POCO, a `CrdtPatch`, and the POCO's `CrdtMetadata`. It processes each operation in the patch, first checking the metadata to prevent applying stale or duplicate operations (ensuring idempotency). If an operation is valid, it uses the `ICrdtStrategyManager` to find the correct strategy to modify the POCO.
--   **`ICrdtStrategyManager`**: A service that inspects a property's attributes (e.g., `[CrdtCounterStrategy]`) to resolve and return the appropriate `ICrdtStrategy` implementation from the DI container. It provides default strategies (LWW for simple types, LCS for collections) if no attribute is present.
 -   **`ICrdtPatcherFactory`**: A factory for creating `ICrdtPatcher` instances, each configured with a unique `ReplicaId`. This is crucial for correctly attributing changes in a multi-replica environment.
+-   **`ICrdtPatcher`**: Takes two `CrdtDocument<T>` objects (`from` and `to`) and generates a `CrdtPatch`. It recursively compares the POCOs, using the `ICrdtStrategyManager` to find the correct strategy for each property. It also updates the `to` document's metadata with new timestamps for any changed values.
+-   **`ICrdtApplicator`**: Takes a `CrdtDocument<T>` and a `CrdtPatch`. It processes each operation in the patch. If an operation is valid, it uses the `ICrdtStrategyManager` to find the correct strategy to modify the POCO.
+-   **`ICrdtStrategyManager`**: A service that inspects a property's attributes (e.g., `[CrdtCounterStrategy]`) to resolve and return the appropriate `ICrdtStrategy` implementation from the DI container. It provides default strategies (LWW for simple types, LCS for collections) if no attribute is present.
 -   **`ICrdtMetadataManager`**: A helper service for managing the `CrdtMetadata` object. It can initialize metadata from a POCO, compact it to save space, and perform other state management tasks.
 
 ## Building and Testing
