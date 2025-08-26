@@ -6,8 +6,6 @@
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
-    
-    <!-- This project is not intended to be packed as a standalone package -->
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 

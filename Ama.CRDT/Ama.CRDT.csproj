@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
 	<TargetFrameworks>net9.0;net8.0</TargetFrameworks>
@@ -56,6 +56,10 @@
 	<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.8" />
 	<PackageReference Include="Microsoft.Extensions.Options" Version="9.0.8" />
 	<PackageReference Include="System.Collections.Immutable" Version="9.0.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<None Include ="$(TargetDir)..\Ama.CRDT.Analyzers\bin\Release\netstandard2.0\*" pack="true" PackagePath="analyzers/dotnet/cs"></None>
   </ItemGroup>
 
 </Project>
