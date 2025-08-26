@@ -116,15 +116,16 @@ public sealed class CounterStrategyTests
         // Arrange
         var model = new TestModel { Score = 10 };
         var meta = metadataManager.Initialize(model);
+        var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
             new(Guid.NewGuid(), "r1", "$.Score", OperationType.Increment, 5m, new EpochTimestamp(1L))
         });
 
         // Act
-        applicator.ApplyPatch(model, patch, meta);
+        applicator.ApplyPatch(document, patch);
         var scoreAfterFirst = model.Score;
-        applicator.ApplyPatch(model, patch, meta);
+        applicator.ApplyPatch(document, patch);
 
         // Assert
         model.Score.ShouldBe(scoreAfterFirst);
@@ -137,18 +138,19 @@ public sealed class CounterStrategyTests
         // Arrange
         var model = new TestModel { Score = 10 };
         var meta = metadataManager.Initialize(model);
+        var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
             new(Guid.NewGuid(), "r1", "$.Score", OperationType.Increment, 5m, new EpochTimestamp(1L))
         });
 
         // Act
-        applicator.ApplyPatch(model, patch, meta);
+        applicator.ApplyPatch(document, patch);
         model.Score.ShouldBe(15);
 
         // Clear SeenExceptions to simulate re-application
         meta.SeenExceptions.Clear();
-        applicator.ApplyPatch(model, patch, meta);
+        applicator.ApplyPatch(document, patch);
 
         // Assert
         // The increment is applied a second time, proving the strategy is not idempotent.
@@ -172,9 +174,10 @@ public sealed class CounterStrategyTests
         {
             var model = new TestModel { Score = 10 };
             var meta = metadataManager.Initialize(model);
+            var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in p)
             {
-                applicator.ApplyPatch(model, patch, meta);
+                applicator.ApplyPatch(document, patch);
             }
             finalScores.Add(model.Score);
         }

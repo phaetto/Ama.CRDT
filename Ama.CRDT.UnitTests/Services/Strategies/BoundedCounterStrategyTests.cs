@@ -94,15 +94,16 @@ public sealed class BoundedCounterStrategyTests
         // Arrange
         var model = new TestModel { Level = 50 };
         var meta = metadataManager.Initialize(model);
+        var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
             new(Guid.NewGuid(), "r1", "$.Level", OperationType.Increment, 10m, new EpochTimestamp(1L))
         });
 
         // Act
-        applicator.ApplyPatch(model, patch, meta);
+        applicator.ApplyPatch(document, patch);
         var scoreAfterFirst = model.Level;
-        applicator.ApplyPatch(model, patch, meta);
+        applicator.ApplyPatch(document, patch);
 
         // Assert
         model.Level.ShouldBe(scoreAfterFirst);
@@ -115,18 +116,19 @@ public sealed class BoundedCounterStrategyTests
         // Arrange
         var model = new TestModel { Level = 50 };
         var meta = metadataManager.Initialize(model);
+        var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
             new(Guid.NewGuid(), "r1", "$.Level", OperationType.Increment, 10m, new EpochTimestamp(1L))
         });
 
         // Act
-        applicator.ApplyPatch(model, patch, meta);
+        applicator.ApplyPatch(document, patch);
         model.Level.ShouldBe(60);
 
         // Clear SeenExceptions to simulate re-application
         meta.SeenExceptions.Clear();
-        applicator.ApplyPatch(model, patch, meta);
+        applicator.ApplyPatch(document, patch);
 
         // Assert
         // The increment is applied a second time, proving the strategy is not idempotent.
@@ -150,9 +152,10 @@ public sealed class BoundedCounterStrategyTests
         {
             var model = new TestModel { Level = 50 };
             var meta = metadataManager.Initialize(model);
+            var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in p)
             {
-                applicator.ApplyPatch(model, patch, meta);
+                applicator.ApplyPatch(document, patch);
             }
             finalScores.Add(model.Level);
         }

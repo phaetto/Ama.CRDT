@@ -44,49 +44,45 @@ public sealed class CrdtMetadataManager(
     }
 
     /// <inheritdoc/>
-    public void Initialize<T>([DisallowNull] CrdtMetadata metadata, [DisallowNull] T document) where T : class
+    public void Initialize<T>(CrdtDocument<T> document) where T : class
     {
-        ArgumentNullException.ThrowIfNull(metadata);
-        ArgumentNullException.ThrowIfNull(document);
-        Initialize(metadata, document, timestampProvider.Now());
+        Initialize(document, timestampProvider.Now());
     }
 
     /// <inheritdoc/>
-    public void Initialize<T>([DisallowNull] CrdtMetadata metadata, [DisallowNull] T document, [DisallowNull] ICrdtTimestamp timestamp) where T : class
+    public void Initialize<T>(CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class
     {
-        ArgumentNullException.ThrowIfNull(metadata);
-        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(document.Metadata);
+        ArgumentNullException.ThrowIfNull(document.Data);
         ArgumentNullException.ThrowIfNull(timestamp);
 
-        PopulateMetadataRecursive(metadata, document, "$", timestamp, document);
+        PopulateMetadataRecursive(document.Metadata, document.Data, "$", timestamp, document.Data);
     }
 
     /// <inheritdoc/>
-    public void Reset<T>([DisallowNull] CrdtMetadata metadata, [DisallowNull] T document) where T : class
+    public void Reset<T>(CrdtDocument<T> document) where T : class
     {
-        ArgumentNullException.ThrowIfNull(metadata);
-        ArgumentNullException.ThrowIfNull(document);
-        Reset(metadata, document, timestampProvider.Now());
+        Reset(document, timestampProvider.Now());
     }
 
     /// <inheritdoc/>
-    public void Reset<T>([DisallowNull] CrdtMetadata metadata, [DisallowNull] T document, [DisallowNull] ICrdtTimestamp timestamp) where T : class
+    public void Reset<T>(CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class
     {
-        ArgumentNullException.ThrowIfNull(metadata);
-        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(document.Metadata);
+        ArgumentNullException.ThrowIfNull(document.Data);
         ArgumentNullException.ThrowIfNull(timestamp);
 
-        metadata.Lww.Clear();
-        metadata.PositionalTrackers.Clear();
-        metadata.AverageRegisters.Clear();
-        metadata.TwoPhaseSets.Clear();
-        metadata.LwwSets.Clear();
-        metadata.OrSets.Clear();
-        metadata.PriorityQueues.Clear();
-        metadata.LseqTrackers.Clear();
-        metadata.ExclusiveLocks.Clear();
+        document.Metadata.Lww.Clear();
+        document.Metadata.PositionalTrackers.Clear();
+        document.Metadata.AverageRegisters.Clear();
+        document.Metadata.TwoPhaseSets.Clear();
+        document.Metadata.LwwSets.Clear();
+        document.Metadata.OrSets.Clear();
+        document.Metadata.PriorityQueues.Clear();
+        document.Metadata.LseqTrackers.Clear();
+        document.Metadata.ExclusiveLocks.Clear();
 
-        PopulateMetadataRecursive(metadata, document, "$", timestamp, document);
+        PopulateMetadataRecursive(document.Metadata, document.Data, "$", timestamp, document.Data);
     }
 
     /// <inheritdoc/>

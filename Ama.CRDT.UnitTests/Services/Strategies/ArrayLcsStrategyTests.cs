@@ -97,13 +97,14 @@ public sealed class ArrayLcsStrategyTests
 
         var targetModel = new TestModel { Tags = new List<string>(initialModel.Tags) };
         var targetMeta = metadataManager.Initialize(targetModel);
+        var targetDocument = new CrdtDocument<TestModel>(targetModel, targetMeta);
 
         // Act
-        applicator.ApplyPatch(targetModel, patch, targetMeta);
+        applicator.ApplyPatch(targetDocument, patch);
         var stateAfterFirstApply = new List<string>(targetModel.Tags);
         var trackersCountAfterFirstApply = targetMeta.PositionalTrackers["$.tags"].Count;
 
-        applicator.ApplyPatch(targetModel, patch, targetMeta);
+        applicator.ApplyPatch(targetDocument, patch);
 
         // Assert
         targetModel.Tags.ShouldBe(stateAfterFirstApply);
@@ -125,15 +126,16 @@ public sealed class ArrayLcsStrategyTests
 
         var targetModel = new TestModel { Tags = new List<string>(initialModel.Tags) };
         var targetMeta = metadataManager.Initialize(targetModel);
+        var targetDocument = new CrdtDocument<TestModel>(targetModel, targetMeta);
 
         // Act
         // First apply works as expected
-        applicator.ApplyPatch(targetModel, patch, targetMeta);
+        applicator.ApplyPatch(targetDocument, patch);
         targetModel.Tags.ShouldBe(new[] { "A", "B", "C" });
 
         // Simulate losing metadata state (e.g., recreating it) and reapplying the same patch
         targetMeta.SeenExceptions.Clear();
-        applicator.ApplyPatch(targetModel, patch, targetMeta);
+        applicator.ApplyPatch(targetDocument, patch);
 
         // Assert
         // Without the SeenExceptions guard, the insert operation is applied again, creating a duplicate.
@@ -170,9 +172,10 @@ public sealed class ArrayLcsStrategyTests
         {
             var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
             var meta = metadataManager.Initialize(model);
+            var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in permutation)
             {
-                applicator.ApplyPatch(model, patch, meta);
+                applicator.ApplyPatch(document, patch);
             }
             finalStates.Add(model.Tags);
         }
@@ -209,14 +212,16 @@ public sealed class ArrayLcsStrategyTests
         // Scenario 1: Remove B, then Insert X
         var finalModel_1 = new TestModel { Tags = new List<string>(ancestor.Tags) };
         var finalMeta_1 = metadataManager.Initialize(finalModel_1);
-        applicator.ApplyPatch(finalModel_1, patch_RemoveB, finalMeta_1);
-        applicator.ApplyPatch(finalModel_1, patch_InsertX, finalMeta_1);
+        var document_1 = new CrdtDocument<TestModel>(finalModel_1, finalMeta_1);
+        applicator.ApplyPatch(document_1, patch_RemoveB);
+        applicator.ApplyPatch(document_1, patch_InsertX);
 
         // Scenario 2: Insert X, then Remove B
         var finalModel_2 = new TestModel { Tags = new List<string>(ancestor.Tags) };
         var finalMeta_2 = metadataManager.Initialize(finalModel_2);
-        applicator.ApplyPatch(finalModel_2, patch_InsertX, finalMeta_2);
-        applicator.ApplyPatch(finalModel_2, patch_RemoveB, finalMeta_2);
+        var document_2 = new CrdtDocument<TestModel>(finalModel_2, finalMeta_2);
+        applicator.ApplyPatch(document_2, patch_InsertX);
+        applicator.ApplyPatch(document_2, patch_RemoveB);
 
         // Assert
         var expected = new List<string> { "A", "X", "C" };
@@ -246,8 +251,9 @@ public sealed class ArrayLcsStrategyTests
         // 3. Apply these patches to a third replica to create a converged state.
         var doc_converged = new TestModel { Tags = new List<string>(ancestor.Tags) };
         var meta_converged = metadataManager.Initialize(doc_converged);
-        applicator.ApplyPatch(doc_converged, patchB, meta_converged);
-        applicator.ApplyPatch(doc_converged, patchX, meta_converged);
+        var document_converged = new CrdtDocument<TestModel>(doc_converged, meta_converged);
+        applicator.ApplyPatch(document_converged, patchB);
+        applicator.ApplyPatch(document_converged, patchX);
 
         // Sanity check: "B" and "X" now have the same position string "1.5" in the metadata.
         var positionalTrackers = meta_converged.PositionalTrackers["$.tags"];
@@ -263,7 +269,7 @@ public sealed class ArrayLcsStrategyTests
         // Act
         // 5. Generate a patch for this new insertion. This will call GeneratePositionBetween("1.5", "1.5").
         var patchY = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(doc_converged, meta_converged),
+            document_converged,
             new CrdtDocument<TestModel>(doc_after_Y_insert, meta_converged));
 
         // Assert

@@ -44,23 +44,27 @@ public sealed class CrdtMetadataManagerTests
         // Act & Assert
         if (testInitialize)
         {
+            // Test Initialize<T>(T document) and Initialize<T>(T document, ICrdtTimestamp timestamp)
             Should.Throw<ArgumentNullException>(() => manager.Initialize<object>(null!));
-            Should.Throw<ArgumentNullException>(() => manager.Initialize<object>((object)null!, timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.Initialize<object>(null!, timestamp));
             Should.Throw<ArgumentNullException>(() => manager.Initialize(doc, null!));
-            Should.Throw<ArgumentNullException>(() => manager.Initialize(null!, doc));
-            Should.Throw<ArgumentNullException>(() => manager.Initialize<string>(metadata, null!));
-            Should.Throw<ArgumentNullException>(() => manager.Initialize(null!, doc, timestamp));
-            Should.Throw<ArgumentNullException>(() => manager.Initialize<string>(metadata, null!, timestamp));
-            Should.Throw<ArgumentNullException>(() => manager.Initialize(metadata, doc, null!));
+            
+            // Test Initialize<T>(CrdtDocument<T> document) and Initialize<T>(CrdtDocument<T> document, ICrdtTimestamp timestamp)
+            Should.Throw<ArgumentNullException>(() => manager.Initialize(new CrdtDocument<object>(null!, metadata)));
+            Should.Throw<ArgumentNullException>(() => manager.Initialize(new CrdtDocument<object>(doc, null!)));
+            Should.Throw<ArgumentNullException>(() => manager.Initialize(new CrdtDocument<object>(null!, metadata), timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.Initialize(new CrdtDocument<object>(doc, null!), timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.Initialize(new CrdtDocument<object>(doc, metadata), null!));
         }
         
         if (testReset)
         {
-            Should.Throw<ArgumentNullException>(() => manager.Reset(null!, doc));
-            Should.Throw<ArgumentNullException>(() => manager.Reset<string>(metadata, null!));
-            Should.Throw<ArgumentNullException>(() => manager.Reset(null!, doc, timestamp));
-            Should.Throw<ArgumentNullException>(() => manager.Reset<string>(metadata, null!, timestamp));
-            Should.Throw<ArgumentNullException>(() => manager.Reset(metadata, doc, null!));
+            // Test Reset<T>(CrdtDocument<T> document) and Reset<T>(CrdtDocument<T> document, ICrdtTimestamp timestamp)
+            Should.Throw<ArgumentNullException>(() => manager.Reset(new CrdtDocument<object>(null!, metadata)));
+            Should.Throw<ArgumentNullException>(() => manager.Reset(new CrdtDocument<object>(doc, null!)));
+            Should.Throw<ArgumentNullException>(() => manager.Reset(new CrdtDocument<object>(null!, metadata), timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.Reset(new CrdtDocument<object>(doc, null!), timestamp));
+            Should.Throw<ArgumentNullException>(() => manager.Reset(new CrdtDocument<object>(doc, metadata), null!));
         }
         
         if (testPrune)
@@ -105,7 +109,7 @@ public sealed class CrdtMetadataManagerTests
         timestampProviderMock.Setup(p => p.Now()).Returns(new EpochTimestamp(200));
         
         // Act
-        manager.Reset(metadata, doc);
+        manager.Reset(new CrdtDocument<object>(doc, metadata));
         
         // Assert
         metadata.Lww.ShouldBeEmpty();
