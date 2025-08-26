@@ -24,7 +24,7 @@ public sealed class StateMachineStrategy(IOptions<CrdtOptions> options, IService
     private readonly string replicaId = options.Value.ReplicaId;
 
     /// <inheritdoc/>
-    public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)
+    public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)
     {
         if (Equals(originalValue, modifiedValue))
         {
@@ -61,7 +61,7 @@ public sealed class StateMachineStrategy(IOptions<CrdtOptions> options, IService
         if (attribute is null) return;
 
         var currentValue = property.GetValue(parent);
-        var incomingValue = LwwStrategy.DeserializeValue(operation.Value, property.PropertyType);
+        var incomingValue = PocoPathHelper.ConvertValue(operation.Value, property.PropertyType);
 
         if (!IsValidTransition(attribute.ValidatorType, currentValue, incomingValue))
         {

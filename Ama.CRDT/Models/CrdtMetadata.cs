@@ -4,6 +4,13 @@ using System.Text.Json.Serialization.Metadata;
 namespace Ama.CRDT.Models;
 
 /// <summary>
+/// A record struct that holds information about an exclusive lock on a property.
+/// </summary>
+/// <param name="LockHolderId">The identifier of the entity holding the lock.</param>
+/// <param name="Timestamp">The timestamp when the lock was acquired.</param>
+public sealed record LockInfo(string LockHolderId, ICrdtTimestamp Timestamp);
+
+/// <summary>
 /// Encapsulates the state required for conflict resolution, such as LWW timestamps and version vectors,
 /// externalizing it from the data model itself.
 /// </summary>
@@ -81,4 +88,10 @@ public sealed class CrdtMetadata
     /// The key is the JSON Path to the array. The value is a list of items, each pairing a dense identifier with a value.
     /// </summary>
     public IDictionary<string, List<LseqItem>> LseqTrackers { get; } = new Dictionary<string, List<LseqItem>>();
+    
+    /// <summary>
+    /// Gets a dictionary that stores the state for properties managed by the Exclusive Lock strategy.
+    /// The key is the JSON path to the locked property. A null value indicates the lock is released.
+    /// </summary>
+    public IDictionary<string, LockInfo?> ExclusiveLocks { get; } = new Dictionary<string, LockInfo?>();
 }

@@ -22,13 +22,13 @@ public sealed class CrdtPatcher(ICrdtStrategyManager strategyManager) : ICrdtPat
         ArgumentNullException.ThrowIfNull(to.Metadata, nameof(to));
 
         var operations = new List<CrdtOperation>();
-        DifferentiateObject("$", typeof(T), from.Data, from.Metadata, to.Data, to.Metadata, operations);
+        DifferentiateObject("$", typeof(T), from.Data, from.Metadata, to.Data, to.Metadata, operations, from.Data, to.Data);
 
         return new CrdtPatch(operations);
     }
     
     /// <inheritdoc/>
-    public void DifferentiateObject(string path, [DisallowNull] Type type, object? fromObj, [DisallowNull] CrdtMetadata fromMeta, object? toObj, [DisallowNull] CrdtMetadata toMeta, [DisallowNull] List<CrdtOperation> operations)
+    public void DifferentiateObject(string path, [DisallowNull] Type type, object? fromObj, [DisallowNull] CrdtMetadata fromMeta, object? toObj, [DisallowNull] CrdtMetadata toMeta, [DisallowNull] List<CrdtOperation> operations, object? fromRoot, object? toRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(type);
@@ -56,7 +56,7 @@ public sealed class CrdtPatcher(ICrdtStrategyManager strategyManager) : ICrdtPat
 
             var strategy = strategyManager.GetStrategy(property);
             
-            strategy.GeneratePatch(this, operations, currentPath, property, fromValue, toValue, fromMeta, toMeta);
+            strategy.GeneratePatch(this, operations, currentPath, property, fromValue, toValue, fromRoot, toRoot, fromMeta, toMeta);
         }
     }
     

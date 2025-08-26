@@ -98,8 +98,13 @@ internal static partial class PocoPathHelper
         if (int.TryParse(lastSegment, out var lastIndex))
         {
             // The target is an index in a collection.
-            // currentObject is the collection. We need its parent.
-            return (parentOfCurrent ?? root, lastProperty, lastIndex);
+            if (currentObject is IList list && list.Count > lastIndex)
+            {
+                // currentObject is the collection. We need its parent.
+                return (parentOfCurrent ?? root, lastProperty, lastIndex);
+            }
+            
+            return (null, null, null);
         }
         
         // The target is a property on an object.
@@ -162,6 +167,13 @@ internal static partial class PocoPathHelper
                 
                 // Add mapping for original PascalCase name to be safe
                 dict[p.Name] = p;
+                
+                // Add mapping for JsonPropertyNameAttribute. This will overwrite if there's a clash, giving it priority.
+                var jsonPropertyName = p.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name;
+                if (!string.IsNullOrEmpty(jsonPropertyName))
+                {
+                    dict[jsonPropertyName] = p;
+                }
             }
 
             return dict;

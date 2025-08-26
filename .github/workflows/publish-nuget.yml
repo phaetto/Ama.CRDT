@@ -6,8 +6,8 @@ on:
       - master
 
 env:
-  MAJOR_VERSION: 0
-  MINOR_VERSION: 2
+  MAJOR_VERSION: 1
+  MINOR_VERSION: 0
   PROJECT_PATH: 'Ama.CRDT/Ama.CRDT.csproj'
   PACKAGE_OUTPUT_DIRECTORY: '${{ github.workspace }}/nuget'
 

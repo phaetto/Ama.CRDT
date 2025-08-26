@@ -6,11 +6,11 @@ on:
       major_version:
         description: 'Major Version'
         required: true
-        default: '0'
+        default: '1'
       minor_version:
         description: 'Minor Version'
         required: true
-        default: '2'
+        default: '0'
       patch_version:
         description: 'Patch Version'
         required: true

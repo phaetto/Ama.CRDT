@@ -95,15 +95,15 @@ public sealed class SortedSetStrategyTests
         };
 
         mockPatcher
-            .Setup(p => p.DifferentiateObject(It.IsAny<string>(), It.IsAny<Type>(), It.IsAny<object>(), It.IsAny<CrdtMetadata>(), It.IsAny<object>(), It.IsAny<CrdtMetadata>(), It.IsAny<List<CrdtOperation>>()))
-            .Callback<string, Type, object, CrdtMetadata, object, CrdtMetadata, List<CrdtOperation>>((itemPath, _, from, _, to, _, ops) =>
+            .Setup(p => p.DifferentiateObject(It.IsAny<string>(), It.IsAny<Type>(), It.IsAny<object>(), It.IsAny<CrdtMetadata>(), It.IsAny<object>(), It.IsAny<CrdtMetadata>(), It.IsAny<List<CrdtOperation>>(), It.IsAny<object>(), It.IsAny<object>()))
+            .Callback<string, Type, object, CrdtMetadata, object, CrdtMetadata, List<CrdtOperation>, object, object>((itemPath, _, from, _, to, _, ops, _, _) =>
             {
                 var toNested = (NestedModel)to;
                 ops.Add(new CrdtOperation(Guid.NewGuid(), "mock-replica", $"{itemPath}.value", OperationType.Upsert, toNested.Value, new EpochTimestamp(0)));
             });
         
         // Act
-        strategy.GeneratePatch(mockPatcher.Object, operations, path, property, originalValue, modifiedValue, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(mockPatcher.Object, operations, path, property, originalValue, modifiedValue, new object(), new object(), new CrdtMetadata(), new CrdtMetadata());
 
         // Assert
         mockPatcher.Verify(p => p.DifferentiateObject(
@@ -113,7 +113,9 @@ public sealed class SortedSetStrategyTests
             It.IsAny<CrdtMetadata>(),
             It.Is<NestedModel>(o => o.Id == 2 && o.Value == "two-updated"),
             It.IsAny<CrdtMetadata>(),
-            It.IsAny<List<CrdtOperation>>()
+            It.IsAny<List<CrdtOperation>>(),
+            It.IsAny<object>(),
+            It.IsAny<object>()
         ), Times.Once);
         
         operations.ShouldHaveSingleItem();

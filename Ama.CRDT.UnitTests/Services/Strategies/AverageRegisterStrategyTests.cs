@@ -32,7 +32,7 @@ public sealed class AverageRegisterStrategyTests
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Rating))!;
         
         // Act
-        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, Path, property, 3.5m, 4.0m, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, Path, property, 3.5m, 4.0m, new TestModel { Rating = 3.5m }, new TestModel { Rating = 4.0m }, new CrdtMetadata(), new CrdtMetadata());
 
         // Assert
         var op = operations.ShouldHaveSingleItem();

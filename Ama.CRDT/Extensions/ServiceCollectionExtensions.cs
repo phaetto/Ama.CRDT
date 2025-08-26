@@ -54,7 +54,6 @@ public static class ServiceCollectionExtensions
 
         services.TryAddSingleton<ICrdtApplicator, CrdtApplicator>();
         services.TryAddSingleton<ICrdtPatcher, CrdtPatcher>();
-        services.TryAddSingleton<ICrdtService, CrdtService>();
 
         services.TryAddSingleton<ICrdtMetadataManager, CrdtMetadataManager>();
         services.TryAddSingleton<ICrdtStrategyManager, CrdtStrategyManager>();
@@ -79,6 +78,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<LseqStrategy>();
         services.TryAddSingleton<VoteCounterStrategy>();
         services.TryAddSingleton<StateMachineStrategy>();
+        services.TryAddSingleton<ExclusiveLockStrategy>();
 
         services.AddSingleton<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
         services.AddSingleton<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
@@ -98,6 +98,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICrdtStrategy, LseqStrategy>(sp => sp.GetRequiredService<LseqStrategy>());
         services.AddSingleton<ICrdtStrategy, VoteCounterStrategy>(sp => sp.GetRequiredService<VoteCounterStrategy>());
         services.AddSingleton<ICrdtStrategy, StateMachineStrategy>(sp => sp.GetRequiredService<StateMachineStrategy>());
+        services.AddSingleton<ICrdtStrategy, ExclusiveLockStrategy>(sp => sp.GetRequiredService<ExclusiveLockStrategy>());
 
         return services;
     }

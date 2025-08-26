@@ -58,7 +58,7 @@ public sealed class StateMachineStrategyTests
         var modifiedMeta = new CrdtMetadata { Lww = { ["$.status"] = new EpochTimestamp(200) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
 
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.status", property, "PENDING", "PROCESSING", originalMeta, modifiedMeta);
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.status", property, "PENDING", "PROCESSING", new TestModel { Status = "PENDING" }, new TestModel { Status = "PROCESSING" }, originalMeta, modifiedMeta);
 
         operations.ShouldHaveSingleItem();
         var op = operations[0];
@@ -75,7 +75,7 @@ public sealed class StateMachineStrategyTests
         var modifiedMeta = new CrdtMetadata { Lww = { ["$.status"] = new EpochTimestamp(200) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
 
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.status", property, "PENDING", "SHIPPED", originalMeta, modifiedMeta);
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.status", property, "PENDING", "SHIPPED", new TestModel { Status = "PENDING" }, new TestModel { Status = "SHIPPED" }, originalMeta, modifiedMeta);
 
         operations.ShouldBeEmpty();
     }

@@ -46,7 +46,7 @@ public sealed class GCounterStrategyTests
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
         
         // Act
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.count", property, 10, 15, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.count", property, 10, 15, new TestModel { Count = 10 }, new TestModel { Count = 15 }, new CrdtMetadata(), new CrdtMetadata());
 
         // Assert
         var op = operations.ShouldHaveSingleItem();
@@ -61,7 +61,7 @@ public sealed class GCounterStrategyTests
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
         
         // Act
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.count", property, 10, 5, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(mockPatcher.Object, operations, "$.count", property, 10, 5, new TestModel { Count = 10 }, new TestModel { Count = 5 }, new CrdtMetadata(), new CrdtMetadata());
 
         // Assert
         operations.ShouldBeEmpty();
