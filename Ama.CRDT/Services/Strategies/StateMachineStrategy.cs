@@ -15,6 +15,7 @@ using System.Reflection;
 /// Implements a State Machine strategy. This strategy enforces valid state transitions
 /// while using a Last-Writer-Wins (LWW) mechanism for conflict resolution among valid transitions.
 /// </summary>
+[CrdtSupportedType(typeof(object))]
 [Commutative]
 [Associative]
 [Idempotent]

@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
@@ -17,6 +18,7 @@ using System.Text.Json;
 /// Implements the OR-Set (Observed-Remove Set) CRDT strategy.
 /// This set allows re-addition of elements by assigning a unique tag to each added instance.
 /// </summary>
+[CrdtSupportedType(typeof(IEnumerable))]
 [Commutative]
 [Associative]
 [Idempotent]

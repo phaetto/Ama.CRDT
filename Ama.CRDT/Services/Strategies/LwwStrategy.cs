@@ -8,11 +8,13 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 
 /// <summary>
 /// Implements the Last-Writer-Wins (LWW) strategy.
 /// </summary>
+[CrdtSupportedType(typeof(object))]
 [Commutative]
 [Associative]
 [Idempotent]

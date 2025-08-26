@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
@@ -15,6 +16,7 @@ using System.Text.Json;
 /// to list elements, which allows for generating a new identifier between any two existing ones.
 /// This avoids floating-point precision issues while providing a stable, convergent order.
 /// </summary>
+[CrdtSupportedType(typeof(IEnumerable))]
 [Commutative]
 [Associative]
 [Idempotent]
