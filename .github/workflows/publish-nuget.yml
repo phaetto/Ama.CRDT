@@ -8,6 +8,7 @@ on:
 env:
   MAJOR_VERSION: 1
   MINOR_VERSION: 0
+  SOLUTION_FILE: 'Ama.CRDT.sln'
   PROJECT_PATH: 'Ama.CRDT/Ama.CRDT.csproj'
   PACKAGE_OUTPUT_DIRECTORY: '${{ github.workspace }}/nuget'
 
@@ -59,16 +60,16 @@ jobs:
           echo "Assembly version: ${ASSEMBLY_VERSION}"
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore ${{ env.SOLUTION_FILE }}
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
+        run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --no-restore -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
 
       - name: Test
-        run: dotnet test --configuration Release --no-build --verbosity normal -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
+        run: dotnet test ${{ env.SOLUTION_FILE }} --configuration Release --no-build --verbosity normal
 
       - name: Pack
-        run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }} -p:PackageVersion=${{ env.PACKAGE_VERSION }}
+        run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }} -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
 
       - name: List created packages
         run: ls -R ${{ env.PACKAGE_OUTPUT_DIRECTORY }}

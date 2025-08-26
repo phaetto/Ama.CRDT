@@ -1,11 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <IsRoslynComponent>true</IsRoslynComponent>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
+    
+    <!-- This project is not intended to be packed as a standalone package -->
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>

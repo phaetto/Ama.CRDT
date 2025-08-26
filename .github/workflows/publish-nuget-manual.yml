@@ -63,7 +63,7 @@ jobs:
         run: dotnet test --configuration Release --no-build --verbosity normal -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
 
       - name: Pack
-        run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }} -p:PackageVersion=${{ env.PACKAGE_VERSION }}
+        run: dotnet pack ${{ env.PROJECT_PATH }} --configuration Release --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }} -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
 
       - name: List created packages
         run: ls -R ${{ env.PACKAGE_OUTPUT_DIRECTORY }}
