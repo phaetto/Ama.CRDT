@@ -37,15 +37,14 @@ public sealed class CrdtApplicatorTests
     }
 
     [Fact]
-    public void ApplyPatch_WithNullDocument_ShouldThrowArgumentNullException()
+    public void ApplyPatch_WithNullDocumentData_ShouldThrowArgumentNullException()
     {
         // Arrange
-        TestModel? model = null;
         var patch = new CrdtPatch([]);
-        var metadata = new CrdtMetadata();
+        var document = new CrdtDocument<TestModel>(null!, new CrdtMetadata());
 
         // Act & Assert
-        Should.Throw<ArgumentNullException>(() => applicator.ApplyPatch(model!, patch, metadata));
+        Should.Throw<ArgumentNullException>(() => applicator.ApplyPatch(document, patch));
     }
 
     [Fact]
@@ -54,10 +53,10 @@ public sealed class CrdtApplicatorTests
         // Arrange
         var model = new TestModel();
         var patch = new CrdtPatch([]);
-        CrdtMetadata? metadata = null;
+        var document = new CrdtDocument<TestModel>(model, null!);
 
         // Act & Assert
-        Should.Throw<ArgumentNullException>(() => applicator.ApplyPatch(model, patch, metadata!));
+        Should.Throw<ArgumentNullException>(() => applicator.ApplyPatch(document, patch));
     }
     
     [Fact]
@@ -66,6 +65,7 @@ public sealed class CrdtApplicatorTests
         // Arrange
         var model = new TestModel { Name = "Initial" };
         var metadata = new CrdtMetadata();
+        var document = new CrdtDocument<TestModel>(model, metadata);
         var lwwStrategy = new LwwStrategy(Options.Create(new CrdtOptions { ReplicaId = "test" }));
         var opTimestamp = new EpochTimestamp(100);
         var existingTimestamp = new EpochTimestamp(200);
@@ -75,7 +75,7 @@ public sealed class CrdtApplicatorTests
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
         // Act
-        var result = applicator.ApplyPatch(model, patch, metadata);
+        var result = applicator.ApplyPatch(document, patch);
 
         // Assert
         result.Name.ShouldBe("Initial");
@@ -88,12 +88,13 @@ public sealed class CrdtApplicatorTests
         // Arrange
         var model = new TestModel { Likes = 10 };
         var metadata = new CrdtMetadata();
+        var document = new CrdtDocument<TestModel>(model, metadata);
         var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, new EpochTimestamp(150));
         metadata.SeenExceptions.Add(operation);
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
         // Act
-        var result = applicator.ApplyPatch(model, patch, metadata);
+        var result = applicator.ApplyPatch(document, patch);
         
         // Assert
         result.Likes.ShouldBe(10);
@@ -106,11 +107,12 @@ public sealed class CrdtApplicatorTests
         // Arrange
         var model = new TestModel { Likes = 10 };
         var metadata = new CrdtMetadata();
+        var document = new CrdtDocument<TestModel>(model, metadata);
         var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, new EpochTimestamp(100));
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
         // Act
-        var result = applicator.ApplyPatch(model, patch, metadata);
+        var result = applicator.ApplyPatch(document, patch);
 
         // Assert
         result.Likes.ShouldBe(15);
@@ -123,13 +125,14 @@ public sealed class CrdtApplicatorTests
         // Arrange
         var model = new TestModel { Name = "Initial", Likes = 10 };
         var metadata = new CrdtMetadata();
+        var document = new CrdtDocument<TestModel>(model, metadata);
         var lwwOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Updated", new EpochTimestamp(100));
         var counterOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, new EpochTimestamp(100));
         var patch = new CrdtPatch(new List<CrdtOperation> { lwwOperation, counterOperation });
 
         // Act
-        var result1 = applicator.ApplyPatch(model, patch, metadata);
-        var result2 = applicator.ApplyPatch(result1, patch, metadata);
+        var result1 = applicator.ApplyPatch(document, patch);
+        var result2 = applicator.ApplyPatch(document, patch);
 
         // Assert
         result1.Name.ShouldBe("Updated");
@@ -159,12 +162,16 @@ public sealed class CrdtApplicatorTests
         var patchB = new CrdtPatch(new List<CrdtOperation> { opB_Lww, opB_Counter });
 
         var metadata_AB = new CrdtMetadata();
-        var model_afterA = applicator.ApplyPatch(new TestModel { Name = initialModel.Name, Likes = initialModel.Likes }, patchA, metadata_AB);
-        var result_AB = applicator.ApplyPatch(model_afterA, patchB, metadata_AB);
+        var model_AB = new TestModel { Name = initialModel.Name, Likes = initialModel.Likes };
+        var doc_AB = new CrdtDocument<TestModel>(model_AB, metadata_AB);
+        applicator.ApplyPatch(doc_AB, patchA);
+        var result_AB = applicator.ApplyPatch(doc_AB, patchB);
 
         var metadata_BA = new CrdtMetadata();
-        var model_afterB = applicator.ApplyPatch(new TestModel { Name = initialModel.Name, Likes = initialModel.Likes }, patchB, metadata_BA);
-        var result_BA = applicator.ApplyPatch(model_afterB, patchA, metadata_BA);
+        var model_BA = new TestModel { Name = initialModel.Name, Likes = initialModel.Likes };
+        var doc_BA = new CrdtDocument<TestModel>(model_BA, metadata_BA);
+        applicator.ApplyPatch(doc_BA, patchB);
+        var result_BA = applicator.ApplyPatch(doc_BA, patchA);
         
         // Assert
         result_AB.Name.ShouldBe("Name B");

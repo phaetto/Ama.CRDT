@@ -209,14 +209,16 @@ public sealed class SortedSetStrategyTests
         // Scenario 1: Apply Patch A, then Patch B
         var modelAb = new ConvergenceTestModel();
         var metadataAb = new CrdtMetadata();
-        applicator.ApplyPatch(modelAb, patchA, metadataAb);
-        applicator.ApplyPatch(modelAb, patchB, metadataAb);
+        var docAb = new CrdtDocument<ConvergenceTestModel>(modelAb, metadataAb);
+        applicator.ApplyPatch(docAb, patchA);
+        applicator.ApplyPatch(docAb, patchB);
 
         // Scenario 2: Apply Patch B, then Patch A
         var modelBa = new ConvergenceTestModel();
         var metadataBa = new CrdtMetadata();
-        applicator.ApplyPatch(modelBa, patchB, metadataBa);
-        applicator.ApplyPatch(modelBa, patchA, metadataBa);
+        var docBa = new CrdtDocument<ConvergenceTestModel>(modelBa, metadataBa);
+        applicator.ApplyPatch(docBa, patchB);
+        applicator.ApplyPatch(docBa, patchA);
     
         // Assert
         JsonSerializer.Serialize(modelAb).ShouldBe(JsonSerializer.Serialize(modelBa));
@@ -239,11 +241,12 @@ public sealed class SortedSetStrategyTests
     
         var model = new ConvergenceTestModel();
         var metadata = new CrdtMetadata();
+        var document = new CrdtDocument<ConvergenceTestModel>(model, metadata);
 
         // Act
-        applicator.ApplyPatch(model, patch, metadata);
+        applicator.ApplyPatch(document, patch);
         var stateAfterFirst = JsonSerializer.Serialize(model);
-        applicator.ApplyPatch(model, patch, metadata);
+        applicator.ApplyPatch(document, patch);
         var stateAfterSecond = JsonSerializer.Serialize(model);
 
         // Assert
@@ -280,9 +283,10 @@ public sealed class SortedSetStrategyTests
         {
             var model = new ConvergenceTestModel();
             var meta = new CrdtMetadata();
+            var document = new CrdtDocument<ConvergenceTestModel>(model, meta);
             foreach (var patch in permutation)
             {
-                applicator.ApplyPatch(model, patch, meta);
+                applicator.ApplyPatch(document, patch);
             }
             finalStates.Add(JsonSerializer.Serialize(model));
         }

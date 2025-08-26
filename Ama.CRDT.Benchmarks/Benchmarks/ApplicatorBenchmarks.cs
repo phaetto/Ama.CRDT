@@ -36,11 +36,11 @@ public class ApplicatorBenchmarks
         var simpleTo = new SimplePoco { Id = simplePocoBase.Id, Name = "Updated", Score = 15 };
         
         var simpleFromMetadata = new CrdtMetadata();
-        metadataManager.Initialize(simpleFromMetadata, simplePocoBase, new EpochTimestamp(1));
+        metadataManager.Initialize(new CrdtDocument<SimplePoco>(simplePocoBase, simpleFromMetadata), new EpochTimestamp(1));
         var simplePocoFromDoc = new CrdtDocument<SimplePoco>(simplePocoBase, simpleFromMetadata);
 
         var simpleToMetadata = CloneMetadata(simpleFromMetadata);
-        metadataManager.Initialize(simpleToMetadata, simpleTo, new EpochTimestamp(2));
+        metadataManager.Initialize(new CrdtDocument<SimplePoco>(simpleTo, simpleToMetadata), new EpochTimestamp(2));
         var simplePocoToDoc = new CrdtDocument<SimplePoco>(simpleTo, simpleToMetadata);
         
         simplePocoPatch = patcher.GeneratePatch(simplePocoFromDoc, simplePocoToDoc);
@@ -66,11 +66,11 @@ public class ApplicatorBenchmarks
         };
 
         var complexFromMetadata = new CrdtMetadata();
-        metadataManager.Initialize(complexFromMetadata, complexPocoBase, new EpochTimestamp(3));
+        metadataManager.Initialize(new CrdtDocument<ComplexPoco>(complexPocoBase, complexFromMetadata), new EpochTimestamp(3));
         var complexPocoFromDoc = new CrdtDocument<ComplexPoco>(complexPocoBase, complexFromMetadata);
 
         var complexToMetadata = CloneMetadata(complexFromMetadata);
-        metadataManager.Initialize(complexToMetadata, complexTo, new EpochTimestamp(4));
+        metadataManager.Initialize(new CrdtDocument<ComplexPoco>(complexTo, complexToMetadata), new EpochTimestamp(4));
         var complexPocoToDoc = new CrdtDocument<ComplexPoco>(complexTo, complexToMetadata);
         
         complexPocoPatch = patcher.GeneratePatch(complexPocoFromDoc, complexPocoToDoc);
@@ -97,13 +97,13 @@ public class ApplicatorBenchmarks
     public SimplePoco ApplyPatchSimple()
     {
         // Applicator now modifies in place, so we need to clone for a fair benchmark.
-        return applicator.ApplyPatch(CreateSimplePocoClone(), simplePocoPatch, simpleMetadata);
+        return applicator.ApplyPatch(new CrdtDocument<SimplePoco>(CreateSimplePocoClone(), simpleMetadata), simplePocoPatch);
     }
 
     [Benchmark]
     public ComplexPoco ApplyPatchComplex()
     {
-        return applicator.ApplyPatch(CreateComplexPocoClone(), complexPocoPatch, complexMetadata);
+        return applicator.ApplyPatch(new CrdtDocument<ComplexPoco>(CreateComplexPocoClone(), complexMetadata), complexPocoPatch);
     }
     
     private CrdtMetadata CloneMetadata(CrdtMetadata original)

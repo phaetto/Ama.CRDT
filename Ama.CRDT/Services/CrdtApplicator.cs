@@ -2,6 +2,7 @@ namespace Ama.CRDT.Services;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Strategies;
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
@@ -11,22 +12,22 @@ using System.Diagnostics.CodeAnalysis;
 public sealed class CrdtApplicator(ICrdtStrategyManager strategyManager) : ICrdtApplicator
 {
     /// <inheritdoc/>
-    public T ApplyPatch<T>([DisallowNull] T document, CrdtPatch patch, [DisallowNull] CrdtMetadata metadata) where T : class
+    public T ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class
     {
-        ArgumentNullException.ThrowIfNull(document);
-        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(document.Data);
+        ArgumentNullException.ThrowIfNull(document.Metadata);
 
         if (patch.Operations is null || patch.Operations.Count == 0)
         {
-            return document;
+            return document.Data;
         }
 
         foreach (var operation in patch.Operations)
         {
-            ApplyOperation(document, operation, metadata);
+            ApplyOperation(document.Data, operation, document.Metadata);
         }
 
-        return document;
+        return document.Data;
     }
 
     private void ApplyOperation(object document, CrdtOperation operation, CrdtMetadata metadata)

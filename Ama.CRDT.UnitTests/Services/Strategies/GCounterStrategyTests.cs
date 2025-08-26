@@ -112,15 +112,16 @@ public sealed class GCounterStrategyTests
         // Arrange
         var model = new TestModel { Count = 10 };
         var meta = metadataManager.Initialize(model);
+        var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
             new(Guid.NewGuid(), "r1", "$.Count", OperationType.Increment, 5m, new EpochTimestamp(1L))
         });
 
         // Act
-        applicator.ApplyPatch(model, patch, meta);
+        applicator.ApplyPatch(document, patch);
         var countAfterFirst = model.Count;
-        applicator.ApplyPatch(model, patch, meta);
+        applicator.ApplyPatch(document, patch);
 
         // Assert
         model.Count.ShouldBe(countAfterFirst);
@@ -133,18 +134,19 @@ public sealed class GCounterStrategyTests
         // Arrange
         var model = new TestModel { Count = 10 };
         var meta = metadataManager.Initialize(model);
+        var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
             new(Guid.NewGuid(), "r1", "$.Count", OperationType.Increment, 5m, new EpochTimestamp(1L))
         });
 
         // Act
-        applicator.ApplyPatch(model, patch, meta);
+        applicator.ApplyPatch(document, patch);
         model.Count.ShouldBe(15);
 
         // Clear SeenExceptions to simulate re-application
         meta.SeenExceptions.Clear();
-        applicator.ApplyPatch(model, patch, meta);
+        applicator.ApplyPatch(document, patch);
 
         // Assert
         // The increment is applied a second time, proving the strategy is not idempotent.
@@ -168,9 +170,10 @@ public sealed class GCounterStrategyTests
         {
             var model = new TestModel { Count = 10 };
             var meta = metadataManager.Initialize(model);
+            var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in p)
             {
-                applicator.ApplyPatch(model, patch, meta);
+                applicator.ApplyPatch(document, patch);
             }
             finalCounts.Add(model.Count);
         }
