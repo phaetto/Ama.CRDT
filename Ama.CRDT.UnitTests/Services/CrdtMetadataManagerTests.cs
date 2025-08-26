@@ -104,6 +104,8 @@ public sealed class CrdtMetadataManagerTests
         metadata.AverageRegisters["$.c"] = new Dictionary<string, AverageRegisterValue>();
         metadata.PriorityQueues["$.d"] = (new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, ICrdtTimestamp>());
         metadata.ExclusiveLocks["$.e"] = new LockInfo("holder", new EpochTimestamp(100));
+        metadata.LwwMaps["$.f"] = new Dictionary<object, ICrdtTimestamp>();
+        metadata.OrMaps["$.g"] = (new Dictionary<object, ISet<Guid>>(), new Dictionary<object, ISet<Guid>>());
 
         var doc = new object();
         timestampProviderMock.Setup(p => p.Now()).Returns(new EpochTimestamp(200));
@@ -117,6 +119,8 @@ public sealed class CrdtMetadataManagerTests
         metadata.AverageRegisters.ShouldBeEmpty();
         metadata.PriorityQueues.ShouldBeEmpty();
         metadata.ExclusiveLocks.ShouldBeEmpty();
+        metadata.LwwMaps.ShouldBeEmpty();
+        metadata.OrMaps.ShouldBeEmpty();
     }
     
     [Fact]

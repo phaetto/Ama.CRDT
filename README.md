@@ -143,6 +143,9 @@ This library uses attributes on your POCO properties to determine how to merge c
 | `[CrdtFixedSizeArrayStrategy]` | Manages a fixed-size array where each index is an LWW-Register. Useful for representing grids or slots. | Game boards, seating charts, or fixed-size buffers where each position is updated independently. |
 | `[CrdtLseqStrategy]` | An ordered list strategy that generates fractional indexes to avoid conflicts during concurrent insertions. | Collaborative text editors and other real-time sequence editing applications requiring high-precision ordering. |
 | `[CrdtVoteCounterStrategy]` | Manages a dictionary of options to voter sets, ensuring each voter can only have one active vote at a time. | Polls, surveys, or any system where users vote for one of several options. |
+| **Object & Map Strategies** | | |
+| `[CrdtLwwMapStrategy]` | A Last-Writer-Wins Map. Each key-value pair is an independent LWW-Register. Conflicts are resolved per-key. | Storing user preferences, feature flags, or any key-value data where the last update for a given key should win. |
+| `[CrdtOrMapStrategy]` | An Observed-Remove Map. Key presence is managed with OR-Set logic, allowing keys to be re-added after removal. Value updates use LWW. | Managing complex dictionaries where keys can be concurrently added and removed, such as a map of user permissions or editable metadata. |
 | **State & Locking Strategies** | | |
 | `[CrdtStateMachineStrategy]` | Enforces valid state transitions using a user-defined validator, with LWW for conflict resolution. | Order processing (Pending -> Shipped -> Delivered), workflows, or any property with a constrained lifecycle. |
 | `[CrdtExclusiveLockStrategy]` | An optimistic exclusive lock where the latest lock or unlock operation (based on LWW) wins. | Preventing concurrent edits on a sub-document or resource without a central locking service. |
@@ -404,7 +407,7 @@ public class MyCustomTimestampProvider : ICrdtTimestampProvider
         // Your logic to generate a custom timestamp
         // For example, from a hybrid logical clock service.
         var customTimestampValue = GetTimestampFromHlcService(); 
-        return new EpochTimestamp(customTimestampValue); // Assuming it can fit in a long
+        return new CustomTimestamp(customTimestampValue);
     }
 }
 ```

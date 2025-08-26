@@ -39,10 +39,12 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GCounterStrategyTests.cs` | Contains unit tests for the `GCounterStrategy`, ensuring it only generates and applies positive increments. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GSetStrategyTests.cs` | Contains unit tests for the `GSetStrategy`, verifying its add-only behavior, idempotence, and commutativity. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LseqStrategyTests.cs` | Contains unit tests for the `LseqStrategy`, verifying convergence and idempotence under concurrent operations. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/LwwMapStrategyTests.cs` | Contains unit tests for the `LwwMapStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent dictionary operations. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LwwSetStrategyTests.cs` | Contains unit tests for the `LwwSetStrategy`, verifying that conflicts are resolved based on the last-write-wins rule, allowing elements to be re-added after removal. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LwwStrategyTests.cs` | Contains unit tests for the `LwwStrategy` implementation, verifying both patch generation and its simplified, unconditional data application logic. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/MaxWinsStrategyTests.cs` | Contains unit tests for the `MaxWinsStrategy`, verifying that conflicts are resolved by choosing the highest value. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/MinWinsStrategyTests.cs` | Contains unit tests for the `MinWinsStrategy`, verifying that conflicts are resolved by choosing the lowest value. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/OrMapStrategyTests.cs` | Contains unit tests for the `OrMapStrategy`, verifying convergence and correct handling of concurrent key additions/removals and value updates. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/OrSetStrategyTests.cs` | Contains unit tests for the `OrSetStrategy`, verifying that it correctly handles concurrent additions and removals without anomalies, allowing for proper re-addition of elements. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/PriorityQueueStrategyTests.cs` | Contains unit tests for the `PriorityQueueStrategy`, verifying that concurrent updates converge and the list remains sorted by priority. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/SortedSetStrategyTests.cs` | No description provided. |
@@ -59,10 +61,12 @@
 | `$/Ama.CRDT/Attributes/CrdtGCounterStrategyAttribute.cs` | An attribute to mark a numeric property as a G-Counter (Grow-Only Counter), which only permits positive increments. |
 | `$/Ama.CRDT/Attributes/CrdtGSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the G-Set (Grow-Only Set) strategy. |
 | `$/Ama.CRDT/Attributes/CrdtLseqStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the LSEQ strategy for managing ordered sequences with dense identifiers. |
+| `$/Ama.CRDT/Attributes/CrdtLwwMapStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the LWW-Map (Last-Writer-Wins Map) strategy, where each key-value pair is an independent LWW-Register. |
 | `$/Ama.CRDT/Attributes/CrdtLwwSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the LWW-Set (Last-Writer-Wins Set) strategy. |
 | `$/Ama.CRDT/Attributes/CrdtLwwStrategyAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/CrdtMaxWinsStrategyAttribute.cs` | An attribute to mark a property as a Max-Wins Register, where conflicts are resolved by choosing the highest value. |
 | `$/Ama.CRDT/Attributes/CrdtMinWinsStrategyAttribute.cs` | An attribute to mark a property as a Min-Wins Register, where conflicts are resolved by choosing the lowest value. |
+| `$/Ama.CRDT/Attributes/CrdtOrMapStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the OR-Map (Observed-Remove Map) strategy, where key presence is managed by OR-Set logic and values by LWW. |
 | `$/Ama.CRDT/Attributes/CrdtOrSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the OR-Set (Observed-Remove Set) strategy. |
 | `$/Ama.CRDT/Attributes/CrdtPriorityQueueStrategyAttribute.cs` | An attribute to mark a collection as a priority queue, which is managed as an LWW-Set and kept sorted by a specified property. |
 | `$/Ama.CRDT/Attributes/CrdtSortedSetStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Sorted Set strategy. It uses LCS for diffing and maintains a sorted order. |
@@ -90,6 +94,7 @@
 | `$/Ama.CRDT/Models/LseqItem.cs` | A record struct that pairs an LseqIdentifier with its corresponding value in the LSEQ metadata. |
 | `$/Ama.CRDT/Models/MovePayload.cs` | A data structure for the payload of a `Move` operation, containing the stable identifier of the element and its new parent. |
 | `$/Ama.CRDT/Models/OperationType.cs` | Defines the types of operations (Upsert, Remove, Increment, Move) for a CRDT patch. |
+| `$/Ama.CRDT/Models/OrMapItem.cs` | Contains payload record structs (`OrMapAddItem`, `OrMapRemoveItem`) for OR-Map (Observed-Remove Map) operations, bundling keys and values with unique tags. |
 | `$/Ama.CRDT/Models/OrSetItem.cs` | Contains payload record structs (`OrSetAddItem`, `OrSetRemoveItem`) for OR-Set (Observed-Remove Set) operations, bundling values with unique tags. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
@@ -124,10 +129,12 @@
 | `$/Ama.CRDT/Services/Strategies/IElementComparerProvider.cs` | Defines the contract for a service that provides the correct IEqualityComparer<object> for a given array element type. |
 | `$/Ama.CRDT/Services/Strategies/IStateMachine.cs` | Defines the contract for a state machine validator, which can be implemented by users to define custom transition logic. |
 | `$/Ama.CRDT/Services/Strategies/LseqStrategy.cs` | Implements the LSEQ strategy, which manages ordered sequences using dense, sortable identifiers to ensure convergence. |
+| `$/Ama.CRDT/Services/Strategies/LwwMapStrategy.cs` | Implements the LWW-Map (Last-Writer-Wins Map) CRDT strategy, where each key-value pair is an independent LWW-Register. |
 | `$/Ama.CRDT/Services/Strategies/LwwSetStrategy.cs` | Implements the LWW-Set (Last-Writer-Wins Set) CRDT strategy, where element membership is determined by the latest timestamp. |
 | `$/Ama.CRDT/Services/Strategies/LwwStrategy.cs` | Implements the LWW strategy. `GeneratePatch` creates operations based on timestamps, and the simplified `ApplyOperation` unconditionally applies changes to nodes. |
 | `$/Ama.CRDT/Services/Strategies/MaxWinsStrategy.cs` | Implements the Max-Wins Register strategy, where conflicts are resolved by always choosing the highest value. |
 | `$/Ama.CRDT/Services/Strategies/MinWinsStrategy.cs` | Implements the Min-Wins Register strategy, where conflicts are resolved by always choosing the lowest value. |
+| `$/Ama.CRDT/Services/Strategies/OrMapStrategy.cs` | Implements the OR-Map (Observed-Remove Map) CRDT strategy. Key presence is managed using OR-Set logic, and value updates are handled with LWW logic. |
 | `$/Ama.CRDT/Services/Strategies/OrSetStrategy.cs` | Implements the OR-Set (Observed-Remove Set) CRDT strategy, which uses unique tags to correctly handle concurrent additions and removals. |
 | `$/Ama.CRDT/Services/Strategies/PriorityQueueStrategy.cs` | Implements a strategy for collections that behave as a priority queue, sorted by a specified property. |
 | `$/Ama.CRDT/Services/Strategies/SortedSetStrategy.cs` | Implements a CRDT strategy for collections that are treated as sorted sets. It uses LCS for diffing and ensures the collection remains sorted after operations. |
