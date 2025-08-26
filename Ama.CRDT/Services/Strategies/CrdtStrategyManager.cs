@@ -16,6 +16,7 @@ public sealed class CrdtStrategyManager : ICrdtStrategyManager
     private readonly IReadOnlyDictionary<Type, ICrdtStrategy> strategies;
     private readonly ICrdtStrategy defaultStrategy;
     private readonly ICrdtStrategy defaultArrayStrategy;
+    private readonly ICrdtStrategy defaultDictionaryStrategy;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CrdtStrategyManager"/> class.
@@ -37,6 +38,9 @@ public sealed class CrdtStrategyManager : ICrdtStrategyManager
         defaultArrayStrategy = this.strategies.Values.OfType<ArrayLcsStrategy>().FirstOrDefault() 
             ?? this.strategies.Values.OfType<SortedSetStrategy>().FirstOrDefault() 
             ?? defaultStrategy;
+        
+        defaultDictionaryStrategy = this.strategies.Values.OfType<OrMapStrategy>().FirstOrDefault()
+            ?? throw new InvalidOperationException($"The default '{nameof(OrMapStrategy)}' for dictionaries is not registered in the DI container.");
     }
 
     /// <inheritdoc/>
@@ -51,6 +55,11 @@ public sealed class CrdtStrategyManager : ICrdtStrategyManager
         }
         
         var propertyType = propertyInfo.PropertyType;
+        if (propertyType != typeof(string) && typeof(IDictionary).IsAssignableFrom(propertyType))
+        {
+            return defaultDictionaryStrategy;
+        }
+
         if (propertyType != typeof(string) && typeof(IEnumerable).IsAssignableFrom(propertyType))
         {
             return defaultArrayStrategy;

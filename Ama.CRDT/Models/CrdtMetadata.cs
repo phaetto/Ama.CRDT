@@ -93,4 +93,17 @@ public sealed class CrdtMetadata
     /// The key is the JSON path to the locked property. A null value indicates the lock is released.
     /// </summary>
     public IDictionary<string, LockInfo?> ExclusiveLocks { get; } = new Dictionary<string, LockInfo?>();
+
+    /// <summary>
+    /// Gets a dictionary that stores the state for properties managed by the Last-Writer-Wins Map (LWW-Map) strategy.
+    /// The outer key is the JSON Path to the property. The inner dictionary maps each key from the user's dictionary to its LWW timestamp.
+    /// </summary>
+    public IDictionary<string, IDictionary<object, ICrdtTimestamp>> LwwMaps { get; } = new Dictionary<string, IDictionary<object, ICrdtTimestamp>>();
+
+    /// <summary>
+    /// Gets a dictionary that stores the state for properties managed by the Observed-Remove Map (OR-Map) strategy.
+    /// The key is the JSON Path to the property. The value tuple contains dictionaries for 'Adds' and 'Removes' with their associated unique tags, managing key presence.
+    /// Value updates are managed separately using LWW timestamps in the main Lww dictionary.
+    /// </summary>
+    public IDictionary<string, (IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes)> OrMaps { get; } = new Dictionary<string, (IDictionary<object, ISet<Guid>>, IDictionary<object, ISet<Guid>>)>();
 }
