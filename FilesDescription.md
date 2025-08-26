@@ -9,8 +9,10 @@
 | `$/Ama.CRDT.Benchmarks/AntiVirusFriendlyConfig.cs` | No description provided. |
 | `$/Ama.CRDT.Benchmarks/Benchmarks/ApplicatorBenchmarks.cs` | Contains benchmarks for the `JsonCrdtApplicator` service. |
 | `$/Ama.CRDT.Benchmarks/Benchmarks/PatcherBenchmarks.cs` | Contains benchmarks for the `JsonCrdtPatcher` service. |
+| `$/Ama.CRDT.Benchmarks/Benchmarks/StrategyBenchmarks.cs` | Contains benchmarks for `GeneratePatch` and `ApplyPatch` operations for every individual CRDT strategy. |
 | `$/Ama.CRDT.Benchmarks/Models/ComplexPoco.cs` | A complex data model with nested objects and arrays for benchmarking recursive and collection-based scenarios. |
 | `$/Ama.CRDT.Benchmarks/Models/SimplePoco.cs` | A simple data model for benchmarking basic scenarios. |
+| `$/Ama.CRDT.Benchmarks/Models/StrategyPoco.cs` | A data model containing properties decorated with attributes for each supported CRDT strategy, used for isolated strategy benchmarking. |
 | `$/Ama.CRDT.Benchmarks/Program.cs` | The entry point for the benchmark runner. |
 | `$/Ama.CRDT.ShowCase/Ama.CRDT.ShowCase.csproj` | The project file for the showcase console application. |
 | `$/Ama.CRDT.ShowCase/Models/User.cs` | A simple data model representing a user, used as an element in the CRDT-managed array. |
@@ -26,7 +28,6 @@
 | `$/Ama.CRDT.UnitTests/Services/CrdtApplicatorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtMetadataManagerTests.cs` | Contains unit tests for the `CrdtMetadataManager`, verifying LWW pruning and version vector advancement logic. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtPatcherTests.cs` | No description provided. |
-| `$/Ama.CRDT.UnitTests/Services/CrdtServiceTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/Models.cs` | Contains simple data models for unit testing path conversion and resolution helpers. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/ArrayLcsStrategyTests.cs` | Contains unit tests for `ArrayLcsStrategy`, focusing on convergence properties under concurrent operations. This file includes a test that specifically reproduces a known bug related to the non-commutative application of array insertion patches. |
@@ -100,14 +101,12 @@
 | `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implements the logic for managing and compacting CRDT metadata. It provides helper methods like Initialize(document) to create a metadata object from a POCO by reflecting on its properties, and Reset(metadata, document) to clear and re-initialize an existing metadata object. The initialization logic correctly traverses nested objects and collections. |
 | `$/Ama.CRDT/Services/CrdtPatcher.cs` | Implements the logic to recursively compare two objects and generate a CRDT patch by delegating to property-specific strategies. |
 | `$/Ama.CRDT/Services/CrdtPatcherFactory.cs` | No description provided. |
-| `$/Ama.CRDT/Services/CrdtService.cs` | No description provided. |
 | `$/Ama.CRDT/Services/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `EpochTimestamp` based on Unix milliseconds. |
 | `$/Ama.CRDT/Services/Helpers/PocoPathHelper.cs` | A utility class containing helper methods for parsing JSON paths and resolving them against POCOs using reflection. |
 | `$/Ama.CRDT/Services/ICrdtApplicator.cs` | No description provided. |
 | `$/Ama.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing CRDT metadata. Responsibilities include initializing or resetting metadata by traversing a document to create LWW timestamps and array positional trackers, pruning old tombstones to control state growth, and advancing version vectors. |
 | `$/Ama.CRDT/Services/ICrdtPatcher.cs` | Defines the contract for a service that compares two versions of a data model and generates a CRDT patch. |
 | `$/Ama.CRDT/Services/ICrdtPatcherFactory.cs` | No description provided. |
-| `$/Ama.CRDT/Services/ICrdtService.cs` | No description provided. |
 | `$/Ama.CRDT/Services/ICrdtTimestampProvider.cs` | Defines a service for generating CRDT timestamps, allowing for custom timestamp implementations. |
 | `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements a CRDT strategy for arrays using LCS, with support for type-specific element comparers. `GeneratePatch` creates diffs, and `ApplyOperation` unconditionally manipulates the data array. |
 | `$/Ama.CRDT/Services/Strategies/AverageRegisterStrategy.cs` | Implements the Average Register strategy, where each replica contributes a value and the final state is the average of all contributions. |
@@ -160,23 +159,24 @@
 | `$/README.md` | The main documentation for the Ama.CRDT library, including usage examples, architecture overview, and guides for advanced extensibility points like custom comparers and timestamp providers. |
 | `$/Specs/add-approval-quorum-strategy.md` | Specification file for implementing the Approval Quorum strategy. |
 | `$/Specs/add-checksum-strategy.md` | Specification file for implementing the Checksum strategy. |
-| `$/Specs/add-exclusive-lock-strategy.md` | Specification file for implementing the Exclusive Lock strategy. |
 | `$/Specs/add-immutable-strategy.md` | Specification file for implementing the Immutable strategy. |
 | `$/Specs/add-leader-election-strategy.md` | Specification file for implementing the Leader Election strategy. |
-| `$/Specs/add-more-list-and-sequence-strategies.md` | No description provided. |
 | `$/Specs/add-more-meta-and-hybrid-strategies.md` | No description provided. |
-| `$/Specs/add-more-numeric-and-value-based-strategies.md` | No description provided. |
 | `$/Specs/add-more-object-and-map-strategies.md` | No description provided. |
-| `$/Specs/add-more-set-strategies.md` | No description provided. |
 | `$/Specs/add-more-specialized-data-structure-strategies.md` | No description provided. |
 | `$/Specs/add-more-text-specific-strategies.md` | No description provided. |
 | `$/Specs/add-ownership-strategy.md` | Specification file for implementing the Ownership strategy. |
-| `$/Specs/add-relational-integrity-strategy.md` | Specification file for implementing the Relational Integrity strategy. |
-| `$/Specs/add-state-machine-strategy.md` | Specification file for implementing the State Machine strategy. |
 | `$/Specs/add-validated-string-strategy.md` | Specification file for implementing the Validated String strategy. |
-| `$/Specs/add-vote-counter-strategy.md` | Specification file for implementing the Vote Counter strategy. |
-| `$/Specs/create-example-console-app-that-show-cases-the-crdts-with-out-locks.md` | No description provided. |
-| `$/Specs/implement-correctly-lcs-list-strategy.md` | No description provided. |
-| `$/Specs/make-package-dev-friendly.md` | No description provided. |
-| `$/Specs/make-the-api-surface-better.md` | No description provided. |
-| `$/Specs/publish-as-a-nuget-package.md` | No description provided. |
+| `$/Specs/done/add-exclusive-lock-strategy.md` | No description provided. |
+| `$/Specs/done/add-more-list-and-sequence-strategies.md` | No description provided. |
+| `$/Specs/done/add-more-numeric-and-value-based-strategies.md` | No description provided. |
+| `$/Specs/done/add-more-set-strategies.md` | No description provided. |
+| `$/Specs/done/add-state-machine-strategy.md` | No description provided. |
+| `$/Specs/done/add-vote-counter-strategy.md` | No description provided. |
+| `$/Specs/done/create-example-console-app-that-show-cases-the-crdts-with-out-locks.md` | No description provided. |
+| `$/Specs/done/implement-correctly-lcs-list-strategy.md` | No description provided. |
+| `$/Specs/done/make-package-dev-friendly.md` | No description provided. |
+| `$/Specs/done/make-the-api-surface-better.md` | No description provided. |
+| `$/Specs/done/publish-as-a-nuget-package.md` | No description provided. |
+| `$/Specs/done/readme-update-2025-08-24.md` | No description provided. |
+| `$/Specs/make-crdt-strategies-composable.md` | No description provided. |
