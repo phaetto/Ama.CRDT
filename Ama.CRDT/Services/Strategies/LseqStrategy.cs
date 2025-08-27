@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.Options;
 using System.Collections;
 using System.Collections.Immutable;
@@ -59,11 +60,13 @@ public sealed class LseqStrategy : ICrdtStrategy
         // Deletions
         foreach (var item in originalItems)
         {
-            if (!modifiedList.Cast<object>().Contains(item, comparer))
+#pragma warning disable CS8620 // Argument cannot be used for parameter due to differences in the nullability of reference types.
+            if (!modifiedList.Cast<object>().Contains(item.Value, comparer))
             {
                 var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item.Identifier, new EpochTimestamp(0));
                 operations.Add(op);
             }
+#pragma warning restore CS8620 // Argument cannot be used for parameter due to differences in the nullability of reference types.
         }
 
         // Insertions

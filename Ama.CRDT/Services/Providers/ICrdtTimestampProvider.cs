@@ -1,4 +1,4 @@
-namespace Ama.CRDT.Services;
+namespace Ama.CRDT.Services.Providers;
 
 using Ama.CRDT.Models;
 

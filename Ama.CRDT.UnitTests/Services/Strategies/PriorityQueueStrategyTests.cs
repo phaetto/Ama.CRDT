@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.Options;
 using Shouldly;
@@ -54,16 +55,16 @@ public sealed class PriorityQueueStrategyTests
         var lwwStrategy = new LwwStrategy(optionsA);
         var priorityQueueStrategyA = new PriorityQueueStrategy(comparerProvider, timestampProvider, optionsA);
         var strategiesA = new ICrdtStrategy[] { lwwStrategy, priorityQueueStrategyA };
-        var strategyManagerA = new CrdtStrategyManager(strategiesA);
+        var strategyManagerA = new CrdtStrategyProvider(strategiesA);
         patcherA = new CrdtPatcher(strategyManagerA);
 
         var lwwStrategyB = new LwwStrategy(optionsB);
         var priorityQueueStrategyB = new PriorityQueueStrategy(comparerProvider, timestampProvider, optionsB);
         var strategiesB = new ICrdtStrategy[] { lwwStrategyB, priorityQueueStrategyB };
-        var strategyManagerB = new CrdtStrategyManager(strategiesB);
+        var strategyManagerB = new CrdtStrategyProvider(strategiesB);
         patcherB = new CrdtPatcher(strategyManagerB);
 
-        var strategyManagerApplicator = new CrdtStrategyManager(strategiesA);
+        var strategyManagerApplicator = new CrdtStrategyProvider(strategiesA);
         applicator = new CrdtApplicator(strategyManagerApplicator);
         metadataManager = new CrdtMetadataManager(strategyManagerA, timestampProvider, comparerProvider);
     }

@@ -1,4 +1,4 @@
-namespace Ama.CRDT.Services.Strategies;
+namespace Ama.CRDT.Extensions;
 
 /// <summary>
 /// Defines the contract for a state machine that validates transitions between states.

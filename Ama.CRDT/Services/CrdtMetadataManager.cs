@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using System;
 using System.Collections;
@@ -16,7 +17,7 @@ using System.Text.Json.Serialization;
 
 /// <inheritdoc/>
 public sealed class CrdtMetadataManager(
-    ICrdtStrategyManager strategyManager, 
+    ICrdtStrategyProvider strategyManager, 
     ICrdtTimestampProvider timestampProvider,
     IElementComparerProvider elementComparerProvider) : ICrdtMetadataManager
 {
@@ -320,7 +321,7 @@ public sealed class CrdtMetadataManager(
             InitializeStrategyMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp, root);
             
             var propertyType = propertyInfo.PropertyType;
-            if ((propertyValue is IEnumerable and not string) || (propertyType.IsClass && propertyType != typeof(string)))
+            if (propertyValue is IEnumerable and not string || propertyType.IsClass && propertyType != typeof(string))
             {
                 PopulateMetadataRecursive(metadata, propertyValue, propertyPath, timestamp, root);
             }

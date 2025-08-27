@@ -15,6 +15,7 @@ using System.Linq;
 using System.Text.Json;
 using Xunit;
 using static Ama.CRDT.Services.Strategies.SortedSetStrategy;
+using Ama.CRDT.Services.Providers;
 
 public sealed class SortedSetStrategyTests
 {
@@ -325,7 +326,7 @@ public sealed class SortedSetStrategyTests
         var arrayLcsStrategy = new SortedSetStrategy(comparerProvider, timestampProvider, options);
         var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayLcsStrategy };
         
-        var strategyManager = new CrdtStrategyManager(strategies);
+        var strategyManager = new CrdtStrategyProvider(strategies);
         
         var patcher = new CrdtPatcher(strategyManager);
         var applicator = new CrdtApplicator(strategyManager);

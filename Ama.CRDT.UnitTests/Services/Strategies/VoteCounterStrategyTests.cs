@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -39,7 +40,7 @@ public sealed class VoteCounterStrategyTests
         var mockOptions = Options.Create(new CrdtOptions { ReplicaId = "replica-A" });
         strategy = new VoteCounterStrategy(mockOptions, mockTimestampProvider.Object);
         
-        var mockStrategyManager = new Mock<ICrdtStrategyManager>();
+        var mockStrategyManager = new Mock<ICrdtStrategyProvider>();
         mockStrategyManager.Setup(m => m.GetStrategy(It.IsAny<System.Reflection.PropertyInfo>())).Returns(strategy);
         
         var mockElementComparerProvider = new Mock<IElementComparerProvider>();

@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.Options;
 using Shouldly;
@@ -32,11 +33,11 @@ public sealed class TwoPhaseSetStrategyTests
         var optionsB = Options.Create(new CrdtOptions { ReplicaId = "B" });
         
         var strategiesA = new ICrdtStrategy[] { new LwwStrategy(optionsA), new TwoPhaseSetStrategy(comparerProvider, timestampProvider, optionsA) };
-        var strategyManagerA = new CrdtStrategyManager(strategiesA);
+        var strategyManagerA = new CrdtStrategyProvider(strategiesA);
         patcherA = new CrdtPatcher(strategyManagerA);
 
         var strategiesB = new ICrdtStrategy[] { new LwwStrategy(optionsB), new TwoPhaseSetStrategy(comparerProvider, timestampProvider, optionsB) };
-        var strategyManagerB = new CrdtStrategyManager(strategiesB);
+        var strategyManagerB = new CrdtStrategyProvider(strategiesB);
         patcherB = new CrdtPatcher(strategyManagerB);
 
         applicator = new CrdtApplicator(strategyManagerA);

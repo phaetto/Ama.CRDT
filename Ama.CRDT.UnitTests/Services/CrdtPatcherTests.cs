@@ -10,6 +10,7 @@ using Xunit;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Ama.CRDT.Services.Providers;
 
 public sealed class CrdtPatcherTests
 {
@@ -44,7 +45,7 @@ public sealed class CrdtPatcherTests
         var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
         var arrayStrategy = new SortedSetStrategy(comparerProvider, timestampProvider, options);
         var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayStrategy };
-        var strategyManager = new CrdtStrategyManager(strategies);
+        var strategyManager = new CrdtStrategyProvider(strategies);
         patcher = new CrdtPatcher(strategyManager);
     }
 

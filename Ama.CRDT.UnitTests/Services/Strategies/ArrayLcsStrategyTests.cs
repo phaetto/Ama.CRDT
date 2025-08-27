@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.Options;
 using Shouldly;
@@ -38,24 +39,24 @@ public sealed class ArrayLcsStrategyTests
         var counterStrategyA = new CounterStrategy(timestampProvider, optionsA);
         var arrayLcsStrategyA = new ArrayLcsStrategy(comparerProvider, timestampProvider, optionsA);
         var strategiesA = new ICrdtStrategy[] { lwwStrategyA, counterStrategyA, arrayLcsStrategyA };
-        var strategyManagerA = new CrdtStrategyManager(strategiesA);
+        var strategyManagerA = new CrdtStrategyProvider(strategiesA);
         patcherA = new CrdtPatcher(strategyManagerA);
 
         var lwwStrategyB = new LwwStrategy(optionsB);
         var counterStrategyB = new CounterStrategy(timestampProvider, optionsB);
         var arrayLcsStrategyB = new ArrayLcsStrategy(comparerProvider, timestampProvider, optionsB);
         var strategiesB = new ICrdtStrategy[] { lwwStrategyB, counterStrategyB, arrayLcsStrategyB };
-        var strategyManagerB = new CrdtStrategyManager(strategiesB);
+        var strategyManagerB = new CrdtStrategyProvider(strategiesB);
         patcherB = new CrdtPatcher(strategyManagerB);
         
         var lwwStrategyC = new LwwStrategy(optionsC);
         var counterStrategyC = new CounterStrategy(timestampProvider, optionsC);
         var arrayLcsStrategyC = new ArrayLcsStrategy(comparerProvider, timestampProvider, optionsC);
         var strategiesC = new ICrdtStrategy[] { lwwStrategyC, counterStrategyC, arrayLcsStrategyC };
-        var strategyManagerC = new CrdtStrategyManager(strategiesC);
+        var strategyManagerC = new CrdtStrategyProvider(strategiesC);
         patcherC = new CrdtPatcher(strategyManagerC);
         
-        var strategyManagerApplicator = new CrdtStrategyManager(strategiesA);
+        var strategyManagerApplicator = new CrdtStrategyProvider(strategiesA);
         applicator = new CrdtApplicator(strategyManagerApplicator);
         metadataManager = new CrdtMetadataManager(strategyManagerA, timestampProvider, comparerProvider);
     }
