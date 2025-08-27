@@ -484,3 +484,17 @@ static Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.operator ==(A
 ~override Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.ToString() -> string
 ~static Ama.CRDT.Models.CrdtDocument<T>.operator !=(Ama.CRDT.Models.CrdtDocument<T> left, Ama.CRDT.Models.CrdtDocument<T> right) -> bool
 ~static Ama.CRDT.Models.CrdtDocument<T>.operator ==(Ama.CRDT.Models.CrdtDocument<T> left, Ama.CRDT.Models.CrdtDocument<T> right) -> bool
+Ama.CRDT.Models.EpochTimestamp
+Ama.CRDT.Models.EpochTimestamp.CompareTo(Ama.CRDT.Models.ICrdtTimestamp? other) -> int
+Ama.CRDT.Models.EpochTimestamp.Deconstruct(out long Value) -> void
+Ama.CRDT.Models.EpochTimestamp.EpochTimestamp() -> void
+Ama.CRDT.Models.EpochTimestamp.EpochTimestamp(long Value) -> void
+Ama.CRDT.Models.EpochTimestamp.Equals(Ama.CRDT.Models.EpochTimestamp other) -> bool
+Ama.CRDT.Models.EpochTimestamp.Value.get -> long
+Ama.CRDT.Models.EpochTimestamp.Value.init -> void
+override Ama.CRDT.Models.EpochTimestamp.GetHashCode() -> int
+static Ama.CRDT.Models.EpochTimestamp.operator !=(Ama.CRDT.Models.EpochTimestamp left, Ama.CRDT.Models.EpochTimestamp right) -> bool
+static Ama.CRDT.Models.EpochTimestamp.operator ==(Ama.CRDT.Models.EpochTimestamp left, Ama.CRDT.Models.EpochTimestamp right) -> bool
+static readonly Ama.CRDT.Models.EpochTimestamp.MinValue -> Ama.CRDT.Models.EpochTimestamp
+~override Ama.CRDT.Models.EpochTimestamp.Equals(object obj) -> bool
+~override Ama.CRDT.Models.EpochTimestamp.ToString() -> string
