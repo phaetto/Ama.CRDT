@@ -1,5 +1,4 @@
-namespace Ama.CRDT.Services.Strategies;
-
+namespace Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -8,7 +7,7 @@ using System.Linq;
 using System.Reflection;
 
 /// <inheritdoc/>
-public sealed class ElementComparerProvider : IElementComparerProvider
+internal sealed class ElementComparerProvider : IElementComparerProvider
 {
     private readonly IEnumerable<IElementComparer> comparers;
     private readonly ObjectDeepEqualityComparer defaultComparer = new();

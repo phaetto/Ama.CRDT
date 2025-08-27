@@ -15,6 +15,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using Ama.CRDT.Services.Providers;
 
 /// <inheritdoc/>
 [CrdtSupportedType(typeof(IEnumerable))]

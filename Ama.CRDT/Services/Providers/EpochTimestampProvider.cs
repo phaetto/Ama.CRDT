@@ -1,10 +1,10 @@
-namespace Ama.CRDT.Services;
+namespace Ama.CRDT.Services.Providers;
 
 using Ama.CRDT.Models;
 using System;
 
 /// <inheritdoc/>
-public sealed class EpochTimestampProvider : ICrdtTimestampProvider
+internal sealed class EpochTimestampProvider : ICrdtTimestampProvider
 {
     /// <inheritdoc/>
     public ICrdtTimestamp Now()

@@ -2,8 +2,8 @@ namespace Ama.CRDT.Benchmarks.Models;
 
 using System.Collections.Generic;
 using Ama.CRDT.Attributes;
-using Ama.CRDT.Services.Strategies;
 using System.Linq;
+using Ama.CRDT.Extensions;
 
 public class StrategyPoco
 {

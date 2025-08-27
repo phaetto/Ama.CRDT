@@ -1,14 +1,14 @@
 namespace Ama.CRDT.Services;
 
 using Ama.CRDT.Models;
-using Ama.CRDT.Services.Strategies;
+using Ama.CRDT.Services.Providers;
 using System;
 
 /// <summary>
 /// Applies a CRDT patch to a document, handling conflict resolution and idempotency.
 /// This implementation is thread-safe.
 /// </summary>
-public sealed class CrdtApplicator(ICrdtStrategyManager strategyManager) : ICrdtApplicator
+public sealed class CrdtApplicator(ICrdtStrategyProvider strategyManager) : ICrdtApplicator
 {
     /// <inheritdoc/>
     public T ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class

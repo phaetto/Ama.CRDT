@@ -1,6 +1,7 @@
 namespace Ama.CRDT.ShowCase.Services;
 
 using System;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 
 /// <summary>

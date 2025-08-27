@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Attributes;
 
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Services.Strategies;
 using System;
 using System.Linq;

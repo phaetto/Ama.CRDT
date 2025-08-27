@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -59,7 +60,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<ICrdtPatcher, CrdtPatcher>();
 
         services.TryAddSingleton<ICrdtMetadataManager, CrdtMetadataManager>();
-        services.TryAddSingleton<ICrdtStrategyManager, CrdtStrategyManager>();
+        services.TryAddSingleton<ICrdtStrategyProvider, CrdtStrategyProvider>();
         services.TryAddSingleton<IElementComparerProvider, ElementComparerProvider>();
         services.TryAddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>();
         

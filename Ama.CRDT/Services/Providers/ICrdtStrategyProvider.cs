@@ -1,5 +1,6 @@
-namespace Ama.CRDT.Services.Strategies;
+namespace Ama.CRDT.Services.Providers;
 
+using Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Models;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
@@ -7,7 +8,7 @@ using System.Reflection;
 /// <summary>
 /// Defines the contract for a service that resolves the appropriate CRDT strategy for a given property or operation.
 /// </summary>
-public interface ICrdtStrategyManager
+public interface ICrdtStrategyProvider
 {
     /// <summary>
     /// Gets the appropriate <see cref="ICrdtStrategy"/> for a property based on its attributes or type.

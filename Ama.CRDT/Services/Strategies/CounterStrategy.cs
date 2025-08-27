@@ -11,6 +11,7 @@ using System.Globalization;
 using System.Reflection;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Services.Providers;
 
 /// <summary>
 /// A CRDT strategy for handling numeric properties as counters.

@@ -7,10 +7,10 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Ama.CRDT.Models;
-using Ama.CRDT.Services.Strategies;
+using Ama.CRDT.Services.Providers;
 
 /// <inheritdoc/>
-public sealed class CrdtPatcher(ICrdtStrategyManager strategyManager) : ICrdtPatcher
+public sealed class CrdtPatcher(ICrdtStrategyProvider strategyManager) : ICrdtPatcher
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropertyCache = new();

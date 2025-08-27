@@ -1,4 +1,4 @@
-namespace Ama.CRDT.Services.Strategies;
+namespace Ama.CRDT.Services.Providers;
 
 using System;
 using System.Collections.Generic;

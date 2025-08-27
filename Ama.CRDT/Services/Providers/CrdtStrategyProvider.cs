@@ -1,8 +1,8 @@
-namespace Ama.CRDT.Services.Strategies;
-
+namespace Ama.CRDT.Services.Providers;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Services.Strategies;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ using System.Linq;
 using System.Reflection;
 
 /// <inheritdoc/>
-public sealed class CrdtStrategyManager : ICrdtStrategyManager
+internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
 {
     private readonly IReadOnlyDictionary<Type, ICrdtStrategy> strategies;
     private readonly ICrdtStrategy defaultStrategy;
@@ -19,12 +19,12 @@ public sealed class CrdtStrategyManager : ICrdtStrategyManager
     private readonly ICrdtStrategy defaultDictionaryStrategy;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="CrdtStrategyManager"/> class.
+    /// Initializes a new instance of the <see cref="CrdtStrategyProvider"/> class.
     /// </summary>
     /// <param name="strategies">An enumerable of all registered <see cref="ICrdtStrategy"/> instances.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="strategies"/> is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown if a required default strategy (like <see cref="LwwStrategy"/>) is not registered.</exception>
-    public CrdtStrategyManager(IEnumerable<ICrdtStrategy> strategies)
+    public CrdtStrategyProvider(IEnumerable<ICrdtStrategy> strategies)
     {
         ArgumentNullException.ThrowIfNull(strategies);
 

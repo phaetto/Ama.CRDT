@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.Options;
 using Shouldly;
@@ -38,22 +39,22 @@ public sealed class FixedSizeArrayStrategyTests
         var lwwStrategy = new LwwStrategy(optionsA);
         var fixedSizeArrayStrategyA = new FixedSizeArrayStrategy(timestampProvider, optionsA);
         var strategiesA = new ICrdtStrategy[] { lwwStrategy, fixedSizeArrayStrategyA };
-        var strategyManagerA = new CrdtStrategyManager(strategiesA);
+        var strategyManagerA = new CrdtStrategyProvider(strategiesA);
         patcherA = new CrdtPatcher(strategyManagerA);
 
         var lwwStrategyB = new LwwStrategy(optionsB);
         var fixedSizeArrayStrategyB = new FixedSizeArrayStrategy(timestampProvider, optionsB);
         var strategiesB = new ICrdtStrategy[] { lwwStrategyB, fixedSizeArrayStrategyB };
-        var strategyManagerB = new CrdtStrategyManager(strategiesB);
+        var strategyManagerB = new CrdtStrategyProvider(strategiesB);
         patcherB = new CrdtPatcher(strategyManagerB);
 
         var lwwStrategyC = new LwwStrategy(optionsC);
         var fixedSizeArrayStrategyC = new FixedSizeArrayStrategy(timestampProvider, optionsC);
         var strategiesC = new ICrdtStrategy[] { lwwStrategyC, fixedSizeArrayStrategyC };
-        var strategyManagerC = new CrdtStrategyManager(strategiesC);
+        var strategyManagerC = new CrdtStrategyProvider(strategiesC);
         patcherC = new CrdtPatcher(strategyManagerB);
 
-        var strategyManagerApplicator = new CrdtStrategyManager(strategiesA);
+        var strategyManagerApplicator = new CrdtStrategyProvider(strategiesA);
         applicator = new CrdtApplicator(strategyManagerApplicator);
         metadataManager = new CrdtMetadataManager(strategyManagerA, timestampProvider, comparerProvider);
     }

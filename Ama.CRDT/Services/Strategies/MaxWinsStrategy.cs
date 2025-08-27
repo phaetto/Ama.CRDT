@@ -7,6 +7,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.Options;
 
 /// <summary>

@@ -2,6 +2,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.Options;
 using Moq;

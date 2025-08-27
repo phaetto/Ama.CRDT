@@ -2,6 +2,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -15,7 +16,7 @@ public sealed class OrMapStrategyTests
 {
     private readonly Mock<IElementComparerProvider> comparerProviderMock = new();
     private readonly Mock<ICrdtTimestampProvider> timestampProviderMock = new();
-    private readonly Mock<ICrdtStrategyManager> strategyManagerMock = new();
+    private readonly Mock<ICrdtStrategyProvider> strategyManagerMock = new();
     private readonly CrdtMetadataManager metadataManager;
     private readonly OrMapStrategy strategy;
     private int timestampCounter = 0;
