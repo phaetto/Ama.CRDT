@@ -10,6 +10,7 @@ using Shouldly;
 using Xunit;
 using System.Linq;
 using Microsoft.Extensions.Options;
+using Ama.CRDT.Services.Providers;
 
 public sealed class BoundedCounterStrategyTests
 {
@@ -34,7 +35,7 @@ public sealed class BoundedCounterStrategyTests
         var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
         var arrayLcsStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, optionsA);
         var strategies = new ICrdtStrategy[] { lwwStrategy, strategy, arrayLcsStrategy };
-        var strategyManager = new CrdtStrategyManager(strategies);
+        var strategyManager = new CrdtStrategyProvider(strategies);
         
         applicator = new CrdtApplicator(strategyManager);
         metadataManager = new CrdtMetadataManager(strategyManager, timestampProvider, comparerProvider);

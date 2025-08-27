@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -33,7 +34,7 @@ public sealed class GCounterStrategyTests
         var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
         var arrayLcsStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, optionsA);
         var strategies = new ICrdtStrategy[] { lwwStrategy, strategy, arrayLcsStrategy };
-        var strategyManager = new CrdtStrategyManager(strategies);
+        var strategyManager = new CrdtStrategyProvider(strategies);
         
         applicator = new CrdtApplicator(strategyManager);
         metadataManager = new CrdtMetadataManager(strategyManager, timestampProvider, comparerProvider);

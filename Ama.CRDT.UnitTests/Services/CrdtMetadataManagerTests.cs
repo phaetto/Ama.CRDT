@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -15,13 +16,13 @@ using Xunit;
 public sealed class CrdtMetadataManagerTests
 {
     private readonly CrdtMetadataManager manager;
-    private readonly Mock<ICrdtStrategyManager> strategyManagerMock;
+    private readonly Mock<ICrdtStrategyProvider> strategyManagerMock;
     private readonly Mock<ICrdtTimestampProvider> timestampProviderMock;
     private readonly Mock<IElementComparerProvider> elementComparerProviderMock;
 
     public CrdtMetadataManagerTests()
     {
-        strategyManagerMock = new Mock<ICrdtStrategyManager>();
+        strategyManagerMock = new Mock<ICrdtStrategyProvider>();
         timestampProviderMock = new Mock<ICrdtTimestampProvider>();
         elementComparerProviderMock = new Mock<IElementComparerProvider>();
         manager = new CrdtMetadataManager(strategyManagerMock.Object, timestampProviderMock.Object, elementComparerProviderMock.Object);

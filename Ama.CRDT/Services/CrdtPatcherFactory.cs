@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Options;
+using Ama.CRDT.Services.Providers;
 
 /// <inheritdoc/>
 internal sealed class CrdtPatcherFactory(IServiceProvider serviceProvider, IEnumerable<ICrdtStrategy> originalStrategies) : ICrdtPatcherFactory
@@ -29,7 +30,7 @@ internal sealed class CrdtPatcherFactory(IServiceProvider serviceProvider, IEnum
             }
         }
         
-        var strategyManager = new CrdtStrategyManager(strategies);
+        var strategyManager = new CrdtStrategyProvider(strategies);
 
         return new CrdtPatcher(strategyManager);
     }
