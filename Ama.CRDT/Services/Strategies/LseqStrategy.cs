@@ -59,7 +59,7 @@ public sealed class LseqStrategy : ICrdtStrategy
         // Deletions
         foreach (var item in originalItems)
         {
-            if (!modifiedList.Cast<object>().Contains(item.Value, comparer))
+            if (!modifiedList.Cast<object>().Contains(item, comparer))
             {
                 var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item.Identifier, new EpochTimestamp(0));
                 operations.Add(op);
