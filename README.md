@@ -334,7 +334,7 @@ public class User
 
 _Services/UserComparer.cs_
 ```csharp
-using Ama.CRDT.Services.Strategies;
+using Ama.CRDT.Services.Providers;
 using System.Diagnostics.CodeAnalysis;
 
 // Assuming User model is in this namespace
@@ -407,7 +407,7 @@ public class MyCustomTimestampProvider : ICrdtTimestampProvider
         // Your logic to generate a custom timestamp
         // For example, from a hybrid logical clock service.
         var customTimestampValue = GetTimestampFromHlcService(); 
-        return new CustomTimestamp(customTimestampValue);
+        return new CustomTimestamp(customTimestampValue); // Or EpochTimestamp if it fits to long
     }
 }
 ```
@@ -427,9 +427,9 @@ builder.Services.AddCrdtTimestampProvider<MyCustomTimestampProvider>();
 ## How It Works
 
 -   **`ICrdtPatcherFactory`**: A factory for creating `ICrdtPatcher` instances, each configured with a unique `ReplicaId`. This is crucial for correctly attributing changes in a multi-replica environment.
--   **`ICrdtPatcher`**: Takes two `CrdtDocument<T>` objects (`from` and `to`) and generates a `CrdtPatch`. It recursively compares the POCOs, using the `ICrdtStrategyManager` to find the correct strategy for each property. It also updates the `to` document's metadata with new timestamps for any changed values.
--   **`ICrdtApplicator`**: Takes a `CrdtDocument<T>` and a `CrdtPatch`. It processes each operation in the patch. If an operation is valid, it uses the `ICrdtStrategyManager` to find the correct strategy to modify the POCO.
--   **`ICrdtStrategyManager`**: A service that inspects a property's attributes (e.g., `[CrdtCounterStrategy]`) to resolve and return the appropriate `ICrdtStrategy` implementation from the DI container. It provides default strategies (LWW for simple types, LCS for collections) if no attribute is present.
+-   **`ICrdtPatcher`**: Takes two `CrdtDocument<T>` objects (`from` and `to`) and generates a `CrdtPatch`. It recursively compares the POCOs, using the `ICrdtStrategyProvider` to find the correct strategy for each property. It also updates the `to` document's metadata with new timestamps for any changed values.
+-   **`ICrdtApplicator`**: Takes a `CrdtDocument<T>` and a `CrdtPatch`. It processes each operation in the patch. If an operation is valid, it uses the `ICrdtStrategyProvider` to find the correct strategy to modify the POCO.
+  - **`ICrdtStrategyProvider`**: A service that inspects a property's attributes (e.g., `[CrdtCounterStrategy]`) to resolve and return the appropriate `ICrdtStrategy` implementation from the DI container. It provides default strategies (LWW for simple types, LCS for collections) if no attribute is present.
 -   **`ICrdtMetadataManager`**: A helper service for managing the `CrdtMetadata` object. It can initialize metadata from a POCO, compact it to save space, and perform other state management tasks.
 
 ## Building and Testing
