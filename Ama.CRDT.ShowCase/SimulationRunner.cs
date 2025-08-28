@@ -87,8 +87,18 @@ public sealed class SimulationRunner(
         var count = 0;
         await foreach (var user in reader.ReadAllAsync())
         {
-            await Task.Delay(Random.Shared.Next(1, 10));
-    
+#pragma warning disable CS0162 // Unreachable code detected
+            // Under some number of items simulate latency
+            if (TotalItems < 300)
+            {
+                await Task.Delay(Random.Shared.Next(1, 10));
+            }
+            else
+            {
+                await Task.Yield();
+            }
+#pragma warning restore CS0162 // Unreachable code detected
+
             // Each write replica operates on its own, consistent view of the data.
             // It reads its own state, computes a change, generates a patch, and then updates its own state.
             var (from, metadata) = await database.GetStateAsync<UserStats>(replicaId);
@@ -156,8 +166,18 @@ public sealed class SimulationRunner(
         var count = 0;
         await foreach (var patch in reader.ReadAllAsync())
         {
-            // Simulate network latency and out-of-order arrival
-            await Task.Delay(Random.Shared.Next(1, 5)); 
+#pragma warning disable CS0162 // Unreachable code detected
+            // Under some number of items simulate latency
+            if (TotalItems < 300)
+            {
+                await Task.Delay(Random.Shared.Next(1, 10));
+            }
+            else
+            {
+                await Task.Yield();
+            }
+#pragma warning restore CS0162 // Unreachable code detected
+
 
             var (document, metadata) = await database.GetStateAsync<UserStats>(replicaId);
             
