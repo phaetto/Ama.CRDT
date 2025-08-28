@@ -42,13 +42,10 @@ using Ama.CRDT.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add CRDT services to the DI container
-builder.Services.AddCrdt(options =>
-{
-    // A default replica ID is required, but it's best practice to
-    // create replica-specific services using the ICrdtPatcherFactory.
-    options.ReplicaId = "default-replica";
-});
+// Add CRDT services to the DI container.
+// This registers all core services, including strategies, providers,
+// and the ICrdtScopeFactory for creating replica-specific scopes.
+builder.Services.AddCrdt();
 
 // ... other service registrations
 
@@ -84,38 +81,48 @@ The core workflow involves creating a patch from a change and applying it to ano
 ```csharp
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Microsoft.Extensions.DependencyInjection;
 
-// 1. Inject services from DI container
-// ICrdtPatcherFactory patcherFactory = ...;
-// ICrdtApplicator applicator = ...;
-// ICrdtMetadataManager metadataManager = ...;
+// Assume 'serviceProvider' is your configured IServiceProvider
 
-// 2. Create a patcher for your replica
-var patcher = patcherFactory.Create("replica-A");
+// 1. Get required services. The scope factory is a singleton.
+var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+var metadataManager = serviceProvider.GetRequiredService<ICrdtMetadataManager>();
 
-// 3. Establish an initial state
-var originalState = new UserStats { LoginCount = 5, Badges = new List<string> { "newcomer" } };
+// 2. Create a scope for a specific replica (e.g., a user session)
+using var userScope = scopeFactory.CreateScope("user-session-abc");
+
+// 3. Resolve replica-specific services from the scope
+var patcher = userScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+var applicator = userScope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+
+// 4. Establish an initial state
+var originalState = new UserStats { LoginCount = 5, Badges = ["newcomer"] };
 var originalMetadata = metadataManager.Initialize(originalState);
 var originalDocument = new CrdtDocument<UserStats>(originalState, originalMetadata);
 
-// 4. Modify the state
-var modifiedState = new UserStats { LoginCount = 6, Badges = new List<string> { "newcomer", "explorer" } };
-// The metadata must be passed to the new document to track timestamps correctly.
+// 5. Modify the state
+var modifiedState = new UserStats { LoginCount = 6, Badges = ["newcomer", "explorer"] };
+// The patcher needs the same metadata instance to track timestamps.
 var modifiedDocument = new CrdtDocument<UserStats>(modifiedState, originalMetadata);
 
-// 5. Create a patch. The patcher updates the metadata in modifiedDocument.
+// 6. Create a patch.
 var patch = patcher.GeneratePatch(originalDocument, modifiedDocument);
 
-// 6. Simulate receiving this patch elsewhere and applying it
-var stateToMerge = new UserStats { LoginCount = 5, Badges = new List<string> { "newcomer" } };
-var metadataToMerge = metadataManager.Initialize(stateToMerge);
-var documentToMerge = new CrdtDocument<UserStats>(stateToMerge, metadataToMerge);
+// 7. On another replica, apply the patch.
+// First, get the services for that replica.
+using var serverScope = scopeFactory.CreateScope("server-node-xyz");
+var serverApplicator = serverScope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
 
-applicator.ApplyPatch(documentToMerge, patch);
+var serverState = new UserStats { LoginCount = 5, Badges = ["newcomer"] };
+var serverMetadata = metadataManager.Initialize(serverState);
+var serverDocument = new CrdtDocument<UserStats>(serverState, serverMetadata);
 
-// 7. Assert the new state is correct
-// documentToMerge.Data.LoginCount is now 6
-// documentToMerge.Data.Badges now contains ["newcomer", "explorer"]
+serverApplicator.ApplyPatch(serverDocument, patch);
+
+// 8. Assert the new state is correct
+// serverDocument.Data.LoginCount is now 6
+// serverDocument.Data.Badges now contains ["newcomer", "explorer"]
 ```
 
 ## Controlling Merge Behavior with CRDT Strategies
@@ -152,33 +159,39 @@ This library uses attributes on your POCO properties to determine how to merge c
 
 ## Advanced Usage: Multi-Replica Synchronization
 
-For distributed systems with multiple writers, you need a unique `ICrdtPatcher` for each replica. The `ICrdtPatcherFactory` allows you to create these. This example shows two replicas modifying the same object concurrently and converging to a consistent state.
+For distributed systems with multiple writers, you need a unique `ICrdtPatcher`, `ICrdtApplicator` and `ICrdtMetadataManager` for each replica. The `ICrdtScopeFactory` allows you to create these. This example shows two replicas modifying the same object concurrently and converging to a consistent state.
 
 ```csharp
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Microsoft.Extensions.DependencyInjection;
 
-// 1. Inject services from DI container
-// ICrdtPatcherFactory patcherFactory = ...;
-// ICrdtApplicator applicator = ...;
-// ICrdtMetadataManager metadataManager = ...;
+// 1. Get services from the root DI container
+var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+/* This would work for EpochTimestampProvider but SequentialTimestampProvider has the sequence number as state in the local replica. Best prectice is to have all classes scoper per replica */
+var metadataManager = serviceProvider.GetRequiredService<ICrdtMetadataManager>();
 
-// 2. Create replica-specific patchers
-var patcherA = patcherFactory.Create("replica-A");
-var patcherB = patcherFactory.Create("replica-B");
+// 2. Create scopes and services for each replica
+using var scopeA = scopeFactory.CreateScope("replica-A");
+var patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+var applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+
+using var scopeB = scopeFactory.CreateScope("replica-B");
+var patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+var applicatorB = scopeB.ServiceProvider.GetRequiredService<ICrdtApplicator>();
 
 // 3. Establish a base state
-var baseState = new UserStats { LastSeenLocation = "Lobby", LoginCount = 10, Badges = new List<string> { "welcome" } };
+var baseState = new UserStats { LastSeenLocation = "Lobby", LoginCount = 10, Badges = ["welcome"] };
 var baseMetadata = metadataManager.Initialize(baseState);
 
 // 4. Create two replicas from the base state (deep cloning data and metadata)
 var docA = new CrdtDocument<UserStats>(
-    new UserStats { LastSeenLocation = "Lobby", LoginCount = 10, Badges = new List<string> { "welcome" } },
+    new UserStats { LastSeenLocation = "Lobby", LoginCount = 10, Badges = ["welcome"] },
     metadataManager.Clone(baseMetadata)
 );
 
 var docB = new CrdtDocument<UserStats>(
-    new UserStats { LastSeenLocation = "Lobby", LoginCount = 10, Badges = new List<string> { "welcome" } },
+    new UserStats { LastSeenLocation = "Lobby", LoginCount = 10, Badges = ["welcome"] },
     metadataManager.Clone(baseMetadata)
 );
 
@@ -205,10 +218,10 @@ var patchFromB = patcherB.GeneratePatch(
 
 // 7. Synchronize: Cross-apply patches
 // Apply A's patch to B's document
-applicator.ApplyPatch(docB, patchFromA);
+applicatorB.ApplyPatch(docB, patchFromA);
 
 // Apply B's patch to A's document
-applicator.ApplyPatch(docA, patchFromB);
+applicatorA.ApplyPatch(docA, patchFromB);
 
 // 8. Assert Convergence
 // Both replicas now have the same converged state.
@@ -231,6 +244,7 @@ You can periodically prune old tombstones using the `ICrdtMetadataManager`. This
 ```csharp
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
+using Ama.CRDT.Services.Providers;
 
 // 1. Inject the manager and timestamp provider
 // ICrdtMetadataManager metadataManager = ...;
@@ -254,7 +268,7 @@ metadataManager.PruneLwwTombstones(myMetadata, thresholdTimestamp);
 
 ### Version Vector Compaction
 
-The library uses a version vector (`CrdtMetadata.VersionVector`) to track the latest operation timestamp seen from each replica. This is a highly efficient way to summarize the history of a document without storing every single operation. This process is not automatic and as a dev you have to call `metadataManager.AdvanceVersionVector(metadata, operation)` to ensure that the log of seen operations (`SeenExceptions`) does not grow indefinitely. You can safely do that after every patch on a replica.
+The library uses a version vector (`CrdtMetadata.VersionVector`) and a set of seen exceptions (`SeenExceptions`) to provide idempotency for operations, preventing them from being applied more than once. It is particularly important that you use a continuous timestamp provider (like a sequential or logical clock, check `SequentialTimestampProvider`). The `CrdtApplicator` automatically manages this process for strategies marked with the `[IdempotentWithContinuousTime]` attribute. It checks for seen operations before applying them and advances the version vector afterward, which in turn prunes the `SeenExceptions` set. This keeps the metadata size under control automatically without manual intervention.
 
 ## Extensibility: Creating Custom Strategies
 
@@ -291,18 +305,18 @@ public sealed class MyCustomStrategy : ICrdtStrategy
 
 #### 3. Register in the DI Container
 
-In `Program.cs`, register your new strategy as a singleton and also register it as an `ICrdtStrategy` so the `CrdtStrategyManager` can find it.
+In `Program.cs`, register your new strategy with a scoped lifetime and also register it as an `ICrdtStrategy` so the `CrdtStrategyProvider` can find it.
 
 ```csharp
 // In Program.cs
 // ...
-builder.Services.AddCrdt(options => { /* ... */ });
+builder.Services.AddCrdt();
 
-// Register the custom strategy
-builder.Services.AddSingleton<MyCustomStrategy>();
+// Register the custom strategy with a scoped lifetime
+builder.Services.AddScoped<MyCustomStrategy>();
 
-// Make it available to the strategy manager
-builder.Services.AddSingleton<ICrdtStrategy>(sp => sp.GetRequiredService<MyCustomStrategy>());
+// Make it available to the strategy provider
+builder.Services.AddScoped<ICrdtStrategy>(sp => sp.GetRequiredService<MyCustomStrategy>());
 ```
 
 You can now use `[MyCustomStrategy]` on your POCO properties.
@@ -313,7 +327,7 @@ Beyond creating custom strategies, you can also customize other core components 
 
 ### Customizing Array Element Comparison
 
-The default `[CrdtArrayLcsStrategy]` uses `object.Equals` to compare elements in a collection. This works for simple types like `string` or `int`, but it's often insufficient for complex objects where uniqueness is determined by a specific property, like an `Id`. The `[CrdtSortedSetStrategy]` also benefits from this customization for identifying elements before sorting.
+The `CrdtArrayLcsStrategy` and other collection-based strategies use a deep equality comparison to identify elements in a collection. This works for simple types and objects, but it's often more efficient or correct to identify complex objects by a unique property, like an `Id`.
 
 To solve this, you can implement the `IElementComparer` interface to provide type-specific comparison logic. The strategy manager will automatically find and use your custom comparer for the specified type.
 
@@ -338,7 +352,7 @@ using Ama.CRDT.Services.Providers;
 using System.Diagnostics.CodeAnalysis;
 
 // Assuming User model is in this namespace
-using MyProject.Models; 
+using YourApp.Models; 
 
 public class UserComparer : IElementComparer
 {
@@ -375,7 +389,7 @@ Use the `AddCrdtComparer<TComparer>()` extension method in your service configur
 
 ```csharp
 // In Program.cs
-builder.Services.AddCrdt(options => { /* ... */ });
+builder.Services.AddCrdt();
 
 // Register the custom comparer
 builder.Services.AddCrdtComparer<UserComparer>();
@@ -392,22 +406,43 @@ You can replace the default timestamping mechanism by implementing `ICrdtTimesta
 #### 1. Implement `ICrdtTimestampProvider`
 
 Your custom provider must return an object that implements `ICrdtTimestamp`. The timestamp object itself must be comparable.
+Note that this will be instantiated _per scope_ so the state will be per replica.
 
-**Note**: This is an advanced scenario. A custom timestamp implementation must be carefully designed to be monotonic and, if necessary, globally unique to ensure correctness.
-
-_Services/MyCustomTimestampProvider.cs_
 ```csharp
-using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Models;
+using System.Threading;
 
-public class MyCustomTimestampProvider : ICrdtTimestampProvider
+// A simple logical clock timestamp provider for demonstration.
+public sealed class LogicalClockProvider : ICrdtTimestampProvider
 {
+    private long counter = 0;
+
+    // This clock is continuous and sequential.
+    public bool IsContinuous => true;
+
     public ICrdtTimestamp Now()
     {
-        // Your logic to generate a custom timestamp
-        // For example, from a hybrid logical clock service.
-        var customTimestampValue = GetTimestampFromHlcService(); 
-        return new CustomTimestamp(customTimestampValue); // Or EpochTimestamp if it fits to long
+        long timestamp = Interlocked.Increment(ref counter);
+        // We can reuse an existing timestamp implementation like SequentialTimestamp.
+        return new SequentialTimestamp(timestamp);
+    }
+
+    public ICrdtTimestamp Init() => new SequentialTimestamp(0);
+
+    public ICrdtTimestamp Create(long value) => new SequentialTimestamp(value);
+
+    public IEnumerable<ICrdtTimestamp> IterateBetween(ICrdtTimestamp start, ICrdtTimestamp end)
+    {
+        if (start is not SequentialTimestamp s || end is not SequentialTimestamp e)
+        {
+            yield break;
+        }
+
+        for (var i = s.Value + 1; i < e.Value; i++)
+        {
+            yield return new SequentialTimestamp(i);
+        }
     }
 }
 ```
@@ -418,18 +453,18 @@ Use the `AddCrdtTimestampProvider<TProvider>()` extension method to replace the 
 
 ```csharp
 // In Program.cs
-builder.Services.AddCrdt(options => { /* ... */ });
+builder.Services.AddCrdt();
 
 // Replace the default provider with your custom one
-builder.Services.AddCrdtTimestampProvider<MyCustomTimestampProvider>();
+builder.Services.AddCrdtTimestampProvider<LogicalClockProvider>();
 ```
 
 ## How It Works
 
--   **`ICrdtPatcherFactory`**: A factory for creating `ICrdtPatcher` instances, each configured with a unique `ReplicaId`. This is crucial for correctly attributing changes in a multi-replica environment.
--   **`ICrdtPatcher`**: Takes two `CrdtDocument<T>` objects (`from` and `to`) and generates a `CrdtPatch`. It recursively compares the POCOs, using the `ICrdtStrategyProvider` to find the correct strategy for each property. It also updates the `to` document's metadata with new timestamps for any changed values.
--   **`ICrdtApplicator`**: Takes a `CrdtDocument<T>` and a `CrdtPatch`. It processes each operation in the patch. If an operation is valid, it uses the `ICrdtStrategyProvider` to find the correct strategy to modify the POCO.
-  - **`ICrdtStrategyProvider`**: A service that inspects a property's attributes (e.g., `[CrdtCounterStrategy]`) to resolve and return the appropriate `ICrdtStrategy` implementation from the DI container. It provides default strategies (LWW for simple types, LCS for collections) if no attribute is present.
+-   **`ICrdtScopeFactory`**: A singleton factory for creating isolated `IServiceScope` instances. Each scope is configured for a specific `ReplicaId` and provides its own set of scoped services (`ICrdtPatcher`, `ICrdtApplicator`). This is the primary entry point for working with multiple replicas.
+-   **`ICrdtPatcher`**: A scoped service that takes two `CrdtDocument<T>` objects (`from` and `to`) and generates a `CrdtPatch`. It is configured with a `ReplicaId` from its scope. It recursively compares the POCOs, using the `ICrdtStrategyProvider` to find the correct strategy for each property. It also updates the `to` document's metadata with new timestamps for any changed values.
+-   **`ICrdtApplicator`**: A scoped service that takes a `CrdtDocument<T>` and a `CrdtPatch`. It processes each operation in the patch. It uses the `ICrdtStrategyProvider` to find the correct strategy to modify the POCO and its metadata. It also handles idempotency checks using version vectors for supported strategies.
+-   **`ICrdtStrategyProvider`**: A service that inspects a property's attributes (e.g., `[CrdtCounterStrategy]`) to resolve and return the appropriate `ICrdtStrategy` implementation from the DI container. It provides default strategies (LWW for simple types, ArrayLcs for collections) if no attribute is present.
 -   **`ICrdtMetadataManager`**: A helper service for managing the `CrdtMetadata` object. It can initialize metadata from a POCO, compact it to save space, and perform other state management tasks.
 
 ## Building and Testing

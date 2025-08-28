@@ -22,7 +22,7 @@ public class PatcherBenchmarks
     public void Setup()
     {
         var services = new ServiceCollection();
-        services.AddCrdt(options => options.ReplicaId = "benchmark-replica");
+        services.AddCrdt();
         var serviceProvider = services.BuildServiceProvider();
 
         patcher = serviceProvider.GetRequiredService<ICrdtPatcher>();

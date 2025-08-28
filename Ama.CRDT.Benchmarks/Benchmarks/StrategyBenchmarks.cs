@@ -101,7 +101,7 @@ public class StrategyBenchmarks
     public void Setup()
     {
         var services = new ServiceCollection();
-        services.AddCrdt(options => options.ReplicaId = "benchmark-replica");
+        services.AddCrdt();
         services.AddSingleton<MyStateMachine>();
         var serviceProvider = services.BuildServiceProvider();
 

@@ -14,6 +14,7 @@ public sealed class SequentialTimestampProvider : ICrdtTimestampProvider
 {
     private long counter = 0;
 
+    /// <inheritdoc/>
     public bool IsContinuous => true;
 
     /// <summary>

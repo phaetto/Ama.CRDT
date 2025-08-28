@@ -38,6 +38,7 @@ public sealed class LwwSetStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -120,14 +121,14 @@ public sealed class LwwSetStrategyTests : IDisposable
 
         // Scenario 1: Add (t=1), then Remove (t=2) -> Should be removed
         var model1 = new TestModel();
-        var meta1 = metadataManagerA.Initialize(new TestModel());
+        var meta1 = metadataManagerA.Clone(metaAncestor);
         var doc1 = new CrdtDocument<TestModel>(model1, meta1);
         applicatorA.ApplyPatch(doc1, patchAdd);
         applicatorA.ApplyPatch(doc1, patchRemove);
         
         // Scenario 2: Remove (t=2), then Add (t=1) -> Should be removed
         var model2 = new TestModel();
-        var meta2 = metadataManagerA.Initialize(new TestModel());
+        var meta2 = metadataManagerA.Clone(metaAncestor);
         var doc2 = new CrdtDocument<TestModel>(model2, meta2);
         applicatorA.ApplyPatch(doc2, patchRemove);
         applicatorA.ApplyPatch(doc2, patchAdd);
