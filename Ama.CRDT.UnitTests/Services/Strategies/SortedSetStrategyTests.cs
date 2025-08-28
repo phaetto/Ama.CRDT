@@ -4,7 +4,6 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using Ama.CRDT.ShowCase.Models;
-using Microsoft.Extensions.Options;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.ShowCase.Services;
 using Moq;
@@ -61,11 +60,6 @@ public sealed class SortedSetStrategyTests : IDisposable
         }
     }
 
-    private readonly Mock<ICrdtPatcher> mockPatcher = new();
-    private readonly Mock<IElementComparerProvider> mockComparerProvider = new();
-    private readonly Mock<ICrdtTimestampProvider> mockTimestampProvider = new();
-    private readonly SortedSetStrategy strategy;
-
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
     private readonly IServiceScope scopeC;
@@ -75,17 +69,14 @@ public sealed class SortedSetStrategyTests : IDisposable
     private readonly ICrdtApplicator applicatorA;
     private readonly ICrdtMetadataManager metadataManagerA;
     private readonly ICrdtMetadataManager metadataManagerB;
+    private readonly ICrdtTimestampProvider timestampProvider;
 
     public SortedSetStrategyTests()
     {
-        strategy = new SortedSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, new ReplicaContext { ReplicaId = "replica-A" });
-        mockComparerProvider
-            .Setup(p => p.GetComparer(It.IsAny<Type>()))
-            .Returns(EqualityComparer<object>.Default);
-
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
             .AddCrdtComparer<CaseInsensitiveStringComparer>()
+            .AddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>()
             .BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         scopeA = scopeFactory.CreateScope("replica-A");
@@ -98,6 +89,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         metadataManagerB = scopeB.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()
@@ -111,9 +103,15 @@ public sealed class SortedSetStrategyTests : IDisposable
     public void GeneratePatch_WithCustomIdComparer_WhenObjectInArrayIsModified_ShouldCallPatcherDifferentiateObject()
     {
         // Arrange
+        var mockPatcher = new Mock<ICrdtPatcher>();
+        var mockComparerProvider = new Mock<IElementComparerProvider>();
+        var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
+        var strategy = new SortedSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, new ReplicaContext { ReplicaId = "replica-A" });
+
         mockComparerProvider
             .Setup(p => p.GetComparer(typeof(NestedModel)))
             .Returns(new NestedModelIdComparer());
+        mockTimestampProvider.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(val => new SequentialTimestamp(val));
 
         var operations = new List<CrdtOperation>();
         var path = "$.items";
@@ -135,7 +133,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             .Callback<string, Type, object, CrdtMetadata, object, CrdtMetadata, List<CrdtOperation>, object, object>((itemPath, _, from, _, to, _, ops, _, _) =>
             {
                 var toNested = (NestedModel)to;
-                ops.Add(new CrdtOperation(Guid.NewGuid(), "mock-replica", $"{itemPath}.value", OperationType.Upsert, toNested.Value, new EpochTimestamp(0)));
+                ops.Add(new CrdtOperation(Guid.NewGuid(), "mock-replica", $"{itemPath}.value", OperationType.Upsert, toNested.Value, mockTimestampProvider.Object.Create(0)));
             });
         
         // Act
@@ -162,9 +160,9 @@ public sealed class SortedSetStrategyTests : IDisposable
     public void ApplyOperation_Upsert_ShouldInsertItemIntoArrayAndSort()
     {
         // Arrange
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
         var model = new MutableTestModel { Items = { "a", "c" } };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.items[1]", OperationType.Upsert, "b", new EpochTimestamp(1L));
-        mockComparerProvider.Setup(p => p.GetComparer(typeof(string))).Returns(EqualityComparer<object>.Default);
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.items[1]", OperationType.Upsert, "b", timestampProvider.Create(1L));
 
         // Act
         strategy.ApplyOperation(model, new CrdtMetadata(), operation);
@@ -181,9 +179,9 @@ public sealed class SortedSetStrategyTests : IDisposable
     public void ApplyOperation_Remove_ShouldRemoveItemFromArray()
     {
         // Arrange
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
         var model = new MutableTestModel { Items = { "a", "b", "c" } };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.items[1]", OperationType.Remove, "b", new EpochTimestamp(1L));
-        mockComparerProvider.Setup(p => p.GetComparer(typeof(string))).Returns(EqualityComparer<object>.Default);
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.items[1]", OperationType.Remove, "b", timestampProvider.Create(1L));
 
         // Act
         strategy.ApplyOperation(model, new CrdtMetadata(), operation);
@@ -201,6 +199,7 @@ public sealed class SortedSetStrategyTests : IDisposable
     public void Diff_WhenArraysAreIdentical_ShouldReturnAllMatches()
     {
         // Arrange
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
         var from = new List<object> { 1, 2, 3 };
         var to = new List<object> { 1, 2, 3 };
 

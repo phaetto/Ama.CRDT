@@ -4,7 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Strategies;
+using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
@@ -25,8 +25,14 @@ public sealed class LwwSetStrategyTests : IDisposable
     private readonly IServiceScope scopeB;
     private readonly ICrdtPatcher patcherA;
     private readonly ICrdtPatcher patcherB;
+    private readonly ICrdtPatcher patcherC;
     private readonly ICrdtApplicator applicatorA;
     private readonly ICrdtMetadataManager metadataManagerA;
+    private readonly ICrdtMetadataManager metadataManagerB;
+    private readonly ICrdtMetadataManager metadataManagerC;
+    private readonly ICrdtTimestampProvider timestampProviderA;
+    private readonly ICrdtTimestampProvider timestampProviderB;
+    private readonly ICrdtTimestampProvider timestampProviderC;
 
     public LwwSetStrategyTests()
     {
@@ -40,8 +46,14 @@ public sealed class LwwSetStrategyTests : IDisposable
 
         patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherC = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        metadataManagerB = scopeB.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        metadataManagerC = scopeB.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        timestampProviderA = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        timestampProviderB = scopeB.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        timestampProviderC = scopeB.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()
@@ -161,22 +173,24 @@ public sealed class LwwSetStrategyTests : IDisposable
         // Arrange
         var ancestor = new TestModel { Tags = { "A", "B" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
-        
-        var patcherC = patcherB; // ReplicaId is the important part
+        var model1 = new TestModel { Tags = { "A", "C" } };
+        var model2 = new TestModel { Tags = { "B", "D" } };
+        var model3 = new TestModel { Tags = { "A", "B", "E" } };
 
+        Thread.Sleep(5);
         var patch1 = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "C" } }, metaAncestor)); // Remove B, Add C
+            new CrdtDocument<TestModel>(model1, metadataManagerA.Initialize(model1))); // Remove B, Add C
 
-        Thread.Sleep(15);
+        Thread.Sleep(5);
         var patch2 = patcherB.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "B", "D" } }, metaAncestor)); // Remove A, Add D
+            new CrdtDocument<TestModel>(model2, metadataManagerB.Initialize(model2))); // Remove A, Add D
 
-        Thread.Sleep(15);
+        Thread.Sleep(5);
         var patch3 = patcherC.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "B", "E" } }, metaAncestor)); // Add E
+            new CrdtDocument<TestModel>(model3, metadataManagerC.Initialize(model3))); // Add E
 
         var patches = new[] { patch1, patch2, patch3 };
         var permutations = GetPermutations(patches, patches.Length);
@@ -186,7 +200,7 @@ public sealed class LwwSetStrategyTests : IDisposable
         foreach (var permutation in permutations)
         {
             var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
-            var meta = metadataManagerA.Initialize(new TestModel { Tags = new List<string>(ancestor.Tags) });
+            var meta = metadataManagerA.Clone(metaAncestor);
             var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in permutation)
             {
@@ -204,10 +218,10 @@ public sealed class LwwSetStrategyTests : IDisposable
         // Final state: C, D, E
         var expected = new[] { "C", "D", "E" };
         var firstState = finalStates.First();
-        firstState.ShouldBe(expected, ignoreOrder: true);
+        firstState.ShouldBe(expected);
         foreach (var state in finalStates.Skip(1))
         {
-            state.ShouldBe(firstState, ignoreOrder: true);
+            state.ShouldBe(firstState);
         }
     }
     

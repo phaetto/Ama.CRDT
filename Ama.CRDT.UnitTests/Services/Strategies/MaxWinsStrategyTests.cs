@@ -18,17 +18,17 @@ public sealed class MaxWinsStrategyTests
     private sealed class TestModel { public int HighScore { get; set; } }
     
     private readonly IServiceProvider serviceProvider;
-    private readonly Mock<ICrdtTimestampProvider> mockTimestampProvider = new();
+    private readonly ICrdtTimestampProvider timestampProvider;
     private readonly string replicaId = Guid.NewGuid().ToString();
 
     public MaxWinsStrategyTests()
     {
         var services = new ServiceCollection();
-        services.AddCrdt();
-        services.AddSingleton(mockTimestampProvider.Object);
+        services.AddCrdt()
+            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
 
         serviceProvider = services.BuildServiceProvider();
-        mockTimestampProvider.Setup(p => p.Now()).Returns(new EpochTimestamp(1L));
+        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
     
     [Fact]
@@ -78,7 +78,7 @@ public sealed class MaxWinsStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
 
         var model = new TestModel { HighScore = 150 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, new EpochTimestamp(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
         
         // Act
         strategy.ApplyOperation(model, new CrdtMetadata(), operation);
@@ -96,7 +96,7 @@ public sealed class MaxWinsStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
 
         var model = new TestModel { HighScore = 150 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 100, new EpochTimestamp(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 100, timestampProvider.Create(2L));
         
         // Act
         strategy.ApplyOperation(model, new CrdtMetadata(), operation);
@@ -114,7 +114,7 @@ public sealed class MaxWinsStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
 
         var model = new TestModel { HighScore = 150 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, new EpochTimestamp(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
     
         // Act
         strategy.ApplyOperation(model, new CrdtMetadata(), operation);
@@ -136,8 +136,8 @@ public sealed class MaxWinsStrategyTests
 
         var model1 = new TestModel { HighScore = 100 };
         var model2 = new TestModel { HighScore = 100 };
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.highScore", OperationType.Upsert, 200, new EpochTimestamp(2L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.highScore", OperationType.Upsert, 150, new EpochTimestamp(3L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.highScore", OperationType.Upsert, 150, timestampProvider.Create(3L));
 
         // Act
         // op1 then op2
@@ -162,9 +162,9 @@ public sealed class MaxWinsStrategyTests
         using var scope = scopeFactory.CreateScope(replicaId);
         var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
 
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.highScore", OperationType.Upsert, 200, new EpochTimestamp(2L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.highScore", OperationType.Upsert, 150, new EpochTimestamp(3L));
-        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.highScore", OperationType.Upsert, 250, new EpochTimestamp(4L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.highScore", OperationType.Upsert, 150, timestampProvider.Create(3L));
+        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.highScore", OperationType.Upsert, 250, timestampProvider.Create(4L));
 
         var ops = new[] { op1, op2, op3 };
         var permutations = GetPermutations(ops, ops.Length);

@@ -63,49 +63,37 @@ public sealed class BoundedCounterStrategy(ICrdtTimestampProvider timestampProvi
             throw new InvalidOperationException($"Bounded Counter strategy can only apply 'Increment' operations. Received '{operation.Type}'.");
         }
 
-        if (metadata.SeenExceptions.Contains(operation))
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        if (parent is null || property is null)
         {
             return;
         }
 
-        try
+        var attribute = property.GetCustomAttribute<CrdtBoundedCounterStrategyAttribute>();
+        if (attribute is null)
         {
-            var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-            if (parent is null || property is null)
-            {
-                return;
-            }
-
-            var attribute = property.GetCustomAttribute<CrdtBoundedCounterStrategyAttribute>();
-            if (attribute is null)
-            {
-                throw new InvalidOperationException($"Property at path '{operation.JsonPath}' is missing the CrdtBoundedCounterStrategyAttribute.");
-            }
-
-            decimal unboundedValue;
-            if (metadata.Lww.TryGetValue(operation.JsonPath, out var timestamp) && timestamp is UnboundedCounterValue counterValue)
-            {
-                unboundedValue = counterValue.Value;
-            }
-            else
-            {
-                var currentValue = property.GetValue(parent);
-                unboundedValue = currentValue is not null ? Convert.ToDecimal(currentValue) : 0;
-            }
-
-            var increment = operation.Value is not null ? Convert.ToDecimal(operation.Value) : 0;
-            var newUnboundedValue = unboundedValue + increment;
-
-            metadata.Lww[operation.JsonPath] = new UnboundedCounterValue(newUnboundedValue);
-
-            var clampedValue = Math.Max(attribute.Min, Math.Min(attribute.Max, newUnboundedValue));
-
-            var convertedValue = Convert.ChangeType(clampedValue, property.PropertyType);
-            property.SetValue(parent, convertedValue);
+            throw new InvalidOperationException($"Property at path '{operation.JsonPath}' is missing the CrdtBoundedCounterStrategyAttribute.");
         }
-        finally
+
+        decimal unboundedValue;
+        if (metadata.Lww.TryGetValue(operation.JsonPath, out var timestamp) && timestamp is UnboundedCounterValue counterValue)
         {
-            metadata.SeenExceptions.Add(operation);
+            unboundedValue = counterValue.Value;
         }
+        else
+        {
+            var currentValue = property.GetValue(parent);
+            unboundedValue = currentValue is not null ? Convert.ToDecimal(currentValue) : 0;
+        }
+
+        var increment = operation.Value is not null ? Convert.ToDecimal(operation.Value) : 0;
+        var newUnboundedValue = unboundedValue + increment;
+
+        metadata.Lww[operation.JsonPath] = new UnboundedCounterValue(newUnboundedValue);
+
+        var clampedValue = Math.Max(attribute.Min, Math.Min(attribute.Max, newUnboundedValue));
+
+        var convertedValue = Convert.ChangeType(clampedValue, property.PropertyType);
+        property.SetValue(parent, convertedValue);
     }
 }

@@ -18,17 +18,17 @@ public sealed class AverageRegisterStrategyTests
     private sealed class TestModel { public decimal Rating { get; set; } }
 
     private readonly IServiceProvider serviceProvider;
-    private readonly Mock<ICrdtTimestampProvider> mockTimestampProvider = new();
+    private readonly ICrdtTimestampProvider timestampProvider;
     private const string Path = "$.rating";
 
     public AverageRegisterStrategyTests()
     {
         var services = new ServiceCollection();
-        services.AddCrdt();
-        services.AddSingleton(mockTimestampProvider.Object);
+        services.AddCrdt()
+            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
 
         serviceProvider = services.BuildServiceProvider();
-        mockTimestampProvider.Setup(p => p.Now()).Returns(new EpochTimestamp(1L));
+        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
     
     [Fact]
@@ -61,8 +61,8 @@ public sealed class AverageRegisterStrategyTests
 
         var model = new TestModel();
         var metadata = new CrdtMetadata();
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, new EpochTimestamp(1L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", Path, OperationType.Upsert, 10m, new EpochTimestamp(2L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, timestampProvider.Create(1L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", Path, OperationType.Upsert, 10m, timestampProvider.Create(2L));
         
         // Act
         strategy.ApplyOperation(model, metadata, op1);
@@ -82,8 +82,8 @@ public sealed class AverageRegisterStrategyTests
 
         var model = new TestModel();
         var metadata = new CrdtMetadata();
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, new EpochTimestamp(1L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", Path, OperationType.Upsert, 10m, new EpochTimestamp(2L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, timestampProvider.Create(1L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", Path, OperationType.Upsert, 10m, timestampProvider.Create(2L));
         
         // Act
         strategy.ApplyOperation(model, metadata, op1);
@@ -108,8 +108,8 @@ public sealed class AverageRegisterStrategyTests
         var model2 = new TestModel();
         var metadata2 = new CrdtMetadata();
 
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, new EpochTimestamp(1L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", Path, OperationType.Upsert, 10m, new EpochTimestamp(2L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, timestampProvider.Create(1L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", Path, OperationType.Upsert, 10m, timestampProvider.Create(2L));
         
         // Act: Apply in different orders
         strategy.ApplyOperation(model1, metadata1, op1);
@@ -132,9 +132,9 @@ public sealed class AverageRegisterStrategyTests
         using var scope = scopeFactory.CreateScope("r1");
         var strategy = scope.ServiceProvider.GetRequiredService<AverageRegisterStrategy>();
 
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, new EpochTimestamp(1L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", Path, OperationType.Upsert, 10m, new EpochTimestamp(2L));
-        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", Path, OperationType.Upsert, 15m, new EpochTimestamp(3L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, timestampProvider.Create(1L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", Path, OperationType.Upsert, 10m, timestampProvider.Create(2L));
+        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", Path, OperationType.Upsert, 15m, timestampProvider.Create(3L));
 
         var operations = new[] { op1, op2, op3 };
         var permutations = GetPermutations(operations, 3);
@@ -168,9 +168,9 @@ public sealed class AverageRegisterStrategyTests
 
         var model = new TestModel();
         var metadata = new CrdtMetadata();
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, new EpochTimestamp(1L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 8m, new EpochTimestamp(2L)); // Newer timestamp
-        var op3 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 3m, new EpochTimestamp(1L)); // Older timestamp
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, timestampProvider.Create(1L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 8m, timestampProvider.Create(2L)); // Newer timestamp
+        var op3 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 3m, timestampProvider.Create(1L)); // Older timestamp
         
         // Act
         strategy.ApplyOperation(model, metadata, op1);

@@ -1,7 +1,4 @@
 namespace Ama.CRDT.Attributes.Strategies;
-
-using Ama.CRDT.Models;
-
 /// <summary>
 /// Marks a CRDT strategy as idempotent, but only when the time is sequential and has no gaps.
 /// An operation is idempotent if applying it multiple times has the same effect as applying it once: a * a = a.

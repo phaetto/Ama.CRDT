@@ -16,21 +16,20 @@ using Xunit;
 public sealed class LwwMapStrategyTests
 {
     private readonly IServiceProvider serviceProvider;
+    private readonly ICrdtTimestampProvider timestampProvider;
     private readonly Mock<IElementComparerProvider> comparerProviderMock = new();
-    private readonly Mock<ICrdtTimestampProvider> timestampProviderMock = new();
-    private int timestampCounter = 0;
 
     public LwwMapStrategyTests()
     {
         var services = new ServiceCollection();
-        services.AddCrdt();
-        services.AddSingleton(comparerProviderMock.Object);
-        services.AddSingleton(timestampProviderMock.Object);
+        services.AddCrdt()
+            .AddSingleton(comparerProviderMock.Object)
+            .AddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>();
 
         serviceProvider = services.BuildServiceProvider();
+        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
 
         comparerProviderMock.Setup(p => p.GetComparer(It.IsAny<Type>())).Returns(EqualityComparer<object>.Default);
-        timestampProviderMock.Setup(p => p.Now()).Returns(() => new EpochTimestamp(++timestampCounter));
     }
 
     private CrdtDocument<TestModel> CreateDocument(Dictionary<string, int> map)
@@ -52,8 +51,10 @@ public sealed class LwwMapStrategyTests
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
 
-        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 2), new EpochTimestamp(1));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new KeyValuePair<object, object?>("a", null), new EpochTimestamp(2));
+        Thread.Sleep(5);
+        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 2), timestampProvider.Now());
+        Thread.Sleep(5);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new KeyValuePair<object, object?>("a", null), timestampProvider.Now());
 
         // Act: Apply op1 then op2
         strategy.ApplyOperation(doc1.Data, doc1.Metadata, op1);
@@ -79,7 +80,8 @@ public sealed class LwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), new EpochTimestamp(1));
+        Thread.Sleep(5);
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), timestampProvider.Now());
         
         var expectedMap = new Dictionary<string, int> { { "a", 2 } };
 
@@ -101,10 +103,10 @@ public sealed class LwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.LwwMaps["$.map"]["a"] = new EpochTimestamp(10);
+        doc.Metadata.LwwMaps["$.map"]["a"] = timestampProvider.Create(10);
         
-        var olderOp = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 0), new EpochTimestamp(5));
-        var newerOp = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), new EpochTimestamp(15));
+        var olderOp = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 0), timestampProvider.Create(5));
+        var newerOp = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), timestampProvider.Create(15));
         
         // Act
         strategy.ApplyOperation(doc.Data, doc.Metadata, olderOp);
