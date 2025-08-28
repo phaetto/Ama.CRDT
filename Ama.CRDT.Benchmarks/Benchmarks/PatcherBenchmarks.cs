@@ -13,9 +13,9 @@ public class PatcherBenchmarks
 {
     private ICrdtPatcher patcher = null!;
     private CrdtDocument<SimplePoco> simplePocoFrom;
-    private CrdtDocument<SimplePoco> simplePocoTo;
+    private SimplePoco simplePocoTo;
     private CrdtDocument<ComplexPoco> complexPocoFrom;
-    private CrdtDocument<ComplexPoco> complexPocoTo;
+    private ComplexPoco complexPocoTo;
     private ICrdtMetadataManager metadataManager = null!;
     
     [GlobalSetup]
@@ -38,7 +38,7 @@ public class PatcherBenchmarks
         
         var simpleToMetadata = CloneMetadata(simpleFromMetadata);
         metadataManager.Initialize(new CrdtDocument<SimplePoco>(simpleTo, simpleToMetadata), new EpochTimestamp(2));
-        simplePocoTo = new CrdtDocument<SimplePoco>(simpleTo, simpleToMetadata);
+        simplePocoTo = simpleTo;
         
         // Complex POCO setup
         var complexFrom = new ComplexPoco
@@ -65,7 +65,7 @@ public class PatcherBenchmarks
         
         var complexToMetadata = CloneMetadata(complexFromMetadata);
         metadataManager.Initialize(new CrdtDocument<ComplexPoco>(complexTo, complexToMetadata), new EpochTimestamp(4));
-        complexPocoTo = new CrdtDocument<ComplexPoco>(complexTo, complexToMetadata);
+        complexPocoTo = complexTo;
     }
 
     [Benchmark]

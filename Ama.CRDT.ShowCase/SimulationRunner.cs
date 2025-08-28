@@ -13,8 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 /// </summary>
 public sealed class SimulationRunner(
     ICrdtScopeFactory scopeFactory,
-    IInMemoryDatabaseService database,
-    ICrdtMetadataManager metadataManager)
+    IInMemoryDatabaseService database)
 {
     private const int TotalItems = 200;
     private const int WriteReplicaCount = 5;
@@ -103,41 +102,22 @@ public sealed class SimulationRunner(
             // It reads its own state, computes a change, generates a patch, and then updates its own state.
             var (from, metadata) = await database.GetStateAsync<UserStats>(replicaId);
             var fromDoc = new CrdtDocument<UserStats>(from, metadata);
-    
+
             // The 'to' state must be a modification of the 'from' state for the diffing logic to work correctly.
             // 1. Create a deep copy of the 'from' state to represent the new state.
-            var to = new UserStats
+            var to = @from with
             {
-                ProcessedItemsCount = from.ProcessedItemsCount,
-                UniqueUserNames = new List<string>(from.UniqueUserNames),
-                LastProcessedUserName = from.LastProcessedUserName,
-                LastProcessedTimestamp = from.LastProcessedTimestamp
+                ProcessedItemsCount = from.ProcessedItemsCount + 1,
+                UniqueUserNames = [..from.UniqueUserNames, user.Name],
+                LastProcessedTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                LastProcessedUserName = user.Name,
             };
     
-            // 2. Apply the intended changes to the 'to' state.
-            to.ProcessedItemsCount++;
-    
-            if (!to.UniqueUserNames.Contains(user.Name))
-            {
-                to.UniqueUserNames.Add(user.Name);
-            }
-    
-            to.LastProcessedUserName = user.Name;
-            to.LastProcessedTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-    
-            var toMeta = metadataManager.Initialize(to);
-            var toDoc = new CrdtDocument<UserStats>(to, toMeta);
-    
             // 3. Generate a patch based on the difference between the 'from' and 'to' states.
-            var patch = patcher.GeneratePatch(fromDoc, toDoc);
+            var patch = patcher.GeneratePatch(fromDoc, to);
     
             // 4. Update the write replica's own local state with the changes it just made.
             var newDocument = applicator.ApplyPatch(new CrdtDocument<UserStats>(from, metadata), patch);
-    
-            if (patch.Operations.Any())
-            {
-                metadataManager.AdvanceVersionVector(metadata, patch.Operations.First());
-            }
     
             await database.SaveStateAsync(replicaId, newDocument, metadata);
     
@@ -182,11 +162,6 @@ public sealed class SimulationRunner(
             var (document, metadata) = await database.GetStateAsync<UserStats>(replicaId);
             
             var newDocument = applicator.ApplyPatch(new CrdtDocument<UserStats>(document, metadata), patch);
-
-            if(patch.Operations.Any())
-            {
-                metadataManager.AdvanceVersionVector(metadata, patch.Operations.First());
-            }
 
             await database.SaveStateAsync(replicaId, newDocument, metadata);
 

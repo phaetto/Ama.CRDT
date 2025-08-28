@@ -8,10 +8,8 @@ using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using Ama.CRDT.Services;
 
@@ -23,14 +21,15 @@ using Ama.CRDT.Services;
 [SequentialOperations]
 public sealed class ArrayLcsStrategy(
     IElementComparerProvider comparerProvider,
-    ICrdtTimestampProvider timestampProvider,
     ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc/>
-    public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)
+    public void GeneratePatch(GeneratePatchContext context)
     {
+        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+
         var originalList = (originalValue as IList)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedList = (modifiedValue as IList)?.Cast<object>().ToList() ?? new List<object>();
 
@@ -64,7 +63,7 @@ public sealed class ArrayLcsStrategy(
             if (!lcsOriginalIndices.Contains(i))
             {
                 var removedIdentifier = originalPositions[i];
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, removedIdentifier, timestampProvider.Now()));
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, removedIdentifier, changeTimestamp));
             }
         }
 
@@ -86,17 +85,16 @@ public sealed class ArrayLcsStrategy(
             {
                 var newPos = GeneratePositionBetween(lastGeneratedPos, afterPos);
                 var newItem = new PositionalItem(newPos, modifiedList[modIdx]);
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestampProvider.Now()));
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, changeTimestamp));
                 lastGeneratedPos = newPos;
             }
         }
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
+    public void ApplyOperation(ApplyOperationContext context)
     {
-        ArgumentNullException.ThrowIfNull(root);
-        ArgumentNullException.ThrowIfNull(metadata);
+        var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
         if (parent is null || property is null || property.GetValue(parent) is not IList list) return;

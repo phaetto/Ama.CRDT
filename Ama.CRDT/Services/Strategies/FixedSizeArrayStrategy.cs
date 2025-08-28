@@ -4,11 +4,8 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
-using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
@@ -21,18 +18,18 @@ using Ama.CRDT.Services;
 [Idempotent]
 [Mergeable]
 public sealed class FixedSizeArrayStrategy(
-    ICrdtTimestampProvider timestampProvider,
     ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc/>
-    public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)
+    public void GeneratePatch(GeneratePatchContext context)
     {
+        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+
         ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(property);
         ArgumentNullException.ThrowIfNull(originalMeta);
-        ArgumentNullException.ThrowIfNull(modifiedMeta);
 
         if (property.GetCustomAttribute<CrdtFixedSizeArrayStrategyAttribute>() is not { } attr)
         {
@@ -53,20 +50,17 @@ public sealed class FixedSizeArrayStrategy(
                 continue;
             }
 
-            var now = timestampProvider.Now();
-            if (!originalMeta.Lww.TryGetValue(elementPath, out var originalTimestamp) || now.CompareTo(originalTimestamp) >= 0)
+            if (!originalMeta.Lww.TryGetValue(elementPath, out var originalTimestamp) || changeTimestamp.CompareTo(originalTimestamp) >= 0)
             {
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, elementPath, OperationType.Upsert, modifiedElement, now));
-                modifiedMeta.Lww[elementPath] = now;
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, elementPath, OperationType.Upsert, modifiedElement, changeTimestamp));
             }
         }
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
+    public void ApplyOperation(ApplyOperationContext context)
     {
-        ArgumentNullException.ThrowIfNull(root);
-        ArgumentNullException.ThrowIfNull(metadata);
+        var (root, metadata, operation) = context;
 
         var (parent, property, index) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
 

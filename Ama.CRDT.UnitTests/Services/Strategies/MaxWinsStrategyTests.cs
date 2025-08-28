@@ -32,7 +32,7 @@ public sealed class MaxWinsStrategyTests
     }
     
     [Fact]
-    public void GeneratePatch_ShouldCreateUpsert_WhenNewValueIsHigher()
+    public void GeneratePatch_ShouldCreateUpsert_WhenValueChanges()
     {
         // Arrange
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -41,32 +41,26 @@ public sealed class MaxWinsStrategyTests
 
         var operations = new List<CrdtOperation>();
         var property = typeof(TestModel).GetProperty(nameof(TestModel.HighScore))!;
+        var context = new GeneratePatchContext(
+            new Mock<ICrdtPatcher>().Object,
+            operations,
+            "$.highScore",
+            property,
+            100,
+            200,
+            new TestModel { HighScore = 100 },
+            new TestModel { HighScore = 200 },
+            new CrdtMetadata(),
+            timestampProvider.Now()
+        );
         
         // Act
-        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.highScore", property, 100, 200, new TestModel { HighScore = 100 }, new TestModel { HighScore = 200 }, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(context);
 
         // Assert
         var op = operations.ShouldHaveSingleItem();
         op.Type.ShouldBe(OperationType.Upsert);
         op.Value.ShouldBe(200);
-    }
-    
-    [Fact]
-    public void GeneratePatch_ShouldDoNothing_WhenNewValueIsLower()
-    {
-        // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
-
-        var operations = new List<CrdtOperation>();
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.HighScore))!;
-        
-        // Act
-        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.highScore", property, 200, 100, new TestModel { HighScore = 200 }, new TestModel { HighScore = 100 }, new CrdtMetadata(), new CrdtMetadata());
-
-        // Assert
-        operations.ShouldBeEmpty();
     }
     
     [Fact]
@@ -79,9 +73,10 @@ public sealed class MaxWinsStrategyTests
 
         var model = new TestModel { HighScore = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
         
         // Assert
         model.HighScore.ShouldBe(200);
@@ -97,9 +92,10 @@ public sealed class MaxWinsStrategyTests
 
         var model = new TestModel { HighScore = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 100, timestampProvider.Create(2L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
         
         // Assert
         model.HighScore.ShouldBe(150);
@@ -115,11 +111,12 @@ public sealed class MaxWinsStrategyTests
 
         var model = new TestModel { HighScore = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
     
         // Act
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
         var scoreAfterFirst = model.HighScore;
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
     
         // Assert
         model.HighScore.ShouldBe(scoreAfterFirst);
@@ -141,12 +138,12 @@ public sealed class MaxWinsStrategyTests
 
         // Act
         // op1 then op2
-        strategy.ApplyOperation(model1, new CrdtMetadata(), op1);
-        strategy.ApplyOperation(model1, new CrdtMetadata(), op2);
+        strategy.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1));
+        strategy.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2));
 
         // op2 then op1
-        strategy.ApplyOperation(model2, new CrdtMetadata(), op2);
-        strategy.ApplyOperation(model2, new CrdtMetadata(), op1);
+        strategy.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2));
+        strategy.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1));
     
         // Assert
         model1.HighScore.ShouldBe(200); // max(100, 200, 150)
@@ -177,7 +174,7 @@ public sealed class MaxWinsStrategyTests
             var meta = new CrdtMetadata();
             foreach (var op in p)
             {
-                strategy.ApplyOperation(model, meta, op);
+                strategy.ApplyOperation(new ApplyOperationContext(model, meta, op));
             }
             finalScores.Add(model.HighScore);
         }

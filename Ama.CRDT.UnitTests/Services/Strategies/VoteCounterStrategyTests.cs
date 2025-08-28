@@ -54,10 +54,12 @@ public sealed class VoteCounterStrategyTests
         var original = new Poll();
         var modified = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
         var originalMeta = metadataManager.Initialize(original);
-        var modifiedMeta = metadataManager.Initialize(modified);
 
         var operations = new List<CrdtOperation>();
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, original, modified, originalMeta, modifiedMeta);
+        var context = new GeneratePatchContext(
+            mockPatcher.Object, operations, "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now());
+        
+        strategy.GeneratePatch(context);
 
         operations.Count.ShouldBe(1);
         var op = operations[0];
@@ -77,10 +79,12 @@ public sealed class VoteCounterStrategyTests
         var original = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
         var modified = new Poll { Votes = { ["OptionB"] = new HashSet<string> { "Voter1" } } };
         var originalMeta = metadataManager.Initialize(original);
-        var modifiedMeta = metadataManager.Initialize(modified);
 
         var operations = new List<CrdtOperation>();
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, original, modified, originalMeta, modifiedMeta);
+        var context = new GeneratePatchContext(
+            mockPatcher.Object, operations, "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now());
+        
+        strategy.GeneratePatch(context);
 
         operations.Count.ShouldBe(1);
         var op = operations[0];
@@ -101,8 +105,9 @@ public sealed class VoteCounterStrategyTests
         var metadata = new CrdtMetadata();
         var payload = new VotePayload("Voter1", "OptionA");
         var operation = new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, payload, timestampProvider.Create(200L));
+        var context = new ApplyOperationContext(model, metadata, operation);
 
-        strategy.ApplyOperation(model, metadata, operation);
+        strategy.ApplyOperation(context);
 
         model.Votes["OptionA"].ShouldContain("Voter1");
         metadata.Lww["$.votes.['Voter1']"].ShouldBe(timestampProvider.Create(200L));
@@ -119,8 +124,9 @@ public sealed class VoteCounterStrategyTests
         var metadata = new CrdtMetadata();
         var payload = new VotePayload("Voter1", "OptionA");
         var operation = new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, payload, timestampProvider.Create(200L));
+        var context = new ApplyOperationContext(model, metadata, operation);
 
-        strategy.ApplyOperation(model, metadata, operation);
+        strategy.ApplyOperation(context);
 
         model.Votes["OptionA"].ShouldContain("Voter1");
         metadata.Lww["$.votes.['Voter1']"].ShouldBe(timestampProvider.Create(200L));
@@ -134,16 +140,18 @@ public sealed class VoteCounterStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<VoteCounterStrategy>();
 
         var model = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
-        var metadata = metadataManager.Initialize(model, timestampProvider.Create(100L));
+        var metadata = metadataManager.Initialize(model);
+        metadata.Lww["$.votes.['Voter1']"] = timestampProvider.Create(100L);
+
 
         var oldVoteOp = new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("Voter1", "OptionC"), timestampProvider.Create(90L));
         var newVoteOp = new CrdtOperation(Guid.NewGuid(), "r2", "$.votes", OperationType.Upsert, new VotePayload("Voter1", "OptionB"), timestampProvider.Create(110L));
 
-        strategy.ApplyOperation(model, metadata, oldVoteOp); // Should be ignored
+        strategy.ApplyOperation(new ApplyOperationContext(model, metadata, oldVoteOp)); // Should be ignored
         model.Votes.ContainsKey("OptionC").ShouldBeFalse();
         model.Votes["OptionA"].ShouldContain("Voter1");
 
-        strategy.ApplyOperation(model, metadata, newVoteOp); // Should be applied
+        strategy.ApplyOperation(new ApplyOperationContext(model, metadata, newVoteOp)); // Should be applied
         model.Votes.ContainsKey("OptionA").ShouldBeFalse();
         model.Votes["OptionB"].ShouldContain("Voter1");
     }
@@ -158,11 +166,12 @@ public sealed class VoteCounterStrategyTests
         var model = new Poll();
         var metadata = new CrdtMetadata();
         var operation = new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("Voter1", "OptionA"), timestampProvider.Create(200L));
+        var context = new ApplyOperationContext(model, metadata, operation);
         
-        strategy.ApplyOperation(model, metadata, operation);
+        strategy.ApplyOperation(context);
         var votesAfterFirstApply = new Dictionary<string, HashSet<string>>(model.Votes.ToDictionary(kvp => kvp.Key, kvp => new HashSet<string>(kvp.Value)));
         
-        strategy.ApplyOperation(model, metadata, operation);
+        strategy.ApplyOperation(context);
         
         model.Votes.Count.ShouldBe(1);
         model.Votes["OptionA"].Count.ShouldBe(1);
@@ -183,14 +192,14 @@ public sealed class VoteCounterStrategyTests
         // Scenario 1: op1 then op2
         var model1 = new Poll();
         var meta1 = new CrdtMetadata();
-        strategy.ApplyOperation(model1, meta1, op1);
-        strategy.ApplyOperation(model1, meta1, op2);
+        strategy.ApplyOperation(new ApplyOperationContext(model1, meta1, op1));
+        strategy.ApplyOperation(new ApplyOperationContext(model1, meta1, op2));
 
         // Scenario 2: op2 then op1
         var model2 = new Poll();
         var meta2 = new CrdtMetadata();
-        strategy.ApplyOperation(model2, meta2, op2);
-        strategy.ApplyOperation(model2, meta2, op1);
+        strategy.ApplyOperation(new ApplyOperationContext(model2, meta2, op2));
+        strategy.ApplyOperation(new ApplyOperationContext(model2, meta2, op1));
         
         model1.Votes["OptionA"].ShouldContain("Voter1");
         model1.Votes["OptionB"].ShouldContain("Voter2");
@@ -214,20 +223,25 @@ public sealed class VoteCounterStrategyTests
         // Voter1 changes from A -> C (older)
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.votes", OperationType.Upsert, new VotePayload("Voter1", "OptionC"), timestampProvider.Create(250L));
         
-        var initialMeta = new CrdtMetadata();
-        metadataManager.Initialize(initialMeta, timestampProvider.Create(200L));
+        var initialModel = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
+        var initialMeta = metadataManager.Initialize(initialModel);
+        initialMeta.Lww["$.votes.['Voter1']"] = timestampProvider.Create(200L);
 
         // Scenario 1: op1 then op2
         var model1 = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
-        var meta1 = metadataManager.Initialize(new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } }, timestampProvider.Create(200L));
-        strategy.ApplyOperation(model1, meta1, op1);
-        strategy.ApplyOperation(model1, meta1, op2); // op2 is older, should be ignored
+        var meta1 = metadataManager.Initialize(new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } });
+        meta1.Lww["$.votes.['Voter1']"] = timestampProvider.Create(200L);
+
+        strategy.ApplyOperation(new ApplyOperationContext(model1, meta1, op1));
+        strategy.ApplyOperation(new ApplyOperationContext(model1, meta1, op2)); // op2 is older, should be ignored
 
         // Scenario 2: op2 then op1
         var model2 = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
-        var meta2 = metadataManager.Initialize(new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } }, timestampProvider.Create(200L));
-        strategy.ApplyOperation(model2, meta2, op2); // This is applied because timestamp 250 > 200
-        strategy.ApplyOperation(model2, meta2, op1); // op1 is newer (300 > 250), should win
+        var meta2 = metadataManager.Initialize(new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } });
+        meta2.Lww["$.votes.['Voter1']"] = timestampProvider.Create(200L);
+
+        strategy.ApplyOperation(new ApplyOperationContext(model2, meta2, op2)); // This is applied because timestamp 250 > 200
+        strategy.ApplyOperation(new ApplyOperationContext(model2, meta2, op1)); // op1 is newer (300 > 250), should win
         
         // Assert: Both converge to OptionB, the one with the highest timestamp
         model1.Votes.ContainsKey("OptionA").ShouldBeFalse();

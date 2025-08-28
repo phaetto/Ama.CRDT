@@ -1,13 +1,8 @@
 namespace Ama.CRDT.Services.Strategies;
-
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
-using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services;
 
 /// <summary>
@@ -22,13 +17,15 @@ using Ama.CRDT.Services;
 [Associative]
 [IdempotentWithContinuousTime]
 [Mergeable]
-public sealed class GCounterStrategy(ICrdtTimestampProvider timestampProvider, ReplicaContext replicaContext) : ICrdtStrategy
+public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc/>
-    public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)
+    public void GeneratePatch(GeneratePatchContext context)
     {
+        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+
         var originalNumeric = originalValue is not null ? Convert.ToDecimal(originalValue) : 0;
         var modifiedNumeric = modifiedValue is not null ? Convert.ToDecimal(modifiedValue) : 0;
 
@@ -36,14 +33,16 @@ public sealed class GCounterStrategy(ICrdtTimestampProvider timestampProvider, R
 
         if (delta > 0)
         {
-            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, delta, timestampProvider.Now());
+            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, delta, changeTimestamp);
             operations.Add(operation);
         }
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
+    public void ApplyOperation(ApplyOperationContext context)
     {
+        var (root, metadata, operation) = context;
+
         if (operation.Type != OperationType.Increment)
         {
             throw new InvalidOperationException($"G-Counter strategy can only apply 'Increment' operations. Received '{operation.Type}'.");

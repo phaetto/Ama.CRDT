@@ -60,10 +60,9 @@ public sealed class GSetStrategyTests : IDisposable
         var doc1 = new TestModel { Tags = { "A" } };
         var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Tags = { "A", "B" } };
-        var meta2 = metadataManagerA.Initialize(doc2);
         
         // Act
-        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), new CrdtDocument<TestModel>(doc2, meta2));
+        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), doc2);
         
         // Assert
         patch.Operations.ShouldHaveSingleItem();
@@ -80,10 +79,9 @@ public sealed class GSetStrategyTests : IDisposable
         var doc1 = new TestModel { Tags = { "A", "B" } };
         var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Tags = { "A" } };
-        var meta2 = metadataManagerA.Initialize(doc2);
         
         // Act
-        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), new CrdtDocument<TestModel>(doc2, meta2));
+        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), doc2);
         
         // Assert
         patch.Operations.ShouldBeEmpty();
@@ -96,7 +94,7 @@ public sealed class GSetStrategyTests : IDisposable
         var doc1 = new TestModel { Tags = { "A" } };
         var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Tags = { "A", "B" } };
-        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), new CrdtDocument<TestModel>(doc2, meta1));
+        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), doc2);
 
         var target = new TestModel { Tags = { "A" } };
         var targetMeta = metadataManagerA.Initialize(target);
@@ -138,14 +136,15 @@ public sealed class GSetStrategyTests : IDisposable
         // Arrange
         var ancestor = new TestModel { Tags = { "A" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
 
         var patchA = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "B" } }, metaAncestor));
+            docAncestor,
+            new TestModel { Tags = { "A", "B" } });
 
         var patchB = patcherB.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "C" } }, metaAncestor));
+            docAncestor,
+            new TestModel { Tags = { "A", "C" } });
         
         // Scenario 1: A then B
         var model1 = new TestModel { Tags = new List<string>(ancestor.Tags) };
@@ -173,20 +172,21 @@ public sealed class GSetStrategyTests : IDisposable
         // Arrange
         var ancestor = new TestModel { Tags = { "A" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
         
         var patcherC = patcherB; // Doesn't matter for this test
 
         var patch1 = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "B" } }, metaAncestor));
+            docAncestor,
+            new TestModel { Tags = { "A", "B" } });
 
         var patch2 = patcherB.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "C" } }, metaAncestor));
+            docAncestor,
+            new TestModel { Tags = { "A", "C" } });
         
         var patch3 = patcherC.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "D" } }, metaAncestor));
+            docAncestor,
+            new TestModel { Tags = { "A", "D" } });
 
         var patches = new[] { patch1, patch2, patch3 };
         var permutations = GetPermutations(patches, patches.Length);

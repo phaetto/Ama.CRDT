@@ -6,8 +6,6 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using Ama.CRDT.Services;
@@ -26,8 +24,10 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
     private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc/>
-    public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)
+    public void GeneratePatch(GeneratePatchContext context)
     {
+        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+
         if (Equals(originalValue, modifiedValue))
         {
             return;
@@ -41,21 +41,22 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
             return;
         }
         
-        modifiedMeta.Lww.TryGetValue(path, out var modifiedTimestamp);
         originalMeta.Lww.TryGetValue(path, out var originalTimestamp);
         
-        if (modifiedTimestamp is null || originalTimestamp is not null && modifiedTimestamp.CompareTo(originalTimestamp) <= 0)
+        if (originalTimestamp is not null && changeTimestamp.CompareTo(originalTimestamp) <= 0)
         {
             return;
         }
 
-        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, modifiedTimestamp);
+        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
         operations.Add(operation);
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
+    public void ApplyOperation(ApplyOperationContext context)
     {
+        var (root, metadata, operation) = context;
+
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
         if (parent is null || property is null || !property.CanWrite) return;
         

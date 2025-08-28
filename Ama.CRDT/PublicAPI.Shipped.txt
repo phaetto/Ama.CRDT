@@ -115,10 +115,6 @@ Ama.CRDT.Models.CrdtOperation.Type.get -> Ama.CRDT.Models.OperationType
 Ama.CRDT.Models.CrdtOperation.Type.init -> void
 Ama.CRDT.Models.CrdtOperation.Value.get -> object?
 Ama.CRDT.Models.CrdtOperation.Value.init -> void
-Ama.CRDT.Models.CrdtOptions
-Ama.CRDT.Models.CrdtOptions.CrdtOptions() -> void
-Ama.CRDT.Models.CrdtOptions.ReplicaId.get -> string!
-Ama.CRDT.Models.CrdtOptions.ReplicaId.set -> void
 Ama.CRDT.Models.CrdtPatch
 Ama.CRDT.Models.CrdtPatch.CrdtPatch() -> void
 Ama.CRDT.Models.CrdtPatch.CrdtPatch(System.Collections.Generic.IReadOnlyList<Ama.CRDT.Models.CrdtOperation>! Operations) -> void
@@ -248,6 +244,8 @@ Ama.CRDT.Models.SequentialTimestamp.Value.get -> long
 Ama.CRDT.Models.SequentialTimestamp.Value.init -> void
 Ama.CRDT.Models.Serialization.CrdtMetadataJsonResolver
 Ama.CRDT.Models.Serialization.CrdtMetadataJsonResolver.CrdtMetadataJsonResolver() -> void
+Ama.CRDT.Models.Serialization.CrdtTimestampJsonConverter
+Ama.CRDT.Models.Serialization.CrdtTimestampJsonConverter.CrdtTimestampJsonConverter() -> void
 Ama.CRDT.Models.VotePayload
 Ama.CRDT.Models.VotePayload.Deconstruct(out object! Voter, out object! Option) -> void
 Ama.CRDT.Models.VotePayload.Equals(Ama.CRDT.Models.VotePayload other) -> bool
@@ -275,9 +273,33 @@ Ama.CRDT.Services.CrdtMetadataManager.ReleaseLock(Ama.CRDT.Models.CrdtMetadata! 
 Ama.CRDT.Services.CrdtMetadataManager.Reset<T>(Ama.CRDT.Models.CrdtDocument<T!> document) -> void
 Ama.CRDT.Services.CrdtMetadataManager.Reset<T>(Ama.CRDT.Models.CrdtDocument<T!> document, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
 Ama.CRDT.Services.CrdtPatcher
-Ama.CRDT.Services.CrdtPatcher.CrdtPatcher(Ama.CRDT.Services.Providers.ICrdtStrategyProvider! strategyProvider) -> void
-Ama.CRDT.Services.CrdtPatcher.DifferentiateObject(string! path, System.Type! type, object? fromObj, Ama.CRDT.Models.CrdtMetadata! fromMeta, object? toObj, Ama.CRDT.Models.CrdtMetadata! toMeta, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, object? fromRoot, object? toRoot) -> void
-Ama.CRDT.Services.CrdtPatcher.GeneratePatch<T>(Ama.CRDT.Models.CrdtDocument<T!> from, Ama.CRDT.Models.CrdtDocument<T!> to) -> Ama.CRDT.Models.CrdtPatch
+Ama.CRDT.Services.CrdtPatcher.CrdtPatcher(Ama.CRDT.Services.Providers.ICrdtStrategyProvider! strategyProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider) -> void
+Ama.CRDT.Services.CrdtPatcher.DifferentiateObject(Ama.CRDT.Services.DifferentiateObjectContext! context) -> void
+Ama.CRDT.Services.CrdtPatcher.GeneratePatch<T>(Ama.CRDT.Models.CrdtDocument<T!> from, T! changed) -> Ama.CRDT.Models.CrdtPatch
+Ama.CRDT.Services.CrdtPatcher.GeneratePatch<T>(Ama.CRDT.Models.CrdtDocument<T!> from, T! changed, Ama.CRDT.Models.ICrdtTimestamp! changeTimestamp) -> Ama.CRDT.Models.CrdtPatch
+Ama.CRDT.Services.DifferentiateObjectContext
+Ama.CRDT.Services.DifferentiateObjectContext.<Clone>$() -> Ama.CRDT.Services.DifferentiateObjectContext!
+Ama.CRDT.Services.DifferentiateObjectContext.ChangeTimestamp.get -> Ama.CRDT.Models.ICrdtTimestamp!
+Ama.CRDT.Services.DifferentiateObjectContext.ChangeTimestamp.init -> void
+Ama.CRDT.Services.DifferentiateObjectContext.Deconstruct(out string! Path, out System.Type! Type, out object? FromObj, out object? ToObj, out object? FromRoot, out object? ToRoot, out Ama.CRDT.Models.CrdtMetadata! FromMeta, out System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! Operations, out Ama.CRDT.Models.ICrdtTimestamp! ChangeTimestamp) -> void
+Ama.CRDT.Services.DifferentiateObjectContext.DifferentiateObjectContext(string! Path, System.Type! Type, object? FromObj, object? ToObj, object? FromRoot, object? ToRoot, Ama.CRDT.Models.CrdtMetadata! FromMeta, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! Operations, Ama.CRDT.Models.ICrdtTimestamp! ChangeTimestamp) -> void
+Ama.CRDT.Services.DifferentiateObjectContext.Equals(Ama.CRDT.Services.DifferentiateObjectContext? other) -> bool
+Ama.CRDT.Services.DifferentiateObjectContext.FromMeta.get -> Ama.CRDT.Models.CrdtMetadata!
+Ama.CRDT.Services.DifferentiateObjectContext.FromMeta.init -> void
+Ama.CRDT.Services.DifferentiateObjectContext.FromObj.get -> object?
+Ama.CRDT.Services.DifferentiateObjectContext.FromObj.init -> void
+Ama.CRDT.Services.DifferentiateObjectContext.FromRoot.get -> object?
+Ama.CRDT.Services.DifferentiateObjectContext.FromRoot.init -> void
+Ama.CRDT.Services.DifferentiateObjectContext.Operations.get -> System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>!
+Ama.CRDT.Services.DifferentiateObjectContext.Operations.init -> void
+Ama.CRDT.Services.DifferentiateObjectContext.Path.get -> string!
+Ama.CRDT.Services.DifferentiateObjectContext.Path.init -> void
+Ama.CRDT.Services.DifferentiateObjectContext.ToObj.get -> object?
+Ama.CRDT.Services.DifferentiateObjectContext.ToObj.init -> void
+Ama.CRDT.Services.DifferentiateObjectContext.ToRoot.get -> object?
+Ama.CRDT.Services.DifferentiateObjectContext.ToRoot.init -> void
+Ama.CRDT.Services.DifferentiateObjectContext.Type.get -> System.Type!
+Ama.CRDT.Services.DifferentiateObjectContext.Type.init -> void
 Ama.CRDT.Services.ICrdtApplicator
 Ama.CRDT.Services.ICrdtApplicator.ApplyPatch<T>(Ama.CRDT.Models.CrdtDocument<T!> document, Ama.CRDT.Models.CrdtPatch patch) -> T!
 Ama.CRDT.Services.ICrdtMetadataManager
@@ -294,8 +316,9 @@ Ama.CRDT.Services.ICrdtMetadataManager.ReleaseLock(Ama.CRDT.Models.CrdtMetadata!
 Ama.CRDT.Services.ICrdtMetadataManager.Reset<T>(Ama.CRDT.Models.CrdtDocument<T!> document) -> void
 Ama.CRDT.Services.ICrdtMetadataManager.Reset<T>(Ama.CRDT.Models.CrdtDocument<T!> document, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
 Ama.CRDT.Services.ICrdtPatcher
-Ama.CRDT.Services.ICrdtPatcher.DifferentiateObject(string! path, System.Type! type, object? fromObj, Ama.CRDT.Models.CrdtMetadata! fromMeta, object? toObj, Ama.CRDT.Models.CrdtMetadata! toMeta, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, object? fromRoot, object? toRoot) -> void
-Ama.CRDT.Services.ICrdtPatcher.GeneratePatch<T>(Ama.CRDT.Models.CrdtDocument<T!> from, Ama.CRDT.Models.CrdtDocument<T!> to) -> Ama.CRDT.Models.CrdtPatch
+Ama.CRDT.Services.ICrdtPatcher.DifferentiateObject(Ama.CRDT.Services.DifferentiateObjectContext! context) -> void
+Ama.CRDT.Services.ICrdtPatcher.GeneratePatch<T>(Ama.CRDT.Models.CrdtDocument<T!> from, T! changed) -> Ama.CRDT.Models.CrdtPatch
+Ama.CRDT.Services.ICrdtPatcher.GeneratePatch<T>(Ama.CRDT.Models.CrdtDocument<T!> from, T! changed, Ama.CRDT.Models.ICrdtTimestamp! changeTimestamp) -> Ama.CRDT.Models.CrdtPatch
 Ama.CRDT.Services.ICrdtScopeFactory
 Ama.CRDT.Services.ICrdtScopeFactory.CreateScope(string! replicaId) -> Microsoft.Extensions.DependencyInjection.IServiceScope!
 Ama.CRDT.Services.Providers.EpochTimestampProvider
@@ -329,80 +352,116 @@ Ama.CRDT.Services.ReplicaContext
 Ama.CRDT.Services.ReplicaContext.ReplicaContext() -> void
 Ama.CRDT.Services.ReplicaContext.ReplicaId.get -> string!
 Ama.CRDT.Services.ReplicaContext.ReplicaId.set -> void
+Ama.CRDT.Services.Strategies.ApplyOperationContext
+Ama.CRDT.Services.Strategies.ApplyOperationContext.<Clone>$() -> Ama.CRDT.Services.Strategies.ApplyOperationContext!
+Ama.CRDT.Services.Strategies.ApplyOperationContext.ApplyOperationContext(object! Root, Ama.CRDT.Models.CrdtMetadata! Metadata, Ama.CRDT.Models.CrdtOperation Operation) -> void
+Ama.CRDT.Services.Strategies.ApplyOperationContext.Deconstruct(out object! Root, out Ama.CRDT.Models.CrdtMetadata! Metadata, out Ama.CRDT.Models.CrdtOperation Operation) -> void
+Ama.CRDT.Services.Strategies.ApplyOperationContext.Equals(Ama.CRDT.Services.Strategies.ApplyOperationContext? other) -> bool
+Ama.CRDT.Services.Strategies.ApplyOperationContext.Metadata.get -> Ama.CRDT.Models.CrdtMetadata!
+Ama.CRDT.Services.Strategies.ApplyOperationContext.Metadata.init -> void
+Ama.CRDT.Services.Strategies.ApplyOperationContext.Operation.get -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.ApplyOperationContext.Operation.init -> void
+Ama.CRDT.Services.Strategies.ApplyOperationContext.Root.get -> object!
+Ama.CRDT.Services.Strategies.ApplyOperationContext.Root.init -> void
 Ama.CRDT.Services.Strategies.ArrayLcsStrategy
-Ama.CRDT.Services.Strategies.ArrayLcsStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.ArrayLcsStrategy.ArrayLcsStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
-Ama.CRDT.Services.Strategies.ArrayLcsStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.ArrayLcsStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.ArrayLcsStrategy.ArrayLcsStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.ArrayLcsStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.AverageRegisterStrategy
-Ama.CRDT.Services.Strategies.AverageRegisterStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.AverageRegisterStrategy.AverageRegisterStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider) -> void
-Ama.CRDT.Services.Strategies.AverageRegisterStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.AverageRegisterStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.AverageRegisterStrategy.AverageRegisterStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.AverageRegisterStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.BoundedCounterStrategy
-Ama.CRDT.Services.Strategies.BoundedCounterStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.BoundedCounterStrategy.BoundedCounterStrategy(Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
-Ama.CRDT.Services.Strategies.BoundedCounterStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.BoundedCounterStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.BoundedCounterStrategy.BoundedCounterStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.BoundedCounterStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.CounterStrategy
-Ama.CRDT.Services.Strategies.CounterStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.CounterStrategy.CounterStrategy(Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
-Ama.CRDT.Services.Strategies.CounterStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.CounterStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.CounterStrategy.CounterStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.CounterStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.ExclusiveLockStrategy
-Ama.CRDT.Services.Strategies.ExclusiveLockStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
+Ama.CRDT.Services.Strategies.ExclusiveLockStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.ExclusiveLockStrategy.ExclusiveLockStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
-Ama.CRDT.Services.Strategies.ExclusiveLockStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.ExclusiveLockStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy
-Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy.FixedSizeArrayStrategy(Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
-Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy.FixedSizeArrayStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.GCounterStrategy
-Ama.CRDT.Services.Strategies.GCounterStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.GCounterStrategy.GCounterStrategy(Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
-Ama.CRDT.Services.Strategies.GCounterStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.GCounterStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.GCounterStrategy.GCounterStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.GCounterStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.GeneratePatchContext
+Ama.CRDT.Services.Strategies.GeneratePatchContext.<Clone>$() -> Ama.CRDT.Services.Strategies.GeneratePatchContext!
+Ama.CRDT.Services.Strategies.GeneratePatchContext.ChangeTimestamp.get -> Ama.CRDT.Models.ICrdtTimestamp!
+Ama.CRDT.Services.Strategies.GeneratePatchContext.ChangeTimestamp.init -> void
+Ama.CRDT.Services.Strategies.GeneratePatchContext.Deconstruct(out Ama.CRDT.Services.ICrdtPatcher! Patcher, out System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! Operations, out string! Path, out System.Reflection.PropertyInfo! Property, out object? OriginalValue, out object? ModifiedValue, out object? OriginalRoot, out object? ModifiedRoot, out Ama.CRDT.Models.CrdtMetadata! OriginalMeta, out Ama.CRDT.Models.ICrdtTimestamp! ChangeTimestamp) -> void
+Ama.CRDT.Services.Strategies.GeneratePatchContext.Equals(Ama.CRDT.Services.Strategies.GeneratePatchContext? other) -> bool
+Ama.CRDT.Services.Strategies.GeneratePatchContext.GeneratePatchContext(Ama.CRDT.Services.ICrdtPatcher! Patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! Operations, string! Path, System.Reflection.PropertyInfo! Property, object? OriginalValue, object? ModifiedValue, object? OriginalRoot, object? ModifiedRoot, Ama.CRDT.Models.CrdtMetadata! OriginalMeta, Ama.CRDT.Models.ICrdtTimestamp! ChangeTimestamp) -> void
+Ama.CRDT.Services.Strategies.GeneratePatchContext.ModifiedRoot.get -> object?
+Ama.CRDT.Services.Strategies.GeneratePatchContext.ModifiedRoot.init -> void
+Ama.CRDT.Services.Strategies.GeneratePatchContext.ModifiedValue.get -> object?
+Ama.CRDT.Services.Strategies.GeneratePatchContext.ModifiedValue.init -> void
+Ama.CRDT.Services.Strategies.GeneratePatchContext.Operations.get -> System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>!
+Ama.CRDT.Services.Strategies.GeneratePatchContext.Operations.init -> void
+Ama.CRDT.Services.Strategies.GeneratePatchContext.OriginalMeta.get -> Ama.CRDT.Models.CrdtMetadata!
+Ama.CRDT.Services.Strategies.GeneratePatchContext.OriginalMeta.init -> void
+Ama.CRDT.Services.Strategies.GeneratePatchContext.OriginalRoot.get -> object?
+Ama.CRDT.Services.Strategies.GeneratePatchContext.OriginalRoot.init -> void
+Ama.CRDT.Services.Strategies.GeneratePatchContext.OriginalValue.get -> object?
+Ama.CRDT.Services.Strategies.GeneratePatchContext.OriginalValue.init -> void
+Ama.CRDT.Services.Strategies.GeneratePatchContext.Patcher.get -> Ama.CRDT.Services.ICrdtPatcher!
+Ama.CRDT.Services.Strategies.GeneratePatchContext.Patcher.init -> void
+Ama.CRDT.Services.Strategies.GeneratePatchContext.Path.get -> string!
+Ama.CRDT.Services.Strategies.GeneratePatchContext.Path.init -> void
+Ama.CRDT.Services.Strategies.GeneratePatchContext.Property.get -> System.Reflection.PropertyInfo!
+Ama.CRDT.Services.Strategies.GeneratePatchContext.Property.init -> void
 Ama.CRDT.Services.Strategies.GSetStrategy
-Ama.CRDT.Services.Strategies.GSetStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.GSetStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
-Ama.CRDT.Services.Strategies.GSetStrategy.GSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.GSetStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.GSetStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.GSetStrategy.GSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.ICrdtStrategy
-Ama.CRDT.Services.Strategies.ICrdtStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.ICrdtStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.ICrdtStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.ICrdtStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.LseqStrategy
-Ama.CRDT.Services.Strategies.LseqStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.LseqStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.LseqStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.LseqStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.LseqStrategy.LseqStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! elementComparerProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.LwwMapStrategy
-Ama.CRDT.Services.Strategies.LwwMapStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.LwwMapStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
-Ama.CRDT.Services.Strategies.LwwMapStrategy.LwwMapStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.LwwMapStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.LwwMapStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.LwwMapStrategy.LwwMapStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.LwwSetStrategy
-Ama.CRDT.Services.Strategies.LwwSetStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.LwwSetStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.LwwSetStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.LwwSetStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.LwwSetStrategy.LwwSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.LwwStrategy
-Ama.CRDT.Services.Strategies.LwwStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.LwwStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.LwwStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.LwwStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.LwwStrategy.LwwStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.MaxWinsStrategy
-Ama.CRDT.Services.Strategies.MaxWinsStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.MaxWinsStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
-Ama.CRDT.Services.Strategies.MaxWinsStrategy.MaxWinsStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider) -> void
+Ama.CRDT.Services.Strategies.MaxWinsStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.MaxWinsStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.MaxWinsStrategy.MaxWinsStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.MinWinsStrategy
-Ama.CRDT.Services.Strategies.MinWinsStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.MinWinsStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
-Ama.CRDT.Services.Strategies.MinWinsStrategy.MinWinsStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider) -> void
+Ama.CRDT.Services.Strategies.MinWinsStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.MinWinsStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.MinWinsStrategy.MinWinsStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.OrMapStrategy
-Ama.CRDT.Services.Strategies.OrMapStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.OrMapStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
-Ama.CRDT.Services.Strategies.OrMapStrategy.OrMapStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.OrMapStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.OrMapStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.OrMapStrategy.OrMapStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.OrSetStrategy
-Ama.CRDT.Services.Strategies.OrSetStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.OrSetStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
-Ama.CRDT.Services.Strategies.OrSetStrategy.OrSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.OrSetStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.OrSetStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.OrSetStrategy.OrSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.PriorityQueueStrategy
-Ama.CRDT.Services.Strategies.PriorityQueueStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.PriorityQueueStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
-Ama.CRDT.Services.Strategies.PriorityQueueStrategy.PriorityQueueStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.PriorityQueueStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.PriorityQueueStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.PriorityQueueStrategy.PriorityQueueStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.SortedSetStrategy
-Ama.CRDT.Services.Strategies.SortedSetStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.SortedSetStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.SortedSetStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.SortedSetStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry
 Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.Deconstruct(out Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType Type, out int OldIndex, out int NewIndex) -> void
 Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.Equals(Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry other) -> bool
@@ -418,19 +477,19 @@ Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType
 Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType.Add = 1 -> Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType
 Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType.Match = 0 -> Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType
 Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType.Remove = 2 -> Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType
-Ama.CRDT.Services.Strategies.SortedSetStrategy.SortedSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.SortedSetStrategy.SortedSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.StateMachineStrategy
-Ama.CRDT.Services.Strategies.StateMachineStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.StateMachineStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
+Ama.CRDT.Services.Strategies.StateMachineStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.StateMachineStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.StateMachineStrategy.StateMachineStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext, System.IServiceProvider! serviceProvider) -> void
 Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy
-Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
-Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.TwoPhaseSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.TwoPhaseSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.VoteCounterStrategy
-Ama.CRDT.Services.Strategies.VoteCounterStrategy.ApplyOperation(object! root, Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.Strategies.VoteCounterStrategy.GeneratePatch(Ama.CRDT.Services.ICrdtPatcher! patcher, System.Collections.Generic.List<Ama.CRDT.Models.CrdtOperation>! operations, string! path, System.Reflection.PropertyInfo! property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, Ama.CRDT.Models.CrdtMetadata! originalMeta, Ama.CRDT.Models.CrdtMetadata! modifiedMeta) -> void
-Ama.CRDT.Services.Strategies.VoteCounterStrategy.VoteCounterStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider) -> void
+Ama.CRDT.Services.Strategies.VoteCounterStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.VoteCounterStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.VoteCounterStrategy.VoteCounterStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 override Ama.CRDT.Models.AverageRegisterValue.GetHashCode() -> int
 override Ama.CRDT.Models.CrdtDocument<T>.GetHashCode() -> int
 override Ama.CRDT.Models.CrdtOperation.GetHashCode() -> int
@@ -452,11 +511,23 @@ override Ama.CRDT.Models.PositionalIdentifier.GetHashCode() -> int
 override Ama.CRDT.Models.PositionalItem.GetHashCode() -> int
 override Ama.CRDT.Models.SequentialTimestamp.GetHashCode() -> int
 override Ama.CRDT.Models.Serialization.CrdtMetadataJsonResolver.GetTypeInfo(System.Type! type, System.Text.Json.JsonSerializerOptions! options) -> System.Text.Json.Serialization.Metadata.JsonTypeInfo!
+override Ama.CRDT.Models.Serialization.CrdtTimestampJsonConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> Ama.CRDT.Models.ICrdtTimestamp?
+override Ama.CRDT.Models.Serialization.CrdtTimestampJsonConverter.Write(System.Text.Json.Utf8JsonWriter! writer, Ama.CRDT.Models.ICrdtTimestamp! value, System.Text.Json.JsonSerializerOptions! options) -> void
 override Ama.CRDT.Models.VotePayload.GetHashCode() -> int
+override Ama.CRDT.Services.DifferentiateObjectContext.Equals(object? obj) -> bool
+override Ama.CRDT.Services.DifferentiateObjectContext.GetHashCode() -> int
+override Ama.CRDT.Services.DifferentiateObjectContext.ToString() -> string!
+override Ama.CRDT.Services.Strategies.ApplyOperationContext.Equals(object? obj) -> bool
+override Ama.CRDT.Services.Strategies.ApplyOperationContext.GetHashCode() -> int
+override Ama.CRDT.Services.Strategies.ApplyOperationContext.ToString() -> string!
+override Ama.CRDT.Services.Strategies.GeneratePatchContext.Equals(object? obj) -> bool
+override Ama.CRDT.Services.Strategies.GeneratePatchContext.GetHashCode() -> int
+override Ama.CRDT.Services.Strategies.GeneratePatchContext.ToString() -> string!
 override Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.GetHashCode() -> int
-static Ama.CRDT.Extensions.ServiceCollectionExtensions.AddCrdt(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Ama.CRDT.Models.CrdtOptions!>? configureOptions = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Ama.CRDT.Extensions.ServiceCollectionExtensions.AddCrdt(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Ama.CRDT.Extensions.ServiceCollectionExtensions.AddCrdtComparer<TComparer>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Ama.CRDT.Extensions.ServiceCollectionExtensions.AddCrdtTimestampProvider<TProvider>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Ama.CRDT.Extensions.ServiceCollectionExtensions.AddCrdtTimestampType<TTimestamp>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, string! discriminator) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Ama.CRDT.Models.AverageRegisterValue.operator !=(Ama.CRDT.Models.AverageRegisterValue left, Ama.CRDT.Models.AverageRegisterValue right) -> bool
 static Ama.CRDT.Models.AverageRegisterValue.operator ==(Ama.CRDT.Models.AverageRegisterValue left, Ama.CRDT.Models.AverageRegisterValue right) -> bool
 static Ama.CRDT.Models.CrdtMetadata.JsonResolver.get -> System.Text.Json.Serialization.Metadata.IJsonTypeInfoResolver!
@@ -490,8 +561,15 @@ static Ama.CRDT.Models.PositionalItem.operator !=(Ama.CRDT.Models.PositionalItem
 static Ama.CRDT.Models.PositionalItem.operator ==(Ama.CRDT.Models.PositionalItem left, Ama.CRDT.Models.PositionalItem right) -> bool
 static Ama.CRDT.Models.SequentialTimestamp.operator !=(Ama.CRDT.Models.SequentialTimestamp left, Ama.CRDT.Models.SequentialTimestamp right) -> bool
 static Ama.CRDT.Models.SequentialTimestamp.operator ==(Ama.CRDT.Models.SequentialTimestamp left, Ama.CRDT.Models.SequentialTimestamp right) -> bool
+static Ama.CRDT.Models.Serialization.CrdtTimestampJsonConverter.Register(string! discriminator, System.Type! type) -> void
 static Ama.CRDT.Models.VotePayload.operator !=(Ama.CRDT.Models.VotePayload left, Ama.CRDT.Models.VotePayload right) -> bool
 static Ama.CRDT.Models.VotePayload.operator ==(Ama.CRDT.Models.VotePayload left, Ama.CRDT.Models.VotePayload right) -> bool
+static Ama.CRDT.Services.DifferentiateObjectContext.operator !=(Ama.CRDT.Services.DifferentiateObjectContext? left, Ama.CRDT.Services.DifferentiateObjectContext? right) -> bool
+static Ama.CRDT.Services.DifferentiateObjectContext.operator ==(Ama.CRDT.Services.DifferentiateObjectContext? left, Ama.CRDT.Services.DifferentiateObjectContext? right) -> bool
+static Ama.CRDT.Services.Strategies.ApplyOperationContext.operator !=(Ama.CRDT.Services.Strategies.ApplyOperationContext? left, Ama.CRDT.Services.Strategies.ApplyOperationContext? right) -> bool
+static Ama.CRDT.Services.Strategies.ApplyOperationContext.operator ==(Ama.CRDT.Services.Strategies.ApplyOperationContext? left, Ama.CRDT.Services.Strategies.ApplyOperationContext? right) -> bool
+static Ama.CRDT.Services.Strategies.GeneratePatchContext.operator !=(Ama.CRDT.Services.Strategies.GeneratePatchContext? left, Ama.CRDT.Services.Strategies.GeneratePatchContext? right) -> bool
+static Ama.CRDT.Services.Strategies.GeneratePatchContext.operator ==(Ama.CRDT.Services.Strategies.GeneratePatchContext? left, Ama.CRDT.Services.Strategies.GeneratePatchContext? right) -> bool
 static Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.operator !=(Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry left, Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry right) -> bool
 static Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.operator ==(Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry left, Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry right) -> bool
 static readonly Ama.CRDT.Models.EpochTimestamp.MinValue -> Ama.CRDT.Models.EpochTimestamp

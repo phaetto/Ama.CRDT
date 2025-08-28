@@ -64,13 +64,11 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         var doc1 = new TestModel { Values = [1, 2, 3] };
         var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Values = [1, 99, 3] };
-        var meta2 = metadataManagerA.Initialize(doc2);
         
         var crdtDoc1 = new CrdtDocument<TestModel>(doc1, meta1);
-        var crdtDoc2 = new CrdtDocument<TestModel>(doc2, meta2);
 
         // Act
-        var patch = patcherA.GeneratePatch(crdtDoc1, crdtDoc2);
+        var patch = patcherA.GeneratePatch(crdtDoc1, doc2);
         
         // Assert
         patch.Operations.ShouldHaveSingleItem();
@@ -88,15 +86,14 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         var initialMeta = metadataManagerA.Initialize(initialModel);
 
         var modifiedModel = new TestModel { Values = [1, 99, 3] };
-        var modifiedMeta = metadataManagerA.Initialize(modifiedModel);
         
         Thread.Sleep(5);
         var patch = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(initialModel, initialMeta),
-            new CrdtDocument<TestModel>(modifiedModel, modifiedMeta));
+            modifiedModel);
 
         var targetModel = new TestModel { Values = new List<int>(initialModel.Values) };
-        var targetMeta = metadataManagerA.Initialize(targetModel);
+        var targetMeta = metadataManagerA.Clone(initialMeta);
         var targetDocument = new CrdtDocument<TestModel>(targetModel, targetMeta);
 
         // Act
@@ -117,20 +114,19 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         // Arrange
         var ancestor = new TestModel { Values = [10, 20, 30] };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
 
         // Replica A updates index 0
         Thread.Sleep(5);
-        var metaForA = metadataManagerA.Initialize(new TestModel { Values = [11, 20, 30] });
         var patchA = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Values = [11, 20, 30] }, metaForA));
+            docAncestor,
+            new TestModel { Values = [11, 20, 30] });
 
         // Replica B updates index 2
         Thread.Sleep(5);
-        var metaForB = metadataManagerA.Initialize(new TestModel { Values = [10, 20, 33] });
         var patchB = patcherB.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Values = [10, 20, 33] }, metaForB));
+            docAncestor,
+            new TestModel { Values = [10, 20, 33] });
         
         patchA.Operations.ShouldHaveSingleItem();
         patchB.Operations.ShouldHaveSingleItem();
@@ -161,22 +157,23 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         // Arrange
         var ancestor = new TestModel { Values = [10, 20, 30] };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
 
         // Replicas generate patches
         Thread.Sleep(5);
         var patchA = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Values = [11, 20, 30] }, metaAncestor));
+            docAncestor,
+            new TestModel { Values = [11, 20, 30] });
         
         Thread.Sleep(5);
         var patchB = patcherB.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Values = [10, 22, 30] }, metaAncestor));
+            docAncestor,
+            new TestModel { Values = [10, 22, 30] });
 
         Thread.Sleep(5);
         var patchC = patcherC.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Values = [10, 20, 33] }, metaAncestor));
+            docAncestor,
+            new TestModel { Values = [10, 20, 33] });
 
         var patches = new[] { patchA, patchB, patchC };
         var permutations = GetPermutations(patches, patches.Length);
@@ -212,20 +209,19 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         // Arrange
         var ancestor = new TestModel { Values = [0, 0, 0] };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
         
         // Replica A updates index 1
         Thread.Sleep(5);
-        var metaForA = metadataManagerA.Initialize(new TestModel { Values = [0, 1, 0] });
         var patchA = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Values = [0, 1, 0] }, metaForA));
+            docAncestor,
+            new TestModel { Values = [0, 1, 0] });
 
         // Replica B updates index 1 later in time
         Thread.Sleep(5);
-        var metaForB = metadataManagerA.Initialize(new TestModel { Values = [0, 2, 0] });
         var patchB = patcherB.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Values = [0, 2, 0] }, metaForB));
+            docAncestor,
+            new TestModel { Values = [0, 2, 0] });
 
         patchA.Operations.ShouldHaveSingleItem();
         patchB.Operations.ShouldHaveSingleItem();

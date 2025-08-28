@@ -66,8 +66,8 @@ public sealed class LseqStrategyTests : IDisposable
         var docB = new LseqTestModel { Items = ["A", "D", "C"] };
 
         // The modified document uses the original's metadata as a base context for the diff.
-        var patchA = patcherA.GeneratePatch(crdtDoc0, new CrdtDocument<LseqTestModel>(docA, crdtDoc0.Metadata));
-        var patchB = patcherB.GeneratePatch(crdtDoc0, new CrdtDocument<LseqTestModel>(docB, crdtDoc0.Metadata));
+        var patchA = patcherA.GeneratePatch(crdtDoc0, docA);
+        var patchB = patcherB.GeneratePatch(crdtDoc0, docB);
         
         // Act
         // Path 1: Apply A then B
@@ -106,7 +106,7 @@ public sealed class LseqStrategyTests : IDisposable
         var modified = new LseqTestModel { Items = ["A", "C", "B"] };
         var document = new CrdtDocument<LseqTestModel>(original, metadataManagerA.Initialize(original));
         
-        var patch = patcherA.GeneratePatch(document, new CrdtDocument<LseqTestModel>(modified, document.Metadata));
+        var patch = patcherA.GeneratePatch(document, modified);
 
         // Act
         applicatorA.ApplyPatch(document, patch);
@@ -128,9 +128,9 @@ public sealed class LseqStrategyTests : IDisposable
         var doc0 = new LseqTestModel { Items = ["A", "D"] };
         var crdtDoc0 = new CrdtDocument<LseqTestModel>(doc0, metadataManagerA.Initialize(doc0));
 
-        var patchB = patcherA.GeneratePatch(crdtDoc0, new CrdtDocument<LseqTestModel>(new LseqTestModel { Items = ["A", "B", "D"] }, crdtDoc0.Metadata));
-        var patchC = patcherB.GeneratePatch(crdtDoc0, new CrdtDocument<LseqTestModel>(new LseqTestModel { Items = ["A", "C", "D"] }, crdtDoc0.Metadata));
-        var patchE = patcherC.GeneratePatch(crdtDoc0, new CrdtDocument<LseqTestModel>(new LseqTestModel { Items = ["A", "E", "D"] }, crdtDoc0.Metadata));
+        var patchB = patcherA.GeneratePatch(crdtDoc0, new LseqTestModel { Items = ["A", "B", "D"] });
+        var patchC = patcherB.GeneratePatch(crdtDoc0, new LseqTestModel { Items = ["A", "C", "D"] });
+        var patchE = patcherC.GeneratePatch(crdtDoc0, new LseqTestModel { Items = ["A", "E", "D"] });
 
         var patches = new[] { patchB, patchC, patchE };
         var permutations = GetPermutations(patches, patches.Length);

@@ -60,10 +60,21 @@ public sealed class CounterStrategyTests : IDisposable
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
         var expectedTimestamp = new SequentialTimestampProvider().Create(12345);
         mockTimestampProvider.Setup(p => p.Now()).Returns(expectedTimestamp);
-        var localStrategy = new CounterStrategy(mockTimestampProvider.Object, new ReplicaContext { ReplicaId = "replica-A" });
+        var localStrategy = new CounterStrategy(new ReplicaContext { ReplicaId = "replica-A" });
+        var context = new GeneratePatchContext(
+            mockPatcher.Object, 
+            operations, 
+            path, 
+            property, 
+            original, 
+            modified, 
+            new TestModel { Score = original }, 
+            new TestModel { Score = modified }, 
+            new CrdtMetadata(),
+            expectedTimestamp);
 
         // Act
-        localStrategy.GeneratePatch(mockPatcher.Object, operations, path, property, original, modified, new TestModel { Score = original }, new TestModel { Score = modified }, new CrdtMetadata(), new CrdtMetadata());
+        localStrategy.GeneratePatch(context);
 
         // Assert
         operations.ShouldHaveSingleItem();
@@ -86,7 +97,7 @@ public sealed class CounterStrategyTests : IDisposable
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Increment, (decimal)increment, timestampProvider.Create(2L));
 
         // Act
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(new ApplyOperationContext(model, new CrdtMetadata(), operation));
 
         // Assert
         model.Score.ShouldBe(expected);
@@ -98,10 +109,11 @@ public sealed class CounterStrategyTests : IDisposable
         // Arrange
         var model = new TestModelWithNoScore();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, 5m, timestampProvider.Create(1L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act & Assert: This should not throw because the property doesn't exist.
         // The helper will return nulls and the strategy will exit gracefully.
-        Should.NotThrow(() => strategy.ApplyOperation(model, new CrdtMetadata(), operation));
+        Should.NotThrow(() => strategy.ApplyOperation(context));
     }
     
     private sealed class TestModelWithNoScore { public string? Name { get; set; } }
@@ -112,9 +124,10 @@ public sealed class CounterStrategyTests : IDisposable
         // Arrange
         var model = new TestModel();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Upsert, 5m, timestampProvider.Create(1L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(model, new CrdtMetadata(), operation));
+        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(context));
     }
     
     [Fact]

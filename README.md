@@ -103,11 +103,9 @@ var originalDocument = new CrdtDocument<UserStats>(originalState, originalMetada
 
 // 5. Modify the state
 var modifiedState = new UserStats { LoginCount = 6, Badges = ["newcomer", "explorer"] };
-// The patcher needs the same metadata instance to track timestamps.
-var modifiedDocument = new CrdtDocument<UserStats>(modifiedState, originalMetadata);
 
 // 6. Create a patch.
-var patch = patcher.GeneratePatch(originalDocument, modifiedDocument);
+var patch = patcher.GeneratePatch(originalDocument, modifiedState);
 
 // 7. On another replica, apply the patch.
 // First, get the services for that replica.
@@ -168,7 +166,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 // 1. Get services from the root DI container
 var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-/* This would work for EpochTimestampProvider but SequentialTimestampProvider has the sequence number as state in the local replica. Best prectice is to have all classes scoper per replica */
+/* This would work for EpochTimestampProvider but SequentialTimestampProvider 
+the sequence number is saved as state in the local replica.
+Best practice is to have all classes scoped per replica to allow stateful instances. */
 var metadataManager = serviceProvider.GetRequiredService<ICrdtMetadataManager>();
 
 // 2. Create scopes and services for each replica
@@ -197,23 +197,23 @@ var docB = new CrdtDocument<UserStats>(
 
 // 5. Modify both replicas independently
 // Replica A: User logs in again and earns a new badge
-var modifiedAState = docA.Data;
+var modifiedAState = docA.Data; // Clone here, use with if you have record
 modifiedAState.LoginCount++; // 11
 modifiedAState.Badges.Add("veteran");
 
 // Replica B: User changes location and also logs in
-var modifiedBState = docB.Data;
+var modifiedBState = docB.Data; // Clone here, use with if you have record
 modifiedBState.LastSeenLocation = "Marketplace";
 modifiedBState.LoginCount++; // 11
 
 // 6. Generate patches
 var patchFromA = patcherA.GeneratePatch(
     new CrdtDocument<UserStats>(baseState, baseMetadata), // Compare against original base state
-    docA
+    modifiedAState
 );
 var patchFromB = patcherB.GeneratePatch(
     new CrdtDocument<UserStats>(baseState, baseMetadata),
-    docB
+    modifiedBState
 );
 
 // 7. Synchronize: Cross-apply patches

@@ -54,7 +54,7 @@ public sealed class StateMachineStrategyTests
     }
     
     [Fact]
-    public void GeneratePatch_WithValidTransitionAndNewerTimestamp_ShouldCreateUpsertOperation()
+    public void GeneratePatch_WithValidTransition_ShouldCreateUpsertOperation()
     {
         // Arrange
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -62,17 +62,21 @@ public sealed class StateMachineStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<StateMachineStrategy>();
 
         var originalMeta = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
-        var modifiedMeta = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(200) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
+        var changeTimestamp = timestampProvider.Create(200);
+        var context = new GeneratePatchContext(
+            mockPatcher.Object, operations, "$.status", property, "PENDING", "PROCESSING", new TestModel { Status = "PENDING" }, new TestModel { Status = "PROCESSING" }, originalMeta, changeTimestamp);
 
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.status", property, "PENDING", "PROCESSING", new TestModel { Status = "PENDING" }, new TestModel { Status = "PROCESSING" }, originalMeta, modifiedMeta);
+        // Act
+        strategy.GeneratePatch(context);
 
+        // Assert
         operations.ShouldHaveSingleItem();
         var op = operations[0];
         op.Type.ShouldBe(OperationType.Upsert);
         op.JsonPath.ShouldBe("$.status");
         op.Value.ShouldBe("PROCESSING");
-        op.Timestamp.ShouldBe(timestampProvider.Create(200));
+        op.Timestamp.ShouldBe(changeTimestamp);
     }
 
     [Fact]
@@ -84,11 +88,14 @@ public sealed class StateMachineStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<StateMachineStrategy>();
 
         var originalMeta = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
-        var modifiedMeta = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(200) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
+        var context = new GeneratePatchContext(
+            mockPatcher.Object, operations, "$.status", property, "PENDING", "SHIPPED", new TestModel { Status = "PENDING" }, new TestModel { Status = "SHIPPED" }, originalMeta, timestampProvider.Create(200));
 
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.status", property, "PENDING", "SHIPPED", new TestModel { Status = "PENDING" }, new TestModel { Status = "SHIPPED" }, originalMeta, modifiedMeta);
+        // Act
+        strategy.GeneratePatch(context);
 
+        // Assert
         operations.ShouldBeEmpty();
     }
     
@@ -103,9 +110,12 @@ public sealed class StateMachineStrategyTests
         var model = new TestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200));
+        var context = new ApplyOperationContext(model, metadata, operation);
 
-        strategy.ApplyOperation(model, metadata, operation);
+        // Act
+        strategy.ApplyOperation(context);
         
+        // Assert
         model.Status.ShouldBe("PROCESSING");
         metadata.Lww["$.status"].ShouldBe(timestampProvider.Create(200));
     }
@@ -121,9 +131,12 @@ public sealed class StateMachineStrategyTests
         var model = new TestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(200));
+        var context = new ApplyOperationContext(model, metadata, operation);
 
-        strategy.ApplyOperation(model, metadata, operation);
+        // Act
+        strategy.ApplyOperation(context);
 
+        // Assert
         model.Status.ShouldBe("PENDING");
         metadata.Lww["$.status"].ShouldBe(timestampProvider.Create(100));
     }
@@ -139,9 +152,12 @@ public sealed class StateMachineStrategyTests
         var model = new TestModel { Status = "PROCESSING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(300) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(200));
+        var context = new ApplyOperationContext(model, metadata, operation);
 
-        strategy.ApplyOperation(model, metadata, operation);
+        // Act
+        strategy.ApplyOperation(context);
 
+        // Assert
         model.Status.ShouldBe("PROCESSING");
         metadata.Lww["$.status"].ShouldBe(timestampProvider.Create(300));
     }
@@ -157,11 +173,15 @@ public sealed class StateMachineStrategyTests
         var model = new TestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200));
+        var context = new ApplyOperationContext(model, metadata, operation);
 
-        strategy.ApplyOperation(model, metadata, operation);
+        // Act
+        strategy.ApplyOperation(context);
         model.Status.ShouldBe("PROCESSING");
         
-        strategy.ApplyOperation(model, metadata, operation);
+        strategy.ApplyOperation(context);
+
+        // Assert
         model.Status.ShouldBe("PROCESSING");
         metadata.Lww["$.status"].ShouldBe(timestampProvider.Create(200));
     }
@@ -179,13 +199,13 @@ public sealed class StateMachineStrategyTests
 
         var model1 = new TestModel { Status = "PROCESSING" };
         var meta1 = new CrdtMetadata();
-        strategy.ApplyOperation(model1, meta1, op1);
-        strategy.ApplyOperation(model1, meta1, op2);
+        strategy.ApplyOperation(new ApplyOperationContext(model1, meta1, op1));
+        strategy.ApplyOperation(new ApplyOperationContext(model1, meta1, op2));
 
         var model2 = new TestModel { Status = "PROCESSING" };
         var meta2 = new CrdtMetadata();
-        strategy.ApplyOperation(model2, meta2, op2);
-        strategy.ApplyOperation(model2, meta2, op1);
+        strategy.ApplyOperation(new ApplyOperationContext(model2, meta2, op2));
+        strategy.ApplyOperation(new ApplyOperationContext(model2, meta2, op1));
 
         model1.Status.ShouldBe("SHIPPED");
         meta1.Lww["$.status"].ShouldBe(timestampProvider.Create(300));

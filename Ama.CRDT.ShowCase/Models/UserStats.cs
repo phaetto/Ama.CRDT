@@ -1,7 +1,7 @@
 namespace Ama.CRDT.ShowCase.Models;
 using Ama.CRDT.Attributes;
 
-public sealed class UserStats
+public sealed record UserStats
 {
     [CrdtGCounterStrategy]
     public long ProcessedItemsCount { get; set; }

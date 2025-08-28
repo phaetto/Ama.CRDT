@@ -1,6 +1,7 @@
 namespace Ama.CRDT.Services;
 
 using Ama.CRDT.Models;
+using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Defines the contract for a service that applies a CRDT patch to a document.
@@ -41,5 +42,5 @@ public interface ICrdtApplicator
     /// ]]>
     /// </code>
     /// </example>
-    T ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class;
+    T ApplyPatch<T>([DisallowNull] CrdtDocument<T> document, CrdtPatch patch) where T : class;
 }

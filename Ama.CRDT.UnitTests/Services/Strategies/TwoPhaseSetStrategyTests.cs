@@ -57,7 +57,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         var doc2 = new TestModel { Tags = { "B", "C" } };
         
         // Act
-        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), new CrdtDocument<TestModel>(doc2, meta1));
+        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), doc2);
         
         // Assert
         patch.Operations.Count.ShouldBe(2);
@@ -72,7 +72,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         var doc1 = new TestModel { Tags = { "A" } };
         var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Tags = { "A", "B" } };
-        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), new CrdtDocument<TestModel>(doc2, meta1));
+        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), doc2);
 
         var target = new TestModel { Tags = { "A" } };
         var targetMeta = metadataManagerA.Initialize(target);
@@ -100,12 +100,12 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         var document = new CrdtDocument<TestModel>(model, meta);
         
         // Remove "A"
-        var patchRemove = patcherA.GeneratePatch(document, new CrdtDocument<TestModel>(new TestModel(), meta));
+        var patchRemove = patcherA.GeneratePatch(document, new TestModel());
         applicatorA.ApplyPatch(document, patchRemove);
         model.Tags.ShouldBeEmpty();
         
         // Try to add "A" back
-        var patchAdd = patcherA.GeneratePatch(new CrdtDocument<TestModel>(new TestModel(), meta), new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, meta));
+        var patchAdd = patcherA.GeneratePatch(new CrdtDocument<TestModel>(new TestModel(), meta), new TestModel { Tags = { "A" } });
         
         // Act
         applicatorA.ApplyPatch(document, patchAdd);
@@ -125,12 +125,12 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         // Replica A removes "B"
         var patchRemoveB = patcherA.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, metaAncestor));
+            new TestModel { Tags = { "A" } });
 
         // Replica B adds "C"
         var patchAddC = patcherB.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "B", "C" } }, metaAncestor));
+            new TestModel { Tags = { "A", "B", "C" } });
         
         // Scenario 1: Remove then Add
         var model1 = new TestModel { Tags = new List<string>(ancestor.Tags) };
@@ -164,17 +164,17 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         // Replica A removes B
         var patch1 = patcherA.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, metaAncestor));
+            new TestModel { Tags = { "A" } });
         
         // Replica B adds C
         var patch2 = patcherB.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "B", "C" } }, metaAncestor));
+            new TestModel { Tags = { "A", "B", "C" } });
         
         // Replica C removes A
         var patch3 = patcherC.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "B" } }, metaAncestor));
+            new TestModel { Tags = { "B" } });
 
         var patches = new[] { patch1, patch2, patch3 };
         var permutations = GetPermutations(patches, patches.Length);

@@ -4,14 +4,14 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 
 /// <summary>
-/// Implements the Last-Writer-Wins (LWW) strategy.
+/// Implements the Last-Writer-Wins (LWW) strategy for conflict resolution. When a conflict occurs (i.e., multiple replicas modify the same property concurrently),
+/// the value with the highest timestamp "wins" and is accepted as the final state. This strategy is suitable for simple properties, such as numbers, strings, or booleans.
+/// For complex objects, this strategy recursively delegates the differentiation process.
 /// </summary>
 [CrdtSupportedType(typeof(object))]
 [Commutative]
@@ -23,12 +23,15 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
     private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc/>
-    public void GeneratePatch(ICrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, CrdtMetadata originalMeta, CrdtMetadata modifiedMeta)
+    public void GeneratePatch(GeneratePatchContext context)
     {
+        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+
         var propertyType = property.PropertyType;
         if (propertyType.IsClass && propertyType != typeof(string) && !CrdtPatcher.IsCollection(propertyType))
         {
-            patcher.DifferentiateObject(path, property.PropertyType, originalValue, originalMeta, modifiedValue, modifiedMeta, operations, originalRoot, modifiedRoot);
+            var diffContext = new DifferentiateObjectContext(path, property.PropertyType, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, operations, changeTimestamp);
+            patcher.DifferentiateObject(diffContext);
             return;
         }
 
@@ -37,15 +40,14 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
             return;
         }
         
-        modifiedMeta.Lww.TryGetValue(path, out var modifiedTimestamp);
         originalMeta.Lww.TryGetValue(path, out var originalTimestamp);
         
-        if (modifiedTimestamp is null || originalTimestamp is not null && modifiedTimestamp.CompareTo(originalTimestamp) <= 0)
+        if (originalTimestamp is not null && changeTimestamp.CompareTo(originalTimestamp) <= 0)
         {
             return;
         }
 
-        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, modifiedTimestamp);
+        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
         
         if (modifiedValue is null)
         {
@@ -56,10 +58,9 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
+    public void ApplyOperation(ApplyOperationContext context)
     {
-        ArgumentNullException.ThrowIfNull(root);
-        ArgumentNullException.ThrowIfNull(metadata);
+        var (root, metadata, operation) = context;
 
         metadata.Lww.TryGetValue(operation.JsonPath, out var lwwTs);
         if (lwwTs is not null && operation.Timestamp.CompareTo(lwwTs) <= 0)

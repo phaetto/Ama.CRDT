@@ -16,84 +16,84 @@ public class StrategyBenchmarks
     private ICrdtMetadataManager metadataManager = null!;
 
     private StrategyPoco basePoco = null!;
-    private CrdtDocument<StrategyPoco> fromDoc = default;
+    private CrdtDocument<StrategyPoco> fromDoc = default!;
 
     #region Per-strategy data
     // LWW
-    private CrdtDocument<StrategyPoco> toDocForLww = default;
-    private CrdtPatch lwwPatch = default;
+    private StrategyPoco toPocoForLww = default!;
+    private CrdtPatch lwwPatch = default!;
 
     // Counter
-    private CrdtDocument<StrategyPoco> toDocForCounter = default;
-    private CrdtPatch counterPatch = default;
+    private StrategyPoco toPocoForCounter = default!;
+    private CrdtPatch counterPatch = default!;
 
     // GCounter
-    private CrdtDocument<StrategyPoco> toDocForGCounter = default;
-    private CrdtPatch gCounterPatch = default;
+    private StrategyPoco toPocoForGCounter = default!;
+    private CrdtPatch gCounterPatch = default!;
 
     // BoundedCounter
-    private CrdtDocument<StrategyPoco> toDocForBoundedCounter = default;
-    private CrdtPatch boundedCounterPatch = default;
+    private StrategyPoco toPocoForBoundedCounter = default!;
+    private CrdtPatch boundedCounterPatch = default!;
 
     // MaxWins
-    private CrdtDocument<StrategyPoco> toDocForMaxWins = default;
-    private CrdtPatch maxWinsPatch = default;
+    private StrategyPoco toPocoForMaxWins = default!;
+    private CrdtPatch maxWinsPatch = default!;
 
     // MinWins
-    private CrdtDocument<StrategyPoco> toDocForMinWins = default;
-    private CrdtPatch minWinsPatch = default;
+    private StrategyPoco toPocoForMinWins = default!;
+    private CrdtPatch minWinsPatch = default!;
 
     // AverageRegister
-    private CrdtDocument<StrategyPoco> toDocForAverageRegister = default;
-    private CrdtPatch averageRegisterPatch = default;
+    private StrategyPoco toPocoForAverageRegister = default!;
+    private CrdtPatch averageRegisterPatch = default!;
 
     // GSet
-    private CrdtDocument<StrategyPoco> toDocForGSet = default;
-    private CrdtPatch gSetPatch = default;
+    private StrategyPoco toPocoForGSet = default!;
+    private CrdtPatch gSetPatch = default!;
 
     // TwoPhaseSet
-    private CrdtDocument<StrategyPoco> toDocForTwoPhaseSet = default;
-    private CrdtPatch twoPhaseSetPatch = default;
+    private StrategyPoco toPocoForTwoPhaseSet = default!;
+    private CrdtPatch twoPhaseSetPatch = default!;
 
     // LwwSet
-    private CrdtDocument<StrategyPoco> toDocForLwwSet = default;
-    private CrdtPatch lwwSetPatch = default;
+    private StrategyPoco toPocoForLwwSet = default!;
+    private CrdtPatch lwwSetPatch = default!;
 
     // OrSet
-    private CrdtDocument<StrategyPoco> toDocForOrSet = default;
-    private CrdtPatch orSetPatch = default;
+    private StrategyPoco toPocoForOrSet = default!;
+    private CrdtPatch orSetPatch = default!;
 
     // ArrayLcs
-    private CrdtDocument<StrategyPoco> toDocForArrayLcs = default;
-    private CrdtPatch arrayLcsPatch = default;
+    private StrategyPoco toPocoForArrayLcs = default!;
+    private CrdtPatch arrayLcsPatch = default!;
 
     // FixedSizeArray
-    private CrdtDocument<StrategyPoco> toDocForFixedSizeArray = default;
-    private CrdtPatch fixedSizeArrayPatch = default;
+    private StrategyPoco toPocoForFixedSizeArray = default!;
+    private CrdtPatch fixedSizeArrayPatch = default!;
 
     // Lseq
-    private CrdtDocument<StrategyPoco> toDocForLseq = default;
-    private CrdtPatch lseqPatch = default;
+    private StrategyPoco toPocoForLseq = default!;
+    private CrdtPatch lseqPatch = default!;
 
     // VoteCounter
-    private CrdtDocument<StrategyPoco> toDocForVoteCounter = default;
-    private CrdtPatch voteCounterPatch = default;
+    private StrategyPoco toPocoForVoteCounter = default!;
+    private CrdtPatch voteCounterPatch = default!;
 
     // StateMachine
-    private CrdtDocument<StrategyPoco> toDocForStateMachine = default;
-    private CrdtPatch stateMachinePatch = default;
+    private StrategyPoco toPocoForStateMachine = default!;
+    private CrdtPatch stateMachinePatch = default!;
 
     // ExclusiveLock
-    private CrdtDocument<StrategyPoco> toDocForExclusiveLock = default;
-    private CrdtPatch exclusiveLockPatch = default;
+    private StrategyPoco toPocoForExclusiveLock = default!;
+    private CrdtPatch exclusiveLockPatch = default!;
 
     // PriorityQueue
-    private CrdtDocument<StrategyPoco> toDocForPriorityQueue = default;
-    private CrdtPatch priorityQueuePatch = default;
+    private StrategyPoco toPocoForPriorityQueue = default!;
+    private CrdtPatch priorityQueuePatch = default!;
 
     // SortedSet
-    private CrdtDocument<StrategyPoco> toDocForSortedSet = default;
-    private CrdtPatch sortedSetPatch = default;
+    private StrategyPoco toPocoForSortedSet = default!;
+    private CrdtPatch sortedSetPatch = default!;
 
     #endregion
 
@@ -112,189 +112,169 @@ public class StrategyBenchmarks
         basePoco = new StrategyPoco();
         var fromMeta = metadataManager.Initialize(basePoco);
         fromDoc = new CrdtDocument<StrategyPoco>(basePoco, fromMeta);
-        long timestamp = 1;
 
         #region Setup per strategy
         // LWW
-        var toPocoLww = basePoco.Clone();
-        toPocoLww.LwwValue = "updated";
-        toDocForLww = CreateToDoc(fromDoc, toPocoLww, timestamp++);
-        lwwPatch = patcher.GeneratePatch(fromDoc, toDocForLww);
+        toPocoForLww = basePoco.Clone();
+        toPocoForLww.LwwValue = "updated";
+        lwwPatch = patcher.GeneratePatch(fromDoc, toPocoForLww);
 
         // Counter
-        var toPocoCounter = basePoco.Clone();
-        toPocoCounter.Counter = 10;
-        toDocForCounter = CreateToDoc(fromDoc, toPocoCounter, timestamp++);
-        counterPatch = patcher.GeneratePatch(fromDoc, toDocForCounter);
+        toPocoForCounter = basePoco.Clone();
+        toPocoForCounter.Counter = 10;
+        counterPatch = patcher.GeneratePatch(fromDoc, toPocoForCounter);
 
         // GCounter
-        var toPocoGCounter = basePoco.Clone();
-        toPocoGCounter.GCounter = 10;
-        toDocForGCounter = CreateToDoc(fromDoc, toPocoGCounter, timestamp++);
-        gCounterPatch = patcher.GeneratePatch(fromDoc, toDocForGCounter);
+        toPocoForGCounter = basePoco.Clone();
+        toPocoForGCounter.GCounter = 10;
+        gCounterPatch = patcher.GeneratePatch(fromDoc, toPocoForGCounter);
 
         // BoundedCounter
-        var toPocoBoundedCounter = basePoco.Clone();
-        toPocoBoundedCounter.BoundedCounter = 10;
-        toDocForBoundedCounter = CreateToDoc(fromDoc, toPocoBoundedCounter, timestamp++);
-        boundedCounterPatch = patcher.GeneratePatch(fromDoc, toDocForBoundedCounter);
+        toPocoForBoundedCounter = basePoco.Clone();
+        toPocoForBoundedCounter.BoundedCounter = 10;
+        boundedCounterPatch = patcher.GeneratePatch(fromDoc, toPocoForBoundedCounter);
 
         // MaxWins
-        var toPocoMaxWins = basePoco.Clone();
-        toPocoMaxWins.MaxWins = 100;
-        toDocForMaxWins = CreateToDoc(fromDoc, toPocoMaxWins, timestamp++);
-        maxWinsPatch = patcher.GeneratePatch(fromDoc, toDocForMaxWins);
+        toPocoForMaxWins = basePoco.Clone();
+        toPocoForMaxWins.MaxWins = 100;
+        maxWinsPatch = patcher.GeneratePatch(fromDoc, toPocoForMaxWins);
 
         // MinWins
-        var toPocoMinWins = basePoco.Clone();
-        toPocoMinWins.MinWins = 10;
-        toDocForMinWins = CreateToDoc(fromDoc, toPocoMinWins, timestamp++);
-        minWinsPatch = patcher.GeneratePatch(fromDoc, toDocForMinWins);
+        toPocoForMinWins = basePoco.Clone();
+        toPocoForMinWins.MinWins = 10;
+        minWinsPatch = patcher.GeneratePatch(fromDoc, toPocoForMinWins);
 
         // AverageRegister
-        var toPocoAverageRegister = basePoco.Clone();
-        toPocoAverageRegister.Average = 123.45m;
-        toDocForAverageRegister = CreateToDoc(fromDoc, toPocoAverageRegister, timestamp++);
-        averageRegisterPatch = patcher.GeneratePatch(fromDoc, toDocForAverageRegister);
+        toPocoForAverageRegister = basePoco.Clone();
+        toPocoForAverageRegister.Average = 123.45m;
+        averageRegisterPatch = patcher.GeneratePatch(fromDoc, toPocoForAverageRegister);
 
         // GSet
-        var toPocoGSet = basePoco.Clone();
-        toPocoGSet.GSet.Add("A");
-        toDocForGSet = CreateToDoc(fromDoc, toPocoGSet, timestamp++);
-        gSetPatch = patcher.GeneratePatch(fromDoc, toDocForGSet);
+        toPocoForGSet = basePoco.Clone();
+        toPocoForGSet.GSet.Add("A");
+        gSetPatch = patcher.GeneratePatch(fromDoc, toPocoForGSet);
 
         // TwoPhaseSet
-        var toPocoTwoPhaseSet = basePoco.Clone();
-        toPocoTwoPhaseSet.TwoPhaseSet.Remove("A");
-        toDocForTwoPhaseSet = CreateToDoc(fromDoc, toPocoTwoPhaseSet, timestamp++);
-        twoPhaseSetPatch = patcher.GeneratePatch(fromDoc, toDocForTwoPhaseSet);
+        toPocoForTwoPhaseSet = basePoco.Clone();
+        toPocoForTwoPhaseSet.TwoPhaseSet.Remove("A");
+        twoPhaseSetPatch = patcher.GeneratePatch(fromDoc, toPocoForTwoPhaseSet);
 
         // LwwSet
-        var toPocoLwwSet = basePoco.Clone();
-        toPocoLwwSet.LwwSet.Remove("A");
-        toPocoLwwSet.LwwSet.Add("C");
-        toDocForLwwSet = CreateToDoc(fromDoc, toPocoLwwSet, timestamp++);
-        lwwSetPatch = patcher.GeneratePatch(fromDoc, toDocForLwwSet);
+        toPocoForLwwSet = basePoco.Clone();
+        toPocoForLwwSet.LwwSet.Remove("A");
+        toPocoForLwwSet.LwwSet.Add("C");
+        lwwSetPatch = patcher.GeneratePatch(fromDoc, toPocoForLwwSet);
 
         // OrSet
-        var toPocoOrSet = basePoco.Clone();
-        toPocoOrSet.OrSet.Remove("A");
-        toPocoOrSet.OrSet.Add("C");
-        toDocForOrSet = CreateToDoc(fromDoc, toPocoOrSet, timestamp++);
-        orSetPatch = patcher.GeneratePatch(fromDoc, toDocForOrSet);
+        toPocoForOrSet = basePoco.Clone();
+        toPocoForOrSet.OrSet.Remove("A");
+        toPocoForOrSet.OrSet.Add("C");
+        orSetPatch = patcher.GeneratePatch(fromDoc, toPocoForOrSet);
 
         // ArrayLcs
-        var toPocoArrayLcs = basePoco.Clone();
-        toPocoArrayLcs.LcsList.Insert(1, "D");
-        toPocoArrayLcs.LcsList.Remove("C");
-        toDocForArrayLcs = CreateToDoc(fromDoc, toPocoArrayLcs, timestamp++);
-        arrayLcsPatch = patcher.GeneratePatch(fromDoc, toDocForArrayLcs);
+        toPocoForArrayLcs = basePoco.Clone();
+        toPocoForArrayLcs.LcsList.Insert(1, "D");
+        toPocoForArrayLcs.LcsList.Remove("C");
+        arrayLcsPatch = patcher.GeneratePatch(fromDoc, toPocoForArrayLcs);
 
         // FixedSizeArray
-        var toPocoFixedSizeArray = basePoco.Clone();
-        toPocoFixedSizeArray.FixedArray[1] = "Z";
-        toDocForFixedSizeArray = CreateToDoc(fromDoc, toPocoFixedSizeArray, timestamp++);
-        fixedSizeArrayPatch = patcher.GeneratePatch(fromDoc, toDocForFixedSizeArray);
+        toPocoForFixedSizeArray = basePoco.Clone();
+        toPocoForFixedSizeArray.FixedArray[1] = "Z";
+        fixedSizeArrayPatch = patcher.GeneratePatch(fromDoc, toPocoForFixedSizeArray);
 
         // Lseq
-        var toPocoLseq = basePoco.Clone();
-        toPocoLseq.LseqList.Insert(1, "D");
-        toDocForLseq = CreateToDoc(fromDoc, toPocoLseq, timestamp++);
-        lseqPatch = patcher.GeneratePatch(fromDoc, toDocForLseq);
+        toPocoForLseq = basePoco.Clone();
+        toPocoForLseq.LseqList.Insert(1, "D");
+        lseqPatch = patcher.GeneratePatch(fromDoc, toPocoForLseq);
 
         // VoteCounter
-        var toPocoVoteCounter = basePoco.Clone();
-        toPocoVoteCounter.Votes["OptionA"].Remove("Voter1");
-        toPocoVoteCounter.Votes["OptionB"].Add("Voter1");
-        toDocForVoteCounter = CreateToDoc(fromDoc, toPocoVoteCounter, timestamp++);
-        voteCounterPatch = patcher.GeneratePatch(fromDoc, toDocForVoteCounter);
+        toPocoForVoteCounter = basePoco.Clone();
+        toPocoForVoteCounter.Votes["OptionA"].Remove("Voter1");
+        toPocoForVoteCounter.Votes["OptionB"].Add("Voter1");
+        voteCounterPatch = patcher.GeneratePatch(fromDoc, toPocoForVoteCounter);
 
         // StateMachine
-        var toPocoStateMachine = basePoco.Clone();
-        toPocoStateMachine.State = "InProgress";
-        toDocForStateMachine = CreateToDoc(fromDoc, toPocoStateMachine, timestamp++);
-        stateMachinePatch = patcher.GeneratePatch(fromDoc, toDocForStateMachine);
+        toPocoForStateMachine = basePoco.Clone();
+        toPocoForStateMachine.State = "InProgress";
+        stateMachinePatch = patcher.GeneratePatch(fromDoc, toPocoForStateMachine);
 
         // ExclusiveLock
-        var toPocoExclusiveLock = basePoco.Clone();
-        toPocoExclusiveLock.LockedValue = "New Value";
-        toPocoExclusiveLock.LockHolder = "benchmark-replica";
-        toDocForExclusiveLock = CreateToDoc(fromDoc, toPocoExclusiveLock, timestamp++);
-        exclusiveLockPatch = patcher.GeneratePatch(fromDoc, toDocForExclusiveLock);
+        toPocoForExclusiveLock = basePoco.Clone();
+        toPocoForExclusiveLock.LockedValue = "New Value";
+        toPocoForExclusiveLock.LockHolder = "benchmark-replica";
+        exclusiveLockPatch = patcher.GeneratePatch(fromDoc, toPocoForExclusiveLock);
 
         // PriorityQueue
-        var toPocoPriorityQueue = basePoco.Clone();
-        toPocoPriorityQueue.PrioQueue.Add(new PrioItem { Id = 3, Priority = 5, Value = "C" });
-        toPocoPriorityQueue.PrioQueue[0].Value = "A_updated";
-        toDocForPriorityQueue = CreateToDoc(fromDoc, toPocoPriorityQueue, timestamp++);
-        priorityQueuePatch = patcher.GeneratePatch(fromDoc, toDocForPriorityQueue);
+        toPocoForPriorityQueue = basePoco.Clone();
+        toPocoForPriorityQueue.PrioQueue.Add(new PrioItem { Id = 3, Priority = 5, Value = "C" });
+        toPocoForPriorityQueue.PrioQueue[0].Value = "A_updated";
+        priorityQueuePatch = patcher.GeneratePatch(fromDoc, toPocoForPriorityQueue);
 
         // SortedSet
-        var toPocoSortedSet = basePoco.Clone();
-        toPocoSortedSet.SortedSet.Add(new PrioItem { Id = 3, Priority = 5, Value = "C" });
-        toPocoSortedSet.SortedSet.RemoveAll(p => p.Id == 1);
-        toDocForSortedSet = CreateToDoc(fromDoc, toPocoSortedSet, timestamp++);
-        sortedSetPatch = patcher.GeneratePatch(fromDoc, toDocForSortedSet);
+        toPocoForSortedSet = basePoco.Clone();
+        toPocoForSortedSet.SortedSet.Add(new PrioItem { Id = 3, Priority = 5, Value = "C" });
+        toPocoForSortedSet.SortedSet.RemoveAll(p => p.Id == 1);
+        sortedSetPatch = patcher.GeneratePatch(fromDoc, toPocoForSortedSet);
         #endregion
     }
 
     #region GeneratePatch Benchmarks
     [Benchmark(Description = "GeneratePatch: LWW")]
-    public CrdtPatch GeneratePatch_Lww() => patcher.GeneratePatch(fromDoc, toDocForLww);
+    public CrdtPatch GeneratePatch_Lww() => patcher.GeneratePatch(fromDoc, toPocoForLww);
 
     [Benchmark(Description = "GeneratePatch: Counter")]
-    public CrdtPatch GeneratePatch_Counter() => patcher.GeneratePatch(fromDoc, toDocForCounter);
+    public CrdtPatch GeneratePatch_Counter() => patcher.GeneratePatch(fromDoc, toPocoForCounter);
 
     [Benchmark(Description = "GeneratePatch: GCounter")]
-    public CrdtPatch GeneratePatch_GCounter() => patcher.GeneratePatch(fromDoc, toDocForGCounter);
+    public CrdtPatch GeneratePatch_GCounter() => patcher.GeneratePatch(fromDoc, toPocoForGCounter);
 
     [Benchmark(Description = "GeneratePatch: BoundedCounter")]
-    public CrdtPatch GeneratePatch_BoundedCounter() => patcher.GeneratePatch(fromDoc, toDocForBoundedCounter);
+    public CrdtPatch GeneratePatch_BoundedCounter() => patcher.GeneratePatch(fromDoc, toPocoForBoundedCounter);
 
     [Benchmark(Description = "GeneratePatch: MaxWins")]
-    public CrdtPatch GeneratePatch_MaxWins() => patcher.GeneratePatch(fromDoc, toDocForMaxWins);
+    public CrdtPatch GeneratePatch_MaxWins() => patcher.GeneratePatch(fromDoc, toPocoForMaxWins);
 
     [Benchmark(Description = "GeneratePatch: MinWins")]
-    public CrdtPatch GeneratePatch_MinWins() => patcher.GeneratePatch(fromDoc, toDocForMinWins);
+    public CrdtPatch GeneratePatch_MinWins() => patcher.GeneratePatch(fromDoc, toPocoForMinWins);
 
     [Benchmark(Description = "GeneratePatch: AverageRegister")]
-    public CrdtPatch GeneratePatch_AverageRegister() => patcher.GeneratePatch(fromDoc, toDocForAverageRegister);
+    public CrdtPatch GeneratePatch_AverageRegister() => patcher.GeneratePatch(fromDoc, toPocoForAverageRegister);
 
     [Benchmark(Description = "GeneratePatch: GSet")]
-    public CrdtPatch GeneratePatch_GSet() => patcher.GeneratePatch(fromDoc, toDocForGSet);
+    public CrdtPatch GeneratePatch_GSet() => patcher.GeneratePatch(fromDoc, toPocoForGSet);
 
     [Benchmark(Description = "GeneratePatch: TwoPhaseSet")]
-    public CrdtPatch GeneratePatch_TwoPhaseSet() => patcher.GeneratePatch(fromDoc, toDocForTwoPhaseSet);
+    public CrdtPatch GeneratePatch_TwoPhaseSet() => patcher.GeneratePatch(fromDoc, toPocoForTwoPhaseSet);
 
     [Benchmark(Description = "GeneratePatch: LwwSet")]
-    public CrdtPatch GeneratePatch_LwwSet() => patcher.GeneratePatch(fromDoc, toDocForLwwSet);
+    public CrdtPatch GeneratePatch_LwwSet() => patcher.GeneratePatch(fromDoc, toPocoForLwwSet);
 
     [Benchmark(Description = "GeneratePatch: OrSet")]
-    public CrdtPatch GeneratePatch_OrSet() => patcher.GeneratePatch(fromDoc, toDocForOrSet);
+    public CrdtPatch GeneratePatch_OrSet() => patcher.GeneratePatch(fromDoc, toPocoForOrSet);
 
     [Benchmark(Description = "GeneratePatch: ArrayLcs")]
-    public CrdtPatch GeneratePatch_ArrayLcs() => patcher.GeneratePatch(fromDoc, toDocForArrayLcs);
+    public CrdtPatch GeneratePatch_ArrayLcs() => patcher.GeneratePatch(fromDoc, toPocoForArrayLcs);
 
     [Benchmark(Description = "GeneratePatch: FixedSizeArray")]
-    public CrdtPatch GeneratePatch_FixedSizeArray() => patcher.GeneratePatch(fromDoc, toDocForFixedSizeArray);
+    public CrdtPatch GeneratePatch_FixedSizeArray() => patcher.GeneratePatch(fromDoc, toPocoForFixedSizeArray);
 
     [Benchmark(Description = "GeneratePatch: Lseq")]
-    public CrdtPatch GeneratePatch_Lseq() => patcher.GeneratePatch(fromDoc, toDocForLseq);
+    public CrdtPatch GeneratePatch_Lseq() => patcher.GeneratePatch(fromDoc, toPocoForLseq);
 
     [Benchmark(Description = "GeneratePatch: VoteCounter")]
-    public CrdtPatch GeneratePatch_VoteCounter() => patcher.GeneratePatch(fromDoc, toDocForVoteCounter);
+    public CrdtPatch GeneratePatch_VoteCounter() => patcher.GeneratePatch(fromDoc, toPocoForVoteCounter);
 
     [Benchmark(Description = "GeneratePatch: StateMachine")]
-    public CrdtPatch GeneratePatch_StateMachine() => patcher.GeneratePatch(fromDoc, toDocForStateMachine);
+    public CrdtPatch GeneratePatch_StateMachine() => patcher.GeneratePatch(fromDoc, toPocoForStateMachine);
 
     [Benchmark(Description = "GeneratePatch: ExclusiveLock")]
-    public CrdtPatch GeneratePatch_ExclusiveLock() => patcher.GeneratePatch(fromDoc, toDocForExclusiveLock);
+    public CrdtPatch GeneratePatch_ExclusiveLock() => patcher.GeneratePatch(fromDoc, toPocoForExclusiveLock);
 
     [Benchmark(Description = "GeneratePatch: PriorityQueue")]
-    public CrdtPatch GeneratePatch_PriorityQueue() => patcher.GeneratePatch(fromDoc, toDocForPriorityQueue);
+    public CrdtPatch GeneratePatch_PriorityQueue() => patcher.GeneratePatch(fromDoc, toPocoForPriorityQueue);
 
     [Benchmark(Description = "GeneratePatch: SortedSet")]
-    public CrdtPatch GeneratePatch_SortedSet() => patcher.GeneratePatch(fromDoc, toDocForSortedSet);
+    public CrdtPatch GeneratePatch_SortedSet() => patcher.GeneratePatch(fromDoc, toPocoForSortedSet);
     #endregion
 
     #region ApplyPatch Benchmarks
@@ -355,12 +335,4 @@ public class StrategyBenchmarks
     [Benchmark(Description = "ApplyPatch: SortedSet")]
     public StrategyPoco ApplyPatch_SortedSet() => applicator.ApplyPatch(new CrdtDocument<StrategyPoco>(basePoco.Clone(), new CrdtMetadata()), sortedSetPatch);
     #endregion
-
-    private CrdtDocument<T> CreateToDoc<T>(CrdtDocument<T> from, T toPoco, long timestamp) where T : class
-    {
-        var toMeta = metadataManager.Clone(from.Metadata);
-        var toDoc = new CrdtDocument<T>(toPoco, toMeta);
-        metadataManager.Initialize(toDoc, new EpochTimestamp(timestamp));
-        return toDoc;
-    }
 }

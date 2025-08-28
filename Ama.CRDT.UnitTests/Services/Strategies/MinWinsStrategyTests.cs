@@ -32,7 +32,7 @@ public sealed class MinWinsStrategyTests
     }
     
     [Fact]
-    public void GeneratePatch_ShouldCreateUpsert_WhenNewValueIsLower()
+    public void GeneratePatch_ShouldCreateUpsert_WhenValueChanges()
     {
         // Arrange
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -41,32 +41,26 @@ public sealed class MinWinsStrategyTests
 
         var operations = new List<CrdtOperation>();
         var property = typeof(TestModel).GetProperty(nameof(TestModel.BestTime))!;
+        var context = new GeneratePatchContext(
+            new Mock<ICrdtPatcher>().Object,
+            operations,
+            "$.bestTime",
+            property,
+            200,
+            100,
+            new TestModel { BestTime = 200 },
+            new TestModel { BestTime = 100 },
+            new CrdtMetadata(),
+            timestampProvider.Now()
+        );
         
         // Act
-        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.bestTime", property, 200, 100, new TestModel { BestTime = 200 }, new TestModel { BestTime = 100 }, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(context);
 
         // Assert
         var op = operations.ShouldHaveSingleItem();
         op.Type.ShouldBe(OperationType.Upsert);
         op.Value.ShouldBe(100);
-    }
-    
-    [Fact]
-    public void GeneratePatch_ShouldDoNothing_WhenNewValueIsHigher()
-    {
-        // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MinWinsStrategy>();
-
-        var operations = new List<CrdtOperation>();
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.BestTime))!;
-        
-        // Act
-        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.bestTime", property, 100, 200, new TestModel { BestTime = 100 }, new TestModel { BestTime = 200 }, new CrdtMetadata(), new CrdtMetadata());
-
-        // Assert
-        operations.ShouldBeEmpty();
     }
     
     [Fact]
@@ -79,9 +73,10 @@ public sealed class MinWinsStrategyTests
 
         var model = new TestModel { BestTime = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 100, timestampProvider.Create(2L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
         
         // Assert
         model.BestTime.ShouldBe(100);
@@ -97,9 +92,10 @@ public sealed class MinWinsStrategyTests
 
         var model = new TestModel { BestTime = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 200, timestampProvider.Create(2L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
         
         // Assert
         model.BestTime.ShouldBe(150);
@@ -115,11 +111,12 @@ public sealed class MinWinsStrategyTests
 
         var model = new TestModel { BestTime = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 100, timestampProvider.Create(2L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
     
         // Act
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
         var scoreAfterFirst = model.BestTime;
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
     
         // Assert
         model.BestTime.ShouldBe(scoreAfterFirst);
@@ -141,12 +138,12 @@ public sealed class MinWinsStrategyTests
 
         // Act
         // op1 then op2
-        strategy.ApplyOperation(model1, new CrdtMetadata(), op1);
-        strategy.ApplyOperation(model1, new CrdtMetadata(), op2);
+        strategy.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1));
+        strategy.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2));
 
         // op2 then op1
-        strategy.ApplyOperation(model2, new CrdtMetadata(), op2);
-        strategy.ApplyOperation(model2, new CrdtMetadata(), op1);
+        strategy.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2));
+        strategy.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1));
     
         // Assert
         model1.BestTime.ShouldBe(200); // min(300, 200, 250)
@@ -177,7 +174,7 @@ public sealed class MinWinsStrategyTests
             var meta = new CrdtMetadata();
             foreach (var op in p)
             {
-                strategy.ApplyOperation(model, meta, op);
+                strategy.ApplyOperation(new ApplyOperationContext(model, meta, op));
             }
             finalTimes.Add(model.BestTime);
         }

@@ -8,10 +8,8 @@ using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using Ama.CRDT.Services;
 
@@ -26,14 +24,15 @@ using Ama.CRDT.Services;
 [Mergeable]
 public sealed class TwoPhaseSetStrategy(
     IElementComparerProvider comparerProvider,
-    ICrdtTimestampProvider timestampProvider,
     ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     
     /// <inheritdoc/>
-    public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)
+    public void GeneratePatch(GeneratePatchContext context)
     {
+        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+
         var originalSet = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedSet = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         
@@ -45,20 +44,19 @@ public sealed class TwoPhaseSetStrategy(
 
         foreach (var item in added)
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, item, timestampProvider.Now()));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, item, changeTimestamp));
         }
 
         foreach (var item in removed)
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item, timestampProvider.Now()));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item, changeTimestamp));
         }
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
+    public void ApplyOperation(ApplyOperationContext context)
     {
-        ArgumentNullException.ThrowIfNull(root);
-        ArgumentNullException.ThrowIfNull(metadata);
+        var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
         if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
