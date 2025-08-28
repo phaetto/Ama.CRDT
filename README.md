@@ -231,6 +231,45 @@ applicatorA.ApplyPatch(docA, patchFromB);
 // - Badges: ["veteran", "welcome"] (OR-Set merge adds "veteran")
 ```
 
+## Serializing and Transmitting Patches
+
+Once a `CrdtPatch` is generated, it needs to be sent to other replicas. This is typically done by serializing the patch to a format like JSON, sending it over a network (e.g., via an API endpoint, a message queue, or a WebSocket), and then deserializing it on the receiving end.
+
+Because `CrdtOperation` contains an `ICrdtTimestamp` interface, you need to use a custom `JsonConverter` that can handle polymorphic serialization. The library provides `CrdtTimestampJsonConverter` for this purpose.
+
+Here’s how to correctly serialize and deserialize a patch:
+
+```csharp
+using Ama.CRDT.Models;
+using Ama.CRDT.Models.Serialization;
+using System.Text.Json;
+
+// Assume 'patch' is the CrdtPatch you generated.
+CrdtPatch patch = ...; 
+
+// 1. Configure JsonSerializerOptions to use the custom converter.
+var serializerOptions = new JsonSerializerOptions
+{
+    Converters = { new CrdtTimestampJsonConverter() }
+};
+
+// 2. Serialize the patch to a JSON string.
+string jsonPayload = JsonSerializer.Serialize(patch, serializerOptions);
+
+// This 'jsonPayload' can now be sent across the network.
+
+// --- On the receiving replica ---
+
+// 3. Deserialize the JSON string back into a CrdtPatch object.
+CrdtPatch receivedPatch = JsonSerializer.Deserialize<CrdtPatch>(jsonPayload, serializerOptions);
+
+// 4. Apply the received patch.
+// var applicator = ...;
+// var document = ...;
+// applicator.ApplyPatch(document, receivedPatch);
+```
+**Important**: If you have created a custom `ICrdtTimestamp` implementation, you must register it with the `CrdtTimestampJsonConverter` so it can be correctly serialized. See the section on "Providing a Custom Timestamp" for details.
+
 ## Managing Metadata Size
 
 The `CrdtMetadata` object stores the necessary state to resolve conflicts and ensure eventual consistency. Over time, especially in frequently updated documents, this metadata can grow. The library provides tools to help you keep it compact.
@@ -458,6 +497,38 @@ builder.Services.AddCrdt();
 // Replace the default provider with your custom one
 builder.Services.AddCrdtTimestampProvider<LogicalClockProvider>();
 ```
+
+#### 3. Register the Timestamp Type for Serialization
+
+If you create a custom struct or class that implements `ICrdtTimestamp` (instead of reusing `EpochTimestamp` or `SequentialTimestamp`), you **must** register it with the serialization system. This allows the `CrdtTimestampJsonConverter` to correctly serialize and deserialize your custom type when it's part of a `CrdtPatch`.
+
+Use the `AddCrdtTimestampType<TTimestamp>()` extension method to do this.
+
+**Example**: Let's create a custom `VectorClockTimestamp`.
+
+_Models/VectorClockTimestamp.cs_
+```csharp
+// A simple, illustrative vector clock. A real implementation would be more complex.
+public readonly record struct VectorClockTimestamp(long Ticks) : ICrdtTimestamp
+{
+    public int CompareTo(ICrdtTimestamp other) => Ticks.CompareTo(other.ToInt64());
+    public long ToInt64() => Ticks;
+}
+```
+
+_In Program.cs_
+```csharp
+// In your DI setup:
+builder.Services.AddCrdt();
+
+// Assume VectorClockProvider is your custom provider that returns VectorClockTimestamp
+builder.Services.AddCrdtTimestampProvider<VectorClockProvider>(); 
+
+// Register the custom timestamp type with a unique discriminator string.
+builder.Services.AddCrdtTimestampType<VectorClockTimestamp>("vector-clock");
+```
+
+Now, when a patch containing a `VectorClockTimestamp` is serialized, the JSON will include a `"$type": "vector-clock"` discriminator, ensuring it can be correctly deserialized on other replicas.
 
 ## How It Works
 

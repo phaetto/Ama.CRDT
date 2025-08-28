@@ -148,7 +148,7 @@ public static class ServiceCollectionExtensions
     }
     
     /// <summary>
-    /// Registers a custom timestamp provider, replacing the default <see cref="EpochTimestampProvider"/>.
+    /// Registers a custom timestamp provider, replacing the default <see cref="SequentialTimestampProvider"/>.
     /// This allows for the integration of different clock types, such as logical or hybrid clocks, which can provide stronger causality guarantees in distributed systems than wall-clock time.
     /// </summary>
     /// <typeparam name="TProvider">The type of the timestamp provider to register. Must implement <see cref="ICrdtTimestampProvider"/>.</typeparam>
@@ -179,6 +179,42 @@ public static class ServiceCollectionExtensions
         where TProvider : class, ICrdtTimestampProvider
     {
         services.AddScoped<ICrdtTimestampProvider, TProvider>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a custom <see cref="ICrdtTimestamp"/> implementation for polymorphic JSON serialization.
+    /// This allows the system to correctly serialize and deserialize custom timestamp types.
+    /// </summary>
+    /// <typeparam name="TTimestamp">The custom timestamp type to register. Must implement <see cref="ICrdtTimestamp"/>.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <param name="discriminator">A unique string identifier for the timestamp type, used in the JSON output.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// public readonly record struct MyCustomTimestamp(long Value) : ICrdtTimestamp
+    /// {
+    ///     public int CompareTo(ICrdtTimestamp other)
+    ///     {
+    ///         if (other is MyCustomTimestamp otherTimestamp)
+    ///         {
+    ///             return Value.CompareTo(otherTimestamp.Value);
+    ///         }
+    ///         return false; // Probably throw if you have different timestamps
+    ///     }
+    /// }
+    /// 
+    /// // In your DI setup:
+    /// builder.Services.AddCrdt();
+    /// builder.Services.AddCrdtTimestampType<MyCustomTimestamp>("my-custom");
+    /// ]]>
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddCrdtTimestampType<TTimestamp>(this IServiceCollection services, string discriminator)
+        where TTimestamp : ICrdtTimestamp
+    {
+        Models.Serialization.CrdtTimestampJsonConverter.Register(discriminator, typeof(TTimestamp));
         return services;
     }
 }
