@@ -10,9 +10,7 @@ using System.Collections.Generic;
 /// </summary>
 public sealed class EpochTimestampProvider : ICrdtTimestampProvider
 {
-    /// <summary>
-    /// Gets a value indicating whether the timestamps are dense. For epoch-based timestamps, this is false.
-    /// </summary>
+    /// <inheritdoc/>
     public bool IsContinuous => false;
 
     /// <summary>
