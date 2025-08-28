@@ -10,7 +10,7 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Services.Providers;
 
 /// <inheritdoc/>
-public sealed class CrdtPatcher(ICrdtStrategyProvider strategyManager) : ICrdtPatcher
+public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider) : ICrdtPatcher
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropertyCache = new();
@@ -54,7 +54,7 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyManager) : ICrdtPa
             var fromValue = fromObj is not null ? property.GetValue(fromObj) : null;
             var toValue = toObj is not null ? property.GetValue(toObj) : null;
 
-            var strategy = strategyManager.GetStrategy(property);
+            var strategy = strategyProvider.GetStrategy(property);
             
             strategy.GeneratePatch(this, operations, currentPath, property, fromValue, toValue, fromRoot, toRoot, fromMeta, toMeta);
         }

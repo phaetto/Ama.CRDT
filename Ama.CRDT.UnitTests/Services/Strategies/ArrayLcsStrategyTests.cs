@@ -1,64 +1,57 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Providers;
-using Ama.CRDT.Services.Strategies;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-public sealed class ArrayLcsStrategyTests
+public sealed class ArrayLcsStrategyTests : IDisposable
 {
     private sealed class TestModel
     {
         [CrdtArrayLcsStrategy]
         public List<string> Tags { get; set; } = new();
     }
-    
-    private readonly CrdtPatcher patcherA;
-    private readonly CrdtPatcher patcherB;
-    private readonly CrdtPatcher patcherC;
-    private readonly CrdtApplicator applicator;
-    private readonly CrdtMetadataManager metadataManager;
+
+    private readonly IServiceScope scopeA;
+    private readonly IServiceScope scopeB;
+    private readonly IServiceScope scopeC;
+    private readonly ICrdtPatcher patcherA;
+    private readonly ICrdtPatcher patcherB;
+    private readonly ICrdtPatcher patcherC;
+    private readonly ICrdtApplicator applicatorA;
+    private readonly ICrdtMetadataManager metadataManagerA;
 
     public ArrayLcsStrategyTests()
     {
-        var timestampProvider = new EpochTimestampProvider();
-        var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
-        
-        var optionsA = Options.Create(new CrdtOptions { ReplicaId = "A" });
-        var optionsB = Options.Create(new CrdtOptions { ReplicaId = "B" });
-        var optionsC = Options.Create(new CrdtOptions { ReplicaId = "C" });
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .BuildServiceProvider();
 
-        var lwwStrategyA = new LwwStrategy(optionsA);
-        var counterStrategyA = new CounterStrategy(timestampProvider, optionsA);
-        var arrayLcsStrategyA = new ArrayLcsStrategy(comparerProvider, timestampProvider, optionsA);
-        var strategiesA = new ICrdtStrategy[] { lwwStrategyA, counterStrategyA, arrayLcsStrategyA };
-        var strategyManagerA = new CrdtStrategyProvider(strategiesA);
-        patcherA = new CrdtPatcher(strategyManagerA);
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
 
-        var lwwStrategyB = new LwwStrategy(optionsB);
-        var counterStrategyB = new CounterStrategy(timestampProvider, optionsB);
-        var arrayLcsStrategyB = new ArrayLcsStrategy(comparerProvider, timestampProvider, optionsB);
-        var strategiesB = new ICrdtStrategy[] { lwwStrategyB, counterStrategyB, arrayLcsStrategyB };
-        var strategyManagerB = new CrdtStrategyProvider(strategiesB);
-        patcherB = new CrdtPatcher(strategyManagerB);
-        
-        var lwwStrategyC = new LwwStrategy(optionsC);
-        var counterStrategyC = new CounterStrategy(timestampProvider, optionsC);
-        var arrayLcsStrategyC = new ArrayLcsStrategy(comparerProvider, timestampProvider, optionsC);
-        var strategiesC = new ICrdtStrategy[] { lwwStrategyC, counterStrategyC, arrayLcsStrategyC };
-        var strategyManagerC = new CrdtStrategyProvider(strategiesC);
-        patcherC = new CrdtPatcher(strategyManagerC);
-        
-        var strategyManagerApplicator = new CrdtStrategyProvider(strategiesA);
-        applicator = new CrdtApplicator(strategyManagerApplicator);
-        metadataManager = new CrdtMetadataManager(strategyManagerA, timestampProvider, comparerProvider);
+        scopeA = scopeFactory.CreateScope("A");
+        scopeB = scopeFactory.CreateScope("B");
+        scopeC = scopeFactory.CreateScope("C");
+
+        patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherC = scopeC.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+    }
+
+    public void Dispose()
+    {
+        scopeA.Dispose();
+        scopeB.Dispose();
+        scopeC.Dispose();
     }
     
     [Fact]
@@ -66,9 +59,9 @@ public sealed class ArrayLcsStrategyTests
     {
         // Arrange
         var doc1 = new TestModel { Tags = new List<string> { "A", "C" } };
-        var meta1 = metadataManager.Initialize(doc1);
+        var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Tags = new List<string> { "A", "B", "C" } };
-        var meta2 = metadataManager.Initialize(doc2);
+        var meta2 = metadataManagerA.Initialize(doc2);
         
         var crdtDoc1 = new CrdtDocument<TestModel>(doc1, meta1);
         var crdtDoc2 = new CrdtDocument<TestModel>(doc2, meta2);
@@ -88,7 +81,7 @@ public sealed class ArrayLcsStrategyTests
     {
         // Arrange
         var initialModel = new TestModel { Tags = new List<string> { "A", "C" } };
-        var initialMeta = metadataManager.Initialize(initialModel);
+        var initialMeta = metadataManagerA.Initialize(initialModel);
 
         var modifiedModel = new TestModel { Tags = new List<string> { "A", "B", "C" } };
         var patch = patcherA.GeneratePatch(
@@ -96,15 +89,15 @@ public sealed class ArrayLcsStrategyTests
             new CrdtDocument<TestModel>(modifiedModel, initialMeta));
 
         var targetModel = new TestModel { Tags = new List<string>(initialModel.Tags) };
-        var targetMeta = metadataManager.Initialize(targetModel);
+        var targetMeta = metadataManagerA.Initialize(targetModel);
         var targetDocument = new CrdtDocument<TestModel>(targetModel, targetMeta);
 
         // Act
-        applicator.ApplyPatch(targetDocument, patch);
+        applicatorA.ApplyPatch(targetDocument, patch);
         var stateAfterFirstApply = new List<string>(targetModel.Tags);
         var trackersCountAfterFirstApply = targetMeta.PositionalTrackers["$.tags"].Count;
 
-        applicator.ApplyPatch(targetDocument, patch);
+        applicatorA.ApplyPatch(targetDocument, patch);
 
         // Assert
         targetModel.Tags.ShouldBe(stateAfterFirstApply);
@@ -117,7 +110,7 @@ public sealed class ArrayLcsStrategyTests
     {
         // Arrange
         var initialModel = new TestModel { Tags = new List<string> { "A", "C" } };
-        var initialMeta = metadataManager.Initialize(initialModel);
+        var initialMeta = metadataManagerA.Initialize(initialModel);
 
         var modifiedModel = new TestModel { Tags = new List<string> { "A", "B", "C" } };
         var patch = patcherA.GeneratePatch(
@@ -125,17 +118,17 @@ public sealed class ArrayLcsStrategyTests
             new CrdtDocument<TestModel>(modifiedModel, initialMeta));
 
         var targetModel = new TestModel { Tags = new List<string>(initialModel.Tags) };
-        var targetMeta = metadataManager.Initialize(targetModel);
+        var targetMeta = metadataManagerA.Initialize(targetModel);
         var targetDocument = new CrdtDocument<TestModel>(targetModel, targetMeta);
 
         // Act
         // First apply works as expected
-        applicator.ApplyPatch(targetDocument, patch);
+        applicatorA.ApplyPatch(targetDocument, patch);
         targetModel.Tags.ShouldBe(new[] { "A", "B", "C" });
 
         // Simulate losing metadata state (e.g., recreating it) and reapplying the same patch
         targetMeta.SeenExceptions.Clear();
-        applicator.ApplyPatch(targetDocument, patch);
+        applicatorA.ApplyPatch(targetDocument, patch);
 
         // Assert
         // Without the SeenExceptions guard, the insert operation is applied again, creating a duplicate.
@@ -148,7 +141,7 @@ public sealed class ArrayLcsStrategyTests
     {
         // Arrange
         var ancestor = new TestModel { Tags = new List<string> { "A", "D" } };
-        var metaAncestor = metadataManager.Initialize(ancestor);
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
 
         // Replicas generate patches concurrently from the same state
         var patchA = patcherA.GeneratePatch(
@@ -171,11 +164,11 @@ public sealed class ArrayLcsStrategyTests
         foreach (var permutation in permutations)
         {
             var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
-            var meta = metadataManager.Initialize(model);
+            var meta = metadataManagerA.Initialize(model);
             var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in permutation)
             {
-                applicator.ApplyPatch(document, patch);
+                applicatorA.ApplyPatch(document, patch);
             }
             finalStates.Add(model.Tags);
         }
@@ -194,7 +187,7 @@ public sealed class ArrayLcsStrategyTests
     {
         // Arrange
         var ancestor = new TestModel { Tags = new List<string> { "A", "B", "C" } };
-        var metaAncestor = metadataManager.Initialize(ancestor);
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
 
         // Replica A removes "B"
         var replicaA = new TestModel { Tags = new List<string> { "A", "C" } };
@@ -211,17 +204,17 @@ public sealed class ArrayLcsStrategyTests
         // Act
         // Scenario 1: Remove B, then Insert X
         var finalModel_1 = new TestModel { Tags = new List<string>(ancestor.Tags) };
-        var finalMeta_1 = metadataManager.Initialize(finalModel_1);
+        var finalMeta_1 = metadataManagerA.Initialize(finalModel_1);
         var document_1 = new CrdtDocument<TestModel>(finalModel_1, finalMeta_1);
-        applicator.ApplyPatch(document_1, patch_RemoveB);
-        applicator.ApplyPatch(document_1, patch_InsertX);
+        applicatorA.ApplyPatch(document_1, patch_RemoveB);
+        applicatorA.ApplyPatch(document_1, patch_InsertX);
 
         // Scenario 2: Insert X, then Remove B
         var finalModel_2 = new TestModel { Tags = new List<string>(ancestor.Tags) };
-        var finalMeta_2 = metadataManager.Initialize(finalModel_2);
+        var finalMeta_2 = metadataManagerA.Initialize(finalModel_2);
         var document_2 = new CrdtDocument<TestModel>(finalModel_2, finalMeta_2);
-        applicator.ApplyPatch(document_2, patch_InsertX);
-        applicator.ApplyPatch(document_2, patch_RemoveB);
+        applicatorA.ApplyPatch(document_2, patch_InsertX);
+        applicatorA.ApplyPatch(document_2, patch_RemoveB);
 
         // Assert
         var expected = new List<string> { "A", "X", "C" };
@@ -238,22 +231,22 @@ public sealed class ArrayLcsStrategyTests
 
         // 2. Two replicas concurrently insert items at the same logical position.
         // We create fresh metadata for each to ensure the patch generations are isolated.
-        var metaForB = metadataManager.Initialize(ancestor);
+        var metaForB = metadataManagerA.Initialize(ancestor);
         var patchB = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaForB),
             new CrdtDocument<TestModel>(new TestModel { Tags = ["A", "B", "C"] }, metaForB));
 
-        var metaForX = metadataManager.Initialize(ancestor);
+        var metaForX = metadataManagerA.Initialize(ancestor);
         var patchX = patcherB.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaForX),
             new CrdtDocument<TestModel>(new TestModel { Tags = ["A", "X", "C"] }, metaForX));
 
         // 3. Apply these patches to a third replica to create a converged state.
         var doc_converged = new TestModel { Tags = new List<string>(ancestor.Tags) };
-        var meta_converged = metadataManager.Initialize(doc_converged);
+        var meta_converged = metadataManagerA.Initialize(doc_converged);
         var document_converged = new CrdtDocument<TestModel>(doc_converged, meta_converged);
-        applicator.ApplyPatch(document_converged, patchB);
-        applicator.ApplyPatch(document_converged, patchX);
+        applicatorA.ApplyPatch(document_converged, patchB);
+        applicatorA.ApplyPatch(document_converged, patchX);
 
         // Sanity check: "B" and "X" now have the same position string "1.5" in the metadata.
         var positionalTrackers = meta_converged.PositionalTrackers["$.tags"];

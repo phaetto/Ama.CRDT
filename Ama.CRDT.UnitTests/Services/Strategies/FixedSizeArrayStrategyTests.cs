@@ -1,11 +1,11 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -13,7 +13,7 @@ using System.Linq;
 using System.Threading;
 using Xunit;
 
-public sealed class FixedSizeArrayStrategyTests
+public sealed class FixedSizeArrayStrategyTests : IDisposable
 {
     private sealed class TestModel
     {
@@ -21,42 +21,39 @@ public sealed class FixedSizeArrayStrategyTests
         public List<int> Values { get; set; } = new();
     }
 
-    private readonly CrdtPatcher patcherA;
-    private readonly CrdtPatcher patcherB;
-    private readonly CrdtPatcher patcherC;
-    private readonly CrdtApplicator applicator;
-    private readonly CrdtMetadataManager metadataManager;
+    private readonly IServiceScope scopeA;
+    private readonly IServiceScope scopeB;
+    private readonly IServiceScope scopeC;
+    private readonly ICrdtPatcher patcherA;
+    private readonly ICrdtPatcher patcherB;
+    private readonly ICrdtPatcher patcherC;
+    private readonly ICrdtApplicator applicatorA;
+    private readonly ICrdtMetadataManager metadataManagerA;
 
     public FixedSizeArrayStrategyTests()
     {
-        var timestampProvider = new EpochTimestampProvider();
-        var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .BuildServiceProvider();
 
-        var optionsA = Options.Create(new CrdtOptions { ReplicaId = "A" });
-        var optionsB = Options.Create(new CrdtOptions { ReplicaId = "B" });
-        var optionsC = Options.Create(new CrdtOptions { ReplicaId = "C" });
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
 
-        var lwwStrategy = new LwwStrategy(optionsA);
-        var fixedSizeArrayStrategyA = new FixedSizeArrayStrategy(timestampProvider, optionsA);
-        var strategiesA = new ICrdtStrategy[] { lwwStrategy, fixedSizeArrayStrategyA };
-        var strategyManagerA = new CrdtStrategyProvider(strategiesA);
-        patcherA = new CrdtPatcher(strategyManagerA);
+        scopeA = scopeFactory.CreateScope("A");
+        scopeB = scopeFactory.CreateScope("B");
+        scopeC = scopeFactory.CreateScope("C");
 
-        var lwwStrategyB = new LwwStrategy(optionsB);
-        var fixedSizeArrayStrategyB = new FixedSizeArrayStrategy(timestampProvider, optionsB);
-        var strategiesB = new ICrdtStrategy[] { lwwStrategyB, fixedSizeArrayStrategyB };
-        var strategyManagerB = new CrdtStrategyProvider(strategiesB);
-        patcherB = new CrdtPatcher(strategyManagerB);
+        patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherC = scopeC.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+    }
 
-        var lwwStrategyC = new LwwStrategy(optionsC);
-        var fixedSizeArrayStrategyC = new FixedSizeArrayStrategy(timestampProvider, optionsC);
-        var strategiesC = new ICrdtStrategy[] { lwwStrategyC, fixedSizeArrayStrategyC };
-        var strategyManagerC = new CrdtStrategyProvider(strategiesC);
-        patcherC = new CrdtPatcher(strategyManagerB);
-
-        var strategyManagerApplicator = new CrdtStrategyProvider(strategiesA);
-        applicator = new CrdtApplicator(strategyManagerApplicator);
-        metadataManager = new CrdtMetadataManager(strategyManagerA, timestampProvider, comparerProvider);
+    public void Dispose()
+    {
+        scopeA.Dispose();
+        scopeB.Dispose();
+        scopeC.Dispose();
     }
 
     [Fact]
@@ -64,9 +61,9 @@ public sealed class FixedSizeArrayStrategyTests
     {
         // Arrange
         var doc1 = new TestModel { Values = [1, 2, 3] };
-        var meta1 = metadataManager.Initialize(doc1);
+        var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Values = [1, 99, 3] };
-        var meta2 = metadataManager.Initialize(doc2);
+        var meta2 = metadataManagerA.Initialize(doc2);
         
         var crdtDoc1 = new CrdtDocument<TestModel>(doc1, meta1);
         var crdtDoc2 = new CrdtDocument<TestModel>(doc2, meta2);
@@ -87,24 +84,24 @@ public sealed class FixedSizeArrayStrategyTests
     {
         // Arrange
         var initialModel = new TestModel { Values = [1, 2, 3] };
-        var initialMeta = metadataManager.Initialize(initialModel);
+        var initialMeta = metadataManagerA.Initialize(initialModel);
 
         var modifiedModel = new TestModel { Values = [1, 99, 3] };
-        var modifiedMeta = CloneMetadata(initialMeta);
+        var modifiedMeta = metadataManagerA.Initialize(modifiedModel);
         var patch = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(initialModel, initialMeta),
             new CrdtDocument<TestModel>(modifiedModel, modifiedMeta));
 
         var targetModel = new TestModel { Values = new List<int>(initialModel.Values) };
-        var targetMeta = CloneMetadata(initialMeta);
+        var targetMeta = metadataManagerA.Initialize(targetModel);
         var targetDocument = new CrdtDocument<TestModel>(targetModel, targetMeta);
 
         // Act
         patch.Operations.ShouldHaveSingleItem();
-        applicator.ApplyPatch(targetDocument, patch);
+        applicatorA.ApplyPatch(targetDocument, patch);
         var stateAfterFirstApply = new List<int>(targetModel.Values);
         
-        applicator.ApplyPatch(targetDocument, patch);
+        applicatorA.ApplyPatch(targetDocument, patch);
 
         // Assert
         targetModel.Values.ShouldBe(stateAfterFirstApply);
@@ -116,17 +113,17 @@ public sealed class FixedSizeArrayStrategyTests
     {
         // Arrange
         var ancestor = new TestModel { Values = [10, 20, 30] };
-        var metaAncestor = metadataManager.Initialize(ancestor);
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
 
         // Replica A updates index 0
-        var metaForA = CloneMetadata(metaAncestor);
+        var metaForA = metadataManagerA.Initialize(new TestModel { Values = [11, 20, 30] });
         var patchA = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
             new CrdtDocument<TestModel>(new TestModel { Values = [11, 20, 30] }, metaForA));
 
         // Replica B updates index 2
         Thread.Sleep(15); // Use a longer sleep to ensure timestamp is different on all systems
-        var metaForB = CloneMetadata(metaAncestor);
+        var metaForB = metadataManagerA.Initialize(new TestModel { Values = [10, 20, 33] });
         var patchB = patcherB.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
             new CrdtDocument<TestModel>(new TestModel { Values = [10, 20, 33] }, metaForB));
@@ -136,17 +133,17 @@ public sealed class FixedSizeArrayStrategyTests
 
         // Scenario 1: A then B
         var model1 = new TestModel { Values = new List<int>(ancestor.Values) };
-        var meta1 = CloneMetadata(metaAncestor);
+        var meta1 = metadataManagerA.Initialize(model1);
         var doc1 = new CrdtDocument<TestModel>(model1, meta1);
-        applicator.ApplyPatch(doc1, patchA);
-        applicator.ApplyPatch(doc1, patchB);
+        applicatorA.ApplyPatch(doc1, patchA);
+        applicatorA.ApplyPatch(doc1, patchB);
 
         // Scenario 2: B then A
         var model2 = new TestModel { Values = new List<int>(ancestor.Values) };
-        var meta2 = CloneMetadata(metaAncestor);
+        var meta2 = metadataManagerA.Initialize(model2);
         var doc2 = new CrdtDocument<TestModel>(model2, meta2);
-        applicator.ApplyPatch(doc2, patchB);
-        applicator.ApplyPatch(doc2, patchA);
+        applicatorA.ApplyPatch(doc2, patchB);
+        applicatorA.ApplyPatch(doc2, patchA);
 
         // Assert
         var expected = new List<int> { 11, 20, 33 };
@@ -159,7 +156,7 @@ public sealed class FixedSizeArrayStrategyTests
     {
         // Arrange
         var ancestor = new TestModel { Values = [10, 20, 30] };
-        var metaAncestor = metadataManager.Initialize(ancestor);
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
 
         // Replicas generate patches
         var patchA = patcherA.GeneratePatch(
@@ -184,11 +181,11 @@ public sealed class FixedSizeArrayStrategyTests
         foreach (var p in permutations)
         {
             var model = new TestModel { Values = new List<int>(ancestor.Values) };
-            var meta = CloneMetadata(metaAncestor);
+            var meta = metadataManagerA.Initialize(model);
             var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in p)
             {
-                applicator.ApplyPatch(document, patch);
+                applicatorA.ApplyPatch(document, patch);
             }
             finalStates.Add(model.Values);
         }
@@ -209,17 +206,17 @@ public sealed class FixedSizeArrayStrategyTests
     {
         // Arrange
         var ancestor = new TestModel { Values = [0, 0, 0] };
-        var metaAncestor = metadataManager.Initialize(ancestor);
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
         
         // Replica A updates index 1
-        var metaForA = CloneMetadata(metaAncestor);
+        var metaForA = metadataManagerA.Initialize(new TestModel { Values = [0, 1, 0] });
         var patchA = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
             new CrdtDocument<TestModel>(new TestModel { Values = [0, 1, 0] }, metaForA));
 
         // Replica B updates index 1 later in time
         Thread.Sleep(15); // Ensure timestamp is reliably greater
-        var metaForB = CloneMetadata(metaAncestor);
+        var metaForB = metadataManagerA.Initialize(new TestModel { Values = [0, 2, 0] });
         var patchB = patcherB.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
             new CrdtDocument<TestModel>(new TestModel { Values = [0, 2, 0] }, metaForB));
@@ -235,26 +232,13 @@ public sealed class FixedSizeArrayStrategyTests
         
         // Act
         var model = new TestModel { Values = new List<int>(ancestor.Values) };
-        var meta = CloneMetadata(metaAncestor);
+        var meta = metadataManagerA.Initialize(model);
         var document = new CrdtDocument<TestModel>(model, meta);
-        applicator.ApplyPatch(document, patchA);
-        applicator.ApplyPatch(document, patchB);
+        applicatorA.ApplyPatch(document, patchA);
+        applicatorA.ApplyPatch(document, patchB);
         
         // Assert
         model.Values[1].ShouldBe(winningValue);
-    }
-
-    private CrdtMetadata CloneMetadata(CrdtMetadata metadata)
-    {
-        var clone = new CrdtMetadata();
-        foreach (var (key, value) in metadata.Lww)
-        {
-            clone.Lww[key] = value;
-        }
-
-        // This is a shallow clone, sufficient for this strategy which only uses the Lww dictionary.
-        // A full, deep clone would be required if strategies using other metadata properties were involved.
-        return clone;
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

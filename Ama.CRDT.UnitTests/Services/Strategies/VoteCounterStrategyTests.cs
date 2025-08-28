@@ -37,8 +37,7 @@ public sealed class VoteCounterStrategyTests
     public VoteCounterStrategyTests()
     {
         mockTimestampProvider.Setup(p => p.Now()).Returns(() => new EpochTimestamp(Interlocked.Increment(ref timestampCounter)));
-        var mockOptions = Options.Create(new CrdtOptions { ReplicaId = "replica-A" });
-        strategy = new VoteCounterStrategy(mockOptions, mockTimestampProvider.Object);
+        strategy = new VoteCounterStrategy(new ReplicaContext { ReplicaId = "replica-A" }, mockTimestampProvider.Object);
         
         var mockStrategyManager = new Mock<ICrdtStrategyProvider>();
         mockStrategyManager.Setup(m => m.GetStrategy(It.IsAny<System.Reflection.PropertyInfo>())).Returns(strategy);
@@ -187,17 +186,17 @@ public sealed class VoteCounterStrategyTests
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.votes", OperationType.Upsert, new VotePayload("Voter1", "OptionC"), new EpochTimestamp(250L));
         
         var initialMeta = new CrdtMetadata();
-        metadataManager.Initialize(initialMeta);
+        metadataManager.Initialize(initialMeta, new EpochTimestamp(200L));
 
         // Scenario 1: op1 then op2
         var model1 = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
-        var meta1 = metadataManager.Clone(initialMeta);
+        var meta1 = metadataManager.Initialize(new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } }, new EpochTimestamp(200L));
         strategy.ApplyOperation(model1, meta1, op1);
         strategy.ApplyOperation(model1, meta1, op2); // op2 is older, should be ignored
 
         // Scenario 2: op2 then op1
         var model2 = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
-        var meta2 = metadataManager.Clone(initialMeta);
+        var meta2 = metadataManager.Initialize(new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } }, new EpochTimestamp(200L));
         strategy.ApplyOperation(model2, meta2, op2); // This is applied because timestamp 250 > 200
         strategy.ApplyOperation(model2, meta2, op1); // op1 is newer (300 > 250), should win
         
