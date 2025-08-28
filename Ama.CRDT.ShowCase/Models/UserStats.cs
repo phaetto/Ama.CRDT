@@ -6,7 +6,7 @@ public sealed class UserStats
     [CrdtGCounterStrategy]
     public long ProcessedItemsCount { get; set; }
 
-    [CrdtLseqStrategy]
+    [CrdtGSetStrategy]
     public List<string> UniqueUserNames { get; set; } = [];
 
     [CrdtLwwStrategy]

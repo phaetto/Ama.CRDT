@@ -16,8 +16,10 @@ using System.Text.Json;
 using Xunit;
 using static Ama.CRDT.Services.Strategies.SortedSetStrategy;
 using Ama.CRDT.Services.Providers;
+using Microsoft.Extensions.DependencyInjection;
+using Ama.CRDT.Extensions;
 
-public sealed class SortedSetStrategyTests
+public sealed class SortedSetStrategyTests : IDisposable
 {
     private sealed class TestModel
     {
@@ -64,12 +66,45 @@ public sealed class SortedSetStrategyTests
     private readonly Mock<ICrdtTimestampProvider> mockTimestampProvider = new();
     private readonly SortedSetStrategy strategy;
 
+    private readonly IServiceScope scopeA;
+    private readonly IServiceScope scopeB;
+    private readonly IServiceScope scopeC;
+    private readonly ICrdtPatcher patcherA;
+    private readonly ICrdtPatcher patcherB;
+    private readonly ICrdtPatcher patcherC;
+    private readonly ICrdtApplicator applicatorA;
+    private readonly ICrdtMetadataManager metadataManagerA;
+    private readonly ICrdtMetadataManager metadataManagerB;
+
     public SortedSetStrategyTests()
     {
-        strategy = new SortedSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, Options.Create(new CrdtOptions { ReplicaId = "test-array-strategy" }));
+        strategy = new SortedSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, new ReplicaContext { ReplicaId = "replica-A" });
         mockComparerProvider
             .Setup(p => p.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
+
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .AddCrdtComparer<CaseInsensitiveStringComparer>()
+            .BuildServiceProvider();
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        scopeA = scopeFactory.CreateScope("replica-A");
+        scopeB = scopeFactory.CreateScope("replica-B");
+        scopeC = scopeFactory.CreateScope("replica-C");
+        
+        patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherC = scopeC.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        metadataManagerB = scopeB.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+    }
+
+    public void Dispose()
+    {
+        scopeA.Dispose();
+        scopeB.Dispose();
+        scopeC.Dispose();
     }
 
     [Fact]
@@ -196,30 +231,26 @@ public sealed class SortedSetStrategyTests
         var userA = new User(Guid.NewGuid(), "Alice");
         var userB = new User(Guid.NewGuid(), "Bob");
 
-        var (patcherA, applicator) = CreateCrdtServices("replica-A");
-        var (patcherB, _) = CreateCrdtServices("replica-B");
+        var doc0 = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), metadataManagerA.Initialize(new ConvergenceTestModel()));
+        var docA = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }, metadataManagerA.Initialize(new ConvergenceTestModel { Users = [userA] }));
+        var docB = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userB] }, metadataManagerB.Initialize(new ConvergenceTestModel { Users = [userB] }));
     
-        var patchA = patcherA.GeneratePatch(
-            new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), new CrdtMetadata()), 
-            new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }, new CrdtMetadata()));
-
-        var patchB = patcherB.GeneratePatch(
-            new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), new CrdtMetadata()), 
-            new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userB] }, new CrdtMetadata()));
+        var patchA = patcherA.GeneratePatch(doc0, docA);
+        var patchB = patcherB.GeneratePatch(doc0, docB);
 
         // Scenario 1: Apply Patch A, then Patch B
         var modelAb = new ConvergenceTestModel();
-        var metadataAb = new CrdtMetadata();
+        var metadataAb = metadataManagerA.Initialize(modelAb);
         var docAb = new CrdtDocument<ConvergenceTestModel>(modelAb, metadataAb);
-        applicator.ApplyPatch(docAb, patchA);
-        applicator.ApplyPatch(docAb, patchB);
+        applicatorA.ApplyPatch(docAb, patchA);
+        applicatorA.ApplyPatch(docAb, patchB);
 
         // Scenario 2: Apply Patch B, then Patch A
         var modelBa = new ConvergenceTestModel();
-        var metadataBa = new CrdtMetadata();
+        var metadataBa = metadataManagerA.Initialize(modelBa);
         var docBa = new CrdtDocument<ConvergenceTestModel>(modelBa, metadataBa);
-        applicator.ApplyPatch(docBa, patchB);
-        applicator.ApplyPatch(docBa, patchA);
+        applicatorA.ApplyPatch(docBa, patchB);
+        applicatorA.ApplyPatch(docBa, patchA);
     
         // Assert
         JsonSerializer.Serialize(modelAb).ShouldBe(JsonSerializer.Serialize(modelBa));
@@ -235,19 +266,20 @@ public sealed class SortedSetStrategyTests
     {
         // Arrange
         var userA = new User(Guid.NewGuid(), "Alice");
-        var (patcher, applicator) = CreateCrdtServices("replica-A");
-        var patch = patcher.GeneratePatch(
-            new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), new CrdtMetadata()),
-            new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }, new CrdtMetadata()));
+
+        var doc0 = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), metadataManagerA.Initialize(new ConvergenceTestModel()));
+        var docA = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }, metadataManagerA.Initialize(new ConvergenceTestModel { Users = [userA] }));
+
+        var patch = patcherA.GeneratePatch(doc0, docA);
     
         var model = new ConvergenceTestModel();
-        var metadata = new CrdtMetadata();
+        var metadata = metadataManagerA.Initialize(model);
         var document = new CrdtDocument<ConvergenceTestModel>(model, metadata);
 
         // Act
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
         var stateAfterFirst = JsonSerializer.Serialize(model);
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
         var stateAfterSecond = JsonSerializer.Serialize(model);
 
         // Assert
@@ -264,16 +296,15 @@ public sealed class SortedSetStrategyTests
         var userB = new User(Guid.NewGuid(), "Bob");
         var userC = new User(Guid.NewGuid(), "Charlie");
 
-        var (patcherA, applicator) = CreateCrdtServices("replica-A");
-        var (patcherB, _) = CreateCrdtServices("replica-B");
-        var (patcherC, _) = CreateCrdtServices("replica-C");
+        var initialDoc = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), metadataManagerA.Initialize(new ConvergenceTestModel()));
+        
+        var docA = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }, metadataManagerA.Initialize(new ConvergenceTestModel { Users = [userA] }));
+        var docB = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userB] }, metadataManagerB.Initialize(new ConvergenceTestModel { Users = [userB] }));
+        var docC = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userC] }, metadataManagerA.Initialize(new ConvergenceTestModel { Users = [userC] }));
 
-        var initialDoc = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), new CrdtMetadata());
-        var emptyMeta = new CrdtMetadata();
-
-        var patchA = patcherA.GeneratePatch(initialDoc, new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }, emptyMeta));
-        var patchB = patcherB.GeneratePatch(initialDoc, new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userB] }, emptyMeta));
-        var patchC = patcherC.GeneratePatch(initialDoc, new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userC] }, emptyMeta));
+        var patchA = patcherA.GeneratePatch(initialDoc, docA);
+        var patchB = patcherB.GeneratePatch(initialDoc, docB);
+        var patchC = patcherC.GeneratePatch(initialDoc, docC);
 
         var patches = new[] { patchA, patchB, patchC };
         var permutations = GetPermutations(patches, patches.Length);
@@ -283,11 +314,11 @@ public sealed class SortedSetStrategyTests
         foreach (var permutation in permutations)
         {
             var model = new ConvergenceTestModel();
-            var meta = new CrdtMetadata();
+            var meta = metadataManagerA.Initialize(model);
             var document = new CrdtDocument<ConvergenceTestModel>(model, meta);
             foreach (var patch in permutation)
             {
-                applicator.ApplyPatch(document, patch);
+                applicatorA.ApplyPatch(document, patch);
             }
             finalStates.Add(JsonSerializer.Serialize(model));
         }
@@ -311,26 +342,5 @@ public sealed class SortedSetStrategyTests
         return GetPermutations(enumerable, length - 1)
             .SelectMany(t => enumerable.Where(e => !t.Contains(e)),
                 (t1, t2) => t1.Concat(new T[] { t2 }));
-    }
-    
-    private (ICrdtPatcher patcher, ICrdtApplicator applicator) CreateCrdtServices(string replicaId)
-    {
-        var options = Options.Create(new CrdtOptions { ReplicaId = replicaId });
-        var timestampProvider = new EpochTimestampProvider();
-
-        var userComparer = new CaseInsensitiveStringComparer();
-        var comparerProvider = new ElementComparerProvider([userComparer]);
-
-        var lwwStrategy = new LwwStrategy(options);
-        var counterStrategy = new CounterStrategy(timestampProvider, options);
-        var arrayLcsStrategy = new SortedSetStrategy(comparerProvider, timestampProvider, options);
-        var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayLcsStrategy };
-        
-        var strategyManager = new CrdtStrategyProvider(strategies);
-        
-        var patcher = new CrdtPatcher(strategyManager);
-        var applicator = new CrdtApplicator(strategyManager);
-        
-        return (patcher, applicator);
     }
 }

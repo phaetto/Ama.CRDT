@@ -4,7 +4,6 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Microsoft.Extensions.Options;
 using Ama.CRDT.Services.Helpers;
 using System;
 using System.Collections;
@@ -23,25 +22,12 @@ using Ama.CRDT.Services.Providers;
 [Associative]
 [Idempotent]
 [SequentialOperations]
-public sealed class SortedSetStrategy : ICrdtStrategy
+public sealed class SortedSetStrategy(
+    IElementComparerProvider comparerProvider, 
+    ICrdtTimestampProvider timestampProvider, 
+    ReplicaContext replicaContext) : ICrdtStrategy
 {
-    private readonly IElementComparerProvider comparerProvider;
-    private readonly ICrdtTimestampProvider timestampProvider;
-    private readonly string replicaId;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="SortedSetStrategy"/> class.
-    /// </summary>
-    /// <param name="comparerProvider">The provider for resolving type-specific element comparers.</param>
-    /// <param name="timestampProvider">The provider for generating timestamps.</param>
-    /// <param name="options">Configuration options containing the replica ID.</param>
-    public SortedSetStrategy(IElementComparerProvider comparerProvider, ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options)
-    {
-        this.comparerProvider = comparerProvider ?? throw new ArgumentNullException(nameof(comparerProvider));
-        this.timestampProvider = timestampProvider ?? throw new ArgumentNullException(nameof(timestampProvider));
-        ArgumentNullException.ThrowIfNull(options?.Value);
-        replicaId = options.Value.ReplicaId;
-    }
+    private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <summary>
     /// Defines the type of difference operation in a Longest Common Subsequence (LCS) comparison.

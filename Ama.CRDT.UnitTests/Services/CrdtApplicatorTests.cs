@@ -2,17 +2,15 @@ namespace Ama.CRDT.UnitTests.Services;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Strategies;
-using Microsoft.Extensions.Options;
 using Ama.CRDT.Attributes;
 using Shouldly;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Xunit;
-using Ama.CRDT.Services.Providers;
+using Microsoft.Extensions.DependencyInjection;
+using Ama.CRDT.Extensions;
 
-public sealed class CrdtApplicatorTests
+public sealed class CrdtApplicatorTests : IDisposable
 {
     private sealed class TestModel
     {
@@ -23,18 +21,23 @@ public sealed class CrdtApplicatorTests
     }
 
     private readonly ICrdtApplicator applicator;
+    private readonly IServiceScope scope;
 
     public CrdtApplicatorTests()
     {
-        var options = Options.Create(new CrdtOptions { ReplicaId = Guid.NewGuid().ToString() });
-        var timestampProvider = new EpochTimestampProvider();
-        var lwwStrategy = new LwwStrategy(options);
-        var counterStrategy = new CounterStrategy(timestampProvider, options);
-        var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
-        var arrayLcsStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, options);
-        var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayLcsStrategy };
-        var strategyManager = new CrdtStrategyProvider(strategies);
-        applicator = new CrdtApplicator(strategyManager);
+        var services = new ServiceCollection();
+        services.AddCrdt();
+
+        var serviceProvider = services.BuildServiceProvider();
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        scope = scopeFactory.CreateScope(Guid.NewGuid().ToString());
+
+        applicator = scope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+    }
+
+    public void Dispose()
+    {
+        scope.Dispose();
     }
 
     [Fact]
@@ -67,7 +70,6 @@ public sealed class CrdtApplicatorTests
         var model = new TestModel { Name = "Initial" };
         var metadata = new CrdtMetadata();
         var document = new CrdtDocument<TestModel>(model, metadata);
-        var lwwStrategy = new LwwStrategy(Options.Create(new CrdtOptions { ReplicaId = "test" }));
         var opTimestamp = new EpochTimestamp(100);
         var existingTimestamp = new EpochTimestamp(200);
 

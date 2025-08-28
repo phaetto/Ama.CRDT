@@ -11,34 +11,40 @@ using Xunit;
 using System.Linq;
 using Microsoft.Extensions.Options;
 using Ama.CRDT.Services.Providers;
+using System;
+using Microsoft.Extensions.DependencyInjection;
+using Ama.CRDT.Extensions;
 
-public sealed class BoundedCounterStrategyTests
+public sealed class BoundedCounterStrategyTests : IDisposable
 {
     private sealed class TestModel
     {
         [CrdtBoundedCounterStrategy(0, 100)]
         public int Level { get; set; }
     }
-    
+
+    private readonly IServiceScope scopeA;
     private readonly BoundedCounterStrategy strategy;
-    private readonly CrdtApplicator applicator;
-    private readonly CrdtMetadataManager metadataManager;
+    private readonly ICrdtApplicator applicatorA;
+    private readonly ICrdtMetadataManager metadataManagerA;
 
     public BoundedCounterStrategyTests()
     {
-        var timestampProvider = new EpochTimestampProvider();
-        var optionsA = Options.Create(new CrdtOptions { ReplicaId = "A" });
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .BuildServiceProvider();
 
-        strategy = new BoundedCounterStrategy(timestampProvider, optionsA);
-        
-        var lwwStrategy = new LwwStrategy(optionsA);
-        var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
-        var arrayLcsStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, optionsA);
-        var strategies = new ICrdtStrategy[] { lwwStrategy, strategy, arrayLcsStrategy };
-        var strategyManager = new CrdtStrategyProvider(strategies);
-        
-        applicator = new CrdtApplicator(strategyManager);
-        metadataManager = new CrdtMetadataManager(strategyManager, timestampProvider, comparerProvider);
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        scopeA = scopeFactory.CreateScope("A");
+
+        strategy = scopeA.ServiceProvider.GetRequiredService<BoundedCounterStrategy>();
+        applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+    }
+
+    public void Dispose()
+    {
+        scopeA.Dispose();
     }
     
     [Fact]
@@ -93,7 +99,7 @@ public sealed class BoundedCounterStrategyTests
     {
         // Arrange
         var model = new TestModel { Level = 50 };
-        var meta = metadataManager.Initialize(model);
+        var meta = metadataManagerA.Initialize(model);
         var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
@@ -101,9 +107,9 @@ public sealed class BoundedCounterStrategyTests
         });
 
         // Act
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
         var scoreAfterFirst = model.Level;
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
 
         // Assert
         model.Level.ShouldBe(scoreAfterFirst);
@@ -115,7 +121,7 @@ public sealed class BoundedCounterStrategyTests
     {
         // Arrange
         var model = new TestModel { Level = 50 };
-        var meta = metadataManager.Initialize(model);
+        var meta = metadataManagerA.Initialize(model);
         var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
@@ -123,12 +129,12 @@ public sealed class BoundedCounterStrategyTests
         });
 
         // Act
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
         model.Level.ShouldBe(60);
 
         // Clear SeenExceptions to simulate re-application
         meta.SeenExceptions.Clear();
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
 
         // Assert
         // The increment is applied a second time, proving the strategy is not idempotent.
@@ -151,11 +157,11 @@ public sealed class BoundedCounterStrategyTests
         foreach (var p in permutations)
         {
             var model = new TestModel { Level = 50 };
-            var meta = metadataManager.Initialize(model);
+            var meta = metadataManagerA.Initialize(model);
             var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in p)
             {
-                applicator.ApplyPatch(document, patch);
+                applicatorA.ApplyPatch(document, patch);
             }
             finalScores.Add(model.Level);
         }

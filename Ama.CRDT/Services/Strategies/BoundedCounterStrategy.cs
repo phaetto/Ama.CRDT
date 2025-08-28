@@ -9,7 +9,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
-using Microsoft.Extensions.Options;
+using Ama.CRDT.Services;
 
 /// <summary>
 /// Implements a Bounded Counter strategy, where the counter's value is clamped within a defined min/max range.
@@ -21,11 +21,11 @@ using Microsoft.Extensions.Options;
 [CrdtSupportedType(typeof(long))]
 [Commutative]
 [Associative]
-[IdempotentShortTermImplementation]
+[IdempotentWithContinuousTime]
 [Mergeable]
-public sealed class BoundedCounterStrategy(ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options) : ICrdtStrategy
+public sealed class BoundedCounterStrategy(ICrdtTimestampProvider timestampProvider, ReplicaContext replicaContext) : ICrdtStrategy
 {
-    private readonly string replicaId = options.Value.ReplicaId;
+    private readonly string replicaId = replicaContext.ReplicaId;
 
     private readonly record struct UnboundedCounterValue(decimal Value) : ICrdtTimestamp
     {

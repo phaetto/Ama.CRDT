@@ -8,7 +8,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
-using Microsoft.Extensions.Options;
+using Ama.CRDT.Services;
 
 /// <summary>
 /// Implements the G-Counter (Grow-Only Counter) strategy. This counter only supports positive increments.
@@ -20,11 +20,11 @@ using Microsoft.Extensions.Options;
 [CrdtSupportedType(typeof(long))]
 [Commutative]
 [Associative]
-[IdempotentShortTermImplementation]
+[IdempotentWithContinuousTime]
 [Mergeable]
-public sealed class GCounterStrategy(ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options) : ICrdtStrategy
+public sealed class GCounterStrategy(ICrdtTimestampProvider timestampProvider, ReplicaContext replicaContext) : ICrdtStrategy
 {
-    private readonly string replicaId = options.Value.ReplicaId;
+    private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc/>
     public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)

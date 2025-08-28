@@ -1,10 +1,11 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
 using System;
@@ -22,20 +23,26 @@ public sealed class ExclusiveLockStrategyTests
         public string? LockedValue { get; set; }
     }
 
-    private readonly ExclusiveLockStrategy strategy;
+    private readonly IServiceProvider serviceProvider;
     private readonly Mock<ICrdtPatcher> mockPatcher = new();
     private readonly List<CrdtOperation> operations = new();
     private readonly string replicaId = "replica-1";
 
     public ExclusiveLockStrategyTests()
     {
-        strategy = new ExclusiveLockStrategy(Options.Create(new CrdtOptions { ReplicaId = replicaId }));
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        serviceProvider = services.BuildServiceProvider();
     }
 
     [Fact]
     public void GeneratePatch_WhenLockAcquiredAndValueChanged_ShouldGenerateUpsert()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var strategy = scope.ServiceProvider.GetRequiredService<ExclusiveLockStrategy>();
+
         var original = new TestModel { UserId = null, LockedValue = "A" };
         var modified = new TestModel { UserId = "user1", LockedValue = "B" };
         var originalMeta = new CrdtMetadata { Lww = { ["$.lockedValue"] = new EpochTimestamp(100L) } };
@@ -60,6 +67,10 @@ public sealed class ExclusiveLockStrategyTests
     public void GeneratePatch_WhenLockIsHeldByOther_ShouldNotGeneratePatch()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var strategy = scope.ServiceProvider.GetRequiredService<ExclusiveLockStrategy>();
+
         var original = new TestModel { UserId = "user1", LockedValue = "A" };
         var modified = new TestModel { UserId = "user2", LockedValue = "B" };
         var originalMeta = new CrdtMetadata
@@ -81,6 +92,10 @@ public sealed class ExclusiveLockStrategyTests
     public void ApplyOperation_WithNewerTimestamp_ShouldApplyChangeAndLock()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var strategy = scope.ServiceProvider.GetRequiredService<ExclusiveLockStrategy>();
+
         var model = new TestModel { LockedValue = "A" };
         var metadata = new CrdtMetadata
         {
@@ -104,6 +119,10 @@ public sealed class ExclusiveLockStrategyTests
     public void ApplyOperation_IsIdempotent()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var strategy = scope.ServiceProvider.GetRequiredService<ExclusiveLockStrategy>();
+
         var model = new TestModel { LockedValue = "A" };
         var metadata = new CrdtMetadata();
         var payload = new ExclusiveLockPayload("B", "user1");
@@ -125,6 +144,10 @@ public sealed class ExclusiveLockStrategyTests
     public void ApplyOperation_IsCommutative()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var strategy = scope.ServiceProvider.GetRequiredService<ExclusiveLockStrategy>();
+
         var payload1 = new ExclusiveLockPayload("B", "user1");
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.lockedValue", OperationType.Upsert, payload1, new EpochTimestamp(200L));
 
@@ -154,6 +177,10 @@ public sealed class ExclusiveLockStrategyTests
     public void ApplyOperation_IsAssociative()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var strategy = scope.ServiceProvider.GetRequiredService<ExclusiveLockStrategy>();
+
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.lockedValue", OperationType.Upsert, new ExclusiveLockPayload("B", "user1"), new EpochTimestamp(200L));
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.lockedValue", OperationType.Upsert, new ExclusiveLockPayload("C", "user2"), new EpochTimestamp(300L));
         var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.lockedValue", OperationType.Upsert, new ExclusiveLockPayload("D", "user3"), new EpochTimestamp(150L));

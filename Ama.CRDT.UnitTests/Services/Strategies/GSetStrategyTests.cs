@@ -1,17 +1,18 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-public sealed class GSetStrategyTests
+public sealed class GSetStrategyTests : IDisposable
 {
     private sealed class TestModel
     {
@@ -19,39 +20,44 @@ public sealed class GSetStrategyTests
         public List<string> Tags { get; set; } = new();
     }
 
-    private readonly CrdtPatcher patcherA;
-    private readonly CrdtPatcher patcherB;
-    private readonly CrdtApplicator applicator;
-    private readonly CrdtMetadataManager metadataManager;
+    private readonly IServiceScope scopeA;
+    private readonly IServiceScope scopeB;
+    private readonly ICrdtPatcher patcherA;
+    private readonly ICrdtPatcher patcherB;
+    private readonly ICrdtApplicator applicatorA;
+    private readonly ICrdtMetadataManager metadataManagerA;
 
     public GSetStrategyTests()
     {
-        var timestampProvider = new EpochTimestampProvider();
-        var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
-        
-        var optionsA = Options.Create(new CrdtOptions { ReplicaId = "A" });
-        var optionsB = Options.Create(new CrdtOptions { ReplicaId = "B" });
-        
-        var strategiesA = new ICrdtStrategy[] { new LwwStrategy(optionsA), new GSetStrategy(comparerProvider, timestampProvider, optionsA) };
-        var strategyManagerA = new CrdtStrategyProvider(strategiesA);
-        patcherA = new CrdtPatcher(strategyManagerA);
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .BuildServiceProvider();
 
-        var strategiesB = new ICrdtStrategy[] { new LwwStrategy(optionsB), new GSetStrategy(comparerProvider, timestampProvider, optionsB) };
-        var strategyManagerB = new CrdtStrategyProvider(strategiesB);
-        patcherB = new CrdtPatcher(strategyManagerB);
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
 
-        applicator = new CrdtApplicator(strategyManagerA);
-        metadataManager = new CrdtMetadataManager(strategyManagerA, timestampProvider, comparerProvider);
+        scopeA = scopeFactory.CreateScope("A");
+        scopeB = scopeFactory.CreateScope("B");
+
+        patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
     }
-    
+
+    public void Dispose()
+    {
+        scopeA.Dispose();
+        scopeB.Dispose();
+    }
+
     [Fact]
     public void GeneratePatch_ShouldCreateUpsertForAddedItem()
     {
         // Arrange
         var doc1 = new TestModel { Tags = { "A" } };
-        var meta1 = metadataManager.Initialize(doc1);
+        var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Tags = { "A", "B" } };
-        var meta2 = metadataManager.Initialize(doc2);
+        var meta2 = metadataManagerA.Initialize(doc2);
         
         // Act
         var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), new CrdtDocument<TestModel>(doc2, meta2));
@@ -69,9 +75,9 @@ public sealed class GSetStrategyTests
     {
         // Arrange
         var doc1 = new TestModel { Tags = { "A", "B" } };
-        var meta1 = metadataManager.Initialize(doc1);
+        var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Tags = { "A" } };
-        var meta2 = metadataManager.Initialize(doc2);
+        var meta2 = metadataManagerA.Initialize(doc2);
         
         // Act
         var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), new CrdtDocument<TestModel>(doc2, meta2));
@@ -85,21 +91,21 @@ public sealed class GSetStrategyTests
     {
         // Arrange
         var doc1 = new TestModel { Tags = { "A" } };
-        var meta1 = metadataManager.Initialize(doc1);
+        var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Tags = { "A", "B" } };
         var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), new CrdtDocument<TestModel>(doc2, meta1));
 
         var target = new TestModel { Tags = { "A" } };
-        var targetMeta = metadataManager.Initialize(target);
+        var targetMeta = metadataManagerA.Initialize(target);
         var targetDocument = new CrdtDocument<TestModel>(target, targetMeta);
         
         // Act
-        applicator.ApplyPatch(targetDocument, patch);
+        applicatorA.ApplyPatch(targetDocument, patch);
         var stateAfterFirst = new List<string>(target.Tags);
         
         // Clear SeenExceptions to prove the strategy logic itself is idempotent
         targetMeta.SeenExceptions.Clear();
-        applicator.ApplyPatch(targetDocument, patch);
+        applicatorA.ApplyPatch(targetDocument, patch);
         
         // Assert
         target.Tags.ShouldBe(stateAfterFirst);
@@ -111,13 +117,13 @@ public sealed class GSetStrategyTests
     {
         // Arrange
         var doc = new TestModel { Tags = { "A", "B" } };
-        var meta = metadataManager.Initialize(doc);
+        var meta = metadataManagerA.Initialize(doc);
         var document = new CrdtDocument<TestModel>(doc, meta);
         var removeOp = new CrdtOperation(System.Guid.NewGuid(), "A", "$.tags", OperationType.Remove, "A", new EpochTimestamp(1));
         var patch = new CrdtPatch(new List<CrdtOperation> { removeOp });
 
         // Act
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
 
         // Assert
         doc.Tags.ShouldBe(new[] { "A", "B" });
@@ -128,7 +134,7 @@ public sealed class GSetStrategyTests
     {
         // Arrange
         var ancestor = new TestModel { Tags = { "A" } };
-        var metaAncestor = metadataManager.Initialize(ancestor);
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
 
         var patchA = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
@@ -140,17 +146,17 @@ public sealed class GSetStrategyTests
         
         // Scenario 1: A then B
         var model1 = new TestModel { Tags = new List<string>(ancestor.Tags) };
-        var meta1 = metadataManager.Initialize(model1);
+        var meta1 = metadataManagerA.Initialize(model1);
         var doc1 = new CrdtDocument<TestModel>(model1, meta1);
-        applicator.ApplyPatch(doc1, patchA);
-        applicator.ApplyPatch(doc1, patchB);
+        applicatorA.ApplyPatch(doc1, patchA);
+        applicatorA.ApplyPatch(doc1, patchB);
 
         // Scenario 2: B then A
         var model2 = new TestModel { Tags = new List<string>(ancestor.Tags) };
-        var meta2 = metadataManager.Initialize(model2);
+        var meta2 = metadataManagerA.Initialize(model2);
         var doc2 = new CrdtDocument<TestModel>(model2, meta2);
-        applicator.ApplyPatch(doc2, patchB);
-        applicator.ApplyPatch(doc2, patchA);
+        applicatorA.ApplyPatch(doc2, patchB);
+        applicatorA.ApplyPatch(doc2, patchA);
 
         // Assert
         var expected = new[] { "A", "B", "C" };
@@ -163,7 +169,7 @@ public sealed class GSetStrategyTests
     {
         // Arrange
         var ancestor = new TestModel { Tags = { "A" } };
-        var metaAncestor = metadataManager.Initialize(ancestor);
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
         
         var patcherC = patcherB; // Doesn't matter for this test
 
@@ -187,11 +193,11 @@ public sealed class GSetStrategyTests
         foreach (var permutation in permutations)
         {
             var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
-            var meta = metadataManager.Initialize(model);
+            var meta = metadataManagerA.Initialize(model);
             var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in permutation)
             {
-                applicator.ApplyPatch(document, patch);
+                applicatorA.ApplyPatch(document, patch);
             }
             finalStates.Add(model.Tags);
         }

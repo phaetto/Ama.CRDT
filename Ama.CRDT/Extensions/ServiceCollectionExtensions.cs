@@ -19,11 +19,11 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Adds the core CRDT services to the specified <see cref="IServiceCollection"/>. This includes all default CRDT strategies
-    /// (e.g., LWW, Counter, ArrayLcs), the <see cref="ICrdtPatcherFactory"/> for creating replica-specific patchers,
+    /// (e.g., LWW, Counter, ArrayLcs), the <see cref="ICrdtScopeFactory"/> for creating replica-specific service scopes,
     /// the <see cref="ICrdtApplicator"/> for applying patches, and other essential supporting services.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection"/> to add services to.</param>
-    /// <param name="configureOptions">An action to configure the <see cref="CrdtOptions"/>. This is primarily used to set a default <c>ReplicaId</c> for services that might be resolved without a factory, although using the <see cref="ICrdtPatcherFactory"/> is the recommended approach in multi-replica environments.</param>
+    /// <param name="configureOptions">An action to configure global <see cref="CrdtOptions"/>. Note that the <c>ReplicaId</c> is managed per-scope and should not be set here.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="configureOptions"/> is null.</exception>
     /// <example>
@@ -33,80 +33,83 @@ public static class ServiceCollectionExtensions
     /// 
     /// builder.Services.AddCrdt(options =>
     /// {
-    ///     // This replica ID is used for the default singleton ICrdtPatcher.
-    ///     options.ReplicaId = "server-node-1";
+    ///     // Configure global options here if needed in the future.
     /// });
     ///
     /// var app = builder.Build();
     ///
-    /// // The recommended way to get a patcher is through the factory,
-    /// // especially in a multi-user or multi-node environment.
-    /// var patcherFactory = app.Services.GetRequiredService<ICrdtPatcherFactory>();
-    /// var userPatcher = patcherFactory.Create("user-session-abc");
+    /// // The recommended way to get a patcher is through the scope factory.
+    /// var scopeFactory = app.Services.GetRequiredService<ICrdtScopeFactory>();
+    /// using(var userScope = scopeFactory.CreateScope("user-session-abc"))
+    /// {
+    ///     var userPatcher = userScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+    /// }
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdt(this IServiceCollection services, [DisallowNull] Action<CrdtOptions> configureOptions)
+    public static IServiceCollection AddCrdt(this IServiceCollection services, Action<CrdtOptions>? configureOptions = null)
     {
-        ArgumentNullException.ThrowIfNull(configureOptions);
-        
-        services.AddOptions<CrdtOptions>()
-            .Configure(configureOptions)
-            .Validate(options => !string.IsNullOrWhiteSpace(options.ReplicaId), "CrdtOptions.ReplicaId cannot be null or empty.");
+        if (configureOptions is not null)
+        {
+            services.Configure(configureOptions);
+        }
 
-        services.TryAddSingleton<ICrdtPatcherFactory, CrdtPatcherFactory>();
-
-        services.TryAddSingleton<ICrdtApplicator, CrdtApplicator>();
-        services.TryAddSingleton<ICrdtPatcher, CrdtPatcher>();
-
-        services.TryAddSingleton<ICrdtMetadataManager, CrdtMetadataManager>();
-        services.TryAddSingleton<ICrdtStrategyProvider, CrdtStrategyProvider>();
+        // Singleton services that are stateless and shared across all replicas
+        services.TryAddSingleton<ICrdtScopeFactory, CrdtScopeFactory>();
         services.TryAddSingleton<IElementComparerProvider, ElementComparerProvider>();
         services.TryAddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>();
-        
-        services.TryAddSingleton<LwwStrategy>();
-        services.TryAddSingleton<CounterStrategy>();
-        services.TryAddSingleton<SortedSetStrategy>();
-        services.TryAddSingleton<ArrayLcsStrategy>();
-        services.TryAddSingleton<GCounterStrategy>();
-        services.TryAddSingleton<BoundedCounterStrategy>();
-        services.TryAddSingleton<MaxWinsStrategy>();
-        services.TryAddSingleton<MinWinsStrategy>();
-        services.TryAddSingleton<AverageRegisterStrategy>();
-        services.TryAddSingleton<GSetStrategy>();
-        services.TryAddSingleton<TwoPhaseSetStrategy>();
-        services.TryAddSingleton<LwwSetStrategy>();
-        services.TryAddSingleton<OrSetStrategy>();
-        services.TryAddSingleton<PriorityQueueStrategy>();
-        services.TryAddSingleton<FixedSizeArrayStrategy>();
-        services.TryAddSingleton<LseqStrategy>();
-        services.TryAddSingleton<VoteCounterStrategy>();
-        services.TryAddSingleton<StateMachineStrategy>();
-        services.TryAddSingleton<ExclusiveLockStrategy>();
-        services.TryAddSingleton<LwwMapStrategy>();
-        services.TryAddSingleton<OrMapStrategy>();
+        services.TryAddSingleton<ICrdtMetadataManager, CrdtMetadataManager>();
 
-        services.AddSingleton<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
-        services.AddSingleton<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
-        services.AddSingleton<ICrdtStrategy, SortedSetStrategy>(sp => sp.GetRequiredService<SortedSetStrategy>());
-        services.AddSingleton<ICrdtStrategy, ArrayLcsStrategy>(sp => sp.GetRequiredService<ArrayLcsStrategy>());
-        services.AddSingleton<ICrdtStrategy, GCounterStrategy>(sp => sp.GetRequiredService<GCounterStrategy>());
-        services.AddSingleton<ICrdtStrategy, BoundedCounterStrategy>(sp => sp.GetRequiredService<BoundedCounterStrategy>());
-        services.AddSingleton<ICrdtStrategy, MaxWinsStrategy>(sp => sp.GetRequiredService<MaxWinsStrategy>());
-        services.AddSingleton<ICrdtStrategy, MinWinsStrategy>(sp => sp.GetRequiredService<MinWinsStrategy>());
-        services.AddSingleton<ICrdtStrategy, AverageRegisterStrategy>(sp => sp.GetRequiredService<AverageRegisterStrategy>());
-        services.AddSingleton<ICrdtStrategy, GSetStrategy>(sp => sp.GetRequiredService<GSetStrategy>());
-        services.AddSingleton<ICrdtStrategy, TwoPhaseSetStrategy>(sp => sp.GetRequiredService<TwoPhaseSetStrategy>());
-        services.AddSingleton<ICrdtStrategy, LwwSetStrategy>(sp => sp.GetRequiredService<LwwSetStrategy>());
-        services.AddSingleton<ICrdtStrategy, OrSetStrategy>(sp => sp.GetRequiredService<OrSetStrategy>());
-        services.AddSingleton<ICrdtStrategy, PriorityQueueStrategy>(sp => sp.GetRequiredService<PriorityQueueStrategy>());
-        services.AddSingleton<ICrdtStrategy, FixedSizeArrayStrategy>(sp => sp.GetRequiredService<FixedSizeArrayStrategy>());
-        services.AddSingleton<ICrdtStrategy, LseqStrategy>(sp => sp.GetRequiredService<LseqStrategy>());
-        services.AddSingleton<ICrdtStrategy, VoteCounterStrategy>(sp => sp.GetRequiredService<VoteCounterStrategy>());
-        services.AddSingleton<ICrdtStrategy, StateMachineStrategy>(sp => sp.GetRequiredService<StateMachineStrategy>());
-        services.AddSingleton<ICrdtStrategy, ExclusiveLockStrategy>(sp => sp.GetRequiredService<ExclusiveLockStrategy>());
-        services.AddSingleton<ICrdtStrategy, LwwMapStrategy>(sp => sp.GetRequiredService<LwwMapStrategy>());
-        services.AddSingleton<ICrdtStrategy, OrMapStrategy>(sp => sp.GetRequiredService<OrMapStrategy>());
+        // Scoped services that hold state or depend on the replicaId
+        services.AddScoped<ReplicaContext>();
+        services.TryAddScoped<ICrdtApplicator, CrdtApplicator>();
+        services.TryAddScoped<ICrdtPatcher, CrdtPatcher>();
+        services.TryAddScoped<ICrdtStrategyProvider, CrdtStrategyProvider>();
+
+        // Register all strategies with a scoped lifetime
+        services.TryAddScoped<LwwStrategy>();
+        services.TryAddScoped<CounterStrategy>();
+        services.TryAddScoped<SortedSetStrategy>();
+        services.TryAddScoped<ArrayLcsStrategy>();
+        services.TryAddScoped<GCounterStrategy>();
+        services.TryAddScoped<BoundedCounterStrategy>();
+        services.TryAddScoped<MaxWinsStrategy>();
+        services.TryAddScoped<MinWinsStrategy>();
+        services.TryAddScoped<AverageRegisterStrategy>();
+        services.TryAddScoped<GSetStrategy>();
+        services.TryAddScoped<TwoPhaseSetStrategy>();
+        services.TryAddScoped<LwwSetStrategy>();
+        services.TryAddScoped<OrSetStrategy>();
+        services.TryAddScoped<PriorityQueueStrategy>();
+        services.TryAddScoped<FixedSizeArrayStrategy>();
+        services.TryAddScoped<LseqStrategy>();
+        services.TryAddScoped<VoteCounterStrategy>();
+        services.TryAddScoped<StateMachineStrategy>();
+        services.TryAddScoped<ExclusiveLockStrategy>();
+        services.TryAddScoped<LwwMapStrategy>();
+        services.TryAddScoped<OrMapStrategy>();
+
+        services.AddScoped<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
+        services.AddScoped<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
+        services.AddScoped<ICrdtStrategy, SortedSetStrategy>(sp => sp.GetRequiredService<SortedSetStrategy>());
+        services.AddScoped<ICrdtStrategy, ArrayLcsStrategy>(sp => sp.GetRequiredService<ArrayLcsStrategy>());
+        services.AddScoped<ICrdtStrategy, GCounterStrategy>(sp => sp.GetRequiredService<GCounterStrategy>());
+        services.AddScoped<ICrdtStrategy, BoundedCounterStrategy>(sp => sp.GetRequiredService<BoundedCounterStrategy>());
+        services.AddScoped<ICrdtStrategy, MaxWinsStrategy>(sp => sp.GetRequiredService<MaxWinsStrategy>());
+        services.AddScoped<ICrdtStrategy, MinWinsStrategy>(sp => sp.GetRequiredService<MinWinsStrategy>());
+        services.AddScoped<ICrdtStrategy, AverageRegisterStrategy>(sp => sp.GetRequiredService<AverageRegisterStrategy>());
+        services.AddScoped<ICrdtStrategy, GSetStrategy>(sp => sp.GetRequiredService<GSetStrategy>());
+        services.AddScoped<ICrdtStrategy, TwoPhaseSetStrategy>(sp => sp.GetRequiredService<TwoPhaseSetStrategy>());
+        services.AddScoped<ICrdtStrategy, LwwSetStrategy>(sp => sp.GetRequiredService<LwwSetStrategy>());
+        services.AddScoped<ICrdtStrategy, OrSetStrategy>(sp => sp.GetRequiredService<OrSetStrategy>());
+        services.AddScoped<ICrdtStrategy, PriorityQueueStrategy>(sp => sp.GetRequiredService<PriorityQueueStrategy>());
+        services.AddScoped<ICrdtStrategy, FixedSizeArrayStrategy>(sp => sp.GetRequiredService<FixedSizeArrayStrategy>());
+        services.AddScoped<ICrdtStrategy, LseqStrategy>(sp => sp.GetRequiredService<LseqStrategy>());
+        services.AddScoped<ICrdtStrategy, VoteCounterStrategy>(sp => sp.GetRequiredService<VoteCounterStrategy>());
+        services.AddScoped<ICrdtStrategy, StateMachineStrategy>(sp => sp.GetRequiredService<StateMachineStrategy>());
+        services.AddScoped<ICrdtStrategy, ExclusiveLockStrategy>(sp => sp.GetRequiredService<ExclusiveLockStrategy>());
+        services.AddScoped<ICrdtStrategy, LwwMapStrategy>(sp => sp.GetRequiredService<LwwMapStrategy>());
+        services.AddScoped<ICrdtStrategy, OrMapStrategy>(sp => sp.GetRequiredService<OrMapStrategy>());
 
         return services;
     }

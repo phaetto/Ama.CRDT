@@ -230,7 +230,7 @@ public sealed class CrdtMetadataManagerTests
         var model = new TestLockModel { UserId = "user1", LockedValue = "abc" };
         var property = typeof(TestLockModel).GetProperty(nameof(TestLockModel.LockedValue))!;
         strategyManagerMock.Setup(m => m.GetStrategy(It.Is<PropertyInfo>(p => p.Name == nameof(TestLockModel.LockedValue))))
-                           .Returns(new ExclusiveLockStrategy(Options.Create(new CrdtOptions { ReplicaId = "test" })));
+                           .Returns(new ExclusiveLockStrategy(new ReplicaContext { ReplicaId = "test" }));
         
         // Act
         var metadata = manager.Initialize(model, new EpochTimestamp(100));

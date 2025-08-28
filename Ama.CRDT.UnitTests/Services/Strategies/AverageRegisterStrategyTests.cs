@@ -1,12 +1,14 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
@@ -15,13 +17,17 @@ public sealed class AverageRegisterStrategyTests
 {
     private sealed class TestModel { public decimal Rating { get; set; } }
 
-    private readonly AverageRegisterStrategy strategy;
+    private readonly IServiceProvider serviceProvider;
     private readonly Mock<ICrdtTimestampProvider> mockTimestampProvider = new();
     private const string Path = "$.rating";
 
     public AverageRegisterStrategyTests()
     {
-        strategy = new AverageRegisterStrategy(Options.Create(new CrdtOptions { ReplicaId = "r1" }), mockTimestampProvider.Object);
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        services.AddSingleton(mockTimestampProvider.Object);
+
+        serviceProvider = services.BuildServiceProvider();
         mockTimestampProvider.Setup(p => p.Now()).Returns(new EpochTimestamp(1L));
     }
     
@@ -29,6 +35,10 @@ public sealed class AverageRegisterStrategyTests
     public void GeneratePatch_ShouldCreateUpsert_WhenValueChanges()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("r1");
+        var strategy = scope.ServiceProvider.GetRequiredService<AverageRegisterStrategy>();
+
         var operations = new List<CrdtOperation>();
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Rating))!;
         
@@ -45,6 +55,10 @@ public sealed class AverageRegisterStrategyTests
     public void ApplyOperation_ShouldCalculateCorrectAverage()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("r1");
+        var strategy = scope.ServiceProvider.GetRequiredService<AverageRegisterStrategy>();
+
         var model = new TestModel();
         var metadata = new CrdtMetadata();
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, new EpochTimestamp(1L));
@@ -62,6 +76,10 @@ public sealed class AverageRegisterStrategyTests
     public void ApplyOperation_ShouldBeIdempotent()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("r1");
+        var strategy = scope.ServiceProvider.GetRequiredService<AverageRegisterStrategy>();
+
         var model = new TestModel();
         var metadata = new CrdtMetadata();
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, new EpochTimestamp(1L));
@@ -81,6 +99,10 @@ public sealed class AverageRegisterStrategyTests
     public void ApplyOperation_ShouldBeCommutative()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("r1");
+        var strategy = scope.ServiceProvider.GetRequiredService<AverageRegisterStrategy>();
+
         var model1 = new TestModel();
         var metadata1 = new CrdtMetadata();
         var model2 = new TestModel();
@@ -106,6 +128,10 @@ public sealed class AverageRegisterStrategyTests
     public void ApplyOperation_ShouldBeAssociative()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("r1");
+        var strategy = scope.ServiceProvider.GetRequiredService<AverageRegisterStrategy>();
+
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, new EpochTimestamp(1L));
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", Path, OperationType.Upsert, 10m, new EpochTimestamp(2L));
         var op3 = new CrdtOperation(Guid.NewGuid(), "r3", Path, OperationType.Upsert, 15m, new EpochTimestamp(3L));
@@ -136,6 +162,10 @@ public sealed class AverageRegisterStrategyTests
     public void ApplyOperation_ShouldUseLastWriteWins_ForSameReplica()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("r1");
+        var strategy = scope.ServiceProvider.GetRequiredService<AverageRegisterStrategy>();
+
         var model = new TestModel();
         var metadata = new CrdtMetadata();
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 5m, new EpochTimestamp(1L));

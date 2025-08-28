@@ -1,11 +1,12 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -14,7 +15,7 @@ using System.Linq;
 using System.Threading;
 using Xunit;
 
-public sealed class PriorityQueueStrategyTests
+public sealed class PriorityQueueStrategyTests : IDisposable
 {
     private sealed class Item(string id, int priority)
     {
@@ -39,34 +40,34 @@ public sealed class PriorityQueueStrategyTests
         public List<Item> Items { get; set; } = new();
     }
 
-    private readonly CrdtPatcher patcherA;
-    private readonly CrdtPatcher patcherB;
-    private readonly CrdtApplicator applicator;
-    private readonly CrdtMetadataManager metadataManager;
+    private readonly IServiceScope scopeA;
+    private readonly IServiceScope scopeB;
+    private readonly ICrdtPatcher patcherA;
+    private readonly ICrdtPatcher patcherB;
+    private readonly ICrdtApplicator applicatorA;
+    private readonly ICrdtMetadataManager metadataManagerA;
 
     public PriorityQueueStrategyTests()
     {
-        var timestampProvider = new EpochTimestampProvider();
-        var comparerProvider = new ElementComparerProvider([new ItemComparer()]);
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .AddCrdtComparer<ItemComparer>()
+            .BuildServiceProvider();
+
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        scopeA = scopeFactory.CreateScope("A");
+        scopeB = scopeFactory.CreateScope("B");
         
-        var optionsA = Options.Create(new CrdtOptions { ReplicaId = "A" });
-        var optionsB = Options.Create(new CrdtOptions { ReplicaId = "B" });
+        patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+    }
 
-        var lwwStrategy = new LwwStrategy(optionsA);
-        var priorityQueueStrategyA = new PriorityQueueStrategy(comparerProvider, timestampProvider, optionsA);
-        var strategiesA = new ICrdtStrategy[] { lwwStrategy, priorityQueueStrategyA };
-        var strategyManagerA = new CrdtStrategyProvider(strategiesA);
-        patcherA = new CrdtPatcher(strategyManagerA);
-
-        var lwwStrategyB = new LwwStrategy(optionsB);
-        var priorityQueueStrategyB = new PriorityQueueStrategy(comparerProvider, timestampProvider, optionsB);
-        var strategiesB = new ICrdtStrategy[] { lwwStrategyB, priorityQueueStrategyB };
-        var strategyManagerB = new CrdtStrategyProvider(strategiesB);
-        patcherB = new CrdtPatcher(strategyManagerB);
-
-        var strategyManagerApplicator = new CrdtStrategyProvider(strategiesA);
-        applicator = new CrdtApplicator(strategyManagerApplicator);
-        metadataManager = new CrdtMetadataManager(strategyManagerA, timestampProvider, comparerProvider);
+    public void Dispose()
+    {
+        scopeA.Dispose();
+        scopeB.Dispose();
     }
     
     [Fact]
@@ -74,16 +75,16 @@ public sealed class PriorityQueueStrategyTests
     {
         // Arrange
         var model = new TestModel { Items = [new("A", 10), new("C", 30)] };
-        var meta = metadataManager.Initialize(model);
+        var meta = metadataManagerA.Initialize(model);
         var document = new CrdtDocument<TestModel>(model, meta);
-        var modifiedMeta = metadataManager.Initialize(model);
+        var modifiedMeta = metadataManagerA.Initialize(model);
 
         var patch = patcherA.GeneratePatch(
             document,
             new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 20), new("C", 30)] }, modifiedMeta));
 
         // Act
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
 
         // Assert
         model.Items.Select(i => i.Id).ShouldBe(new[] { "A", "B", "C" });
@@ -95,20 +96,20 @@ public sealed class PriorityQueueStrategyTests
     {
         // Arrange
         var model = new TestModel { Items = [new("A", 10)] };
-        var meta = metadataManager.Initialize(model);
+        var meta = metadataManagerA.Initialize(model);
         var document = new CrdtDocument<TestModel>(model, meta);
         
         var patch = patcherA.GeneratePatch(
             document,
-            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 5)] }, metadataManager.Initialize(model)));
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 5)] }, metadataManagerA.Initialize(model)));
         
         // Act
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
         var stateAfterFirst = model.Items.Select(i => i.Id).ToList();
         
         // Clear seen exceptions to test the strategy's own idempotency based on timestamps
         meta.SeenExceptions.Clear();
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
 
         // Assert
         model.Items.Select(i => i.Id).ShouldBe(stateAfterFirst);
@@ -120,30 +121,30 @@ public sealed class PriorityQueueStrategyTests
     {
         // Arrange
         var ancestor = new TestModel { Items = [new("A", 10)] };
-        var metaAncestor = metadataManager.Initialize(ancestor);
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
         var ancestorDocument = new CrdtDocument<TestModel>(ancestor, metaAncestor);
         
         var patchB = patcherA.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 20)] }, metadataManager.Initialize(ancestor)));
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 20)] }, metadataManagerA.Initialize(ancestor)));
         
         var patchC = patcherB.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("C", 5)] }, metadataManager.Initialize(ancestor)));
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("C", 5)] }, metadataManagerA.Initialize(ancestor)));
         
         // Scenario 1: B then C
         var model1 = new TestModel { Items = [..ancestor.Items] };
-        var meta1 = metadataManager.Initialize(model1);
+        var meta1 = metadataManagerA.Initialize(model1);
         var doc1 = new CrdtDocument<TestModel>(model1, meta1);
-        applicator.ApplyPatch(doc1, patchB);
-        applicator.ApplyPatch(doc1, patchC);
+        applicatorA.ApplyPatch(doc1, patchB);
+        applicatorA.ApplyPatch(doc1, patchC);
 
         // Scenario 2: C then B
         var model2 = new TestModel { Items = [..ancestor.Items] };
-        var meta2 = metadataManager.Initialize(model2);
+        var meta2 = metadataManagerA.Initialize(model2);
         var doc2 = new CrdtDocument<TestModel>(model2, meta2);
-        applicator.ApplyPatch(doc2, patchC);
-        applicator.ApplyPatch(doc2, patchB);
+        applicatorA.ApplyPatch(doc2, patchC);
+        applicatorA.ApplyPatch(doc2, patchB);
         
         // Assert
         var expectedOrder = new[] { "C", "A", "B" };
@@ -156,22 +157,22 @@ public sealed class PriorityQueueStrategyTests
     {
         // Arrange
         var ancestor = new TestModel { Items = [new("A", 10)] };
-        var metaAncestor = metadataManager.Initialize(ancestor);
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
         var ancestorDocument = new CrdtDocument<TestModel>(ancestor, metaAncestor);
         
         var patcherC = patcherB; // ReplicaId is what matters
 
         var patch1 = patcherA.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 20)] }, metadataManager.Initialize(ancestor)));
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 20)] }, metadataManagerA.Initialize(ancestor)));
         
         var patch2 = patcherB.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("C", 5)] }, metadataManager.Initialize(ancestor)));
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("C", 5)] }, metadataManagerA.Initialize(ancestor)));
 
         var patch3 = patcherC.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("D", 15)] }, metadataManager.Initialize(ancestor)));
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("D", 15)] }, metadataManagerA.Initialize(ancestor)));
 
         var patches = new[] { patch1, patch2, patch3 };
         var permutations = GetPermutations(patches, patches.Length);
@@ -181,11 +182,11 @@ public sealed class PriorityQueueStrategyTests
         foreach (var permutation in permutations)
         {
             var model = new TestModel { Items = [..ancestor.Items] };
-            var meta = metadataManager.Initialize(model);
+            var meta = metadataManagerA.Initialize(model);
             var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in permutation)
             {
-                applicator.ApplyPatch(document, patch);
+                applicatorA.ApplyPatch(document, patch);
             }
             finalStates.Add(model.Items.Select(i => i.Id).ToList());
         }
@@ -206,19 +207,19 @@ public sealed class PriorityQueueStrategyTests
     {
         // Arrange
         var ancestor = new TestModel { Items = [new("A", 10), new("B", 20)] };
-        var metaAncestor = metadataManager.Initialize(ancestor);
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
         var ancestorDocument = new CrdtDocument<TestModel>(ancestor, metaAncestor);
         
         // Replica A changes priority of B to 5
         var patchA = patcherA.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 5)] }, metadataManager.Initialize(ancestor)));
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 5)] }, metadataManagerA.Initialize(ancestor)));
 
         // Replica B changes priority of B to 30 (later)
         Thread.Sleep(5);
         var patchB = patcherB.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 30)] }, metadataManager.Initialize(ancestor)));
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 10), new("B", 30)] }, metadataManagerA.Initialize(ancestor)));
 
         patchA.Operations.ShouldHaveSingleItem();
         patchB.Operations.ShouldHaveSingleItem();
@@ -228,10 +229,10 @@ public sealed class PriorityQueueStrategyTests
         
         // Act
         var model = new TestModel { Items = [..ancestor.Items] };
-        var meta = metadataManager.Clone(metaAncestor);
+        var meta = metadataManagerA.Initialize(new TestModel { Items = [..ancestor.Items] });
         var document = new CrdtDocument<TestModel>(model, meta);
-        applicator.ApplyPatch(document, patchA);
-        applicator.ApplyPatch(document, patchB);
+        applicatorA.ApplyPatch(document, patchA);
+        applicatorA.ApplyPatch(document, patchB);
 
         // Assert
         opB.Timestamp.CompareTo(opA.Timestamp).ShouldBeGreaterThan(0);
@@ -244,19 +245,19 @@ public sealed class PriorityQueueStrategyTests
     {
         // Arrange
         var ancestor = new TestModel { Items = [new("A", 10)] };
-        var metaAncestor = metadataManager.Initialize(ancestor);
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
         var ancestorDocument = new CrdtDocument<TestModel>(ancestor, metaAncestor);
 
         // Replica A removes A
         var patchRemove = patcherA.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Items = [] }, metadataManager.Initialize(ancestor)));
+            new CrdtDocument<TestModel>(new TestModel { Items = [] }, metadataManagerA.Initialize(ancestor)));
 
         // Replica B re-adds A with a new priority (later)
         Thread.Sleep(5);
         var patchAdd = patcherB.GeneratePatch(
             ancestorDocument,
-            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 5)] }, metadataManager.Initialize(ancestor)));
+            new CrdtDocument<TestModel>(new TestModel { Items = [new("A", 5)] }, metadataManagerA.Initialize(ancestor)));
         
         patchRemove.Operations.ShouldHaveSingleItem();
         patchAdd.Operations.ShouldHaveSingleItem();
@@ -269,8 +270,8 @@ public sealed class PriorityQueueStrategyTests
         // Act
         var model = new TestModel { Items = [..ancestor.Items] };
         var document = new CrdtDocument<TestModel>(model, metaAncestor);
-        applicator.ApplyPatch(document, patchRemove);
-        applicator.ApplyPatch(document, patchAdd);
+        applicatorA.ApplyPatch(document, patchRemove);
+        applicatorA.ApplyPatch(document, patchAdd);
         
         // Assert
         model.Items.ShouldHaveSingleItem();

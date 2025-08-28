@@ -1,40 +1,42 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
+using System.Text.Json;
 using Xunit;
 
 public sealed class OrMapStrategyTests
 {
+    private readonly IServiceProvider serviceProvider;
     private readonly Mock<IElementComparerProvider> comparerProviderMock = new();
     private readonly Mock<ICrdtTimestampProvider> timestampProviderMock = new();
-    private readonly Mock<ICrdtStrategyProvider> strategyManagerMock = new();
-    private readonly CrdtMetadataManager metadataManager;
-    private readonly OrMapStrategy strategy;
     private int timestampCounter = 0;
 
     public OrMapStrategyTests()
     {
-        var options = Options.Create(new CrdtOptions { ReplicaId = "A" });
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        services.AddSingleton(comparerProviderMock.Object);
+        services.AddSingleton(timestampProviderMock.Object);
+        
+        serviceProvider = services.BuildServiceProvider();
+
         comparerProviderMock.Setup(p => p.GetComparer(It.IsAny<Type>())).Returns(EqualityComparer<object>.Default);
         timestampProviderMock.Setup(p => p.Now()).Returns(() => new EpochTimestamp(++timestampCounter));
-        
-        strategy = new OrMapStrategy(comparerProviderMock.Object, timestampProviderMock.Object, options);
-        strategyManagerMock.Setup(s => s.GetStrategy(It.Is<PropertyInfo>(p => p.Name == nameof(TestModel.Map)))).Returns(strategy);
-        
-        metadataManager = new CrdtMetadataManager(strategyManagerMock.Object, timestampProviderMock.Object, comparerProviderMock.Object);
     }
 
     private CrdtDocument<TestModel> CreateDocument(Dictionary<string, int> map)
     {
+        var metadataManager = serviceProvider.GetRequiredService<ICrdtMetadataManager>();
         var model = new TestModel { Map = map };
         var metadata = metadataManager.Initialize(model);
         return new CrdtDocument<TestModel>(model, metadata);
@@ -44,11 +46,14 @@ public sealed class OrMapStrategyTests
     public void ApplyOperation_Commutativity_ShouldConverge()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
+
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        var doc2 = new CrdtDocument<TestModel>(
-            new TestModel { Map = new Dictionary<string, int>(doc1.Data.Map) },
-            metadataManager.Clone(doc1.Metadata)
-        );
+        var doc2Model = new TestModel { Map = new Dictionary<string, int>(doc1.Data.Map) };
+        var doc2Metadata = JsonSerializer.Deserialize<CrdtMetadata>(JsonSerializer.Serialize(doc1.Metadata));
+        var doc2 = new CrdtDocument<TestModel>(doc2Model, doc2Metadata!);
 
         var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("b", 2, Guid.NewGuid()), new EpochTimestamp(1));
         var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new OrMapRemoveItem("a", doc1.Metadata.OrMaps["$.map"].Adds["a"]), new EpochTimestamp(2));
@@ -72,9 +77,12 @@ public sealed class OrMapStrategyTests
     public void ApplyOperation_Idempotency_ShouldNotChangeState()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
+
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("b", 2, Guid.NewGuid()), new EpochTimestamp(1));
-        var expectedMap = new Dictionary<string, int> { { "a", 1 }, { "b", 2 } };
 
         // Act
         strategy.ApplyOperation(doc.Data, doc.Metadata, op);
@@ -91,6 +99,10 @@ public sealed class OrMapStrategyTests
     public void ApplyOperation_RemoveAndReAdd_ShouldSucceed()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
+
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         
         var removeOp = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Remove, new OrMapRemoveItem("a", doc.Metadata.OrMaps["$.map"].Adds["a"]), new EpochTimestamp(1));
@@ -111,6 +123,10 @@ public sealed class OrMapStrategyTests
     public void ApplyOperation_ValueUpdate_ShouldRespectLww()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
+
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         doc.Metadata.Lww["$.map.['a']"] = new EpochTimestamp(10);
         
@@ -129,6 +145,7 @@ public sealed class OrMapStrategyTests
 
     private sealed class TestModel
     {
+        [CrdtOrMapStrategy]
         public Dictionary<string, int> Map { get; set; } = [];
     }
 }

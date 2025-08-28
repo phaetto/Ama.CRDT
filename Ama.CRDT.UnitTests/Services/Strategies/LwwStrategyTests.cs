@@ -1,9 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
 using System;
@@ -15,18 +16,26 @@ public sealed class LwwStrategyTests
 {
     private sealed class TestModel { public int Value { get; set; } }
 
-    private readonly LwwStrategy strategy;
+    private readonly IServiceProvider serviceProvider;
     private readonly Mock<ICrdtPatcher> mockPatcher = new();
     private readonly List<CrdtOperation> operations = new();
+    private readonly string replicaId = Guid.NewGuid().ToString();
 
     public LwwStrategyTests()
     {
-        strategy = new LwwStrategy(Options.Create(new CrdtOptions { ReplicaId = Guid.NewGuid().ToString() }));
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        serviceProvider = services.BuildServiceProvider();
     }
 
     [Fact]
     public void GeneratePatch_WhenModifiedIsNewer_ShouldGenerateUpsert()
     {
+        // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
+
         var originalValue = 10;
         var modifiedValue = 20;
         var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = new EpochTimestamp(100L) } };
@@ -46,6 +55,11 @@ public sealed class LwwStrategyTests
     [Fact]
     public void GeneratePatch_WhenModifiedIsOlder_ShouldGenerateNothing()
     {
+        // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
+
         var originalValue = 10;
         var modifiedValue = 20;
         var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = new EpochTimestamp(200L) } };
@@ -61,6 +75,10 @@ public sealed class LwwStrategyTests
     public void ApplyOperation_Upsert_ShouldUpdateValue()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
+
         var model = new TestModel { Value = 10 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, new EpochTimestamp(200L));
 
@@ -75,6 +93,10 @@ public sealed class LwwStrategyTests
     public void ApplyOperation_Remove_ShouldSetValueToNull()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
+
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Remove, null, new EpochTimestamp(200L));
         
         // This test is for when the property is nullable. For non-nullable value types, it will set to default.
@@ -92,6 +114,10 @@ public sealed class LwwStrategyTests
     public void ApplyOperation_IsIdempotent()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
+
         var model = new TestModel { Value = 10 };
         var metadata = new CrdtMetadata();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, new EpochTimestamp(200L));
@@ -111,6 +137,10 @@ public sealed class LwwStrategyTests
     public void ApplyOperation_IsCommutative()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
+
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.Value", OperationType.Upsert, 20, new EpochTimestamp(200L));
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.Value", OperationType.Upsert, 30, new EpochTimestamp(300L));
 
@@ -135,6 +165,10 @@ public sealed class LwwStrategyTests
     public void ApplyOperation_IsAssociative()
     {
         // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
+
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.Value", OperationType.Upsert, 20, new EpochTimestamp(200L));
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.Value", OperationType.Upsert, 30, new EpochTimestamp(300L));
         var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.Value", OperationType.Upsert, 15, new EpochTimestamp(150L));

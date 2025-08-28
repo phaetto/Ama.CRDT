@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services;
 
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Providers;
 using System;
@@ -8,7 +9,7 @@ using System;
 /// Applies a CRDT patch to a document, handling conflict resolution and idempotency.
 /// This implementation is thread-safe.
 /// </summary>
-public sealed class CrdtApplicator(ICrdtStrategyProvider strategyManager) : ICrdtApplicator
+public sealed class CrdtApplicator(ICrdtStrategyProvider strategyProvider, ICrdtTimestampProvider timestampProvider) : ICrdtApplicator
 {
     /// <inheritdoc/>
     public T ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class
@@ -31,7 +32,23 @@ public sealed class CrdtApplicator(ICrdtStrategyProvider strategyManager) : ICrd
 
     private void ApplyOperation(object document, CrdtOperation operation, CrdtMetadata metadata)
     {
-        var strategy = strategyManager.GetStrategy(operation, document);
+        var strategy = strategyProvider.GetStrategy(operation, document);
+
+        if (timestampProvider.IsContinuous &&
+            Attribute.IsDefined(strategy.GetType(), typeof(IdempotentWithContinuousTimeAttribute)))
+        {
+            if (metadata.VersionVector.TryGetValue(operation.ReplicaId, out var lastSeenTimestamp) &&
+                operation.Timestamp.CompareTo(lastSeenTimestamp) <= 0)
+            {
+                return;
+            }
+
+            if (metadata.SeenExceptions.Contains(operation))
+            {
+                return;
+            }
+        }
+
         strategy.ApplyOperation(document, metadata, operation);
     }
 }

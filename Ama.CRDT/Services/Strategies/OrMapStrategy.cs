@@ -5,7 +5,6 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
-using Microsoft.Extensions.Options;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -14,6 +13,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using Ama.CRDT.Services;
 
 /// <summary>
 /// Implements the OR-Map (Observed-Remove Map) CRDT strategy.
@@ -27,9 +27,9 @@ using System.Text.Json;
 public sealed class OrMapStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,
-    IOptions<CrdtOptions> options) : ICrdtStrategy
+    ReplicaContext replicaContext) : ICrdtStrategy
 {
-    private readonly string replicaId = options.Value.ReplicaId;
+    private readonly string replicaId = replicaContext.ReplicaId;
     private static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     /// <inheritdoc/>

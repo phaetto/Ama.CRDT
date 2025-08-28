@@ -5,12 +5,12 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
-using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+using Ama.CRDT.Services;
 
 /// <summary>
 /// Implements a State Machine strategy. This strategy enforces valid state transitions
@@ -21,9 +21,9 @@ using System.Reflection;
 [Associative]
 [Idempotent]
 [Mergeable]
-public sealed class StateMachineStrategy(IOptions<CrdtOptions> options, IServiceProvider serviceProvider) : ICrdtStrategy
+public sealed class StateMachineStrategy(ReplicaContext replicaContext, IServiceProvider serviceProvider) : ICrdtStrategy
 {
-    private readonly string replicaId = options.Value.ReplicaId;
+    private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc/>
     public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)

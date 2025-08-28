@@ -9,7 +9,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
-using Microsoft.Extensions.Options;
+using Ama.CRDT.Services;
 
 /// <summary>
 /// Implements an Average Register strategy. Each replica contributes a value, and the property converges to the average of all contributions.
@@ -23,9 +23,9 @@ using Microsoft.Extensions.Options;
 [Associative]
 [Idempotent]
 [Mergeable]
-public sealed class AverageRegisterStrategy(IOptions<CrdtOptions> options, ICrdtTimestampProvider timestampProvider) : ICrdtStrategy
+public sealed class AverageRegisterStrategy(ReplicaContext replicaContext, ICrdtTimestampProvider timestampProvider) : ICrdtStrategy
 {
-    private readonly string replicaId = options.Value.ReplicaId;
+    private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc/>
     public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)

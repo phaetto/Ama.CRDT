@@ -17,7 +17,7 @@ using System.Text.Json.Serialization;
 
 /// <inheritdoc/>
 public sealed class CrdtMetadataManager(
-    ICrdtStrategyProvider strategyManager, 
+    ICrdtStrategyProvider strategyProvider,
     ICrdtTimestampProvider timestampProvider,
     IElementComparerProvider elementComparerProvider) : ICrdtMetadataManager
 {
@@ -25,7 +25,7 @@ public sealed class CrdtMetadataManager(
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
-    
+
     /// <inheritdoc/>
     public CrdtMetadata Initialize<T>([DisallowNull] T document) where T : class
     {
@@ -98,7 +98,7 @@ public sealed class CrdtMetadataManager(
         foreach (var kvp in metadata.Lww) { newMetadata.Lww.Add(kvp.Key, kvp.Value); }
         foreach (var kvp in metadata.PositionalTrackers) { newMetadata.PositionalTrackers.Add(kvp.Key, new List<PositionalIdentifier>(kvp.Value)); }
         foreach (var kvp in metadata.AverageRegisters) { newMetadata.AverageRegisters.Add(kvp.Key, new Dictionary<string, AverageRegisterValue>(kvp.Value)); }
-        
+
         foreach (var kvp in metadata.TwoPhaseSets)
         {
             newMetadata.TwoPhaseSets.Add(kvp.Key, (
@@ -122,7 +122,7 @@ public sealed class CrdtMetadataManager(
                 innerKvp => innerKvp.Key,
                 innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
                 addedComparer);
-            
+
             var removedComparer = (kvp.Value.Removes as Dictionary<object, ISet<Guid>>)?.Comparer;
             var newRemoved = kvp.Value.Removes.ToDictionary(
                 innerKvp => innerKvp.Key,
@@ -131,7 +131,7 @@ public sealed class CrdtMetadataManager(
 
             newMetadata.OrSets.Add(kvp.Key, (Adds: newAdded, Removes: newRemoved));
         }
-        
+
         foreach (var kvp in metadata.PriorityQueues)
         {
             newMetadata.PriorityQueues.Add(kvp.Key, (
@@ -166,7 +166,7 @@ public sealed class CrdtMetadataManager(
 
             newMetadata.OrMaps.Add(kvp.Key, (Adds: newAdded, Removes: newRemoved));
         }
-        
+
         return newMetadata;
     }
 
@@ -186,7 +186,7 @@ public sealed class CrdtMetadataManager(
             metadata.Lww.Remove(key);
         }
     }
-    
+
     /// <inheritdoc/>
     public void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
     {
@@ -247,12 +247,12 @@ public sealed class CrdtMetadataManager(
         ArgumentNullException.ThrowIfNull(metadata);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(timestamp);
-        
+
         if (metadata.ExclusiveLocks.TryGetValue(path, out var currentLock) && currentLock is not null && timestamp.CompareTo(currentLock.Timestamp) <= 0)
         {
             return;
         }
-        
+
         metadata.ExclusiveLocks[path] = null;
     }
 
@@ -316,10 +316,10 @@ public sealed class CrdtMetadataManager(
             var jsonPropertyName = DefaultJsonSerializerOptions.PropertyNamingPolicy?.ConvertName(propertyInfo.Name) ?? propertyInfo.Name;
             var propertyPath = path == "$" ? $"$.{jsonPropertyName}" : $"{path}.{jsonPropertyName}";
 
-            var strategy = strategyManager.GetStrategy(propertyInfo);
-            
+            var strategy = strategyProvider.GetStrategy(propertyInfo);
+
             InitializeStrategyMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp, root);
-            
+
             var propertyType = propertyInfo.PropertyType;
             if (propertyValue is IEnumerable and not string || propertyType.IsClass && propertyType != typeof(string))
             {
@@ -383,11 +383,11 @@ public sealed class CrdtMetadataManager(
                 break;
         }
     }
-    
+
     private void InitializeExclusiveLockMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, string propertyPath, ICrdtTimestamp timestamp, object root)
     {
         if (propertyInfo.GetCustomAttribute<CrdtExclusiveLockStrategyAttribute>() is not { } attr) return;
-        
+
         var (_, _, value) = PocoPathHelper.ResolvePath(root, attr.LockHolderPropertyPath);
         metadata.ExclusiveLocks[propertyPath] = null;
     }
@@ -489,7 +489,7 @@ public sealed class CrdtMetadataManager(
             metadata.Lww[voterMetaPath] = timestamp;
         }
     }
-    
+
     private static string GetVoterKey(object voter)
     {
         return voter switch

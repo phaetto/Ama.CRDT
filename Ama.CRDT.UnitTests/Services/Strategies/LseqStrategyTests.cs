@@ -6,30 +6,46 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-public sealed class LseqStrategyTests
+public sealed class LseqStrategyTests : IDisposable
 {
     private readonly ICrdtPatcher patcherA;
     private readonly ICrdtPatcher patcherB;
     private readonly ICrdtPatcher patcherC;
-    private readonly ICrdtApplicator applicator;
-    private readonly ICrdtMetadataManager metadataManager;
+    private readonly ICrdtApplicator applicatorA;
+    private readonly ICrdtMetadataManager metadataManagerA;
+    private readonly IServiceScope scopeA;
+    private readonly IServiceScope scopeB;
+    private readonly IServiceScope scopeC;
 
     public LseqStrategyTests()
     {
         var services = new ServiceCollection()
-            .AddCrdt(options => options.ReplicaId = "A")
+            .AddCrdt()
             .BuildServiceProvider();
 
-        var factory = services.GetRequiredService<ICrdtPatcherFactory>();
-        patcherA = factory.Create("A");
-        patcherB = factory.Create("B");
-        patcherC = factory.Create("C");
-        applicator = services.GetRequiredService<ICrdtApplicator>();
-        metadataManager = services.GetRequiredService<ICrdtMetadataManager>();
+        var factory = services.GetRequiredService<ICrdtScopeFactory>();
+        scopeA = factory.CreateScope("A");
+        scopeB = factory.CreateScope("B");
+        scopeC = factory.CreateScope("C");
+        
+        patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherC = scopeC.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        
+        applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+    }
+
+    public void Dispose()
+    {
+        scopeA.Dispose();
+        scopeB.Dispose();
+        scopeC.Dispose();
     }
 
     private class LseqTestModel
@@ -43,7 +59,7 @@ public sealed class LseqStrategyTests
     {
         // Arrange
         var doc0 = new LseqTestModel { Items = ["A", "C"] };
-        var meta0 = metadataManager.Initialize(doc0);
+        var meta0 = metadataManagerA.Initialize(doc0);
         var crdtDoc0 = new CrdtDocument<LseqTestModel>(doc0, meta0);
 
         var docA = new LseqTestModel { Items = ["A", "B", "C"] };
@@ -57,18 +73,18 @@ public sealed class LseqStrategyTests
         // Path 1: Apply A then B
         var doc1 = new CrdtDocument<LseqTestModel>(
             new LseqTestModel { Items = ["A", "C"] },
-            metadataManager.Initialize(new LseqTestModel { Items = ["A", "C"] })
+            metadataManagerA.Initialize(new LseqTestModel { Items = ["A", "C"] })
         );
-        applicator.ApplyPatch(doc1, patchA);
-        applicator.ApplyPatch(doc1, patchB);
+        applicatorA.ApplyPatch(doc1, patchA);
+        applicatorA.ApplyPatch(doc1, patchB);
 
         // Path 2: Apply B then A
         var doc2 = new CrdtDocument<LseqTestModel>(
             new LseqTestModel { Items = ["A", "C"] },
-            metadataManager.Initialize(new LseqTestModel { Items = ["A", "C"] })
+            metadataManagerA.Initialize(new LseqTestModel { Items = ["A", "C"] })
         );
-        applicator.ApplyPatch(doc2, patchB);
-        applicator.ApplyPatch(doc2, patchA);
+        applicatorA.ApplyPatch(doc2, patchB);
+        applicatorA.ApplyPatch(doc2, patchA);
 
         // Assert
         doc1.Data.Items.ShouldNotBeNull();
@@ -88,17 +104,17 @@ public sealed class LseqStrategyTests
         // Arrange
         var original = new LseqTestModel { Items = ["A", "B"] };
         var modified = new LseqTestModel { Items = ["A", "C", "B"] };
-        var document = new CrdtDocument<LseqTestModel>(original, metadataManager.Initialize(original));
+        var document = new CrdtDocument<LseqTestModel>(original, metadataManagerA.Initialize(original));
         
         var patch = patcherA.GeneratePatch(document, new CrdtDocument<LseqTestModel>(modified, document.Metadata));
 
         // Act
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
         var stateAfterFirstApply = document.Data.Items.ToList();
         
         // Clear seen exceptions to test the strategy's own idempotency
         document.Metadata.SeenExceptions.Clear();
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
 
         // Assert
         stateAfterFirstApply.ShouldBe(new List<string> { "A", "C", "B" });
@@ -110,7 +126,7 @@ public sealed class LseqStrategyTests
     {
         // Arrange
         var doc0 = new LseqTestModel { Items = ["A", "D"] };
-        var crdtDoc0 = new CrdtDocument<LseqTestModel>(doc0, metadataManager.Initialize(doc0));
+        var crdtDoc0 = new CrdtDocument<LseqTestModel>(doc0, metadataManagerA.Initialize(doc0));
 
         var patchB = patcherA.GeneratePatch(crdtDoc0, new CrdtDocument<LseqTestModel>(new LseqTestModel { Items = ["A", "B", "D"] }, crdtDoc0.Metadata));
         var patchC = patcherB.GeneratePatch(crdtDoc0, new CrdtDocument<LseqTestModel>(new LseqTestModel { Items = ["A", "C", "D"] }, crdtDoc0.Metadata));
@@ -124,11 +140,11 @@ public sealed class LseqStrategyTests
         foreach (var p in permutations)
         {
             var model = new LseqTestModel { Items = ["A", "D"] };
-            var meta = metadataManager.Initialize(model);
+            var meta = metadataManagerA.Initialize(model);
             var document = new CrdtDocument<LseqTestModel>(model, meta);
             foreach (var patch in p)
             {
-                applicator.ApplyPatch(document, patch);
+                applicatorA.ApplyPatch(document, patch);
             }
             finalStates.Add(model.Items);
         }

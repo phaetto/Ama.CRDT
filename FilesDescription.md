@@ -81,7 +81,7 @@
 | `$/Ama.CRDT/Attributes/Strategies/AssociativeAttribute.cs` | Marks a CRDT strategy as having the associative property, meaning the order of operation grouping does not affect the outcome. |
 | `$/Ama.CRDT/Attributes/Strategies/CommutativeAttribute.cs` | Marks a CRDT strategy as having the commutative property, meaning the order of operations does not affect the outcome. |
 | `$/Ama.CRDT/Attributes/Strategies/IdempotentAttribute.cs` | Marks a CRDT strategy as having the idempotent property, meaning applying the same operation multiple times has the same effect as applying it once. |
-| `$/Ama.CRDT/Attributes/Strategies/IdempotentShortLivedAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/IdempotentShortLivedAttribute.cs` | Marks a CRDT strategy as having the idempotent property, but only for a short time. This is useful for strategies that rely on state that is eventually pruned, such as those using version vectors and seen exception sets. It signals to the applicator that it should perform idempotency checks before applying an operation, but only when using a continuous timestamp provider. |
 | `$/Ama.CRDT/Attributes/Strategies/MergeableAttribute.cs` | Marks a CRDT strategy as having a mergeable state, suitable for parallel reduction. |
 | `$/Ama.CRDT/Attributes/Strategies/SequentialOperationsAttribute.cs` | Marks a CRDT strategy as requiring sequential operation application, making it unsuitable for parallel reduction. |
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup, including registration of the patch builder, strategies, the strategy manager, custom array element comparers, a customizable timestamp provider, and a factory for creating replica-specific patchers. |
@@ -103,20 +103,23 @@
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
 | `$/Ama.CRDT/Models/Serialization/CrdtMetadataJsonResolver.cs` | Provides a custom `IJsonTypeInfoResolver` for `CrdtMetadata` to enable efficient serialization by omitting empty collections from the JSON output. |
+| `$/Ama.CRDT/Models/SequentialTimestamp.cs` | An implementation of `ICrdtTimestamp` that wraps a simple sequential `long` value, intended for testing. |
 | `$/Ama.CRDT/Models/VotePayload.cs` | A data structure for the payload of a vote operation, containing the voter's identifier and their chosen option. |
 | `$/Ama.CRDT/PublicAPI.Shipped.txt` | Tracks the shipped public API surface of the library to detect breaking changes. This file should be updated when new APIs are officially released in a stable version. |
 | `$/Ama.CRDT/PublicAPI.Unshipped.txt` | Tracks new public APIs that have not yet been included in a stable release. This file must be empty before a manual, stable publish. Build will fail if new public APIs are added without being added to this file first. |
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | No description provided. |
 | `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implements the logic for managing and compacting CRDT metadata. It provides helper methods like Initialize(document) to create a metadata object from a POCO by reflecting on its properties, and Reset(metadata, document) to clear and re-initialize an existing metadata object. The initialization logic correctly traverses nested objects and collections. |
 | `$/Ama.CRDT/Services/CrdtPatcher.cs` | Implements the logic to recursively compare two objects and generate a CRDT patch by delegating to property-specific strategies. |
-| `$/Ama.CRDT/Services/CrdtPatcherFactory.cs` | No description provided. |
-| `$/Ama.CRDT/Services/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `EpochTimestamp` based on Unix milliseconds. |
+| `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext`. |
 | `$/Ama.CRDT/Services/Helpers/PocoPathHelper.cs` | A utility class containing helper methods for parsing JSON paths and resolving them against POCOs using reflection. |
 | `$/Ama.CRDT/Services/ICrdtApplicator.cs` | No description provided. |
 | `$/Ama.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing CRDT metadata. Responsibilities include initializing or resetting metadata by traversing a document to create LWW timestamps and array positional trackers, pruning old tombstones to control state growth, and advancing version vectors. |
 | `$/Ama.CRDT/Services/ICrdtPatcher.cs` | Defines the contract for a service that compares two versions of a data model and generates a CRDT patch. |
-| `$/Ama.CRDT/Services/ICrdtPatcherFactory.cs` | No description provided. |
-| `$/Ama.CRDT/Services/ICrdtTimestampProvider.cs` | Defines a service for generating CRDT timestamps, allowing for custom timestamp implementations. |
+| `$/Ama.CRDT/Services/ICrdtScopeFactory.cs` | Defines the contract for a factory that creates isolated `IServiceScope` instances for CRDT replicas, each configured with a unique replica ID. |
+| `$/Ama.CRDT/Services/Providers/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `EpochTimestamp` based on Unix milliseconds. |
+| `$/Ama.CRDT/Services/Providers/ICrdtTimestampProvider.cs` | Defines a service for generating CRDT timestamps, allowing for custom timestamp implementations. |
+| `$/Ama.CRDT/Services/Providers/SequentialTimestampProvider.cs` | A timestamp provider that generates sequential, predictable timestamps, primarily for testing purposes. It is thread-safe. |
+| `$/Ama.CRDT/Services/ReplicaContext.cs` | A scoped service that holds the unique identifier for a CRDT replica, making it available to other scoped services within the same `IServiceScope`. |
 | `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements a CRDT strategy for arrays using LCS, with support for type-specific element comparers. `GeneratePatch` creates diffs, and `ApplyOperation` unconditionally manipulates the data array. |
 | `$/Ama.CRDT/Services/Strategies/AverageRegisterStrategy.cs` | Implements the Average Register strategy, where each replica contributes a value and the final state is the average of all contributions. |
 | `$/Ama.CRDT/Services/Strategies/BoundedCounterStrategy.cs` | Implements a counter that is clamped within a specified minimum and maximum value, configured via an attribute. |
@@ -191,3 +194,25 @@
 | `$/Specs/done/publish-as-a-nuget-package.md` | No description provided. |
 | `$/Specs/done/readme-update-2025-08-24.md` | No description provided. |
 | `$/Specs/make-crdt-strategies-composable.md` | No description provided. |
+// 1. Get the factory from the root service provider (do this once)
+var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+
+// 2. For each replica/user session, create a scope
+// The 'using' block ensures all scoped services are disposed of correctly.
+using (var userScope = scopeFactory.CreateScope("user-session-123"))
+{
+    // 3. Resolve services from the scope's provider
+    var patcher = userScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+    var applicator = userScope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+
+    // These instances are now correctly configured for "user-session-123"
+    var patch = patcher.GeneratePatch(oldDoc, newDoc, metadata);
+    var (updatedDoc, updatedMeta) = applicator.ApplyPatch(oldDoc, patch, metadata);
+}
+
+// Do the same for another replica
+using (var serverScope = scopeFactory.CreateScope("server-node-A"))
+{
+    var patcher = serverScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+    // ...
+}

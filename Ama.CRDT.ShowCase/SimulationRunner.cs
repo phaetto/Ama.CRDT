@@ -5,14 +5,14 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.ShowCase.Models;
 using Ama.CRDT.ShowCase.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
 /// Orchestrates a distributed multi-replica simulation using concurrent producers, write replicas, and passive replicas
 /// communicating via channels to demonstrate CRDT convergence without locks.
 /// </summary>
 public sealed class SimulationRunner(
-    ICrdtPatcherFactory patcherFactory,
-    ICrdtApplicator applicator,
+    ICrdtScopeFactory scopeFactory,
     IInMemoryDatabaseService database,
     ICrdtMetadataManager metadataManager)
 {
@@ -39,9 +39,8 @@ public sealed class SimulationRunner(
         for (var i = 0; i < WriteReplicaCount; i++)
         {
             var replicaId = $"write-replica-{i + 1}";
-            var patcher = patcherFactory.Create(replicaId);
             // Each write replica will broadcast to all passive replicas.
-            writeReplicaTasks.Add(WriteReplicaAsync(tasksChannel.Reader, replicaWriters, patcher, replicaId));
+            writeReplicaTasks.Add(WriteReplicaAsync(tasksChannel.Reader, replicaWriters, replicaId));
         }
 
         var passiveReplicaTasks = new List<Task>();
@@ -78,8 +77,12 @@ public sealed class SimulationRunner(
         Console.WriteLine("-> Producer: Finished. All items sent to write replicas.");
     }
 
-    private async Task WriteReplicaAsync(ChannelReader<User> reader, IReadOnlyList<ChannelWriter<CrdtPatch>> writers, ICrdtPatcher patcher, string replicaId)
+    private async Task WriteReplicaAsync(ChannelReader<User> reader, IReadOnlyList<ChannelWriter<CrdtPatch>> writers, string replicaId)
     {
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var applicator = scope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+
         Console.WriteLine($"  -> Write Replica '{replicaId}': Started.");
         var count = 0;
         await foreach (var user in reader.ReadAllAsync())
@@ -146,6 +149,9 @@ public sealed class SimulationRunner(
 
     private async Task PassiveReplicaAsync(ChannelReader<CrdtPatch> reader, string replicaId)
     {
+        using var scope = scopeFactory.CreateScope(replicaId);
+        var applicator = scope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+
         Console.WriteLine($"    -> Passive Replica '{replicaId}': Started. Applying patches...");
         var count = 0;
         await foreach (var patch in reader.ReadAllAsync())
