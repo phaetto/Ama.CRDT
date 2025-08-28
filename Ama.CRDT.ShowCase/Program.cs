@@ -11,11 +11,7 @@ public static class Program
         var host = Host.CreateDefaultBuilder(args)
             .ConfigureServices((_, services) =>
             {
-                services.AddCrdt(options =>
-                {
-                    // This is a default replicaId, not used by the simulation tasks which get their own unique IDs.
-                    options.ReplicaId = "default-replica"; 
-                });
+                services.AddCrdt();
 
                 // Register the custom comparer for the string type in arrays.
                 services.AddCrdtComparer<CaseInsensitiveStringComparer>();

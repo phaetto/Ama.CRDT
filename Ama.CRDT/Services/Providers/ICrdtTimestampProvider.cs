@@ -65,5 +65,11 @@ public interface ICrdtTimestampProvider
     /// <returns>A new <see cref="ICrdtTimestamp"/> instance corresponding to the given value.</returns>
     ICrdtTimestamp Create(long value);
 
+    /// <summary>
+    /// Gets a value indicating whether the timestamp provider generates a continuous, gap-less sequence of timestamps.
+    /// A continuous provider (like a sequential counter) ensures that every operation receives a unique, adjacent timestamp,
+    /// which is useful for certain idempotency checks. A non-continuous provider (like one based on system time) may
+    /// have gaps between timestamps and is not suitable for these checks.
+    /// </summary>
     bool IsContinuous { get; }
 }

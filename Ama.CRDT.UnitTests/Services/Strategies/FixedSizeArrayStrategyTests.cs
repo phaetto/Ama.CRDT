@@ -89,6 +89,8 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
 
         var modifiedModel = new TestModel { Values = [1, 99, 3] };
         var modifiedMeta = metadataManagerA.Initialize(modifiedModel);
+        
+        Thread.Sleep(5);
         var patch = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(initialModel, initialMeta),
             new CrdtDocument<TestModel>(modifiedModel, modifiedMeta));

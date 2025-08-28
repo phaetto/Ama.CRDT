@@ -24,7 +24,7 @@ public class ApplicatorBenchmarks
     public void Setup()
     {
         var services = new ServiceCollection();
-        services.AddCrdt(options => options.ReplicaId = "benchmark-replica");
+        services.AddCrdt();
         var serviceProvider = services.BuildServiceProvider();
 
         applicator = serviceProvider.GetRequiredService<ICrdtApplicator>();

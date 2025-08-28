@@ -22,9 +22,7 @@ public static class ServiceCollectionExtensions
     /// the <see cref="ICrdtApplicator"/> for applying patches, and other essential supporting services.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection"/> to add services to.</param>
-    /// <param name="configureOptions">An action to configure global <see cref="CrdtOptions"/>. Note that the <c>ReplicaId</c> is managed per-scope and should not be set here.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="configureOptions"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -46,24 +44,17 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdt(this IServiceCollection services, Action<CrdtOptions>? configureOptions = null)
+    public static IServiceCollection AddCrdt(this IServiceCollection services)
     {
-        if (configureOptions is not null)
-        {
-            services.Configure(configureOptions);
-        }
-
-        // Singleton services that are stateless and shared across all replicas
-        services.TryAddSingleton<ICrdtScopeFactory, CrdtScopeFactory>();
-        services.TryAddSingleton<IElementComparerProvider, ElementComparerProvider>();
-        services.TryAddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
-        services.TryAddSingleton<ICrdtMetadataManager, CrdtMetadataManager>();
-
         // Scoped services that hold state or depend on the replicaId
         services.AddScoped<ReplicaContext>();
+        services.TryAddScoped<ICrdtTimestampProvider, SequentialTimestampProvider>();
         services.TryAddScoped<ICrdtApplicator, CrdtApplicator>();
         services.TryAddScoped<ICrdtPatcher, CrdtPatcher>();
         services.TryAddScoped<ICrdtStrategyProvider, CrdtStrategyProvider>();
+        services.TryAddScoped<ICrdtScopeFactory, CrdtScopeFactory>();
+        services.TryAddScoped<IElementComparerProvider, ElementComparerProvider>();
+        services.TryAddScoped<ICrdtMetadataManager, CrdtMetadataManager>();
 
         // Register all strategies with a scoped lifetime
         services.TryAddScoped<LwwStrategy>();
@@ -152,7 +143,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtComparer<TComparer>(this IServiceCollection services)
         where TComparer : class, IElementComparer
     {
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IElementComparer, TComparer>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IElementComparer, TComparer>());
         return services;
     }
     
@@ -187,7 +178,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtTimestampProvider<TProvider>(this IServiceCollection services)
         where TProvider : class, ICrdtTimestampProvider
     {
-        services.AddSingleton<ICrdtTimestampProvider, TProvider>();
+        services.AddScoped<ICrdtTimestampProvider, TProvider>();
         return services;
     }
 }
