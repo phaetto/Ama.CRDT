@@ -41,9 +41,23 @@ public sealed class AverageRegisterStrategyTests
 
         var operations = new List<CrdtOperation>();
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Rating))!;
+        var originalRoot = new TestModel { Rating = 3.5m };
+        var modifiedRoot = new TestModel { Rating = 4.0m };
+        var context = new GeneratePatchContext(
+            new Mock<ICrdtPatcher>().Object,
+            operations,
+            Path,
+            property,
+            3.5m,
+            4.0m,
+            originalRoot,
+            modifiedRoot,
+            new CrdtMetadata(),
+            timestampProvider.Create(1L)
+        );
         
         // Act
-        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, Path, property, 3.5m, 4.0m, new TestModel { Rating = 3.5m }, new TestModel { Rating = 4.0m }, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(context);
 
         // Assert
         var op = operations.ShouldHaveSingleItem();
@@ -65,8 +79,8 @@ public sealed class AverageRegisterStrategyTests
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", Path, OperationType.Upsert, 10m, timestampProvider.Create(2L));
         
         // Act
-        strategy.ApplyOperation(model, metadata, op1);
-        strategy.ApplyOperation(model, metadata, op2);
+        strategy.ApplyOperation(new ApplyOperationContext(model, metadata, op1));
+        strategy.ApplyOperation(new ApplyOperationContext(model, metadata, op2));
         
         // Assert
         model.Rating.ShouldBe(7.5m); // (5 + 10) / 2
@@ -86,9 +100,9 @@ public sealed class AverageRegisterStrategyTests
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", Path, OperationType.Upsert, 10m, timestampProvider.Create(2L));
         
         // Act
-        strategy.ApplyOperation(model, metadata, op1);
-        strategy.ApplyOperation(model, metadata, op2);
-        strategy.ApplyOperation(model, metadata, op2); // Apply second op again
+        strategy.ApplyOperation(new ApplyOperationContext(model, metadata, op1));
+        strategy.ApplyOperation(new ApplyOperationContext(model, metadata, op2));
+        strategy.ApplyOperation(new ApplyOperationContext(model, metadata, op2)); // Apply second op again
         
         // Assert
         model.Rating.ShouldBe(7.5m);
@@ -112,11 +126,11 @@ public sealed class AverageRegisterStrategyTests
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", Path, OperationType.Upsert, 10m, timestampProvider.Create(2L));
         
         // Act: Apply in different orders
-        strategy.ApplyOperation(model1, metadata1, op1);
-        strategy.ApplyOperation(model1, metadata1, op2);
+        strategy.ApplyOperation(new ApplyOperationContext(model1, metadata1, op1));
+        strategy.ApplyOperation(new ApplyOperationContext(model1, metadata1, op2));
         
-        strategy.ApplyOperation(model2, metadata2, op2);
-        strategy.ApplyOperation(model2, metadata2, op1);
+        strategy.ApplyOperation(new ApplyOperationContext(model2, metadata2, op2));
+        strategy.ApplyOperation(new ApplyOperationContext(model2, metadata2, op1));
 
         // Assert
         model1.Rating.ShouldBe(7.5m);
@@ -147,7 +161,7 @@ public sealed class AverageRegisterStrategyTests
             var meta = new CrdtMetadata();
             foreach(var op in p)
             {
-                strategy.ApplyOperation(model, meta, op);
+                strategy.ApplyOperation(new ApplyOperationContext(model, meta, op));
             }
             finalStates.Add(model.Rating);
         }
@@ -173,9 +187,9 @@ public sealed class AverageRegisterStrategyTests
         var op3 = new CrdtOperation(Guid.NewGuid(), "r1", Path, OperationType.Upsert, 3m, timestampProvider.Create(1L)); // Older timestamp
         
         // Act
-        strategy.ApplyOperation(model, metadata, op1);
-        strategy.ApplyOperation(model, metadata, op2);
-        strategy.ApplyOperation(model, metadata, op3); // This one should be ignored
+        strategy.ApplyOperation(new ApplyOperationContext(model, metadata, op1));
+        strategy.ApplyOperation(new ApplyOperationContext(model, metadata, op2));
+        strategy.ApplyOperation(new ApplyOperationContext(model, metadata, op3)); // This one should be ignored
         
         // Assert
         model.Rating.ShouldBe(8m); // Only one value from r1

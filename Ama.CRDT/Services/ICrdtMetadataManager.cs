@@ -20,7 +20,7 @@ public interface ICrdtMetadataManager
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="document">The document object to initialize metadata for.</param>
     /// <returns>A new, initialized <see cref="CrdtMetadata"/> object.</returns>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/> is null.</exception>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -41,7 +41,7 @@ public interface ICrdtMetadataManager
     /// <param name="document">The document object to initialize metadata for.</param>
     /// <param name="timestamp">The timestamp to use for initialization.</param>
     /// <returns>A new, initialized <see cref="CrdtMetadata"/> object.</returns>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/> or <paramref name="timestamp"/> is null.</exception>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/> or <paramref name="timestamp"/> is null.</exception>
     CrdtMetadata Initialize<T>([DisallowNull] T document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
 
     /// <summary>
@@ -51,8 +51,8 @@ public interface ICrdtMetadataManager
     /// </summary>
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="document">The CRDT document containing the data to derive metadata from and the metadata object to populate.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata or <paramref name="document"/>.Data is null.</exception>
-    void Initialize<T>(CrdtDocument<T> document) where T : class;
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata or <paramref name="document"/>.Data is null.</exception>
+    void Initialize<T>([DisallowNull] CrdtDocument<T> document) where T : class;
 
 
 
@@ -63,8 +63,8 @@ public interface ICrdtMetadataManager
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="document">The CRDT document containing the data to derive metadata from and the metadata object to populate.</param>
     /// <param name="timestamp">The timestamp to use for initialization.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata, <paramref name="document"/>.Data, or <paramref name="timestamp"/> is null.</exception>
-    void Initialize<T>(CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata, <paramref name="document"/>.Data, or <paramref name="timestamp"/> is null.</exception>
+    void Initialize<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
 
     /// <summary>
     /// Resets an existing <see cref="CrdtMetadata"/> object and re-initializes it from a document's current state.
@@ -73,8 +73,8 @@ public interface ICrdtMetadataManager
     /// </summary>
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="document">The CRDT document containing the data to derive metadata from and the metadata object to reset.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata or <paramref name="document"/>.Data is null.</exception>
-    void Reset<T>(CrdtDocument<T> document) where T : class;
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata or <paramref name="document"/>.Data is null.</exception>
+    void Reset<T>([DisallowNull] CrdtDocument<T> document) where T : class;
 
     /// <summary>
     /// Resets an existing <see cref="CrdtMetadata"/> object and re-initializes it from a document using a specific timestamp.
@@ -83,8 +83,8 @@ public interface ICrdtMetadataManager
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="document">The CRDT document containing the data to derive metadata from and the metadata object to reset.</param>
     /// <param name="timestamp">The timestamp to use for initialization.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata, <paramref name="document"/>.Data, or <paramref name="timestamp"/> is null.</exception>
-    void Reset<T>(CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata, <paramref name="document"/>.Data, or <paramref name="timestamp"/> is null.</exception>
+    void Reset<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
 
     /// <summary>
     /// Creates a deep clone of the provided metadata object.
@@ -93,7 +93,7 @@ public interface ICrdtMetadataManager
     /// </summary>
     /// <param name="metadata">The metadata object to clone.</param>
     /// <returns>A new <see cref="CrdtMetadata"/> object with all properties copied.</returns>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -112,7 +112,7 @@ public interface ICrdtMetadataManager
     /// </summary>
     /// <param name="metadata">The metadata object to prune.</param>
     /// <param name="threshold">The timestamp threshold. Any LWW entry older than this will be removed.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="threshold"/> is null.</exception>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="threshold"/> is null.</exception>
     void PruneLwwTombstones([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold);
     
     /// <summary>
@@ -123,8 +123,8 @@ public interface ICrdtMetadataManager
     /// </summary>
     /// <param name="metadata">The metadata object to update.</param>
     /// <param name="operation">The operation whose replica and timestamp will be used to advance the vector.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="operation"/> is null.</exception>
-    void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, CrdtOperation operation);
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="operation"/> is null.</exception>
+    void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, [DisallowNull] CrdtOperation operation);
 
     /// <summary>
     /// Advances the version vector for a specific replica with a given timestamp, pruning any covered exceptions.
@@ -134,9 +134,9 @@ public interface ICrdtMetadataManager
     /// <param name="metadata">The metadata object to update.</param>
     /// <param name="replicaId">The ID of the replica whose version vector is being advanced.</param>
     /// <param name="timestamp">The new timestamp for the replica's version vector.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="timestamp"/> is null.</exception>
-    /// <exception cref="ArgumentException">Thrown if <paramref name="replicaId"/> is null or whitespace.</exception>
-    void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, string replicaId, [DisallowNull] ICrdtTimestamp timestamp);
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="timestamp"/> is null.</exception>
+    /// <exception cref="System.ArgumentException">Thrown if <paramref name="replicaId"/> is null or whitespace.</exception>
+    void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, [DisallowNull] string replicaId, [DisallowNull] ICrdtTimestamp timestamp);
     
     /// <summary>
     /// Acquires an exclusive lock on a property using a Last-Writer-Wins (LWW) rule.
@@ -147,9 +147,9 @@ public interface ICrdtMetadataManager
     /// <param name="path">The JSON path to the property to lock.</param>
     /// <param name="lockHolderId">The identifier of the new lock holder.</param>
     /// <param name="timestamp">The timestamp of the lock operation.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="timestamp"/> is null.</exception>
-    /// <exception cref="ArgumentException">Thrown if <paramref name="path"/> or <paramref name="lockHolderId"/> is null or whitespace.</exception>
-    void ExclusiveLock([DisallowNull] CrdtMetadata metadata, string path, string lockHolderId, [DisallowNull] ICrdtTimestamp timestamp);
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="timestamp"/> is null.</exception>
+    /// <exception cref="System.ArgumentException">Thrown if <paramref name="path"/> or <paramref name="lockHolderId"/> is null or whitespace.</exception>
+    void ExclusiveLock([DisallowNull] CrdtMetadata metadata, [DisallowNull] string path, [DisallowNull] string lockHolderId, [DisallowNull] ICrdtTimestamp timestamp);
 
     /// <summary>
     /// Releases an exclusive lock on a property using a Last-Writer-Wins (LWW) rule.
@@ -159,7 +159,7 @@ public interface ICrdtMetadataManager
     /// <param name="metadata">The metadata object to update.</param>
     /// <param name="path">The JSON path to the property to unlock.</param>
     /// <param name="timestamp">The timestamp of the unlock operation.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="timestamp"/> is null.</exception>
-    /// <exception cref="ArgumentException">Thrown if <paramref name="path"/> is null or whitespace.</exception>
-    void ReleaseLock([DisallowNull] CrdtMetadata metadata, string path, [DisallowNull] ICrdtTimestamp timestamp);
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="timestamp"/> is null.</exception>
+    /// <exception cref="System.ArgumentException">Thrown if <paramref name="path"/> is null or whitespace.</exception>
+    void ReleaseLock([DisallowNull] CrdtMetadata metadata, [DisallowNull] string path, [DisallowNull] ICrdtTimestamp timestamp);
 }

@@ -55,9 +55,23 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         // Arrange
         var operations = new List<CrdtOperation>();
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Level))!;
+        var originalRoot = new TestModel { Level = 50 };
+        var modifiedRoot = new TestModel { Level = 60 };
+        var context = new GeneratePatchContext(
+            new Mock<ICrdtPatcher>().Object,
+            operations,
+            "$.level",
+            property,
+            50,
+            60,
+            originalRoot,
+            modifiedRoot,
+            new CrdtMetadata(),
+            timestampProvider.Create(1L)
+        );
         
         // Act
-        strategy.GeneratePatch(new Mock<ICrdtPatcher>().Object, operations, "$.level", property, 50, 60, new TestModel { Level = 50 }, new TestModel { Level = 60 }, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(context);
 
         // Assert
         var op = operations.ShouldHaveSingleItem();
@@ -79,7 +93,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.level", OperationType.Increment, (decimal)delta, timestampProvider.Create(2L));
         
         // Act
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(new ApplyOperationContext(model, new CrdtMetadata(), operation));
         
         // Assert
         model.Level.ShouldBe(expected);
@@ -91,9 +105,10 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         // Arrange
         var model = new NoAttributeModel { Value = 50 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.value", OperationType.Increment, 10m, timestampProvider.Create(2L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(model, new CrdtMetadata(), operation));
+        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(context));
     }
     
     [Fact]

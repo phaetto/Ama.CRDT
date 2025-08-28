@@ -52,9 +52,11 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
-        
+        var context = new GeneratePatchContext(
+            mockPatcher.Object, operations, "$.count", property, 10, 15, new TestModel { Count = 10 }, new TestModel { Count = 15 }, new CrdtMetadata(), timestampProvider.Now());
+
         // Act
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.count", property, 10, 15, new TestModel { Count = 10 }, new TestModel { Count = 15 }, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(context);
 
         // Assert
         var op = operations.ShouldHaveSingleItem();
@@ -67,9 +69,11 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
+        var context = new GeneratePatchContext(
+            mockPatcher.Object, operations, "$.count", property, 10, 5, new TestModel { Count = 10 }, new TestModel { Count = 5 }, new CrdtMetadata(), timestampProvider.Now());
         
         // Act
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.count", property, 10, 5, new TestModel { Count = 10 }, new TestModel { Count = 5 }, new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(context);
 
         // Assert
         operations.ShouldBeEmpty();
@@ -81,9 +85,10 @@ public sealed class GCounterStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { Count = 10 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, 5m, timestampProvider.Create(2L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
 
         // Assert
         model.Count.ShouldBe(15);
@@ -95,9 +100,10 @@ public sealed class GCounterStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { Count = 10 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, -5m, timestampProvider.Create(2L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
 
         // Assert
         model.Count.ShouldBe(10);
@@ -109,9 +115,10 @@ public sealed class GCounterStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { Count = 10 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Upsert, 15, timestampProvider.Create(2L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(model, new CrdtMetadata(), operation));
+        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(context));
     }
     
     [Fact]

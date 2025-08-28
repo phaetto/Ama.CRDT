@@ -30,9 +30,6 @@ public sealed class LwwSetStrategyTests : IDisposable
     private readonly ICrdtMetadataManager metadataManagerA;
     private readonly ICrdtMetadataManager metadataManagerB;
     private readonly ICrdtMetadataManager metadataManagerC;
-    private readonly ICrdtTimestampProvider timestampProviderA;
-    private readonly ICrdtTimestampProvider timestampProviderB;
-    private readonly ICrdtTimestampProvider timestampProviderC;
 
     public LwwSetStrategyTests()
     {
@@ -52,9 +49,6 @@ public sealed class LwwSetStrategyTests : IDisposable
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         metadataManagerB = scopeB.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         metadataManagerC = scopeB.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
-        timestampProviderA = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
-        timestampProviderB = scopeB.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
-        timestampProviderC = scopeB.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()
@@ -72,7 +66,7 @@ public sealed class LwwSetStrategyTests : IDisposable
         var doc2 = new TestModel { Tags = { "B", "C" } };
         
         // Act
-        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), new CrdtDocument<TestModel>(doc2, meta1));
+        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), doc2);
         
         // Assert
         patch.Operations.Count.ShouldBe(2);
@@ -87,7 +81,7 @@ public sealed class LwwSetStrategyTests : IDisposable
         var doc1 = new TestModel { Tags = { "A" } };
         var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Tags = { "A", "B" } };
-        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), new CrdtDocument<TestModel>(doc2, meta1));
+        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), doc2);
 
         var target = new TestModel { Tags = { "A" } };
         var targetMeta = metadataManagerA.Initialize(target);
@@ -112,12 +106,13 @@ public sealed class LwwSetStrategyTests : IDisposable
         // Arrange
         var ancestor = new TestModel();
         var metaAncestor = metadataManagerA.Initialize(ancestor);
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
         
-        var patchAdd = patcherA.GeneratePatch(new CrdtDocument<TestModel>(ancestor, metaAncestor), new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, metaAncestor));
+        var patchAdd = patcherA.GeneratePatch(docAncestor, new TestModel { Tags = { "A" } });
 
         Thread.Sleep(5);
-        var patchRemove = patcherB.GeneratePatch(new CrdtDocument<TestModel>(ancestor, metaAncestor), new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, metaAncestor));
-        patchRemove = new CrdtPatch(new List<CrdtOperation> { patchRemove.Operations.First() with { Type = OperationType.Remove } }); // Manually create remove
+        var tempDoc = new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, metaAncestor);
+        var patchRemove = patcherB.GeneratePatch(tempDoc, new TestModel());
 
         // Scenario 1: Add (t=1), then Remove (t=2) -> Should be removed
         var model1 = new TestModel();
@@ -144,10 +139,12 @@ public sealed class LwwSetStrategyTests : IDisposable
         // Arrange
         var ancestor = new TestModel { Tags = { "A" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
         
-        var patchRemove = patcherA.GeneratePatch(new CrdtDocument<TestModel>(ancestor, metaAncestor), new CrdtDocument<TestModel>(new TestModel(), metaAncestor));
+        var patchRemove = patcherA.GeneratePatch(docAncestor, new TestModel());
         
-        var patchAdd = patcherB.GeneratePatch(new CrdtDocument<TestModel>(ancestor, metaAncestor), new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, metaAncestor));
+        Thread.Sleep(5);
+        var patchAdd = patcherB.GeneratePatch(new CrdtDocument<TestModel>(new TestModel(), metaAncestor), new TestModel { Tags = { "A" } });
         
         // Scenario 1: Remove (t=1), then Add (t=2) -> Should be present
         var model1 = new TestModel { Tags = { "A" } };
@@ -174,24 +171,19 @@ public sealed class LwwSetStrategyTests : IDisposable
         // Arrange
         var ancestor = new TestModel { Tags = { "A", "B" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
         var model1 = new TestModel { Tags = { "A", "C" } };
         var model2 = new TestModel { Tags = { "B", "D" } };
         var model3 = new TestModel { Tags = { "A", "B", "E" } };
 
         Thread.Sleep(5);
-        var patch1 = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(model1, metadataManagerA.Initialize(model1))); // Remove B, Add C
+        var patch1 = patcherA.GeneratePatch(docAncestor, model1); // Remove B, Add C
 
         Thread.Sleep(5);
-        var patch2 = patcherB.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(model2, metadataManagerB.Initialize(model2))); // Remove A, Add D
+        var patch2 = patcherB.GeneratePatch(docAncestor, model2); // Remove A, Add D
 
         Thread.Sleep(5);
-        var patch3 = patcherC.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(model3, metadataManagerC.Initialize(model3))); // Add E
+        var patch3 = patcherC.GeneratePatch(docAncestor, model3); // Add E
 
         var patches = new[] { patch1, patch2, patch3 };
         var permutations = GetPermutations(patches, patches.Length);
@@ -219,10 +211,10 @@ public sealed class LwwSetStrategyTests : IDisposable
         // Final state: C, D, E
         var expected = new[] { "C", "D", "E" };
         var firstState = finalStates.First();
-        firstState.ShouldBe(expected);
+        firstState.ShouldBe(expected, ignoreOrder:true);
         foreach (var state in finalStates.Skip(1))
         {
-            state.ShouldBe(firstState);
+            state.ShouldBe(firstState, ignoreOrder:true);
         }
     }
     

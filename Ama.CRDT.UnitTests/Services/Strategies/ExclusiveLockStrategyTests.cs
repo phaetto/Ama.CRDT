@@ -50,18 +50,20 @@ public sealed class ExclusiveLockStrategyTests
         var original = new TestModel { UserId = null, LockedValue = "A" };
         var modified = new TestModel { UserId = "user1", LockedValue = "B" };
         var originalMeta = new CrdtMetadata { Lww = { ["$.lockedValue"] = timestampProvider.Create(100L) } };
-        var modifiedMeta = new CrdtMetadata { Lww = { ["$.lockedValue"] = timestampProvider.Create(200L) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.LockedValue))!;
+        var changeTimestamp = timestampProvider.Create(200L);
+        var context = new GeneratePatchContext(
+            mockPatcher.Object, operations, "$.lockedValue", property, original.LockedValue, modified.LockedValue, original, modified, originalMeta, changeTimestamp);
 
         // Act
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.lockedValue", property, original.LockedValue, modified.LockedValue, original, modified, originalMeta, modifiedMeta);
+        strategy.GeneratePatch(context);
 
         // Assert
         operations.Count.ShouldBe(1);
         var op = operations[0];
         op.Type.ShouldBe(OperationType.Upsert);
         op.JsonPath.ShouldBe("$.lockedValue");
-        op.Timestamp.ShouldBe(timestampProvider.Create(200L));
+        op.Timestamp.ShouldBe(changeTimestamp);
         var payload = (ExclusiveLockPayload)op.Value!;
         payload.Value.ShouldBe("B");
         payload.LockHolderId.ShouldBe("user1");
@@ -82,11 +84,12 @@ public sealed class ExclusiveLockStrategyTests
             Lww = { ["$.lockedValue"] = timestampProvider.Create(100L) },
             ExclusiveLocks = { ["$.lockedValue"] = new LockInfo("user1", timestampProvider.Create(100L)) }
         };
-        var modifiedMeta = new CrdtMetadata { Lww = { ["$.lockedValue"] = timestampProvider.Create(200L) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.LockedValue))!;
+        var context = new GeneratePatchContext(
+            mockPatcher.Object, operations, "$.lockedValue", property, original.LockedValue, modified.LockedValue, original, modified, originalMeta, timestampProvider.Create(200L));
 
         // Act
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.lockedValue", property, original.LockedValue, modified.LockedValue, original, modified, originalMeta, modifiedMeta);
+        strategy.GeneratePatch(context);
 
         // Assert
         operations.ShouldBeEmpty();
@@ -107,9 +110,10 @@ public sealed class ExclusiveLockStrategyTests
         };
         var payload = new ExclusiveLockPayload("B", "user2");
         var operation = new CrdtOperation(Guid.NewGuid(), "r2", "$.lockedValue", OperationType.Upsert, payload, timestampProvider.Create(200L));
+        var context = new ApplyOperationContext(model, metadata, operation);
 
         // Act
-        strategy.ApplyOperation(model, metadata, operation);
+        strategy.ApplyOperation(context);
 
         // Assert
         model.LockedValue.ShouldBe("B");
@@ -131,13 +135,14 @@ public sealed class ExclusiveLockStrategyTests
         var metadata = new CrdtMetadata();
         var payload = new ExclusiveLockPayload("B", "user1");
         var operation = new CrdtOperation(Guid.NewGuid(), "r1", "$.lockedValue", OperationType.Upsert, payload, timestampProvider.Create(100L));
+        var context = new ApplyOperationContext(model, metadata, operation);
 
         // Act
-        strategy.ApplyOperation(model, metadata, operation);
+        strategy.ApplyOperation(context);
         var valueAfterFirstApply = model.LockedValue;
         var lockAfterFirstApply = metadata.ExclusiveLocks["$.lockedValue"];
 
-        strategy.ApplyOperation(model, metadata, operation);
+        strategy.ApplyOperation(context);
         
         // Assert
         model.LockedValue.ShouldBe(valueAfterFirstApply);
@@ -161,14 +166,14 @@ public sealed class ExclusiveLockStrategyTests
         // Scenario 1: op1 then op2
         var model1 = new TestModel { LockedValue = "A" };
         var meta1 = new CrdtMetadata();
-        strategy.ApplyOperation(model1, meta1, op1);
-        strategy.ApplyOperation(model1, meta1, op2);
+        strategy.ApplyOperation(new ApplyOperationContext(model1, meta1, op1));
+        strategy.ApplyOperation(new ApplyOperationContext(model1, meta1, op2));
 
         // Scenario 2: op2 then op1
         var model2 = new TestModel { LockedValue = "A" };
         var meta2 = new CrdtMetadata();
-        strategy.ApplyOperation(model2, meta2, op2);
-        strategy.ApplyOperation(model2, meta2, op1);
+        strategy.ApplyOperation(new ApplyOperationContext(model2, meta2, op2));
+        strategy.ApplyOperation(new ApplyOperationContext(model2, meta2, op1));
 
         // Assert
         model1.LockedValue.ShouldBe("C");
@@ -199,7 +204,7 @@ public sealed class ExclusiveLockStrategyTests
             var meta = new CrdtMetadata();
             foreach (var op in p)
             {
-                strategy.ApplyOperation(model, meta, op);
+                strategy.ApplyOperation(new ApplyOperationContext(model, meta, op));
             }
             model.LockedValue.ShouldBe("C");
             meta.ExclusiveLocks["$.lockedValue"]?.LockHolderId.ShouldBe("user2");

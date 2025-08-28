@@ -41,9 +41,8 @@ public class ApplicatorBenchmarks
 
         var simpleToMetadata = CloneMetadata(simpleFromMetadata);
         metadataManager.Initialize(new CrdtDocument<SimplePoco>(simpleTo, simpleToMetadata), new EpochTimestamp(2));
-        var simplePocoToDoc = new CrdtDocument<SimplePoco>(simpleTo, simpleToMetadata);
         
-        simplePocoPatch = patcher.GeneratePatch(simplePocoFromDoc, simplePocoToDoc);
+        simplePocoPatch = patcher.GeneratePatch(simplePocoFromDoc, simpleTo);
         simpleMetadata = new CrdtMetadata();
         
         // Complex POCO setup
@@ -71,9 +70,8 @@ public class ApplicatorBenchmarks
 
         var complexToMetadata = CloneMetadata(complexFromMetadata);
         metadataManager.Initialize(new CrdtDocument<ComplexPoco>(complexTo, complexToMetadata), new EpochTimestamp(4));
-        var complexPocoToDoc = new CrdtDocument<ComplexPoco>(complexTo, complexToMetadata);
         
-        complexPocoPatch = patcher.GeneratePatch(complexPocoFromDoc, complexPocoToDoc);
+        complexPocoPatch = patcher.GeneratePatch(complexPocoFromDoc, complexTo);
         complexMetadata = new CrdtMetadata();
     }
     

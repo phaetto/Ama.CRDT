@@ -63,12 +63,9 @@ public sealed class CrdtPatcherTests : IDisposable
         // Arrange
         var model = new TestModel();
         var fromWithNullMeta = new CrdtDocument<TestModel>(model, null);
-        var toWithNullMeta = new CrdtDocument<TestModel>(model, null);
-        var validDoc = new CrdtDocument<TestModel>(model, new CrdtMetadata());
 
         // Act & Assert
-        Should.Throw<ArgumentNullException>(() => patcher.GeneratePatch(fromWithNullMeta, validDoc));
-        Should.Throw<ArgumentNullException>(() => patcher.GeneratePatch(validDoc, toWithNullMeta));
+        Should.Throw<ArgumentNullException>(() => patcher.GeneratePatch(fromWithNullMeta, model));
     }
 
     [Fact]
@@ -83,10 +80,9 @@ public sealed class CrdtPatcherTests : IDisposable
         metadata.Lww["$.unchanged"] = ts;
 
         var from = new CrdtDocument<TestModel>(model, metadata);
-        var to = new CrdtDocument<TestModel>(model, metadata);
 
         // Act
-        var patch = patcher.GeneratePatch(from, to);
+        var patch = patcher.GeneratePatch(from, model);
 
         // Assert
         patch.Operations.ShouldBeEmpty();
@@ -106,14 +102,9 @@ public sealed class CrdtPatcherTests : IDisposable
 
         var ts2 = timestampProvider.Create(200);
         var toModel = new TestModel { Name = "Updated", Likes = 15, Unchanged = 123 };
-        var toMeta = new CrdtMetadata();
-        toMeta.Lww["$.name"] = ts2;
-        toMeta.Lww["$.likes"] = ts2;
-        toMeta.Lww["$.unchanged"] = ts1;
-        var to = new CrdtDocument<TestModel>(toModel, toMeta);
 
         // Act
-        var patch = patcher.GeneratePatch(from, to);
+        var patch = patcher.GeneratePatch(from, toModel, ts2);
 
         // Assert
         patch.Operations.Count.ShouldBe(2);
@@ -141,12 +132,9 @@ public sealed class CrdtPatcherTests : IDisposable
 
         var ts2 = timestampProvider.Create(200);
         var toModel = new TestModel { Nested = new NestedModel { Value = "Nested Updated" } };
-        var toMeta = new CrdtMetadata();
-        toMeta.Lww["$.nested.value"] = ts2;
-        var to = new CrdtDocument<TestModel>(toModel, toMeta);
 
         // Act
-        var patch = patcher.GeneratePatch(from, to);
+        var patch = patcher.GeneratePatch(from, toModel, ts2);
 
         // Assert
         patch.Operations.Count.ShouldBe(1);

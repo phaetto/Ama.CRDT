@@ -2,7 +2,6 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization;
 using Shouldly;
 using System.Text.Json;
-using Xunit;
 
 namespace Ama.CRDT.UnitTests.Models.Serialization;
 
