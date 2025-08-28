@@ -2,17 +2,16 @@ namespace Ama.CRDT.UnitTests.Services;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Strategies;
-using Microsoft.Extensions.Options;
 using Ama.CRDT.Attributes;
 using Shouldly;
 using Xunit;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Extensions;
+using Microsoft.Extensions.DependencyInjection;
 
-public sealed class CrdtPatcherTests
+public sealed class CrdtPatcherTests : IDisposable
 {
     private sealed record TestModel
     {
@@ -35,18 +34,23 @@ public sealed class CrdtPatcherTests
     }
 
     private readonly ICrdtPatcher patcher;
+    private readonly IServiceScope scope;
 
     public CrdtPatcherTests()
     {
-        var options = Options.Create(new CrdtOptions { ReplicaId = "test-patcher" });
-        var timestampProvider = new EpochTimestampProvider();
-        var lwwStrategy = new LwwStrategy(options);
-        var counterStrategy = new CounterStrategy(timestampProvider, options);
-        var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
-        var arrayStrategy = new SortedSetStrategy(comparerProvider, timestampProvider, options);
-        var strategies = new ICrdtStrategy[] { lwwStrategy, counterStrategy, arrayStrategy };
-        var strategyManager = new CrdtStrategyProvider(strategies);
-        patcher = new CrdtPatcher(strategyManager);
+        var services = new ServiceCollection();
+        services.AddCrdt();
+
+        var serviceProvider = services.BuildServiceProvider();
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        scope = scopeFactory.CreateScope("test-patcher");
+
+        patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+    }
+
+    public void Dispose()
+    {
+        scope.Dispose();
     }
 
     [Fact]
@@ -111,12 +115,13 @@ public sealed class CrdtPatcherTests
         patch.Operations.Count.ShouldBe(2);
 
         var lwwOp = patch.Operations.FirstOrDefault(op => op.JsonPath == "$.name");
-        lwwOp!.Type.ShouldBe(OperationType.Upsert);
+        lwwOp.Type.ShouldBe(OperationType.Upsert);
         lwwOp.Value!.ShouldBe("Updated");
+        // The timestamp should be the one from the 'to' document's metadata, indicating a win
         lwwOp.Timestamp.ShouldBe(ts2);
 
         var counterOp = patch.Operations.FirstOrDefault(op => op.JsonPath == "$.likes");
-        counterOp!.Type.ShouldBe(OperationType.Increment);
+        counterOp.Type.ShouldBe(OperationType.Increment);
         counterOp.Value!.ShouldBe(10m);
     }
 

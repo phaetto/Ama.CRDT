@@ -2,7 +2,6 @@ namespace Ama.CRDT.Services.Strategies;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Microsoft.Extensions.Options;
 using Ama.CRDT.Services.Helpers;
 using System;
 using System.Collections.Generic;
@@ -19,19 +18,9 @@ using Ama.CRDT.Attributes.Strategies;
 [Associative]
 [Idempotent]
 [Mergeable]
-public sealed class LwwStrategy : ICrdtStrategy
+public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 {
-    private readonly string replicaId;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="LwwStrategy"/> class.
-    /// </summary>
-    /// <param name="options">Configuration options containing the replica ID.</param>
-    public LwwStrategy(IOptions<CrdtOptions> options)
-    {
-        ArgumentNullException.ThrowIfNull(options?.Value);
-        replicaId = options.Value.ReplicaId;
-    }
+    private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc/>
     public void GeneratePatch(ICrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, CrdtMetadata originalMeta, CrdtMetadata modifiedMeta)

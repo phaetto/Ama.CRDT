@@ -1,17 +1,18 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-public sealed class TwoPhaseSetStrategyTests
+public sealed class TwoPhaseSetStrategyTests : IDisposable
 {
     private sealed class TestModel
     {
@@ -19,29 +20,33 @@ public sealed class TwoPhaseSetStrategyTests
         public List<string> Tags { get; set; } = new();
     }
     
-    private readonly CrdtPatcher patcherA;
-    private readonly CrdtPatcher patcherB;
-    private readonly CrdtApplicator applicator;
-    private readonly CrdtMetadataManager metadataManager;
+    private readonly IServiceScope scopeA;
+    private readonly IServiceScope scopeB;
+    private readonly ICrdtPatcher patcherA;
+    private readonly ICrdtPatcher patcherB;
+    private readonly ICrdtApplicator applicatorA;
+    private readonly ICrdtMetadataManager metadataManagerA;
 
     public TwoPhaseSetStrategyTests()
     {
-        var timestampProvider = new EpochTimestampProvider();
-        var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
-        
-        var optionsA = Options.Create(new CrdtOptions { ReplicaId = "A" });
-        var optionsB = Options.Create(new CrdtOptions { ReplicaId = "B" });
-        
-        var strategiesA = new ICrdtStrategy[] { new LwwStrategy(optionsA), new TwoPhaseSetStrategy(comparerProvider, timestampProvider, optionsA) };
-        var strategyManagerA = new CrdtStrategyProvider(strategiesA);
-        patcherA = new CrdtPatcher(strategyManagerA);
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .BuildServiceProvider();
 
-        var strategiesB = new ICrdtStrategy[] { new LwwStrategy(optionsB), new TwoPhaseSetStrategy(comparerProvider, timestampProvider, optionsB) };
-        var strategyManagerB = new CrdtStrategyProvider(strategiesB);
-        patcherB = new CrdtPatcher(strategyManagerB);
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        scopeA = scopeFactory.CreateScope("A");
+        scopeB = scopeFactory.CreateScope("B");
 
-        applicator = new CrdtApplicator(strategyManagerA);
-        metadataManager = new CrdtMetadataManager(strategyManagerA, timestampProvider, comparerProvider);
+        patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+    }
+
+    public void Dispose()
+    {
+        scopeA.Dispose();
+        scopeB.Dispose();
     }
     
     [Fact]
@@ -49,7 +54,7 @@ public sealed class TwoPhaseSetStrategyTests
     {
         // Arrange
         var doc1 = new TestModel { Tags = { "A", "B" } };
-        var meta1 = metadataManager.Initialize(doc1);
+        var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Tags = { "B", "C" } };
         
         // Act
@@ -66,21 +71,21 @@ public sealed class TwoPhaseSetStrategyTests
     {
         // Arrange
         var doc1 = new TestModel { Tags = { "A" } };
-        var meta1 = metadataManager.Initialize(doc1);
+        var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Tags = { "A", "B" } };
         var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), new CrdtDocument<TestModel>(doc2, meta1));
 
         var target = new TestModel { Tags = { "A" } };
-        var targetMeta = metadataManager.Initialize(target);
+        var targetMeta = metadataManagerA.Initialize(target);
         var targetDocument = new CrdtDocument<TestModel>(target, targetMeta);
         
         // Act
-        applicator.ApplyPatch(targetDocument, patch);
+        applicatorA.ApplyPatch(targetDocument, patch);
         var stateAfterFirst = new List<string>(target.Tags);
         
         // Clear seen exceptions to test the strategy's own idempotency
         targetMeta.SeenExceptions.Clear();
-        applicator.ApplyPatch(targetDocument, patch);
+        applicatorA.ApplyPatch(targetDocument, patch);
         
         // Assert
         target.Tags.ShouldBe(stateAfterFirst);
@@ -92,19 +97,19 @@ public sealed class TwoPhaseSetStrategyTests
     {
         // Arrange
         var model = new TestModel { Tags = { "A" } };
-        var meta = metadataManager.Initialize(model);
+        var meta = metadataManagerA.Initialize(model);
         var document = new CrdtDocument<TestModel>(model, meta);
         
         // Remove "A"
         var patchRemove = patcherA.GeneratePatch(document, new CrdtDocument<TestModel>(new TestModel(), meta));
-        applicator.ApplyPatch(document, patchRemove);
+        applicatorA.ApplyPatch(document, patchRemove);
         model.Tags.ShouldBeEmpty();
         
         // Try to add "A" back
         var patchAdd = patcherA.GeneratePatch(new CrdtDocument<TestModel>(new TestModel(), meta), new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, meta));
         
         // Act
-        applicator.ApplyPatch(document, patchAdd);
+        applicatorA.ApplyPatch(document, patchAdd);
         
         // Assert
         model.Tags.ShouldBeEmpty();
@@ -115,7 +120,7 @@ public sealed class TwoPhaseSetStrategyTests
     {
         // Arrange
         var ancestor = new TestModel { Tags = { "A", "B" } };
-        var metaAncestor = metadataManager.Initialize(ancestor);
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
         var ancestorDocument = new CrdtDocument<TestModel>(ancestor, metaAncestor);
 
         // Replica A removes "B"
@@ -130,17 +135,17 @@ public sealed class TwoPhaseSetStrategyTests
         
         // Scenario 1: Remove then Add
         var model1 = new TestModel { Tags = new List<string>(ancestor.Tags) };
-        var meta1 = metadataManager.Initialize(model1);
+        var meta1 = metadataManagerA.Initialize(model1);
         var doc1 = new CrdtDocument<TestModel>(model1, meta1);
-        applicator.ApplyPatch(doc1, patchRemoveB);
-        applicator.ApplyPatch(doc1, patchAddC);
+        applicatorA.ApplyPatch(doc1, patchRemoveB);
+        applicatorA.ApplyPatch(doc1, patchAddC);
 
         // Scenario 2: Add then Remove
         var model2 = new TestModel { Tags = new List<string>(ancestor.Tags) };
-        var meta2 = metadataManager.Initialize(model2);
+        var meta2 = metadataManagerA.Initialize(model2);
         var doc2 = new CrdtDocument<TestModel>(model2, meta2);
-        applicator.ApplyPatch(doc2, patchAddC);
-        applicator.ApplyPatch(doc2, patchRemoveB);
+        applicatorA.ApplyPatch(doc2, patchAddC);
+        applicatorA.ApplyPatch(doc2, patchRemoveB);
 
         // Assert
         var expected = new[] { "A", "C" };
@@ -153,7 +158,7 @@ public sealed class TwoPhaseSetStrategyTests
     {
         // Arrange
         var ancestor = new TestModel { Tags = { "A", "B" } };
-        var metaAncestor = metadataManager.Initialize(ancestor);
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
         var ancestorDocument = new CrdtDocument<TestModel>(ancestor, metaAncestor);
         var patcherC = patcherB;
 
@@ -180,11 +185,11 @@ public sealed class TwoPhaseSetStrategyTests
         foreach (var permutation in permutations)
         {
             var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
-            var meta = metadataManager.Initialize(model);
+            var meta = metadataManagerA.Initialize(model);
             var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in permutation)
             {
-                applicator.ApplyPatch(document, patch);
+                applicatorA.ApplyPatch(document, patch);
             }
             finalStates.Add(model.Tags);
         }

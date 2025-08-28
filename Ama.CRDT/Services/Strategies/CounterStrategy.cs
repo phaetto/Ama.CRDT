@@ -2,7 +2,6 @@ namespace Ama.CRDT.Services.Strategies;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Microsoft.Extensions.Options;
 using Ama.CRDT.Services.Helpers;
 using System;
 using System.Collections.Generic;
@@ -24,24 +23,11 @@ using Ama.CRDT.Services.Providers;
 [CrdtSupportedType(typeof(long))]
 [Commutative]
 [Associative]
-[IdempotentShortTermImplementation]
+[IdempotentWithContinuousTime]
 [Mergeable]
-public sealed class CounterStrategy : ICrdtStrategy
+public sealed class CounterStrategy(ICrdtTimestampProvider timestampProvider, ReplicaContext replicaContext) : ICrdtStrategy
 {
-    private readonly ICrdtTimestampProvider timestampProvider;
-    private readonly string replicaId;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="CounterStrategy"/> class.
-    /// </summary>
-    /// <param name="timestampProvider">The provider for generating timestamps.</param>
-    /// <param name="options">Configuration options containing the replica ID.</param>
-    public CounterStrategy(ICrdtTimestampProvider timestampProvider, IOptions<CrdtOptions> options)
-    {
-        this.timestampProvider = timestampProvider ?? throw new ArgumentNullException(nameof(timestampProvider));
-        ArgumentNullException.ThrowIfNull(options?.Value);
-        replicaId = options.Value.ReplicaId;
-    }
+    private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc/>
     public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)

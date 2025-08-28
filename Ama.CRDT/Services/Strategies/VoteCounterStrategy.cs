@@ -5,7 +5,6 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
-using Microsoft.Extensions.Options;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -13,15 +12,16 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using Ama.CRDT.Services;
 
 [CrdtSupportedType(typeof(IDictionary))]
 [Commutative]
 [Associative]
 [Idempotent]
 [Mergeable]
-public sealed class VoteCounterStrategy(IOptions<CrdtOptions> options, ICrdtTimestampProvider timestampProvider) : ICrdtStrategy
+public sealed class VoteCounterStrategy(ReplicaContext replicaContext, ICrdtTimestampProvider timestampProvider) : ICrdtStrategy
 {
-    private readonly string replicaId = options.Value.ReplicaId;
+    private readonly string replicaId = replicaContext.ReplicaId;
     private static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,

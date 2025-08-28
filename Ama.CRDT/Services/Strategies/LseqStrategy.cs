@@ -5,12 +5,12 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
-using Microsoft.Extensions.Options;
 using System.Collections;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
+using Ama.CRDT.Services;
 
 /// <summary>
 /// Implements the LSEQ (Log-structured Sequence) strategy. LSEQ assigns dense, ordered identifiers
@@ -22,21 +22,10 @@ using System.Text.Json;
 [Associative]
 [Idempotent]
 [SequentialOperations]
-public sealed class LseqStrategy : ICrdtStrategy
+public sealed class LseqStrategy(IElementComparerProvider elementComparerProvider, ReplicaContext replicaContext) : ICrdtStrategy
 {
-    private readonly IElementComparerProvider elementComparerProvider;
-    private readonly string replicaId;
+    private readonly string replicaId = replicaContext.ReplicaId;
     private const int Base = 32;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="LseqStrategy"/> class.
-    /// </summary>
-    public LseqStrategy(IElementComparerProvider elementComparerProvider, IOptions<CrdtOptions> options)
-    {
-        this.elementComparerProvider = elementComparerProvider ?? throw new ArgumentNullException(nameof(elementComparerProvider));
-        ArgumentNullException.ThrowIfNull(options?.Value);
-        this.replicaId = options.Value.ReplicaId;
-    }
 
     /// <inheritdoc />
     public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)

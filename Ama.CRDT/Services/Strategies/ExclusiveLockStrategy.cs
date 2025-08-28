@@ -4,27 +4,21 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
-using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
+using Ama.CRDT.Services;
 
 [CrdtSupportedType(typeof(object))]
 [Commutative]
 [Associative]
 [Idempotent]
 [Mergeable]
-public sealed class ExclusiveLockStrategy : ICrdtStrategy
+public sealed class ExclusiveLockStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 {
-    private readonly string replicaId;
-
-    public ExclusiveLockStrategy(IOptions<CrdtOptions> options)
-    {
-        ArgumentNullException.ThrowIfNull(options?.Value);
-        replicaId = options.Value.ReplicaId;
-    }
+    private readonly string replicaId = replicaContext.ReplicaId;
 
     public void GeneratePatch(ICrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, CrdtMetadata originalMeta, CrdtMetadata modifiedMeta)
     {

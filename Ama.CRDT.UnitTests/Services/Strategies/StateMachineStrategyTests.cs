@@ -6,7 +6,6 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Moq;
 using Shouldly;
 using System;
@@ -37,24 +36,27 @@ public sealed class StateMachineStrategyTests
         public string Status { get; set; }
     }
     
-    private readonly StateMachineStrategy strategy;
+    private readonly IServiceProvider serviceProvider;
     private readonly Mock<ICrdtPatcher> mockPatcher = new();
     private readonly List<CrdtOperation> operations = new();
 
     public StateMachineStrategyTests()
     {
-        var serviceProvider = new ServiceCollection()
-            .AddSingleton<OrderStatusStateMachine>()
-            .BuildServiceProvider();
-            
-        var options = Options.Create(new CrdtOptions { ReplicaId = "replica-A" });
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        services.AddSingleton<OrderStatusStateMachine>();
 
-        strategy = new StateMachineStrategy(options, serviceProvider);
+        serviceProvider = services.BuildServiceProvider();
     }
     
     [Fact]
     public void GeneratePatch_WithValidTransitionAndNewerTimestamp_ShouldCreateUpsertOperation()
     {
+        // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("replica-A");
+        var strategy = scope.ServiceProvider.GetRequiredService<StateMachineStrategy>();
+
         var originalMeta = new CrdtMetadata { Lww = { ["$.status"] = new EpochTimestamp(100) } };
         var modifiedMeta = new CrdtMetadata { Lww = { ["$.status"] = new EpochTimestamp(200) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
@@ -72,6 +74,11 @@ public sealed class StateMachineStrategyTests
     [Fact]
     public void GeneratePatch_WithInvalidTransition_ShouldNotCreateOperation()
     {
+        // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("replica-A");
+        var strategy = scope.ServiceProvider.GetRequiredService<StateMachineStrategy>();
+
         var originalMeta = new CrdtMetadata { Lww = { ["$.status"] = new EpochTimestamp(100) } };
         var modifiedMeta = new CrdtMetadata { Lww = { ["$.status"] = new EpochTimestamp(200) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
@@ -84,6 +91,11 @@ public sealed class StateMachineStrategyTests
     [Fact]
     public void ApplyOperation_WithValidTransitionAndNewerTimestamp_ShouldUpdateModel()
     {
+        // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("replica-A");
+        var strategy = scope.ServiceProvider.GetRequiredService<StateMachineStrategy>();
+
         var model = new TestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = new EpochTimestamp(100) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "PROCESSING", new EpochTimestamp(200));
@@ -97,6 +109,11 @@ public sealed class StateMachineStrategyTests
     [Fact]
     public void ApplyOperation_WithInvalidTransition_ShouldNotUpdateModel()
     {
+        // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("replica-A");
+        var strategy = scope.ServiceProvider.GetRequiredService<StateMachineStrategy>();
+
         var model = new TestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = new EpochTimestamp(100) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", new EpochTimestamp(200));
@@ -110,6 +127,11 @@ public sealed class StateMachineStrategyTests
     [Fact]
     public void ApplyOperation_WithOlderTimestamp_ShouldNotUpdateModel()
     {
+        // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("replica-A");
+        var strategy = scope.ServiceProvider.GetRequiredService<StateMachineStrategy>();
+
         var model = new TestModel { Status = "PROCESSING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = new EpochTimestamp(300) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", new EpochTimestamp(200));
@@ -123,6 +145,11 @@ public sealed class StateMachineStrategyTests
     [Fact]
     public void ApplyOperation_IsIdempotent()
     {
+        // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("replica-A");
+        var strategy = scope.ServiceProvider.GetRequiredService<StateMachineStrategy>();
+
         var model = new TestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "PROCESSING", new EpochTimestamp(200));
@@ -138,6 +165,11 @@ public sealed class StateMachineStrategyTests
     [Fact]
     public void ApplyOperation_ConflictResolutionIsCommutative()
     {
+        // Arrange
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("replica-A");
+        var strategy = scope.ServiceProvider.GetRequiredService<StateMachineStrategy>();
+
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.status", OperationType.Upsert, "PROCESSING", new EpochTimestamp(200));
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.status", OperationType.Upsert, "SHIPPED", new EpochTimestamp(300));
 

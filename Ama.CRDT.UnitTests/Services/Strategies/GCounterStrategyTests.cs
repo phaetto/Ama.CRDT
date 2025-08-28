@@ -1,43 +1,46 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-public sealed class GCounterStrategyTests
+public sealed class GCounterStrategyTests : IDisposable
 {
     private sealed class TestModel { [CrdtGCounterStrategy] public int Count { get; set; } }
 
-    private readonly GCounterStrategy strategy;
     private readonly Mock<ICrdtPatcher> mockPatcher = new();
     private readonly List<CrdtOperation> operations = new();
-    
-    private readonly CrdtApplicator applicator;
-    private readonly CrdtMetadataManager metadataManager;
+
+    private readonly IServiceScope scopeA;
+    private readonly GCounterStrategy strategy;
+    private readonly ICrdtApplicator applicatorA;
+    private readonly ICrdtMetadataManager metadataManagerA;
 
     public GCounterStrategyTests()
     {
-        var timestampProvider = new EpochTimestampProvider();
-        var optionsA = Options.Create(new CrdtOptions { ReplicaId = "A" });
-        
-        strategy = new GCounterStrategy(timestampProvider, optionsA);
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .BuildServiceProvider();
 
-        var lwwStrategy = new LwwStrategy(optionsA);
-        var comparerProvider = new ElementComparerProvider(Enumerable.Empty<IElementComparer>());
-        var arrayLcsStrategy = new ArrayLcsStrategy(comparerProvider, timestampProvider, optionsA);
-        var strategies = new ICrdtStrategy[] { lwwStrategy, strategy, arrayLcsStrategy };
-        var strategyManager = new CrdtStrategyProvider(strategies);
-        
-        applicator = new CrdtApplicator(strategyManager);
-        metadataManager = new CrdtMetadataManager(strategyManager, timestampProvider, comparerProvider);
+        scopeA = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("A");
+
+        strategy = scopeA.ServiceProvider.GetRequiredService<GCounterStrategy>();
+        applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+    }
+
+    public void Dispose()
+    {
+        scopeA.Dispose();
     }
 
     [Fact]
@@ -112,7 +115,7 @@ public sealed class GCounterStrategyTests
     {
         // Arrange
         var model = new TestModel { Count = 10 };
-        var meta = metadataManager.Initialize(model);
+        var meta = metadataManagerA.Initialize(model);
         var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
@@ -120,9 +123,9 @@ public sealed class GCounterStrategyTests
         });
 
         // Act
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
         var countAfterFirst = model.Count;
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
 
         // Assert
         model.Count.ShouldBe(countAfterFirst);
@@ -134,7 +137,7 @@ public sealed class GCounterStrategyTests
     {
         // Arrange
         var model = new TestModel { Count = 10 };
-        var meta = metadataManager.Initialize(model);
+        var meta = metadataManagerA.Initialize(model);
         var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
@@ -142,12 +145,12 @@ public sealed class GCounterStrategyTests
         });
 
         // Act
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
         model.Count.ShouldBe(15);
 
         // Clear SeenExceptions to simulate re-application
         meta.SeenExceptions.Clear();
-        applicator.ApplyPatch(document, patch);
+        applicatorA.ApplyPatch(document, patch);
 
         // Assert
         // The increment is applied a second time, proving the strategy is not idempotent.
@@ -170,11 +173,11 @@ public sealed class GCounterStrategyTests
         foreach (var p in permutations)
         {
             var model = new TestModel { Count = 10 };
-            var meta = metadataManager.Initialize(model);
+            var meta = metadataManagerA.Initialize(model);
             var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in p)
             {
-                applicator.ApplyPatch(document, patch);
+                applicatorA.ApplyPatch(document, patch);
             }
             finalCounts.Add(model.Count);
         }
