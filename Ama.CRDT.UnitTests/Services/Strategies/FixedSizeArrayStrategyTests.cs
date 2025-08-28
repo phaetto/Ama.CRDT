@@ -214,13 +214,14 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         var metaAncestor = metadataManagerA.Initialize(ancestor);
         
         // Replica A updates index 1
+        Thread.Sleep(5);
         var metaForA = metadataManagerA.Initialize(new TestModel { Values = [0, 1, 0] });
         var patchA = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
             new CrdtDocument<TestModel>(new TestModel { Values = [0, 1, 0] }, metaForA));
 
         // Replica B updates index 1 later in time
-        Thread.Sleep(15); // Ensure timestamp is reliably greater
+        Thread.Sleep(5);
         var metaForB = metadataManagerA.Initialize(new TestModel { Values = [0, 2, 0] });
         var patchB = patcherB.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
@@ -237,7 +238,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         
         // Act
         var model = new TestModel { Values = new List<int>(ancestor.Values) };
-        var meta = metadataManagerA.Initialize(model);
+        var meta = metadataManagerA.Clone(metaAncestor);
         var document = new CrdtDocument<TestModel>(model, meta);
         applicatorA.ApplyPatch(document, patchA);
         applicatorA.ApplyPatch(document, patchB);
