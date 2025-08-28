@@ -5,7 +5,6 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
-using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
@@ -52,6 +51,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
             .AddCrdtComparer<ItemComparer>()
+            .AddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

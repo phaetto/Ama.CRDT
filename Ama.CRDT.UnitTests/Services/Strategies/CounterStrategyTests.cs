@@ -7,7 +7,6 @@ using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Moq;
 using Shouldly;
 using System;
@@ -25,11 +24,13 @@ public sealed class CounterStrategyTests : IDisposable
     private readonly CounterStrategy strategy;
     private readonly ICrdtApplicator applicatorA;
     private readonly ICrdtMetadataManager metadataManagerA;
+    private readonly ICrdtTimestampProvider timestampProvider;
 
     public CounterStrategyTests()
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>()
             .BuildServiceProvider();
 
         scopeA = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("A");
@@ -37,6 +38,7 @@ public sealed class CounterStrategyTests : IDisposable
         strategy = scopeA.ServiceProvider.GetRequiredService<CounterStrategy>();
         applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()
@@ -56,7 +58,7 @@ public sealed class CounterStrategyTests : IDisposable
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
         
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
-        var expectedTimestamp = new EpochTimestamp(12345);
+        var expectedTimestamp = new SequentialTimestampProvider().Create(12345);
         mockTimestampProvider.Setup(p => p.Now()).Returns(expectedTimestamp);
         var localStrategy = new CounterStrategy(mockTimestampProvider.Object, new ReplicaContext { ReplicaId = "replica-A" });
 
@@ -81,7 +83,7 @@ public sealed class CounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Score = initial };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Increment, (decimal)increment, new EpochTimestamp(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Increment, (decimal)increment, timestampProvider.Create(2L));
 
         // Act
         strategy.ApplyOperation(model, new CrdtMetadata(), operation);
@@ -95,7 +97,7 @@ public sealed class CounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModelWithNoScore();
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, 5m, new EpochTimestamp(1L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, 5m, timestampProvider.Create(1L));
 
         // Act & Assert: This should not throw because the property doesn't exist.
         // The helper will return nulls and the strategy will exit gracefully.
@@ -109,14 +111,14 @@ public sealed class CounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel();
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Upsert, 5m, new EpochTimestamp(1L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Upsert, 5m, timestampProvider.Create(1L));
 
         // Act & Assert
         Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(model, new CrdtMetadata(), operation));
     }
     
     [Fact]
-    public void ApplyPatch_IsIdempotent_WithSeenExceptionsCheck()
+    public void ApplyPatch_IsIdempotent()
     {
         // Arrange
         var model = new TestModel { Score = 10 };
@@ -124,7 +126,7 @@ public sealed class CounterStrategyTests : IDisposable
         var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
-            new(Guid.NewGuid(), "r1", "$.Score", OperationType.Increment, 5m, new EpochTimestamp(1L))
+            new(Guid.NewGuid(), "r1", "$.Score", OperationType.Increment, 5m, timestampProvider.Create(1L))
         });
 
         // Act
@@ -138,37 +140,12 @@ public sealed class CounterStrategyTests : IDisposable
     }
 
     [Fact]
-    public void ApplyPatch_IsNotIdempotent_WithoutSeenExceptionsCheck()
-    {
-        // Arrange
-        var model = new TestModel { Score = 10 };
-        var meta = metadataManagerA.Initialize(model);
-        var document = new CrdtDocument<TestModel>(model, meta);
-        var patch = new CrdtPatch(new List<CrdtOperation>
-        {
-            new(Guid.NewGuid(), "r1", "$.Score", OperationType.Increment, 5m, new EpochTimestamp(1L))
-        });
-
-        // Act
-        applicatorA.ApplyPatch(document, patch);
-        model.Score.ShouldBe(15);
-
-        // Clear SeenExceptions to simulate re-application
-        meta.SeenExceptions.Clear();
-        applicatorA.ApplyPatch(document, patch);
-
-        // Assert
-        // The increment is applied a second time, proving the strategy is not idempotent.
-        model.Score.ShouldBe(20);
-    }
-
-    [Fact]
     public void ApplyPatch_IsCommutativeAndAssociative()
     {
         // Arrange
-        var patch1 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r1", "$.Score", OperationType.Increment, 10m, new EpochTimestamp(1L)) });
-        var patch2 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r2", "$.Score", OperationType.Increment, -5m, new EpochTimestamp(2L)) });
-        var patch3 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r3", "$.Score", OperationType.Increment, 20m, new EpochTimestamp(3L)) });
+        var patch1 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r1", "$.Score", OperationType.Increment, 10m, timestampProvider.Create(1L)) });
+        var patch2 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r2", "$.Score", OperationType.Increment, -5m, timestampProvider.Create(2L)) });
+        var patch3 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r3", "$.Score", OperationType.Increment, 20m, timestampProvider.Create(3L)) });
 
         var patches = new[] { patch1, patch2, patch3 };
         var permutations = GetPermutations(patches, 3);

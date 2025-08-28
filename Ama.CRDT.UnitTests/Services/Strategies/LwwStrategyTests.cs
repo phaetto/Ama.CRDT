@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -17,6 +18,7 @@ public sealed class LwwStrategyTests
     private sealed class TestModel { public int Value { get; set; } }
 
     private readonly IServiceProvider serviceProvider;
+    private readonly ICrdtTimestampProvider timestampProvider;
     private readonly Mock<ICrdtPatcher> mockPatcher = new();
     private readonly List<CrdtOperation> operations = new();
     private readonly string replicaId = Guid.NewGuid().ToString();
@@ -24,8 +26,10 @@ public sealed class LwwStrategyTests
     public LwwStrategyTests()
     {
         var services = new ServiceCollection();
-        services.AddCrdt();
+        services.AddCrdt()
+            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
         serviceProvider = services.BuildServiceProvider();
+        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     [Fact]
@@ -38,8 +42,8 @@ public sealed class LwwStrategyTests
 
         var originalValue = 10;
         var modifiedValue = 20;
-        var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = new EpochTimestamp(100L) } };
-        var modifiedMeta = new CrdtMetadata { Lww = { ["$.value"] = new EpochTimestamp(200L) } };
+        var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = timestampProvider.Create(100L) } };
+        var modifiedMeta = new CrdtMetadata { Lww = { ["$.value"] = timestampProvider.Create(200L) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
         strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, null, null, originalMeta, modifiedMeta);
@@ -49,7 +53,7 @@ public sealed class LwwStrategyTests
         op.Type.ShouldBe(OperationType.Upsert);
         op.JsonPath.ShouldBe("$.value");
         op.Value.ShouldBe(20);
-        op.Timestamp.ShouldBe(new EpochTimestamp(200L));
+        op.Timestamp.ShouldBe(timestampProvider.Create(200L));
     }
     
     [Fact]
@@ -62,8 +66,8 @@ public sealed class LwwStrategyTests
 
         var originalValue = 10;
         var modifiedValue = 20;
-        var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = new EpochTimestamp(200L) } };
-        var modifiedMeta = new CrdtMetadata { Lww = { ["$.value"] = new EpochTimestamp(100L) } };
+        var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = timestampProvider.Create(200L) } };
+        var modifiedMeta = new CrdtMetadata { Lww = { ["$.value"] = timestampProvider.Create(100L) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
 
         strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, null, null, originalMeta, modifiedMeta);
@@ -80,7 +84,7 @@ public sealed class LwwStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
 
         var model = new TestModel { Value = 10 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, new EpochTimestamp(200L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
 
         // Act
         strategy.ApplyOperation(model, new CrdtMetadata(), operation);
@@ -97,7 +101,7 @@ public sealed class LwwStrategyTests
         using var scope = scopeFactory.CreateScope(replicaId);
         var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
 
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Remove, null, new EpochTimestamp(200L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Remove, null, timestampProvider.Create(200L));
         
         // This test is for when the property is nullable. For non-nullable value types, it will set to default.
         // Let's test a nullable property.
@@ -120,7 +124,7 @@ public sealed class LwwStrategyTests
 
         var model = new TestModel { Value = 10 };
         var metadata = new CrdtMetadata();
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, new EpochTimestamp(200L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
 
         // Act
         strategy.ApplyOperation(model, metadata, operation);
@@ -130,7 +134,7 @@ public sealed class LwwStrategyTests
         // Assert
         model.Value.ShouldBe(valueAfterFirstApply);
         model.Value.ShouldBe(20);
-        metadata.Lww["$.Value"].ShouldBe(new EpochTimestamp(200L));
+        metadata.Lww["$.Value"].ShouldBe(timestampProvider.Create(200L));
     }
 
     [Fact]
@@ -141,8 +145,8 @@ public sealed class LwwStrategyTests
         using var scope = scopeFactory.CreateScope(replicaId);
         var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
 
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.Value", OperationType.Upsert, 20, new EpochTimestamp(200L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.Value", OperationType.Upsert, 30, new EpochTimestamp(300L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.Value", OperationType.Upsert, 30, timestampProvider.Create(300L));
 
         // Scenario 1: op1 then op2
         var model1 = new TestModel { Value = 10 };
@@ -169,9 +173,9 @@ public sealed class LwwStrategyTests
         using var scope = scopeFactory.CreateScope(replicaId);
         var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
 
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.Value", OperationType.Upsert, 20, new EpochTimestamp(200L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.Value", OperationType.Upsert, 30, new EpochTimestamp(300L));
-        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.Value", OperationType.Upsert, 15, new EpochTimestamp(150L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.Value", OperationType.Upsert, 30, timestampProvider.Create(300L));
+        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.Value", OperationType.Upsert, 15, timestampProvider.Create(150L));
 
         var ops = new[] { op1, op2, op3 };
         var permutations = GetPermutations(ops, ops.Length);

@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Ama.CRDT.Extensions;
 using Microsoft.Extensions.DependencyInjection;
+using Ama.CRDT.Services.Providers;
 
 public sealed class CrdtPatcherTests : IDisposable
 {
@@ -34,18 +35,21 @@ public sealed class CrdtPatcherTests : IDisposable
     }
 
     private readonly ICrdtPatcher patcher;
+    private readonly ICrdtTimestampProvider timestampProvider;
     private readonly IServiceScope scope;
 
     public CrdtPatcherTests()
     {
         var services = new ServiceCollection();
         services.AddCrdt();
+        services.AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
 
         var serviceProvider = services.BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         scope = scopeFactory.CreateScope("test-patcher");
 
         patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()
@@ -71,12 +75,12 @@ public sealed class CrdtPatcherTests : IDisposable
     public void GeneratePatch_WhenNoChanges_ShouldReturnEmptyPatch()
     {
         // Arrange
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var ts = timestampProvider.Create(100);
         var model = new TestModel { Name = "Test", Likes = 10, Unchanged = 123 };
         var metadata = new CrdtMetadata();
-        metadata.Lww["$.name"] = new EpochTimestamp(now);
-        metadata.Lww["$.likes"] = new EpochTimestamp(now);
-        metadata.Lww["$.unchanged"] = new EpochTimestamp(now);
+        metadata.Lww["$.name"] = ts;
+        metadata.Lww["$.likes"] = ts;
+        metadata.Lww["$.unchanged"] = ts;
 
         var from = new CrdtDocument<TestModel>(model, metadata);
         var to = new CrdtDocument<TestModel>(model, metadata);
@@ -92,7 +96,7 @@ public sealed class CrdtPatcherTests : IDisposable
     public void GeneratePatch_WithMixedStrategyProperties_ShouldGenerateCorrectOperations()
     {
         // Arrange
-        var ts1 = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        var ts1 = timestampProvider.Create(100);
         var fromModel = new TestModel { Name = "Original", Likes = 5, Unchanged = 123 };
         var fromMeta = new CrdtMetadata();
         fromMeta.Lww["$.name"] = ts1;
@@ -100,7 +104,7 @@ public sealed class CrdtPatcherTests : IDisposable
         fromMeta.Lww["$.unchanged"] = ts1;
         var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
 
-        var ts2 = new EpochTimestamp(ts1.Value + 100);
+        var ts2 = timestampProvider.Create(200);
         var toModel = new TestModel { Name = "Updated", Likes = 15, Unchanged = 123 };
         var toMeta = new CrdtMetadata();
         toMeta.Lww["$.name"] = ts2;
@@ -129,13 +133,13 @@ public sealed class CrdtPatcherTests : IDisposable
     public void GeneratePatch_WithNestedObjectChanges_ShouldGenerateCorrectPath()
     {
         // Arrange
-        var ts1 = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        var ts1 = timestampProvider.Create(100);
         var fromModel = new TestModel { Nested = new NestedModel { Value = "Nested Original" } };
         var fromMeta = new CrdtMetadata();
         fromMeta.Lww["$.nested.value"] = ts1;
         var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
 
-        var ts2 = new EpochTimestamp(ts1.Value + 100);
+        var ts2 = timestampProvider.Create(200);
         var toModel = new TestModel { Nested = new NestedModel { Value = "Nested Updated" } };
         var toMeta = new CrdtMetadata();
         toMeta.Lww["$.nested.value"] = ts2;

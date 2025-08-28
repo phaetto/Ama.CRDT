@@ -49,37 +49,25 @@ public sealed class GCounterStrategy(ICrdtTimestampProvider timestampProvider, R
             throw new InvalidOperationException($"G-Counter strategy can only apply 'Increment' operations. Received '{operation.Type}'.");
         }
 
-        if (metadata.SeenExceptions.Contains(operation))
+        var increment = operation.Value is not null ? Convert.ToDecimal(operation.Value) : 0;
+        if (increment <= 0)
+        {
+            // G-Counters only grow. Silently ignore non-positive increments.
+            return;
+        }
+
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        if (parent is null || property is null)
         {
             return;
         }
 
-        try
-        {
-            var increment = operation.Value is not null ? Convert.ToDecimal(operation.Value) : 0;
-            if (increment <= 0)
-            {
-                // G-Counters only grow. Silently ignore non-positive increments.
-                return;
-            }
+        var currentValue = property.GetValue(parent);
+        var currentNumeric = currentValue is not null ? Convert.ToDecimal(currentValue) : 0;
 
-            var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-            if (parent is null || property is null)
-            {
-                return;
-            }
+        var newValue = currentNumeric + increment;
+        var convertedValue = Convert.ChangeType(newValue, property.PropertyType);
 
-            var currentValue = property.GetValue(parent);
-            var currentNumeric = currentValue is not null ? Convert.ToDecimal(currentValue) : 0;
-
-            var newValue = currentNumeric + increment;
-            var convertedValue = Convert.ChangeType(newValue, property.PropertyType);
-
-            property.SetValue(parent, convertedValue);
-        }
-        finally
-        {
-            metadata.SeenExceptions.Add(operation);
-        }
+        property.SetValue(parent, convertedValue);
     }
 }

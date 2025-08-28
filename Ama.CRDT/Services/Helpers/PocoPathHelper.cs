@@ -98,12 +98,14 @@ internal static partial class PocoPathHelper
         if (int.TryParse(lastSegment, out var lastIndex))
         {
             // The target is an index in a collection.
-            if (currentObject is IList list && list.Count > lastIndex)
+            if (currentObject is IList)
             {
-                // currentObject is the collection. We need its parent.
+                // The path resolves to an element in a collection. We return information
+                // about the collection's property, which is needed for strategy resolution.
+                // We do not check array bounds, as the operation might be an insert.
                 return (parentOfCurrent ?? root, lastProperty, lastIndex);
             }
-            
+
             return (null, null, null);
         }
         

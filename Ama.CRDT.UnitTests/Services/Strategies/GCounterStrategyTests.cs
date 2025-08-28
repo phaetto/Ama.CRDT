@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -24,11 +25,13 @@ public sealed class GCounterStrategyTests : IDisposable
     private readonly GCounterStrategy strategy;
     private readonly ICrdtApplicator applicatorA;
     private readonly ICrdtMetadataManager metadataManagerA;
+    private readonly ICrdtTimestampProvider timestampProvider;
 
     public GCounterStrategyTests()
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>()
             .BuildServiceProvider();
 
         scopeA = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("A");
@@ -36,6 +39,7 @@ public sealed class GCounterStrategyTests : IDisposable
         strategy = scopeA.ServiceProvider.GetRequiredService<GCounterStrategy>();
         applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()
@@ -76,7 +80,7 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Count = 10 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, 5m, new EpochTimestamp(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, 5m, timestampProvider.Create(2L));
 
         // Act
         strategy.ApplyOperation(model, new CrdtMetadata(), operation);
@@ -90,7 +94,7 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Count = 10 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, -5m, new EpochTimestamp(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, -5m, timestampProvider.Create(2L));
 
         // Act
         strategy.ApplyOperation(model, new CrdtMetadata(), operation);
@@ -104,14 +108,14 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Count = 10 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Upsert, 15, new EpochTimestamp(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Upsert, 15, timestampProvider.Create(2L));
 
         // Act & Assert
         Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(model, new CrdtMetadata(), operation));
     }
     
     [Fact]
-    public void ApplyPatch_IsIdempotent_WithSeenExceptionsCheck()
+    public void ApplyPatch_IsIdempotent()
     {
         // Arrange
         var model = new TestModel { Count = 10 };
@@ -119,7 +123,7 @@ public sealed class GCounterStrategyTests : IDisposable
         var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
-            new(Guid.NewGuid(), "r1", "$.Count", OperationType.Increment, 5m, new EpochTimestamp(1L))
+            new(Guid.NewGuid(), "r1", "$.Count", OperationType.Increment, 5m, timestampProvider.Create(1L))
         });
 
         // Act
@@ -133,37 +137,12 @@ public sealed class GCounterStrategyTests : IDisposable
     }
 
     [Fact]
-    public void ApplyPatch_IsNotIdempotent_WithoutSeenExceptionsCheck()
-    {
-        // Arrange
-        var model = new TestModel { Count = 10 };
-        var meta = metadataManagerA.Initialize(model);
-        var document = new CrdtDocument<TestModel>(model, meta);
-        var patch = new CrdtPatch(new List<CrdtOperation>
-        {
-            new(Guid.NewGuid(), "r1", "$.Count", OperationType.Increment, 5m, new EpochTimestamp(1L))
-        });
-
-        // Act
-        applicatorA.ApplyPatch(document, patch);
-        model.Count.ShouldBe(15);
-
-        // Clear SeenExceptions to simulate re-application
-        meta.SeenExceptions.Clear();
-        applicatorA.ApplyPatch(document, patch);
-
-        // Assert
-        // The increment is applied a second time, proving the strategy is not idempotent.
-        model.Count.ShouldBe(20);
-    }
-
-    [Fact]
     public void ApplyPatch_IsCommutativeAndAssociative()
     {
         // Arrange
-        var patch1 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r1", "$.Count", OperationType.Increment, 10m, new EpochTimestamp(1L)) });
-        var patch2 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r2", "$.Count", OperationType.Increment, 5m, new EpochTimestamp(2L)) });
-        var patch3 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r3", "$.Count", OperationType.Increment, 20m, new EpochTimestamp(3L)) });
+        var patch1 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r1", "$.Count", OperationType.Increment, 10m, timestampProvider.Create(1L)) });
+        var patch2 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r2", "$.Count", OperationType.Increment, 5m, timestampProvider.Create(2L)) });
+        var patch3 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r3", "$.Count", OperationType.Increment, 20m, timestampProvider.Create(3L)) });
 
         var patches = new[] { patch1, patch2, patch3 };
         var permutations = GetPermutations(patches, 3);

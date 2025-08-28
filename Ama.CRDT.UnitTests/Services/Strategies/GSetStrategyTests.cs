@@ -4,7 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Strategies;
+using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
@@ -26,11 +26,13 @@ public sealed class GSetStrategyTests : IDisposable
     private readonly ICrdtPatcher patcherB;
     private readonly ICrdtApplicator applicatorA;
     private readonly ICrdtMetadataManager metadataManagerA;
+    private readonly ICrdtTimestampProvider timestampProvider;
 
     public GSetStrategyTests()
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -42,6 +44,7 @@ public sealed class GSetStrategyTests : IDisposable
         patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()
@@ -119,7 +122,7 @@ public sealed class GSetStrategyTests : IDisposable
         var doc = new TestModel { Tags = { "A", "B" } };
         var meta = metadataManagerA.Initialize(doc);
         var document = new CrdtDocument<TestModel>(doc, meta);
-        var removeOp = new CrdtOperation(System.Guid.NewGuid(), "A", "$.tags", OperationType.Remove, "A", new EpochTimestamp(1));
+        var removeOp = new CrdtOperation(System.Guid.NewGuid(), "A", "$.tags", OperationType.Remove, "A", timestampProvider.Create(1));
         var patch = new CrdtPatch(new List<CrdtOperation> { removeOp });
 
         // Act
