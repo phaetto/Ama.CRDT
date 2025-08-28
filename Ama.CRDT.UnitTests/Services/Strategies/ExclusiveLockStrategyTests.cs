@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -24,6 +25,7 @@ public sealed class ExclusiveLockStrategyTests
     }
 
     private readonly IServiceProvider serviceProvider;
+    private readonly ICrdtTimestampProvider timestampProvider;
     private readonly Mock<ICrdtPatcher> mockPatcher = new();
     private readonly List<CrdtOperation> operations = new();
     private readonly string replicaId = "replica-1";
@@ -31,8 +33,10 @@ public sealed class ExclusiveLockStrategyTests
     public ExclusiveLockStrategyTests()
     {
         var services = new ServiceCollection();
-        services.AddCrdt();
+        services.AddCrdt()
+            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
         serviceProvider = services.BuildServiceProvider();
+        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     [Fact]
@@ -45,8 +49,8 @@ public sealed class ExclusiveLockStrategyTests
 
         var original = new TestModel { UserId = null, LockedValue = "A" };
         var modified = new TestModel { UserId = "user1", LockedValue = "B" };
-        var originalMeta = new CrdtMetadata { Lww = { ["$.lockedValue"] = new EpochTimestamp(100L) } };
-        var modifiedMeta = new CrdtMetadata { Lww = { ["$.lockedValue"] = new EpochTimestamp(200L) } };
+        var originalMeta = new CrdtMetadata { Lww = { ["$.lockedValue"] = timestampProvider.Create(100L) } };
+        var modifiedMeta = new CrdtMetadata { Lww = { ["$.lockedValue"] = timestampProvider.Create(200L) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.LockedValue))!;
 
         // Act
@@ -57,7 +61,7 @@ public sealed class ExclusiveLockStrategyTests
         var op = operations[0];
         op.Type.ShouldBe(OperationType.Upsert);
         op.JsonPath.ShouldBe("$.lockedValue");
-        op.Timestamp.ShouldBe(new EpochTimestamp(200L));
+        op.Timestamp.ShouldBe(timestampProvider.Create(200L));
         var payload = (ExclusiveLockPayload)op.Value!;
         payload.Value.ShouldBe("B");
         payload.LockHolderId.ShouldBe("user1");
@@ -75,10 +79,10 @@ public sealed class ExclusiveLockStrategyTests
         var modified = new TestModel { UserId = "user2", LockedValue = "B" };
         var originalMeta = new CrdtMetadata
         {
-            Lww = { ["$.lockedValue"] = new EpochTimestamp(100L) },
-            ExclusiveLocks = { ["$.lockedValue"] = new LockInfo("user1", new EpochTimestamp(100L)) }
+            Lww = { ["$.lockedValue"] = timestampProvider.Create(100L) },
+            ExclusiveLocks = { ["$.lockedValue"] = new LockInfo("user1", timestampProvider.Create(100L)) }
         };
-        var modifiedMeta = new CrdtMetadata { Lww = { ["$.lockedValue"] = new EpochTimestamp(200L) } };
+        var modifiedMeta = new CrdtMetadata { Lww = { ["$.lockedValue"] = timestampProvider.Create(200L) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.LockedValue))!;
 
         // Act
@@ -99,10 +103,10 @@ public sealed class ExclusiveLockStrategyTests
         var model = new TestModel { LockedValue = "A" };
         var metadata = new CrdtMetadata
         {
-            ExclusiveLocks = { ["$.lockedValue"] = new LockInfo("user1", new EpochTimestamp(100L)) }
+            ExclusiveLocks = { ["$.lockedValue"] = new LockInfo("user1", timestampProvider.Create(100L)) }
         };
         var payload = new ExclusiveLockPayload("B", "user2");
-        var operation = new CrdtOperation(Guid.NewGuid(), "r2", "$.lockedValue", OperationType.Upsert, payload, new EpochTimestamp(200L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r2", "$.lockedValue", OperationType.Upsert, payload, timestampProvider.Create(200L));
 
         // Act
         strategy.ApplyOperation(model, metadata, operation);
@@ -112,7 +116,7 @@ public sealed class ExclusiveLockStrategyTests
         var currentLock = metadata.ExclusiveLocks["$.lockedValue"];
         currentLock.ShouldNotBeNull();
         currentLock.LockHolderId.ShouldBe("user2");
-        currentLock.Timestamp.ShouldBe(new EpochTimestamp(200L));
+        currentLock.Timestamp.ShouldBe(timestampProvider.Create(200L));
     }
     
     [Fact]
@@ -126,7 +130,7 @@ public sealed class ExclusiveLockStrategyTests
         var model = new TestModel { LockedValue = "A" };
         var metadata = new CrdtMetadata();
         var payload = new ExclusiveLockPayload("B", "user1");
-        var operation = new CrdtOperation(Guid.NewGuid(), "r1", "$.lockedValue", OperationType.Upsert, payload, new EpochTimestamp(100L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r1", "$.lockedValue", OperationType.Upsert, payload, timestampProvider.Create(100L));
 
         // Act
         strategy.ApplyOperation(model, metadata, operation);
@@ -149,10 +153,10 @@ public sealed class ExclusiveLockStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<ExclusiveLockStrategy>();
 
         var payload1 = new ExclusiveLockPayload("B", "user1");
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.lockedValue", OperationType.Upsert, payload1, new EpochTimestamp(200L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.lockedValue", OperationType.Upsert, payload1, timestampProvider.Create(200L));
 
         var payload2 = new ExclusiveLockPayload("C", "user2");
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.lockedValue", OperationType.Upsert, payload2, new EpochTimestamp(300L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.lockedValue", OperationType.Upsert, payload2, timestampProvider.Create(300L));
 
         // Scenario 1: op1 then op2
         var model1 = new TestModel { LockedValue = "A" };
@@ -181,9 +185,9 @@ public sealed class ExclusiveLockStrategyTests
         using var scope = scopeFactory.CreateScope(replicaId);
         var strategy = scope.ServiceProvider.GetRequiredService<ExclusiveLockStrategy>();
 
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.lockedValue", OperationType.Upsert, new ExclusiveLockPayload("B", "user1"), new EpochTimestamp(200L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.lockedValue", OperationType.Upsert, new ExclusiveLockPayload("C", "user2"), new EpochTimestamp(300L));
-        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.lockedValue", OperationType.Upsert, new ExclusiveLockPayload("D", "user3"), new EpochTimestamp(150L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.lockedValue", OperationType.Upsert, new ExclusiveLockPayload("B", "user1"), timestampProvider.Create(200L));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.lockedValue", OperationType.Upsert, new ExclusiveLockPayload("C", "user2"), timestampProvider.Create(300L));
+        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.lockedValue", OperationType.Upsert, new ExclusiveLockPayload("D", "user3"), timestampProvider.Create(150L));
 
         var ops = new[] { op1, op2, op3 };
         var permutations = GetPermutations(ops, ops.Length);

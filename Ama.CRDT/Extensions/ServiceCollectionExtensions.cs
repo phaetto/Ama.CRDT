@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
@@ -57,7 +56,7 @@ public static class ServiceCollectionExtensions
         // Singleton services that are stateless and shared across all replicas
         services.TryAddSingleton<ICrdtScopeFactory, CrdtScopeFactory>();
         services.TryAddSingleton<IElementComparerProvider, ElementComparerProvider>();
-        services.TryAddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>();
+        services.TryAddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
         services.TryAddSingleton<ICrdtMetadataManager, CrdtMetadataManager>();
 
         // Scoped services that hold state or depend on the replicaId

@@ -4,7 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Strategies;
+using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
@@ -34,6 +34,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -116,13 +117,14 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         var metaAncestor = metadataManagerA.Initialize(ancestor);
 
         // Replica A updates index 0
+        Thread.Sleep(5);
         var metaForA = metadataManagerA.Initialize(new TestModel { Values = [11, 20, 30] });
         var patchA = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
             new CrdtDocument<TestModel>(new TestModel { Values = [11, 20, 30] }, metaForA));
 
         // Replica B updates index 2
-        Thread.Sleep(15); // Use a longer sleep to ensure timestamp is different on all systems
+        Thread.Sleep(5);
         var metaForB = metadataManagerA.Initialize(new TestModel { Values = [10, 20, 33] });
         var patchB = patcherB.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
@@ -133,14 +135,14 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
 
         // Scenario 1: A then B
         var model1 = new TestModel { Values = new List<int>(ancestor.Values) };
-        var meta1 = metadataManagerA.Initialize(model1);
+        var meta1 = metadataManagerA.Clone(metaAncestor);
         var doc1 = new CrdtDocument<TestModel>(model1, meta1);
         applicatorA.ApplyPatch(doc1, patchA);
         applicatorA.ApplyPatch(doc1, patchB);
 
         // Scenario 2: B then A
         var model2 = new TestModel { Values = new List<int>(ancestor.Values) };
-        var meta2 = metadataManagerA.Initialize(model2);
+        var meta2 = metadataManagerA.Clone(metaAncestor);
         var doc2 = new CrdtDocument<TestModel>(model2, meta2);
         applicatorA.ApplyPatch(doc2, patchB);
         applicatorA.ApplyPatch(doc2, patchA);
@@ -159,16 +161,17 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         var metaAncestor = metadataManagerA.Initialize(ancestor);
 
         // Replicas generate patches
+        Thread.Sleep(5);
         var patchA = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
             new CrdtDocument<TestModel>(new TestModel { Values = [11, 20, 30] }, metaAncestor));
         
-        Thread.Sleep(1);
+        Thread.Sleep(5);
         var patchB = patcherB.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
             new CrdtDocument<TestModel>(new TestModel { Values = [10, 22, 30] }, metaAncestor));
 
-        Thread.Sleep(1);
+        Thread.Sleep(5);
         var patchC = patcherC.GeneratePatch(
             new CrdtDocument<TestModel>(ancestor, metaAncestor),
             new CrdtDocument<TestModel>(new TestModel { Values = [10, 20, 33] }, metaAncestor));
@@ -181,7 +184,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         foreach (var p in permutations)
         {
             var model = new TestModel { Values = new List<int>(ancestor.Values) };
-            var meta = metadataManagerA.Initialize(model);
+            var meta = metadataManagerA.Clone(metaAncestor);
             var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in p)
             {

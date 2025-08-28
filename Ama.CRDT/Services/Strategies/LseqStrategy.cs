@@ -22,7 +22,10 @@ using Ama.CRDT.Services;
 [Associative]
 [Idempotent]
 [SequentialOperations]
-public sealed class LseqStrategy(IElementComparerProvider elementComparerProvider, ReplicaContext replicaContext) : ICrdtStrategy
+public sealed class LseqStrategy(
+    IElementComparerProvider elementComparerProvider,
+    ICrdtTimestampProvider timestampProvider,
+    ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     private const int Base = 32;
@@ -52,7 +55,7 @@ public sealed class LseqStrategy(IElementComparerProvider elementComparerProvide
 #pragma warning disable CS8620 // Argument cannot be used for parameter due to differences in the nullability of reference types.
             if (!modifiedList.Cast<object>().Contains(item.Value, comparer))
             {
-                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item.Identifier, new EpochTimestamp(0));
+                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item.Identifier, timestampProvider.Create(0));
                 operations.Add(op);
             }
 #pragma warning restore CS8620 // Argument cannot be used for parameter due to differences in the nullability of reference types.
@@ -104,7 +107,7 @@ public sealed class LseqStrategy(IElementComparerProvider elementComparerProvide
             var newItem = new LseqItem(newId, currentItem);
             insertedItems.Add(currentItem, newItem);
 
-            var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, new EpochTimestamp(0));
+            var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestampProvider.Create(0));
             operations.Add(op);
         }
     }

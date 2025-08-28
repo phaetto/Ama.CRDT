@@ -17,21 +17,20 @@ using Xunit;
 public sealed class OrMapStrategyTests
 {
     private readonly IServiceProvider serviceProvider;
+    private readonly ICrdtTimestampProvider timestampProvider;
     private readonly Mock<IElementComparerProvider> comparerProviderMock = new();
-    private readonly Mock<ICrdtTimestampProvider> timestampProviderMock = new();
-    private int timestampCounter = 0;
 
     public OrMapStrategyTests()
     {
         var services = new ServiceCollection();
-        services.AddCrdt();
-        services.AddSingleton(comparerProviderMock.Object);
-        services.AddSingleton(timestampProviderMock.Object);
+        services.AddCrdt()
+            .AddSingleton(comparerProviderMock.Object)
+            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
         
         serviceProvider = services.BuildServiceProvider();
+        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
 
         comparerProviderMock.Setup(p => p.GetComparer(It.IsAny<Type>())).Returns(EqualityComparer<object>.Default);
-        timestampProviderMock.Setup(p => p.Now()).Returns(() => new EpochTimestamp(++timestampCounter));
     }
 
     private CrdtDocument<TestModel> CreateDocument(Dictionary<string, int> map)
@@ -55,8 +54,8 @@ public sealed class OrMapStrategyTests
         var doc2Metadata = JsonSerializer.Deserialize<CrdtMetadata>(JsonSerializer.Serialize(doc1.Metadata));
         var doc2 = new CrdtDocument<TestModel>(doc2Model, doc2Metadata!);
 
-        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("b", 2, Guid.NewGuid()), new EpochTimestamp(1));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new OrMapRemoveItem("a", doc1.Metadata.OrMaps["$.map"].Adds["a"]), new EpochTimestamp(2));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("b", 2, Guid.NewGuid()), timestampProvider.Create(1));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new OrMapRemoveItem("a", doc1.Metadata.OrMaps["$.map"].Adds["a"]), timestampProvider.Create(2));
 
         // Act: Apply op1 then op2
         strategy.ApplyOperation(doc1.Data, doc1.Metadata, op1);
@@ -82,7 +81,7 @@ public sealed class OrMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("b", 2, Guid.NewGuid()), new EpochTimestamp(1));
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("b", 2, Guid.NewGuid()), timestampProvider.Create(1));
 
         // Act
         strategy.ApplyOperation(doc.Data, doc.Metadata, op);
@@ -105,8 +104,8 @@ public sealed class OrMapStrategyTests
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         
-        var removeOp = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Remove, new OrMapRemoveItem("a", doc.Metadata.OrMaps["$.map"].Adds["a"]), new EpochTimestamp(1));
-        var addOp = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("a", 100, Guid.NewGuid()), new EpochTimestamp(2));
+        var removeOp = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Remove, new OrMapRemoveItem("a", doc.Metadata.OrMaps["$.map"].Adds["a"]), timestampProvider.Create(1));
+        var addOp = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("a", 100, Guid.NewGuid()), timestampProvider.Create(2));
 
         // Act
         strategy.ApplyOperation(doc.Data, doc.Metadata, removeOp);
@@ -128,10 +127,10 @@ public sealed class OrMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.Lww["$.map.['a']"] = new EpochTimestamp(10);
+        doc.Metadata.Lww["$.map.['a']"] = timestampProvider.Create(10);
         
-        var olderUpdate = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("a", 0, Guid.NewGuid()), new EpochTimestamp(5));
-        var newerUpdate = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("a", 2, Guid.NewGuid()), new EpochTimestamp(15));
+        var olderUpdate = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("a", 0, Guid.NewGuid()), timestampProvider.Create(5));
+        var newerUpdate = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("a", 2, Guid.NewGuid()), timestampProvider.Create(15));
         
         // Act
         strategy.ApplyOperation(doc.Data, doc.Metadata, olderUpdate);

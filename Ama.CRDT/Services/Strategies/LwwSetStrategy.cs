@@ -71,7 +71,7 @@ public sealed class LwwSetStrategy(
             var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
             foreach (var item in list)
             {
-                adds[item] = new EpochTimestamp(0);
+                adds[item] = timestampProvider.Create(0);
             }
             state = (adds, new Dictionary<object, ICrdtTimestamp>(comparer));
             metadata.LwwSets[operation.JsonPath] = state;

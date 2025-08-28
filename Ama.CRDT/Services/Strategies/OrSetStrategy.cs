@@ -68,41 +68,29 @@ public sealed class OrSetStrategy(
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(metadata);
 
-        if (metadata.SeenExceptions.Contains(operation))
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
+
+        var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
+        var comparer = comparerProvider.GetComparer(elementType);
+
+        if (!metadata.OrSets.TryGetValue(operation.JsonPath, out var state))
         {
-            return;
+            state = (new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, ISet<Guid>>(comparer));
+            metadata.OrSets[operation.JsonPath] = state;
         }
 
-        try
+        switch (operation.Type)
         {
-            var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-            if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
-            
-            var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
-            var comparer = comparerProvider.GetComparer(elementType);
-
-            if (!metadata.OrSets.TryGetValue(operation.JsonPath, out var state))
-            {
-                state = (new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, ISet<Guid>>(comparer));
-                metadata.OrSets[operation.JsonPath] = state;
-            }
-
-            switch (operation.Type)
-            {
-                case OperationType.Upsert:
-                    ApplyUpsert(state, operation.Value, elementType);
-                    break;
-                case OperationType.Remove:
-                    ApplyRemove(state, operation.Value, elementType);
-                    break;
-            }
-
-            ReconstructList(list, state.Adds, state.Removes, comparer);
+            case OperationType.Upsert:
+                ApplyUpsert(state, operation.Value, elementType);
+                break;
+            case OperationType.Remove:
+                ApplyRemove(state, operation.Value, elementType);
+                break;
         }
-        finally
-        {
-            metadata.SeenExceptions.Add(operation);
-        }
+
+        ReconstructList(list, state.Adds, state.Removes, comparer);
     }
     
     private static void ApplyUpsert((IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes) state, object? opValue, Type elementType)

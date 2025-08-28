@@ -13,8 +13,8 @@ public sealed class EpochTimestampTests
     [InlineData(99, 100, -1)]
     public void CompareTo_ShouldReturnCorrectValue(long a, long b, int expected)
     {
-        var tsA = new EpochTimestamp(a);
-        var tsB = new EpochTimestamp(b);
+        var tsA = new SequentialTimestamp(a);
+        var tsB = new SequentialTimestamp(b);
 
         tsA.CompareTo(tsB).ShouldBe(expected);
     }
@@ -22,7 +22,7 @@ public sealed class EpochTimestampTests
     [Fact]
     public void CompareTo_WithNull_ShouldReturn1()
     {
-        var ts = new EpochTimestamp(100);
+        var ts = new SequentialTimestamp(100);
         ts.CompareTo(null).ShouldBe(1);
     }
     
@@ -34,7 +34,7 @@ public sealed class EpochTimestampTests
     [Fact]
     public void CompareTo_WithDifferentImplementation_ShouldThrow()
     {
-        var ts = new EpochTimestamp(100);
+        var ts = new SequentialTimestamp(100);
         var other = new OtherTimestamp();
 
         Should.Throw<ArgumentException>(() => ts.CompareTo(other));

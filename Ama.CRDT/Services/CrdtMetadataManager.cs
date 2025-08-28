@@ -205,17 +205,53 @@ public sealed class CrdtMetadataManager(
             throw new ArgumentException("Replica ID cannot be null or whitespace.", nameof(replicaId));
         }
 
-        if (metadata.VersionVector.TryGetValue(replicaId, out var currentTimestamp) && timestamp.CompareTo(currentTimestamp) <= 0)
+        if (!timestampProvider.IsContinuous)
         {
             return;
         }
 
-        metadata.VersionVector[replicaId] = timestamp;
+        if (!metadata.VersionVector.TryGetValue(replicaId, out var vectorTimestamp))
+        {
+            metadata.VersionVector[replicaId] = vectorTimestamp = timestampProvider.Init();
+        }
+
+        if (vectorTimestamp.CompareTo(timestamp) >= 0)
+        {
+            return;
+        }
+
+        var advancedVector = vectorTimestamp;
+        
+        if (metadata.SeenExceptions.Count > 0)
+        {
+            var exceptionsForReplica = metadata.SeenExceptions
+                .Where(op => op.ReplicaId == replicaId && op.Timestamp.CompareTo(vectorTimestamp) > 0)
+                .ToLookup(op => op.Timestamp);
+
+            if (exceptionsForReplica.Count > 0)
+            {
+                foreach (var tsInBetween in timestampProvider.IterateBetween(vectorTimestamp, timestamp))
+                {
+                    if (!exceptionsForReplica.Contains(tsInBetween))
+                    {
+                        break;
+                    }
+                    advancedVector = tsInBetween;
+                }
+            }
+        }
+        
+        if (!timestampProvider.IterateBetween(advancedVector, timestamp).Any())
+        {
+            advancedVector = timestamp;
+        }
+
+        metadata.VersionVector[replicaId] = advancedVector;
 
         if (metadata.SeenExceptions.Count > 0)
         {
             var exceptionsToRemove = metadata.SeenExceptions
-                .Where(op => op.ReplicaId == replicaId && op.Timestamp.CompareTo(timestamp) <= 0)
+                .Where(op => op.ReplicaId == replicaId && op.Timestamp.CompareTo(advancedVector) <= 0)
                 .ToList();
 
             foreach (var exception in exceptionsToRemove)

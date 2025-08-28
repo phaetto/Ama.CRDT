@@ -60,47 +60,35 @@ public sealed class TwoPhaseSetStrategy(
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(metadata);
 
-        if (metadata.SeenExceptions.Contains(operation))
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
+
+        var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
+        var comparer = comparerProvider.GetComparer(elementType);
+
+        if (!metadata.TwoPhaseSets.TryGetValue(operation.JsonPath, out var state))
         {
-            return;
+            state = (new HashSet<object>(comparer), new HashSet<object>(comparer));
+            metadata.TwoPhaseSets[operation.JsonPath] = state;
         }
 
-        try
+        var itemValue = DeserializeItemValue(operation.Value, elementType);
+        if (itemValue is null) return;
+
+        switch (operation.Type)
         {
-            var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-            if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
-            
-            var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
-            var comparer = comparerProvider.GetComparer(elementType);
-
-            if (!metadata.TwoPhaseSets.TryGetValue(operation.JsonPath, out var state))
-            {
-                state = (new HashSet<object>(comparer), new HashSet<object>(comparer));
-                metadata.TwoPhaseSets[operation.JsonPath] = state;
-            }
-
-            var itemValue = DeserializeItemValue(operation.Value, elementType);
-            if (itemValue is null) return;
-            
-            switch (operation.Type)
-            {
-                case OperationType.Upsert:
-                    if (!state.Tomstones.Contains(itemValue))
-                    {
-                        state.Adds.Add(itemValue);
-                    }
-                    break;
-                case OperationType.Remove:
-                    state.Tomstones.Add(itemValue);
-                    break;
-            }
-
-            ReconstructList(list, state.Adds, state.Tomstones);
+            case OperationType.Upsert:
+                if (!state.Tomstones.Contains(itemValue))
+                {
+                    state.Adds.Add(itemValue);
+                }
+                break;
+            case OperationType.Remove:
+                state.Tomstones.Add(itemValue);
+                break;
         }
-        finally
-        {
-            metadata.SeenExceptions.Add(operation);
-        }
+
+        ReconstructList(list, state.Adds, state.Tomstones);
     }
     
     private static void ReconstructList(IList list, ISet<object> adds, ISet<object> tombstones)

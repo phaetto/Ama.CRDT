@@ -168,7 +168,7 @@ public sealed class PocoPathHelperTests
     }
 
     [Fact]
-    public void ResolvePath_ShouldReturnNullsForIndexOutOfBounds()
+    public void ResolvePath_ShouldReturnParentForIndexOutOfBounds()
     {
         // Arrange
         var path = "$.users[99]";
@@ -177,9 +177,9 @@ public sealed class PocoPathHelperTests
         var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
 
         // Assert
-        parent.ShouldBeNull();
-        property.ShouldBeNull();
-        finalSegment.ShouldBeNull();
+        parent.ShouldNotBeNull();
+        property.ShouldNotBeNull();
+        finalSegment.ShouldNotBeNull();
     }
 
     [Fact]

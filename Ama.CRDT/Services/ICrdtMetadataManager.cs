@@ -119,6 +119,7 @@ public interface ICrdtMetadataManager
     /// Advances the version vector for the replica that generated the operation, pruning any covered exceptions.
     /// This is a core causality tracking mechanism used by the applicator to prevent duplicate operation application.
     /// By tracking the latest seen timestamp for each replica, it ensures that an operation is applied only once.
+    /// It is automatically called for the strategies that support it after it applies the operation.
     /// </summary>
     /// <param name="metadata">The metadata object to update.</param>
     /// <param name="operation">The operation whose replica and timestamp will be used to advance the vector.</param>
@@ -128,6 +129,7 @@ public interface ICrdtMetadataManager
     /// <summary>
     /// Advances the version vector for a specific replica with a given timestamp, pruning any covered exceptions.
     /// This is a core causality tracking mechanism used by the applicator to prevent duplicate operation application.
+    /// It is automatically called for the strategies that support it after it applies the operation.
     /// </summary>
     /// <param name="metadata">The metadata object to update.</param>
     /// <param name="replicaId">The ID of the replica whose version vector is being advanced.</param>

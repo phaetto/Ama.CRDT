@@ -5,7 +5,6 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
-using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
@@ -27,6 +26,7 @@ public sealed class OrSetStrategyTests : IDisposable
     private readonly ICrdtPatcher patcherB;
     private readonly ICrdtApplicator applicatorA;
     private readonly ICrdtMetadataManager metadataManagerA;
+    private readonly ICrdtTimestampProvider timestampProvider;
 
     public OrSetStrategyTests()
     {
@@ -44,6 +44,7 @@ public sealed class OrSetStrategyTests : IDisposable
         patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()
@@ -226,6 +227,8 @@ public sealed class OrSetStrategyTests : IDisposable
 
         public bool IsContinuous => false;
 
+        public ICrdtTimestamp Create(long value) => new SequentialTimestamp(value);
+
         public ICrdtTimestamp Init()
         {
             throw new NotImplementedException();
@@ -236,7 +239,7 @@ public sealed class OrSetStrategyTests : IDisposable
             throw new NotImplementedException();
         }
 
-        public ICrdtTimestamp Now() => new EpochTimestamp(currentTime++);
+        public ICrdtTimestamp Now() => new SequentialTimestamp(currentTime++);
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

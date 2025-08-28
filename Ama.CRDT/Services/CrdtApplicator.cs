@@ -9,7 +9,10 @@ using System;
 /// Applies a CRDT patch to a document, handling conflict resolution and idempotency.
 /// This implementation is thread-safe.
 /// </summary>
-public sealed class CrdtApplicator(ICrdtStrategyProvider strategyProvider, ICrdtTimestampProvider timestampProvider) : ICrdtApplicator
+public sealed class CrdtApplicator(
+    ICrdtStrategyProvider strategyProvider,
+    ICrdtTimestampProvider timestampProvider,
+    ICrdtMetadataManager metadataManager) : ICrdtApplicator
 {
     /// <inheritdoc/>
     public T ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class
@@ -34,8 +37,9 @@ public sealed class CrdtApplicator(ICrdtStrategyProvider strategyProvider, ICrdt
     {
         var strategy = strategyProvider.GetStrategy(operation, document);
 
-        if (timestampProvider.IsContinuous &&
-            Attribute.IsDefined(strategy.GetType(), typeof(IdempotentWithContinuousTimeAttribute)))
+        var isSupportingVersionVector = timestampProvider.IsContinuous &&
+            Attribute.IsDefined(strategy.GetType(), typeof(IdempotentWithContinuousTimeAttribute));
+        if (isSupportingVersionVector)
         {
             if (metadata.VersionVector.TryGetValue(operation.ReplicaId, out var lastSeenTimestamp) &&
                 operation.Timestamp.CompareTo(lastSeenTimestamp) <= 0)
@@ -43,12 +47,17 @@ public sealed class CrdtApplicator(ICrdtStrategyProvider strategyProvider, ICrdt
                 return;
             }
 
-            if (metadata.SeenExceptions.Contains(operation))
+            if (!metadata.SeenExceptions.Add(operation))
             {
                 return;
             }
         }
 
         strategy.ApplyOperation(document, metadata, operation);
+
+        if (isSupportingVersionVector)
+        {
+            metadataManager.AdvanceVersionVector(metadata, operation);
+        }
     }
 }

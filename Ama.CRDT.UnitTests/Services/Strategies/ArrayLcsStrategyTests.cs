@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
@@ -32,6 +33,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -77,19 +79,20 @@ public sealed class ArrayLcsStrategyTests : IDisposable
     }
     
     [Fact]
-    public void ApplyPatch_IsIdempotent_WithSeenExceptionsCheck()
+    public void ApplyPatch_IsIdempotent()
     {
         // Arrange
         var initialModel = new TestModel { Tags = new List<string> { "A", "C" } };
         var initialMeta = metadataManagerA.Initialize(initialModel);
 
         var modifiedModel = new TestModel { Tags = new List<string> { "A", "B", "C" } };
+        var modifiedMeta = metadataManagerA.Initialize(modifiedModel);
         var patch = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(initialModel, initialMeta),
-            new CrdtDocument<TestModel>(modifiedModel, initialMeta));
+            new CrdtDocument<TestModel>(modifiedModel, modifiedMeta));
 
         var targetModel = new TestModel { Tags = new List<string>(initialModel.Tags) };
-        var targetMeta = metadataManagerA.Initialize(targetModel);
+        var targetMeta = metadataManagerA.Clone(initialMeta);
         var targetDocument = new CrdtDocument<TestModel>(targetModel, targetMeta);
 
         // Act
@@ -103,37 +106,6 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         targetModel.Tags.ShouldBe(stateAfterFirstApply);
         targetMeta.PositionalTrackers["$.tags"].Count.ShouldBe(trackersCountAfterFirstApply);
         targetModel.Tags.ShouldBe(new[] { "A", "B", "C" });
-    }
-
-    [Fact]
-    public void ApplyPatch_IsNotIdempotent_WithoutSeenExceptionsCheck()
-    {
-        // Arrange
-        var initialModel = new TestModel { Tags = new List<string> { "A", "C" } };
-        var initialMeta = metadataManagerA.Initialize(initialModel);
-
-        var modifiedModel = new TestModel { Tags = new List<string> { "A", "B", "C" } };
-        var patch = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(initialModel, initialMeta),
-            new CrdtDocument<TestModel>(modifiedModel, initialMeta));
-
-        var targetModel = new TestModel { Tags = new List<string>(initialModel.Tags) };
-        var targetMeta = metadataManagerA.Initialize(targetModel);
-        var targetDocument = new CrdtDocument<TestModel>(targetModel, targetMeta);
-
-        // Act
-        // First apply works as expected
-        applicatorA.ApplyPatch(targetDocument, patch);
-        targetModel.Tags.ShouldBe(new[] { "A", "B", "C" });
-
-        // Simulate losing metadata state (e.g., recreating it) and reapplying the same patch
-        targetMeta.SeenExceptions.Clear();
-        applicatorA.ApplyPatch(targetDocument, patch);
-
-        // Assert
-        // Without the SeenExceptions guard, the insert operation is applied again, creating a duplicate.
-        // This demonstrates the strategy is not truly idempotent, but relies on the applicator's SeenExceptions mechanism.
-        targetModel.Tags.Count.ShouldBe(4);
     }
 
     [Fact]
