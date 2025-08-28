@@ -57,12 +57,12 @@ public sealed class LwwMapStrategyTests
         var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new KeyValuePair<object, object?>("a", null), timestampProvider.Now());
 
         // Act: Apply op1 then op2
-        strategy.ApplyOperation(doc1.Data, doc1.Metadata, op1);
-        strategy.ApplyOperation(doc1.Data, doc1.Metadata, op2);
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op1));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op2));
 
         // Act: Apply op2 then op1
-        strategy.ApplyOperation(doc2.Data, doc2.Metadata, op2);
-        strategy.ApplyOperation(doc2.Data, doc2.Metadata, op1);
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, op2));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, op1));
 
         // Assert
         doc1.Data.Map.ShouldBe(doc2.Data.Map);
@@ -86,9 +86,9 @@ public sealed class LwwMapStrategyTests
         var expectedMap = new Dictionary<string, int> { { "a", 2 } };
 
         // Act
-        strategy.ApplyOperation(doc.Data, doc.Metadata, op);
-        strategy.ApplyOperation(doc.Data, doc.Metadata, op);
-        strategy.ApplyOperation(doc.Data, doc.Metadata, op);
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op));
 
         // Assert
         doc.Data.Map.ShouldBe(expectedMap);
@@ -109,10 +109,10 @@ public sealed class LwwMapStrategyTests
         var newerOp = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), timestampProvider.Create(15));
         
         // Act
-        strategy.ApplyOperation(doc.Data, doc.Metadata, olderOp);
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, olderOp));
         doc.Data.Map["a"].ShouldBe(1); // older op ignored
 
-        strategy.ApplyOperation(doc.Data, doc.Metadata, newerOp);
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, newerOp));
         
         // Assert
         doc.Data.Map["a"].ShouldBe(2); // newer op applied

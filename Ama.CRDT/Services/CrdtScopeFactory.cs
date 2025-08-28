@@ -1,12 +1,19 @@
 namespace Ama.CRDT.Services;
 
 using Microsoft.Extensions.DependencyInjection;
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 /// <inheritdoc/>
-internal sealed class CrdtScopeFactory(IServiceProvider serviceProvider) : ICrdtScopeFactory
+internal sealed class CrdtScopeFactory : ICrdtScopeFactory
 {
-    private readonly IServiceProvider serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+    private readonly IServiceProvider serviceProvider;
+
+    public CrdtScopeFactory(IServiceProvider serviceProvider)
+    {
+        ArgumentNullException.ThrowIfNull(serviceProvider);
+        this.serviceProvider = serviceProvider;
+    }
 
     /// <inheritdoc/>
     public IServiceScope CreateScope([DisallowNull] string replicaId)

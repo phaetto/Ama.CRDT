@@ -1,9 +1,6 @@
 namespace Ama.CRDT.Services;
-
-using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using Ama.CRDT.Models;
+using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Defines the contract for a service that compares two versions of a data model and generates a CRDT patch.
@@ -12,14 +9,15 @@ using Ama.CRDT.Models;
 public interface ICrdtPatcher
 {
     /// <summary>
-    /// Generates a CRDT patch by comparing two versions of a document ("from" and "to").
+    /// Generates a CRDT patch by comparing an original document state to a modified state.
     /// It recursively traverses the object trees, delegating to the appropriate CRDT strategy for each property to determine the correct operations.
+    /// The timestamp for the change is generated internally using the configured <see cref="Providers.ICrdtTimestampProvider"/>.
     /// </summary>
     /// <typeparam name="T">The type of the data model.</typeparam>
     /// <param name="from">The original document state, including its data and metadata.</param>
-    /// <param name="to">The modified document state, including its data and metadata.</param>
-    /// <returns>A <see cref="CrdtPatch"/> containing the operations required to transform the "from" state to the "to" state.</returns>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="from"/>.Metadata or <paramref name="to"/>.Metadata is null.</exception>
+    /// <param name="changed">The modified document data.</param>
+    /// <returns>A <see cref="CrdtPatch"/> containing the operations required to transform the "from" state to the "changed" state.</returns>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="from"/>.Metadata or <paramref name="changed"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -30,37 +28,39 @@ public interface ICrdtPatcher
     /// 
     /// // Simulate a change
     /// var docV2 = new MyDataObject { Value = "World" };
-    /// var metaV2 = metadataManager.Clone(metaV1); // Metadata is typically cloned and updated
-    /// var crdtDocV2 = new CrdtDocument<MyDataObject>(docV2, metaV2);
     ///
     /// // Generate the patch
     /// // The patcher instance is typically created via ICrdtPatcherFactory for a specific replica.
-    /// var patch = patcher.GeneratePatch(crdtDocV1, crdtDocV2);
+    /// var patch = patcher.GeneratePatch(crdtDocV1, docV2);
     ///
     /// // The 'patch' will contain an Upsert operation for "$.value" with the value "World".
     /// ]]>
     /// </code>
     /// </example>
-    CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, CrdtDocument<T> to) where T : class;
+    CrdtPatch GeneratePatch<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed) where T : class;
+
+    /// <summary>
+    /// Generates a CRDT patch with a specific timestamp by comparing an original document state to a modified state.
+    /// This overload is useful for scenarios where the timestamp of the change is determined externally, such as in testing or when integrating with systems that have their own clock.
+    /// </summary>
+    /// <typeparam name="T">The type of the data model.</typeparam>
+    /// <param name="from">The original document state, including its data and metadata.</param>
+    /// <param name="changed">The modified document data.</param>
+    /// <param name="changeTimestamp">The specific timestamp to assign to all operations in the generated patch.</param>
+    /// <returns>A <see cref="CrdtPatch"/> containing the operations required to transform the "from" state to the "changed" state.</returns>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="from"/>.Metadata, <paramref name="changed"/>, or <paramref name="changeTimestamp"/> is null.</exception>
+    CrdtPatch GeneratePatch<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, [DisallowNull] ICrdtTimestamp changeTimestamp) where T : class;
 
     /// <summary>
     /// Recursively differentiates two objects, populating a list of CRDT operations.
     /// This method is the core of the patch generation logic and is designed for extensibility, allowing custom strategies to invoke it for nested objects.
     /// </summary>
-    /// <param name="path">The current JSON path being compared (e.g., "$.user.name").</param>
-    /// <param name="type">The type of the objects being compared.</param>
-    /// <param name="fromObj">The original object instance (or null if it was added).</param>
-    /// <param name="fromMeta">The metadata corresponding to the original document state.</param>
-    /// <param name="toObj">The modified object instance (or null if it was removed).</param>
-    /// <param name="toMeta">The metadata corresponding to the modified document state.</param>
-    /// <param name="operations">The list to populate with generated <see cref="CrdtOperation"/> instances.</param>
-    /// <param name="fromRoot">The root object of the original document, used for resolving relative paths if necessary.</param>
-    /// <param name="toRoot">The root object of the modified document.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if required parameters like <paramref name="type"/>, <paramref name="fromMeta"/>, <paramref name="toMeta"/>, or <paramref name="operations"/> are null.</exception>
-    /// <exception cref="System.ArgumentException">Thrown if <paramref name="path"/> is null or whitespace.</exception>
+    /// <param name="context">The context for the differentiation operation, containing all necessary parameters.</param>
+    /// <exception cref="System.ArgumentNullException">Thrown if the <paramref name="context"/> or any of its required properties are null.</exception>
+    /// <exception cref="System.ArgumentException">Thrown if the path within the context is null or whitespace.</exception>
     /// <remarks>
     /// This method is typically not called directly by application code. It is used internally by the patcher implementation
-    /// that need to handle complex or nested data structures.
+    /// and by strategies that need to handle complex or nested data structures.
     /// </remarks>
-    void DifferentiateObject(string path, [DisallowNull] Type type, object? fromObj, [DisallowNull] CrdtMetadata fromMeta, object? toObj, [DisallowNull] CrdtMetadata toMeta, [DisallowNull] List<CrdtOperation> operations, object? fromRoot, object? toRoot);
+    void DifferentiateObject([DisallowNull] DifferentiateObjectContext context);
 }

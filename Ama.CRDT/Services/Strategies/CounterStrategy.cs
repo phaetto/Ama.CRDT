@@ -4,13 +4,9 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Reflection;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
-using Ama.CRDT.Services.Providers;
 
 /// <summary>
 /// A CRDT strategy for handling numeric properties as counters.
@@ -25,13 +21,15 @@ using Ama.CRDT.Services.Providers;
 [Associative]
 [IdempotentWithContinuousTime]
 [Mergeable]
-public sealed class CounterStrategy(ICrdtTimestampProvider timestampProvider, ReplicaContext replicaContext) : ICrdtStrategy
+public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc/>
-    public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)
+    public void GeneratePatch(GeneratePatchContext context)
     {
+        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+
         var originalNumeric = Convert.ToDecimal(originalValue ?? 0);
         var modifiedNumeric = Convert.ToDecimal(modifiedValue ?? 0);
 
@@ -42,21 +40,14 @@ public sealed class CounterStrategy(ICrdtTimestampProvider timestampProvider, Re
             return;
         }
         
-        modifiedMeta.Lww.TryGetValue(path, out var timestamp);
-        if (timestamp is null)
-        {
-            timestamp = timestampProvider.Now();
-        }
-
-        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, delta, timestamp);
+        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, delta, changeTimestamp);
         operations.Add(operation);
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
+    public void ApplyOperation(ApplyOperationContext context)
     {
-        ArgumentNullException.ThrowIfNull(root);
-        ArgumentNullException.ThrowIfNull(metadata);
+        var (root, metadata, operation) = context;
 
         if (operation.Type != OperationType.Increment)
         {

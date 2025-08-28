@@ -1,13 +1,8 @@
 namespace Ama.CRDT.Services.Strategies;
-
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
-using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services;
 
 /// <summary>
@@ -18,18 +13,20 @@ using Ama.CRDT.Services;
 [Associative]
 [Idempotent]
 [Mergeable]
-public sealed class MaxWinsStrategy(ReplicaContext replicaContext, ICrdtTimestampProvider timestampProvider) : ICrdtStrategy
+public sealed class MaxWinsStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc/>
-    public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)
+    public void GeneratePatch(GeneratePatchContext context)
     {
+        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+
         if (modifiedValue is null || originalValue is null)
         {
             if (modifiedValue != originalValue)
             {
-                var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, timestampProvider.Now());
+                var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
                 operations.Add(operation);
             }
             return;
@@ -38,14 +35,16 @@ public sealed class MaxWinsStrategy(ReplicaContext replicaContext, ICrdtTimestam
         var originalComparable = (IComparable)originalValue;
         if (originalComparable.CompareTo(modifiedValue) < 0)
         {
-            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, timestampProvider.Now());
+            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
             operations.Add(operation);
         }
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
+    public void ApplyOperation(ApplyOperationContext context)
     {
+        var (root, metadata, operation) = context;
+
         if (operation.Type != OperationType.Upsert)
         {
             // This strategy only handles value assignments.

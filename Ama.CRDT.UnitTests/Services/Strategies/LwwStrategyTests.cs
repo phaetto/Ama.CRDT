@@ -33,7 +33,7 @@ public sealed class LwwStrategyTests
     }
 
     [Fact]
-    public void GeneratePatch_WhenModifiedIsNewer_ShouldGenerateUpsert()
+    public void GeneratePatch_WhenValueChanges_ShouldGenerateUpsert()
     {
         // Arrange
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -43,36 +43,21 @@ public sealed class LwwStrategyTests
         var originalValue = 10;
         var modifiedValue = 20;
         var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = timestampProvider.Create(100L) } };
-        var modifiedMeta = new CrdtMetadata { Lww = { ["$.value"] = timestampProvider.Create(200L) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
+        var changeTimestamp = timestampProvider.Create(200L);
+        var context = new GeneratePatchContext(
+            mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, null, null, originalMeta, changeTimestamp);
 
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, null, null, originalMeta, modifiedMeta);
+        // Act
+        strategy.GeneratePatch(context);
 
+        // Assert
         operations.Count.ShouldBe(1);
         var op = operations[0];
         op.Type.ShouldBe(OperationType.Upsert);
         op.JsonPath.ShouldBe("$.value");
         op.Value.ShouldBe(20);
-        op.Timestamp.ShouldBe(timestampProvider.Create(200L));
-    }
-    
-    [Fact]
-    public void GeneratePatch_WhenModifiedIsOlder_ShouldGenerateNothing()
-    {
-        // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
-
-        var originalValue = 10;
-        var modifiedValue = 20;
-        var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = timestampProvider.Create(200L) } };
-        var modifiedMeta = new CrdtMetadata { Lww = { ["$.value"] = timestampProvider.Create(100L) } };
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
-
-        strategy.GeneratePatch(mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, null, null, originalMeta, modifiedMeta);
-
-        operations.ShouldBeEmpty();
+        op.Timestamp.ShouldBe(changeTimestamp);
     }
 
     [Fact]
@@ -85,9 +70,10 @@ public sealed class LwwStrategyTests
 
         var model = new TestModel { Value = 10 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
 
         // Assert
         model.Value.ShouldBe(20);
@@ -106,9 +92,10 @@ public sealed class LwwStrategyTests
         // This test is for when the property is nullable. For non-nullable value types, it will set to default.
         // Let's test a nullable property.
         var nullableModel = new NullableTestModel { Value = 10 };
+        var context = new ApplyOperationContext(nullableModel, new CrdtMetadata(), operation);
         
         // Act
-        strategy.ApplyOperation(nullableModel, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
 
         // Assert
         nullableModel.Value.ShouldBeNull();
@@ -125,11 +112,12 @@ public sealed class LwwStrategyTests
         var model = new TestModel { Value = 10 };
         var metadata = new CrdtMetadata();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
+        var context = new ApplyOperationContext(model, metadata, operation);
 
         // Act
-        strategy.ApplyOperation(model, metadata, operation);
+        strategy.ApplyOperation(context);
         var valueAfterFirstApply = model.Value;
-        strategy.ApplyOperation(model, metadata, operation);
+        strategy.ApplyOperation(context);
 
         // Assert
         model.Value.ShouldBe(valueAfterFirstApply);
@@ -151,14 +139,14 @@ public sealed class LwwStrategyTests
         // Scenario 1: op1 then op2
         var model1 = new TestModel { Value = 10 };
         var meta1 = new CrdtMetadata();
-        strategy.ApplyOperation(model1, meta1, op1);
-        strategy.ApplyOperation(model1, meta1, op2);
+        strategy.ApplyOperation(new ApplyOperationContext(model1, meta1, op1));
+        strategy.ApplyOperation(new ApplyOperationContext(model1, meta1, op2));
 
         // Scenario 2: op2 then op1
         var model2 = new TestModel { Value = 10 };
         var meta2 = new CrdtMetadata();
-        strategy.ApplyOperation(model2, meta2, op2);
-        strategy.ApplyOperation(model2, meta2, op1);
+        strategy.ApplyOperation(new ApplyOperationContext(model2, meta2, op2));
+        strategy.ApplyOperation(new ApplyOperationContext(model2, meta2, op1));
 
         // Assert: The highest timestamp wins, so the final state is deterministic and commutative.
         model1.Value.ShouldBe(30);
@@ -188,7 +176,7 @@ public sealed class LwwStrategyTests
             var meta = new CrdtMetadata();
             foreach (var op in permutation)
             {
-                strategy.ApplyOperation(model, meta, op);
+                strategy.ApplyOperation(new ApplyOperationContext(model, meta, op));
             }
             finalValues.Add(model.Value);
         }

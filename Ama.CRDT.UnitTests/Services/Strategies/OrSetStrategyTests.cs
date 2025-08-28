@@ -26,7 +26,6 @@ public sealed class OrSetStrategyTests : IDisposable
     private readonly ICrdtPatcher patcherB;
     private readonly ICrdtApplicator applicatorA;
     private readonly ICrdtMetadataManager metadataManagerA;
-    private readonly ICrdtTimestampProvider timestampProvider;
 
     public OrSetStrategyTests()
     {
@@ -44,7 +43,6 @@ public sealed class OrSetStrategyTests : IDisposable
         patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
-        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()
@@ -62,7 +60,7 @@ public sealed class OrSetStrategyTests : IDisposable
         var doc2 = new TestModel { Tags = { "B", "C" } };
         
         // Act
-        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), new CrdtDocument<TestModel>(doc2, meta1));
+        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), doc2);
         
         // Assert
         patch.Operations.Count.ShouldBe(2);
@@ -83,7 +81,7 @@ public sealed class OrSetStrategyTests : IDisposable
         var doc1 = new TestModel { Tags = { "A" } };
         var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Tags = { "A", "B" } };
-        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), new CrdtDocument<TestModel>(doc2, meta1));
+        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), doc2);
 
         var target = new TestModel { Tags = { "A" } };
         var targetMeta = metadataManagerA.Initialize(target);
@@ -108,16 +106,17 @@ public sealed class OrSetStrategyTests : IDisposable
         // Arrange: Start with A. A removes A, B adds A again.
         var ancestor = new TestModel { Tags = { "A" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
         
         // Replica A removes "A"
         var patchRemove = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor), 
-            new CrdtDocument<TestModel>(new TestModel(), metaAncestor));
+            docAncestor, 
+            new TestModel());
 
         // Replica B concurrently adds "A"
         var patchAdd = patcherB.GeneratePatch(
-            new CrdtDocument<TestModel>(new TestModel(), metaAncestor), 
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, metaAncestor));
+            new CrdtDocument<TestModel>(new TestModel(), metaAncestor),
+            new TestModel { Tags = { "A" } });
         
         // Scenario 1: Remove then Add
         var model1 = new TestModel { Tags = { "A" } };
@@ -145,23 +144,24 @@ public sealed class OrSetStrategyTests : IDisposable
         // Arrange
         var ancestor = new TestModel { Tags = { "A" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
         
         var patcherC = patcherB; // ReplicaId is what matters
 
         // Replica A removes "A"
         var patch1 = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel(), metaAncestor));
+            docAncestor,
+            new TestModel());
 
         // Replica B adds "B"
         var patch2 = patcherB.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "B" } }, metaAncestor));
+            docAncestor,
+            new TestModel { Tags = { "A", "B" } });
 
         // Replica C adds "A" again
         var patch3 = patcherC.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, metaAncestor));
+            docAncestor,
+            new TestModel { Tags = { "A" } });
         
         var patches = new[] { patch1, patch2, patch3 };
         var permutations = GetPermutations(patches, patches.Length);
@@ -205,14 +205,14 @@ public sealed class OrSetStrategyTests : IDisposable
         // Remove "A"
         var patchRemove = patcherA.GeneratePatch(
             document, 
-            new CrdtDocument<TestModel>(new TestModel(), meta));
+            new TestModel());
         applicatorA.ApplyPatch(document, patchRemove);
         model.Tags.ShouldBeEmpty();
         
         // Add "A" again
         var patchAdd = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(new TestModel(), meta),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A" } }, meta));
+            new TestModel { Tags = { "A" } });
         
         // Act
         applicatorA.ApplyPatch(document, patchAdd);

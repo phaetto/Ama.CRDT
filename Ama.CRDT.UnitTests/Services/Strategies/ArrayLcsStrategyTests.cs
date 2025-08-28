@@ -63,13 +63,11 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         var doc1 = new TestModel { Tags = new List<string> { "A", "C" } };
         var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel { Tags = new List<string> { "A", "B", "C" } };
-        var meta2 = metadataManagerA.Initialize(doc2);
         
         var crdtDoc1 = new CrdtDocument<TestModel>(doc1, meta1);
-        var crdtDoc2 = new CrdtDocument<TestModel>(doc2, meta2);
 
         // Act
-        var patch = patcherA.GeneratePatch(crdtDoc1, crdtDoc2);
+        var patch = patcherA.GeneratePatch(crdtDoc1, doc2);
         
         // Assert
         patch.Operations.ShouldHaveSingleItem();
@@ -86,10 +84,9 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         var initialMeta = metadataManagerA.Initialize(initialModel);
 
         var modifiedModel = new TestModel { Tags = new List<string> { "A", "B", "C" } };
-        var modifiedMeta = metadataManagerA.Initialize(modifiedModel);
         var patch = patcherA.GeneratePatch(
             new CrdtDocument<TestModel>(initialModel, initialMeta),
-            new CrdtDocument<TestModel>(modifiedModel, modifiedMeta));
+            modifiedModel);
 
         var targetModel = new TestModel { Tags = new List<string>(initialModel.Tags) };
         var targetMeta = metadataManagerA.Clone(initialMeta);
@@ -114,19 +111,20 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         // Arrange
         var ancestor = new TestModel { Tags = new List<string> { "A", "D" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
 
         // Replicas generate patches concurrently from the same state
         var patchA = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "B", "D" } }, metaAncestor));
+            docAncestor,
+            new TestModel { Tags = { "A", "B", "D" } });
 
         var patchB = patcherB.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "C", "D" } }, metaAncestor));
+            docAncestor,
+            new TestModel { Tags = { "A", "C", "D" } });
 
         var patchC = patcherC.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(new TestModel { Tags = { "A", "X", "D" } }, metaAncestor));
+            docAncestor,
+            new TestModel { Tags = { "A", "X", "D" } });
 
         var patches = new[] { patchA, patchB, patchC };
         var permutations = GetPermutations(patches, patches.Length);
@@ -160,18 +158,15 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         // Arrange
         var ancestor = new TestModel { Tags = new List<string> { "A", "B", "C" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
 
         // Replica A removes "B"
         var replicaA = new TestModel { Tags = new List<string> { "A", "C" } };
-        var patch_RemoveB = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor), 
-            new CrdtDocument<TestModel>(replicaA, metaAncestor));
+        var patch_RemoveB = patcherA.GeneratePatch(docAncestor, replicaA);
 
         // Replica B inserts "X" after "B"
         var replicaB = new TestModel { Tags = new List<string> { "A", "B", "X", "C" } };
-        var patch_InsertX = patcherB.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaAncestor),
-            new CrdtDocument<TestModel>(replicaB, metaAncestor));
+        var patch_InsertX = patcherB.GeneratePatch(docAncestor, replicaB);
 
         // Act
         // Scenario 1: Remove B, then Insert X
@@ -200,18 +195,17 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         // Arrange
         // 1. Start with a common ancestor.
         var ancestor = new TestModel { Tags = new List<string> { "A", "C" } };
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metadataManagerA.Initialize(ancestor));
+
 
         // 2. Two replicas concurrently insert items at the same logical position.
-        // We create fresh metadata for each to ensure the patch generations are isolated.
-        var metaForB = metadataManagerA.Initialize(ancestor);
         var patchB = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaForB),
-            new CrdtDocument<TestModel>(new TestModel { Tags = ["A", "B", "C"] }, metaForB));
+            docAncestor,
+            new TestModel { Tags = ["A", "B", "C"] });
 
-        var metaForX = metadataManagerA.Initialize(ancestor);
         var patchX = patcherB.GeneratePatch(
-            new CrdtDocument<TestModel>(ancestor, metaForX),
-            new CrdtDocument<TestModel>(new TestModel { Tags = ["A", "X", "C"] }, metaForX));
+            docAncestor,
+            new TestModel { Tags = ["A", "X", "C"] });
 
         // 3. Apply these patches to a third replica to create a converged state.
         var doc_converged = new TestModel { Tags = new List<string>(ancestor.Tags) };
@@ -235,7 +229,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         // 5. Generate a patch for this new insertion. This will call GeneratePositionBetween("1.5", "1.5").
         var patchY = patcherA.GeneratePatch(
             document_converged,
-            new CrdtDocument<TestModel>(doc_after_Y_insert, meta_converged));
+            doc_after_Y_insert);
 
         // Assert
         // 6. The new operation for "Y" should also have the position "1.5", relying on its OperationId for tie-breaking.

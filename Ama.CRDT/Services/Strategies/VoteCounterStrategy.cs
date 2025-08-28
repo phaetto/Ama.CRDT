@@ -4,13 +4,10 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
-using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using Ama.CRDT.Services;
 
@@ -19,7 +16,7 @@ using Ama.CRDT.Services;
 [Associative]
 [Idempotent]
 [Mergeable]
-public sealed class VoteCounterStrategy(ReplicaContext replicaContext, ICrdtTimestampProvider timestampProvider) : ICrdtStrategy
+public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     private static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new()
@@ -27,8 +24,10 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext, ICrdtTime
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
-    public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)
+    public void GeneratePatch(GeneratePatchContext context)
     {
+        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+
         if (Equals(originalValue, modifiedValue))
         {
             return;
@@ -45,23 +44,22 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext, ICrdtTime
             }
 
             var voterMetaPath = $"{path}.['{GetVoterKey(voter)}']";
-            var newTimestamp = timestampProvider.Now();
-
-            if (originalMeta.Lww.TryGetValue(voterMetaPath, out var lastTimestamp) && newTimestamp.CompareTo(lastTimestamp) <= 0)
+            
+            if (originalMeta.Lww.TryGetValue(voterMetaPath, out var lastTimestamp) && changeTimestamp.CompareTo(lastTimestamp) <= 0)
             {
                 continue;
             }
 
             var payload = new VotePayload(voter, newOption);
-            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, newTimestamp);
+            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp);
             operations.Add(operation);
-            
-            modifiedMeta.Lww[voterMetaPath] = newTimestamp;
         }
     }
 
-    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
+    public void ApplyOperation(ApplyOperationContext context)
     {
+        var (root, metadata, operation) = context;
+
         var payload = DeserializePayload(operation.Value);
         var voterMetaPath = $"{operation.JsonPath}.['{GetVoterKey(payload.Voter)}']";
 

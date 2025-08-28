@@ -106,7 +106,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         var mockPatcher = new Mock<ICrdtPatcher>();
         var mockComparerProvider = new Mock<IElementComparerProvider>();
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
-        var strategy = new SortedSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, new ReplicaContext { ReplicaId = "replica-A" });
+        var strategy = new SortedSetStrategy(mockComparerProvider.Object, new ReplicaContext { ReplicaId = "replica-A" });
 
         mockComparerProvider
             .Setup(p => p.GetComparer(typeof(NestedModel)))
@@ -129,27 +129,26 @@ public sealed class SortedSetStrategyTests : IDisposable
         };
 
         mockPatcher
-            .Setup(p => p.DifferentiateObject(It.IsAny<string>(), It.IsAny<Type>(), It.IsAny<object>(), It.IsAny<CrdtMetadata>(), It.IsAny<object>(), It.IsAny<CrdtMetadata>(), It.IsAny<List<CrdtOperation>>(), It.IsAny<object>(), It.IsAny<object>()))
-            .Callback<string, Type, object, CrdtMetadata, object, CrdtMetadata, List<CrdtOperation>, object, object>((itemPath, _, from, _, to, _, ops, _, _) =>
+            .Setup(p => p.DifferentiateObject(It.IsAny<DifferentiateObjectContext>()))
+            .Callback<DifferentiateObjectContext>(ctx =>
             {
-                var toNested = (NestedModel)to;
+                var (itemPath, _, _, to, _, _, _, ops, _) = ctx;
+                var toNested = (NestedModel)to!;
                 ops.Add(new CrdtOperation(Guid.NewGuid(), "mock-replica", $"{itemPath}.value", OperationType.Upsert, toNested.Value, mockTimestampProvider.Object.Create(0)));
             });
         
+        var context = new GeneratePatchContext(
+            mockPatcher.Object, operations, path, property, originalValue, modifiedValue, new object(), new object(), new CrdtMetadata(), mockTimestampProvider.Object.Create(0));
+        
         // Act
-        strategy.GeneratePatch(mockPatcher.Object, operations, path, property, originalValue, modifiedValue, new object(), new object(), new CrdtMetadata(), new CrdtMetadata());
+        strategy.GeneratePatch(context);
 
         // Assert
         mockPatcher.Verify(p => p.DifferentiateObject(
-            "$.items[1]",
-            typeof(NestedModel),
-            It.Is<NestedModel>(o => o.Id == 2),
-            It.IsAny<CrdtMetadata>(),
-            It.Is<NestedModel>(o => o.Id == 2 && o.Value == "two-updated"),
-            It.IsAny<CrdtMetadata>(),
-            It.IsAny<List<CrdtOperation>>(),
-            It.IsAny<object>(),
-            It.IsAny<object>()
+            It.Is<DifferentiateObjectContext>(ctx => 
+                ctx.Path == "$.items[1]" &&
+                ctx.Type == typeof(NestedModel)
+            )
         ), Times.Once);
         
         operations.ShouldHaveSingleItem();
@@ -163,9 +162,10 @@ public sealed class SortedSetStrategyTests : IDisposable
         var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
         var model = new MutableTestModel { Items = { "a", "c" } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.items[1]", OperationType.Upsert, "b", timestampProvider.Create(1L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
 
         // Assert
         var list = model.Items;
@@ -182,9 +182,10 @@ public sealed class SortedSetStrategyTests : IDisposable
         var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
         var model = new MutableTestModel { Items = { "a", "b", "c" } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.items[1]", OperationType.Remove, "b", timestampProvider.Create(1L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act
-        strategy.ApplyOperation(model, new CrdtMetadata(), operation);
+        strategy.ApplyOperation(context);
 
         // Assert
         var list = model.Items;
@@ -234,8 +235,8 @@ public sealed class SortedSetStrategyTests : IDisposable
         var docA = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }, metadataManagerA.Initialize(new ConvergenceTestModel { Users = [userA] }));
         var docB = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userB] }, metadataManagerB.Initialize(new ConvergenceTestModel { Users = [userB] }));
     
-        var patchA = patcherA.GeneratePatch(doc0, docA);
-        var patchB = patcherB.GeneratePatch(doc0, docB);
+        var patchA = patcherA.GeneratePatch(doc0, docA.Data);
+        var patchB = patcherB.GeneratePatch(doc0, docB.Data);
 
         // Scenario 1: Apply Patch A, then Patch B
         var modelAb = new ConvergenceTestModel();
@@ -269,7 +270,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         var doc0 = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), metadataManagerA.Initialize(new ConvergenceTestModel()));
         var docA = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }, metadataManagerA.Initialize(new ConvergenceTestModel { Users = [userA] }));
 
-        var patch = patcherA.GeneratePatch(doc0, docA);
+        var patch = patcherA.GeneratePatch(doc0, docA.Data);
     
         var model = new ConvergenceTestModel();
         var metadata = metadataManagerA.Initialize(model);
@@ -301,9 +302,9 @@ public sealed class SortedSetStrategyTests : IDisposable
         var docB = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userB] }, metadataManagerB.Initialize(new ConvergenceTestModel { Users = [userB] }));
         var docC = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userC] }, metadataManagerA.Initialize(new ConvergenceTestModel { Users = [userC] }));
 
-        var patchA = patcherA.GeneratePatch(initialDoc, docA);
-        var patchB = patcherB.GeneratePatch(initialDoc, docB);
-        var patchC = patcherC.GeneratePatch(initialDoc, docC);
+        var patchA = patcherA.GeneratePatch(initialDoc, docA.Data);
+        var patchB = patcherB.GeneratePatch(initialDoc, docB.Data);
+        var patchC = patcherC.GeneratePatch(initialDoc, docC.Data);
 
         var patches = new[] { patchA, patchB, patchC };
         var permutations = GetPermutations(patches, patches.Length);

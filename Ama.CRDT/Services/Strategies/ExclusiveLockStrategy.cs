@@ -5,8 +5,6 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
 using Ama.CRDT.Services;
@@ -20,8 +18,10 @@ public sealed class ExclusiveLockStrategy(ReplicaContext replicaContext) : ICrdt
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
-    public void GeneratePatch(ICrdtPatcher patcher, List<CrdtOperation> operations, string path, PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, CrdtMetadata originalMeta, CrdtMetadata modifiedMeta)
+    public void GeneratePatch(GeneratePatchContext context)
     {
+        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+
         if (modifiedRoot is null || property.GetCustomAttribute<CrdtExclusiveLockStrategyAttribute>() is not { } attr)
         {
             return;
@@ -44,12 +44,6 @@ public sealed class ExclusiveLockStrategy(ReplicaContext replicaContext) : ICrdt
         {
             return;
         }
-
-        modifiedMeta.Lww.TryGetValue(path, out var modifiedTimestamp);
-        if (modifiedTimestamp is null)
-        {
-            return;
-        }
         
         if (currentLock is not null && currentLock.LockHolderId != lockHolderId && lockHolderId is not null)
         {
@@ -57,23 +51,13 @@ public sealed class ExclusiveLockStrategy(ReplicaContext replicaContext) : ICrdt
         }
 
         var payload = new ExclusiveLockPayload(modifiedValue, lockHolderId);
-        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, modifiedTimestamp);
+        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp);
         operations.Add(operation);
-
-        if (lockHolderId is not null)
-        {
-            modifiedMeta.ExclusiveLocks[path] = new LockInfo(lockHolderId, modifiedTimestamp);
-        }
-        else
-        {
-            modifiedMeta.ExclusiveLocks[path] = null;
-        }
     }
 
-    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
+    public void ApplyOperation(ApplyOperationContext context)
     {
-        ArgumentNullException.ThrowIfNull(root);
-        ArgumentNullException.ThrowIfNull(metadata);
+        var (root, metadata, operation) = context;
 
         metadata.ExclusiveLocks.TryGetValue(operation.JsonPath, out var currentLock);
 

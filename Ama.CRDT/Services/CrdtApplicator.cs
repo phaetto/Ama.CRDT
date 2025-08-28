@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Services.Strategies;
 using System;
 
 /// <summary>
@@ -35,6 +36,9 @@ public sealed class CrdtApplicator(
 
     private void ApplyOperation(object document, CrdtOperation operation, CrdtMetadata metadata)
     {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(metadata);
+
         var strategy = strategyProvider.GetStrategy(operation, document);
 
         var isSupportingVersionVector = timestampProvider.IsContinuous &&
@@ -53,7 +57,8 @@ public sealed class CrdtApplicator(
             }
         }
 
-        strategy.ApplyOperation(document, metadata, operation);
+        var context = new ApplyOperationContext(document, metadata, operation);
+        strategy.ApplyOperation(context);
 
         if (isSupportingVersionVector)
         {

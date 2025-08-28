@@ -198,12 +198,8 @@ public sealed class CrdtMetadataManager(
     public void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, string replicaId, [DisallowNull] ICrdtTimestamp timestamp)
     {
         ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
         ArgumentNullException.ThrowIfNull(timestamp);
-
-        if (string.IsNullOrWhiteSpace(replicaId))
-        {
-            throw new ArgumentException("Replica ID cannot be null or whitespace.", nameof(replicaId));
-        }
 
         if (!timestampProvider.IsContinuous)
         {
