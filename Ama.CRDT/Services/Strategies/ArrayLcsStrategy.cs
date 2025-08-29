@@ -11,7 +11,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json;
 using Ama.CRDT.Services;
 
 /// <inheritdoc/>
@@ -125,37 +124,19 @@ public sealed class ArrayLcsStrategy(
 
     private void ApplyUpsert(IList list, List<PositionalIdentifier> positions, CrdtOperation operation, PropertyInfo collectionProperty)
     {
-        if (operation.Value is null) return;
-
-        string? position = null;
-        object? value = null;
-
-        if (operation.Value is PositionalItem pi)
+        if (operation.Value is not PositionalItem item)
         {
-            position = pi.Position;
-            value = pi.Value;
-        }
-        else if (operation.Value is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var property in jsonElement.EnumerateObject())
+            if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalItem)) is not PositionalItem convertedItem)
             {
-                if (string.Equals(property.Name, "Position", StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.String)
-                {
-                    position = property.Value.GetString();
-                }
-                else if (string.Equals(property.Name, "Value", StringComparison.OrdinalIgnoreCase))
-                {
-                    value = property.Value;
-                }
+                return;
             }
+            item = convertedItem;
         }
-
-        if (position is null) return;
 
         var elementType = PocoPathHelper.GetCollectionElementType(collectionProperty);
-        var itemValue = DeserializeItemValue(value, elementType);
+        var itemValue = PocoPathHelper.ConvertValue(item.Value, elementType);
 
-        var newIdentifier = new PositionalIdentifier(position, operation.Id);
+        var newIdentifier = new PositionalIdentifier(item.Position, operation.Id);
 
         var index = positions.BinarySearch(newIdentifier);
         if (index < 0)
@@ -169,65 +150,21 @@ public sealed class ArrayLcsStrategy(
     
     private void ApplyRemove(IList list, List<PositionalIdentifier> positions, CrdtOperation operation)
     {
-        if (operation.Value is null) return;
-
-        PositionalIdentifier? identifierToRemove = null;
-
-        if (operation.Value is PositionalIdentifier identifier)
+        if (operation.Value is not PositionalIdentifier identifier)
         {
-            identifierToRemove = identifier;
-        }
-        else if (operation.Value is JsonElement jsonElement && jsonElement.ValueKind == JsonValueKind.Object)
-        {
-            string? position = null;
-            var operationId = Guid.Empty;
-
-            foreach (var property in jsonElement.EnumerateObject())
+            if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalIdentifier)) is not PositionalIdentifier convertedIdentifier)
             {
-                if (string.Equals(property.Name, "Position", StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.String)
-                {
-                    position = property.Value.GetString();
-                }
-                else if (string.Equals(property.Name, "OperationId", StringComparison.OrdinalIgnoreCase) && property.Value.TryGetGuid(out var guid))
-                {
-                    operationId = guid;
-                }
+                return;
             }
-            
-            if (position is not null)
-            {
-                identifierToRemove = new PositionalIdentifier(position, operationId);
-            }
+            identifier = convertedIdentifier;
         }
-
-        if (identifierToRemove is null) return;
         
-        var index = positions.IndexOf(identifierToRemove.Value);
+        var index = positions.IndexOf(identifier);
 
         if (index >= 0)
         {
             positions.RemoveAt(index);
             list.RemoveAt(index);
-        }
-    }
-    
-    private static object? DeserializeItemValue(object? value, Type targetType)
-    {
-        if (value is null) return null;
-        if (targetType.IsInstanceOfType(value)) return value;
-
-        if (value is JsonElement jsonElement)
-        {
-            return JsonSerializer.Deserialize(jsonElement.GetRawText(), targetType);
-        }
-
-        try
-        {
-            return Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);
-        }
-        catch (Exception)
-        {
-            return null;
         }
     }
     

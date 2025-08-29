@@ -3,10 +3,9 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 /// <summary>
@@ -14,7 +13,6 @@ using System.Text.RegularExpressions;
 /// </summary>
 internal static partial class PocoPathHelper
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, PropertyInfo>> PropertyCache = new();
 
     [GeneratedRegex(@"\['([^']*)'\]|\[(\d+)\]|\.?([^\.\[]+)")]
@@ -72,7 +70,7 @@ internal static partial class PocoPathHelper
 
             if (int.TryParse(segment, out var index))
             {
-                if (currentObject is IList list && list.Count > index)
+                if (currentObject is IList list)
                 {
                     currentObject = list[index];
                     lastProperty = null; // We are inside an item, property context is reset
@@ -236,20 +234,54 @@ internal static partial class PocoPathHelper
             return value;
         }
         
-        if (value is JsonElement jsonElement)
+        var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+        if (underlyingType.IsEnum)
         {
-            return jsonElement.Deserialize(targetType, SerializerOptions);
+            if (value is string s) return Enum.Parse(underlyingType, s, true);
+            return Enum.ToObject(underlyingType, value);
         }
-        
-        var underlyingType = Nullable.GetUnderlyingType(targetType);
-        if (underlyingType is not null)
+
+        if (value is IDictionary<string, object> dictionary)
         {
-            targetType = underlyingType;
+            if (underlyingType.IsGenericType && underlyingType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+            {
+                var keyType = underlyingType.GetGenericArguments()[0];
+                var valueType = underlyingType.GetGenericArguments()[1];
+
+                dictionary.TryGetValue("Key", out var keyObj);
+                dictionary.TryGetValue("Value", out var valueObj);
+
+                var key = ConvertValue(keyObj, keyType);
+                var val = ConvertValue(valueObj, valueType);
+
+                return Activator.CreateInstance(underlyingType, key, val);
+            }
+
+            if (!underlyingType.IsPrimitive && underlyingType != typeof(string) && !typeof(IEnumerable).IsAssignableFrom(underlyingType))
+            {
+                var instance = Activator.CreateInstance(underlyingType);
+                if (instance is null)
+                {
+                    return null;
+                }
+                var properties = GetPropertiesForType(underlyingType);
+
+                foreach (var kvp in dictionary)
+                {
+                    if (properties.TryGetValue(kvp.Key, out var propInfo) && propInfo.CanWrite)
+                    {
+                        var propValue = ConvertValue(kvp.Value, propInfo.PropertyType);
+                        propInfo.SetValue(instance, propValue);
+                    }
+                }
+                return instance;
+            }
         }
 
         try
         {
-            return Convert.ChangeType(value, targetType);
+            return Convert.ChangeType(value, underlyingType, CultureInfo.InvariantCulture);
         }
         catch (Exception)
         {
@@ -261,26 +293,13 @@ internal static partial class PocoPathHelper
     {
         return PropertyCache.GetOrAdd(type, t =>
         {
-            var props = t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .Where(p => p.CanRead && p.GetCustomAttribute<JsonIgnoreAttribute>() == null);
+            var props = t.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanRead);
 
             var dict = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var p in props)
             {
-                // Add mapping for camelCase name
-                var camelCaseName = SerializerOptions.PropertyNamingPolicy?.ConvertName(p.Name) ?? p.Name;
-                dict[camelCaseName] = p;
-                
-                // Add mapping for original PascalCase name to be safe
                 dict[p.Name] = p;
-                
-                // Add mapping for JsonPropertyNameAttribute. This will overwrite if there's a clash, giving it priority.
-                var jsonPropertyName = p.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name;
-                if (!string.IsNullOrEmpty(jsonPropertyName))
-                {
-                    dict[jsonPropertyName] = p;
-                }
             }
 
             return dict;

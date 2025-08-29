@@ -10,8 +10,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json;
-using Ama.CRDT.Services;
 
 /// <inheritdoc/>
 [CrdtSupportedType(typeof(IList))]
@@ -35,6 +33,10 @@ public sealed class PriorityQueueStrategy(
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
 
+        if (property.GetCustomAttribute<CrdtPriorityQueueStrategyAttribute>() is not { } attr) return;
+        var priorityPropertyInfo = elementType.GetProperty(attr.PriorityPropertyName);
+        if (priorityPropertyInfo is null) return;
+
         var comparer = comparerProvider.GetComparer(elementType);
 
         var originalDict = originalList?.Cast<object>().ToDictionary(item => item, item => item, comparer) ?? new Dictionary<object, object>(comparer);
@@ -56,7 +58,21 @@ public sealed class PriorityQueueStrategy(
         foreach (var modifiedItem in modifiedDict.Values)
         {
             var isNew = !originalDict.TryGetValue(modifiedItem, out var originalItem);
-            var hasChanged = !isNew && !JsonSerializer.Serialize(originalItem).Equals(JsonSerializer.Serialize(modifiedItem));
+
+            var hasChanged = false;
+            if (!isNew && originalItem is not null)
+            {
+                // Use reflection to compare the priority property's value.
+                // This detects changes in priority for an existing item, which is necessary
+                // when the equality comparer for the item type only considers identity.
+                var originalPriority = priorityPropertyInfo.GetValue(originalItem);
+                var modifiedPriority = priorityPropertyInfo.GetValue(modifiedItem);
+
+                if (!Equals(originalPriority, modifiedPriority))
+                {
+                    hasChanged = true;
+                }
+            }
 
             if (isNew || hasChanged)
             {
@@ -65,7 +81,7 @@ public sealed class PriorityQueueStrategy(
                     continue;
                 }
 
-                if (!isNew && originalAdds.TryGetValue(originalItem!, out var addTimestamp) && changeTimestamp.CompareTo(addTimestamp) < 0)
+                if (!isNew && originalItem is not null && originalAdds.TryGetValue(originalItem, out var addTimestamp) && changeTimestamp.CompareTo(addTimestamp) < 0)
                 {
                     continue;
                 }
@@ -94,7 +110,7 @@ public sealed class PriorityQueueStrategy(
         }
         var (adds, removes) = meta;
 
-        var value = DeserializeItemValue(operation.Value, elementType);
+        var value = PocoPathHelper.ConvertValue(operation.Value, elementType);
         if (value is null) return;
         
         switch (operation.Type)
@@ -150,26 +166,6 @@ public sealed class PriorityQueueStrategy(
         if (existing is not null)
         {
             list.Remove(existing);
-        }
-    }
-    
-    private static object? DeserializeItemValue(object? value, Type targetType)
-    {
-        if (value is null) return null;
-        if (targetType.IsInstanceOfType(value)) return value;
-
-        if (value is JsonElement jsonElement)
-        {
-            return JsonSerializer.Deserialize(jsonElement.GetRawText(), targetType);
-        }
-
-        try
-        {
-            return Convert.ChangeType(value, targetType);
-        }
-        catch (Exception)
-        {
-            return null;
         }
     }
     

@@ -1,8 +1,6 @@
 namespace Ama.CRDT.UnitTests.Services.Helpers;
 
 using System.Collections.Generic;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Ama.CRDT.Services.Helpers;
 using Shouldly;
 using Xunit;
@@ -125,22 +123,6 @@ public sealed class PocoPathHelperTests
     }
 
     [Fact]
-    public void ResolvePath_ShouldHandleJsonPropertyNameAttribute()
-    {
-        // Arrange
-        var path = "$['special-name']";
-
-        // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
-
-        // Assert
-        parent.ShouldBe(rootObject);
-        property.ShouldNotBeNull();
-        property.Name.ShouldBe(nameof(TestRoot.SpecialNameProp));
-        finalSegment.ShouldBe("special-name");
-    }
-
-    [Fact]
     public void ResolvePath_ShouldHandlePascalCasePropertyName()
     {
         // Arrange
@@ -237,37 +219,6 @@ public sealed class PocoPathHelperTests
 
         // Assert
         result.ShouldBe(value);
-    }
-
-    [Fact]
-    public void ConvertValue_ShouldDeserializeJsonElementToObject()
-    {
-        // Arrange
-        var user = new TestUser { Name = "Test", Age = 99 };
-        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-        var jsonElement = JsonSerializer.SerializeToElement(user, options);
-
-        // Act
-        var result = PocoPathHelper.ConvertValue(jsonElement, typeof(TestUser));
-
-        // Assert
-        result.ShouldBeOfType<TestUser>();
-        var convertedUser = (TestUser)result;
-        convertedUser.Name.ShouldBe(user.Name);
-        convertedUser.Age.ShouldBe(user.Age);
-    }
-
-    [Fact]
-    public void ConvertValue_ShouldDeserializeJsonElementToPrimitive()
-    {
-        // Arrange
-        var jsonElement = JsonSerializer.SerializeToElement(123);
-
-        // Act
-        var result = PocoPathHelper.ConvertValue(jsonElement, typeof(int));
-
-        // Assert
-        result.ShouldBe(123);
     }
 
     [Fact]
@@ -553,7 +504,6 @@ public sealed class PocoPathHelperTests
         public TestUser? User { get; set; }
         public List<TestUser>? Users { get; set; }
         public List<string>? Tags { get; set; }
-        [JsonPropertyName("special-name")]
         public string? SpecialNameProp { get; set; }
         public int[]? Scores { get; set; }
         public IDictionary<string, string>? Settings { get; set; }
