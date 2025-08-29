@@ -106,4 +106,11 @@ public sealed class CrdtMetadata
     /// Value updates are managed separately using LWW timestamps in the main Lww dictionary.
     /// </summary>
     public IDictionary<string, (IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes)> OrMaps { get; } = new Dictionary<string, (IDictionary<object, ISet<Guid>>, IDictionary<object, ISet<Guid>>)>();
+
+    /// <summary>
+    /// Gets a dictionary that stores the state for properties managed by the Counter Map strategy.
+    /// The outer key is the JSON Path to the property. The inner dictionary maps each key from the user's dictionary
+    /// to its PN-Counter state (Positive increments, Negative increments).
+    /// </summary>
+    public IDictionary<string, IDictionary<object, (decimal P, decimal N)>> CounterMaps { get; } = new Dictionary<string, IDictionary<object, (decimal P, decimal N)>>();
 }

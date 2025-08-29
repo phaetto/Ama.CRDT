@@ -96,6 +96,9 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped(CreateValidatedInstance<ExclusiveLockStrategy>);
         services.TryAddScoped(CreateValidatedInstance<LwwMapStrategy>);
         services.TryAddScoped(CreateValidatedInstance<OrMapStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<CounterMapStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<MaxWinsMapStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<MinWinsMapStrategy>);
         
         // Register all concrete strategies as ICrdtStrategy.
         // This will resolve the concrete type, which in turn triggers our validating factory.
@@ -120,6 +123,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICrdtStrategy, ExclusiveLockStrategy>(sp => sp.GetRequiredService<ExclusiveLockStrategy>());
         services.AddScoped<ICrdtStrategy, LwwMapStrategy>(sp => sp.GetRequiredService<LwwMapStrategy>());
         services.AddScoped<ICrdtStrategy, OrMapStrategy>(sp => sp.GetRequiredService<OrMapStrategy>());
+        services.AddScoped<ICrdtStrategy, CounterMapStrategy>(sp => sp.GetRequiredService<CounterMapStrategy>());
+        services.AddScoped<ICrdtStrategy, MaxWinsMapStrategy>(sp => sp.GetRequiredService<MaxWinsMapStrategy>());
+        services.AddScoped<ICrdtStrategy, MinWinsMapStrategy>(sp => sp.GetRequiredService<MinWinsMapStrategy>());
 
         return services;
     }

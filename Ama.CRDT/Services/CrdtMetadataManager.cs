@@ -84,6 +84,7 @@ public sealed class CrdtMetadataManager(
         document.Metadata.ExclusiveLocks.Clear();
         document.Metadata.LwwMaps.Clear();
         document.Metadata.OrMaps.Clear();
+        document.Metadata.CounterMaps.Clear();
 
         PopulateMetadataRecursive(document.Metadata, document.Data, "$", timestamp, document.Data);
     }
@@ -165,6 +166,11 @@ public sealed class CrdtMetadataManager(
                 removedComparer);
 
             newMetadata.OrMaps.Add(kvp.Key, (Adds: newAdded, Removes: newRemoved));
+        }
+
+        foreach (var kvp in metadata.CounterMaps)
+        {
+            newMetadata.CounterMaps.Add(kvp.Key, new Dictionary<object, (decimal P, decimal N)>(kvp.Value, (kvp.Value as Dictionary<object, (decimal P, decimal N)>)?.Comparer));
         }
 
         return newMetadata;
@@ -411,6 +417,9 @@ public sealed class CrdtMetadataManager(
                 break;
             case LwwMapStrategy:
             case OrMapStrategy:
+            case CounterMapStrategy:
+            case MaxWinsMapStrategy:
+            case MinWinsMapStrategy:
                 InitializeMapMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
                 break;
         }
@@ -479,6 +488,7 @@ public sealed class CrdtMetadataManager(
                 }
                 metadata.LwwMaps[propertyPath] = lwwMap;
                 break;
+
             case OrMapStrategy:
                 var orMapAdds = new Dictionary<object, ISet<Guid>>(comparer);
                 foreach (DictionaryEntry entry in dictionary)
@@ -493,6 +503,19 @@ public sealed class CrdtMetadataManager(
                 metadata.OrMaps[propertyPath] = (
                     Adds: orMapAdds,
                     Removes: new Dictionary<object, ISet<Guid>>(comparer));
+                break;
+
+            case CounterMapStrategy:
+                var counterMap = new Dictionary<object, (decimal P, decimal N)>(comparer);
+                foreach (DictionaryEntry entry in dictionary)
+                {
+                    if (entry.Key is not null)
+                    {
+                        var value = Convert.ToDecimal(entry.Value ?? 0);
+                        counterMap[entry.Key] = (P: value > 0 ? value : 0, N: value < 0 ? -value : 0);
+                    }
+                }
+                metadata.CounterMaps[propertyPath] = counterMap;
                 break;
         }
     }
