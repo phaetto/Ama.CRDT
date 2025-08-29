@@ -11,6 +11,7 @@ using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Xunit;
 
 public sealed class LwwMapStrategyTests
@@ -18,23 +19,28 @@ public sealed class LwwMapStrategyTests
     private readonly IServiceProvider serviceProvider;
     private readonly ICrdtTimestampProvider timestampProvider;
     private readonly Mock<IElementComparerProvider> comparerProviderMock = new();
+    private readonly ICrdtMetadataManager metadataManager;
+    private readonly ICrdtScopeFactory scopeFactory;
 
     public LwwMapStrategyTests()
     {
         var services = new ServiceCollection();
         services.AddCrdt()
             .AddSingleton(comparerProviderMock.Object)
-            .AddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>();
+            .AddCrdtTimestampProvider<EpochTimestampProvider>();
 
         serviceProvider = services.BuildServiceProvider();
-        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        
+        using var scope = scopeFactory.CreateScope("test");
+        timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
 
         comparerProviderMock.Setup(p => p.GetComparer(It.IsAny<Type>())).Returns(EqualityComparer<object>.Default);
     }
 
     private CrdtDocument<TestModel> CreateDocument(Dictionary<string, int> map)
     {
-        var metadataManager = serviceProvider.GetRequiredService<ICrdtMetadataManager>();
         var model = new TestModel { Map = map };
         var metadata = metadataManager.Initialize(model);
         return new CrdtDocument<TestModel>(model, metadata);
@@ -44,7 +50,6 @@ public sealed class LwwMapStrategyTests
     public void ApplyOperation_Commutativity_ShouldConverge()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
 
@@ -75,7 +80,6 @@ public sealed class LwwMapStrategyTests
     public void ApplyOperation_Idempotency_ShouldNotChangeState()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
 
@@ -98,15 +102,17 @@ public sealed class LwwMapStrategyTests
     public void ApplyOperation_LwwWins_ShouldApplyNewerOperation()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.LwwMaps["$.map"]["a"] = timestampProvider.Create(10);
+        doc.Metadata.LwwMaps["$.map"]["a"] = timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         
-        var olderOp = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 0), timestampProvider.Create(5));
-        var newerOp = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), timestampProvider.Create(15));
+        var newerTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(50).ToUnixTimeMilliseconds());
+        var olderTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(-50).ToUnixTimeMilliseconds());
+
+        var olderOp = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 0), olderTimestamp);
+        var newerOp = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), newerTimestamp);
         
         // Act
         strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, olderOp));

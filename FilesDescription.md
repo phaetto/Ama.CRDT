@@ -87,7 +87,7 @@
 | `$/Ama.CRDT/Attributes/Strategies/MergeableAttribute.cs` | Marks a CRDT strategy as having a mergeable state, suitable for parallel reduction. |
 | `$/Ama.CRDT/Attributes/Strategies/SequentialOperationsAttribute.cs` | Marks a CRDT strategy as requiring sequential operation application, making it unsuitable for parallel reduction. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
-| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup, including registration of the patch builder, strategies, the strategy manager, custom array element comparers, a customizable timestamp provider, and a factory for creating replica-specific patchers. |
+| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup. It registers all core services and strategies within a validation factory to ensure they are only resolved from replica-specific scopes created by `ICrdtScopeFactory`. It also supports registering custom comparers and timestamp providers. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
 | `$/Ama.CRDT/Models/CrdtDocumentOfT.cs` | A generic version of `CrdtDocument` that holds a POCO and its associated `CrdtMetadata`, unifying the API for patch generation and application. |
 | `$/Ama.CRDT/Models/CrdtMetadata.cs` | Encapsulates the state required for conflict resolution (LWW timestamps, seen operation IDs), externalizing it from the data model. |
@@ -113,7 +113,7 @@
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | No description provided. |
 | `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implements the logic for managing and compacting CRDT metadata. It provides helper methods like Initialize(document) to create a metadata object from a POCO by reflecting on its properties, and Reset(metadata, document) to clear and re-initialize an existing metadata object. The initialization logic correctly traverses nested objects and collections. |
 | `$/Ama.CRDT/Services/CrdtPatcher.cs` | Implements the logic to recursively compare two objects and generate a CRDT patch by delegating to property-specific strategies. |
-| `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext`. |
+| `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext` holding the unique replica ID. |
 | `$/Ama.CRDT/Services/DifferentiateObjectContext.cs` | Defines the context object for the `ICrdtPatcher.DifferentiateObject` method, encapsulating all necessary parameters. |
 | `$/Ama.CRDT/Services/Helpers/PocoPathHelper.cs` | A utility class containing helper methods for parsing JSON paths and resolving them against POCOs using reflection. |
 | `$/Ama.CRDT/Services/ICrdtApplicator.cs` | No description provided. |

@@ -12,6 +12,7 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Threading;
 using Xunit;
 
 public sealed class OrMapStrategyTests
@@ -19,23 +20,27 @@ public sealed class OrMapStrategyTests
     private readonly IServiceProvider serviceProvider;
     private readonly ICrdtTimestampProvider timestampProvider;
     private readonly Mock<IElementComparerProvider> comparerProviderMock = new();
+    private readonly ICrdtMetadataManager metadataManager;
+    private readonly ICrdtScopeFactory scopeFactory;
 
     public OrMapStrategyTests()
     {
         var services = new ServiceCollection();
         services.AddCrdt()
-            .AddSingleton(comparerProviderMock.Object)
-            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
+            .AddSingleton(comparerProviderMock.Object);
         
         serviceProvider = services.BuildServiceProvider();
-        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+
+        using var scope = scopeFactory.CreateScope("test");
+        timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
 
         comparerProviderMock.Setup(p => p.GetComparer(It.IsAny<Type>())).Returns(EqualityComparer<object>.Default);
     }
 
     private CrdtDocument<TestModel> CreateDocument(Dictionary<string, int> map)
     {
-        var metadataManager = serviceProvider.GetRequiredService<ICrdtMetadataManager>();
         var model = new TestModel { Map = map };
         var metadata = metadataManager.Initialize(model);
         return new CrdtDocument<TestModel>(model, metadata);
@@ -45,7 +50,6 @@ public sealed class OrMapStrategyTests
     public void ApplyOperation_Commutativity_ShouldConverge()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
 
@@ -76,7 +80,6 @@ public sealed class OrMapStrategyTests
     public void ApplyOperation_Idempotency_ShouldNotChangeState()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
 
@@ -99,7 +102,6 @@ public sealed class OrMapStrategyTests
     public void ApplyOperation_RemoveAndReAdd_ShouldSucceed()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
 
@@ -123,7 +125,6 @@ public sealed class OrMapStrategyTests
     public void ApplyOperation_ValueUpdate_ShouldRespectLww()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
 
