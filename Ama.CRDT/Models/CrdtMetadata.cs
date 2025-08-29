@@ -113,4 +113,16 @@ public sealed class CrdtMetadata
     /// to its PN-Counter state (Positive increments, Negative increments).
     /// </summary>
     public IDictionary<string, IDictionary<object, (decimal P, decimal N)>> CounterMaps { get; } = new Dictionary<string, IDictionary<object, (decimal P, decimal N)>>();
+
+    /// <summary>
+    /// Gets a dictionary that stores the state for properties managed by the Two-Phase Graph (2P-Graph) strategy.
+    /// The key is the JSON Path to the property. The value contains sets for vertex/edge additions and tombstones.
+    /// </summary>
+    public IDictionary<string, (ISet<object> VertexAdds, ISet<object> VertexTombstones, ISet<object> EdgeAdds, ISet<object> EdgeTombstones)> TwoPhaseGraphs { get; } = new Dictionary<string, (ISet<object>, ISet<object>, ISet<object>, ISet<object>)>();
+
+    /// <summary>
+    /// Gets a dictionary that stores the state for node existence in properties managed by the Replicated Tree strategy.
+    /// It uses OR-Set logic, mapping a node's ID to unique tags for its additions and removals.
+    /// </summary>
+    public IDictionary<string, (IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes)> ReplicatedTrees { get; } = new Dictionary<string, (IDictionary<object, ISet<Guid>>, IDictionary<object, ISet<Guid>>)>();
 }

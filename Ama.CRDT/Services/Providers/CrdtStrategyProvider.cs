@@ -36,7 +36,6 @@ internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
             ?? throw new InvalidOperationException($"The default '{nameof(LwwStrategy)}' is not registered in the DI container.");
         
         defaultArrayStrategy = this.strategies.Values.OfType<ArrayLcsStrategy>().FirstOrDefault() 
-            ?? this.strategies.Values.OfType<SortedSetStrategy>().FirstOrDefault() 
             ?? defaultStrategy;
         
         defaultDictionaryStrategy = this.strategies.Values.OfType<OrMapStrategy>().FirstOrDefault()
