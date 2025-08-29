@@ -50,12 +50,6 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
             return;
         }
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null)
-        {
-            return;
-        }
-
         if (!metadata.AverageRegisters.TryGetValue(operation.JsonPath, out var contributions))
         {
             contributions = new Dictionary<string, AverageRegisterValue>();
@@ -71,10 +65,10 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
         var incomingValue = operation.Value is not null ? Convert.ToDecimal(operation.Value) : 0;
         contributions[operation.ReplicaId] = new AverageRegisterValue(incomingValue, operation.Timestamp);
 
-        RecalculateAndApplyAverage(parent, property, contributions);
+        RecalculateAndApplyAverage(root, operation.JsonPath, contributions);
     }
 
-    private static void RecalculateAndApplyAverage(object parent, PropertyInfo property, IDictionary<string, AverageRegisterValue> contributions)
+    private static void RecalculateAndApplyAverage(object root, string jsonPath, IDictionary<string, AverageRegisterValue> contributions)
     {
         if (contributions.Count == 0)
         {
@@ -84,7 +78,6 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
         var sum = contributions.Values.Sum(c => c.Value);
         var average = sum / contributions.Count;
 
-        var convertedValue = Convert.ChangeType(average, property.PropertyType);
-        property.SetValue(parent, convertedValue);
+        PocoPathHelper.SetValue(root, jsonPath, average);
     }
 }

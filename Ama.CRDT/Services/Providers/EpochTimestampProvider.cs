@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// The default implementation of <see cref="ICrdtTimestampProvider"/> that generates <see cref="EpochTimestamp"/>
+/// The implementation of <see cref="ICrdtTimestampProvider"/> that generates <see cref="EpochTimestamp"/>
 /// based on the current system UTC time in Unix milliseconds.
 /// </summary>
 public sealed class EpochTimestampProvider : ICrdtTimestampProvider

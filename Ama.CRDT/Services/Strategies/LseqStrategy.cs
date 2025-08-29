@@ -7,6 +7,7 @@ using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
 using System.Collections;
 using System.Collections.Immutable;
+using System.Reflection;
 using System.Text.Json;
 using Ama.CRDT.Services;
 
@@ -15,7 +16,7 @@ using Ama.CRDT.Services;
 /// to list elements, which allows for generating a new identifier between any two existing ones.
 /// This avoids floating-point precision issues while providing a stable, convergent order.
 /// </summary>
-[CrdtSupportedType(typeof(IEnumerable))]
+[CrdtSupportedType(typeof(IList))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -35,9 +36,7 @@ public sealed class LseqStrategy(
 
         if (originalValue is not IList originalList || modifiedValue is not IList modifiedList) return;
 
-        var elementType = property.PropertyType.IsGenericType
-            ? property.PropertyType.GetGenericArguments()[0]
-            : property.PropertyType.GetElementType() ?? typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = elementComparerProvider.GetComparer(elementType);
         
         if (!originalMeta.LseqTrackers.TryGetValue(path, out var originalItems))
@@ -179,9 +178,7 @@ public sealed class LseqStrategy(
         var list = property.GetValue(parent) as IList;
         if (list is null) return;
 
-        var elementType = property.PropertyType.IsGenericType
-            ? property.PropertyType.GetGenericArguments()[0]
-            : property.PropertyType.GetElementType() ?? typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
 
         list.Clear();
         foreach (var item in lseqItems)

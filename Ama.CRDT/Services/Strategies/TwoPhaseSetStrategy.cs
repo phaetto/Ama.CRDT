@@ -17,7 +17,7 @@ using Ama.CRDT.Services;
 /// Implements the 2P-Set (Two-Phase Set) CRDT strategy.
 /// In a 2P-Set, an element can be added and removed, but once removed, it cannot be re-added.
 /// </summary>
-[CrdtSupportedType(typeof(IEnumerable))]
+[CrdtSupportedType(typeof(IList))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -36,7 +36,7 @@ public sealed class TwoPhaseSetStrategy(
         var originalSet = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedSet = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         
-        var elementType = property.PropertyType.IsGenericType ? property.PropertyType.GetGenericArguments()[0] : typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
 
         var added = modifiedSet.Except(originalSet, comparer);
@@ -61,7 +61,7 @@ public sealed class TwoPhaseSetStrategy(
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
         if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
 
-        var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
 
         if (!metadata.TwoPhaseSets.TryGetValue(operation.JsonPath, out var state))

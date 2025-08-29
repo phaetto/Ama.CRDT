@@ -17,7 +17,7 @@ using Ama.CRDT.Services;
 /// Implements the LWW-Set (Last-Writer-Wins Set) CRDT strategy.
 /// An element's membership is determined by the timestamp of its last add or remove operation.
 /// </summary>
-[CrdtSupportedType(typeof(IEnumerable))]
+[CrdtSupportedType(typeof(IList))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -37,7 +37,7 @@ public sealed class LwwSetStrategy(
         var originalSet = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedSet = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         
-        var elementType = property.PropertyType.IsGenericType ? property.PropertyType.GetGenericArguments()[0] : typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
 
         var added = modifiedSet.Except(originalSet, comparer);
@@ -62,7 +62,7 @@ public sealed class LwwSetStrategy(
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
         if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
 
-        var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
 
         if (!metadata.LwwSets.TryGetValue(operation.JsonPath, out var state))

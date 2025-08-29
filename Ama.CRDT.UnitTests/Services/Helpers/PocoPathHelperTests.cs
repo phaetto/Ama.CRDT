@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Ama.CRDT.Services.Helpers;
 using Shouldly;
 using Xunit;
+using System.Collections;
 
 public sealed class PocoPathHelperTests
 {
@@ -28,7 +29,10 @@ public sealed class PocoPathHelperTests
                 new() { Name = "Alice", Age = 25 },
                 new() { Name = "Bob", Age = 28 }
             ],
-            Tags = ["tag1", "tag2"]
+            Tags = ["tag1", "tag2"],
+            Scores = new[] { 100, 200 },
+            Settings = new Dictionary<string, string> { { "theme", "dark" } },
+            UntypedList = ["one", 2]
         };
     }
 
@@ -305,6 +309,222 @@ public sealed class PocoPathHelperTests
         result.ShouldBe(value);
     }
 
+    [Fact]
+    public void GetValue_ShouldReturnSimplePropertyValue()
+    {
+        // Act
+        var value = PocoPathHelper.GetValue(rootObject, "$.simpleProp");
+
+        // Assert
+        value.ShouldBe("value");
+    }
+
+    [Fact]
+    public void GetValue_ShouldReturnNestedPropertyValue()
+    {
+        // Act
+        var value = PocoPathHelper.GetValue(rootObject, "$.user.name");
+
+        // Assert
+        value.ShouldBe("John");
+    }
+
+    [Fact]
+    public void GetValue_ShouldReturnArrayElementObject()
+    {
+        // Act
+        var value = PocoPathHelper.GetValue(rootObject, "$.users[1]");
+
+        // Assert
+        value.ShouldBe(rootObject.Users[1]);
+        ((TestUser)value!).Name.ShouldBe("Bob");
+    }
+
+    [Fact]
+    public void GetValue_ShouldReturnArrayElementPrimitive()
+    {
+        // Act
+        var value = PocoPathHelper.GetValue(rootObject, "$.tags[0]");
+
+        // Assert
+        value.ShouldBe("tag1");
+    }
+
+    [Fact]
+    public void GetValue_ShouldReturnNullForInvalidProperty()
+    {
+        // Act
+        var value = PocoPathHelper.GetValue(rootObject, "$.user.invalidProp");
+
+        // Assert
+        value.ShouldBeNull();
+    }
+
+    [Fact]
+    public void GetValue_ShouldReturnNullForIndexOutOfBounds()
+    {
+        // Act
+        var value = PocoPathHelper.GetValue(rootObject, "$.users[99]");
+
+        // Assert
+        value.ShouldBeNull();
+    }
+
+    [Fact]
+    public void SetValue_ShouldSetSimplePropertyValue()
+    {
+        // Arrange
+        var path = "$.simpleProp";
+        var newValue = "new value";
+
+        // Act
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+
+        // Assert
+        success.ShouldBeTrue();
+        rootObject.SimpleProp.ShouldBe(newValue);
+    }
+
+    [Fact]
+    public void SetValue_ShouldSetNestedPropertyValue()
+    {
+        // Arrange
+        var path = "$.user.age";
+        var newValue = 35;
+
+        // Act
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+
+        // Assert
+        success.ShouldBeTrue();
+        rootObject.User.Age.ShouldBe(newValue);
+    }
+
+    [Fact]
+    public void SetValue_ShouldSetArrayElementValue()
+    {
+        // Arrange
+        var path = "$.tags[1]";
+        var newValue = "new-tag";
+
+        // Act
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+
+        // Assert
+        success.ShouldBeTrue();
+        rootObject.Tags[1].ShouldBe(newValue);
+    }
+
+    [Fact]
+    public void SetValue_ShouldConvertValueWhenSetting()
+    {
+        // Arrange
+        var path = "$.user.age";
+        var newValue = "40"; // string
+
+        // Act
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+
+        // Assert
+        success.ShouldBeTrue();
+        rootObject.User.Age.ShouldBe(40); // should be converted to int
+    }
+
+    [Fact]
+    public void SetValue_ShouldReturnFalseForInvalidPath()
+    {
+        // Arrange
+        var path = "$.invalid.path";
+        var newValue = "test";
+
+        // Act
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+
+        // Assert
+        success.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void SetValue_ShouldReturnFalseForReadOnlyProperty()
+    {
+        // Arrange
+        var obj = new TestRootWithReadOnly("initial");
+        var path = "$.readOnlyProp";
+        var newValue = "new";
+
+        // Act
+        var success = PocoPathHelper.SetValue(obj, path, newValue);
+
+        // Assert
+        success.ShouldBeFalse();
+        obj.ReadOnlyProp.ShouldBe("initial");
+    }
+
+    [Fact]
+    public void GetCollectionElementType_ShouldReturnCorrectTypeForGenericList()
+    {
+        // Arrange
+        var property = typeof(TestRoot).GetProperty(nameof(TestRoot.Users));
+
+        // Act
+        var elementType = PocoPathHelper.GetCollectionElementType(property!);
+
+        // Assert
+        elementType.ShouldBe(typeof(TestUser));
+    }
+
+    [Fact]
+    public void GetCollectionElementType_ShouldReturnCorrectTypeForArray()
+    {
+        // Arrange
+        var property = typeof(TestRoot).GetProperty(nameof(TestRoot.Scores));
+
+        // Act
+        var elementType = PocoPathHelper.GetCollectionElementType(property!);
+
+        // Assert
+        elementType.ShouldBe(typeof(int));
+    }
+
+    [Fact]
+    public void GetCollectionElementType_ShouldReturnObjectTypeForNonGenericList()
+    {
+        // Arrange
+        var property = typeof(TestRoot).GetProperty(nameof(TestRoot.UntypedList));
+
+        // Act
+        var elementType = PocoPathHelper.GetCollectionElementType(property!);
+
+        // Assert
+        elementType.ShouldBe(typeof(object));
+    }
+
+    [Fact]
+    public void GetDictionaryKeyType_ShouldReturnCorrectType()
+    {
+        // Arrange
+        var property = typeof(TestRoot).GetProperty(nameof(TestRoot.Settings));
+
+        // Act
+        var keyType = PocoPathHelper.GetDictionaryKeyType(property!);
+
+        // Assert
+        keyType.ShouldBe(typeof(string));
+    }
+
+    [Fact]
+    public void GetDictionaryValueType_ShouldReturnCorrectType()
+    {
+        // Arrange
+        var property = typeof(TestRoot).GetProperty(nameof(TestRoot.Settings));
+
+        // Act
+        var valueType = PocoPathHelper.GetDictionaryValueType(property!);
+
+        // Assert
+        valueType.ShouldBe(typeof(string));
+    }
+
     private sealed class TestAddress
     {
         public string? Street { get; set; }
@@ -317,6 +537,16 @@ public sealed class PocoPathHelperTests
         public TestAddress? Address { get; set; }
     }
 
+    private sealed class TestRootWithReadOnly
+    {
+        public string? ReadOnlyProp { get; }
+
+        public TestRootWithReadOnly(string? readOnlyProp)
+        {
+            ReadOnlyProp = readOnlyProp;
+        }
+    }
+
     private sealed class TestRoot
     {
         public string? SimpleProp { get; set; }
@@ -325,5 +555,8 @@ public sealed class PocoPathHelperTests
         public List<string>? Tags { get; set; }
         [JsonPropertyName("special-name")]
         public string? SpecialNameProp { get; set; }
+        public int[]? Scores { get; set; }
+        public IDictionary<string, string>? Settings { get; set; }
+        public ArrayList? UntypedList { get; set; }
     }
 }

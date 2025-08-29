@@ -17,7 +17,7 @@ using Ama.CRDT.Services;
 /// Implements the G-Set (Grow-Only Set) CRDT strategy.
 /// In a G-Set, elements can only be added. Remove operations are ignored.
 /// </summary>
-[CrdtSupportedType(typeof(IEnumerable))]
+[CrdtSupportedType(typeof(IList))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -36,9 +36,7 @@ public sealed class GSetStrategy(
         var originalList = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedList = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
 
-        var elementType = property.PropertyType.IsGenericType
-            ? property.PropertyType.GetGenericArguments()[0]
-            : property.PropertyType.GetElementType() ?? typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         
         var comparer = comparerProvider.GetComparer(elementType);
 
@@ -63,7 +61,7 @@ public sealed class GSetStrategy(
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
         if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
 
-        var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         var itemValue = DeserializeItemValue(operation.Value, elementType);
 
         if (itemValue is null) return;

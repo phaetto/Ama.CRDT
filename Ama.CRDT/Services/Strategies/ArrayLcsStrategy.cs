@@ -10,11 +10,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using Ama.CRDT.Services;
 
 /// <inheritdoc/>
-[CrdtSupportedType(typeof(IEnumerable))]
+[CrdtSupportedType(typeof(IList))]
 [Commutative]
 [Associative]
 [IdempotentWithContinuousTime]
@@ -38,9 +39,7 @@ public sealed class ArrayLcsStrategy(
             return;
         }
 
-        var elementType = property.PropertyType.IsGenericType
-            ? property.PropertyType.GetGenericArguments()[0]
-            : property.PropertyType.GetElementType() ?? typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         
         var comparer = comparerProvider.GetComparer(elementType);
 
@@ -116,7 +115,7 @@ public sealed class ArrayLcsStrategy(
         switch (operation.Type)
         {
             case OperationType.Upsert:
-                ApplyUpsert(list, positions, operation);
+                ApplyUpsert(list, positions, operation, property);
                 break;
             case OperationType.Remove:
                 ApplyRemove(list, positions, operation);
@@ -124,7 +123,7 @@ public sealed class ArrayLcsStrategy(
         }
     }
 
-    private void ApplyUpsert(IList list, List<PositionalIdentifier> positions, CrdtOperation operation)
+    private void ApplyUpsert(IList list, List<PositionalIdentifier> positions, CrdtOperation operation, PropertyInfo collectionProperty)
     {
         if (operation.Value is null) return;
 
@@ -153,7 +152,7 @@ public sealed class ArrayLcsStrategy(
 
         if (position is null) return;
 
-        var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(collectionProperty);
         var itemValue = DeserializeItemValue(value, elementType);
 
         var newIdentifier = new PositionalIdentifier(position, operation.Id);

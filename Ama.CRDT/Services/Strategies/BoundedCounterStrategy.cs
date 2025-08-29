@@ -64,8 +64,8 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
             throw new InvalidOperationException($"Bounded Counter strategy can only apply 'Increment' operations. Received '{operation.Type}'.");
         }
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null)
+        var (_, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        if (property is null)
         {
             return;
         }
@@ -83,7 +83,7 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
         }
         else
         {
-            var currentValue = property.GetValue(parent);
+            var currentValue = PocoPathHelper.GetValue(root, operation.JsonPath);
             unboundedValue = currentValue is not null ? Convert.ToDecimal(currentValue) : 0;
         }
 
@@ -94,7 +94,6 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
 
         var clampedValue = Math.Max(attribute.Min, Math.Min(attribute.Max, newUnboundedValue));
 
-        var convertedValue = Convert.ChangeType(clampedValue, property.PropertyType);
-        property.SetValue(parent, convertedValue);
+        PocoPathHelper.SetValue(root, operation.JsonPath, clampedValue);
     }
 }

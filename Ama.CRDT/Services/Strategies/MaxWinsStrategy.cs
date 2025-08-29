@@ -51,13 +51,7 @@ public sealed class MaxWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
             return;
         }
         
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null)
-        {
-            return;
-        }
-
-        var currentValue = property.GetValue(parent);
+        var currentValue = PocoPathHelper.GetValue(root, operation.JsonPath);
         var incomingValue = operation.Value;
 
         if (incomingValue is null)
@@ -67,8 +61,7 @@ public sealed class MaxWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
 
         if (currentValue is null || ((IComparable)currentValue).CompareTo(incomingValue) < 0)
         {
-            var convertedValue = PocoPathHelper.ConvertValue(incomingValue, property.PropertyType);
-            property.SetValue(parent, convertedValue);
+            PocoPathHelper.SetValue(root, operation.JsonPath, incomingValue);
         }
     }
 }
