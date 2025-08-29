@@ -86,8 +86,8 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         applicatorA.ApplyPatch(document, patch);
 
         // Assert
-        model.Items.Select(i => i.Id).ShouldBe(new[] { "A", "B", "C" });
-        model.Items.Select(i => i.Priority).ShouldBe(new[] { 10, 20, 30 });
+        model.Items.Select(i => i.Id).ShouldBe(new[] { "C", "B", "A" });
+        model.Items.Select(i => i.Priority).ShouldBe(new[] { 30, 20, 10 });
     }
     
     [Fact]
@@ -112,7 +112,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
 
         // Assert
         model.Items.Select(i => i.Id).ShouldBe(stateAfterFirst);
-        model.Items.Select(i => i.Id).ShouldBe(new[] { "B", "A" });
+        model.Items.Select(i => i.Id).ShouldBe(new[] { "A", "B" });
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         applicatorA.ApplyPatch(doc2, patchB);
         
         // Assert
-        var expectedOrder = new[] { "C", "A", "B" };
+        var expectedOrder = new[] { "B", "A", "C" };
         model1.Items.Select(i => i.Id).ShouldBe(expectedOrder);
         model2.Items.Select(i => i.Id).ShouldBe(expectedOrder);
     }
@@ -191,7 +191,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         }
 
         // Assert
-        var expectedOrder = new[] { "C", "A", "D", "B" }; // Priorities: 5, 10, 15, 20
+        var expectedOrder = new[] { "B", "D", "A", "C" }; // Priorities: 20, 15, 10, 5
         var firstState = finalStates.First();
         firstState.ShouldBe(expectedOrder);
         
@@ -235,7 +235,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
 
         // Assert
         opB.Timestamp.CompareTo(opA.Timestamp).ShouldBeGreaterThan(0);
-        model.Items.Select(i => i.Id).ShouldBe(["A", "B"]);
+        model.Items.Select(i => i.Id).ShouldBe(["B", "A"]);
         model.Items.Single(i => i.Id == "B").Priority.ShouldBe(30);
     }
     

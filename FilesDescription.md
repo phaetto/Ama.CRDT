@@ -18,6 +18,7 @@
 | `$/Ama.CRDT.Benchmarks/Models/SimplePoco.cs` | A simple data model for benchmarking basic scenarios. |
 | `$/Ama.CRDT.Benchmarks/Models/StrategyPoco.cs` | A data model containing properties decorated with attributes for each supported CRDT strategy, used for isolated strategy benchmarking. |
 | `$/Ama.CRDT.Benchmarks/Program.cs` | The entry point for the benchmark runner. |
+| `$/Ama.CRDT.Benchmarks/README.md` | No description provided. |
 | `$/Ama.CRDT.ShowCase/Ama.CRDT.ShowCase.csproj` | The project file for the showcase console application. |
 | `$/Ama.CRDT.ShowCase/Models/User.cs` | A simple data model representing a user, used as an element in the CRDT-managed array. |
 | `$/Ama.CRDT.ShowCase/Models/UserStats.cs` | The main POCO representing the shared state, decorated with CRDT strategy attributes (`CrdtCounter`, `CrdtArrayLcsStrategy`, `LwwStrategy`). |
@@ -29,6 +30,7 @@
 | `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |
 | `$/Ama.CRDT.UnitTests/Ama.CRDT.UnitTests.csproj` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/EpochTimestampTests.cs` | Contains unit tests for the `EpochTimestamp` implementation of `ICrdtTimestamp`. |
+| `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtMetadataSerializationTests.cs` | Contains unit tests for the serialization and deserialization of the `CrdtMetadata` class, verifying both default and compact serialization options and ensuring polymorphic and complex data (e.g., non-string dictionary keys, nested collections) is handled correctly. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtTimestampJsonConverterTests.cs` | Contains unit tests for the `CrdtTimestampJsonConverter`, verifying polymorphic serialization and deserialization of `ICrdtTimestamp` implementations. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtApplicatorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtMetadataManagerTests.cs` | Contains unit tests for the `CrdtMetadataManager`, verifying LWW pruning and version vector advancement logic. |
@@ -43,8 +45,8 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/ExclusiveLockStrategyTests.cs` | Contains unit tests for the `ExclusiveLockStrategy`, verifying convergence, LWW-based conflict resolution, and rejection of changes when a lock is held by another party. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/FixedSizeArrayStrategyTests.cs` | Contains unit tests for the `FixedSizeArrayStrategy`, verifying convergence and idempotence for concurrent updates. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GCounterStrategyTests.cs` | Contains unit tests for the `GCounterStrategy`, ensuring it only generates and applies positive increments. |
-| `$/Ama.CRDT.UnitTests/Services/Strategies/GSetStrategyTests.cs` | Contains unit tests for the `GSetStrategy`, verifying its add-only behavior, idempotence, and commutativity. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GraphStrategyTests.cs` | Contains unit tests for `GraphStrategy`, verifying convergence and correct patch generation for concurrent additions of vertices and edges. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/GSetStrategyTests.cs` | Contains unit tests for the `GSetStrategy`, verifying its add-only behavior, idempotence, and commutativity. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LseqStrategyTests.cs` | Contains unit tests for the `LseqStrategy`, verifying convergence and idempotence under concurrent operations. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LwwMapStrategyTests.cs` | Contains unit tests for the `LwwMapStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent dictionary operations. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LwwSetStrategyTests.cs` | Contains unit tests for the `LwwSetStrategy`, verifying that conflicts are resolved based on the last-write-wins rule, allowing elements to be re-added after removal. |
@@ -56,8 +58,11 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/OrMapStrategyTests.cs` | Contains unit tests for the `OrMapStrategy`, verifying convergence and correct handling of concurrent key additions/removals and value updates. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/OrSetStrategyTests.cs` | Contains unit tests for the `OrSetStrategy`, verifying that it correctly handles concurrent additions and removals without anomalies, allowing for proper re-addition of elements. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/PriorityQueueStrategyTests.cs` | Contains unit tests for the `PriorityQueueStrategy`, verifying that concurrent updates converge and the list remains sorted by priority. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/ReplicatedTreeStrategyTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/Serialization/StrategyPayloadSerializationTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/SortedSetStrategyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/StateMachineStrategyTests.cs` | Contains unit tests for `StateMachineStrategy`, verifying valid/invalid transitions and LWW-based conflict resolution. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseGraphStrategyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseSetStrategyTests.cs` | Contains unit tests for the `TwoPhaseSetStrategy`, verifying that elements can be added and removed, but not re-added after removal. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTests.cs` | Contains unit tests for the `VoteCounterStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent voting scenarios. |
 | `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging and to automatically include its associated Roslyn analyzers. |
@@ -69,8 +74,8 @@
 | `$/Ama.CRDT/Attributes/CrdtExclusiveLockStrategyAttribute.cs` | An attribute to mark a property to be managed by the Exclusive Lock strategy. It uses LWW for conflict resolution and requires a path to a property on the root object that holds the lock owner's ID. |
 | `$/Ama.CRDT/Attributes/CrdtFixedSizeArrayStrategyAttribute.cs` | An attribute to mark a collection property as a fixed-size array, where each index is an LWW-Register. |
 | `$/Ama.CRDT/Attributes/CrdtGCounterStrategyAttribute.cs` | An attribute to mark a numeric property as a G-Counter (Grow-Only Counter), which only permits positive increments. |
-| `$/Ama.CRDT/Attributes/CrdtGSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the G-Set (Grow-Only Set) strategy. |
 | `$/Ama.CRDT/Attributes/CrdtGraphStrategyAttribute.cs` | An attribute to mark a `CrdtGraph` property to be managed by the Graph strategy. |
+| `$/Ama.CRDT/Attributes/CrdtGSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the G-Set (Grow-Only Set) strategy. |
 | `$/Ama.CRDT/Attributes/CrdtLseqStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the LSEQ strategy for managing ordered sequences with dense identifiers. |
 | `$/Ama.CRDT/Attributes/CrdtLwwMapStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the LWW-Map (Last-Writer-Wins Map) strategy, where each key-value pair is an independent LWW-Register. |
 | `$/Ama.CRDT/Attributes/CrdtLwwSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the LWW-Set (Last-Writer-Wins Set) strategy. |
@@ -82,10 +87,12 @@
 | `$/Ama.CRDT/Attributes/CrdtOrMapStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the OR-Map (Observed-Remove Map) strategy, where key presence is managed by OR-Set logic and values by LWW. |
 | `$/Ama.CRDT/Attributes/CrdtOrSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the OR-Set (Observed-Remove Set) strategy. |
 | `$/Ama.CRDT/Attributes/CrdtPriorityQueueStrategyAttribute.cs` | An attribute to mark a collection as a priority queue, which is managed as an LWW-Set and kept sorted by a specified property. |
+| `$/Ama.CRDT/Attributes/CrdtReplicatedTreeStrategyAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/CrdtSortedSetStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Sorted Set strategy. It uses LCS for diffing and maintains a sorted order. |
 | `$/Ama.CRDT/Attributes/CrdtStateMachineStrategyAttribute.cs` | An attribute to mark a property to be managed by the State Machine strategy, which enforces valid state transitions. |
 | `$/Ama.CRDT/Attributes/CrdtStrategyAttribute.cs` | The base abstract attribute for marking properties with a specific CRDT merge strategy. Contains the strategy type. |
 | `$/Ama.CRDT/Attributes/CrdtSupportedTypeAttribute.cs` | An attribute used to decorate a CRDT strategy class, specifying a property type (e.g., `int`, `IEnumerable`) that it supports. This enables compile-time validation via Roslyn analyzers. |
+| `$/Ama.CRDT/Attributes/CrdtTwoPhaseGraphStrategyAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/CrdtTwoPhaseSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the 2P-Set (Two-Phase Set) strategy. |
 | `$/Ama.CRDT/Attributes/CrdtVoteCounterStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the Vote Counter strategy. This strategy ensures each voter has only one active vote, with changes resolved by Last-Writer-Wins. |
 | `$/Ama.CRDT/Attributes/Strategies/AssociativeAttribute.cs` | Marks a CRDT strategy as having the associative property, meaning the order of operation grouping does not affect the outcome. |
@@ -99,27 +106,34 @@
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
 | `$/Ama.CRDT/Models/CrdtDocumentOfT.cs` | A generic version of `CrdtDocument` that holds a POCO and its associated `CrdtMetadata`, unifying the API for patch generation and application. |
 | `$/Ama.CRDT/Models/CrdtGraph.cs` | A data model for a graph structure with vertices and edges, suitable for CRDT management. |
-| `$/Ama.CRDT/Models/CrdtMetadata.cs` | Encapsulates the state required for conflict resolution (LWW timestamps, seen operation IDs), externalizing it from the data model. |
-| `$/Ama.CRDT/Models/CrdtOperation.cs` | Represents a single CRDT operation in a patch, including the target JSON Path, type, value, timestamp, and the ID of the replica that generated it. |
+| `$/Ama.CRDT/Models/CrdtMetadata.cs` | Encapsulates CRDT state for various strategies using dedicated, serializable record types instead of tuples. For serialization, use the recommended options from `CrdtJsonContext`. |
+| `$/Ama.CRDT/Models/CrdtOperation.cs` | Represents a single CRDT operation. For serialization, use the recommended options from `CrdtJsonContext`. |
 | `$/Ama.CRDT/Models/CrdtPatch.cs` | Encapsulates a list of CRDT operations that represent the difference between two JSON documents. |
 | `$/Ama.CRDT/Models/CrdtTree.cs` | A data model for a tree data structure with nodes that can be added, removed, and moved, suitable for CRDT management. |
-| `$/Ama.CRDT/Models/Edge.cs` | A data structure representing an edge in a graph, connecting two vertices with associated data. |
 | `$/Ama.CRDT/Models/EpochTimestamp.cs` | A default, backward-compatible implementation of `ICrdtTimestamp` that wraps a `long` value representing Unix milliseconds. |
 | `$/Ama.CRDT/Models/ExclusiveLockPayload.cs` | A data structure for the payload of an Exclusive Lock operation, containing the property value and the lock holder's ID. |
 | `$/Ama.CRDT/Models/GraphEdgePayload.cs` | A data structure for the payload of a graph edge operation. |
 | `$/Ama.CRDT/Models/GraphVertexPayload.cs` | A data structure for the payload of a graph vertex operation. |
 | `$/Ama.CRDT/Models/ICrdtTimestamp.cs` | Represents a logical point in time for a CRDT operation, allowing for different timestamping mechanisms. |
-| `$/Ama.CRDT/Models/LseqIdentifier.cs` | A record struct for the dense, ordered identifier used in LSEQ, composed of a path of positions and replica IDs. |
+| `$/Ama.CRDT/Models/LseqIdentifier.cs` | A record struct for the dense, ordered identifier used in LSEQ, composed of a path of `LseqPathSegment` instances. |
 | `$/Ama.CRDT/Models/LseqItem.cs` | A record struct that pairs an LseqIdentifier with its corresponding value in the LSEQ metadata. |
-| `$/Ama.CRDT/Models/MovePayload.cs` | A data structure for the payload of a `Move` operation, containing the stable identifier of the element and its new parent. |
+| `$/Ama.CRDT/Models/LseqPathSegment.cs` | Represents a single, serializable segment in an LSEQ identifier's path, containing a position and a replica ID. |
 | `$/Ama.CRDT/Models/OperationType.cs` | Defines the types of operations (Upsert, Remove, Increment, Move) for a CRDT patch. |
 | `$/Ama.CRDT/Models/OrMapItem.cs` | Contains payload record structs (`OrMapAddItem`, `OrMapRemoveItem`) for OR-Map (Observed-Remove Map) operations, bundling keys and values with unique tags. |
 | `$/Ama.CRDT/Models/OrSetItem.cs` | Contains payload record structs (`OrSetAddItem`, `OrSetRemoveItem`) for OR-Set (Observed-Remove Set) operations, bundling values with unique tags. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
 | `$/Ama.CRDT/Models/SequentialTimestamp.cs` | An implementation of `ICrdtTimestamp` that wraps a simple sequential `long` value, intended for testing. |
-| `$/Ama.CRDT/Models/Serialization/CrdtMetadataJsonResolver.cs` | Provides a custom `IJsonTypeInfoResolver` for `CrdtMetadata` to enable efficient serialization by omitting empty collections from the JSON output. |
+| `$/Ama.CRDT/Models/Serialization/Converters/ObjectKeyDictionaryJsonConverter.cs` | A `JsonConverterFactory` that creates converters for dictionaries with non-string keys. It serializes them as a JSON array of [key, value] pairs to work around `System.Text.Json` limitations. |
+| `$/Ama.CRDT/Models/Serialization/Converters/PolymorphicObjectJsonConverter.cs` | A powerful `JsonConverter` for `object` types that enables robust polymorphic serialization by embedding a `$type` discriminator. It maintains a registry of known types for clean, short identifiers. |
+| `$/Ama.CRDT/Models/Serialization/Converters/SeenExceptionsJsonConverter.cs` | A specialized `JsonConverter` for `CrdtMetadata.SeenExceptions` that ensures `CrdtOperation` elements are serialized and deserialized with polymorphism enabled for their `Value` property. |
+| `$/Ama.CRDT/Models/Serialization/CrdtJsonContext.cs` | Provides centralized, pre-configured `JsonSerializerOptions` for CRDT models, establishing a best practice for serialization. |
+| `$/Ama.CRDT/Models/Serialization/CrdtJsonTypeInfoResolver.cs` | A custom `IJsonTypeInfoResolver` that applies the `PolymorphicObjectJsonConverter` to all properties of type `object`, enabling robust polymorphic serialization. |
+| `$/Ama.CRDT/Models/Serialization/CrdtMetadataJsonResolver.cs` | A custom `IJsonTypeInfoResolver` that modifies the serialization contract for `CrdtMetadata` to omit empty collections, resulting in a more compact JSON output. |
 | `$/Ama.CRDT/Models/Serialization/CrdtTimestampJsonConverter.cs` | Provides a custom `JsonConverter` for `ICrdtTimestamp` to handle polymorphic serialization and deserialization by embedding a type discriminator. |
+| `$/Ama.CRDT/Models/TreeAddNodePayload.cs` | A data structure for the payload of a tree 'add' operation. |
+| `$/Ama.CRDT/Models/TreeMoveNodePayload.cs` | A data structure for the payload of a tree 'move' operation. |
+| `$/Ama.CRDT/Models/TreeRemoveNodePayload.cs` | A data structure for the payload of a tree 'remove' operation. |
 | `$/Ama.CRDT/Models/VotePayload.cs` | A data structure for the payload of a vote operation, containing the voter's identifier and their chosen option. |
 | `$/Ama.CRDT/PublicAPI.Shipped.txt` | Tracks the shipped public API surface of the library to detect breaking changes. This file should be updated when new APIs are officially released in a stable version. |
 | `$/Ama.CRDT/PublicAPI.Unshipped.txt` | Tracks new public APIs that have not yet been included in a stable release. This file must be empty before a manual, stable publish. Build will fail if new public APIs are added without being added to this file first. |
@@ -151,9 +165,9 @@
 | `$/Ama.CRDT/Services/Strategies/ExclusiveLockStrategy.cs` | Implements an optimistic exclusive lock strategy. Changes are only generated or applied if the lock is not held by a conflicting party. Lock state is resolved using LWW. |
 | `$/Ama.CRDT/Services/Strategies/FixedSizeArrayStrategy.cs` | Implements a strategy for fixed-size arrays where each index is an LWW-Register. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/GCounterStrategy.cs` | Implements the G-Counter (Grow-Only Counter) strategy, which only allows for positive increments. |
-| `$/Ama.CRDT/Services/Strategies/GSetStrategy.cs` | Implements the G-Set (Grow-Only Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get collection element types. |
 | `$/Ama.CRDT/Services/Strategies/GeneratePatchContext.cs` | Defines the context object for the `ICrdtStrategy.GeneratePatch` method, encapsulating all necessary parameters. |
 | `$/Ama.CRDT/Services/Strategies/GraphStrategy.cs` | Implements a CRDT strategy for graph data structures, treating vertices and edges as a grow-only set, suitable for modeling relationships and networks. |
+| `$/Ama.CRDT/Services/Strategies/GSetStrategy.cs` | Implements the G-Set (Grow-Only Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get collection element types. |
 | `$/Ama.CRDT/Services/Strategies/ICrdtStrategy.cs` | Defines the contract for a strategy, including `GeneratePatch` for creating operations and `ApplyOperation` for data manipulation, using context objects for parameters. |
 | `$/Ama.CRDT/Services/Strategies/LseqStrategy.cs` | Implements the LSEQ strategy for ordered sequences. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/LwwMapStrategy.cs` | Implements the LWW-Map (Last-Writer-Wins Map) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get dictionary key/value types. |
@@ -197,14 +211,14 @@
 | `$/README.md` | The main documentation for the Ama.CRDT library, including usage examples, architecture overview, and guides for advanced extensibility points like custom comparers and timestamp providers. |
 | `$/Specs/add-approval-quorum-strategy.md` | Specification file for implementing the Approval Quorum strategy. |
 | `$/Specs/add-leader-election-strategy.md` | Specification file for implementing the Leader Election strategy. |
-| `$/Specs/add-more-meta-and-hybrid-strategies.md` | No description provided. |
-| `$/Specs/add-more-specialized-data-structure-strategies.md` | No description provided. |
 | `$/Specs/add-more-text-specific-strategies.md` | No description provided. |
+| `$/Specs/done/add-counter-map-strategy.md` | No description provided. |
 | `$/Specs/done/add-exclusive-lock-strategy.md` | No description provided. |
 | `$/Specs/done/add-more-list-and-sequence-strategies.md` | No description provided. |
 | `$/Specs/done/add-more-numeric-and-value-based-strategies.md` | No description provided. |
 | `$/Specs/done/add-more-object-and-map-strategies.md` | No description provided. |
 | `$/Specs/done/add-more-set-strategies.md` | No description provided. |
+| `$/Specs/done/add-more-specialized-data-structure-strategies.md` | No description provided. |
 | `$/Specs/done/add-roslyn-analyzers.md` | No description provided. |
 | `$/Specs/done/add-state-machine-strategy.md` | No description provided. |
 | `$/Specs/done/add-vote-counter-strategy.md` | No description provided. |

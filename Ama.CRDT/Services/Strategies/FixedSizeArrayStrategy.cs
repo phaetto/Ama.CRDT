@@ -74,25 +74,22 @@ public sealed class FixedSizeArrayStrategy(
             return;
         }
 
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        if (elementType is null)
+        {
+            return;
+        }
+
         metadata.Lww[operation.JsonPath] = operation.Timestamp;
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
         var value = PocoPathHelper.ConvertValue(operation.Value, elementType);
-
         var elementIndex = (int)index;
 
-        if (elementIndex < list.Count)
+        while (list.Count <= elementIndex)
         {
-            list[elementIndex] = value;
+            list.Add(elementType.IsValueType ? Activator.CreateInstance(elementType) : null);
         }
-        else
-        {
-            // Pad the list with defaults if the index is out of bounds.
-            for (var i = list.Count; i < elementIndex; i++)
-            {
-                list.Add(elementType.IsValueType ? Activator.CreateInstance(elementType) : null);
-            }
-            list.Add(value);
-        }
+
+        list[elementIndex] = value;
     }
 }

@@ -1,7 +1,13 @@
 namespace Ama.CRDT.Models;
 
+using Ama.CRDT.Models.Serialization;
+
 /// <summary>
 /// Represents a single, atomic CRDT operation within a patch.
+/// <para>
+/// For serialization, use the pre-configured options from <see cref="CrdtJsonContext.DefaultOptions"/>
+/// to ensure that polymorphic payloads in the <see cref="Value"/> property are handled correctly.
+/// </para>
 /// </summary>
 /// <param name="Id">A unique identifier for this specific operation instance, used for tie-breaking and idempotency.</param>
 /// <param name="ReplicaId">The identifier for the source replica that generated this operation.</param>

@@ -104,11 +104,11 @@ public sealed class CrdtMetadataManagerTests
         metadata.Lww["$.a"] = timestampProviderMock.Object.Create(100);
         metadata.PositionalTrackers["$.b"] = [];
         metadata.AverageRegisters["$.c"] = new Dictionary<string, AverageRegisterValue>();
-        metadata.PriorityQueues["$.d"] = (new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, ICrdtTimestamp>());
+        metadata.PriorityQueues["$.d"] = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, ICrdtTimestamp>());
         metadata.ExclusiveLocks["$.e"] = new LockInfo("holder", timestampProviderMock.Object.Create(100));
         metadata.LwwMaps["$.f"] = new Dictionary<object, ICrdtTimestamp>();
-        metadata.OrMaps["$.g"] = (new Dictionary<object, ISet<Guid>>(), new Dictionary<object, ISet<Guid>>());
-        metadata.CounterMaps["$.h"] = new Dictionary<object, (decimal P, decimal N)>();
+        metadata.OrMaps["$.g"] = new OrSetState(new Dictionary<object, ISet<Guid>>(), new Dictionary<object, ISet<Guid>>());
+        metadata.CounterMaps["$.h"] = new Dictionary<object, PnCounterState> { { "key", new PnCounterState(1, 1) } };
 
         var doc = new object();
         timestampProviderMock.Setup(p => p.Now()).Returns(timestampProviderMock.Object.Create(200));

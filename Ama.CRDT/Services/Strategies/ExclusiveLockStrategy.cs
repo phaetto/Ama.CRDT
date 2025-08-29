@@ -37,7 +37,7 @@ public sealed class ExclusiveLockStrategy(ReplicaContext replicaContext) : ICrdt
         originalMeta.ExclusiveLocks.TryGetValue(path, out var currentLock);
 
         var valueChanged = !Equals(originalValue, modifiedValue);
-        var lockChanged = (currentLock?.LockHolderId != lockHolderId) && !(currentLock is null && lockHolderId is null);
+        var lockChanged = !Equals(currentLock?.LockHolderId, lockHolderId);
 
         if (!valueChanged && !lockChanged)
         {

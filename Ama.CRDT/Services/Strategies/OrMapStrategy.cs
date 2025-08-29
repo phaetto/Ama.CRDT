@@ -84,7 +84,7 @@ public sealed class OrMapStrategy(
 
         if (!metadata.OrMaps.TryGetValue(operation.JsonPath, out var state))
         {
-            state = (new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, ISet<Guid>>(comparer));
+            state = new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, ISet<Guid>>(comparer));
             metadata.OrMaps[operation.JsonPath] = state;
         }
 
@@ -101,7 +101,7 @@ public sealed class OrMapStrategy(
         ReconstructDictionary(dict, state.Adds, state.Removes, comparer);
     }
 
-    private void ApplyUpsert(IDictionary dict, CrdtMetadata metadata, (IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes) state, CrdtOperation operation, Type keyType, Type valueType)
+    private void ApplyUpsert(IDictionary dict, CrdtMetadata metadata, OrSetState state, CrdtOperation operation, Type keyType, Type valueType)
     {
         if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapAddItem)) is not OrMapAddItem payload) return;
 
@@ -124,7 +124,7 @@ public sealed class OrMapStrategy(
         }
     }
 
-    private static void ApplyRemove((IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes) state, object? opValue, Type keyType)
+    private static void ApplyRemove(OrSetState state, object? opValue, Type keyType)
     {
         if (PocoPathHelper.ConvertValue(opValue, typeof(OrMapRemoveItem)) is not OrMapRemoveItem payload) return;
 

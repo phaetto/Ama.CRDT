@@ -16,10 +16,6 @@ public sealed class ReplicatedTreeStrategy(
     ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
-    
-    internal readonly record struct TreeAddNodePayload(object NodeId, object? Value, object? ParentId, Guid Tag);
-    internal readonly record struct TreeRemoveNodePayload(object NodeId, ISet<Guid> Tags);
-    internal readonly record struct TreeMoveNodePayload(object NodeId, object? NewParentId);
 
     public void GeneratePatch(GeneratePatchContext context)
     {
@@ -78,7 +74,7 @@ public sealed class ReplicatedTreeStrategy(
 
         if (!metadata.ReplicatedTrees.TryGetValue(operation.JsonPath, out var state))
         {
-            state = (new Dictionary<object, ISet<Guid>>(idComparer), new Dictionary<object, ISet<Guid>>(idComparer));
+            state = new OrSetState(new Dictionary<object, ISet<Guid>>(idComparer), new Dictionary<object, ISet<Guid>>(idComparer));
             metadata.ReplicatedTrees[operation.JsonPath] = state;
         }
         
@@ -132,7 +128,7 @@ public sealed class ReplicatedTreeStrategy(
         ReconstructTree(tree, state, idComparer);
     }
     
-    private static void ApplyAdd((IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes) state, object nodeId, Guid tag)
+    private static void ApplyAdd(OrSetState state, object nodeId, Guid tag)
     {
         if (!state.Adds.TryGetValue(nodeId, out var addTags))
         {
@@ -142,7 +138,7 @@ public sealed class ReplicatedTreeStrategy(
         addTags.Add(tag);
     }
 
-    private static void ApplyRemove((IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes) state, object nodeId, ISet<Guid> tags)
+    private static void ApplyRemove(OrSetState state, object nodeId, ISet<Guid> tags)
     {
         if (!state.Removes.TryGetValue(nodeId, out var removeTags))
         {
@@ -155,7 +151,7 @@ public sealed class ReplicatedTreeStrategy(
         }
     }
 
-    private static void ReconstructTree(CrdtTree tree, (IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes) state, IEqualityComparer<object> idComparer)
+    private static void ReconstructTree(CrdtTree tree, OrSetState state, IEqualityComparer<object> idComparer)
     {
         var liveKeys = new HashSet<object>(idComparer);
         foreach (var (key, addTags) in state.Adds)
