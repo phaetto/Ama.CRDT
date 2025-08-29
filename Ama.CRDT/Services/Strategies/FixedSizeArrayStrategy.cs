@@ -8,7 +8,6 @@ using System;
 using System.Collections;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json;
 using Ama.CRDT.Services;
 
 /// <inheritdoc/>
@@ -78,7 +77,7 @@ public sealed class FixedSizeArrayStrategy(
         metadata.Lww[operation.JsonPath] = operation.Timestamp;
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
-        var value = DeserializeItemValue(operation.Value, elementType);
+        var value = PocoPathHelper.ConvertValue(operation.Value, elementType);
 
         var elementIndex = (int)index;
 
@@ -94,32 +93,6 @@ public sealed class FixedSizeArrayStrategy(
                 list.Add(elementType.IsValueType ? Activator.CreateInstance(elementType) : null);
             }
             list.Add(value);
-        }
-    }
-
-    private static object? DeserializeItemValue(object? value, Type targetType)
-    {
-        if (value is null)
-        {
-            return null;
-        }
-        if (targetType.IsInstanceOfType(value))
-        {
-            return value;
-        }
-
-        if (value is JsonElement jsonElement)
-        {
-            return JsonSerializer.Deserialize(jsonElement.GetRawText(), targetType);
-        }
-
-        try
-        {
-            return Convert.ChangeType(value, targetType);
-        }
-        catch (Exception)
-        {
-            return null;
         }
     }
 }

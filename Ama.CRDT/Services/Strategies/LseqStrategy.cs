@@ -7,7 +7,6 @@ using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
 using System.Collections;
 using System.Collections.Immutable;
-using System.Text.Json;
 using Ama.CRDT.Services;
 
 /// <summary>
@@ -124,15 +123,19 @@ public sealed class LseqStrategy(
         switch (operation.Type)
         {
             case OperationType.Upsert:
-                var newItem = Deserialize<LseqItem>(operation.Value);
-                if (!lseqItems.Any(i => i.Identifier.Equals(newItem.Identifier)))
+                if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqItem)) is LseqItem newItem)
                 {
-                    lseqItems.Add(newItem);
+                    if (!lseqItems.Any(i => i.Identifier.Equals(newItem.Identifier)))
+                    {
+                        lseqItems.Add(newItem);
+                    }
                 }
                 break;
             case OperationType.Remove:
-                var idToRemove = Deserialize<LseqIdentifier>(operation.Value);
-                lseqItems.RemoveAll(i => i.Identifier.Equals(idToRemove));
+                if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqIdentifier)) is LseqIdentifier idToRemove)
+                {
+                    lseqItems.RemoveAll(i => i.Identifier.Equals(idToRemove));
+                }
                 break;
         }
 
@@ -182,19 +185,7 @@ public sealed class LseqStrategy(
         list.Clear();
         foreach (var item in lseqItems)
         {
-            var value = item.Value is JsonElement je
-                ? je.Deserialize(elementType, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-                : item.Value;
-            list.Add(value);
+            list.Add(PocoPathHelper.ConvertValue(item.Value, elementType));
         }
-    }
-
-    private static T? Deserialize<T>(object? value)
-    {
-        if (value is JsonElement je)
-        {
-            return je.Deserialize<T>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        }
-        return (T?)value;
     }
 }

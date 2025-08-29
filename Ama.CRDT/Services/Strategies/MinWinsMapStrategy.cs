@@ -9,7 +9,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
 using Ama.CRDT.Services;
 
 /// <summary>
@@ -75,7 +74,10 @@ public sealed class MinWinsMapStrategy(
         var keyType = PocoPathHelper.GetDictionaryKeyType(property);
         var valueType = PocoPathHelper.GetDictionaryValueType(property);
 
-        var payload = DeserializePayload<KeyValuePair<object, object?>>(operation.Value);
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>)) is not KeyValuePair<object, object?> payload)
+        {
+            return;
+        }
         
         var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
         if (itemKey is null) return;
@@ -95,24 +97,5 @@ public sealed class MinWinsMapStrategy(
         {
             dict[itemKey] = incomingValue;
         }
-    }
-    
-    private static T? DeserializePayload<T>(object? value)
-    {
-        if (value is null) return default;
-        if (value is T val) return val;
-
-        if (value is JsonElement jsonElement)
-        {
-            if (typeof(T) == typeof(KeyValuePair<object, object?>))
-            {
-                var key = jsonElement.TryGetProperty("Key", out var k) ? JsonSerializer.Deserialize<object>(k.GetRawText()) : null;
-                var pairValue = jsonElement.TryGetProperty("Value", out var v) ? JsonSerializer.Deserialize<object?>(v.GetRawText()) : null;
-                if (key is not null)
-                    return (T)(object)new KeyValuePair<object, object?>(key, pairValue);
-            }
-            return JsonSerializer.Deserialize<T>(jsonElement.GetRawText());
-        }
-        return default;
     }
 }

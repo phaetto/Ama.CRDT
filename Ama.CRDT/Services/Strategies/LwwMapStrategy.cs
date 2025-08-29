@@ -8,9 +8,7 @@ using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Text.Json;
 using Ama.CRDT.Services;
 
 /// <summary>
@@ -88,14 +86,12 @@ public sealed class LwwMapStrategy(
             metadata.LwwMaps[operation.JsonPath] = timestamps;
         }
 
-        KeyValuePair<object, object?>? payload = DeserializePayload<KeyValuePair<object, object?>>(operation.Value);
-        if (!payload.HasValue)
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>)) is not KeyValuePair<object, object?> payload)
         {
             return;
         }
 
-        var payloadValue = payload.Value;
-        var itemKey = DeserializeValue(payloadValue.Key, keyType);
+        var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
         if (itemKey is null)
         {
             return;
@@ -111,56 +107,12 @@ public sealed class LwwMapStrategy(
         switch (operation.Type)
         {
             case OperationType.Upsert:
-                var itemValue = DeserializeValue(payloadValue.Value, valueType);
+                var itemValue = PocoPathHelper.ConvertValue(payload.Value, valueType);
                 dict[itemKey] = itemValue;
                 break;
             case OperationType.Remove:
                 dict.Remove(itemKey);
                 break;
-        }
-    }
-
-    private static T? DeserializePayload<T>(object? value)
-    {
-        if (value is null) return default;
-        if (value is T val) return val;
-
-        if (value is JsonElement jsonElement)
-        {
-            try
-            {
-                return JsonSerializer.Deserialize<T>(jsonElement.GetRawText());
-            }
-            catch (JsonException) { /* Fallback for KeyValuePair which can be tricky to deserialize */ }
-        }
-
-        if (typeof(T) == typeof(KeyValuePair<object, object?>) && value is JsonElement kvpJson)
-        {
-            var key = kvpJson.TryGetProperty("Key", out var k) ? JsonSerializer.Deserialize<object>(k.GetRawText()) : null;
-            var pairValue = kvpJson.TryGetProperty("Value", out var v) ? JsonSerializer.Deserialize<object?>(v.GetRawText()) : null;
-            if (key is not null)
-                return (T)(object)new KeyValuePair<object, object?>(key, pairValue);
-        }
-        return default;
-    }
-
-    private static object? DeserializeValue(object? value, Type targetType)
-    {
-        if (value is null) return null;
-        if (targetType.IsInstanceOfType(value)) return value;
-
-        if (value is JsonElement jsonElement)
-        {
-            return JsonSerializer.Deserialize(jsonElement.GetRawText(), targetType);
-        }
-
-        try
-        {
-            return Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);
-        }
-        catch (Exception)
-        {
-            return null;
         }
     }
 }

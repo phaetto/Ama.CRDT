@@ -8,11 +8,9 @@ using Ama.CRDT.Services.Helpers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Text.Json;
 using Ama.CRDT.Services.Providers;
 
 /// <summary>
@@ -133,7 +131,7 @@ public sealed class SortedSetStrategy(
 
         if (operation.Type == OperationType.Upsert)
         {
-            var newValue = DeserializeValue(operation.Value, elementType);
+            var newValue = PocoPathHelper.ConvertValue(operation.Value, elementType);
             if (newValue is null) return;
 
             var existingIndex = -1;
@@ -160,7 +158,7 @@ public sealed class SortedSetStrategy(
         else if (operation.Type == OperationType.Remove)
         {
             if (operation.Value is null) return;
-            var valueToRemove = DeserializeValue(operation.Value, elementType);
+            var valueToRemove = PocoPathHelper.ConvertValue(operation.Value, elementType);
             if (valueToRemove is null) return;
 
             var indexToRemove = -1;
@@ -281,61 +279,5 @@ public sealed class SortedSetStrategy(
         }
 
         return obj.ToString() ?? string.Empty;
-    }
-    
-    private static object? DeserializeValue(object? value, Type targetType)
-    {
-        if (value is null)
-        {
-            return null;
-        }
-
-        if (targetType.IsInstanceOfType(value))
-        {
-            return value;
-        }
-
-        if (value is JsonElement jsonElement)
-        {
-            return jsonElement.Deserialize(targetType, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
-        }
-
-        var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-
-        if (value is IConvertible)
-        {
-            try
-            {
-                return Convert.ChangeType(value, underlyingType, CultureInfo.InvariantCulture);
-            }
-            catch (Exception ex) when (ex is InvalidCastException || ex is FormatException || ex is OverflowException)
-            {
-                // Fall through to dictionary mapping logic.
-            }
-        }
-
-        if (value is IDictionary<string, object> dictionary && !underlyingType.IsPrimitive && underlyingType != typeof(string))
-        {
-            var instance = Activator.CreateInstance(underlyingType);
-            if (instance is null)
-            {
-                return null;
-            }
-
-            var properties = underlyingType.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanWrite);
-
-            foreach (var property in properties)
-            {
-                var key = dictionary.Keys.FirstOrDefault(k => string.Equals(k, property.Name, StringComparison.OrdinalIgnoreCase));
-                if (key != null)
-                {
-                    var propValue = dictionary[key];
-                    property.SetValue(instance, DeserializeValue(propValue, property.PropertyType));
-                }
-            }
-            return instance;
-        }
-        
-        return PocoPathHelper.ConvertValue(value, targetType);
     }
 }

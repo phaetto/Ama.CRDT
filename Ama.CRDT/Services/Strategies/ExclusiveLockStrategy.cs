@@ -6,7 +6,6 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using System;
 using System.Reflection;
-using System.Text.Json;
 using Ama.CRDT.Services;
 
 [CrdtSupportedType(typeof(object))]
@@ -66,7 +65,7 @@ public sealed class ExclusiveLockStrategy(ReplicaContext replicaContext) : ICrdt
             return;
         }
 
-        var payload = DeserializePayload(operation.Value);
+        var payload = PocoPathHelper.ConvertValue(operation.Value, typeof(ExclusiveLockPayload)) as ExclusiveLockPayload?;
         if (payload is null) return;
         
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
@@ -83,16 +82,5 @@ public sealed class ExclusiveLockStrategy(ReplicaContext replicaContext) : ICrdt
         {
             metadata.ExclusiveLocks[operation.JsonPath] = null;
         }
-    }
-
-    private static ExclusiveLockPayload? DeserializePayload(object? rawPayload)
-    {
-        return rawPayload switch
-        {
-            null => null,
-            JsonElement jsonElement => jsonElement.Deserialize<ExclusiveLockPayload>(),
-            ExclusiveLockPayload payload => payload,
-            _ => null
-        };
     }
 }

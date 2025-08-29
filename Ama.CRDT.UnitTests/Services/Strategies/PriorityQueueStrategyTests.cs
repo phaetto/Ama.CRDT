@@ -228,7 +228,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         
         // Act
         var model = new TestModel { Items = [..ancestor.Items] };
-        var meta = metadataManagerA.Initialize(new TestModel { Items = [..ancestor.Items] });
+        var meta = metadataManagerA.Clone(metaAncestor);
         var document = new CrdtDocument<TestModel>(model, meta);
         applicatorA.ApplyPatch(document, patchA);
         applicatorA.ApplyPatch(document, patchB);
