@@ -231,12 +231,13 @@ public sealed class SortedSetStrategyTests : IDisposable
         var userA = new User(Guid.NewGuid(), "Alice");
         var userB = new User(Guid.NewGuid(), "Bob");
 
+        var modelA = new ConvergenceTestModel { Users = [userA] };
+        var modelB = new ConvergenceTestModel { Users = [userB] };
+
         var doc0 = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), metadataManagerA.Initialize(new ConvergenceTestModel()));
-        var docA = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }, metadataManagerA.Initialize(new ConvergenceTestModel { Users = [userA] }));
-        var docB = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userB] }, metadataManagerB.Initialize(new ConvergenceTestModel { Users = [userB] }));
-    
-        var patchA = patcherA.GeneratePatch(doc0, docA.Data);
-        var patchB = patcherB.GeneratePatch(doc0, docB.Data);
+        
+        var patchA = patcherA.GeneratePatch(doc0, modelA);
+        var patchB = patcherB.GeneratePatch(doc0, modelB);
 
         // Scenario 1: Apply Patch A, then Patch B
         var modelAb = new ConvergenceTestModel();
@@ -267,10 +268,11 @@ public sealed class SortedSetStrategyTests : IDisposable
         // Arrange
         var userA = new User(Guid.NewGuid(), "Alice");
 
-        var doc0 = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), metadataManagerA.Initialize(new ConvergenceTestModel()));
-        var docA = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }, metadataManagerA.Initialize(new ConvergenceTestModel { Users = [userA] }));
+        var modelA = new ConvergenceTestModel { Users = [userA] };
 
-        var patch = patcherA.GeneratePatch(doc0, docA.Data);
+        var doc0 = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), metadataManagerA.Initialize(new ConvergenceTestModel()));
+        
+        var patch = patcherA.GeneratePatch(doc0, modelA);
     
         var model = new ConvergenceTestModel();
         var metadata = metadataManagerA.Initialize(model);
@@ -296,15 +298,15 @@ public sealed class SortedSetStrategyTests : IDisposable
         var userB = new User(Guid.NewGuid(), "Bob");
         var userC = new User(Guid.NewGuid(), "Charlie");
 
+        var modelA = new ConvergenceTestModel { Users = [userA] };
+        var modelB = new ConvergenceTestModel { Users = [userB] };
+        var modelC = new ConvergenceTestModel { Users = [userC] };
+
         var initialDoc = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel(), metadataManagerA.Initialize(new ConvergenceTestModel()));
         
-        var docA = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userA] }, metadataManagerA.Initialize(new ConvergenceTestModel { Users = [userA] }));
-        var docB = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userB] }, metadataManagerB.Initialize(new ConvergenceTestModel { Users = [userB] }));
-        var docC = new CrdtDocument<ConvergenceTestModel>(new ConvergenceTestModel { Users = [userC] }, metadataManagerA.Initialize(new ConvergenceTestModel { Users = [userC] }));
-
-        var patchA = patcherA.GeneratePatch(initialDoc, docA.Data);
-        var patchB = patcherB.GeneratePatch(initialDoc, docB.Data);
-        var patchC = patcherC.GeneratePatch(initialDoc, docC.Data);
+        var patchA = patcherA.GeneratePatch(initialDoc, modelA);
+        var patchB = patcherB.GeneratePatch(initialDoc, modelB);
+        var patchC = patcherC.GeneratePatch(initialDoc, modelC);
 
         var patches = new[] { patchA, patchB, patchC };
         var permutations = GetPermutations(patches, patches.Length);
