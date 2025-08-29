@@ -64,7 +64,7 @@ public sealed class TwoPhaseSetStrategy(
 
         if (!metadata.TwoPhaseSets.TryGetValue(operation.JsonPath, out var state))
         {
-            state = (new HashSet<object>(comparer), new HashSet<object>(comparer));
+            state = new TwoPhaseSetState(new HashSet<object>(comparer), new HashSet<object>(comparer));
             metadata.TwoPhaseSets[operation.JsonPath] = state;
         }
 

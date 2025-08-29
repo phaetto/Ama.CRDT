@@ -42,11 +42,12 @@ public sealed class PriorityQueueStrategy(
         var originalDict = originalList?.Cast<object>().ToDictionary(item => item, item => item, comparer) ?? new Dictionary<object, object>(comparer);
         var modifiedDict = modifiedList?.Cast<object>().ToDictionary(item => item, item => item, comparer) ?? new Dictionary<object, object>(comparer);
 
-        if (!originalMeta.PriorityQueues.TryGetValue(path, out var originalMetaTuple))
+        if (!originalMeta.PriorityQueues.TryGetValue(path, out var originalMetaState))
         {
-            originalMetaTuple = (new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, ICrdtTimestamp>(comparer));
+            originalMetaState = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, ICrdtTimestamp>(comparer));
         }
-        var (originalAdds, originalRemoves) = originalMetaTuple;
+        var originalAdds = originalMetaState.Adds;
+        var originalRemoves = originalMetaState.Removes;
 
         // Find removals
         foreach (var item in originalDict.Values.Where(o => !modifiedDict.ContainsKey(o)))
@@ -105,10 +106,11 @@ public sealed class PriorityQueueStrategy(
         
         if (!metadata.PriorityQueues.TryGetValue(operation.JsonPath, out var meta))
         {
-            meta = (new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, ICrdtTimestamp>(comparer));
+            meta = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, ICrdtTimestamp>(comparer));
             metadata.PriorityQueues[operation.JsonPath] = meta;
         }
-        var (adds, removes) = meta;
+        var adds = meta.Adds;
+        var removes = meta.Removes;
 
         var value = PocoPathHelper.ConvertValue(operation.Value, elementType);
         if (value is null) return;
@@ -174,7 +176,7 @@ public sealed class PriorityQueueStrategy(
         if (property.GetCustomAttribute<CrdtPriorityQueueStrategyAttribute>() is not { } attr) return;
 
         var sortedItems = list.Cast<object>()
-            .OrderBy(i => i?.GetType().GetProperty(attr.PriorityPropertyName)?.GetValue(i))
+            .OrderByDescending(i => i?.GetType().GetProperty(attr.PriorityPropertyName)?.GetValue(i))
             .ToList();
 
         list.Clear();

@@ -7,7 +7,6 @@ using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
 using System.Collections;
 using System.Collections.Immutable;
-using Ama.CRDT.Services;
 
 /// <summary>
 /// Implements the LSEQ (Log-structured Sequence) strategy. LSEQ assigns dense, ordered identifiers
@@ -43,7 +42,6 @@ public sealed class LseqStrategy(
         }
         
         var originalItemsByValue = originalItems.ToDictionary(i => i.Value!, i => i, comparer!);
-        var sortedOriginalItems = originalItems.OrderBy(i => i.Identifier).ToList();
         var insertedItems = new Dictionary<object, LseqItem>(comparer);
 
         // Deletions
@@ -82,21 +80,15 @@ public sealed class LseqStrategy(
                 }
             }
 
-            // Find the identifier of the next element in the original sequence.
+            // Find the identifier of the next element in the original sequence
+            // by looking ahead in the modified list for an element that already exists.
             LseqIdentifier? nextId = null;
-            if (prevId != null)
+            for (var j = i + 1; j < modifiedList.Count; j++)
             {
-                var prevIndex = sortedOriginalItems.FindIndex(item => item.Identifier.Equals(prevId));
-                if (prevIndex > -1 && prevIndex + 1 < sortedOriginalItems.Count)
+                if (originalItemsByValue.TryGetValue(modifiedList[j]!, out var nextItemMetaData))
                 {
-                    nextId = sortedOriginalItems[prevIndex + 1].Identifier;
-                }
-            }
-            else // This is an insert at the beginning of the list
-            {
-                if (sortedOriginalItems.Any())
-                {
-                    nextId = sortedOriginalItems[0].Identifier;
+                    nextId = nextItemMetaData.Identifier;
+                    break;
                 }
             }
 
@@ -145,22 +137,22 @@ public sealed class LseqStrategy(
 
     private LseqIdentifier GenerateIdentifierBetween(LseqIdentifier? prev, LseqIdentifier? next, string replicaId)
     {
-        var p1 = prev?.Path ?? ImmutableList<(int, string)>.Empty;
-        var p2 = next?.Path ?? ImmutableList<(int, string)>.Empty;
+        var p1 = prev?.Path ?? ImmutableList<LseqPathSegment>.Empty;
+        var p2 = next?.Path ?? ImmutableList<LseqPathSegment>.Empty;
 
-        var newPath = ImmutableList.CreateBuilder<(int, string)>();
+        var newPath = ImmutableList.CreateBuilder<LseqPathSegment>();
         var level = 0;
 
         while (true)
         {
-            var head1 = level < p1.Count ? p1[level] : (0, string.Empty);
-            var head2 = level < p2.Count ? p2[level] : (Base, string.Empty);
+            var head1 = level < p1.Count ? p1[level] : new LseqPathSegment(0, string.Empty);
+            var head2 = level < p2.Count ? p2[level] : new LseqPathSegment(Base, string.Empty);
 
-            var diff = head2.Item1 - head1.Item1;
+            var diff = head2.Position - head1.Position;
             if (diff > 1)
             {
-                var newPos = head1.Item1 + 1;
-                newPath.Add((newPos, replicaId));
+                var newPos = head1.Position + 1;
+                newPath.Add(new LseqPathSegment(newPos, replicaId));
                 break;
             }
 

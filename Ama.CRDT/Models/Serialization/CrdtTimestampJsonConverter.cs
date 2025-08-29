@@ -1,9 +1,8 @@
+namespace Ama.CRDT.Models.Serialization;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-
-namespace Ama.CRDT.Models.Serialization;
 
 /// <summary>
 /// A custom <see cref="JsonConverter"/> for serializing and deserializing the <see cref="ICrdtTimestamp"/> interface.

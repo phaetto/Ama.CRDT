@@ -17,6 +17,8 @@ Instead of ILogger you should use ConsoleExtensions.
 The integration tests that make requests need to be by default skipped.
 Put namespaces inside the main namespace and only use file-scoped namespaces for files.
 Interfaces should always include deatiled XmlDoc comments.
+Never use tuples, only construct DTOs to pass ar retrieve data.
+Always introduce models with implementation of `IEquatable<>` and be explicit when the model using ISet, IEnumerable or other deep structures.
 
 # Filesystem structure
 

@@ -6,13 +6,11 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
-using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Text.Json;
 using Xunit;
 
@@ -45,7 +43,7 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     private sealed class ArrayLcsModel { [CrdtArrayLcsStrategy] public List<string> Items { get; set; } = new(); }
 
     // FixedSizeArrayStrategy
-    private sealed class FixedSizeArrayModel { [CrdtFixedSizeArrayStrategy(3)] public List<int> Items { get; set; } = new(new int[3]); }
+    private sealed class FixedSizeArrayModel { [CrdtFixedSizeArrayStrategy(3)] public List<int> Items { get; set; } = new(); }
 
     // GSetStrategy
     private sealed class GSetModel { [CrdtGSetStrategy] public List<string> Items { get; set; } = new(); }
@@ -63,8 +61,18 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     private sealed class LseqModel { [CrdtLseqStrategy] public List<string> Items { get; set; } = new(); }
 
     // SortedSetStrategy
-    private sealed record User(Guid Id, string Name);
-    private sealed class SortedSetModel { [CrdtSortedSetStrategy] public List<User> Users { get; set; } = new(); }
+    private sealed record User(Guid Id, string Name) : IComparable<User>
+    {
+        public int CompareTo(User? other)
+        {
+            if (other is null)
+            {
+                return 1;
+            }
+            return string.Compare(Name, other.Name, StringComparison.Ordinal);
+        }
+    }
+    private sealed class SortedSetModel { [CrdtSortedSetStrategy(nameof(User.Name))] public List<User> Users { get; set; } = new(); }
 
     // LwwMapStrategy
     private sealed class LwwMapModel { [CrdtLwwMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
@@ -131,7 +139,9 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
         var services = new ServiceCollection()
             .AddCrdt()
             .AddCrdtComparer<ItemComparer>()
-            .AddSingleton<OrderStatusStateMachine>();
+            .AddSingleton<OrderStatusStateMachine>()
+            .AddCrdtSerializableType<User>("test-user")
+            .AddCrdtSerializableType<Item>("test-item");
 
         var serviceProvider = services.BuildServiceProvider();
 
@@ -140,8 +150,7 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
         applicator = scope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
 
-        jsonSerializerOptions = new JsonSerializerOptions();
-        jsonSerializerOptions.Converters.Add(new CrdtTimestampJsonConverter());
+        jsonSerializerOptions = new JsonSerializerOptions(CrdtJsonContext.DefaultOptions);
     }
 
     public void Dispose() => scope.Dispose();
