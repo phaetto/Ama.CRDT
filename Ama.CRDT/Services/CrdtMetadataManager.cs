@@ -85,6 +85,8 @@ public sealed class CrdtMetadataManager(
         document.Metadata.LwwMaps.Clear();
         document.Metadata.OrMaps.Clear();
         document.Metadata.CounterMaps.Clear();
+        document.Metadata.TwoPhaseGraphs.Clear();
+        document.Metadata.ReplicatedTrees.Clear();
 
         PopulateMetadataRecursive(document.Metadata, document.Data, "$", timestamp, document.Data);
     }
@@ -171,6 +173,33 @@ public sealed class CrdtMetadataManager(
         foreach (var kvp in metadata.CounterMaps)
         {
             newMetadata.CounterMaps.Add(kvp.Key, new Dictionary<object, (decimal P, decimal N)>(kvp.Value, (kvp.Value as Dictionary<object, (decimal P, decimal N)>)?.Comparer));
+        }
+        
+        foreach (var kvp in metadata.TwoPhaseGraphs)
+        {
+            newMetadata.TwoPhaseGraphs.Add(kvp.Key, (
+                VertexAdds: new HashSet<object>(kvp.Value.VertexAdds, (kvp.Value.VertexAdds as HashSet<object>)?.Comparer),
+                VertexTombstones: new HashSet<object>(kvp.Value.VertexTombstones, (kvp.Value.VertexTombstones as HashSet<object>)?.Comparer),
+                EdgeAdds: new HashSet<object>(kvp.Value.EdgeAdds, (kvp.Value.EdgeAdds as HashSet<object>)?.Comparer),
+                EdgeTombstones: new HashSet<object>(kvp.Value.EdgeTombstones, (kvp.Value.EdgeTombstones as HashSet<object>)?.Comparer)
+            ));
+        }
+
+        foreach (var kvp in metadata.ReplicatedTrees)
+        {
+            var addedComparer = (kvp.Value.Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var newAdded = kvp.Value.Adds.ToDictionary(
+                innerKvp => innerKvp.Key,
+                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                addedComparer);
+
+            var removedComparer = (kvp.Value.Removes as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var newRemoved = kvp.Value.Removes.ToDictionary(
+                innerKvp => innerKvp.Key,
+                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                removedComparer);
+
+            newMetadata.ReplicatedTrees.Add(kvp.Key, (Adds: newAdded, Removes: newRemoved));
         }
 
         return newMetadata;
@@ -422,6 +451,12 @@ public sealed class CrdtMetadataManager(
             case MinWinsMapStrategy:
                 InitializeMapMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
                 break;
+            case TwoPhaseGraphStrategy:
+                InitializeTwoPhaseGraphMetadata(metadata, propertyInfo, propertyPath, propertyValue);
+                break;
+            case ReplicatedTreeStrategy:
+                InitializeReplicatedTreeMetadata(metadata, propertyInfo, propertyPath, propertyValue, timestamp);
+                break;
         }
     }
 
@@ -543,6 +578,58 @@ public sealed class CrdtMetadataManager(
             var voterMetaPath = $"{propertyPath}.['{voterKey}']";
             metadata.Lww[voterMetaPath] = timestamp;
         }
+    }
+    
+    private void InitializeTwoPhaseGraphMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, string propertyPath, object propertyValue)
+    {
+        var graphType = propertyValue.GetType();
+        var verticesProperty = graphType.GetProperty("Vertices");
+        var edgesProperty = graphType.GetProperty("Edges");
+
+        if (verticesProperty is null || edgesProperty is null) return;
+
+        var vertices = verticesProperty.GetValue(propertyValue) as IEnumerable;
+        var edges = edgesProperty.GetValue(propertyValue) as IEnumerable;
+
+        if (vertices is null || edges is null) return;
+        
+        var vertexComparer = elementComparerProvider.GetComparer(typeof(object));
+        var edgeComparer = elementComparerProvider.GetComparer(typeof(Edge));
+        
+        metadata.TwoPhaseGraphs[propertyPath] = (
+            VertexAdds: new HashSet<object>(vertices.Cast<object>(), vertexComparer),
+            VertexTombstones: new HashSet<object>(vertexComparer),
+            EdgeAdds: new HashSet<object>(edges.Cast<object>(), edgeComparer),
+            EdgeTombstones: new HashSet<object>(edgeComparer)
+        );
+    }
+    
+    private void InitializeReplicatedTreeMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)
+    {
+        var treeType = propertyValue.GetType();
+        var nodesProperty = treeType.GetProperty("Nodes");
+        if (nodesProperty is null) return;
+
+        if (nodesProperty.GetValue(propertyValue) is not IDictionary nodesDictionary) return;
+
+        var idComparer = elementComparerProvider.GetComparer(typeof(object));
+
+        var adds = new Dictionary<object, ISet<Guid>>(idComparer);
+        foreach (DictionaryEntry entry in nodesDictionary)
+        {
+            if (entry.Key is null || entry.Value is null) continue;
+
+            adds[entry.Key] = new HashSet<Guid> { Guid.NewGuid() };
+            
+            var nodeIdString = GetVoterKey(entry.Key);
+            metadata.Lww[$"{propertyPath}.Nodes.['{nodeIdString}'].Value"] = timestamp;
+            metadata.Lww[$"{propertyPath}.Nodes.['{nodeIdString}'].ParentId"] = timestamp;
+        }
+
+        metadata.ReplicatedTrees[propertyPath] = (
+            Adds: adds,
+            Removes: new Dictionary<object, ISet<Guid>>(idComparer)
+        );
     }
 
     private static string GetVoterKey(object voter)
