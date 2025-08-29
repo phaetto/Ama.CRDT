@@ -28,10 +28,7 @@ public static class ServiceCollectionExtensions
     /// <![CDATA[
     /// var builder = WebApplication.CreateBuilder(args);
     /// 
-    /// builder.Services.AddCrdt(options =>
-    /// {
-    ///     // Configure global options here if needed in the future.
-    /// });
+    /// builder.Services.AddCrdt();
     ///
     /// var app = builder.Build();
     ///
@@ -40,45 +37,68 @@ public static class ServiceCollectionExtensions
     /// using(var userScope = scopeFactory.CreateScope("user-session-abc"))
     /// {
     ///     var userPatcher = userScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+    ///     // This userPatcher is now configured for "user-session-abc"
     /// }
     /// ]]>
     /// </code>
     /// </example>
     public static IServiceCollection AddCrdt(this IServiceCollection services)
     {
-        // Scoped services that hold state or depend on the replicaId
+        // Scoped context that holds the replica ID.
+        // It's populated by CrdtScopeFactory.
         services.AddScoped<ReplicaContext>();
-        services.TryAddScoped<ICrdtTimestampProvider, SequentialTimestampProvider>();
-        services.TryAddScoped<ICrdtApplicator, CrdtApplicator>();
-        services.TryAddScoped<ICrdtPatcher, CrdtPatcher>();
-        services.TryAddScoped<ICrdtStrategyProvider, CrdtStrategyProvider>();
+        
+        // This factory is the entry point for creating replica-specific scopes.
+        // It does not require validation itself.
         services.TryAddScoped<ICrdtScopeFactory, CrdtScopeFactory>();
-        services.TryAddScoped<IElementComparerProvider, ElementComparerProvider>();
-        services.TryAddScoped<ICrdtMetadataManager, CrdtMetadataManager>();
+        
+        // Register core services with a factory that validates the scope.
+        // This prevents resolving them from a non-replica scope (e.g., root container, ASP.NET request scope).
+        services.TryAddScoped(CreateValidatedInstance<CrdtApplicator>);
+        services.TryAddScoped<ICrdtApplicator>(sp => sp.GetRequiredService<CrdtApplicator>());
 
-        // Register all strategies with a scoped lifetime
-        services.TryAddScoped<LwwStrategy>();
-        services.TryAddScoped<CounterStrategy>();
-        services.TryAddScoped<SortedSetStrategy>();
-        services.TryAddScoped<ArrayLcsStrategy>();
-        services.TryAddScoped<GCounterStrategy>();
-        services.TryAddScoped<BoundedCounterStrategy>();
-        services.TryAddScoped<MaxWinsStrategy>();
-        services.TryAddScoped<MinWinsStrategy>();
-        services.TryAddScoped<AverageRegisterStrategy>();
-        services.TryAddScoped<GSetStrategy>();
-        services.TryAddScoped<TwoPhaseSetStrategy>();
-        services.TryAddScoped<LwwSetStrategy>();
-        services.TryAddScoped<OrSetStrategy>();
-        services.TryAddScoped<PriorityQueueStrategy>();
-        services.TryAddScoped<FixedSizeArrayStrategy>();
-        services.TryAddScoped<LseqStrategy>();
-        services.TryAddScoped<VoteCounterStrategy>();
-        services.TryAddScoped<StateMachineStrategy>();
-        services.TryAddScoped<ExclusiveLockStrategy>();
-        services.TryAddScoped<LwwMapStrategy>();
-        services.TryAddScoped<OrMapStrategy>();
+        services.TryAddScoped(CreateValidatedInstance<CrdtPatcher>);
+        services.TryAddScoped<ICrdtPatcher>(sp => sp.GetRequiredService<CrdtPatcher>());
+        
+        services.TryAddScoped(CreateValidatedInstance<CrdtStrategyProvider>);
+        services.TryAddScoped<ICrdtStrategyProvider>(sp => sp.GetRequiredService<CrdtStrategyProvider>());
+        
+        services.TryAddScoped(CreateValidatedInstance<ElementComparerProvider>);
+        services.TryAddScoped<IElementComparerProvider>(sp => sp.GetRequiredService<ElementComparerProvider>());
+        
+        services.TryAddScoped(CreateValidatedInstance<CrdtMetadataManager>);
+        services.TryAddScoped<ICrdtMetadataManager>(sp => sp.GetRequiredService<CrdtMetadataManager>());
 
+        // Register the default timestamp provider with validation.
+        // This can be overridden by AddCrdtTimestampProvider.
+        services.TryAddScoped(CreateValidatedInstance<SequentialTimestampProvider>);
+        services.TryAddScoped<ICrdtTimestampProvider>(sp => sp.GetRequiredService<SequentialTimestampProvider>());
+
+        // Register all strategies with validation.
+        services.TryAddScoped(CreateValidatedInstance<LwwStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<CounterStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<SortedSetStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<ArrayLcsStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<GCounterStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<BoundedCounterStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<MaxWinsStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<MinWinsStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<AverageRegisterStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<GSetStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<TwoPhaseSetStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<LwwSetStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<OrSetStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<PriorityQueueStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<FixedSizeArrayStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<LseqStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<VoteCounterStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<StateMachineStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<ExclusiveLockStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<LwwMapStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<OrMapStrategy>);
+        
+        // Register all concrete strategies as ICrdtStrategy.
+        // This will resolve the concrete type, which in turn triggers our validating factory.
         services.AddScoped<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
         services.AddScoped<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
         services.AddScoped<ICrdtStrategy, SortedSetStrategy>(sp => sp.GetRequiredService<SortedSetStrategy>());
@@ -135,7 +155,7 @@ public static class ServiceCollectionExtensions
     /// }
     /// 
     /// // In your DI setup:
-    /// builder.Services.AddCrdt(options => { ... });
+    /// builder.Services.AddCrdt();
     /// builder.Services.AddCrdtComparer<UserComparer>();
     /// ]]>
     /// </code>
@@ -170,7 +190,7 @@ public static class ServiceCollectionExtensions
     /// }
     /// 
     /// // In your DI setup:
-    /// builder.Services.AddCrdt(options => { ... });
+    /// builder.Services.AddCrdt();
     /// builder.Services.AddCrdtTimestampProvider<LogicalClockProvider>();
     /// ]]>
     /// </code>
@@ -178,7 +198,10 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtTimestampProvider<TProvider>(this IServiceCollection services)
         where TProvider : class, ICrdtTimestampProvider
     {
-        services.AddScoped<ICrdtTimestampProvider, TProvider>();
+        // Register the custom provider implementation with validation.
+        services.AddScoped(CreateValidatedInstance<TProvider>);
+        // Override the ICrdtTimestampProvider registration to point to the custom implementation.
+        services.AddScoped<ICrdtTimestampProvider>(sp => sp.GetRequiredService<TProvider>());
         return services;
     }
 
@@ -216,5 +239,21 @@ public static class ServiceCollectionExtensions
     {
         Models.Serialization.CrdtTimestampJsonConverter.Register(discriminator, typeof(TTimestamp));
         return services;
+    }
+
+    private static TImplementation CreateValidatedInstance<TImplementation>(IServiceProvider sp) where TImplementation : class
+    {
+        var replicaContext = sp.GetService<ReplicaContext>();
+
+        // This check ensures that the service is only resolved within a scope created by CrdtScopeFactory,
+        // which is responsible for setting the ReplicaId.
+        if (replicaContext == null || string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
+        {
+            throw new InvalidOperationException(
+                $"The service '{typeof(TImplementation).Name}' can only be resolved from a scope created by {nameof(ICrdtScopeFactory)}. " +
+                $"Please use {nameof(ICrdtScopeFactory)}.{nameof(ICrdtScopeFactory.CreateScope)} to create a valid CRDT scope before resolving services.");
+        }
+
+        return ActivatorUtilities.CreateInstance<TImplementation>(sp);
     }
 }

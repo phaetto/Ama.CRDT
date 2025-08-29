@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 [MemoryDiagnoser]
 public class StrategyBenchmarks
 {
+    private IServiceScope scope;
     private ICrdtPatcher patcher = null!;
     private ICrdtApplicator applicator = null!;
     private ICrdtMetadataManager metadataManager = null!;
@@ -102,12 +103,14 @@ public class StrategyBenchmarks
     {
         var services = new ServiceCollection();
         services.AddCrdt();
-        services.AddSingleton<MyStateMachine>();
+        services.AddScoped<MyStateMachine>();
         var serviceProvider = services.BuildServiceProvider();
+        var serviceScopeFactory = serviceProvider.GetService<ICrdtScopeFactory>();
+        scope = serviceScopeFactory.CreateScope("replica-id");
 
-        patcher = serviceProvider.GetRequiredService<ICrdtPatcher>();
-        applicator = serviceProvider.GetRequiredService<ICrdtApplicator>();
-        metadataManager = serviceProvider.GetRequiredService<ICrdtMetadataManager>();
+        patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        applicator = scope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
 
         basePoco = new StrategyPoco();
         var fromMeta = metadataManager.Initialize(basePoco);

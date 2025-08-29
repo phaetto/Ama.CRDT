@@ -36,12 +36,13 @@ public sealed class VoteCounterStrategyTests
     public VoteCounterStrategyTests()
     {
         var services = new ServiceCollection();
-        services.AddCrdt()
-            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
+        services.AddCrdt();
 
         serviceProvider = services.BuildServiceProvider();
-        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
-        metadataManager = serviceProvider.GetRequiredService<ICrdtMetadataManager>();
+
+        using var scope = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test");
+        timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
     }
     
     [Fact]

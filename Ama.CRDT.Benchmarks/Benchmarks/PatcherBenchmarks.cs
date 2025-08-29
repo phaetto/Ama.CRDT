@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 [MemoryDiagnoser]
 public class PatcherBenchmarks
 {
+    private IServiceScope scope;
     private ICrdtPatcher patcher = null!;
     private CrdtDocument<SimplePoco> simplePocoFrom;
     private SimplePoco simplePocoTo;
@@ -24,20 +25,22 @@ public class PatcherBenchmarks
         var services = new ServiceCollection();
         services.AddCrdt();
         var serviceProvider = services.BuildServiceProvider();
+        var serviceScopeFactory = serviceProvider.GetService<ICrdtScopeFactory>();
+        scope = serviceScopeFactory.CreateScope("replica-id");
 
-        patcher = serviceProvider.GetRequiredService<ICrdtPatcher>();
-        metadataManager = serviceProvider.GetRequiredService<ICrdtMetadataManager>();
+        patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         
         // Simple POCO setup
         var simpleFrom = new SimplePoco { Id = Guid.NewGuid(), Name = "Original", Score = 10 };
         var simpleTo = new SimplePoco { Id = simpleFrom.Id, Name = "Updated", Score = 15 };
         
         var simpleFromMetadata = new CrdtMetadata();
-        metadataManager.Initialize(new CrdtDocument<SimplePoco>(simpleFrom, simpleFromMetadata), new EpochTimestamp(1));
+        metadataManager.Initialize(new CrdtDocument<SimplePoco>(simpleFrom, simpleFromMetadata), new SequentialTimestamp(1));
         simplePocoFrom = new CrdtDocument<SimplePoco>(simpleFrom, simpleFromMetadata);
         
         var simpleToMetadata = CloneMetadata(simpleFromMetadata);
-        metadataManager.Initialize(new CrdtDocument<SimplePoco>(simpleTo, simpleToMetadata), new EpochTimestamp(2));
+        metadataManager.Initialize(new CrdtDocument<SimplePoco>(simpleTo, simpleToMetadata), new SequentialTimestamp(2));
         simplePocoTo = simpleTo;
         
         // Complex POCO setup
@@ -60,11 +63,11 @@ public class PatcherBenchmarks
         };
 
         var complexFromMetadata = new CrdtMetadata();
-        metadataManager.Initialize(new CrdtDocument<ComplexPoco>(complexFrom, complexFromMetadata), new EpochTimestamp(3));
+        metadataManager.Initialize(new CrdtDocument<ComplexPoco>(complexFrom, complexFromMetadata), new SequentialTimestamp(3));
         complexPocoFrom = new CrdtDocument<ComplexPoco>(complexFrom, complexFromMetadata);
         
         var complexToMetadata = CloneMetadata(complexFromMetadata);
-        metadataManager.Initialize(new CrdtDocument<ComplexPoco>(complexTo, complexToMetadata), new EpochTimestamp(4));
+        metadataManager.Initialize(new CrdtDocument<ComplexPoco>(complexTo, complexToMetadata), new SequentialTimestamp(4));
         complexPocoTo = complexTo;
     }
 
