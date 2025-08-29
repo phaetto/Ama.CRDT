@@ -14,7 +14,7 @@ using System.Text.Json;
 using Ama.CRDT.Services;
 
 /// <inheritdoc/>
-[CrdtSupportedType(typeof(IEnumerable))]
+[CrdtSupportedType(typeof(IList))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -33,9 +33,7 @@ public sealed class PriorityQueueStrategy(
         var originalList = originalValue as IEnumerable;
         var modifiedList = modifiedValue as IEnumerable;
 
-        var elementType = property.PropertyType.IsGenericType
-            ? property.PropertyType.GetGenericArguments()[0]
-            : property.PropertyType.GetElementType() ?? typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
 
         var comparer = comparerProvider.GetComparer(elementType);
 
@@ -85,9 +83,7 @@ public sealed class PriorityQueueStrategy(
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
         if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
         
-        var elementType = property.PropertyType.IsGenericType
-            ? property.PropertyType.GetGenericArguments()[0]
-            : property.PropertyType.GetElementType() ?? typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         
         var comparer = comparerProvider.GetComparer(elementType);
         

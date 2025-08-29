@@ -74,8 +74,8 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : ICrdtSt
         
         if (property.GetValue(parentNode) is not IDictionary dictionary) return;
 
-        var dictKeyType = property.PropertyType.GetGenericArguments()[0];
-        var dictValueType = property.PropertyType.GetGenericArguments()[1];
+        var dictKeyType = PocoPathHelper.GetDictionaryKeyType(property);
+        var dictValueType = PocoPathHelper.GetDictionaryValueType(property);
         var voterType = dictValueType.GetGenericArguments()[0];
 
         var voter = DeserializeObject(payload.Voter, voterType);

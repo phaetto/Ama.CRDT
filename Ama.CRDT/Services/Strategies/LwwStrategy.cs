@@ -67,30 +67,15 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
         {
             return;
         }
-
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-
-        if (parent is null) return;
-
-        if (property is null)
-        {
-            if (finalSegment is string propertyName)
-            {
-                property = parent.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
-            }
-        }
-
-        if (property is null || !property.CanWrite) return;
         
         if (operation.Type == OperationType.Remove)
         {
-            property.SetValue(parent, null);
+            PocoPathHelper.SetValue(root, operation.JsonPath, null);
             metadata.Lww[operation.JsonPath] = operation.Timestamp;
         }
         else if (operation.Type == OperationType.Upsert)
         {
-            var value = PocoPathHelper.ConvertValue(operation.Value, property.PropertyType);
-            property.SetValue(parent, value);
+            PocoPathHelper.SetValue(root, operation.JsonPath, operation.Value);
             metadata.Lww[operation.JsonPath] = operation.Timestamp;
         }
     }

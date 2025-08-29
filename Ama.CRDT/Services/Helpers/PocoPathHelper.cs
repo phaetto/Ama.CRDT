@@ -119,6 +119,111 @@ internal static partial class PocoPathHelper
         return (null, null, null); // Could not resolve the final segment.
     }
 
+    public static object? GetValue(object root, string jsonPath)
+    {
+        var (parent, property, finalSegment) = ResolvePath(root, jsonPath);
+
+        if (parent is null || property is null)
+        {
+            return null;
+        }
+
+        var propertyValue = property.GetValue(parent);
+        if (finalSegment is int index)
+        {
+            if (propertyValue is IList list && index >= 0 && index < list.Count)
+            {
+                return list[index];
+            }
+            return null; // Index out of bounds or not a list
+        }
+
+        return propertyValue;
+    }
+
+    public static bool SetValue(object root, string jsonPath, object? value)
+    {
+        var (parent, property, finalSegment) = ResolvePath(root, jsonPath);
+
+        if (parent is null || property is null || !property.CanWrite)
+        {
+            return false;
+        }
+
+        if (finalSegment is int index)
+        {
+            if (property.GetValue(parent) is IList list)
+            {
+                if (index < 0 || index >= list.Count) return false;
+
+                var elementType = GetCollectionElementType(property);
+                var convertedValue = ConvertValue(value, elementType);
+
+                list[index] = convertedValue;
+                return true;
+            }
+            return false;
+        }
+
+        var finalValue = ConvertValue(value, property.PropertyType);
+        property.SetValue(parent, finalValue);
+        return true;
+    }
+
+    public static Type GetCollectionElementType(PropertyInfo property)
+    {
+        var type = property.PropertyType;
+        return type.IsGenericType
+            ? type.GetGenericArguments()[0]
+            : type.GetElementType() ?? typeof(object);
+    }
+
+    public static Type GetDictionaryKeyType(PropertyInfo property)
+    {
+        var type = property.PropertyType;
+
+        // Check if the type is or implements IDictionary<,>
+        var genericDictionaryInterface = (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IDictionary<,>))
+            ? type
+            : type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
+
+        if (genericDictionaryInterface is not null)
+        {
+            return genericDictionaryInterface.GetGenericArguments()[0];
+        }
+        
+        // Fallback for non-generic IDictionary, as we cannot determine the key type.
+        if (typeof(IDictionary).IsAssignableFrom(type))
+        {
+            return typeof(object);
+        }
+
+        return typeof(object);
+    }
+
+    public static Type GetDictionaryValueType(PropertyInfo property)
+    {
+        var type = property.PropertyType;
+
+        // Check if the type is or implements IDictionary<,>
+        var genericDictionaryInterface = (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IDictionary<,>))
+            ? type
+            : type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
+
+        if (genericDictionaryInterface is not null)
+        {
+            return genericDictionaryInterface.GetGenericArguments()[1];
+        }
+
+        // Fallback for non-generic IDictionary, as we cannot determine the value type.
+        if (typeof(IDictionary).IsAssignableFrom(type))
+        {
+            return typeof(object);
+        }
+
+        return typeof(object);
+    }
+
     public static object? ConvertValue(object? value, Type targetType)
     {
         if (value is null)
