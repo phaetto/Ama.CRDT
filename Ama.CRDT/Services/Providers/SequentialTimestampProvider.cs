@@ -7,7 +7,7 @@ using Ama.CRDT.Models;
 
 /// <summary>
 /// A timestamp provider that generates sequential, predictable timestamps using <see cref="SequentialTimestamp"/>.
-/// This is primarily intended for testing scenarios where deterministic timestamps are required.
+/// The default implementation of scenarios where deterministic timestamps are required.
 /// This implementation is thread-safe.
 /// </summary>
 public sealed class SequentialTimestampProvider : ICrdtTimestampProvider

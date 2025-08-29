@@ -57,13 +57,13 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
     {
         var (root, metadata, operation) = context;
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || !property.CanWrite) return;
+        var (_, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        if (property is null || !property.CanWrite) return;
         
         var attribute = property.GetCustomAttribute<CrdtStateMachineStrategyAttribute>();
         if (attribute is null) return;
 
-        var currentValue = property.GetValue(parent);
+        var currentValue = PocoPathHelper.GetValue(root, operation.JsonPath);
         var incomingValue = PocoPathHelper.ConvertValue(operation.Value, property.PropertyType);
 
         if (!IsValidTransition(attribute.ValidatorType, currentValue, incomingValue))
@@ -76,8 +76,8 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
         {
             return;
         }
-
-        property.SetValue(parent, incomingValue);
+        
+        PocoPathHelper.SetValue(root, operation.JsonPath, incomingValue);
         metadata.Lww[operation.JsonPath] = operation.Timestamp;
     }
 

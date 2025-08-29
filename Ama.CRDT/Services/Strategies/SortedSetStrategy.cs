@@ -19,7 +19,7 @@ using Ama.CRDT.Services.Providers;
 /// Implements a CRDT strategy for collections that are treated as sorted sets. It uses the Longest Common Subsequence (LCS) algorithm to find differences and ensures the collection remains sorted after operations.
 /// This strategy assumes elements can be uniquely identified and compared. For complex objects, sorting is based on an 'Id' property or a composite key of all properties if 'Id' is not present.
 /// </summary>
-[CrdtSupportedType(typeof(IEnumerable))]
+[CrdtSupportedType(typeof(IList))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -64,7 +64,7 @@ public sealed class SortedSetStrategy(
         var fromArray = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var toArray = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
 
-        var elementType = property.PropertyType.GetGenericArguments().FirstOrDefault() ?? property.PropertyType.GetElementType() ?? typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
         
         var diff = Diff(fromArray, toArray, comparer);
@@ -128,23 +128,7 @@ public sealed class SortedSetStrategy(
             return;
         }
 
-        Type? elementType = null;
-        var propType = property.PropertyType;
-        if (propType.IsGenericType)
-        {
-            elementType = propType.GetGenericArguments().FirstOrDefault();
-        }
-
-        if (elementType is null)
-        {
-            var listType = list.GetType();
-            elementType = listType.IsGenericType
-                ? listType.GetGenericArguments().FirstOrDefault()
-                : listType.GetElementType();
-        }
-
-        elementType ??= typeof(object);
-
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
 
         if (operation.Type == OperationType.Upsert)

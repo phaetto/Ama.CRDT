@@ -17,7 +17,7 @@ using Ama.CRDT.Services;
 /// Implements the OR-Set (Observed-Remove Set) CRDT strategy.
 /// This set allows re-addition of elements by assigning a unique tag to each added instance.
 /// </summary>
-[CrdtSupportedType(typeof(IEnumerable))]
+[CrdtSupportedType(typeof(IList))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -36,7 +36,7 @@ public sealed class OrSetStrategy(
         var originalSet = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedSet = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         
-        var elementType = property.PropertyType.IsGenericType ? property.PropertyType.GetGenericArguments()[0] : typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
 
         var added = modifiedSet.Except(originalSet, comparer);
@@ -69,7 +69,7 @@ public sealed class OrSetStrategy(
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
         if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
 
-        var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
 
         if (!metadata.OrSets.TryGetValue(operation.JsonPath, out var state))

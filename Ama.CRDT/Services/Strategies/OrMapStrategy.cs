@@ -38,7 +38,7 @@ public sealed class OrMapStrategy(
         var modifiedDict = modifiedValue as IDictionary;
         if (originalDict is null && modifiedDict is null) return;
 
-        var keyType = property.PropertyType.IsGenericType ? property.PropertyType.GetGenericArguments()[0] : typeof(object);
+        var keyType = PocoPathHelper.GetDictionaryKeyType(property);
         var comparer = comparerProvider.GetComparer(keyType);
 
         var originalKeys = originalDict?.Keys.Cast<object>().ToHashSet(comparer) ?? new HashSet<object>(comparer);
@@ -81,8 +81,8 @@ public sealed class OrMapStrategy(
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
         if (parent is null || property is null || property.GetValue(parent) is not IDictionary dict) return;
 
-        var keyType = property.PropertyType.IsGenericType ? property.PropertyType.GetGenericArguments()[0] : typeof(object);
-        var valueType = property.PropertyType.IsGenericType ? property.PropertyType.GetGenericArguments()[1] : typeof(object);
+        var keyType = PocoPathHelper.GetDictionaryKeyType(property);
+        var valueType = PocoPathHelper.GetDictionaryValueType(property);
         var comparer = comparerProvider.GetComparer(keyType);
 
         if (!metadata.OrMaps.TryGetValue(operation.JsonPath, out var state))

@@ -12,7 +12,7 @@ using System.Text.Json;
 using Ama.CRDT.Services;
 
 /// <inheritdoc/>
-[CrdtSupportedType(typeof(IEnumerable))]
+[CrdtSupportedType(typeof(IList))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -77,7 +77,7 @@ public sealed class FixedSizeArrayStrategy(
 
         metadata.Lww[operation.JsonPath] = operation.Timestamp;
 
-        var elementType = list.GetType().IsGenericType ? list.GetType().GetGenericArguments()[0] : typeof(object);
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
         var value = DeserializeItemValue(operation.Value, elementType);
 
         var elementIndex = (int)index;

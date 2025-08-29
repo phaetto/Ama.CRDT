@@ -54,17 +54,11 @@ public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrate
             throw new InvalidOperationException($"{nameof(CounterStrategy)} only supports increment operations.");
         }
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-
-        if (parent is null || property is null || !property.CanWrite) return;
-
         var incrementValue = Convert.ToDecimal(operation.Value ?? 0, CultureInfo.InvariantCulture);
-        var existingValue = property.GetValue(parent) ?? 0;
+        var existingValue = PocoPathHelper.GetValue(root, operation.JsonPath) ?? 0;
         var existingNumeric = Convert.ToDecimal(existingValue, CultureInfo.InvariantCulture);
         var newValue = existingNumeric + incrementValue;
-        var targetType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-        var convertedNewValue = Convert.ChangeType(newValue, targetType, CultureInfo.InvariantCulture);
-
-        property.SetValue(parent, convertedNewValue);
+        
+        PocoPathHelper.SetValue(root, operation.JsonPath, newValue);
     }
 }
