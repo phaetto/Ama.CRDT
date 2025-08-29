@@ -151,6 +151,9 @@ This library uses attributes on your POCO properties to determine how to merge c
 | **Object & Map Strategies** | | |
 | `[CrdtLwwMapStrategy]` | A Last-Writer-Wins Map. Each key-value pair is an independent LWW-Register. Conflicts are resolved per-key. | Storing user preferences, feature flags, or any key-value data where the last update for a given key should win. |
 | `[CrdtOrMapStrategy]` | An Observed-Remove Map. Key presence is managed with OR-Set logic, allowing keys to be re-added after removal. Value updates use LWW. | Managing complex dictionaries where keys can be concurrently added and removed, such as a map of user permissions or editable metadata. |
+| `[CrdtCounterMapStrategy]` | Manages a dictionary where each key is an independent PN-Counter (supporting increments and decrements). | Tracking scores per player, counting votes per option, or managing inventory per item where quantities can go up or down. |
+| `[CrdtMaxWinsMapStrategy]` | A grow-only map where conflicts for each key are resolved by choosing the highest value. | Storing high scores per level in a game, tracking the latest version number per component, or recording the peak bid for different auction items. |
+| `[CrdtMinWinsMapStrategy]` | A grow-only map where conflicts for each key are resolved by choosing the lowest value. | Recording the best completion time per race track, finding the cheapest price offered per product from various sellers, or tracking the earliest discovery time for different artifacts. |
 | **State & Locking Strategies** | | |
 | `[CrdtStateMachineStrategy]` | Enforces valid state transitions using a user-defined validator, with LWW for conflict resolution. | Order processing (Pending -> Shipped -> Delivered), workflows, or any property with a constrained lifecycle. |
 | `[CrdtExclusiveLockStrategy]` | An optimistic exclusive lock where the latest lock or unlock operation (based on LWW) wins. | Preventing concurrent edits on a sub-document or resource without a central locking service. |
@@ -308,6 +311,40 @@ metadataManager.PruneLwwTombstones(myMetadata, thresholdTimestamp);
 ### Version Vector Compaction
 
 The library uses a version vector (`CrdtMetadata.VersionVector`) and a set of seen exceptions (`SeenExceptions`) to provide idempotency for operations, preventing them from being applied more than once. It is particularly important that you use a continuous timestamp provider (like a sequential or logical clock, check `SequentialTimestampProvider`). The `CrdtApplicator` automatically manages this process for strategies marked with the `[IdempotentWithContinuousTime]` attribute. It checks for seen operations before applying them and advances the version vector afterward, which in turn prunes the `SeenExceptions` set. This keeps the metadata size under control automatically without manual intervention.
+
+### Serializing Metadata Efficiently
+
+In addition to pruning, it's important to serialize the `CrdtMetadata` object efficiently, especially when storing it as JSON. The metadata object contains many collections for different strategies, and most of them may be empty for any given document. To avoid a bloated JSON output filled with empty arrays and objects, the library provides a custom JSON resolver.
+
+The `CrdtMetadata.JsonResolver` is an `IJsonTypeInfoResolver` that automatically omits any collection property that is empty during serialization. You should also include the `CrdtTimestampJsonConverter` to handle the `ICrdtTimestamp` interfaces stored within the metadata.
+
+Here’s how to serialize and deserialize metadata correctly:
+
+```csharp
+using Ama.CRDT.Models;
+using Ama.CRDT.Models.Serialization;
+using System.Text.Json;
+
+// Assume 'metadata' is your CrdtMetadata object.
+CrdtMetadata metadata = ...; 
+
+// 1. Configure JsonSerializerOptions with both the custom resolver and converter.
+var serializerOptions = new JsonSerializerOptions
+{
+    TypeInfoResolver = CrdtMetadata.JsonResolver,
+    Converters = { new CrdtTimestampJsonConverter() }
+};
+
+// 2. Serialize the metadata object.
+string jsonPayload = JsonSerializer.Serialize(metadata, serializerOptions);
+
+// This 'jsonPayload' is now compact and can be stored or sent.
+
+// --- When reading the metadata back ---
+
+// 3. Deserialize the JSON string using the same options.
+CrdtMetadata deserializedMetadata = JsonSerializer.Deserialize<CrdtMetadata>(jsonPayload, serializerOptions);
+```
 
 ## Extensibility: Creating Custom Strategies
 

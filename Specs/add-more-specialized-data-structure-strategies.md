@@ -18,6 +18,8 @@ Make only the ones that do not break the public API, except the metadata and oth
 
 Use the `CrdtMetadataManager` to provide utilities for metadata management.
 
+Add the new strategies to readme.
+
 <!---Human--->
 ## Requirements context
 <!---
@@ -29,8 +31,11 @@ Format this list in the following way:
 - `C:\sources\Ama.CRDT\Ama.CRDT\Attributes\CrdtArrayLcsStrategyAttribute.cs`
 - `C:\sources\Ama.CRDT\Ama.CRDT\Services\Strategies\ArrayLcsStrategy.cs`
 - `C:\sources\Ama.CRDT\Ama.CRDT.UnitTests\Services\Strategies\ArrayLcsStrategyTests.cs`
+- `C:\sources\Ama.CRDT\Ama.CRDT.UnitTests\Services\Strategies\CounterStrategyTests.cs`
 - `C:\sources\Ama.CRDT\Ama.CRDT\Services\CrdtMetadataManager.cs`
 - `C:\sources\Ama.CRDT\Ama.CRDT\Services\Helpers\PocoPathHelper.cs`
+- `C:\sources\Ama.CRDT\README.md`
+- `C:\sources\Ama.CRDT\Ama.CRDT\Services\ICrdtPatcher.cs`
 
 <!---Human--->
 # Testing Methodology
