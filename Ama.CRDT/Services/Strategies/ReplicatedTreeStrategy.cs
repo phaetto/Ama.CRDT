@@ -17,6 +17,10 @@ public sealed class ReplicatedTreeStrategy(
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     
+    internal readonly record struct TreeAddNodePayload(object NodeId, object? Value, object? ParentId, Guid Tag);
+    internal readonly record struct TreeRemoveNodePayload(object NodeId, ISet<Guid> Tags);
+    internal readonly record struct TreeMoveNodePayload(object NodeId, object? NewParentId);
+
     public void GeneratePatch(GeneratePatchContext context)
     {
         var (_, operations, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp) = context;
@@ -81,7 +85,17 @@ public sealed class ReplicatedTreeStrategy(
         object? payload = operation.Value;
 
         if (payload is null) return;
-        
+
+        if (payload is IDictionary<string, object> dict)
+        {
+            if (dict.ContainsKey("Tag"))
+                payload = PocoPathHelper.ConvertValue(dict, typeof(TreeAddNodePayload));
+            else if (dict.ContainsKey("Tags"))
+                payload = PocoPathHelper.ConvertValue(dict, typeof(TreeRemoveNodePayload));
+            else if (dict.ContainsKey("NewParentId"))
+                payload = PocoPathHelper.ConvertValue(dict, typeof(TreeMoveNodePayload));
+        }
+
         if (payload is TreeAddNodePayload addPayload)
         {
             var nodeId = addPayload.NodeId;

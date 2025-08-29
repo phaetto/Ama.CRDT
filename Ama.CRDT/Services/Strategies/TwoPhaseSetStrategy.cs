@@ -8,9 +8,7 @@ using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Text.Json;
 using Ama.CRDT.Services;
 
 /// <summary>
@@ -70,7 +68,7 @@ public sealed class TwoPhaseSetStrategy(
             metadata.TwoPhaseSets[operation.JsonPath] = state;
         }
 
-        var itemValue = DeserializeItemValue(operation.Value, elementType);
+        var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType);
         if (itemValue is null) return;
 
         switch (operation.Type)
@@ -100,26 +98,6 @@ public sealed class TwoPhaseSetStrategy(
         foreach (var item in sortedItems)
         {
             list.Add(item);
-        }
-    }
-    
-    private static object? DeserializeItemValue(object? value, Type targetType)
-    {
-        if (value is null) return null;
-        if (targetType.IsInstanceOfType(value)) return value;
-
-        if (value is JsonElement jsonElement)
-        {
-            return JsonSerializer.Deserialize(jsonElement.GetRawText(), targetType);
-        }
-
-        try
-        {
-            return Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);
-        }
-        catch (Exception)
-        {
-            return null;
         }
     }
 }

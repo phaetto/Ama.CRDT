@@ -8,9 +8,7 @@ using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Text.Json;
 using Ama.CRDT.Services;
 
 /// <summary>
@@ -93,10 +91,9 @@ public sealed class OrSetStrategy(
     
     private static void ApplyUpsert((IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes) state, object? opValue, Type elementType)
     {
-        var payload = DeserializePayload<OrSetAddItem>(opValue);
-        if (payload is null) return;
+        if (PocoPathHelper.ConvertValue(opValue, typeof(OrSetAddItem)) is not OrSetAddItem payload) return;
         
-        var itemValue = DeserializeItemValue(payload.Value.Value, elementType);
+        var itemValue = PocoPathHelper.ConvertValue(payload.Value, elementType);
         if (itemValue is null) return;
         
         if (!state.Adds.TryGetValue(itemValue, out var addTags))
@@ -104,15 +101,14 @@ public sealed class OrSetStrategy(
             addTags = new HashSet<Guid>();
             state.Adds[itemValue] = addTags;
         }
-        addTags.Add(payload.Value.Tag);
+        addTags.Add(payload.Tag);
     }
 
     private static void ApplyRemove((IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes) state, object? opValue, Type elementType)
     {
-        var payload = DeserializePayload<OrSetRemoveItem>(opValue);
-        if (payload is null) return;
-        
-        var itemValue = DeserializeItemValue(payload.Value.Value, elementType);
+        if (PocoPathHelper.ConvertValue(opValue, typeof(OrSetRemoveItem)) is not OrSetRemoveItem payload) return;
+
+        var itemValue = PocoPathHelper.ConvertValue(payload.Value, elementType);
         if (itemValue is null) return;
 
         if (!state.Removes.TryGetValue(itemValue, out var removeTags))
@@ -120,7 +116,7 @@ public sealed class OrSetStrategy(
             removeTags = new HashSet<Guid>();
             state.Removes[itemValue] = removeTags;
         }
-        foreach (var tag in payload.Value.Tags)
+        foreach (var tag in payload.Tags)
         {
             removeTags.Add(tag);
         }
@@ -152,38 +148,6 @@ public sealed class OrSetStrategy(
         foreach (var item in sortedItems)
         {
             list.Add(item);
-        }
-    }
-    
-    private static T? DeserializePayload<T>(object? value) where T : struct
-    {
-        if (value is null) return null;
-        if (value is T val) return val;
-
-        if (value is JsonElement jsonElement)
-        {
-            return JsonSerializer.Deserialize<T>(jsonElement.GetRawText());
-        }
-        return null;
-    }
-
-    private static object? DeserializeItemValue(object? value, Type targetType)
-    {
-        if (value is null) return null;
-        if (targetType.IsInstanceOfType(value)) return value;
-
-        if (value is JsonElement jsonElement)
-        {
-            return JsonSerializer.Deserialize(jsonElement.GetRawText(), targetType);
-        }
-
-        try
-        {
-            return Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);
-        }
-        catch (Exception)
-        {
-            return null;
         }
     }
 }

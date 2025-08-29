@@ -8,7 +8,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
 using Ama.CRDT.Services;
 
 [CrdtSupportedType(typeof(IDictionary))]
@@ -19,10 +18,6 @@ using Ama.CRDT.Services;
 public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
-    private static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
 
     public void GeneratePatch(GeneratePatchContext context)
     {
@@ -60,7 +55,10 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : ICrdtSt
     {
         var (root, metadata, operation) = context;
 
-        var payload = DeserializePayload(operation.Value);
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(VotePayload)) is not VotePayload payload)
+        {
+            return;
+        }
         var voterMetaPath = $"{operation.JsonPath}.['{GetVoterKey(payload.Voter)}']";
 
         if (metadata.Lww.TryGetValue(voterMetaPath, out var currentTimestamp) && operation.Timestamp.CompareTo(currentTimestamp) <= 0)
@@ -78,8 +76,8 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : ICrdtSt
         var dictValueType = PocoPathHelper.GetDictionaryValueType(property);
         var voterType = dictValueType.GetGenericArguments()[0];
 
-        var voter = DeserializeObject(payload.Voter, voterType);
-        var newOption = DeserializeObject(payload.Option, dictKeyType);
+        var voter = PocoPathHelper.ConvertValue(payload.Voter, voterType);
+        var newOption = PocoPathHelper.ConvertValue(payload.Option, dictKeyType);
 
         if (voter is null || newOption is null) return;
 
@@ -186,26 +184,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : ICrdtSt
         
         addMethod?.Invoke(voterCollection, [voter]);
     }
-
-    private VotePayload DeserializePayload(object? value)
-    {
-        return value switch
-        {
-            VotePayload p => p,
-            JsonElement e => e.Deserialize<VotePayload>(DefaultJsonSerializerOptions),
-            _ => throw new InvalidCastException($"Unsupported payload type for VoteCounterStrategy: {value?.GetType().Name}")
-        };
-    }
     
-    private object? DeserializeObject(object? obj, Type targetType)
-    {
-        if (obj is JsonElement je)
-        {
-            return je.Deserialize(targetType, DefaultJsonSerializerOptions);
-        }
-        return obj;
-    }
-
     private IDictionary<object, object> FlattenVotes(object? value)
     {
         var map = new Dictionary<object, object>();
@@ -227,12 +206,6 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : ICrdtSt
 
     private string GetVoterKey(object voter)
     {
-        return voter switch
-        {
-            string s => s,
-            JsonElement { ValueKind: JsonValueKind.String } je => je.GetString() ?? "",
-            JsonElement je => je.GetRawText(),
-            _ => JsonSerializer.Serialize(voter, DefaultJsonSerializerOptions)
-        };
+        return voter.ToString() ?? "";
     }
 }

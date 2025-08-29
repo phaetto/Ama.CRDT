@@ -8,9 +8,7 @@ using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
-using System.Text.Json;
 using Ama.CRDT.Services;
 
 /// <summary>
@@ -27,7 +25,6 @@ public sealed class OrMapStrategy(
     ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
-    private static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
@@ -106,10 +103,9 @@ public sealed class OrMapStrategy(
 
     private void ApplyUpsert(IDictionary dict, CrdtMetadata metadata, (IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes) state, CrdtOperation operation, Type keyType, Type valueType)
     {
-        var payload = DeserializePayload<OrMapAddItem>(operation.Value);
-        if (payload is null) return;
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapAddItem)) is not OrMapAddItem payload) return;
 
-        var itemKey = DeserializeValue(payload.Value.Key, keyType);
+        var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
         if (itemKey is null) return;
 
         if (!state.Adds.TryGetValue(itemKey, out var addTags))
@@ -117,23 +113,22 @@ public sealed class OrMapStrategy(
             addTags = new HashSet<Guid>();
             state.Adds[itemKey] = addTags;
         }
-        addTags.Add(payload.Value.Tag);
+        addTags.Add(payload.Tag);
         
-        var valuePath = $"{operation.JsonPath}.['{GetSerializedKey(itemKey)}']";
+        var valuePath = $"{operation.JsonPath}.['{itemKey.ToString()?.Replace("'", "\\'")}']";
         if (!metadata.Lww.TryGetValue(valuePath, out var currentTimestamp) || operation.Timestamp.CompareTo(currentTimestamp) > 0)
         {
             metadata.Lww[valuePath] = operation.Timestamp;
-            var itemValue = DeserializeValue(payload.Value.Value, valueType);
+            var itemValue = PocoPathHelper.ConvertValue(payload.Value, valueType);
             dict[itemKey] = itemValue;
         }
     }
 
     private static void ApplyRemove((IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes) state, object? opValue, Type keyType)
     {
-        var payload = DeserializePayload<OrMapRemoveItem>(opValue);
-        if (payload is null) return;
+        if (PocoPathHelper.ConvertValue(opValue, typeof(OrMapRemoveItem)) is not OrMapRemoveItem payload) return;
 
-        var itemKey = DeserializeValue(payload.Value.Key, keyType);
+        var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
         if (itemKey is null) return;
 
         if (!state.Removes.TryGetValue(itemKey, out var removeTags))
@@ -141,7 +136,7 @@ public sealed class OrMapStrategy(
             removeTags = new HashSet<Guid>();
             state.Removes[itemKey] = removeTags;
         }
-        foreach (var tag in payload.Value.Tags)
+        foreach (var tag in payload.Tags)
         {
             removeTags.Add(tag);
         }
@@ -172,47 +167,6 @@ public sealed class OrMapStrategy(
             {
                 dict.Remove(key);
             }
-        }
-    }
-
-    private static string GetSerializedKey(object key)
-    {
-        return key switch
-        {
-            string s => s,
-            _ => JsonSerializer.Serialize(key, DefaultJsonSerializerOptions)
-        };
-    }
-    
-    private static T? DeserializePayload<T>(object? value) where T : struct
-    {
-        if (value is null) return null;
-        if (value is T val) return val;
-
-        if (value is JsonElement jsonElement)
-        {
-            return JsonSerializer.Deserialize<T>(jsonElement.GetRawText());
-        }
-        return null;
-    }
-
-    private static object? DeserializeValue(object? value, Type targetType)
-    {
-        if (value is null) return null;
-        if (targetType.IsInstanceOfType(value)) return value;
-
-        if (value is JsonElement jsonElement)
-        {
-            return JsonSerializer.Deserialize(jsonElement.GetRawText(), targetType);
-        }
-
-        try
-        {
-            return Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);
-        }
-        catch (Exception)
-        {
-            return null;
         }
     }
 }
