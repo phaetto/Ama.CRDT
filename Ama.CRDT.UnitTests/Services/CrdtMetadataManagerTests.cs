@@ -108,6 +108,7 @@ public sealed class CrdtMetadataManagerTests
         metadata.ExclusiveLocks["$.e"] = new LockInfo("holder", timestampProviderMock.Object.Create(100));
         metadata.LwwMaps["$.f"] = new Dictionary<object, ICrdtTimestamp>();
         metadata.OrMaps["$.g"] = (new Dictionary<object, ISet<Guid>>(), new Dictionary<object, ISet<Guid>>());
+        metadata.CounterMaps["$.h"] = new Dictionary<object, (decimal P, decimal N)>();
 
         var doc = new object();
         timestampProviderMock.Setup(p => p.Now()).Returns(timestampProviderMock.Object.Create(200));
@@ -123,6 +124,7 @@ public sealed class CrdtMetadataManagerTests
         metadata.ExclusiveLocks.ShouldBeEmpty();
         metadata.LwwMaps.ShouldBeEmpty();
         metadata.OrMaps.ShouldBeEmpty();
+        metadata.CounterMaps.ShouldBeEmpty();
     }
     
     [Fact]
