@@ -13,8 +13,6 @@ Add the requirements, technical or not.
 25. **Graph Strategy (Add-Only):** For distributed graphs, supporting concurrent additions of vertices and edges.
 26. **2P-Graph Strategy:** A graph where vertices and edges can be both added and removed (using tombstones).
 27. **Replicated Tree Strategy:** Manages a hierarchical tree structure, allowing nodes to be added, removed, and moved concurrently while preserving parent-child relationships.
-28. **Distributed Bloom Filter:** A strategy where each replica maintains a Bloom filter, and merging them is a simple, conflict-free bitwise OR operation.
-29. **Distributed HyperLogLog:** For estimating the cardinality of very large sets in a distributed manner. Merging HLL structures is conflict-free.
 
 Make only the ones that do not break the public API, except the metadata and other models. Avoid breaking the interface public APIs.
 
