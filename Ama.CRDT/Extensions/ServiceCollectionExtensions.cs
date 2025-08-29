@@ -253,6 +253,31 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Registers a custom type for polymorphic JSON serialization, which is necessary for types that may appear
+    /// in an <c>object</c> property, such as a <see cref="CrdtOperation.Value"/> payload.
+    /// </summary>
+    /// <typeparam name="T">The custom type to register.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <param name="discriminator">A unique string identifier for the type, used in the JSON output.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// public sealed record MyCustomPayload(Guid Id, string Data);
+    /// 
+    /// // In your DI setup:
+    /// builder.Services.AddCrdt();
+    /// builder.Services.AddCrdtSerializableType<MyCustomPayload>("my-payload");
+    /// ]]>
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddCrdtSerializableType<T>(this IServiceCollection services, string discriminator)
+    {
+        Models.Serialization.Converters.PolymorphicObjectJsonConverter.Register(discriminator, typeof(T));
+        return services;
+    }
+
     private static TImplementation CreateValidatedInstance<TImplementation>(IServiceProvider sp) where TImplementation : class
     {
         var replicaContext = sp.GetService<ReplicaContext>();

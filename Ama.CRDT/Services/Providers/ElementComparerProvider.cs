@@ -82,7 +82,7 @@ internal sealed class ElementComparerProvider : IElementComparerProvider
             if (typeX.IsClass || typeX.IsValueType && !typeX.IsEnum)
             {
                 var properties = typeX.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                    .Where(p => p.CanRead);
+                    .Where(p => p.CanRead && p.GetIndexParameters().Length == 0);
                 
                 foreach (var property in properties)
                 {
@@ -132,7 +132,7 @@ internal sealed class ElementComparerProvider : IElementComparerProvider
             if (type.IsClass || type.IsValueType && !type.IsEnum)
             {
                 var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                    .Where(p => p.CanRead)
+                    .Where(p => p.CanRead && p.GetIndexParameters().Length == 0)
                     .OrderBy(p => p.Name);
             
                 var combinedHashCode = new HashCode();

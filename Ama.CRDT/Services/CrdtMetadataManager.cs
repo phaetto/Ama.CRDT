@@ -5,12 +5,9 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -104,7 +101,7 @@ public sealed class CrdtMetadataManager(
 
         foreach (var kvp in metadata.TwoPhaseSets)
         {
-            newMetadata.TwoPhaseSets.Add(kvp.Key, (
+            newMetadata.TwoPhaseSets.Add(kvp.Key, new TwoPhaseSetState(
                 Adds: new HashSet<object>(kvp.Value.Adds, (kvp.Value.Adds as HashSet<object>)?.Comparer),
                 Tomstones: new HashSet<object>(kvp.Value.Tomstones, (kvp.Value.Tomstones as HashSet<object>)?.Comparer)
             ));
@@ -112,7 +109,7 @@ public sealed class CrdtMetadataManager(
 
         foreach (var kvp in metadata.LwwSets)
         {
-            newMetadata.LwwSets.Add(kvp.Key, (
+            newMetadata.LwwSets.Add(kvp.Key, new LwwSetState(
                 Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
                 Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
             ));
@@ -132,12 +129,12 @@ public sealed class CrdtMetadataManager(
                 innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
                 removedComparer);
 
-            newMetadata.OrSets.Add(kvp.Key, (Adds: newAdded, Removes: newRemoved));
+            newMetadata.OrSets.Add(kvp.Key, new OrSetState(Adds: newAdded, Removes: newRemoved));
         }
 
         foreach (var kvp in metadata.PriorityQueues)
         {
-            newMetadata.PriorityQueues.Add(kvp.Key, (
+            newMetadata.PriorityQueues.Add(kvp.Key, new LwwSetState(
                 Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
                 Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
             ));
@@ -167,17 +164,17 @@ public sealed class CrdtMetadataManager(
                 innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
                 removedComparer);
 
-            newMetadata.OrMaps.Add(kvp.Key, (Adds: newAdded, Removes: newRemoved));
+            newMetadata.OrMaps.Add(kvp.Key, new OrSetState(Adds: newAdded, Removes: newRemoved));
         }
 
         foreach (var kvp in metadata.CounterMaps)
         {
-            newMetadata.CounterMaps.Add(kvp.Key, new Dictionary<object, (decimal P, decimal N)>(kvp.Value, (kvp.Value as Dictionary<object, (decimal P, decimal N)>)?.Comparer));
+            newMetadata.CounterMaps.Add(kvp.Key, new Dictionary<object, PnCounterState>(kvp.Value, (kvp.Value as Dictionary<object, PnCounterState>)?.Comparer));
         }
         
         foreach (var kvp in metadata.TwoPhaseGraphs)
         {
-            newMetadata.TwoPhaseGraphs.Add(kvp.Key, (
+            newMetadata.TwoPhaseGraphs.Add(kvp.Key, new TwoPhaseGraphState(
                 VertexAdds: new HashSet<object>(kvp.Value.VertexAdds, (kvp.Value.VertexAdds as HashSet<object>)?.Comparer),
                 VertexTombstones: new HashSet<object>(kvp.Value.VertexTombstones, (kvp.Value.VertexTombstones as HashSet<object>)?.Comparer),
                 EdgeAdds: new HashSet<object>(kvp.Value.EdgeAdds, (kvp.Value.EdgeAdds as HashSet<object>)?.Comparer),
@@ -199,7 +196,7 @@ public sealed class CrdtMetadataManager(
                 innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
                 removedComparer);
 
-            newMetadata.ReplicatedTrees.Add(kvp.Key, (Adds: newAdded, Removes: newRemoved));
+            newMetadata.ReplicatedTrees.Add(kvp.Key, new OrSetState(Adds: newAdded, Removes: newRemoved));
         }
 
         return newMetadata;
@@ -425,11 +422,11 @@ public sealed class CrdtMetadataManager(
                 if (propertyValue is IList lseqList)
                 {
                     var lseqItems = new List<LseqItem>();
-                    var baseIdentifier = ImmutableList<(int, string)>.Empty;
+                    var baseIdentifier = ImmutableList<LseqPathSegment>.Empty;
                     const int step = 10;
                     for (var i = 0; i < lseqList.Count; i++)
                     {
-                        var path = baseIdentifier.Add(((i + 1) * step, "initial"));
+                        var path = baseIdentifier.Add(new LseqPathSegment((i + 1) * step, "initial"));
                         lseqItems.Add(new LseqItem(new LseqIdentifier(path), lseqList[i]));
                     }
                     metadata.LseqTrackers[propertyPath] = lseqItems;
@@ -481,22 +478,22 @@ public sealed class CrdtMetadataManager(
         switch (strategy)
         {
             case TwoPhaseSetStrategy:
-                metadata.TwoPhaseSets[propertyPath] = (
+                metadata.TwoPhaseSets[propertyPath] = new TwoPhaseSetState(
                     Adds: new HashSet<object>(collectionAsObjects, comparer),
                     Tomstones: new HashSet<object>(comparer));
                 break;
             case LwwSetStrategy:
-                metadata.LwwSets[propertyPath] = (
+                metadata.LwwSets[propertyPath] = new LwwSetState(
                     Adds: collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
                     Removes: new Dictionary<object, ICrdtTimestamp>(comparer));
                 break;
             case OrSetStrategy:
-                metadata.OrSets[propertyPath] = (
+                metadata.OrSets[propertyPath] = new OrSetState(
                     Adds: collectionAsObjects.ToDictionary(k => k, _ => (ISet<Guid>)new HashSet<Guid> { Guid.NewGuid() }, comparer),
                     Removes: new Dictionary<object, ISet<Guid>>(comparer));
                 break;
             case PriorityQueueStrategy:
-                metadata.PriorityQueues[propertyPath] = (
+                metadata.PriorityQueues[propertyPath] = new LwwSetState(
                     Adds: collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
                     Removes: new Dictionary<object, ICrdtTimestamp>(comparer));
                 break;
@@ -535,19 +532,19 @@ public sealed class CrdtMetadataManager(
                         metadata.Lww[$"{propertyPath}.['{keyString}']"] = timestamp;
                     }
                 }
-                metadata.OrMaps[propertyPath] = (
+                metadata.OrMaps[propertyPath] = new OrSetState(
                     Adds: orMapAdds,
                     Removes: new Dictionary<object, ISet<Guid>>(comparer));
                 break;
 
             case CounterMapStrategy:
-                var counterMap = new Dictionary<object, (decimal P, decimal N)>(comparer);
+                var counterMap = new Dictionary<object, PnCounterState>(comparer);
                 foreach (DictionaryEntry entry in dictionary)
                 {
                     if (entry.Key is not null)
                     {
                         var value = Convert.ToDecimal(entry.Value ?? 0);
-                        counterMap[entry.Key] = (P: value > 0 ? value : 0, N: value < 0 ? -value : 0);
+                        counterMap[entry.Key] = new PnCounterState(P: value > 0 ? value : 0, N: value < 0 ? -value : 0);
                     }
                 }
                 metadata.CounterMaps[propertyPath] = counterMap;
@@ -596,7 +593,7 @@ public sealed class CrdtMetadataManager(
         var vertexComparer = elementComparerProvider.GetComparer(typeof(object));
         var edgeComparer = elementComparerProvider.GetComparer(typeof(Edge));
         
-        metadata.TwoPhaseGraphs[propertyPath] = (
+        metadata.TwoPhaseGraphs[propertyPath] = new TwoPhaseGraphState(
             VertexAdds: new HashSet<object>(vertices.Cast<object>(), vertexComparer),
             VertexTombstones: new HashSet<object>(vertexComparer),
             EdgeAdds: new HashSet<object>(edges.Cast<object>(), edgeComparer),
@@ -626,7 +623,7 @@ public sealed class CrdtMetadataManager(
             metadata.Lww[$"{propertyPath}.Nodes.['{nodeIdString}'].ParentId"] = timestamp;
         }
 
-        metadata.ReplicatedTrees[propertyPath] = (
+        metadata.ReplicatedTrees[propertyPath] = new OrSetState(
             Adds: adds,
             Removes: new Dictionary<object, ISet<Guid>>(idComparer)
         );

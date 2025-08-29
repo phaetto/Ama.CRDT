@@ -161,7 +161,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         // Arrange
         var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
         var model = new MutableTestModel { Items = { "a", "c" } };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.items[1]", OperationType.Upsert, "b", timestampProvider.Create(1L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Items[1]", OperationType.Upsert, "b", timestampProvider.Create(1L));
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act
@@ -175,13 +175,42 @@ public sealed class SortedSetStrategyTests : IDisposable
         list[2].ShouldBe("c");
     }
 
+    private sealed record SortTestModel
+    {
+        [CrdtSortedSetStrategy(nameof(Item.Name))]
+        public List<Item> Items { get; set; } = new();
+    }
+
+    private sealed record Item(int Id, string Name);
+    
+    [Fact]
+    public void ApplyOperation_Upsert_WithSortPropertyName_ShouldInsertAndSortByName()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
+        var model = new SortTestModel { Items = { new Item(1, "c"), new Item(2, "a") } };
+        
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Items[2]", OperationType.Upsert, new Item(3, "b"), timestampProvider.Create(1L));
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
+
+        // Act
+        strategy.ApplyOperation(context);
+
+        // Assert
+        var list = model.Items;
+        list.Count.ShouldBe(3);
+        list[0].Name.ShouldBe("a");
+        list[1].Name.ShouldBe("b");
+        list[2].Name.ShouldBe("c");
+    }
+
     [Fact]
     public void ApplyOperation_Remove_ShouldRemoveItemFromArray()
     {
         // Arrange
         var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
         var model = new MutableTestModel { Items = { "a", "b", "c" } };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.items[1]", OperationType.Remove, "b", timestampProvider.Create(1L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Items[1]", OperationType.Remove, "b", timestampProvider.Create(1L));
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act
@@ -220,7 +249,7 @@ public sealed class SortedSetStrategyTests : IDisposable
 
     private sealed record ConvergenceTestModel
     {
-        [CrdtSortedSetStrategy]
+        [CrdtSortedSetStrategy(nameof(User.Name))]
         public List<User> Users { get; init; } = new();
     }
     
@@ -260,6 +289,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         modelBa.Users.Count.ShouldBe(2);
         modelAb.Users.ShouldContain(u => u.Id == userA.Id);
         modelAb.Users.ShouldContain(u => u.Id == userB.Id);
+        modelAb.Users.Select(u => u.Name).ShouldBe(new[] { "Alice", "Bob" });
     }
     
     [Fact]

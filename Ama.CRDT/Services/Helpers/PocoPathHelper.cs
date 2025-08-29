@@ -293,7 +293,7 @@ internal static partial class PocoPathHelper
     {
         return PropertyCache.GetOrAdd(type, t =>
         {
-            var props = t.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanRead);
+            var props = t.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanRead && p.GetIndexParameters().Length == 0);
 
             var dict = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
 

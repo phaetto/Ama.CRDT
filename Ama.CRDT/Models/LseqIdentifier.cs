@@ -8,38 +8,25 @@ using System.Text;
 /// The identifier is a path in a conceptual, infinitely-branching tree, ensuring that
 /// a new identifier can always be generated between any two existing identifiers.
 /// </summary>
-public readonly record struct LseqIdentifier : IComparable<LseqIdentifier>
+/// <param name="Path">The list of path components that form this identifier.</param>
+public readonly record struct LseqIdentifier(ImmutableList<LseqPathSegment> Path) : IComparable<LseqIdentifier>, IEquatable<LseqIdentifier>
 {
-    /// <summary>
-    /// Gets the list of path components that form this identifier.
-    /// </summary>
-    public ImmutableList<(int Position, string ReplicaId)> Path { get; }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="LseqIdentifier"/> struct.
-    /// </summary>
-    /// <param name="path">The list of path components.</param>
-    public LseqIdentifier(ImmutableList<(int Position, string ReplicaId)> path)
-    {
-        Path = path;
-    }
-
     /// <inheritdoc />
     public int CompareTo(LseqIdentifier other)
     {
         var minLength = Math.Min(Path.Count, other.Path.Count);
         for (var i = 0; i < minLength; i++)
         {
-            var (pos1, replica1) = Path[i];
-            var (pos2, replica2) = other.Path[i];
+            var segment1 = Path[i];
+            var segment2 = other.Path[i];
 
-            if (pos1 != pos2)
+            if (segment1.Position != segment2.Position)
             {
-                return pos1.CompareTo(pos2);
+                return segment1.Position.CompareTo(segment2.Position);
             }
+
             // If positions are equal, the replica ID is used as a tie-breaker.
-            // This case should be rare in a correct implementation but is necessary for total ordering.
-            var replicaComparison = string.Compare(replica1, replica2, StringComparison.Ordinal);
+            var replicaComparison = string.Compare(segment1.ReplicaId, segment2.ReplicaId, StringComparison.Ordinal);
             if (replicaComparison != 0)
             {
                 return replicaComparison;
@@ -53,10 +40,30 @@ public readonly record struct LseqIdentifier : IComparable<LseqIdentifier>
     public override string ToString()
     {
         var sb = new StringBuilder();
-        foreach (var (pos, replica) in Path)
+        foreach (var segment in Path)
         {
-            sb.Append($"({pos},{replica})-");
+            sb.Append($"({segment.Position},{segment.ReplicaId})-");
         }
         return sb.ToString().TrimEnd('-');
+    }
+
+    /// <inheritdoc />
+    public bool Equals(LseqIdentifier other)
+    {
+        if (Path is null && other.Path is null) return true;
+        if (Path is null || other.Path is null) return false;
+        return Path.SequenceEqual(other.Path);
+    }
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        if (Path is null) return 0;
+        var hashCode = new HashCode();
+        foreach (var segment in Path)
+        {
+            hashCode.Add(segment);
+        }
+        return hashCode.ToHashCode();
     }
 }

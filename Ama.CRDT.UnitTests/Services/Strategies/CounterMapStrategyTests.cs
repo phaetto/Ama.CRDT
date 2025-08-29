@@ -122,7 +122,7 @@ public sealed class CounterMapStrategyTests
         applicator.ApplyPatch(doc, new CrdtPatch { Operations = [ op ] });
 
         var stateAfterFirstApply = new Dictionary<string, int>(doc.Data.Map);
-        var metadataCountersAfterFirstApply = doc.Metadata.CounterMaps.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        var metadataCountersAfterFirstApply = new Dictionary<string, IDictionary<object, PnCounterState>>(doc.Metadata.CounterMaps);
 
         // Second time, the operation has been seen and should be ignored by the applicator.
         applicator.ApplyPatch(doc, new CrdtPatch { Operations = [op] });

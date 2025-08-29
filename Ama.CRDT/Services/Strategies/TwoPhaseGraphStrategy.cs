@@ -53,16 +53,10 @@ public sealed class TwoPhaseGraphStrategy(
 
         if (!metadata.TwoPhaseGraphs.TryGetValue(operation.JsonPath, out var state))
         {
-            IEqualityComparer<object> vertexComparer = EqualityComparer<object>.Default;
-            var sampleVertex = graph.Vertices.FirstOrDefault();
-            if (sampleVertex is not null)
-            {
-                vertexComparer = comparerProvider.GetComparer(sampleVertex.GetType());
-            }
-            
+            var vertexComparer = comparerProvider.GetComparer(typeof(object));
             var edgeComparer = comparerProvider.GetComparer(typeof(Edge));
 
-            state = (new HashSet<object>(vertexComparer), new HashSet<object>(vertexComparer),
+            state = new TwoPhaseGraphState(new HashSet<object>(vertexComparer), new HashSet<object>(vertexComparer),
                      new HashSet<object>(edgeComparer), new HashSet<object>(edgeComparer));
             metadata.TwoPhaseGraphs[operation.JsonPath] = state;
         }
@@ -86,7 +80,7 @@ public sealed class TwoPhaseGraphStrategy(
         ReconstructGraph(graph, state);
     }
 
-    private static void ReconstructGraph(CrdtGraph graph, (ISet<object> VertexAdds, ISet<object> VertexTombstones, ISet<object> EdgeAdds, ISet<object> EdgeTombstones) state)
+    private static void ReconstructGraph(CrdtGraph graph, TwoPhaseGraphState state)
     {
         graph.Vertices.Clear();
         foreach (var vertex in state.VertexAdds)

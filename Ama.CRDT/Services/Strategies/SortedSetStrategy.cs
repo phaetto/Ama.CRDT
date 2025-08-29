@@ -15,7 +15,7 @@ using Ama.CRDT.Services.Providers;
 
 /// <summary>
 /// Implements a CRDT strategy for collections that are treated as sorted sets. It uses the Longest Common Subsequence (LCS) algorithm to find differences and ensures the collection remains sorted after operations.
-/// This strategy assumes elements can be uniquely identified and compared. For complex objects, sorting is based on an 'Id' property or a composite key of all properties if 'Id' is not present.
+/// This strategy assumes elements can be uniquely identified and compared. Sorting can be configured via the <see cref="CrdtSortedSetStrategyAttribute.SortPropertyName"/>.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
 [Commutative]
@@ -153,7 +153,7 @@ public sealed class SortedSetStrategy(
                 list.Add(newValue);
             }
 
-            SortList(list);
+            SortList(list, property);
         }
         else if (operation.Type == OperationType.Remove)
         {
@@ -226,19 +226,28 @@ public sealed class SortedSetStrategy(
         return diff;
     }
     
-    private static void SortList(IList list)
+    private static void SortList(IList list, PropertyInfo property)
     {
-        var items = new List<object>();
-        foreach (var item in list)
-        {
-            items.Add(item);
-        }
-        
+        var attr = property.GetCustomAttribute<CrdtSortedSetStrategyAttribute>();
+        var sortPropertyName = attr?.SortPropertyName;
+
+        var items = list.Cast<object>().ToList();
+
         items.Sort((x, y) =>
         {
-            var keyX = GetSortKey(x);
-            var keyY = GetSortKey(y);
-            return string.Compare(keyX, keyY, StringComparison.Ordinal);
+            var keyX = GetSortKey(x, sortPropertyName);
+            var keyY = GetSortKey(y, sortPropertyName);
+            
+            if (keyX is null && keyY is null) return 0;
+            if (keyX is null) return -1;
+            if (keyY is null) return 1;
+
+            if (keyX is IComparable comparableX)
+            {
+                return comparableX.CompareTo(keyY);
+            }
+
+            return string.Compare(keyX.ToString(), keyY.ToString(), StringComparison.Ordinal);
         });
         
         list.Clear();
@@ -248,19 +257,33 @@ public sealed class SortedSetStrategy(
         }
     }
 
-    private static string GetSortKey(object? obj)
+    private static object? GetSortKey(object? obj, string? sortPropertyName)
     {
         if (obj is null)
         {
-            return string.Empty;
+            return null;
         }
 
         var type = obj.GetType();
-        var idProp = type.GetProperty("Id", BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+        PropertyInfo? prop = null;
 
-        if (idProp is not null)
+        if (!string.IsNullOrEmpty(sortPropertyName))
         {
-            return idProp.GetValue(obj)?.ToString() ?? string.Empty;
+            prop = type.GetProperty(sortPropertyName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+        }
+        else
+        {
+            prop = type.GetProperty("Id", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+        }
+        
+        if (prop is not null)
+        {
+            return prop.GetValue(obj);
+        }
+
+        if (obj is IComparable)
+        {
+            return obj;
         }
 
         if (type.IsClass && type != typeof(string))
@@ -270,14 +293,14 @@ public sealed class SortedSetStrategy(
                 .OrderBy(p => p.Name);
             
             var keyBuilder = new StringBuilder();
-            foreach (var prop in properties)
+            foreach (var p in properties)
             {
-                keyBuilder.Append(prop.GetValue(obj)?.ToString() ?? "null");
+                keyBuilder.Append(p.GetValue(obj)?.ToString() ?? "null");
                 keyBuilder.Append('|');
             }
             return keyBuilder.ToString();
         }
 
-        return obj.ToString() ?? string.Empty;
+        return obj;
     }
 }

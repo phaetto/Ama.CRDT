@@ -72,7 +72,7 @@ public sealed class OrSetStrategy(
 
         if (!metadata.OrSets.TryGetValue(operation.JsonPath, out var state))
         {
-            state = (new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, ISet<Guid>>(comparer));
+            state = new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, ISet<Guid>>(comparer));
             metadata.OrSets[operation.JsonPath] = state;
         }
 
@@ -89,7 +89,7 @@ public sealed class OrSetStrategy(
         ReconstructList(list, state.Adds, state.Removes, comparer);
     }
     
-    private static void ApplyUpsert((IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes) state, object? opValue, Type elementType)
+    private static void ApplyUpsert(OrSetState state, object? opValue, Type elementType)
     {
         if (PocoPathHelper.ConvertValue(opValue, typeof(OrSetAddItem)) is not OrSetAddItem payload) return;
         
@@ -104,7 +104,7 @@ public sealed class OrSetStrategy(
         addTags.Add(payload.Tag);
     }
 
-    private static void ApplyRemove((IDictionary<object, ISet<Guid>> Adds, IDictionary<object, ISet<Guid>> Removes) state, object? opValue, Type elementType)
+    private static void ApplyRemove(OrSetState state, object? opValue, Type elementType)
     {
         if (PocoPathHelper.ConvertValue(opValue, typeof(OrSetRemoveItem)) is not OrSetRemoveItem payload) return;
 

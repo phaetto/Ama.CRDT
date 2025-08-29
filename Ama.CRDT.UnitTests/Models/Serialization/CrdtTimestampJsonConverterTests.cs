@@ -1,9 +1,8 @@
+namespace Ama.CRDT.UnitTests.Models.Serialization;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization;
 using Shouldly;
 using System.Text.Json;
-
-namespace Ama.CRDT.UnitTests.Models.Serialization;
 
 public readonly record struct CustomTimestamp(int Value) : ICrdtTimestamp
 {

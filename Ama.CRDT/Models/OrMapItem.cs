@@ -15,4 +15,31 @@ public readonly record struct OrMapAddItem(object Key, object? Value, Guid Tag);
 /// </summary>
 /// <param name="Key">The key being removed from the map.</param>
 /// <param name="Tags">The set of unique tags corresponding to the key instances to be removed.</param>
-public readonly record struct OrMapRemoveItem(object Key, ISet<Guid> Tags);
+public readonly record struct OrMapRemoveItem(object Key, ISet<Guid> Tags) : IEquatable<OrMapRemoveItem>
+{
+    /// <inheritdoc />
+    public bool Equals(OrMapRemoveItem other)
+    {
+        if (!EqualityComparer<object>.Default.Equals(Key, other.Key)) return false;
+        if (ReferenceEquals(Tags, other.Tags)) return true;
+        if (Tags is null || other.Tags is null) return false;
+        return Tags.SetEquals(other.Tags);
+    }
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        var hashCode = new HashCode();
+        hashCode.Add(Key);
+        if (Tags is not null)
+        {
+            int setHash = 0;
+            foreach (var tag in Tags.OrderBy(t => t))
+            {
+                setHash ^= tag.GetHashCode();
+            }
+            hashCode.Add(setHash);
+        }
+        return hashCode.ToHashCode();
+    }
+}

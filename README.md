@@ -85,16 +85,17 @@ using Microsoft.Extensions.DependencyInjection;
 
 // Assume 'serviceProvider' is your configured IServiceProvider
 
-// 1. Get required services. The scope factory is a singleton.
+// 1. Get the scope factory. This is typically a singleton.
 var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-var metadataManager = serviceProvider.GetRequiredService<ICrdtMetadataManager>();
 
 // 2. Create a scope for a specific replica (e.g., a user session)
 using var userScope = scopeFactory.CreateScope("user-session-abc");
 
-// 3. Resolve replica-specific services from the scope
+// 3. Resolve replica-specific services from the scope.
+// These services are configured with the ReplicaId "user-session-abc".
 var patcher = userScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
 var applicator = userScope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+var metadataManager = userScope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
 
 // 4. Establish an initial state
 var originalState = new UserStats { LoginCount = 5, Badges = ["newcomer"] };
@@ -108,12 +109,13 @@ var modifiedState = new UserStats { LoginCount = 6, Badges = ["newcomer", "explo
 var patch = patcher.GeneratePatch(originalDocument, modifiedState);
 
 // 7. On another replica, apply the patch.
-// First, get the services for that replica.
+// First, create a scope and get services for the other replica.
 using var serverScope = scopeFactory.CreateScope("server-node-xyz");
 var serverApplicator = serverScope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+var serverMetadataManager = serverScope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
 
 var serverState = new UserStats { LoginCount = 5, Badges = ["newcomer"] };
-var serverMetadata = metadataManager.Initialize(serverState);
+var serverMetadata = serverMetadataManager.Initialize(serverState);
 var serverDocument = new CrdtDocument<UserStats>(serverState, serverMetadata);
 
 serverApplicator.ApplyPatch(serverDocument, patch);
@@ -164,52 +166,52 @@ This library uses attributes on your POCO properties to determine how to merge c
 
 ## Advanced Usage: Multi-Replica Synchronization
 
-For distributed systems with multiple writers, you need a unique `ICrdtPatcher`, `ICrdtApplicator` and `ICrdtMetadataManager` for each replica. The `ICrdtScopeFactory` allows you to create these. This example shows two replicas modifying the same object concurrently and converging to a consistent state.
+For distributed systems with multiple writers, you need a unique set of services for each replica. The `ICrdtScopeFactory` is the recommended way to create these. This example shows two replicas modifying the same object concurrently and converging to a consistent state.
 
 ```csharp
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Microsoft.Extensions.DependencyInjection;
 
-// 1. Get services from the root DI container
+// 1. Get the scope factory from the root DI container.
 var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-/* This would work for EpochTimestampProvider but SequentialTimestampProvider 
-the sequence number is saved as state in the local replica.
-Best practice is to have all classes scoped per replica to allow stateful instances. */
-var metadataManager = serviceProvider.GetRequiredService<ICrdtMetadataManager>();
 
-// 2. Create scopes and services for each replica
+// 2. Create scopes and resolve services for each replica.
+// All CRDT services (patcher, applicator, metadata manager) must be
+// resolved from a replica-specific scope to be configured correctly.
 using var scopeA = scopeFactory.CreateScope("replica-A");
 var patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
 var applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+var metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
 
 using var scopeB = scopeFactory.CreateScope("replica-B");
 var patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
 var applicatorB = scopeB.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+var metadataManagerB = scopeB.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
 
 // 3. Establish a base state
 var baseState = new UserStats { LastSeenLocation = "Lobby", LoginCount = 10, Badges = ["welcome"] };
-var baseMetadata = metadataManager.Initialize(baseState);
+var baseMetadata = metadataManagerA.Initialize(baseState); // Use any manager for initialization
 
 // 4. Create two replicas from the base state (deep cloning data and metadata)
 var docA = new CrdtDocument<UserStats>(
     new UserStats { LastSeenLocation = "Lobby", LoginCount = 10, Badges = ["welcome"] },
-    metadataManager.Clone(baseMetadata)
+    metadataManagerA.Clone(baseMetadata)
 );
 
 var docB = new CrdtDocument<UserStats>(
     new UserStats { LastSeenLocation = "Lobby", LoginCount = 10, Badges = ["welcome"] },
-    metadataManager.Clone(baseMetadata)
+    metadataManagerB.Clone(baseMetadata)
 );
 
 // 5. Modify both replicas independently
 // Replica A: User logs in again and earns a new badge
-var modifiedAState = docA.Data; // Clone here, use with if you have record
+var modifiedAState = docA.Data; 
 modifiedAState.LoginCount++; // 11
 modifiedAState.Badges.Add("veteran");
 
 // Replica B: User changes location and also logs in
-var modifiedBState = docB.Data; // Clone here, use with if you have record
+var modifiedBState = docB.Data; 
 modifiedBState.LastSeenLocation = "Marketplace";
 modifiedBState.LoginCount++; // 11
 
@@ -240,11 +242,12 @@ applicatorA.ApplyPatch(docA, patchFromB);
 
 ## Serializing and Transmitting Patches
 
-Once a `CrdtPatch` is generated, it needs to be sent to other replicas. This is typically done by serializing the patch to a format like JSON, sending it over a network (e.g., via an API endpoint, a message queue, or a WebSocket), and then deserializing it on the receiving end.
+Once a `CrdtPatch` is generated, it needs to be sent to other replicas. This is typically done by serializing the patch to JSON.
 
-Because `CrdtOperation` contains an `ICrdtTimestamp` interface, you need to use a custom `JsonConverter` that can handle polymorphic serialization. The library provides `CrdtTimestampJsonConverter` for this purpose.
-
-Here’s how to correctly serialize and deserialize a patch:
+The library provides pre-configured `JsonSerializerOptions` for this purpose through the `CrdtJsonContext` class. Using `CrdtJsonContext.DefaultOptions` is the recommended way to serialize patches, as it automatically handles:
+- Polymorphic `ICrdtTimestamp` types.
+- Polymorphic `object` payloads in `CrdtOperation.Value`.
+- Dictionaries with non-string keys.
 
 ```csharp
 using Ama.CRDT.Models;
@@ -254,53 +257,46 @@ using System.Text.Json;
 // Assume 'patch' is the CrdtPatch you generated.
 CrdtPatch patch = ...; 
 
-// 1. Configure JsonSerializerOptions to use the custom converter.
-var serializerOptions = new JsonSerializerOptions
-{
-    Converters = { new CrdtTimestampJsonConverter() }
-};
-
-// 2. Serialize the patch to a JSON string.
-string jsonPayload = JsonSerializer.Serialize(patch, serializerOptions);
+// 1. Serialize the patch to a JSON string using the recommended options.
+string jsonPayload = JsonSerializer.Serialize(patch, CrdtJsonContext.DefaultOptions);
 
 // This 'jsonPayload' can now be sent across the network.
 
 // --- On the receiving replica ---
 
-// 3. Deserialize the JSON string back into a CrdtPatch object.
-CrdtPatch receivedPatch = JsonSerializer.Deserialize<CrdtPatch>(jsonPayload, serializerOptions);
+// 2. Deserialize the JSON string back into a CrdtPatch object.
+CrdtPatch receivedPatch = JsonSerializer.Deserialize<CrdtPatch>(jsonPayload, CrdtJsonContext.DefaultOptions);
 
-// 4. Apply the received patch.
+// 3. Apply the received patch.
 // var applicator = ...;
 // var document = ...;
 // applicator.ApplyPatch(document, receivedPatch);
 ```
-**Important**: If you have created a custom `ICrdtTimestamp` implementation, you must register it with the `CrdtTimestampJsonConverter` so it can be correctly serialized. See the section on "Providing a Custom Timestamp" for details.
+**Important**: If you have created a custom `ICrdtTimestamp` or a custom operation payload type, you must register it with the serialization system. See the section on "Extensibility" for details.
 
 ## Managing Metadata Size
 
-The `CrdtMetadata` object stores the necessary state to resolve conflicts and ensure eventual consistency. Over time, especially in frequently updated documents, this metadata can grow. The library provides tools to help you keep it compact.
+The `CrdtMetadata` object stores the necessary state to resolve conflicts and ensure eventual consistency. Over time, this metadata can grow. The library provides tools to help you keep it compact.
 
 ### Pruning LWW Tombstones
 
-When you remove a property from your object, its corresponding timestamp in the `Lww` metadata dictionary is kept as a "tombstone." This prevents an old version of the document from re-introducing the deleted value. While necessary, these tombstones can accumulate.
-
-You can periodically prune old tombstones using the `ICrdtMetadataManager`. This is a trade-off: you save space, but you increase the risk of an old, offline replica re-introducing a value if it comes back online after the tombstone has been pruned. A common strategy is to prune tombstones older than a reasonable time window (e.g., 30 days).
+When you remove a property, its timestamp in the `Lww` metadata is kept as a "tombstone" to prevent old versions from re-introducing the deleted value. You can periodically prune old tombstones using `ICrdtMetadataManager`.
 
 ```csharp
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Providers;
 
-// 1. Inject the manager and timestamp provider
-// ICrdtMetadataManager metadataManager = ...;
-// ICrdtTimestampProvider timestampProvider = ...;
+// 1. Resolve services from a replica scope
+// var scope = ...;
+// var metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+// var timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
 
 // 2. Assume 'myMetadata' is the CrdtMetadata for a document
-CrdtMetadata myMetadata = ...; // Load the metadata for a document
+CrdtMetadata myMetadata = ...;
 
-// 3. Define a threshold. For example, prune everything older than 30 days.
-// (This example assumes the default EpochTimestamp, which is based on milliseconds)
+// 3. Define a threshold (e.g., prune everything older than 30 days).
+// (This example assumes the default EpochTimestamp, based on milliseconds)
 long thirtyDaysInMillis = 30L * 24 * 60 * 60 * 1000;
 var nowTimestamp = (EpochTimestamp)timestampProvider.Now();
 var thresholdTimestamp = new EpochTimestamp(nowTimestamp.Value - thirtyDaysInMillis);
@@ -314,15 +310,11 @@ metadataManager.PruneLwwTombstones(myMetadata, thresholdTimestamp);
 
 ### Version Vector Compaction
 
-The library uses a version vector (`CrdtMetadata.VersionVector`) and a set of seen exceptions (`SeenExceptions`) to provide idempotency for operations, preventing them from being applied more than once. It is particularly important that you use a continuous timestamp provider (like a sequential or logical clock, check `SequentialTimestampProvider`). The `CrdtApplicator` automatically manages this process for strategies marked with the `[IdempotentWithContinuousTime]` attribute. It checks for seen operations before applying them and advances the version vector afterward, which in turn prunes the `SeenExceptions` set. This keeps the metadata size under control automatically without manual intervention.
+The library uses a version vector (`CrdtMetadata.VersionVector`) and a set of seen exceptions (`SeenExceptions`) to provide idempotency. This process is managed automatically by the `CrdtApplicator` for strategies marked with `[IdempotentWithContinuousTimeAttribute]` when using a continuous timestamp provider (like `SequentialTimestampProvider`), keeping metadata size under control without manual intervention.
 
 ### Serializing Metadata Efficiently
 
-In addition to pruning, it's important to serialize the `CrdtMetadata` object efficiently, especially when storing it as JSON. The metadata object contains many collections for different strategies, and most of them may be empty for any given document. To avoid a bloated JSON output filled with empty arrays and objects, the library provides a custom JSON resolver.
-
-The `CrdtMetadata.JsonResolver` is an `IJsonTypeInfoResolver` that automatically omits any collection property that is empty during serialization. You should also include the `CrdtTimestampJsonConverter` to handle the `ICrdtTimestamp` interfaces stored within the metadata.
-
-Here’s how to serialize and deserialize metadata correctly:
+To avoid bloated JSON output from empty collections in the metadata object, use the pre-configured `CrdtJsonContext.MetadataCompactOptions`. It automatically omits empty collections and handles all necessary custom converters.
 
 ```csharp
 using Ama.CRDT.Models;
@@ -332,31 +324,24 @@ using System.Text.Json;
 // Assume 'metadata' is your CrdtMetadata object.
 CrdtMetadata metadata = ...; 
 
-// 1. Configure JsonSerializerOptions with both the custom resolver and converter.
-var serializerOptions = new JsonSerializerOptions
-{
-    TypeInfoResolver = CrdtMetadata.JsonResolver,
-    Converters = { new CrdtTimestampJsonConverter() }
-};
-
-// 2. Serialize the metadata object.
-string jsonPayload = JsonSerializer.Serialize(metadata, serializerOptions);
+// 1. Serialize using the compact options.
+string jsonPayload = JsonSerializer.Serialize(metadata, CrdtJsonContext.MetadataCompactOptions);
 
 // This 'jsonPayload' is now compact and can be stored or sent.
 
 // --- When reading the metadata back ---
 
-// 3. Deserialize the JSON string using the same options.
-CrdtMetadata deserializedMetadata = JsonSerializer.Deserialize<CrdtMetadata>(jsonPayload, serializerOptions);
+// 2. Deserialize using the same options.
+CrdtMetadata deserializedMetadata = JsonSerializer.Deserialize<CrdtMetadata>(jsonPayload, CrdtJsonContext.MetadataCompactOptions);
 ```
 
 ## Extensibility: Creating Custom Strategies
 
-You can extend the library with your own conflict resolution logic by creating a custom strategy. This involves three steps:
+You can extend the library with your own conflict resolution logic by creating a custom strategy.
 
 #### 1. Create a Custom Attribute
 
-Create an attribute that inherits from `CrdtStrategyAttribute` and passes your strategy's type to the base constructor.
+Create an attribute inheriting from `CrdtStrategyAttribute`.
 
 ```csharp
 public sealed class MyCustomStrategyAttribute() : CrdtStrategyAttribute(typeof(MyCustomStrategy));
@@ -364,28 +349,30 @@ public sealed class MyCustomStrategyAttribute() : CrdtStrategyAttribute(typeof(M
 
 #### 2. Implement `ICrdtStrategy`
 
-Create a class that implements the `ICrdtStrategy` interface.
--   `GeneratePatch`: Contains the logic to compare two versions of a property and create a list of `CrdtOperation`s.
--   `ApplyOperation`: Contains the logic to apply a single operation to the POCO.
+Create a class that implements `ICrdtStrategy`, using the context objects for parameters.
 
 ```csharp
+using Ama.CRDT.Services.Strategies;
+
 public sealed class MyCustomStrategy : ICrdtStrategy
 {
-    public void GeneratePatch([DisallowNull] ICrdtPatcher patcher, [DisallowNull] List<CrdtOperation> operations, [DisallowNull] string path, [DisallowNull] PropertyInfo property, object? originalValue, object? modifiedValue, object? originalRoot, object? modifiedRoot, [DisallowNull] CrdtMetadata originalMeta, [DisallowNull] CrdtMetadata modifiedMeta)
+    public void GeneratePatch(GeneratePatchContext context)
     {
         // Add custom diffing logic here
+        // var (patcher, operations, path, ...) = context;
     }
 
-    public void ApplyOperation([DisallowNull] object root, [DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
+    public void ApplyOperation(ApplyOperationContext context)
     {
         // Add custom application logic here
+        // var (root, metadata, operation) = context;
     }
 }
 ```
 
 #### 3. Register in the DI Container
 
-In `Program.cs`, register your new strategy with a scoped lifetime and also register it as an `ICrdtStrategy` so the `CrdtStrategyProvider` can find it.
+Register your new strategy with a scoped lifetime.
 
 ```csharp
 // In Program.cs
@@ -403,181 +390,132 @@ You can now use `[MyCustomStrategy]` on your POCO properties.
 
 ## Advanced Extensibility
 
-Beyond creating custom strategies, you can also customize other core components of the library, such as array element comparison and timestamp generation.
-
 ### Customizing Array Element Comparison
 
-The `CrdtArrayLcsStrategy` and other collection-based strategies use a deep equality comparison to identify elements in a collection. This works for simple types and objects, but it's often more efficient or correct to identify complex objects by a unique property, like an `Id`.
-
-To solve this, you can implement the `IElementComparer` interface to provide type-specific comparison logic. The strategy manager will automatically find and use your custom comparer for the specified type.
+By default, collection strategies use deep equality. To identify complex objects by a unique property (like an `Id`), implement `IElementComparer`.
 
 #### 1. Implement `IElementComparer`
 
-Create a class that implements `IElementComparer`. `CanCompare` tells the system which object type this comparer handles, and `Equals`/`GetHashCode` define the comparison logic.
-
-**Example:** Imagine a list of `User` objects that should be uniquely identified by their `Id` property.
-
-_Models/User.cs_
-```csharp
-public class User
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; }
-}
-```
+**Example:** A comparer for `User` objects that uses the `Id` property.
 
 _Services/UserComparer.cs_
 ```csharp
 using Ama.CRDT.Services.Providers;
 using System.Diagnostics.CodeAnalysis;
-
-// Assuming User model is in this namespace
 using YourApp.Models; 
 
 public class UserComparer : IElementComparer
 {
-    public bool CanCompare(Type type)
-    {
-        // This comparer is responsible for User objects
-        return type == typeof(User);
-    }
+    public bool CanCompare(Type type) => type == typeof(User);
 
-    public bool Equals(object? x, object? y)
+    public new bool Equals(object? x, object? y)
     {
-        if (x is not User userX || y is not User userY)
+        if (x is User userX && y is User userY)
         {
-            return object.Equals(x, y);
+            return userX.Id == userY.Id;
         }
-        // Uniquely identify users by their Id
-        return userX.Id == userY.Id;
+        return object.Equals(x, y);
     }
 
     public int GetHashCode([DisallowNull] object obj)
     {
-        if (obj is User user)
-        {
-            return user.Id.GetHashCode();
-        }
-        return obj.GetHashCode();
+        return (obj is User user) ? user.Id.GetHashCode() : obj.GetHashCode();
     }
 }
 ```
 
 #### 2. Register the Comparer
 
-Use the `AddCrdtComparer<TComparer>()` extension method in your service configuration to register your implementation.
+Use the `AddCrdtComparer<TComparer>()` extension method.
 
 ```csharp
 // In Program.cs
 builder.Services.AddCrdt();
-
-// Register the custom comparer
 builder.Services.AddCrdtComparer<UserComparer>();
 ```
 
-Now, whenever `CrdtArrayLcsStrategy` or `CrdtSortedSetStrategy` processes a `List<User>`, it will use `UserComparer` to correctly identify and diff the elements.
-
 ### Providing a Custom Timestamp
 
-By default, the library uses a timestamp based on `DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()`. While this is suitable for many scenarios, you may need to integrate a different time source or use a logical clock (like a Lamport timestamp or a version vector clock).
-
-You can replace the default timestamping mechanism by implementing `ICrdtTimestampProvider` and registering it.
+You can replace the default timestamping mechanism by implementing `ICrdtTimestampProvider`.
 
 #### 1. Implement `ICrdtTimestampProvider`
 
-Your custom provider must return an object that implements `ICrdtTimestamp`. The timestamp object itself must be comparable.
-Note that this will be instantiated _per scope_ so the state will be per replica.
+The provider must be thread-safe if used concurrently and should be registered with a scoped lifetime.
 
 ```csharp
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Models;
 using System.Threading;
 
-// A simple logical clock timestamp provider for demonstration.
 public sealed class LogicalClockProvider : ICrdtTimestampProvider
 {
     private long counter = 0;
-
-    // This clock is continuous and sequential.
     public bool IsContinuous => true;
 
-    public ICrdtTimestamp Now()
-    {
-        long timestamp = Interlocked.Increment(ref counter);
-        // We can reuse an existing timestamp implementation like SequentialTimestamp.
-        return new SequentialTimestamp(timestamp);
-    }
-
+    public ICrdtTimestamp Now() => new SequentialTimestamp(Interlocked.Increment(ref counter));
     public ICrdtTimestamp Init() => new SequentialTimestamp(0);
-
     public ICrdtTimestamp Create(long value) => new SequentialTimestamp(value);
 
     public IEnumerable<ICrdtTimestamp> IterateBetween(ICrdtTimestamp start, ICrdtTimestamp end)
     {
-        if (start is not SequentialTimestamp s || end is not SequentialTimestamp e)
-        {
-            yield break;
-        }
-
-        for (var i = s.Value + 1; i < e.Value; i++)
-        {
-            yield return new SequentialTimestamp(i);
-        }
+        if (start is not SequentialTimestamp s || end is not SequentialTimestamp e) yield break;
+        for (var i = s.Value + 1; i < e.Value; i++) yield return new SequentialTimestamp(i);
     }
 }
 ```
 
 #### 2. Register the Provider
 
-Use the `AddCrdtTimestampProvider<TProvider>()` extension method to replace the default provider.
+Use `AddCrdtTimestampProvider<TProvider>()` to replace the default.
 
 ```csharp
 // In Program.cs
 builder.Services.AddCrdt();
-
-// Replace the default provider with your custom one
 builder.Services.AddCrdtTimestampProvider<LogicalClockProvider>();
 ```
 
-#### 3. Register the Timestamp Type for Serialization
+#### 3. Register a Custom Timestamp Type for Serialization
 
-If you create a custom struct or class that implements `ICrdtTimestamp` (instead of reusing `EpochTimestamp` or `SequentialTimestamp`), you **must** register it with the serialization system. This allows the `CrdtTimestampJsonConverter` to correctly serialize and deserialize your custom type when it's part of a `CrdtPatch`.
+If you create your own `ICrdtTimestamp` implementation, you **must** register it for serialization.
 
-Use the `AddCrdtTimestampType<TTimestamp>()` extension method to do this.
-
-**Example**: Let's create a custom `VectorClockTimestamp`.
+**Example**: A custom `VectorClockTimestamp`.
 
 _Models/VectorClockTimestamp.cs_
 ```csharp
-// A simple, illustrative vector clock. A real implementation would be more complex.
 public readonly record struct VectorClockTimestamp(long Ticks) : ICrdtTimestamp
 {
-    public int CompareTo(ICrdtTimestamp other) => Ticks.CompareTo(other.ToInt64());
-    public long ToInt64() => Ticks;
+    public int CompareTo(ICrdtTimestamp? other)
+    {
+        if (other is null) return 1;
+
+        if (other is not VectorClockTimestamp otherClock)
+        {
+            throw new ArgumentException("Cannot compare VectorClockTimestamp to other timestamp types.");
+        }
+        
+        return Ticks.CompareTo(otherClock.Ticks);
+    }
 }
 ```
 
 _In Program.cs_
 ```csharp
-// In your DI setup:
 builder.Services.AddCrdt();
-
-// Assume VectorClockProvider is your custom provider that returns VectorClockTimestamp
 builder.Services.AddCrdtTimestampProvider<VectorClockProvider>(); 
 
 // Register the custom timestamp type with a unique discriminator string.
 builder.Services.AddCrdtTimestampType<VectorClockTimestamp>("vector-clock");
 ```
 
-Now, when a patch containing a `VectorClockTimestamp` is serialized, the JSON will include a `"$type": "vector-clock"` discriminator, ensuring it can be correctly deserialized on other replicas.
+Now, when a patch with a `VectorClockTimestamp` is serialized, the JSON will include a `"$type": "vector-clock"` discriminator.
 
 ## How It Works
 
--   **`ICrdtScopeFactory`**: A singleton factory for creating isolated `IServiceScope` instances. Each scope is configured for a specific `ReplicaId` and provides its own set of scoped services (`ICrdtPatcher`, `ICrdtApplicator`). This is the primary entry point for working with multiple replicas.
--   **`ICrdtPatcher`**: A scoped service that takes two `CrdtDocument<T>` objects (`from` and `to`) and generates a `CrdtPatch`. It is configured with a `ReplicaId` from its scope. It recursively compares the POCOs, using the `ICrdtStrategyProvider` to find the correct strategy for each property. It also updates the `to` document's metadata with new timestamps for any changed values.
--   **`ICrdtApplicator`**: A scoped service that takes a `CrdtDocument<T>` and a `CrdtPatch`. It processes each operation in the patch. It uses the `ICrdtStrategyProvider` to find the correct strategy to modify the POCO and its metadata. It also handles idempotency checks using version vectors for supported strategies.
--   **`ICrdtStrategyProvider`**: A service that inspects a property's attributes (e.g., `[CrdtCounterStrategy]`) to resolve and return the appropriate `ICrdtStrategy` implementation from the DI container. It provides default strategies (LWW for simple types, ArrayLcs for collections) if no attribute is present.
--   **`ICrdtMetadataManager`**: A helper service for managing the `CrdtMetadata` object. It can initialize metadata from a POCO, compact it to save space, and perform other state management tasks.
+-   **`ICrdtScopeFactory`**: A singleton factory for creating isolated `IServiceScope` instances. Each scope is configured for a specific `ReplicaId` and provides its own set of scoped services. This is the primary entry point for working with multiple replicas.
+-   **`ICrdtPatcher`**: A scoped service that generates a `CrdtPatch` by comparing two versions of a document. It is a stateless service that only reads the `from` document's metadata to understand the state before the change. It uses the `ICrdtStrategyProvider` to find the correct strategy for each property.
+-   **`ICrdtApplicator`**: A scoped service that applies a `CrdtPatch` to a document. It uses the `ICrdtStrategyProvider` to find the correct strategy to modify the POCO and its metadata. It also handles idempotency checks using version vectors for supported strategies.
+-   **`ICrdtStrategyProvider`**: A service that inspects a property's attributes (e.g., `[CrdtCounterStrategy]`) to resolve the appropriate `ICrdtStrategy` from the DI container. It provides default strategies (LWW for simple types, ArrayLcs for collections) if no attribute is present.
+-   **`ICrdtMetadataManager`**: A scoped helper service for managing the `CrdtMetadata` object. It can initialize metadata from a POCO, compact it to save space, and perform other state management tasks.
 
 ## Building and Testing
 

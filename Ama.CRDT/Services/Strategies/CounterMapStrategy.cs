@@ -81,7 +81,7 @@ public sealed class CounterMapStrategy(
         
         if (!metadata.CounterMaps.TryGetValue(operation.JsonPath, out var counters))
         {
-            counters = new Dictionary<object, (decimal P, decimal N)>(comparer);
+            counters = new Dictionary<object, PnCounterState>(comparer);
             metadata.CounterMaps[operation.JsonPath] = counters;
         }
 
@@ -95,18 +95,18 @@ public sealed class CounterMapStrategy(
 
         if (!counters.TryGetValue(itemKey, out var counter))
         {
-            counter = (P: 0, N: 0);
+            counter = new PnCounterState(0, 0);
         }
         
         var delta = Convert.ToDecimal(payload.Value ?? 0, CultureInfo.InvariantCulture);
 
         if (delta > 0)
         {
-            counter.P += delta;
+            counter = counter with { P = counter.P + delta };
         }
         else
         {
-            counter.N -= delta;
+            counter = counter with { N = counter.N - delta };
         }
 
         counters[itemKey] = counter;

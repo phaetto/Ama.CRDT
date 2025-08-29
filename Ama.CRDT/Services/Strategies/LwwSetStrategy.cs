@@ -70,7 +70,7 @@ public sealed class LwwSetStrategy(
             {
                 adds[item] = timestampProvider.Create(0);
             }
-            state = (adds, new Dictionary<object, ICrdtTimestamp>(comparer));
+            state = new LwwSetState(adds, new Dictionary<object, ICrdtTimestamp>(comparer));
             metadata.LwwSets[operation.JsonPath] = state;
         }
 
