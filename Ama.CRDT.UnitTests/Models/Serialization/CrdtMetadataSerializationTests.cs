@@ -4,11 +4,9 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization;
 using Shouldly;
 using System.Collections.Immutable;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Xunit;
-using static Ama.CRDT.Models.CrdtGraph;
 
 public sealed class CrdtMetadataSerializationTests
 {

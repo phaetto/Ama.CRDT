@@ -1,6 +1,9 @@
 using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.Partitioning.Serialization;
+using Ama.CRDT.Services.Partitioning.Strategies;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
@@ -69,6 +72,13 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped(CreateValidatedInstance<CrdtMetadataManager>);
         services.TryAddScoped<ICrdtMetadataManager>(sp => sp.GetRequiredService<CrdtMetadataManager>());
 
+        // Register Partitioning services
+        services.TryAddScoped(typeof(IPartitionManager<>), typeof(PartitionManager<>));
+        services.TryAddScoped(CreateValidatedInstance<BPlusTreePartitioningStrategy>);
+        services.TryAddScoped<IPartitioningStrategy>(sp => sp.GetRequiredService<BPlusTreePartitioningStrategy>());
+        services.TryAddScoped(CreateValidatedInstance<IndexDefaultSerializationHelper>);
+        services.TryAddScoped<IIndexSerializationHelper>(sp => sp.GetRequiredService<IndexDefaultSerializationHelper>());
+
         // Register the default timestamp provider with validation.
         // This can be overridden by AddCrdtTimestampProvider.
         services.TryAddScoped(CreateValidatedInstance<SequentialTimestampProvider>);
@@ -132,6 +142,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICrdtStrategy, GraphStrategy>(sp => sp.GetRequiredService<GraphStrategy>());
         services.AddScoped<ICrdtStrategy, TwoPhaseGraphStrategy>(sp => sp.GetRequiredService<TwoPhaseGraphStrategy>());
         services.AddScoped<ICrdtStrategy, ReplicatedTreeStrategy>(sp => sp.GetRequiredService<ReplicatedTreeStrategy>());
+
+        // Register partitionable strategies.
+        services.AddScoped<IPartitionableCrdtStrategy, OrMapStrategy>(sp => sp.GetRequiredService<OrMapStrategy>());
 
         return services;
     }
