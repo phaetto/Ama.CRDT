@@ -80,20 +80,6 @@ Unit tests for all affected collection and map strategies will be heavily expand
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.
 --->
-1.  **Solution 1: (Chosen) Opt-In Composition via Attribute.**
-    *   **Description:** Introduce a new `CrdtComposeAttribute`. Modify ordered collection and map strategies to check for this attribute on the property they are handling. If the attribute is present, they perform a recursive `DifferentiateObject` call on matched elements/values. If it is absent, they retain the current, more performant logic.
-    *   **Pros:** Fully backward compatible. Provides developers with explicit control over performance. The intent is clear in the data model definition.
-    *   **Cons:** Requires developers to be aware of and remember to use the new attribute to enable the feature.
-
-2.  **Solution 2: (Rejected) Composition by Default.**
-    *   **Description:** Change the default behavior of all affected strategies to always perform recursive diffing.
-    *   **Pros:** Simpler implementation.
-    *   **Cons:** Significant and potentially breaking performance change. Collections of simple types or simple key-value pairs would incur unnecessary overhead.
-
-3.  **Solution 3: (Rejected) Introduce New, Separate Composable Strategies.**
-    *   **Description:** Create new classes like `ComposableArrayLcsStrategy`, `ComposableLwwMapStrategy`, etc.
-    *   **Pros:** Avoids modifying existing classes.
-    *   **Cons:** Leads to a proliferation of strategy classes, which is confusing. Composition is a *behavioral mode*, not a new strategy type.
 
 <!---AI - Stage 1--->
 # Proposed Techical Steps
@@ -101,23 +87,6 @@ Add the solutions that you rejected as well.
 Here you should append the tasks that you probably need to do.
 An example would be like what files you need to create and what functionality those files would have.
 --->
-1.  **Create `CrdtComposeAttribute.cs`:**
-    *   **File Path:** `$/Ama.CRDT/Attributes/CrdtComposeAttribute.cs`
-    *   **Functionality:** A simple `Attribute` class with `AttributeUsage` set to `AttributeTargets.Property`.
-2.  **Update `ArrayLcsStrategy.cs` and `SortedSetStrategy.cs`:**
-    *   In `GeneratePatch`, check for `property.GetCustomAttribute<CrdtComposeAttribute>()`.
-    *   If present, for each `Match` entry from the diff, call `patcher.DifferentiateObject` with the correct indexed path (e.g., `_...__{path}[{originalIndex}]_..._`).
-3.  **Update `LwwMapStrategy.cs` and `OrMapStrategy.cs`:**
-    *   In `GeneratePatch`, check for `property.GetCustomAttribute<CrdtComposeAttribute>()`.
-    *   If present, when iterating through common keys, call `patcher.DifferentiateObject` on the value pair with the correct key-based path (e.g., `_...__{path}.['{key}']_..._`).
-    *   If absent, retain the existing logic of issuing a single `Upsert` for the whole KVP if the values are unequal.
-4.  **Update All Corresponding Test Files:**
-    *   Create new test models and, where necessary, custom `IElementComparer` implementations.
-    *   Write new unit tests covering all scenarios in the "Testing Methodology" section for both collections and maps.
-    *   Ensure all regression tests pass.
-5.  **Update Project Documentation (`FilesDescription.md`, `README.md`):**
-    *   Document the new `CrdtComposeAttribute.cs` file.
-    *   Add a comprehensive section to the `README.md` on "Compositional Strategies", explaining how to use `[CrdtCompose]` for both collections and maps, including the critical importance of providing a key-based `IElementComparer` for collections of complex objects.
 
 <!---AI - Stage 1--->
 # Proposed Files Needed
@@ -129,16 +98,6 @@ Format this list in the following way:
 With each file in one line.
 Remember to ask to load any unit tests if they are related to any files you will want to change.
 --->
--   `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` (Implementation file to be modified.)
--   `$/Ama.CRDT/Services/Strategies/SortedSetStrategy.cs` (Implementation file to be modified.)
--   `$/Ama.CRDT/Services/Strategies/LwwMapStrategy.cs` (Implementation file to be modified.)
--   `$/Ama.CRDT/Services/Strategies/OrMapStrategy.cs` (Implementation file to be modified.)
--   `$/Ama.CRDT/Services/ICrdtPatcher.cs` (To reference the `DifferentiateObject` interface.)
--   `$/Ama.CRDT/Services/Strategies/ICrdtStrategy.cs` (To reference the `GeneratePatch` method signature.)
--   `$/Ama.CRDT.UnitTests/Services/Strategies/ArrayLcsStrategyTests.cs` (Unit test file to be updated.)
--   `$/Ama.CRDT.UnitTests/Services/Strategies/SortedSetStrategyTests.cs` (Unit test file to be updated.)
--   `$/Ama.CRDT.UnitTests/Services/Strategies/LwwMapStrategyTests.cs` (Unit test file to be updated.)
--   `$/Ama.CRDT.UnitTests/Services/Strategies/OrMapStrategyTests.cs` (Unit test file to be updated.)
 
 <!---AI - Stage 2--->
 # Changes Done

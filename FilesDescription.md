@@ -37,6 +37,10 @@
 | `$/Ama.CRDT.UnitTests/Services/CrdtPatcherTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/Models.cs` | Contains simple data models for unit testing path conversion and resolution helpers. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs, and testing new centralized reflection helpers for getting/setting values and retrieving type information. |
+| `$/Ama.CRDT.UnitTests/Services/Partitioning/BPlusTreePartitioningStrategyTests.cs` | Contains unit tests for `BPlusTreePartitioningStrategy`, verifying initialization, partition finding, and B+ Tree node splitting logic under insertions. |
+| `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitioningInfrastructureTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionManagerTests.cs` | Contains unit tests for `PartitionManager` and `BPlusTreePartitioningStrategy`, verifying initialization, patch application, and partition splitting logic. |
+| `$/Ama.CRDT.UnitTests/Services/Partitioning/Serialization/IndexDefaultSerializationHelperTests.cs` | Contains unit tests for the `IndexDefaultSerializationHelper`, verifying that B+ Tree headers and nodes (with various key types) are correctly serialized to and deserialized from a stream. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/ArrayLcsStrategyTests.cs` | Contains unit tests for `ArrayLcsStrategy`, focusing on convergence properties under concurrent operations. This file includes a test that specifically reproduces a known bug related to the non-commutative application of array insertion patches. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/AverageRegisterStrategyTests.cs` | Contains unit tests for the `AverageRegisterStrategy`, verifying convergence, idempotence, and commutativity. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/BoundedCounterStrategyTests.cs` | Contains unit tests for the `BoundedCounterStrategy`, verifying that values are correctly clamped within their defined bounds. |
@@ -110,17 +114,27 @@
 | `$/Ama.CRDT/Models/CrdtOperation.cs` | Represents a single CRDT operation. For serialization, use the recommended options from `CrdtJsonContext`. |
 | `$/Ama.CRDT/Models/CrdtPatch.cs` | Encapsulates a list of CRDT operations that represent the difference between two JSON documents. |
 | `$/Ama.CRDT/Models/CrdtTree.cs` | A data model for a tree data structure with nodes that can be added, removed, and moved, suitable for CRDT management. |
+| `$/Ama.CRDT/Models/Edge.cs` | No description provided. |
 | `$/Ama.CRDT/Models/EpochTimestamp.cs` | A default, backward-compatible implementation of `ICrdtTimestamp` that wraps a `long` value representing Unix milliseconds. |
 | `$/Ama.CRDT/Models/ExclusiveLockPayload.cs` | A data structure for the payload of an Exclusive Lock operation, containing the property value and the lock holder's ID. |
 | `$/Ama.CRDT/Models/GraphEdgePayload.cs` | A data structure for the payload of a graph edge operation. |
 | `$/Ama.CRDT/Models/GraphVertexPayload.cs` | A data structure for the payload of a graph vertex operation. |
 | `$/Ama.CRDT/Models/ICrdtTimestamp.cs` | Represents a logical point in time for a CRDT operation, allowing for different timestamping mechanisms. |
+| `$/Ama.CRDT/Models/LockInfo.cs` | No description provided. |
 | `$/Ama.CRDT/Models/LseqIdentifier.cs` | A record struct for the dense, ordered identifier used in LSEQ, composed of a path of `LseqPathSegment` instances. |
 | `$/Ama.CRDT/Models/LseqItem.cs` | A record struct that pairs an LseqIdentifier with its corresponding value in the LSEQ metadata. |
 | `$/Ama.CRDT/Models/LseqPathSegment.cs` | Represents a single, serializable segment in an LSEQ identifier's path, containing a position and a replica ID. |
+| `$/Ama.CRDT/Models/LwwSetState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/OperationType.cs` | Defines the types of operations (Upsert, Remove, Increment, Move) for a CRDT patch. |
 | `$/Ama.CRDT/Models/OrMapItem.cs` | Contains payload record structs (`OrMapAddItem`, `OrMapRemoveItem`) for OR-Map (Observed-Remove Map) operations, bundling keys and values with unique tags. |
 | `$/Ama.CRDT/Models/OrSetItem.cs` | Contains payload record structs (`OrSetAddItem`, `OrSetRemoveItem`) for OR-Set (Observed-Remove Set) operations, bundling values with unique tags. |
+| `$/Ama.CRDT/Models/OrSetState.cs` | No description provided. |
+| `$/Ama.CRDT/Models/Partitioning/BPlusTreeNode.cs` | Represents a node in the B+ Tree index, containing keys and either child offsets (for internal nodes) or partition data (for leaf nodes). |
+| `$/Ama.CRDT/Models/Partitioning/BTreeHeader.cs` | Represents the header of the B+ Tree index file, storing metadata like the root node offset and degree of the tree. |
+| `$/Ama.CRDT/Models/Partitioning/Partition.cs` | A data structure representing a partition in a partitioned data store. |
+| `$/Ama.CRDT/Models/Partitioning/PartitionContent.cs` | A data structure representing the data and metadata content of a single partition. |
+| `$/Ama.CRDT/Models/Partitioning/SplitResult.cs` | A data structure representing the result of a partition split operation, containing the content for the two new partitions and the key that divides them. |
+| `$/Ama.CRDT/Models/PnCounterState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
 | `$/Ama.CRDT/Models/SequentialTimestamp.cs` | An implementation of `ICrdtTimestamp` that wraps a simple sequential `long` value, intended for testing. |
@@ -133,7 +147,10 @@
 | `$/Ama.CRDT/Models/Serialization/CrdtTimestampJsonConverter.cs` | Provides a custom `JsonConverter` for `ICrdtTimestamp` to handle polymorphic serialization and deserialization by embedding a type discriminator. |
 | `$/Ama.CRDT/Models/TreeAddNodePayload.cs` | A data structure for the payload of a tree 'add' operation. |
 | `$/Ama.CRDT/Models/TreeMoveNodePayload.cs` | A data structure for the payload of a tree 'move' operation. |
+| `$/Ama.CRDT/Models/TreeNode.cs` | No description provided. |
 | `$/Ama.CRDT/Models/TreeRemoveNodePayload.cs` | A data structure for the payload of a tree 'remove' operation. |
+| `$/Ama.CRDT/Models/TwoPhaseGraphState.cs` | No description provided. |
+| `$/Ama.CRDT/Models/TwoPhaseSetState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/VotePayload.cs` | A data structure for the payload of a vote operation, containing the voter's identifier and their chosen option. |
 | `$/Ama.CRDT/PublicAPI.Shipped.txt` | Tracks the shipped public API surface of the library to detect breaking changes. This file should be updated when new APIs are officially released in a stable version. |
 | `$/Ama.CRDT/PublicAPI.Unshipped.txt` | Tracks new public APIs that have not yet been included in a stable release. This file must be empty before a manual, stable publish. Build will fail if new public APIs are added without being added to this file first. |
@@ -147,6 +164,13 @@
 | `$/Ama.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing CRDT metadata. Responsibilities include initializing or resetting metadata by traversing a document to create LWW timestamps and array positional trackers, pruning old tombstones to control state growth, and advancing version vectors. |
 | `$/Ama.CRDT/Services/ICrdtPatcher.cs` | Defines the contract for a service that compares two versions of a data model and generates a CRDT patch. |
 | `$/Ama.CRDT/Services/ICrdtScopeFactory.cs` | Defines the contract for a factory that creates isolated `IServiceScope` instances for CRDT replicas, each configured with a unique replica ID. |
+| `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning, enabling them to split and merge their associated metadata over larger-than-memory data structures. |
+| `$/Ama.CRDT/Services/Partitioning/IPartitioningStrategy.cs` | No description provided. |
+| `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` | Defines the contract for managing a CRDT document that is partitioned across one or more streams, allowing it to scale beyond available memory. |
+| `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a CRDT document that is partitioned, allowing it to scale beyond available memory by storing data and an index in streams. |
+| `$/Ama.CRDT/Services/Partitioning/Serialization/IIndexSerializationHelper.cs` | Defines the contract for serializing and deserializing B+ Tree index components (headers and nodes) to and from a stream. |
+| `$/Ama.CRDT/Services/Partitioning/Serialization/IndexDefaultSerializationHelper.cs` | The default implementation of `IIndexSerializationHelper`, using System.Text.Json for serialization. |
+| `$/Ama.CRDT/Services/Partitioning/Strategies/BPlusTreePartitioningStrategy.cs` | An implementation of `IPartitioningStrategy` that uses a B+ Tree to index partitions based on their start key. |
 | `$/Ama.CRDT/Services/Providers/CrdtStrategyProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/ElementComparerProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `EpochTimestamp` based on Unix milliseconds. |
@@ -228,4 +252,5 @@
 | `$/Specs/done/make-the-api-surface-better.md` | No description provided. |
 | `$/Specs/done/publish-as-a-nuget-package.md` | No description provided. |
 | `$/Specs/done/readme-update-2025-08-24.md` | No description provided. |
+| `$/Specs/introduce-partitioning-for-larger-than-memory-data.md` | No description provided. |
 | `$/Specs/make-crdt-strategies-composable.md` | No description provided. |

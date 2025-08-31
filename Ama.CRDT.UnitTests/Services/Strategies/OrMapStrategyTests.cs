@@ -11,6 +11,7 @@ using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 public sealed class OrMapStrategyTests
@@ -127,7 +128,7 @@ public sealed class OrMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.Lww["$.map.['a']"] = timestampProvider.Create(10);
+        doc.Metadata.Lww["$.map['a']"] = timestampProvider.Create(10);
         
         var olderUpdate = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("a", 0, Guid.NewGuid()), timestampProvider.Create(5));
         var newerUpdate = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("a", 2, Guid.NewGuid()), timestampProvider.Create(15));
@@ -140,6 +141,72 @@ public sealed class OrMapStrategyTests
 
         // Assert
         doc.Data.Map["a"].ShouldBe(2);
+    }
+    
+    [Fact]
+    public void Split_ShouldCorrectlyDivideDataAndMetadata()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
+
+        var originalDoc = CreateDocument(new Dictionary<string, int>
+        {
+            { "a", 1 }, { "b", 2 }, { "c", 3 }, { "d", 4 }, { "e", 5 }
+        });
+        originalDoc.Metadata.Lww["$.map['a']"] = timestampProvider.Create(1);
+        originalDoc.Metadata.Lww["$.map['d']"] = timestampProvider.Create(1);
+
+        // Act
+        var result = strategy.Split(originalDoc.Data, originalDoc.Metadata, typeof(TestModel));
+
+        // Assert
+        var doc1 = result.Partition1.Data as TestModel;
+        var doc2 = result.Partition2.Data as TestModel;
+        var meta1 = result.Partition1.Metadata;
+        var meta2 = result.Partition2.Metadata;
+        
+        doc1.ShouldNotBeNull();
+        doc2.ShouldNotBeNull();
+        result.SplitKey.ShouldBe("c");
+
+        doc1.Map.Keys.OrderBy(k => k).ShouldBe(new[] { "a", "b" });
+        doc2.Map.Keys.OrderBy(k => k).ShouldBe(new[] { "c", "d", "e" });
+
+        meta1.Lww.ShouldContainKey("$.map['a']");
+        meta2.Lww.ShouldContainKey("$.map['d']");
+        meta1.OrMaps["$.map"].Adds.Count.ShouldBe(5);
+        meta2.OrMaps["$.map"].Adds.Count.ShouldBe(5);
+    }
+    
+    [Fact]
+    public void Merge_ShouldCorrectlyCombineDataAndMetadata()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
+
+        var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "b", 2 } });
+        doc1.Metadata.Lww["$.map['b']"] = timestampProvider.Create(10);
+        
+        var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "b", 0 } }); // Conflict on "b"
+        doc2.Metadata.Lww["$.map['b']"] = timestampProvider.Create(5); // Older timestamp
+
+        // Act
+        var result = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, typeof(TestModel));
+
+        // Assert
+        var mergedDoc = result.Data as TestModel;
+        var mergedMeta = result.Metadata;
+        mergedDoc.ShouldNotBeNull();
+
+        mergedDoc.Map.Keys.OrderBy(k => k).ShouldBe(new[] { "a", "b", "c" });
+        mergedDoc.Map["a"].ShouldBe(1);
+        mergedDoc.Map["b"].ShouldBe(2); // From doc1, as it has the higher LWW value
+        mergedDoc.Map["c"].ShouldBe(3);
+
+        mergedMeta.OrMaps["$.map"].Adds.Count.ShouldBe(3);
+        mergedMeta.Lww["$.map['b']"].ShouldBe(timestampProvider.Create(10));
     }
 
     private sealed class TestModel

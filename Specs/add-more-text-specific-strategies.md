@@ -40,7 +40,7 @@ Unit tests will be created for each new strategy to ensure they correctly genera
 The tests have to contain idepontence, commutativity and assosiativity.
 
 <!---AI - Stage 1--->
-# Proposed Solutions [AI - Stage 1]
+# Proposed Solutions
 <!---
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.

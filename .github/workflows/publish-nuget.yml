@@ -7,7 +7,7 @@ on:
 
 env:
   MAJOR_VERSION: 1
-  MINOR_VERSION: 0
+  MINOR_VERSION: 1
   SOLUTION_FILE: 'Ama.CRDT.sln'
   PROJECT_PATH: 'Ama.CRDT/Ama.CRDT.csproj'
   PACKAGE_OUTPUT_DIRECTORY: '${{ github.workspace }}/nuget'
