@@ -50,7 +50,7 @@ public static class ServiceCollectionExtensions
         
         // This factory is the entry point for creating replica-specific scopes.
         // It does not require validation itself.
-        services.TryAddScoped<ICrdtScopeFactory, CrdtScopeFactory>();
+        services.TryAddSingleton<ICrdtScopeFactory, CrdtScopeFactory>();
         
         // Register core services with a factory that validates the scope.
         // This prevents resolving them from a non-replica scope (e.g., root container, ASP.NET request scope).
