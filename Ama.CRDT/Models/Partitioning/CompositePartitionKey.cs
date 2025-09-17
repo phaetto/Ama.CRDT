@@ -12,7 +12,7 @@ public readonly record struct CompositePartitionKey(object LogicalKey, object? R
     /// <inheritdoc/>
     public int CompareTo(CompositePartitionKey other)
     {
-        var logicalKeyCompare = Comparer<object>.Default.Compare(LogicalKey, other.LogicalKey);
+        var logicalKeyCompare = CompareKeys(LogicalKey, other.LogicalKey);
         if (logicalKeyCompare != 0)
         {
             return logicalKeyCompare;
@@ -23,7 +23,7 @@ public readonly record struct CompositePartitionKey(object LogicalKey, object? R
         if (RangeKey is null) return -1;
         if (other.RangeKey is null) return 1;
 
-        return Comparer<object>.Default.Compare(RangeKey, other.RangeKey);
+        return CompareKeys(RangeKey, other.RangeKey);
     }
 
     /// <inheritdoc/>
@@ -41,5 +41,29 @@ public readonly record struct CompositePartitionKey(object LogicalKey, object? R
     public override string ToString()
     {
         return $"({LogicalKey}, {RangeKey ?? "null"})";
+    }
+
+    private static int CompareKeys(object? key1, object? key2)
+    {
+        if (key1 is null && key2 is null) return 0;
+        if (key1 is null) return -1;
+        if (key2 is null) return 1;
+
+        if (key1 is IComparable comp1)
+        {
+            try
+            {
+                // Use the built-in comparison if the types are compatible.
+                return comp1.CompareTo(key2);
+            }
+            catch (ArgumentException)
+            {
+                // The types might not be directly comparable (e.g., int to PositionalIdentifier).
+                // Fallback to string comparison.
+            }
+        }
+        
+        // Fallback to string comparison for non-comparable types or if CompareTo throws.
+        return string.Compare(key1.ToString(), key2.ToString(), StringComparison.Ordinal);
     }
 }

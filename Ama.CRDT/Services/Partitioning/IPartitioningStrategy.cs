@@ -20,35 +20,33 @@ public interface IPartitioningStrategy
     /// Finds a partition that contains a specific key.
     /// </summary>
     /// <param name="key">The composite key to find within the partitions.</param>
-    /// <returns>A task that represents the asynchronous find operation. The task result contains the <see cref="Partition"/> if found; otherwise, null.</returns>
-    Task<Partition?> FindPartitionAsync(CompositePartitionKey key);
+    /// <returns>A task that represents the asynchronous find operation. The task result contains the <see cref="IPartition"/> if found; otherwise, null.</returns>
+    Task<IPartition?> FindPartitionAsync(CompositePartitionKey key);
 
     /// <summary>
-    /// Inserts a new partition into the index. The <see cref="Partition.StartKey"/> must be a <see cref="CompositePartitionKey"/>.
+    /// Inserts a new partition into the index. The key for indexing is determined by the partition type.
     /// </summary>
     /// <param name="partition">The partition to add.</param>
     /// <returns>A task that represents the asynchronous insertion operation.</returns>
-    Task InsertPartitionAsync(Partition partition);
+    Task InsertPartitionAsync(IPartition partition);
 
     /// <summary>
-    /// Updates an existing partition in the index. The partition is identified by its <see cref="Partition.StartKey"/>.
-    /// The <see cref="Partition.StartKey"/> of the provided partition must match an existing entry and must be a <see cref="CompositePartitionKey"/>.
+    /// Updates an existing partition in the index. The partition is identified by its key.
     /// </summary>
     /// <param name="partition">The partition with updated information.</param>
     /// <returns>A task representing the asynchronous update operation.</returns>
-    Task UpdatePartitionAsync(Partition partition);
+    Task UpdatePartitionAsync(IPartition partition);
 
     /// <summary>
-    /// Deletes a partition from the index, identified by its <see cref="Partition.StartKey"/>.
-    /// The <see cref="Partition.StartKey"/> must be a <see cref="CompositePartitionKey"/>.
+    /// Deletes a partition from the index, identified by its key.
     /// </summary>
     /// <param name="partition">The partition to delete.</param>
     /// <returns>A task that represents the asynchronous deletion operation.</returns>
-    Task DeletePartitionAsync(Partition partition);
+    Task DeletePartitionAsync(IPartition partition);
 
     /// <summary>
-    /// Retrieves all partitions from the index, sorted by their start key.
+    /// Retrieves all partitions from the index, sorted by their key.
     /// </summary>
     /// <returns>A task that represents the asynchronous operation. The task result contains a list of all partitions.</returns>
-    Task<List<Partition>> GetAllPartitionsAsync();
+    Task<List<IPartition>> GetAllPartitionsAsync();
 }
