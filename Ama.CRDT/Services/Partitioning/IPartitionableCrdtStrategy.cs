@@ -12,19 +12,21 @@ using System;
 public interface IPartitionableCrdtStrategy : ICrdtStrategy
 {
     /// <summary>
-    /// Gets the start key from a document instance. This is used to determine the key for the very first partition.
+    /// Gets the initial range key from a document instance. This is used to determine the key for the very first data partition.
     /// </summary>
-    /// <param name="data">The document object.</param>
-    /// <returns>The start key, or null if the document is empty.</returns>
+    /// <param name="data">The document object containing the partitionable collection.</param>
+    /// <returns>The start range key, or null if the collection is empty.</returns>
     object? GetStartKey(object data);
 
     /// <summary>
-    /// Extracts a partitioning key from a CRDT operation.
-    /// This key is used by the <see cref="IPartitionManager{T}"/> to identify which partition the operation should be applied to.
+    /// Extracts a range key from a CRDT operation.
+    /// This key is used by the <see cref="IPartitionManager{T}"/> to identify which data partition the operation should be applied to.
+    /// If the operation does not apply to the partitionable collection (e.g., it's for a header field), this should return null.
     /// </summary>
     /// <param name="operation">The CRDT operation.</param>
-    /// <returns>The partitioning key, or null if the operation is not key-based or does not apply to this strategy.</returns>
-    object? GetKeyFromOperation(CrdtOperation operation);
+    /// <param name="partitionablePropertyPath">The JSON path to the partitionable property.</param>
+    /// <returns>The range key for the data partition, or null for a header partition operation.</returns>
+    object? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath);
 
     /// <summary>
     /// Splits the data and metadata of a single, overfull partition into two new partitions.
@@ -32,7 +34,7 @@ public interface IPartitionableCrdtStrategy : ICrdtStrategy
     /// <param name="originalData">The data object of the partition being split.</param>
     /// <param name="originalMetadata">The metadata of the partition being split.</param>
     /// <param name="documentType">The type of the document (e.g., typeof(MyModel)).</param>
-    /// <returns>A <see cref="SplitResult"/> containing the content for the two new partitions and the key at which the split occurred.</returns>
+    /// <returns>A <see cref="SplitResult"/> containing the content for the two new partitions and the range key at which the split occurred.</returns>
     SplitResult Split(object originalData, CrdtMetadata originalMetadata, Type documentType);
 
     /// <summary>

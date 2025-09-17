@@ -7,12 +7,8 @@ using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
-using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 
 /// <summary>
 /// Implements the OR-Map (Observed-Remove Map) CRDT strategy.
@@ -66,10 +62,19 @@ public sealed class OrMapStrategy(
         
         foreach (var key in commonKeys)
         {
-            if (!Equals(originalDict![key], modifiedDict![key]))
-            {
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new OrMapAddItem(key, modifiedDict[key], Guid.NewGuid()), changeTimestamp));
-            }
+            var originalItem = originalDict![key];
+            var modifiedItem = modifiedDict![key];
+            var itemPath = $"{path}['{key.ToString()?.Replace("'", "\\'")}']";
+            patcher.DifferentiateObject(new DifferentiateObjectContext(
+                Path: itemPath,
+                Type: PocoPathHelper.GetDictionaryValueType(property),
+                FromObj: originalItem,
+                ToObj: modifiedItem,
+                FromRoot: originalRoot,
+                ToRoot: modifiedRoot,
+                FromMeta: originalMeta,
+                Operations: operations,
+                ChangeTimestamp: changeTimestamp));
         }
     }
 
@@ -105,44 +110,44 @@ public sealed class OrMapStrategy(
     }
     
     /// <inheritdoc/>
-    public object? GetKeyFromOperation(CrdtOperation operation)
+    public object? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath)
     {
-        if (operation.Value is OrMapAddItem mapAdd)
+        if (!operation.JsonPath.StartsWith(partitionablePropertyPath, StringComparison.Ordinal))
         {
-            return mapAdd.Key;
-        }
-        if (operation.Value is OrMapRemoveItem mapRemove)
-        {
-            return mapRemove.Key;
+            // This operation is for a header field, not the partitionable dictionary.
+            return null;
         }
 
-        // This is a fallback for other operations that might not have a direct payload but still target a key,
-        // for example, an LWW update on a value within the map.
-        var path = operation.JsonPath;
-        var keyMatch = Regex.Match(path, @"\[""(.+?)""\]|\[\'(.+?)\'\]");
+        if (operation.Value is OrMapAddItem mapAdd) return mapAdd.Key;
+        if (operation.Value is OrMapRemoveItem mapRemove) return mapRemove.Key;
+        
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapAddItem)) is OrMapAddItem convertedAdd) return convertedAdd.Key;
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapRemoveItem)) is OrMapRemoveItem convertedRemove) return convertedRemove.Key;
 
-        if (keyMatch.Success)
+        // Fallback for LWW ops on dictionary values. The key is embedded in the path.
+        var relativePath = operation.JsonPath[partitionablePropertyPath.Length..];
+        if (relativePath.StartsWith("['") && relativePath.EndsWith("']"))
         {
-            return keyMatch.Groups[1].Success ? keyMatch.Groups[1].Value : keyMatch.Groups[2].Value;
+            return relativePath[2..^2].Replace("\\'", "'");
         }
-
-        return null;
+        
+        return null; // Should not happen for a well-formed path.
     }
 
     /// <inheritdoc/>
     public object? GetStartKey(object data)
     {
-        var dictProperty = data.GetType().GetProperties().FirstOrDefault(p => typeof(IDictionary).IsAssignableFrom(p.PropertyType));
-        if (dictProperty is null) return null;
-
+        var dictProperty = FindDictionaryProperty(data.GetType());
         var dict = (IDictionary?)dictProperty.GetValue(data);
-        return dict?.Keys.Count > 0 ? dict.Keys.Cast<object>().Min() : null;
+        return dict is not null && dict.Count > 0 ? dict.Keys.Cast<object>().Min() : null;
     }
 
     /// <inheritdoc/>
     public SplitResult Split(object originalData, CrdtMetadata originalMetadata, Type documentType)
     {
         var dictProperty = FindDictionaryProperty(documentType);
+        var path = $"$.{char.ToLowerInvariant(dictProperty.Name[0])}{dictProperty.Name[1..]}";
+
         var dict = (IDictionary)dictProperty.GetValue(originalData)!;
         if (dict.Count < 2)
         {
@@ -163,171 +168,163 @@ public sealed class OrMapStrategy(
         foreach (var key in sortedKeys.Skip(splitIndex)) dict2.Add(key, dict[key]);
         dictProperty.SetValue(doc2, dict2);
 
-        var (meta1, meta2) = SplitMetadata(dictProperty.Name, originalMetadata);
+        var (meta1, meta2) = SplitMetadata(path, originalMetadata, sortedKeys.Take(splitIndex).ToHashSet(), sortedKeys.Skip(splitIndex).ToHashSet());
 
-        var partition1Content = new PartitionContent(doc1, meta1);
-        var partition2Content = new PartitionContent(doc2, meta2);
-        return new SplitResult(partition1Content, partition2Content, splitKey);
+        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
 
     /// <inheritdoc/>
     public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, Type documentType)
     {
         var dictProperty = FindDictionaryProperty(documentType);
+        var path = $"$.{char.ToLowerInvariant(dictProperty.Name[0])}{dictProperty.Name[1..]}";
+        
         var dict1 = (IDictionary)dictProperty.GetValue(data1)!;
         var dict2 = (IDictionary)dictProperty.GetValue(data2)!;
 
         var mergedDoc = Activator.CreateInstance(documentType)!;
         var mergedDict = (IDictionary)Activator.CreateInstance(dict1.GetType())!;
 
-        var path = $"$.{char.ToLowerInvariant(dictProperty.Name[0])}{dictProperty.Name[1..]}";
+        var mergedMeta = MergeMetadata(path, meta1, meta2);
 
-        var allKeys = dict1.Keys.Cast<object>().Union(dict2.Keys.Cast<object>()).Distinct();
-
-        foreach (var key in allKeys)
+        // Add all items from dict1 first
+        foreach (DictionaryEntry entry in dict1)
         {
-            var keyInDict1 = dict1.Contains(key);
-            var keyInDict2 = dict2.Contains(key);
+            mergedDict[entry.Key] = entry.Value;
+        }
+    
+        // Then add/update items from dict2, using LWW to resolve conflicts
+        foreach (DictionaryEntry entry in dict2)
+        {
+            var key = entry.Key;
+            var value2 = entry.Value;
+            var itemPath = $"{path}['{key.ToString()?.Replace("'", "\\'")}']";
 
-            var valuePath = $"{path}['{key.ToString()?.Replace("'", "\\'")}']";
-
-            if (keyInDict1 && keyInDict2)
+            if (mergedDict.Contains(key))
             {
-                // Conflict, resolve with LWW
-                meta1.Lww.TryGetValue(valuePath, out var ts1);
-                meta2.Lww.TryGetValue(valuePath, out var ts2);
+                // Conflict: key exists in both. Resolve with LWW.
+                meta1.Lww.TryGetValue(itemPath, out var ts1);
+                meta2.Lww.TryGetValue(itemPath, out var ts2);
 
-                if (ts1 != null && ts2 != null)
+                // If ts2 is newer, update the value.
+                if (ts2 is not null && (ts1 is null || ts2.CompareTo(ts1) > 0))
                 {
-                    if (ts1.CompareTo(ts2) >= 0)
-                    {
-                        mergedDict[key] = dict1[key];
-                    }
-                    else
-                    {
-                        mergedDict[key] = dict2[key];
-                    }
-                }
-                else if (ts1 != null) // Only meta1 has timestamp, it wins
-                {
-                    mergedDict[key] = dict1[key];
-                }
-                else // Only meta2 has timestamp or neither have one. Default to dict2.
-                {
-                    mergedDict[key] = dict2[key];
+                    mergedDict[key] = value2;
                 }
             }
-            else if (keyInDict1)
+            else
             {
-                mergedDict[key] = dict1[key];
-            }
-            else // keyInDict2
-            {
-                mergedDict[key] = dict2[key];
+                // Key only in dict2, just add it.
+                mergedDict[key] = value2;
             }
         }
-
+    
+        // Reconstruct dictionary based on merged OR-Set state to handle removals
+        if (mergedMeta.OrMaps.TryGetValue(path, out var orState))
+        {
+            var keyType = PocoPathHelper.GetDictionaryKeyType(dictProperty);
+            var comparer = comparerProvider.GetComparer(keyType);
+            ReconstructDictionary(mergedDict, orState.Adds, orState.Removes, comparer);
+        }
+    
         dictProperty.SetValue(mergedDoc, mergedDict);
-
-        var mergedMeta = MergeMetadata(dictProperty.Name, new[] { meta1, meta2 });
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private (CrdtMetadata, CrdtMetadata) SplitMetadata(string propertyName, CrdtMetadata original)
+    private static (CrdtMetadata, CrdtMetadata) SplitMetadata(string path, CrdtMetadata original, ISet<object> keys1, ISet<object> keys2)
     {
-        var path = $"$.{char.ToLowerInvariant(propertyName[0])}{propertyName[1..]}";
-        // For OR-Map, splitting is complex. The simplest, safe approach is to give each new partition a full copy of the original metadata.
-        var newMeta1 = CloneMetadata(path, original);
-        var newMeta2 = CloneMetadata(path, original);
-        return (newMeta1, newMeta2);
-    }
+        var meta1 = new CrdtMetadata();
+        var meta2 = new CrdtMetadata();
 
-    private CrdtMetadata MergeMetadata(string propertyName, IEnumerable<CrdtMetadata> metadatas)
-    {
-        var path = $"$.{char.ToLowerInvariant(propertyName[0])}{propertyName[1..]}";
-
-        var mergedMetadata = new CrdtMetadata();
-        var mergedAdds = new Dictionary<object, ISet<Guid>>();
-        var mergedRemoves = new Dictionary<object, ISet<Guid>>();
-        var mergedLww = new Dictionary<string, ICrdtTimestamp>();
-        var mergedVersionVector = new Dictionary<string, ICrdtTimestamp>();
-        var mergedSeenExceptions = new HashSet<CrdtOperation>();
-
-        foreach (var metadata in metadatas)
-        {
-            if (metadata.OrMaps.TryGetValue(path, out var orMapState))
-            {
-                foreach (var (key, tags) in orMapState.Adds)
-                {
-                    if (!mergedAdds.TryGetValue(key, out var existingTags))
-                    {
-                        existingTags = new HashSet<Guid>();
-                        mergedAdds[key] = existingTags;
-                    }
-                    foreach (var tag in tags) existingTags.Add(tag);
-                }
-
-                foreach (var (key, tags) in orMapState.Removes)
-                {
-                    if (!mergedRemoves.TryGetValue(key, out var existingTags))
-                    {
-                        existingTags = new HashSet<Guid>();
-                        mergedRemoves[key] = existingTags;
-                    }
-                    foreach (var tag in tags) existingTags.Add(tag);
-                }
-            }
-
-            foreach (var (lwwPath, timestamp) in metadata.Lww)
-            {
-                if (lwwPath.StartsWith(path, StringComparison.Ordinal))
-                {
-                    if (!mergedLww.TryGetValue(lwwPath, out var existingTimestamp) || timestamp.CompareTo(existingTimestamp) > 0)
-                    {
-                        mergedLww[lwwPath] = timestamp;
-                    }
-                }
-            }
-            
-            mergedMetadata.VersionVector = mergedMetadata.VersionVector.Union(metadata.VersionVector)
-                .GroupBy(kvp => kvp.Key)
-                .ToDictionary(g => g.Key, g => g.MaxBy(kvp => kvp.Value)!.Value);
-            
-            foreach (var exception in metadata.SeenExceptions) mergedSeenExceptions.Add(exception);
-        }
-
-        mergedMetadata.OrMaps[path] = new OrSetState(mergedAdds, mergedRemoves);
-        foreach(var (lwwPath, timestamp) in mergedLww) mergedMetadata.Lww[lwwPath] = timestamp;
-        mergedMetadata.SeenExceptions = mergedSeenExceptions;
-        
-        return mergedMetadata;
-    }
-
-    private static CrdtMetadata CloneMetadata(string path, CrdtMetadata original)
-    {
-        var newMeta = new CrdtMetadata
-        {
-            VersionVector = new Dictionary<string, ICrdtTimestamp>(original.VersionVector),
-            SeenExceptions = new HashSet<CrdtOperation>(original.SeenExceptions)
-        };
+        CloneNonPartitionableMetadata(original, meta1);
+        CloneNonPartitionableMetadata(original, meta2);
 
         if (original.OrMaps.TryGetValue(path, out var orMapState))
         {
-            var newAdds = orMapState.Adds.ToDictionary(kvp => kvp.Key, kvp => (ISet<Guid>)new HashSet<Guid>(kvp.Value));
-            var newRemoves = orMapState.Removes.ToDictionary(kvp => kvp.Key, kvp => (ISet<Guid>)new HashSet<Guid>(kvp.Value));
-            newMeta.OrMaps[path] = new OrSetState(newAdds, newRemoves);
+            // The OR-Set state must be copied in its entirety to both partitions.
+            // It contains the history of all adds/removes needed for conflict resolution.
+            meta1.OrMaps[path] = new OrSetState(
+                new Dictionary<object, ISet<Guid>>(orMapState.Adds),
+                new Dictionary<object, ISet<Guid>>(orMapState.Removes));
+            meta2.OrMaps[path] = new OrSetState(
+                new Dictionary<object, ISet<Guid>>(orMapState.Adds),
+                new Dictionary<object, ISet<Guid>>(orMapState.Removes));
         }
 
         foreach (var (lwwPath, timestamp) in original.Lww)
         {
             if (lwwPath.StartsWith(path, StringComparison.Ordinal))
             {
-                newMeta.Lww[lwwPath] = timestamp;
+                var keyStr = lwwPath[(path.Length + 2)..^2].Replace("\\'", "'");
+                if (keys1.Any(k => k.ToString() == keyStr)) meta1.Lww[lwwPath] = timestamp;
+                if (keys2.Any(k => k.ToString() == keyStr)) meta2.Lww[lwwPath] = timestamp;
             }
         }
         
-        return newMeta;
+        return (meta1, meta2);
+    }
+
+    private static CrdtMetadata MergeMetadata(string path, CrdtMetadata meta1, CrdtMetadata meta2)
+    {
+        var merged = new CrdtMetadata();
+        // Merge non-partitionable metadata
+        merged.VersionVector = meta1.VersionVector.Union(meta2.VersionVector)
+            .GroupBy(kvp => kvp.Key).ToDictionary(g => g.Key, g => g.MaxBy(kvp => kvp.Value)!.Value);
+        
+        // Merge partitionable metadata
+        var orMap1 = meta1.OrMaps.TryGetValue(path, out var s1) ? s1 : new OrSetState(new Dictionary<object, ISet<Guid>>(), new Dictionary<object, ISet<Guid>>());
+        var orMap2 = meta2.OrMaps.TryGetValue(path, out var s2) ? s2 : new OrSetState(new Dictionary<object, ISet<Guid>>(), new Dictionary<object, ISet<Guid>>());
+        
+        IDictionary<object, ISet<Guid>> mergedAdds = orMap1.Adds.ToDictionary(kvp => kvp.Key, kvp => (ISet<Guid>)new HashSet<Guid>(kvp.Value));
+        foreach(var(key, tags) in orMap2.Adds)
+        {
+            if (!mergedAdds.TryGetValue(key, out var existingTags))
+            {
+                mergedAdds[key] = new HashSet<Guid>(tags);
+            }
+            else 
+            {
+                foreach (var tag in tags) existingTags.Add(tag);
+            }
+        }
+
+        IDictionary<object, ISet<Guid>> mergedRemoves = orMap1.Removes.ToDictionary(kvp => kvp.Key, kvp => (ISet<Guid>)new HashSet<Guid>(kvp.Value));
+        foreach(var(key, tags) in orMap2.Removes)
+        {
+            if (!mergedRemoves.TryGetValue(key, out var existingTags))
+            {
+                mergedRemoves[key] = new HashSet<Guid>(tags);
+            }
+            else 
+            {
+                foreach (var tag in tags) existingTags.Add(tag);
+            }
+        }
+
+        merged.OrMaps[path] = new OrSetState(mergedAdds, mergedRemoves);
+
+        foreach (var (lwwPath, ts) in meta1.Lww.Concat(meta2.Lww))
+        {
+            if (!merged.Lww.TryGetValue(lwwPath, out var existingTs) || ts.CompareTo(existingTs) > 0)
+            {
+                merged.Lww[lwwPath] = ts;
+            }
+        }
+        
+        return merged;
+    }
+
+    private static void CloneNonPartitionableMetadata(CrdtMetadata source, CrdtMetadata destination)
+    {
+        destination.VersionVector = new Dictionary<string, ICrdtTimestamp>(source.VersionVector);
+        destination.SeenExceptions = new HashSet<CrdtOperation>(source.SeenExceptions);
+        // Only copy LWW entries that are NOT part of a partitionable collection, which we assume don't follow the collection path pattern.
+        // This is a simplification; a more robust solution might need explicit marking of which LWW entries are "header" vs "data".
+        foreach (var (key, value) in source.Lww.Where(kvp => !kvp.Key.Contains("['")))
+        {
+            destination.Lww[key] = value;
+        }
     }
     
     private void ApplyUpsert(IDictionary dict, CrdtMetadata metadata, OrSetState state, CrdtOperation operation, Type keyType, Type valueType)

@@ -4,303 +4,206 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
-using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
-using System.Collections.Generic;
-using System.IO;
+using System;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Text.Json;
-using System.Threading.Tasks;
-using Xunit;
+
+[PartitionKey(nameof(TenantId))]
+public sealed class PartitionedMapModel
+{
+    public string TenantId { get; set; } = "";
+    public string HeaderData { get; set; } = "Initial";
+    [CrdtOrMapStrategy]
+    public Dictionary<string, string> Items { get; set; } = new();
+}
 
 public sealed class PartitionManagerTests
 {
-    private sealed class TestMapModel
+    private sealed class InMemoryPartitionStreamProvider : IPartitionStreamProvider
     {
-        [CrdtOrMapStrategy]
-        public Dictionary<string, string> Items { get; set; } = new();
-    }
+        private readonly MemoryStream indexStream = new();
+        private readonly ConcurrentDictionary<object, MemoryStream> dataStreams = new();
 
-    private sealed record TestInfrastructure(ICrdtScopeFactory ScopeFactory, IServiceProvider ServiceProvider);
+        public Task<Stream> GetIndexStreamAsync() => Task.FromResult<Stream>(indexStream);
 
-    [Fact]
-    public async Task InitializeAsync_ShouldCreateInitialPartitionAndWriteData()
-    {
-        // Arrange
-        await using var dataStream = new MemoryStream();
-        await using var indexStream = new MemoryStream();
-        var infrastructure = CreateTestInfrastructure();
-        using var scope = infrastructure.ScopeFactory.CreateScope("A");
-        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<TestMapModel>>();
-        var initialObject = new TestMapModel { Items = { { "key1", "one" }, { "key2", "two" } } };
-
-        // Act
-        await manager.InitializeAsync(dataStream, indexStream, initialObject);
-
-        // Assert
-        dataStream.Length.ShouldBeGreaterThan(0);
-        indexStream.Length.ShouldBeGreaterThan(0);
-
-        var partitioningStrategy = scope.ServiceProvider.GetRequiredService<IPartitioningStrategy>();
-        var partitionNode = await partitioningStrategy.FindPartitionAsync("key1");
-        partitionNode.ShouldNotBeNull();
-        partitionNode.Value.StartKey.ShouldBe("key1");
-        partitionNode.Value.EndKey.ShouldBeNull();
-
-        var doc = await ReadDocumentFromPartition<TestMapModel>(partitionNode.Value, dataStream);
-        doc.Items.ShouldBe(new Dictionary<string, string> { { "key1", "one" }, { "key2", "two" } });
-    }
-
-    [Fact]
-    public async Task ApplyPatchAsync_WithUpsert_ShouldUpdateCorrectPartition()
-    {
-        // Arrange
-        await using var dataStream = new MemoryStream();
-        await using var indexStream = new MemoryStream();
-        var infrastructure = CreateTestInfrastructure();
-        
-        using var scope = infrastructure.ScopeFactory.CreateScope("A");
-        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<TestMapModel>>();
-        var patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-        var strategy = scope.ServiceProvider.GetRequiredService<IPartitioningStrategy>();
-        var timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
-
-        var initialObject = new TestMapModel { Items = { { "key1", "one" }, { "key2", "two" } } };
-        await manager.InitializeAsync(dataStream, indexStream, initialObject);
-
-        var modifiedObject = new TestMapModel { Items = { { "key1", "one" }, { "key2", "two" }, { "key3", "three" } } };
-        
-        var operations = new List<CrdtOperation>();
-        var metadata = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>().Initialize(initialObject);
-        var context = new DifferentiateObjectContext(
-            Path: "$",
-            Type: typeof(TestMapModel),
-            FromObj: initialObject,
-            ToObj: modifiedObject,
-            FromRoot: initialObject,
-            ToRoot: modifiedObject,
-            FromMeta: metadata,
-            Operations: operations,
-            ChangeTimestamp: timestampProvider.Now()
-        );
-        patcher.DifferentiateObject(context);
-        var patch = new CrdtPatch { Operations = operations };
-        
-        // Act
-        await manager.ApplyPatchAsync(patch);
-
-        // Assert
-        var partitionNode = await strategy.FindPartitionAsync("key1");
-        partitionNode.ShouldNotBeNull();
-        
-        var updatedDoc = await ReadDocumentFromPartition<TestMapModel>(partitionNode.Value, dataStream);
-        updatedDoc.Items.Count.ShouldBe(3);
-        updatedDoc.Items.ShouldContainKey("key3");
-        updatedDoc.Items["key3"].ShouldBe("three");
-    }
-
-    [Fact]
-    public async Task ApplyPatchAsync_WhenPartitionExceedsMaxSize_ShouldSplitPartition()
-    {
-        // Arrange
-        await using var dataStream = new MemoryStream();
-        await using var indexStream = new MemoryStream();
-        var infrastructure = CreateTestInfrastructure();
-        
-        using var scope = infrastructure.ScopeFactory.CreateScope("A");
-        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<TestMapModel>>();
-        var patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-        var strategy = scope.ServiceProvider.GetRequiredService<IPartitioningStrategy>();
-        var timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
-
-        var initialObject = new TestMapModel { Items = { { "a", "val-a" }, { "b", "val-b" }, { "c", "val-c" } } };
-        await manager.InitializeAsync(dataStream, indexStream, initialObject);
-        
-        var largeString = new string('x', 4500);
-        var modifiedObject = new TestMapModel
+        public Task<Stream> GetDataStreamAsync(object logicalKey)
         {
-            Items = new Dictionary<string, string> { { "a", "val-a" }, { "b", "val-b" }, { "c", "val-c" }, { "d", largeString }, { "e", largeString } }
-        };
-
-        var operations = new List<CrdtOperation>();
-        var metadata = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>().Initialize(initialObject);
-        var context = new DifferentiateObjectContext(
-            Path: "$",
-            Type: typeof(TestMapModel),
-            FromObj: initialObject,
-            ToObj: modifiedObject,
-            FromRoot: initialObject,
-            ToRoot: modifiedObject,
-            FromMeta: metadata,
-            Operations: operations,
-            ChangeTimestamp: timestampProvider.Now()
-        );
-        patcher.DifferentiateObject(context);
-        var patch = new CrdtPatch { Operations = operations };
-        
-        // Act
-        await manager.ApplyPatchAsync(patch);
-        
-        // Assert
-        // Split should occur at key "c". Partition1: ["a", "b"], Partition2: ["c", "d", "e"]
-        var partition1Node = await strategy.FindPartitionAsync("a");
-        var partition2Node = await strategy.FindPartitionAsync("d");
-
-        partition1Node.ShouldNotBeNull();
-        partition2Node.ShouldNotBeNull();
-        partition1Node.Value.StartKey.ShouldNotBe(partition2Node.Value.StartKey);
-
-        var partition1 = partition1Node.Value;
-        var partition2 = partition2Node.Value;
-
-        partition1.StartKey.ShouldBe("a");
-        partition1.EndKey.ShouldBe("c");
-
-        partition2.StartKey.ShouldBe("c");
-        partition2.EndKey.ShouldBeNull();
-        
-        var doc1 = await ReadDocumentFromPartition<TestMapModel>(partition1, dataStream);
-        var doc2 = await ReadDocumentFromPartition<TestMapModel>(partition2, dataStream);
-
-        doc1.Items.Keys.ShouldBe(new[] { "a", "b" });
-        doc2.Items.Keys.ShouldBe(new[] { "c", "d", "e" });
+            var dataStream = dataStreams.GetOrAdd(logicalKey, _ => new MemoryStream());
+            return Task.FromResult<Stream>(dataStream);
+        }
     }
 
-    [Fact]
-    public async Task ApplyPatchAsync_WhenPartitionIsUnderMinSize_ShouldMergePartitions()
+    private sealed class TestInfrastructure : IDisposable
     {
-        // Arrange: Start with two partitions
-        await using var dataStream = new MemoryStream();
-        await using var indexStream = new MemoryStream();
-        var infrastructure = CreateTestInfrastructure();
+        public ICrdtScopeFactory ScopeFactory { get; }
+        public IServiceProvider ServiceProvider { get; }
+    
+        public TestInfrastructure()
+        {
+            var services = new ServiceCollection()
+                .AddCrdt()
+                .AddCrdtPartitionStreamProvider<InMemoryPartitionStreamProvider>();
 
+            ServiceProvider = services.BuildServiceProvider();
+            ScopeFactory = ServiceProvider.GetRequiredService<ICrdtScopeFactory>();
+        }
+        public void Dispose() => (ServiceProvider as IDisposable)?.Dispose();
+    }
+    
+    [Fact]
+    public async Task InitializeAsync_ShouldCreateHeaderAndDataPartitions()
+    {
+        // Arrange
+        using var infrastructure = new TestInfrastructure();
         using var scope = infrastructure.ScopeFactory.CreateScope("A");
-        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<TestMapModel>>();
-        var patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<PartitionedMapModel>>();
+        var initialObject = new PartitionedMapModel { TenantId = "tenant-1", Items = { { "key1", "one" } } };
+
+        // Act
+        await manager.InitializeAsync(initialObject);
+
+        // Assert
         var strategy = scope.ServiceProvider.GetRequiredService<IPartitioningStrategy>();
-        var timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
 
-        // 1. Create a large object to force a split
-        var largeString = new string('x', 8191); // Guarantees a split
-        var initialObject = new TestMapModel { Items = { { "a", "val-a" }, { "b", "val-b" } , { "c", largeString } } };
-        await manager.InitializeAsync(dataStream, indexStream, initialObject);
+        var allPartitions = await strategy.GetAllPartitionsAsync();
+        var partitions = allPartitions.Where(p => p.StartKey.LogicalKey.Equals("tenant-1")).ToList();
+        partitions.Count.ShouldBe(2);
 
-        // Verify we have 2 partitions. For ["a", "b", "c"], split key is "b". p1={a}, p2={b,c}
-        var p1_pre = await strategy.FindPartitionAsync("a");
-        var p2_pre = await strategy.FindPartitionAsync("b");
-        p1_pre.ShouldNotBeNull();
-        p2_pre.ShouldNotBeNull();
-        p1_pre.Value.StartKey.ShouldNotBe(p2_pre.Value.StartKey);
+        var headerKey = new CompositePartitionKey("tenant-1", null);
+        var dataKey = new CompositePartitionKey("tenant-1", "key1");
+        
+        var headerPartition = await strategy.FindPartitionAsync(headerKey);
+        headerPartition.ShouldNotBeNull();
+        headerPartition.Value.StartKey.RangeKey.ShouldBeNull();
+        
+        var dataPartition = await strategy.FindPartitionAsync(dataKey);
+        dataPartition.ShouldNotBeNull();
+        dataPartition.Value.StartKey.RangeKey.ShouldNotBeNull();
 
-        // 2. Apply a patch to remove the large item, making partition 2 underfull
-        var modifiedObject = new TestMapModel { Items = { { "a", "val-a" }, { "b", "val-b" } } };
-        var operations = new List<CrdtOperation>();
-        // To generate the patch, we need the metadata associated with the 'from' state (initialObject).
-        var start_content = await manager.GetPartitionContentAsync("a");
-        var metadata = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>().Clone(start_content.Value.Metadata);
-        var context = new DifferentiateObjectContext(
-            Path: "$",
-            Type: typeof(TestMapModel),
-            FromObj: initialObject,
-            ToObj: modifiedObject,
-            FromRoot: initialObject,
-            ToRoot: modifiedObject,
-            FromMeta: metadata,
-            Operations: operations,
-            ChangeTimestamp: timestampProvider.Now()
-        );
-        patcher.DifferentiateObject(context);
-        var patch = new CrdtPatch { Operations = operations };
+        var headerDoc = await manager.GetPartitionContentAsync(headerKey);
+        headerDoc.ShouldNotBeNull();
+        var headerContent = headerDoc.Value.Data!;
+        headerContent.Items.ShouldBeEmpty();
+        headerContent.HeaderData.ShouldBe("Initial");
+
+        var dataDoc = await manager.GetPartitionContentAsync(dataKey);
+        dataDoc.ShouldNotBeNull();
+        var dataContent = dataDoc.Value.Data!;
+        dataContent.Items.Count.ShouldBe(1);
+        dataContent.Items["key1"].ShouldBe("one");
+        dataContent.HeaderData.ShouldBe("Initial"); // Cloned initial state, but this partition only manages Items
+    }
+
+    [Fact]
+    public async Task ApplyPatchAsync_ShouldEnsureDataIsolation()
+    {
+        // Arrange
+        using var infrastructure = new TestInfrastructure();
+        
+        // Setup tenant A
+        using var scopeA = infrastructure.ScopeFactory.CreateScope("A");
+        var managerA = scopeA.ServiceProvider.GetRequiredService<IPartitionManager<PartitionedMapModel>>();
+        var initialA = new PartitionedMapModel { TenantId = "tenant-A", Items = { { "a1", "val-a1" } } };
+        await managerA.InitializeAsync(initialA);
+        
+        // Setup tenant B
+        using var scopeB = infrastructure.ScopeFactory.CreateScope("B");
+        var managerB = scopeB.ServiceProvider.GetRequiredService<IPartitionManager<PartitionedMapModel>>();
+        var initialB = new PartitionedMapModel { TenantId = "tenant-B", Items = { { "b1", "val-b1" } } };
+        await managerB.InitializeAsync(initialB);
+        
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "B", "$.items", OperationType.Upsert, new OrMapAddItem("b2", "val-b2", Guid.NewGuid()), scopeB.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>().Now())])
+            { LogicalKey = "tenant-B" };
+
+        // Act
+        await managerB.ApplyPatchAsync(patch);
+
+        // Assert
+        var docA = await managerA.GetPartitionContentAsync(new CompositePartitionKey("tenant-A", "a1"));
+        docA.ShouldNotBeNull();
+        var contentA = docA.Value.Data!;
+        contentA.Items.Count.ShouldBe(1);
+        contentA.Items.ShouldNotContainKey("b2");
+
+        var docB = await managerB.GetPartitionContentAsync(new CompositePartitionKey("tenant-B", "b2"));
+        docB.ShouldNotBeNull();
+        var contentB = docB.Value.Data!;
+        contentB.Items.Count.ShouldBe(2);
+        contentB.Items["b2"].ShouldBe("val-b2");
+    }
+
+    [Fact]
+    public async Task ApplyPatchAsync_ShouldRouteUpdatesToCorrectPartitionType()
+    {
+        // Arrange
+        using var infrastructure = new TestInfrastructure();
+        using var scope = infrastructure.ScopeFactory.CreateScope("A");
+        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<PartitionedMapModel>>();
+        var initialObject = new PartitionedMapModel { TenantId = "tenant-1", Items = { { "key1", "one" } } };
+        await manager.InitializeAsync(initialObject);
+
+        var headerOp = new CrdtOperation(Guid.NewGuid(), "A", "$.headerData", OperationType.Upsert, "Updated", scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>().Now());
+        var dataOp = new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("key2", "two", Guid.NewGuid()), scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>().Now());
+        var patch = new CrdtPatch([headerOp, dataOp]) { LogicalKey = "tenant-1" };
 
         // Act
         await manager.ApplyPatchAsync(patch);
 
-        // Assert: We should be back to a single partition
-        var allPartitions = await strategy.GetAllPartitionsAsync();
-        allPartitions.Count.ShouldBe(1);
+        // Assert
+        var headerKey = new CompositePartitionKey("tenant-1", null);
+        var dataKey = new CompositePartitionKey("tenant-1", "key1");
 
-        var final_p1 = await strategy.FindPartitionAsync("a");
-        var final_p2 = await strategy.FindPartitionAsync("b"); // This should now resolve to the same partition as p1
+        var headerDoc = await manager.GetPartitionContentAsync(headerKey);
+        headerDoc.ShouldNotBeNull();
+        var headerContent = headerDoc.Value.Data!;
+        headerContent.HeaderData.ShouldBe("Updated");
+        headerContent.Items.ShouldBeEmpty();
 
-        final_p1.ShouldNotBeNull();
-        final_p2.ShouldNotBeNull();
-        final_p1.Value.StartKey.ShouldBe(final_p2.Value.StartKey); // Both keys point to the same single partition
-        final_p1.Value.StartKey.ShouldBe("a");
-        final_p1.Value.EndKey.ShouldBeNull();
+        var dataDoc = await manager.GetPartitionContentAsync(dataKey);
+        dataDoc.ShouldNotBeNull();
+        var dataContent = dataDoc.Value.Data!;
+        dataContent.HeaderData.ShouldBe("Initial"); // Header data is not in this partition's scope.
+        dataContent.Items.Count.ShouldBe(2);
+        dataContent.Items["key2"].ShouldBe("two");
+    }
+
+    [Fact]
+    public async Task ApplyPatchAsync_WhenDataPartitionSplits_HeaderRemainsUnchanged()
+    {
+        // Arrange
+        using var infrastructure = new TestInfrastructure();
+        using var scope = infrastructure.ScopeFactory.CreateScope("A");
+        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<PartitionedMapModel>>();
+        var largeString = new string('x', 4500);
+        var initialObject = new PartitionedMapModel { TenantId = "tenant-1", Items = { { "a", "val-a" }, { "c", largeString } } };
+        await manager.InitializeAsync(initialObject);
         
-        var doc = await ReadDocumentFromPartition<TestMapModel>(final_p1.Value, dataStream);
-        doc.Items.Count.ShouldBe(2);
-        doc.Items.Keys.OrderBy(k => k).ShouldBe(new[] { "a", "b" });
-    }
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("b", largeString, Guid.NewGuid()), scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>().Now())])
+            { LogicalKey = "tenant-1" };
 
-    [Fact]
-    public async Task GetPartitionAsync_ShouldReturnCorrectPartitionForKey()
-    {
-        // Arrange
-        await using var dataStream = new MemoryStream();
-        await using var indexStream = new MemoryStream();
-        var infrastructure = CreateTestInfrastructure();
-        using var scope = infrastructure.ScopeFactory.CreateScope("A");
-        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<TestMapModel>>();
-        var initialObject = new TestMapModel { Items = { { "key1", "one" }, { "key2", "two" } } };
-        await manager.InitializeAsync(dataStream, indexStream, initialObject);
-
-        // Act
-        var partition = await manager.GetPartitionAsync("key2");
+        // Act: This patch will cause the data partition to split
+        await manager.ApplyPatchAsync(patch);
 
         // Assert
-        partition.ShouldNotBeNull();
-        partition.Value.StartKey.ShouldBe("key1");
-        partition.Value.EndKey.ShouldBeNull();
-    }
+        var strategy = scope.ServiceProvider.GetRequiredService<IPartitioningStrategy>();
 
-    [Fact]
-    public async Task GetPartitionContentAsync_ShouldReturnCorrectContentForKey()
-    {
-        // Arrange
-        await using var dataStream = new MemoryStream();
-        await using var indexStream = new MemoryStream();
-        var infrastructure = CreateTestInfrastructure();
-        using var scope = infrastructure.ScopeFactory.CreateScope("A");
-        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<TestMapModel>>();
-        var initialObject = new TestMapModel { Items = { { "key1", "one" }, { "key2", "two" } } };
-        await manager.InitializeAsync(dataStream, indexStream, initialObject);
+        var allPartitions = await strategy.GetAllPartitionsAsync();
+        var partitions = allPartitions.Where(p => p.StartKey.LogicalKey.Equals("tenant-1")).ToList();
+        partitions.Count.ShouldBe(3); // 1 header, 2 data
 
-        // Act
-        var content = await manager.GetPartitionContentAsync("key2");
+        var headerPartition = partitions.Single(p => p.StartKey.RangeKey is null);
+        var dataPartitions = partitions.Where(p => p.StartKey.RangeKey is not null).ToList();
+        dataPartitions.Count.ShouldBe(2);
 
-        // Assert
-        content.ShouldNotBeNull();
-        var data = content.Value.Data.ShouldBeOfType<TestMapModel>();
-        data.Items.Count.ShouldBe(2);
-        data.Items["key1"].ShouldBe("one");
-        data.Items["key2"].ShouldBe("two");
-        content.Value.Metadata.ShouldNotBeNull();
-        content.Value.Metadata.Lww.ShouldNotBeEmpty();
-    }
-    
-    private TestInfrastructure CreateTestInfrastructure()
-    {
-        var services = new ServiceCollection()
-            .AddCrdt(); 
-
-        var serviceProvider = services.BuildServiceProvider();
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        return new TestInfrastructure(scopeFactory, serviceProvider);
-    }
-    
-    private async Task<T> ReadDocumentFromPartition<T>(Partition partition, Stream dataStream) where T : class
-    {
-        var buffer = new byte[partition.DataLength];
-        dataStream.Seek(partition.DataOffset, SeekOrigin.Begin);
-        await dataStream.ReadExactlyAsync(buffer);
-
-        // The stream might have other data, so deserialize only the partition's buffer
-        using var memStream = new MemoryStream(buffer);
-        return (await JsonSerializer.DeserializeAsync<T>(memStream, CrdtJsonContext.DefaultOptions))!;
+        var headerDoc = await manager.GetPartitionContentAsync(headerPartition.StartKey);
+        headerDoc.ShouldNotBeNull();
+        var headerContent = headerDoc.Value.Data!;
+        headerContent.HeaderData.ShouldBe("Initial");
     }
 }

@@ -193,6 +193,44 @@ public static class ServiceCollectionExtensions
     }
     
     /// <summary>
+    /// Registers a custom partition stream provider, replacing the default <see cref="FilePartitionStreamProvider"/>.
+    /// This is essential for scenarios where partitions need to be stored in a custom backend, such as cloud blob storage, a database, or an in-memory store for testing.
+    /// </summary>
+    /// <typeparam name="TProvider">The type of the stream provider to register. Must implement <see cref="IPartitionStreamProvider"/>.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/> to add the service to.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// // An in-memory stream provider for testing.
+    /// public class InMemoryPartitionStreamProvider : IPartitionStreamProvider
+    /// {
+    ///     private readonly System.Collections.Concurrent.ConcurrentDictionary<object, (System.IO.MemoryStream data, System.IO.MemoryStream index)> streams = new();
+    /// 
+    ///     public System.Threading.Tasks.Task<PartitionStreams> GetStreamsAsync(object logicalKey)
+    ///     {
+    ///         var (dataStream, indexStream) = streams.GetOrAdd(logicalKey, _ => (new System.IO.MemoryStream(), new System.IO.MemoryStream()));
+    ///         return System.Threading.Tasks.Task.FromResult(new PartitionStreams(dataStream, indexStream));
+    ///     }
+    /// }
+    /// 
+    /// // In your DI setup:
+    /// builder.Services.AddCrdt();
+    /// builder.Services.AddCrdtPartitionStreamProvider<InMemoryPartitionStreamProvider>();
+    /// ]]>
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddCrdtPartitionStreamProvider<TProvider>(this IServiceCollection services)
+        where TProvider : class, IPartitionStreamProvider
+    {
+        // Register the custom provider implementation with validation.
+        services.AddScoped(CreateValidatedInstance<TProvider>);
+        // Override the IPartitionStreamProvider registration to point to the custom implementation.
+        services.AddScoped<IPartitionStreamProvider>(sp => sp.GetRequiredService<TProvider>());
+        return services;
+    }
+
+    /// <summary>
     /// Registers a custom timestamp provider, replacing the default <see cref="SequentialTimestampProvider"/>.
     /// This allows for the integration of different clock types, such as logical or hybrid clocks, which can provide stronger causality guarantees in distributed systems than wall-clock time.
     /// </summary>
