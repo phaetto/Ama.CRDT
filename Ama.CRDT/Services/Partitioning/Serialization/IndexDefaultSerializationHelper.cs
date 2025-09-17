@@ -38,6 +38,7 @@ public sealed class IndexDefaultSerializationHelper : IIndexSerializationHelper
 
         jsonData.CopyTo(buffer, 0);
         await stream.WriteAsync(buffer.AsMemory(0, headerSize));
+        await stream.FlushAsync();
     }
 
     /// <inheritdoc/>
@@ -65,6 +66,7 @@ public sealed class IndexDefaultSerializationHelper : IIndexSerializationHelper
         var lengthPrefix = BitConverter.GetBytes(nodeData.Length);
         await stream.WriteAsync(lengthPrefix);
         await stream.WriteAsync(nodeData);
+        await stream.FlushAsync();
 
         return lengthPrefix.Length + nodeData.Length;
     }

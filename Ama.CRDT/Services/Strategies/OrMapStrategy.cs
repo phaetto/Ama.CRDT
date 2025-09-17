@@ -398,10 +398,12 @@ public sealed class OrMapStrategy(
     
     private static PropertyInfo FindDictionaryProperty(Type documentType)
     {
-        var dictProperty = documentType.GetProperties().FirstOrDefault(p => typeof(IDictionary).IsAssignableFrom(p.PropertyType));
+        var dictProperty = documentType.GetProperties()
+            .FirstOrDefault(p => p.GetCustomAttribute<CrdtOrMapStrategyAttribute>() is not null);
+        
         if (dictProperty is null)
         {
-            throw new NotSupportedException($"Type '{documentType.Name}' does not have a dictionary property for partitioning.");
+            throw new NotSupportedException($"Type '{documentType.Name}' does not have a dictionary property decorated with [CrdtOrMapStrategy] for partitioning.");
         }
         return dictProperty;
     }

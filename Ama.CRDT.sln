@@ -24,6 +24,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ama.CRDT.Analyzers", "Ama.C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ama.CRDT.Analyzers.UnitTests", "Ama.CRDT.Analyzers.UnitTests\Ama.CRDT.Analyzers.UnitTests.csproj", "{400653CF-FA3F-E1B9-7C1C-D4C7B4075B3F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ama.CRDT.ShowCase.LargerThanMemory", "Ama.CRDT.ShowCase.LargerThanMemory\Ama.CRDT.ShowCase.LargerThanMemory.csproj", "{C76CC066-B0FD-4588-8EAC-4093C809C996}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -54,6 +56,10 @@ Global
 		{400653CF-FA3F-E1B9-7C1C-D4C7B4075B3F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{400653CF-FA3F-E1B9-7C1C-D4C7B4075B3F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{400653CF-FA3F-E1B9-7C1C-D4C7B4075B3F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C76CC066-B0FD-4588-8EAC-4093C809C996}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C76CC066-B0FD-4588-8EAC-4093C809C996}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C76CC066-B0FD-4588-8EAC-4093C809C996}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C76CC066-B0FD-4588-8EAC-4093C809C996}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

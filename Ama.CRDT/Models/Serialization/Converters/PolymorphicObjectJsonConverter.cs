@@ -1,6 +1,7 @@
 namespace Ama.CRDT.Models.Serialization.Converters;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Partitioning;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -63,6 +64,13 @@ public sealed class PolymorphicObjectJsonConverter : JsonConverter<object>
         Register("tree-remove", typeof(TreeRemoveNodePayload));
         Register("tree-move", typeof(TreeMoveNodePayload));
         Register("vote-payload", typeof(VotePayload));
+        
+        // Register partitioning types
+        Register("bplus-tree-node", typeof(BPlusTreeNode));
+        Register("bplus-tree-header", typeof(BTreeHeader));
+        Register("comp-key", typeof(CompositePartitionKey));
+        Register("header-partition", typeof(HeaderPartition));
+        Register("data-partition", typeof(DataPartition));
     }
 
     /// <summary>
@@ -120,6 +128,12 @@ public sealed class PolymorphicObjectJsonConverter : JsonConverter<object>
 
     public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
     {
+        if (value is null)
+        {
+            writer.WriteNullValue();
+            return;
+        }
+
         var type = value.GetType();
         if (!DiscriminatorMap.TryGetValue(type, out var typeDiscriminator))
         {

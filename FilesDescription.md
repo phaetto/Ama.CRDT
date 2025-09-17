@@ -19,6 +19,14 @@
 | `$/Ama.CRDT.Benchmarks/Models/StrategyPoco.cs` | A data model containing properties decorated with attributes for each supported CRDT strategy, used for isolated strategy benchmarking. |
 | `$/Ama.CRDT.Benchmarks/Program.cs` | The entry point for the benchmark runner. |
 | `$/Ama.CRDT.Benchmarks/README.md` | No description provided. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/BlogPost.cs` | The root data model for the showcase, representing a blog post. It is decorated with `[PartitionKey]` and its `Comments` dictionary uses `[CrdtOrMapStrategy]` to enable partitioning. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/Comment.cs` | A simple record representing a comment in the blog post. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Program.cs` | The main entry point for the showcase application, responsible for setting up dependency injection and starting the simulation. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/DataGeneratorService.cs` | A service responsible for programmatically generating a large volume of comment data for a blog post until a configured size limit is reached, demonstrating the system's ability to handle large datasets. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/FileSystemPartitionStreamProvider.cs` | An implementation of `IPartitionStreamProvider` that stores CRDT index and data files on the local filesystem, organized into directories for each replica. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/UiService.cs` | Implements the `Terminal.Gui`-based user interface for browsing blog posts and their comments, demonstrating on-demand loading of data from partitions. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/SimulationRunner.cs` | Orchestrates the showcase by initializing replicas, triggering the data generation process, and launching the user interface. It now uses `IPartitionManager` to discover existing documents at startup. |
 | `$/Ama.CRDT.ShowCase/Ama.CRDT.ShowCase.csproj` | The project file for the showcase console application. |
 | `$/Ama.CRDT.ShowCase/Models/User.cs` | A simple data model representing a user, used as an element in the CRDT-managed array. |
 | `$/Ama.CRDT.ShowCase/Models/UserStats.cs` | The main POCO representing the shared state, decorated with CRDT strategy attributes (`CrdtCounter`, `CrdtArrayLcsStrategy`, `LwwStrategy`). |
@@ -132,11 +140,10 @@
 | `$/Ama.CRDT/Models/OrSetState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Partitioning/BPlusTreeNode.cs` | Represents a node in the B+ Tree index, containing keys and either child offsets (for internal nodes) or partition data (for leaf nodes). |
 | `$/Ama.CRDT/Models/Partitioning/BTreeHeader.cs` | Represents the header of the B+ Tree index file, storing metadata like the root node offset and degree of the tree. |
-| `$/Ama.CRDT/Models/Partitioning/CompositePartitionKey.cs` | No description provided. |
+| `$/Ama.CRDT/Models/Partitioning/CompositePartitionKey.cs` | Represents a composite key for partitioning, consisting of a logical key and a range key. It now uses `object` for keys to support natural sorting of different key types and implements `IComparable` for consistent ordering. |
 | `$/Ama.CRDT/Models/Partitioning/Partition.cs` | A data structure representing a partition in a partitioned data store. |
 | `$/Ama.CRDT/Models/Partitioning/PartitionContent.cs` | A data structure representing the data and metadata content of a single partition. |
-| `$/Ama.CRDT/Models/Partitioning/PartitionStreams.cs` | No description provided. |
-| `$/Ama.CRDT/Models/Partitioning/SplitResult.cs` | A data structure representing the result of a partition split operation, containing the content for the two new partitions and the key that divides them. |
+| `$/Ama.CRDT/Models/Partitioning/SplitResult.cs` | A data structure representing the result of a partition split operation, containing the content for the two new partitions and the key that divides them. It now uses `object` for the split key to support various key types. |
 | `$/Ama.CRDT/Models/PnCounterState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
@@ -158,20 +165,20 @@
 | `$/Ama.CRDT/PublicAPI.Shipped.txt` | Tracks the shipped public API surface of the library to detect breaking changes. This file should be updated when new APIs are officially released in a stable version. |
 | `$/Ama.CRDT/PublicAPI.Unshipped.txt` | Tracks new public APIs that have not yet been included in a stable release. This file must be empty before a manual, stable publish. Build will fail if new public APIs are added without being added to this file first. |
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | No description provided. |
-| `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implements the logic for managing and compacting CRDT metadata. It provides helper methods like Initialize(document) to create a metadata object from a POCO by reflecting on its properties, and Reset(metadata, document) to clear and re-initialize an existing metadata object. The initialization logic correctly traverses nested objects and collections. |
+| `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implements the `ICrdtMetadataManager` for managing and compacting CRDT metadata. It provides helper methods like Initialize(document) to create a metadata object from a POCO by reflecting on its properties, and Reset(metadata, document) to clear and re-initialize an existing metadata object. The initialization logic correctly traverses nested objects and collections. |
 | `$/Ama.CRDT/Services/CrdtPatcher.cs` | Implements the logic to recursively compare two objects and generate a CRDT patch by delegating to property-specific strategies. |
 | `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext` holding the unique replica ID. |
 | `$/Ama.CRDT/Services/DifferentiateObjectContext.cs` | Defines the context object for the `ICrdtPatcher.DifferentiateObject` method, encapsulating all necessary parameters. |
 | `$/Ama.CRDT/Services/Helpers/PocoPathHelper.cs` | A utility class that centralizes reflection-based logic for CRDT strategies. It handles parsing JSON paths, resolving them against POCOs, getting and setting property values, and retrieving type information for collections and dictionaries. |
 | `$/Ama.CRDT/Services/ICrdtApplicator.cs` | No description provided. |
-| `$/Ama.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing CRDT metadata. Responsibilities include initializing or resetting metadata by traversing a document to create LWW timestamps and array positional trackers, pruning old tombstones to control state growth, and advancing version vectors. |
+| `$/Ama.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing CRDT metadata. Its responsibilities include initializing, resetting, cloning, merging, and compacting metadata state such as LWW timestamps, positional trackers, and version vectors. This service is critical for enabling conflict-free merges by externalizing the state needed for resolution. |
 | `$/Ama.CRDT/Services/ICrdtPatcher.cs` | Defines the contract for a service that compares two versions of a data model and generates a CRDT patch. |
 | `$/Ama.CRDT/Services/ICrdtScopeFactory.cs` | Defines the contract for a factory that creates isolated `IServiceScope` instances for CRDT replicas, each configured with a unique replica ID. |
-| `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning, enabling them to split and merge their associated metadata over larger-than-memory data structures. |
+| `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning, enabling them to split and merge their associated metadata over larger-than-memory data structures. It now uses `object` for partition keys to support natural sorting. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitioningStrategy.cs` | No description provided. |
-| `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` | Defines the contract for managing a CRDT document that is partitioned across one or more streams, allowing it to scale beyond available memory. |
+| `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` | Defines the contract for managing a CRDT document that is partitioned across one or more streams, allowing it to scale beyond available memory. It includes methods to retrieve all data partitions for browsing and to get all unique logical keys from the index, now supporting `object` keys. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionStreamProvider.cs` | Defines a contract for providing data and index streams for logical partitions, enabling extensible storage. |
-| `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a CRDT document that is partitioned, allowing it to scale beyond available memory by storing data and an index in streams. |
+| `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a CRDT document that is partitioned, allowing it to scale beyond available memory by storing data and an index in streams. It includes methods to retrieve all data partitions for browsing and to get all unique logical keys from the index, and now uses `object` for logical keys. |
 | `$/Ama.CRDT/Services/Partitioning/Serialization/IIndexSerializationHelper.cs` | Defines the contract for serializing and deserializing B+ Tree index components (headers and nodes) to and from a stream. |
 | `$/Ama.CRDT/Services/Partitioning/Serialization/IndexDefaultSerializationHelper.cs` | The default implementation of `IIndexSerializationHelper`, using System.Text.Json for serialization. |
 | `$/Ama.CRDT/Services/Partitioning/Strategies/BPlusTreePartitioningStrategy.cs` | An implementation of `IPartitioningStrategy` that uses a B+ Tree to index partitions based on their start key. |
@@ -185,7 +192,7 @@
 | `$/Ama.CRDT/Services/Providers/SequentialTimestampProvider.cs` | A timestamp provider that generates sequential, predictable timestamps, primarily for testing purposes. It is thread-safe. |
 | `$/Ama.CRDT/Services/ReplicaContext.cs` | A scoped service that holds the unique identifier for a CRDT replica, making it available to other scoped services within the same `IServiceScope`. |
 | `$/Ama.CRDT/Services/Strategies/ApplyOperationContext.cs` | Defines the context for an <see cref="ICrdtStrategy.ApplyOperation"/> call, encapsulating all necessary parameters for applying a single CRDT operation to a document. This context is now simplified as strategies use centralized helpers for reflection. |
-| `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements a CRDT strategy for arrays using LCS, with support for type-specific element comparers. It now uses centralized reflection helpers from `PocoPathHelper`. |
+| `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements a CRDT strategy for arrays using LCS, with support for type-specific element comparers. It now uses centralized reflection helpers from `PocoPathHelper` and supports `IPartitionableCrdtStrategy` with `object` keys. |
 | `$/Ama.CRDT/Services/Strategies/AverageRegisterStrategy.cs` | Implements the Average Register strategy. It now uses centralized reflection helpers from `PocoPathHelper` to apply the calculated average value. |
 | `$/Ama.CRDT/Services/Strategies/BoundedCounterStrategy.cs` | Implements a counter that is clamped within a specified minimum and maximum value. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/CounterMapStrategy.cs` | Implements the Counter-Map strategy, where each key in a dictionary is treated as an independent PN-Counter. |
@@ -205,7 +212,7 @@
 | `$/Ama.CRDT/Services/Strategies/MaxWinsStrategy.cs` | Implements the Max-Wins Register strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get the current value and apply updates. |
 | `$/Ama.CRDT/Services/Strategies/MinWinsMapStrategy.cs` | Implements a value-based Min-Wins Map strategy. For each key, conflicts are resolved by choosing the lowest value, making the map's keys grow-only. |
 | `$/Ama.CRDT/Services/Strategies/MinWinsStrategy.cs` | Implements the Min-Wins Register strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get the current value and apply updates. |
-| `$/Ama.CRDT/Services/Strategies/OrMapStrategy.cs` | Implements the OR-Map (Observed-Remove Map) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper`. |
+| `$/Ama.CRDT/Services/Strategies/OrMapStrategy.cs` | Implements the OR-Map (Observed-Remove Map) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper` and supports `IPartitionableCrdtStrategy` with `object` keys. |
 | `$/Ama.CRDT/Services/Strategies/OrSetStrategy.cs` | Implements the OR-Set (Observed-Remove Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/PriorityQueueStrategy.cs` | Implements a strategy for collections that behave as a priority queue. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/ReplicatedTreeStrategy.cs` | Implements a CRDT strategy for tree data structures, allowing nodes to be added, removed, and moved concurrently. It uses unique tags (similar to OR-Set) for adds and LWW for moves to ensure convergence. |

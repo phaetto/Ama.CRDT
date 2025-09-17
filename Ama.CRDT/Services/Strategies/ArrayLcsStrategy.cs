@@ -328,10 +328,12 @@ public sealed class ArrayLcsStrategy(
 
     private static PropertyInfo FindListProperty(Type documentType)
     {
-        var listProperty = documentType.GetProperties().FirstOrDefault(p => typeof(IList).IsAssignableFrom(p.PropertyType));
+        var listProperty = documentType.GetProperties()
+            .FirstOrDefault(p => p.GetCustomAttribute<CrdtArrayLcsStrategyAttribute>() is not null);
+            
         if (listProperty is null)
         {
-            throw new NotSupportedException($"Type '{documentType.Name}' does not have a list property for partitioning.");
+            throw new NotSupportedException($"Type '{documentType.Name}' does not have a list property decorated with [CrdtArrayLcsStrategy] for partitioning.");
         }
         return listProperty;
     }
