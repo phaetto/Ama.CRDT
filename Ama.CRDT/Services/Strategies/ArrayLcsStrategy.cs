@@ -3,15 +3,13 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Reflection;
-using Ama.CRDT.Services;
 
 /// <inheritdoc/>
 [CrdtSupportedType(typeof(IList))]
@@ -21,7 +19,7 @@ using Ama.CRDT.Services;
 [SequentialOperations]
 public sealed class ArrayLcsStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext) : ICrdtStrategy
+    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -74,14 +72,14 @@ public sealed class ArrayLcsStrategy(
             var start = lcsWithBoundaries[i];
             var end = lcsWithBoundaries[i+1];
 
-            var beforePos = start.Item1 >= 0 ? originalPositions[start.Item1].Position : null;
-            var afterPos = end.Item1 < originalList.Count ? originalPositions[end.Item1].Position : null;
+            PositionalIdentifier? beforePos = start.Item1 >= 0 ? originalPositions[start.Item1] : null;
+            PositionalIdentifier? afterPos = end.Item1 < originalList.Count ? originalPositions[end.Item1] : null;
 
-            var lastGeneratedPos = beforePos;
+            var lastGeneratedPos = beforePos?.Position;
 
             for (var modIdx = start.Item2 + 1; modIdx < end.Item2; modIdx++)
             {
-                var newPos = GeneratePositionBetween(lastGeneratedPos, afterPos);
+                var newPos = GeneratePositionBetween(lastGeneratedPos, afterPos?.Position);
                 var newItem = new PositionalItem(newPos, modifiedList[modIdx]);
                 operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, changeTimestamp));
                 lastGeneratedPos = newPos;
@@ -122,16 +120,110 @@ public sealed class ArrayLcsStrategy(
         }
     }
 
+    /// <inheritdoc/>
+    public object? GetStartKey(object data)
+    {
+        var listProperty = FindListProperty(data.GetType());
+        var list = (IList?)listProperty.GetValue(data);
+        if (list is null || list.Count == 0) return null;
+        
+        return new PositionalIdentifier("1", Guid.Empty);
+    }
+    
+    /// <inheritdoc/>
+    public object? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath)
+    {
+        if (!operation.JsonPath.StartsWith(partitionablePropertyPath, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (operation.Value is PositionalItem item) return new PositionalIdentifier(item.Position, operation.Id);
+        if (operation.Value is PositionalIdentifier identifier) return identifier;
+
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalItem)) is PositionalItem convertedItem)
+        {
+            return new PositionalIdentifier(convertedItem.Position, operation.Id);
+        }
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalIdentifier)) is PositionalIdentifier convertedIdentifier)
+        {
+            return convertedIdentifier;
+        }
+
+        return null;
+    }
+
+    /// <inheritdoc/>
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, Type documentType)
+    {
+        var listProperty = FindListProperty(documentType);
+        var path = $"$.{char.ToLowerInvariant(listProperty.Name[0])}{listProperty.Name[1..]}";
+
+        var list = (IList)listProperty.GetValue(originalData)!;
+        if (list.Count < 2)
+        {
+            throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
+        }
+
+        if (!originalMetadata.PositionalTrackers.TryGetValue(path, out var positions) || positions.Count != list.Count)
+        {
+            throw new InvalidOperationException("Positional metadata is out of sync, cannot split.");
+        }
+
+        var splitIndex = list.Count / 2;
+        var splitKey = positions[splitIndex];
+
+        var doc1 = Activator.CreateInstance(documentType)!;
+        var list1 = (IList)Activator.CreateInstance(list.GetType())!;
+        for (int i = 0; i < splitIndex; i++) list1.Add(list[i]);
+        listProperty.SetValue(doc1, list1);
+        
+        var meta1 = new CrdtMetadata { PositionalTrackers = { [path] = positions.Take(splitIndex).ToList() } };
+        CloneNonPositionalMetadata(originalMetadata, meta1, path);
+
+        var doc2 = Activator.CreateInstance(documentType)!;
+        var list2 = (IList)Activator.CreateInstance(list.GetType())!;
+        for (int i = splitIndex; i < list.Count; i++) list2.Add(list[i]);
+        listProperty.SetValue(doc2, list2);
+        
+        var meta2 = new CrdtMetadata { PositionalTrackers = { [path] = positions.Skip(splitIndex).ToList() } };
+        CloneNonPositionalMetadata(originalMetadata, meta2, path);
+
+        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
+    }
+
+    /// <inheritdoc/>
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, Type documentType)
+    {
+        var listProperty = FindListProperty(documentType);
+        var path = $"$.{char.ToLowerInvariant(listProperty.Name[0])}{listProperty.Name[1..]}";
+
+        var list1 = (IList)listProperty.GetValue(data1)!;
+        var list2 = (IList)listProperty.GetValue(data2)!;
+
+        var mergedDoc = Activator.CreateInstance(documentType)!;
+        var mergedList = (IList)Activator.CreateInstance(list1.GetType())!;
+
+        foreach (var item in list1) mergedList.Add(item);
+        foreach (var item in list2) mergedList.Add(item);
+        
+        listProperty.SetValue(mergedDoc, mergedList);
+        
+        var mergedMeta = new CrdtMetadata();
+        CloneNonPositionalMetadata(meta1, mergedMeta, path);
+        CloneNonPositionalMetadata(meta2, mergedMeta, path);
+        
+        var positions1 = meta1.PositionalTrackers.TryGetValue(path, out var p1) ? p1 : new List<PositionalIdentifier>();
+        var positions2 = meta2.PositionalTrackers.TryGetValue(path, out var p2) ? p2 : new List<PositionalIdentifier>();
+        
+        mergedMeta.PositionalTrackers[path] = positions1.Concat(positions2).OrderBy(p => p).ToList();
+
+        return new PartitionContent(mergedDoc, mergedMeta);
+    }
+
     private void ApplyUpsert(IList list, List<PositionalIdentifier> positions, CrdtOperation operation, PropertyInfo collectionProperty)
     {
-        if (operation.Value is not PositionalItem item)
-        {
-            if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalItem)) is not PositionalItem convertedItem)
-            {
-                return;
-            }
-            item = convertedItem;
-        }
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalItem)) is not PositionalItem item) return;
 
         var elementType = PocoPathHelper.GetCollectionElementType(collectionProperty);
         var itemValue = PocoPathHelper.ConvertValue(item.Value, elementType);
@@ -139,7 +231,18 @@ public sealed class ArrayLcsStrategy(
         var newIdentifier = new PositionalIdentifier(item.Position, operation.Id);
 
         var index = positions.BinarySearch(newIdentifier);
-        if (index < 0)
+        if (index >= 0)
+        {
+            // Exact position already exists. This can happen with concurrent insertions.
+            // The CRDT relies on operation IDs to create a total order.
+            var existingIdentifier = positions[index];
+            if (newIdentifier.OperationId.CompareTo(existingIdentifier.OperationId) > 0)
+            {
+                // Our op ID is greater, insert after.
+                index++;
+            }
+        }
+        else
         {
             index = ~index;
         }
@@ -150,14 +253,7 @@ public sealed class ArrayLcsStrategy(
     
     private void ApplyRemove(IList list, List<PositionalIdentifier> positions, CrdtOperation operation)
     {
-        if (operation.Value is not PositionalIdentifier identifier)
-        {
-            if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalIdentifier)) is not PositionalIdentifier convertedIdentifier)
-            {
-                return;
-            }
-            identifier = convertedIdentifier;
-        }
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalIdentifier)) is not PositionalIdentifier identifier) return;
         
         var index = positions.IndexOf(identifier);
 
@@ -170,17 +266,23 @@ public sealed class ArrayLcsStrategy(
     
     private static string GeneratePositionBetween(string? posBefore, string? posAfter)
     {
-        if (posBefore is not null && posBefore == posAfter)
+        var decBefore = posBefore != null ? decimal.Parse(posBefore, CultureInfo.InvariantCulture) : 0m;
+
+        if (posAfter is null)
         {
-            return posBefore;
+            return (decBefore + 1m).ToString("G29", CultureInfo.InvariantCulture);
+        }
+    
+        var decAfter = decimal.Parse(posAfter, CultureInfo.InvariantCulture);
+
+        if (decAfter <= decBefore)
+        {
+            // This handles equality and out-of-order cases.
+            // When equal, we must return the same position, relying on OperationId for tie-breaking.
+            return posBefore!;
         }
 
-        var decBefore = posBefore != null ? decimal.Parse(posBefore, CultureInfo.InvariantCulture) : 0m;
-        var decAfter = posAfter != null ? decimal.Parse(posAfter, CultureInfo.InvariantCulture) : decBefore + 2m;
-        
-        if (decAfter <= decBefore) decAfter = decBefore + 2m;
-
-        return ((decBefore + decAfter) / 2m).ToString(CultureInfo.InvariantCulture);
+        return ((decBefore + decAfter) / 2m).ToString("G29", CultureInfo.InvariantCulture);
     }
 
     private static List<(int, int)> LongestCommonSubsequence(List<object> seq1, List<object> seq2, IEqualityComparer<object> comparer)
@@ -222,5 +324,35 @@ public sealed class ArrayLcsStrategy(
         }
         lcs.Reverse();
         return lcs;
+    }
+
+    private static PropertyInfo FindListProperty(Type documentType)
+    {
+        var listProperty = documentType.GetProperties().FirstOrDefault(p => typeof(IList).IsAssignableFrom(p.PropertyType));
+        if (listProperty is null)
+        {
+            throw new NotSupportedException($"Type '{documentType.Name}' does not have a list property for partitioning.");
+        }
+        return listProperty;
+    }
+    
+    private static void CloneNonPositionalMetadata(CrdtMetadata source, CrdtMetadata destination, string excludedPathPrefix)
+    {
+        // For simplicity in this example, we assume non-conflicting merges for other metadata types.
+        // A real implementation would need more robust merging for LWW, VersionVectors etc.
+        foreach (var (key, value) in source.Lww.Where(kv => !kv.Key.StartsWith(excludedPathPrefix, StringComparison.Ordinal)))
+        {
+            if (!destination.Lww.ContainsKey(key))
+            {
+                destination.Lww[key] = value;
+            }
+        }
+        foreach (var (key, value) in source.VersionVector)
+        {
+            if (!destination.VersionVector.TryGetValue(key, out var existing) || value.CompareTo(existing) > 0)
+            {
+                destination.VersionVector[key] = value;
+            }
+        }
     }
 }

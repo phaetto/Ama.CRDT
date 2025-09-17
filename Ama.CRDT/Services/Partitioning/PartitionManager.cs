@@ -1,21 +1,18 @@
 namespace Ama.CRDT.Services.Partitioning;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Services.Providers;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 /// <summary>
 /// Manages a CRDT document that is partitioned, allowing it to scale beyond available memory by storing data and an index in streams.
-/// This implementation currently supports partitioning for properties of type <see cref="IDictionary"/>.
 /// </summary>
 /// <typeparam name="T">The type of the data model managed by the CRDT.</typeparam>
 public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, new()
@@ -23,106 +20,132 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     private readonly IPartitioningStrategy partitioningStrategy;
     private readonly ICrdtApplicator crdtApplicator;
     private readonly ICrdtMetadataManager metadataManager;
-    private readonly ICrdtStrategyProvider strategyProvider;
     private readonly PropertyInfo partitionableProperty;
+    private readonly string partitionablePropertyPath;
+    private readonly PropertyInfo partitionKeyProperty;
     private readonly IPartitionableCrdtStrategy partitionableStrategy;
+    private readonly IPartitionStreamProvider streamProvider;
 
-    private Stream? dataStream;
-    private Stream? indexStream;
-
-    // TODO: Should be configurable (ReplicaContext probably)
-    private const int MaxPartitionDataSize = 8192; // 8 KB
-    private const int MinPartitionDataSize = MaxPartitionDataSize / 4; // 2 KB
+    private const int MaxPartitionDataSize = 8192;
+    private const int MinPartitionDataSize = MaxPartitionDataSize / 4;
 
     public PartitionManager(
-        IPartitioningStrategy partitioningStrategy, 
-        ICrdtApplicator crdtApplicator, 
+        IPartitioningStrategy partitioningStrategy,
+        ICrdtApplicator crdtApplicator,
         ICrdtMetadataManager metadataManager,
         ICrdtStrategyProvider strategyProvider,
+        IServiceProvider serviceProvider,
         ReplicaContext replicaContext)
     {
         if (replicaContext == null || string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
         {
             throw new InvalidOperationException($"The service '{nameof(PartitionManager<T>)}' can only be resolved from a scope created by {nameof(ICrdtScopeFactory)}.");
         }
+
+        this.streamProvider = serviceProvider.GetService<IPartitionStreamProvider>() ??
+            throw new InvalidOperationException(
+                $"No implementation for '{nameof(IPartitionStreamProvider)}' was found. " +
+                $"When using partitioning features, you must register a custom stream provider. " +
+                $"Use the 'services.AddCrdtPartitionStreamProvider<TProvider>()' extension method to register your implementation.");
+
         this.partitioningStrategy = partitioningStrategy;
         this.crdtApplicator = crdtApplicator;
         this.metadataManager = metadataManager;
-        this.strategyProvider = strategyProvider;
 
-        var partitionInfo = FindPartitionablePropertyAndStrategy();
-        partitionableProperty = partitionInfo.Property;
-        partitionableStrategy = partitionInfo.Strategy;
+        partitionKeyProperty = FindPartitionKeyProperty();
+        (partitionableProperty, partitionableStrategy) = FindPartitionablePropertyAndStrategy(strategyProvider);
+        partitionablePropertyPath = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
     }
-    
+
     /// <inheritdoc/>
-    public async Task InitializeAsync(Stream dataStream, Stream indexStream, T initialObject)
+    public async Task InitializeAsync(T initialObject)
     {
-        ArgumentNullException.ThrowIfNull(dataStream);
-        ArgumentNullException.ThrowIfNull(indexStream);
         ArgumentNullException.ThrowIfNull(initialObject);
 
-        this.dataStream = dataStream;
-        this.indexStream = indexStream;
+        var logicalKey = partitionKeyProperty.GetValue(initialObject) ?? throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' cannot be null.");
+        var dataStream = await streamProvider.GetDataStreamAsync(logicalKey);
+        var indexStream = await streamProvider.GetIndexStreamAsync();
         
-        dataStream.SetLength(0);
-        indexStream.SetLength(0);
-
-        var metadata = metadataManager.Initialize(initialObject);
-        var dataWriteResult = await WriteToStreamAsync(initialObject);
-        var metaWriteResult = await WriteToStreamAsync(metadata);
-
-        var initialStartKey = partitionableStrategy.GetStartKey(initialObject) ?? 0;
-
-        var initialPartition = new Partition(initialStartKey, null, dataWriteResult.Offset, dataWriteResult.Length, metaWriteResult.Offset, metaWriteResult.Length);
-        
-        await partitioningStrategy.InitializeAsync(indexStream);
-        await partitioningStrategy.InsertPartitionAsync(initialPartition);
-
-        if (initialPartition.DataLength > MaxPartitionDataSize)
+        if (indexStream.Length == 0)
         {
-            await SplitPartitionAsync(initialPartition);
+            dataStream.SetLength(0);
+            indexStream.SetLength(0);
+        }
+
+        await partitioningStrategy.InitializeAsync();
+
+        // 1. Create and persist the header partition (contains everything except the partitionable collection)
+        var headerObject = JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(initialObject, CrdtJsonContext.DefaultOptions), CrdtJsonContext.DefaultOptions)!;
+        var collection = partitionableProperty.GetValue(headerObject);
+        if (collection is IList list)
+        {
+            list.Clear();
+        }
+        else if (collection is IDictionary dict)
+        {
+            dict.Clear();
+        }
+        var headerMetadata = metadataManager.Initialize(headerObject);
+
+        var headerDataWriteResult = await WriteToStreamAsync(dataStream, headerObject);
+        var headerMetaWriteResult = await WriteToStreamAsync(dataStream, headerMetadata);
+        var headerPartitionKey = new CompositePartitionKey(logicalKey, null);
+        var headerPartition = new Partition(headerPartitionKey, headerPartitionKey, headerDataWriteResult.Offset, headerDataWriteResult.Length, headerMetaWriteResult.Offset, headerMetaWriteResult.Length);
+        await partitioningStrategy.InsertPartitionAsync(headerPartition);
+
+        // 2. Create and persist the initial data partition
+        var initialCollection = partitionableProperty.GetValue(initialObject);
+        var dataObject = new T();
+        partitionableProperty.SetValue(dataObject, initialCollection);
+        var dataMetadata = metadataManager.Initialize(dataObject);
+        
+        var dataDataWriteResult = await WriteToStreamAsync(dataStream, dataObject);
+        var dataMetaWriteResult = await WriteToStreamAsync(dataStream, dataMetadata);
+        var startRangeKey = partitionableStrategy.GetStartKey(initialObject);
+        
+        var dataPartitionKey = new CompositePartitionKey(logicalKey, startRangeKey);
+        var dataPartition = new Partition(dataPartitionKey, null, dataDataWriteResult.Offset, dataDataWriteResult.Length, dataMetaWriteResult.Offset, dataMetaWriteResult.Length);
+        await partitioningStrategy.InsertPartitionAsync(dataPartition);
+
+        if (dataPartition.DataLength > MaxPartitionDataSize)
+        {
+            await SplitPartitionAsync(dataPartition, dataStream);
         }
     }
 
     /// <inheritdoc/>
     public async Task ApplyPatchAsync(CrdtPatch patch)
     {
-        if (dataStream is null)
-        {
-            throw new InvalidOperationException("PartitionManager must be initialized before applying patches.");
-        }
         if (patch.Operations is null || !patch.Operations.Any()) return;
-
-        var opsByPartition = new Dictionary<Partition, List<CrdtOperation>>();
-        foreach(var op in patch.Operations)
+        if (patch.LogicalKey is null)
         {
-            var partition = await FindPartitionForOperationAsync(op);
-            if (!opsByPartition.ContainsKey(partition))
-            {
-                opsByPartition[partition] = new List<CrdtOperation>();
-            }
-            opsByPartition[partition].Add(op);
+            throw new ArgumentException("Patch must have a LogicalKey for partitioned documents.", nameof(patch));
         }
         
-        foreach(var kvp in opsByPartition)
+        var dataStream = await streamProvider.GetDataStreamAsync(patch.LogicalKey);
+        var opsByPartition = await GroupOperationsByPartitionAsync(patch);
+        
+        foreach(var (partition, operations) in opsByPartition)
         {
-            var content = await LoadPartitionContentAsync(kvp.Key);
-            var crdtDoc = new CrdtDocument<T>((T)content.Data, content.Metadata);
-            crdtApplicator.ApplyPatch(crdtDoc, new CrdtPatch { Operations = kvp.Value });
+            var crdtDoc = await LoadPartitionContentAsync(partition, dataStream);
+            crdtApplicator.ApplyPatch(crdtDoc, new CrdtPatch(operations) { LogicalKey = patch.LogicalKey });
             
-            var updatedPartition = await PersistPartitionChangesAsync(kvp.Key, crdtDoc.Data, crdtDoc.Metadata);
+            var updatedPartition = await PersistPartitionChangesAsync(partition, crdtDoc.Data!, crdtDoc.Metadata!, dataStream);
             
-            if (updatedPartition.DataLength > MaxPartitionDataSize)
+            // Only data partitions can be split or merged. Header partitions are stable.
+            if (updatedPartition.StartKey.RangeKey is not null)
             {
-                await SplitPartitionAsync(updatedPartition);
-            }
-            else if (updatedPartition.DataLength < MinPartitionDataSize)
-            {
-                var allPartitions = await partitioningStrategy.GetAllPartitionsAsync();
-                if (allPartitions.Count > 1)
+                if (updatedPartition.DataLength > MaxPartitionDataSize)
                 {
-                    await MergePartitionIfNeededAsync(updatedPartition, allPartitions);
+                    await SplitPartitionAsync(updatedPartition, dataStream);
+                }
+                else if (updatedPartition.DataLength < MinPartitionDataSize)
+                {
+                    var allPartitions = await partitioningStrategy.GetAllPartitionsAsync();
+                    if (allPartitions.Count(p => p.StartKey.LogicalKey.Equals(patch.LogicalKey) && p.StartKey.RangeKey is not null) > 1)
+                    {
+                        await MergePartitionIfNeededAsync(updatedPartition, allPartitions, dataStream);
+                    }
                 }
             }
         }
@@ -131,86 +154,115 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     /// <inheritdoc/>
     public async Task<Partition?> GetPartitionAsync(object key)
     {
-        if (indexStream is null)
-        {
-            throw new InvalidOperationException("PartitionManager must be initialized before getting a partition.");
-        }
         ArgumentNullException.ThrowIfNull(key);
-        return await partitioningStrategy.FindPartitionAsync(key);
+        if (key is not CompositePartitionKey compositeKey)
+        {
+            throw new ArgumentException($"Key must be of type {nameof(CompositePartitionKey)} for partitioned documents.", nameof(key));
+        }
+        return await partitioningStrategy.FindPartitionAsync(compositeKey);
     }
 
     /// <inheritdoc/>
-    public async Task<PartitionContent?> GetPartitionContentAsync(object key)
+    public async Task<CrdtDocument<T>?> GetPartitionContentAsync(object key)
     {
-        if (dataStream is null || indexStream is null)
-        {
-            throw new InvalidOperationException("PartitionManager must be initialized before getting partition content.");
-        }
         ArgumentNullException.ThrowIfNull(key);
+        if (key is not CompositePartitionKey compositeKey)
+        {
+            throw new ArgumentException($"Key must be of type {nameof(CompositePartitionKey)} for partitioned documents.", nameof(key));
+        }
 
-        var partition = await partitioningStrategy.FindPartitionAsync(key);
+        var partition = await partitioningStrategy.FindPartitionAsync(compositeKey);
         if (partition is null)
         {
             return null;
         }
 
-        return await LoadPartitionContentAsync(partition.Value);
+        var dataStream = await streamProvider.GetDataStreamAsync(compositeKey.LogicalKey);
+        return await LoadPartitionContentAsync(partition.Value, dataStream);
     }
 
-    private readonly record struct PartitionablePropertyInfo(PropertyInfo Property, IPartitionableCrdtStrategy Strategy);
+    private async Task<Dictionary<Partition, List<CrdtOperation>>> GroupOperationsByPartitionAsync(CrdtPatch patch)
+    {
+        var opsByPartition = new Dictionary<Partition, List<CrdtOperation>>();
+        foreach (var op in patch.Operations!)
+        {
+            var rangeKey = partitionableStrategy.GetKeyFromOperation(op, partitionablePropertyPath);
+            var compositeKey = new CompositePartitionKey(patch.LogicalKey!, rangeKey);
+
+            var partition = await partitioningStrategy.FindPartitionAsync(compositeKey)
+                ?? throw new InvalidOperationException($"Could not find partition for key '{compositeKey}'.");
+
+            if (!opsByPartition.TryGetValue(partition, out var opList))
+            {
+                opList = new List<CrdtOperation>();
+                opsByPartition[partition] = opList;
+            }
+            opList.Add(op);
+        }
+        return opsByPartition;
+    }
+
     private readonly record struct StreamWriteResult(long Offset, long Length);
 
-    private async Task SplitPartitionAsync(Partition partitionToSplit)
+    private async Task SplitPartitionAsync(Partition partitionToSplit, Stream dataStream)
     {
-        var content = await LoadPartitionContentAsync(partitionToSplit);
-        var doc = content.Data;
-        var meta = content.Metadata;
+        var crdtDoc = await LoadPartitionContentAsync(partitionToSplit, dataStream);
+        var splitResult = partitionableStrategy.Split(crdtDoc.Data!, crdtDoc.Metadata!, typeof(T));
 
-        var splitResult = partitionableStrategy.Split(doc, meta, typeof(T));
+        var p1DataWrite = await WriteToStreamAsync(dataStream, splitResult.Partition1.Data);
+        var p1MetaWrite = await WriteToStreamAsync(dataStream, splitResult.Partition1.Metadata);
+        var p2DataWrite = await WriteToStreamAsync(dataStream, splitResult.Partition2.Data);
+        var p2MetaWrite = await WriteToStreamAsync(dataStream, splitResult.Partition2.Metadata);
+        
+        var originalKey = partitionToSplit.StartKey;
 
-        var p1DataWrite = await WriteToStreamAsync(splitResult.Partition1.Data);
-        var p1MetaWrite = await WriteToStreamAsync(splitResult.Partition1.Metadata);
-        var p2DataWrite = await WriteToStreamAsync(splitResult.Partition2.Data);
-        var p2MetaWrite = await WriteToStreamAsync(splitResult.Partition2.Metadata);
+        var p1Key = originalKey;
+        var p2Key = new CompositePartitionKey(originalKey.LogicalKey, splitResult.SplitKey);
 
-        var p1 = new Partition(partitionToSplit.StartKey, splitResult.SplitKey, p1DataWrite.Offset, p1DataWrite.Length, p1MetaWrite.Offset, p1MetaWrite.Length);
-        var p2 = new Partition(splitResult.SplitKey, partitionToSplit.EndKey, p2DataWrite.Offset, p2DataWrite.Length, p2MetaWrite.Offset, p2MetaWrite.Length);
+        var p1 = new Partition(p1Key, p2Key, p1DataWrite.Offset, p1DataWrite.Length, p1MetaWrite.Offset, p1MetaWrite.Length);
+        var p2 = new Partition(p2Key, partitionToSplit.EndKey, p2DataWrite.Offset, p2DataWrite.Length, p2MetaWrite.Offset, p2MetaWrite.Length);
         
         await partitioningStrategy.DeletePartitionAsync(partitionToSplit);
         await partitioningStrategy.InsertPartitionAsync(p1);
         await partitioningStrategy.InsertPartitionAsync(p2);
     }
 
-    private async Task MergePartitionIfNeededAsync(Partition partitionToMerge, List<Partition> allPartitions)
+    private async Task MergePartitionIfNeededAsync(Partition partitionToMerge, List<Partition> allPartitions, Stream dataStream)
     {
-        var partitionIndex = allPartitions.FindIndex(p => p.StartKey.Equals(partitionToMerge.StartKey));
-        if (partitionIndex == -1) return; // Partition might have been removed already by another merge
+        var logicalKey = partitionToMerge.StartKey.LogicalKey;
+        var logicalPartitions = allPartitions
+            .Where(p => p.StartKey.LogicalKey.Equals(logicalKey) && p.StartKey.RangeKey is not null)
+            .OrderBy(p => p.StartKey)
+            .ToList();
 
-        // Determine which sibling to merge with. Prioritize merging with the previous one.
-        int sourceIndex;
+        var partitionIndex = logicalPartitions.FindIndex(p => p.StartKey.Equals(partitionToMerge.StartKey));
+        if (partitionIndex == -1) return;
+
         int targetIndex;
+        int sourceIndex;
 
-        if (partitionIndex > 0) // Has a previous sibling
+        if (partitionIndex > 0)
         {
             targetIndex = partitionIndex - 1;
             sourceIndex = partitionIndex;
         }
-        else // No previous, must use next
+        else 
         {
+            if (logicalPartitions.Count < 2) return;
             targetIndex = partitionIndex;
             sourceIndex = partitionIndex + 1;
         }
 
-        var targetPartition = allPartitions[targetIndex];
-        var sourcePartition = allPartitions[sourceIndex];
+        var targetPartition = logicalPartitions[targetIndex];
+        var sourcePartition = logicalPartitions[sourceIndex];
         
-        var targetContent = await LoadPartitionContentAsync(targetPartition);
-        var sourceContent = await LoadPartitionContentAsync(sourcePartition);
+        var targetDocument = await LoadPartitionContentAsync(targetPartition, dataStream);
+        var sourceDocument = await LoadPartitionContentAsync(sourcePartition, dataStream);
         
-        var mergedContent = partitionableStrategy.Merge(targetContent.Data, targetContent.Metadata, sourceContent.Data, sourceContent.Metadata, typeof(T));
+        var mergedContent = partitionableStrategy.Merge(targetDocument.Data!, targetDocument.Metadata!, sourceDocument.Data!, sourceDocument.Metadata!, typeof(T));
         
-        var dataWriteResult = await WriteToStreamAsync(mergedContent.Data);
-        var metaWriteResult = await WriteToStreamAsync(mergedContent.Metadata);
+        var dataWriteResult = await WriteToStreamAsync(dataStream, mergedContent.Data);
+        var metaWriteResult = await WriteToStreamAsync(dataStream, mergedContent.Metadata);
         
         var mergedPartition = new Partition(targetPartition.StartKey, sourcePartition.EndKey, dataWriteResult.Offset, dataWriteResult.Length, metaWriteResult.Offset, metaWriteResult.Length);
 
@@ -219,46 +271,47 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         await partitioningStrategy.InsertPartitionAsync(mergedPartition);
     }
 
-    private PartitionablePropertyInfo FindPartitionablePropertyAndStrategy()
+    private static (PropertyInfo Property, IPartitionableCrdtStrategy Strategy) FindPartitionablePropertyAndStrategy(ICrdtStrategyProvider strategyProvider)
     {
-        var property = typeof(T).GetProperties()
-            .FirstOrDefault(p => strategyProvider.GetStrategy(p) is IPartitionableCrdtStrategy);
+        var partitionableProperties = typeof(T).GetProperties()
+            .Select(p => new { Property = p, Strategy = strategyProvider.GetStrategy(p) })
+            .Where(x => x.Strategy is IPartitionableCrdtStrategy)
+            .ToList();
 
-        if (property is null)
+        if (partitionableProperties.Count == 0)
         {
             throw new NotSupportedException($"The type '{typeof(T).Name}' does not have a property with a CRDT strategy that supports partitioning (implements {nameof(IPartitionableCrdtStrategy)}).");
         }
-        
-        var strategy = (IPartitionableCrdtStrategy)strategyProvider.GetStrategy(property);
-        return new PartitionablePropertyInfo(property, strategy);
+        if (partitionableProperties.Count > 1)
+        {
+            throw new NotSupportedException($"The type '{typeof(T).Name}' has multiple properties with partitionable CRDT strategies. Only one is allowed per type.");
+        }
+
+        var result = partitionableProperties.First();
+        return (result.Property, (IPartitionableCrdtStrategy)result.Strategy);
     }
     
-    private async Task<Partition> FindPartitionForOperationAsync(CrdtOperation op)
+    private static PropertyInfo FindPartitionKeyProperty()
     {
-        object? key = partitionableStrategy.GetKeyFromOperation(op);
-        
-        if (key is null)
+        var attr = typeof(T).GetCustomAttribute<PartitionKeyAttribute>();
+        if (attr is null)
         {
-            // Fallback for operations that are not key-based (e.g. global operations on the document)
-            // or for strategies where a key cannot be determined from a single operation.
-            var allPartitions = await partitioningStrategy.GetAllPartitionsAsync();
-            if (!allPartitions.Any()) throw new InvalidOperationException("Cannot find partition for operation as no partitions exist.");
-            key = allPartitions.First().StartKey;
-        }
-
-        var foundPartition = await partitioningStrategy.FindPartitionAsync(key);
-        if (foundPartition is null)
-        {
-            throw new InvalidOperationException($"Could not find partition for key '{key}'.");
+            throw new NotSupportedException($"The type '{typeof(T).Name}' must be decorated with the [{nameof(PartitionKeyAttribute)}] to be used with partitioning.");
         }
         
-        return foundPartition.Value;
+        var property = typeof(T).GetProperty(attr.PropertyName, BindingFlags.Public | BindingFlags.Instance);
+        if (property is null)
+        {
+            throw new NotSupportedException($"The partition key property '{attr.PropertyName}' specified on type '{typeof(T).Name}' was not found.");
+        }
+        
+        return property;
     }
 
-    private async Task<PartitionContent> LoadPartitionContentAsync(Partition partition)
+    private async Task<CrdtDocument<T>> LoadPartitionContentAsync(Partition partition, Stream dataStream)
     {
         var docBuffer = new byte[partition.DataLength];
-        dataStream!.Seek(partition.DataOffset, SeekOrigin.Begin);
+        dataStream.Seek(partition.DataOffset, SeekOrigin.Begin);
         await dataStream.ReadExactlyAsync(docBuffer);
         using var docStream = new MemoryStream(docBuffer);
         var doc = await JsonSerializer.DeserializeAsync<T>(docStream, CrdtJsonContext.DefaultOptions);
@@ -269,22 +322,22 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         using var metaStream = new MemoryStream(metaBuffer);
         var meta = await JsonSerializer.DeserializeAsync<CrdtMetadata>(metaStream, CrdtJsonContext.DefaultOptions);
 
-        return new PartitionContent(doc!, meta!);
+        return new CrdtDocument<T>(doc, meta);
     }
     
-    private async Task<StreamWriteResult> WriteToStreamAsync(object content)
+    private async Task<StreamWriteResult> WriteToStreamAsync(Stream dataStream, object content)
     {
-        dataStream!.Seek(0, SeekOrigin.End);
+        dataStream.Seek(0, SeekOrigin.End);
         var offset = dataStream.Position;
         await JsonSerializer.SerializeAsync(dataStream, content, content.GetType(), CrdtJsonContext.DefaultOptions);
         var length = dataStream.Position - offset;
         return new StreamWriteResult(offset, length);
     }
     
-    private async Task<Partition> PersistPartitionChangesAsync(Partition partitionToUpdate, T newData, CrdtMetadata newMeta)
+    private async Task<Partition> PersistPartitionChangesAsync(Partition partitionToUpdate, T newData, CrdtMetadata newMeta, Stream dataStream)
     {
-        var newDataWriteResult = await WriteToStreamAsync(newData);
-        var newMetaWriteResult = await WriteToStreamAsync(newMeta);
+        var newDataWriteResult = await WriteToStreamAsync(dataStream, newData);
+        var newMetaWriteResult = await WriteToStreamAsync(dataStream, newMeta);
 
         var updatedPartition = partitionToUpdate with { DataOffset = newDataWriteResult.Offset, DataLength = newDataWriteResult.Length, MetadataOffset = newMetaWriteResult.Offset, MetadataLength = newMetaWriteResult.Length };
         

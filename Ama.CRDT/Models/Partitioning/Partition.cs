@@ -10,8 +10,8 @@ namespace Ama.CRDT.Models.Partitioning;
 /// <param name="MetadataOffset">The byte offset in the data stream where this partition's metadata begins.</param>
 /// <param name="MetadataLength">The length in bytes of this partition's metadata in the data stream.</param>
 public readonly record struct Partition(
-    object StartKey,
-    object? EndKey,
+    CompositePartitionKey StartKey,
+    CompositePartitionKey? EndKey,
     long DataOffset,
     long DataLength,
     long MetadataOffset,
