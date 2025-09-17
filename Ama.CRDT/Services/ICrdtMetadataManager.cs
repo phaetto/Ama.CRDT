@@ -6,7 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Defines a service for managing CRDT metadata. Its responsibilities include initializing, resetting,
-/// cloning, and compacting metadata state such as LWW timestamps, positional trackers, and version vectors.
+/// cloning, merging, and compacting metadata state such as LWW timestamps, positional trackers, and version vectors.
 /// This service is critical for enabling conflict-free merges by externalizing the state needed for resolution.
 /// </summary>
 public interface ICrdtMetadataManager
@@ -105,6 +105,17 @@ public interface ICrdtMetadataManager
     /// </code>
     /// </example>
     CrdtMetadata Clone([DisallowNull] CrdtMetadata metadata);
+    
+    /// <summary>
+    /// Merges multiple metadata objects into a single new one.
+    /// This is useful in partitioning scenarios where metadata from a header partition and a data partition need to be combined.
+    /// For most properties, this is a union of dictionaries. For the VersionVector, it takes the maximum timestamp for each replica.
+    /// The returned metadata object is a deep copy.
+    /// </summary>
+    /// <param name="metadatas">A collection of metadata objects to merge.</param>
+    /// <returns>A new <see cref="CrdtMetadata"/> object containing the merged state.</returns>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadatas"/> is null.</exception>
+    CrdtMetadata Merge(params CrdtMetadata[] metadatas);
 
     /// <summary>
     /// Removes LWW tombstones from the metadata that are older than the specified threshold.

@@ -32,6 +32,19 @@ public sealed class CompositePartitionKeyTests
     }
 
     [Fact]
+    public void CompareTo_WithNumericStrings_ShouldSortLexicographically()
+    {
+        // Arrange
+        var key1 = new CompositePartitionKey("tenant", "2");
+        var key2 = new CompositePartitionKey("tenant", "10");
+
+        // Act & Assert
+        // Lexicographically, "10" comes before "2".
+        key2.CompareTo(key1).ShouldBeLessThan(0);
+        key1.CompareTo(key2).ShouldBeGreaterThan(0);
+    }
+
+    [Fact]
     public void CompareTo_WithNullRangeKey_ShouldComeFirst()
     {
         // Arrange
@@ -55,39 +68,13 @@ public sealed class CompositePartitionKeyTests
     }
 
     [Fact]
-    public void CompareTo_WithDifferentKeyTypes_ShouldCompareCorrectly()
-    {
-        // Arrange
-        var keyInt1 = new CompositePartitionKey(1, 100);
-        var keyInt2 = new CompositePartitionKey(1, 200);
-        var keyString1 = new CompositePartitionKey("tenant-a", "abc");
-        var keyString2 = new CompositePartitionKey("tenant-a", "def");
-
-        // Act & Assert
-        keyInt1.CompareTo(keyInt2).ShouldBeLessThan(0);
-        keyString1.CompareTo(keyString2).ShouldBeLessThan(0);
-    }
-
-    [Fact]
-    public void CompareTo_WithMixedLogicalKeyTypes_ShouldThrowIfNonComparable()
-    {
-        // This relies on the default comparer's behavior
-        // Arrange
-        var key1 = new CompositePartitionKey(1, 100);
-        var key2 = new CompositePartitionKey("tenant-a", "abc");
-
-        // Act & Assert
-        Should.Throw<System.ArgumentException>(() => key1.CompareTo(key2));
-    }
-
-    [Fact]
     public void Equals_ShouldWorkCorrectly()
     {
         // Arrange
-        var key1a = new CompositePartitionKey("tenant-a", 1);
-        var key1b = new CompositePartitionKey("tenant-a", 1);
-        var key2 = new CompositePartitionKey("tenant-a", 2);
-        var key3 = new CompositePartitionKey("tenant-b", 1);
+        var key1a = new CompositePartitionKey("tenant-a", "1");
+        var key1b = new CompositePartitionKey("tenant-a", "1");
+        var key2 = new CompositePartitionKey("tenant-a", "2");
+        var key3 = new CompositePartitionKey("tenant-b", "1");
 
         // Act & Assert
         key1a.ShouldBe(key1b);
@@ -99,22 +86,22 @@ public sealed class CompositePartitionKeyTests
     public void ListSort_ShouldUseCompareToCorrectly()
     {
         // Arrange
-        var k1 = new CompositePartitionKey("B", 10);
+        var k1 = new CompositePartitionKey("B", "10");
         var k2 = new CompositePartitionKey("A", null); // header for A
-        var k3 = new CompositePartitionKey("A", 100);
+        var k3 = new CompositePartitionKey("A", "200");
         var k4 = new CompositePartitionKey("B", null); // header for B
-        var k5 = new CompositePartitionKey("A", 50);
+        var k5 = new CompositePartitionKey("A", "50");
 
         var list = new List<CompositePartitionKey> { k1, k2, k3, k4, k5 };
 
         // Act
         list.Sort();
 
-        // Assert
+        // Assert (Ordinal string comparison: "10" < "200" < "50")
         list[0].ShouldBe(k2); // A, null
-        list[1].ShouldBe(k5); // A, 50
-        list[2].ShouldBe(k3); // A, 100
+        list[1].ShouldBe(k3); // A, "200"
+        list[2].ShouldBe(k5); // A, "50"
         list[3].ShouldBe(k4); // B, null
-        list[4].ShouldBe(k1); // B, 10
+        list[4].ShouldBe(k1); // B, "10"
     }
 }

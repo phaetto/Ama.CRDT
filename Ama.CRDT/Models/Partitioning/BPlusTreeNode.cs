@@ -13,17 +13,18 @@ public sealed class BPlusTreeNode
     public bool IsLeaf { get; set; }
 
     /// <summary>
-    /// Gets the list of keys in the node.
+    /// Gets or sets the list of keys in the node.
     /// </summary>
-    public List<object> Keys { get; init; } = new();
+    public List<object> Keys { get; set; } = new();
 
     /// <summary>
-    /// Gets the list of partitions (only in leaf nodes).
+    /// Gets or sets the list of offsets to child nodes. Only used in internal nodes.
     /// </summary>
-    public List<Partition> Partitions { get; init; } = new();
+    public List<long> ChildrenOffsets { get; set; } = new();
 
     /// <summary>
-    /// Gets the list of child node offsets (only in internal nodes).
+    /// Gets or sets the list of partitions. Only used in leaf nodes.
+    /// Stored as a list of objects to support polymorphic serialization of <see cref="IPartition"/> implementations.
     /// </summary>
-    public List<long> ChildrenOffsets { get; init; } = new();
+    public List<object> Partitions { get; set; } = new();
 }

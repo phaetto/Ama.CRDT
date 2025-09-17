@@ -56,8 +56,8 @@ public sealed class BPlusTreePartitioningStrategyTests
         // Phase 1: Create and populate the index
         var strategy1 = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
         await strategy1.InitializeAsync();
-        var p10 = new Partition(new CompositePartitionKey("A", 10), null, 1L, 1, 1L, 1);
-        var p20 = new Partition(new CompositePartitionKey("A", 20), null, 2L, 2, 2L, 2);
+        var p10 = new DataPartition(new CompositePartitionKey("A", 10), null, 1L, 1, 1L, 1);
+        var p20 = new DataPartition(new CompositePartitionKey("A", 20), null, 2L, 2, 2L, 2);
         await strategy1.InsertPartitionAsync(p10);
         await strategy1.InsertPartitionAsync(p20);
 
@@ -68,11 +68,11 @@ public sealed class BPlusTreePartitioningStrategyTests
         // Assert
         var foundP10 = await strategy2.FindPartitionAsync(new CompositePartitionKey("A", 15));
         foundP10.ShouldNotBeNull();
-        foundP10.Value.ShouldBe(p10);
+        foundP10.ShouldBe(p10);
 
         var foundP20 = await strategy2.FindPartitionAsync(new CompositePartitionKey("A", 25));
         foundP20.ShouldNotBeNull();
-        foundP20.Value.ShouldBe(p20);
+        foundP20.ShouldBe(p20);
 
         var notFound = await strategy2.FindPartitionAsync(new CompositePartitionKey("B", 1));
         notFound.ShouldBeNull();
@@ -86,7 +86,7 @@ public sealed class BPlusTreePartitioningStrategyTests
         var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
         await strategy.InitializeAsync();
         var key = new CompositePartitionKey("tenant-a", 10);
-        var partition = new Partition(key, null, 100L, 200, 300L, 100);
+        var partition = new DataPartition(key, null, 100L, 200, 300L, 100);
 
         // Act
         await strategy.InsertPartitionAsync(partition);
@@ -94,7 +94,7 @@ public sealed class BPlusTreePartitioningStrategyTests
         // Assert
         var foundPartition = await strategy.FindPartitionAsync(new CompositePartitionKey("tenant-a", 15));
         foundPartition.ShouldNotBeNull();
-        foundPartition.Value.ShouldBe(partition);
+        foundPartition.ShouldBe(partition);
 
         var notFoundPartition = await strategy.FindPartitionAsync(new CompositePartitionKey("tenant-a", 5));
         notFoundPartition.ShouldBeNull();
@@ -108,10 +108,13 @@ public sealed class BPlusTreePartitioningStrategyTests
         var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
         await strategy.InitializeAsync();
 
-        var pA_header = new Partition(new CompositePartitionKey("A", null), null, 1L, 1, 1L, 1);
-        var pA_10 = new Partition(new CompositePartitionKey("A", 10), null, 2L, 2, 2L, 2);
-        var pB_header = new Partition(new CompositePartitionKey("B", null), null, 3L, 3, 3L, 3);
-        var pB_20 = new Partition(new CompositePartitionKey("B", 20), null, 4L, 4, 4L, 4);
+        var pA_header_key = new CompositePartitionKey("A", null);
+        var pA_header = new HeaderPartition(pA_header_key, 1L, 1, 1L, 1);
+        var pA_10 = new DataPartition(new CompositePartitionKey("A", 10), null, 2L, 2, 2L, 2);
+        
+        var pB_header_key = new CompositePartitionKey("B", null);
+        var pB_header = new HeaderPartition(pB_header_key, 3L, 3, 3L, 3);
+        var pB_20 = new DataPartition(new CompositePartitionKey("B", 20), null, 4L, 4, 4L, 4);
 
         // Act
         await strategy.InsertPartitionAsync(pB_20);
@@ -120,19 +123,48 @@ public sealed class BPlusTreePartitioningStrategyTests
         await strategy.InsertPartitionAsync(pB_header);
         
         // Assert
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", null)))!.Value.ShouldBe(pA_header);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 5)))!.Value.ShouldBe(pA_header);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 10)))!.Value.ShouldBe(pA_10);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 100)))!.Value.ShouldBe(pA_10);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", null)))!.ShouldBe(pA_header);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 5)))!.ShouldBe(pA_header);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 10)))!.ShouldBe(pA_10);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 100)))!.ShouldBe(pA_10);
         
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("B", null)))!.Value.ShouldBe(pB_header);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("B", 15)))!.Value.ShouldBe(pB_header);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("B", 20)))!.Value.ShouldBe(pB_20);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("B", 50)))!.Value.ShouldBe(pB_20);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("B", null)))!.ShouldBe(pB_header);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("B", 15)))!.ShouldBe(pB_header);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("B", 20)))!.ShouldBe(pB_20);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("B", 50)))!.ShouldBe(pB_20);
         
         (await strategy.FindPartitionAsync(new CompositePartitionKey("C", 1))).ShouldBeNull();
     }
     
+    [Fact]
+    public async Task InsertAndFindAsync_WithMixedKeyTypes_ShouldSortAndFindCorrectly()
+    {
+        // Arrange
+        var streamProvider = new InMemoryPartitionStreamProvider();
+        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
+        await strategy.InitializeAsync();
+
+        var p_str = new DataPartition(new CompositePartitionKey("A", "apple"), null, 1L, 1, 1L, 1);
+        var p_int10 = new DataPartition(new CompositePartitionKey("A", 10), null, 2L, 2, 2L, 2);
+        var p_int20 = new DataPartition(new CompositePartitionKey("A", 20), null, 3L, 3, 3L, 3);
+        var p_header = new HeaderPartition(new CompositePartitionKey("A", null), 4L, 4, 4L, 4);
+
+        // Act: Insert in non-sorted order
+        await strategy.InsertPartitionAsync(p_str);
+        await strategy.InsertPartitionAsync(p_int20);
+        await strategy.InsertPartitionAsync(p_header);
+        await strategy.InsertPartitionAsync(p_int10);
+        
+        // Assert
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", null)))!.ShouldBe(p_header);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 5)))!.ShouldBe(p_header);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 10)))!.ShouldBe(p_int10);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 15)))!.ShouldBe(p_int10);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 20)))!.ShouldBe(p_int20);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 100)))!.ShouldBe(p_int20);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", "banana")))!.ShouldBe(p_str);
+    }
+
     [Fact]
     public async Task InsertPartitionAsync_ShouldTriggerLeafSplit_AndFindShouldWork()
     {
@@ -145,7 +177,7 @@ public sealed class BPlusTreePartitioningStrategyTests
         await strategy.InitializeAsync();
         
         var partitions = Enumerable.Range(0, splitSize)
-            .Select(i => new Partition(
+            .Select(i => new DataPartition(
                 new CompositePartitionKey(logicalKey, i * 10),
                 null,
                 (long)i * 100, 10, (long)i * 100 + 50, 10))
@@ -159,8 +191,8 @@ public sealed class BPlusTreePartitioningStrategyTests
 
         // Assert
         (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, -5))).ShouldBeNull();
-        (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, 5)))!.Value.ShouldBe(partitions[0]);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, 10 * (splitSize - 1) + 5)))!.Value.ShouldBe(partitions[splitSize - 1]);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, 5)))!.ShouldBe(partitions[0]);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, 10 * (splitSize - 1) + 5)))!.ShouldBe(partitions[splitSize - 1]);
     }
     
     [Fact]
@@ -172,7 +204,7 @@ public sealed class BPlusTreePartitioningStrategyTests
         const string logicalKey = "A";
         await strategy.InitializeAsync();
         
-        var originalPartition = new Partition(new CompositePartitionKey(logicalKey, 10), null, 100L, 10, 110L, 5);
+        var originalPartition = new DataPartition(new CompositePartitionKey(logicalKey, 10), null, 100L, 10, 110L, 5);
         await strategy.InsertPartitionAsync(originalPartition);
 
         // Act
@@ -182,8 +214,8 @@ public sealed class BPlusTreePartitioningStrategyTests
         // Assert
         var foundPartition = await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, 15));
         foundPartition.ShouldNotBeNull();
-        foundPartition.Value.DataLength.ShouldBe(999);
-        foundPartition.Value.ShouldBe(updatedPartition);
+        foundPartition.ShouldBeOfType<DataPartition>().DataLength.ShouldBe(999);
+        foundPartition.ShouldBe(updatedPartition);
     }
     
     [Fact]
@@ -195,9 +227,9 @@ public sealed class BPlusTreePartitioningStrategyTests
         const string logicalKey = "A";
         await strategy.InitializeAsync();
 
-        var p10 = new Partition(new CompositePartitionKey(logicalKey, 10), null, 1L, 1, 1L, 1);
-        var p20 = new Partition(new CompositePartitionKey(logicalKey, 20), null, 2L, 2, 2L, 2);
-        var p30 = new Partition(new CompositePartitionKey(logicalKey, 30), null, 3L, 3, 3L, 3);
+        var p10 = new DataPartition(new CompositePartitionKey(logicalKey, 10), null, 1L, 1, 1L, 1);
+        var p20 = new DataPartition(new CompositePartitionKey(logicalKey, 20), null, 2L, 2, 2L, 2);
+        var p30 = new DataPartition(new CompositePartitionKey(logicalKey, 30), null, 3L, 3, 3L, 3);
         await strategy.InsertPartitionAsync(p10);
         await strategy.InsertPartitionAsync(p20);
         await strategy.InsertPartitionAsync(p30);
@@ -206,8 +238,137 @@ public sealed class BPlusTreePartitioningStrategyTests
         await strategy.DeletePartitionAsync(p20);
 
         // Assert
-        (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, 15)))!.Value.ShouldBe(p10);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, 25)))!.Value.ShouldBe(p10);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, 35)))!.Value.ShouldBe(p30);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, 15)))!.ShouldBe(p10);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, 25)))!.ShouldBe(p10);
+        (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, 35)))!.ShouldBe(p30);
+    }
+
+    [Fact]
+    public async Task GetAllPartitionsAsync_ShouldReturnAllInsertedPartitions()
+    {
+        // Arrange
+        var streamProvider = new InMemoryPartitionStreamProvider();
+        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
+        await strategy.InitializeAsync();
+        
+        var header_key = new CompositePartitionKey("A", null);
+        var header = new HeaderPartition(header_key, 1L, 1, 1L, 1);
+        var data1 = new DataPartition(new CompositePartitionKey("A", "key1"), null, 2L, 2, 2L, 2);
+        var data2 = new DataPartition(new CompositePartitionKey("A", "key5"), null, 3L, 3, 3L, 3);
+        var otherTenant = new DataPartition(new CompositePartitionKey("B", "key1"), null, 4L, 4, 4L, 4);
+        
+        await strategy.InsertPartitionAsync(header);
+        await strategy.InsertPartitionAsync(data1);
+        await strategy.InsertPartitionAsync(data2);
+        await strategy.InsertPartitionAsync(otherTenant);
+
+        // Act
+        var allPartitions = await strategy.GetAllPartitionsAsync();
+
+        // Assert
+        allPartitions.Count.ShouldBe(4);
+        allPartitions.ShouldContain(header);
+        allPartitions.ShouldContain(data1);
+        allPartitions.ShouldContain(data2);
+        allPartitions.ShouldContain(otherTenant);
+    }
+    
+    [Fact]
+    public async Task StressTest_AfterManyOperations_ShouldMaintainIntegrity()
+    {
+        // Arrange
+        var streamProvider = new InMemoryPartitionStreamProvider();
+        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
+        const string logicalKey = "StressTest";
+        await strategy.InitializeAsync();
+        
+        var random = new Random(42); // Seed for reproducibility
+        var expectedPartitions = new Dictionary<CompositePartitionKey, IPartition>();
+        const int initialCount = 2000;
+        const int deleteCount = 1000;
+        const int reinsertCount = 500;
+
+        // Act & Assert Phase 1: Initial Bulk Insertion
+        var initialPartitions = Enumerable.Range(0, initialCount)
+            .Select(i => new DataPartition(
+                new CompositePartitionKey(logicalKey, i),
+                null, (long)i, i, (long)i, i))
+            .Cast<IPartition>();
+        
+        foreach (var p in initialPartitions)
+        {
+            await strategy.InsertPartitionAsync(p);
+            expectedPartitions.Add(p.GetPartitionKey(), p);
+        }
+
+        var allPartitionsAfterInsert = await strategy.GetAllPartitionsAsync();
+        allPartitionsAfterInsert.Count.ShouldBe(initialCount);
+        foreach (var p in expectedPartitions.Values)
+        {
+            var found = await strategy.FindPartitionAsync(p.GetPartitionKey());
+            found.ShouldNotBeNull();
+            found.ShouldBe(p);
+        }
+
+        // Act & Assert Phase 2: Random Deletions
+        var partitionsToDelete = expectedPartitions.Values.OrderBy(_ => random.Next()).Take(deleteCount).ToList();
+        
+        foreach (var p in partitionsToDelete)
+        {
+            await strategy.DeletePartitionAsync(p);
+            expectedPartitions.Remove(p.GetPartitionKey());
+        }
+
+        var allPartitionsAfterDelete = await strategy.GetAllPartitionsAsync();
+        allPartitionsAfterDelete.Count.ShouldBe(initialCount - deleteCount);
+        
+        // Verify remaining partitions are findable
+        foreach (var p in expectedPartitions.Values)
+        {
+            var found = await strategy.FindPartitionAsync(p.GetPartitionKey());
+            found.ShouldNotBeNull($"Partition with key {p.GetPartitionKey()} should be found but was not.");
+            found.ShouldBe(p);
+        }
+        
+        // Verify deleted partitions are not findable via floor search
+        foreach (var p in partitionsToDelete)
+        {
+            var key = p.GetPartitionKey();
+            var found = await strategy.FindPartitionAsync(key);
+
+            var previousPartition = expectedPartitions.Values
+                .Where(ep => Comparer<object>.Default.Compare(ep.GetPartitionKey(), key) < 0)
+                .OrderByDescending(ep => ep.GetPartitionKey())
+                .FirstOrDefault();
+
+            if (previousPartition != null)
+            {
+                found.ShouldBe(previousPartition, $"Searching for deleted key {key} should have returned previous partition {previousPartition.GetPartitionKey()}, but returned {found?.GetPartitionKey()}");
+            }
+            else
+            {
+                found.ShouldBeNull($"Searching for deleted key {key} should have returned null as it was the first, but returned {found?.GetPartitionKey()}");
+            }
+        }
+
+        // Act & Assert Phase 3: Re-insertion and New Insertions
+        var partitionsToReinsert = Enumerable.Range(initialCount, reinsertCount)
+             .Select(i => new DataPartition(
+                new CompositePartitionKey(logicalKey, i),
+                null, (long)i, i, (long)i, i))
+            .Cast<IPartition>();
+            
+        foreach (var p in partitionsToReinsert)
+        {
+            await strategy.InsertPartitionAsync(p);
+            expectedPartitions.Add(p.GetPartitionKey(), p);
+        }
+        
+        // Final Verification
+        var finalPartitions = (await strategy.GetAllPartitionsAsync()).OrderBy(p => p.GetPartitionKey()).ToList();
+        var expectedFinalPartitions = expectedPartitions.Values.OrderBy(p => p.GetPartitionKey()).ToList();
+        
+        finalPartitions.Count.ShouldBe(expectedFinalPartitions.Count);
+        finalPartitions.ShouldBe(expectedFinalPartitions, ignoreOrder: false);
     }
 }

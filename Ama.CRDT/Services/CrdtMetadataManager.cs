@@ -8,6 +8,7 @@ using Ama.CRDT.Services.Strategies;
 using System.Collections;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -200,6 +201,56 @@ public sealed class CrdtMetadataManager(
         }
 
         return newMetadata;
+    }
+
+    /// <inheritdoc/>
+    public CrdtMetadata Merge(params CrdtMetadata[] metadatas)
+    {
+        ArgumentNullException.ThrowIfNull(metadatas);
+
+        if (metadatas.Length == 0)
+        {
+            return new CrdtMetadata();
+        }
+
+        if (metadatas.Length == 1)
+        {
+            return Clone(metadatas[0]);
+        }
+
+        var merged = new CrdtMetadata();
+
+        foreach (var metadata in metadatas.Where(m => m is not null))
+        {
+            foreach (var kvp in metadata.Lww) merged.Lww[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.TwoPhaseSets) merged.TwoPhaseSets[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.LwwSets) merged.LwwSets[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.OrSets) merged.OrSets[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.PriorityQueues) merged.PriorityQueues[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.ExclusiveLocks) merged.ExclusiveLocks[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.OrMaps) merged.OrMaps[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.TwoPhaseGraphs) merged.TwoPhaseGraphs[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.ReplicatedTrees) merged.ReplicatedTrees[kvp.Key] = kvp.Value;
+            
+            foreach (var op in metadata.SeenExceptions) merged.SeenExceptions.Add(op);
+            
+            foreach (var kvp in metadata.PositionalTrackers) merged.PositionalTrackers[kvp.Key] = new List<PositionalIdentifier>(kvp.Value);
+            foreach (var kvp in metadata.LseqTrackers) merged.LseqTrackers[kvp.Key] = new List<LseqItem>(kvp.Value);
+            
+            foreach (var kvp in metadata.AverageRegisters) merged.AverageRegisters[kvp.Key] = new Dictionary<string, AverageRegisterValue>(kvp.Value);
+            foreach (var kvp in metadata.LwwMaps) merged.LwwMaps[kvp.Key] = new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer);
+            foreach (var kvp in metadata.CounterMaps) merged.CounterMaps[kvp.Key] = new Dictionary<object, PnCounterState>(kvp.Value, (kvp.Value as Dictionary<object, PnCounterState>)?.Comparer);
+            
+            foreach (var (replicaId, timestamp) in metadata.VersionVector)
+            {
+                if (!merged.VersionVector.TryGetValue(replicaId, out var existingTimestamp) || timestamp.CompareTo(existingTimestamp) > 0)
+                {
+                    merged.VersionVector[replicaId] = timestamp;
+                }
+            }
+        }
+
+        return merged;
     }
 
     /// <inheritdoc/>
