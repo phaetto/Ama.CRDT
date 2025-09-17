@@ -2,7 +2,6 @@ namespace Ama.CRDT.Services.Partitioning;
 
 using Ama.CRDT.Models.Partitioning;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -12,21 +11,20 @@ using System.Threading.Tasks;
 public interface IPartitioningStrategy
 {
     /// <summary>
-    /// Initializes the partitioning strategy, creating the necessary index structures in the provided stream.
+    /// Initializes the partitioning strategy, creating the necessary index structures if they don't exist.
     /// </summary>
-    /// <param name="indexStream">The stream where the partition index will be stored.</param>
     /// <returns>A task that represents the asynchronous initialization operation.</returns>
-    Task InitializeAsync(Stream indexStream);
+    Task InitializeAsync();
 
     /// <summary>
     /// Finds a partition that contains a specific key.
     /// </summary>
-    /// <param name="key">The key to find within the partitions.</param>
+    /// <param name="key">The composite key to find within the partitions.</param>
     /// <returns>A task that represents the asynchronous find operation. The task result contains the <see cref="Partition"/> if found; otherwise, null.</returns>
-    Task<Partition?> FindPartitionAsync(object key);
+    Task<Partition?> FindPartitionAsync(CompositePartitionKey key);
 
     /// <summary>
-    /// Inserts a new partition into the index.
+    /// Inserts a new partition into the index. The <see cref="Partition.StartKey"/> must be a <see cref="CompositePartitionKey"/>.
     /// </summary>
     /// <param name="partition">The partition to add.</param>
     /// <returns>A task that represents the asynchronous insertion operation.</returns>
@@ -34,7 +32,7 @@ public interface IPartitioningStrategy
 
     /// <summary>
     /// Updates an existing partition in the index. The partition is identified by its <see cref="Partition.StartKey"/>.
-    /// The <see cref="Partition.StartKey"/> of the provided partition must match an existing entry.
+    /// The <see cref="Partition.StartKey"/> of the provided partition must match an existing entry and must be a <see cref="CompositePartitionKey"/>.
     /// </summary>
     /// <param name="partition">The partition with updated information.</param>
     /// <returns>A task representing the asynchronous update operation.</returns>
@@ -42,6 +40,7 @@ public interface IPartitioningStrategy
 
     /// <summary>
     /// Deletes a partition from the index, identified by its <see cref="Partition.StartKey"/>.
+    /// The <see cref="Partition.StartKey"/> must be a <see cref="CompositePartitionKey"/>.
     /// </summary>
     /// <param name="partition">The partition to delete.</param>
     /// <returns>A task that represents the asynchronous deletion operation.</returns>

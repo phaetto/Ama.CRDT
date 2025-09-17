@@ -30,6 +30,7 @@
 | `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |
 | `$/Ama.CRDT.UnitTests/Ama.CRDT.UnitTests.csproj` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/EpochTimestampTests.cs` | Contains unit tests for the `EpochTimestamp` implementation of `ICrdtTimestamp`. |
+| `$/Ama.CRDT.UnitTests/Models/Partitioning/CompositePartitionKeyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtMetadataSerializationTests.cs` | Contains unit tests for the serialization and deserialization of the `CrdtMetadata` class, verifying both default and compact serialization options and ensuring polymorphic and complex data (e.g., non-string dictionary keys, nested collections) is handled correctly. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtTimestampJsonConverterTests.cs` | Contains unit tests for the `CrdtTimestampJsonConverter`, verifying polymorphic serialization and deserialization of `ICrdtTimestamp` implementations. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtApplicatorTests.cs` | No description provided. |
@@ -38,7 +39,6 @@
 | `$/Ama.CRDT.UnitTests/Services/Helpers/Models.cs` | Contains simple data models for unit testing path conversion and resolution helpers. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs, and testing new centralized reflection helpers for getting/setting values and retrieving type information. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/BPlusTreePartitioningStrategyTests.cs` | Contains unit tests for `BPlusTreePartitioningStrategy`, verifying initialization, partition finding, and B+ Tree node splitting logic under insertions. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitioningInfrastructureTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionManagerTests.cs` | Contains unit tests for `PartitionManager` and `BPlusTreePartitioningStrategy`, verifying initialization, patch application, and partition splitting logic. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/Serialization/IndexDefaultSerializationHelperTests.cs` | Contains unit tests for the `IndexDefaultSerializationHelper`, verifying that B+ Tree headers and nodes (with various key types) are correctly serialized to and deserialized from a stream. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/ArrayLcsStrategyTests.cs` | Contains unit tests for `ArrayLcsStrategy`, focusing on convergence properties under concurrent operations. This file includes a test that specifically reproduces a known bug related to the non-commutative application of array insertion patches. |
@@ -99,6 +99,7 @@
 | `$/Ama.CRDT/Attributes/CrdtTwoPhaseGraphStrategyAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/CrdtTwoPhaseSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the 2P-Set (Two-Phase Set) strategy. |
 | `$/Ama.CRDT/Attributes/CrdtVoteCounterStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the Vote Counter strategy. This strategy ensures each voter has only one active vote, with changes resolved by Last-Writer-Wins. |
+| `$/Ama.CRDT/Attributes/PartitionKeyAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/Strategies/AssociativeAttribute.cs` | Marks a CRDT strategy as having the associative property, meaning the order of operation grouping does not affect the outcome. |
 | `$/Ama.CRDT/Attributes/Strategies/CommutativeAttribute.cs` | Marks a CRDT strategy as having the commutative property, meaning the order of operations does not affect the outcome. |
 | `$/Ama.CRDT/Attributes/Strategies/IdempotentAttribute.cs` | Marks a CRDT strategy as having the idempotent property, meaning applying the same operation multiple times has the same effect as applying it once. |
@@ -106,7 +107,7 @@
 | `$/Ama.CRDT/Attributes/Strategies/MergeableAttribute.cs` | Marks a CRDT strategy as having a mergeable state, suitable for parallel reduction. |
 | `$/Ama.CRDT/Attributes/Strategies/SequentialOperationsAttribute.cs` | Marks a CRDT strategy as requiring sequential operation application, making it unsuitable for parallel reduction. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
-| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup. It registers all core services and strategies within a validation factory to ensure they are only resolved from replica-specific scopes created by `ICrdtScopeFactory`. It also supports registering custom comparers and timestamp providers. |
+| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup. It registers all core services and strategies within a validation factory to ensure they are only resolved from replica-specific scopes created by `ICrdtScopeFactory`. It also supports registering custom comparers, timestamp providers, and partition stream providers. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
 | `$/Ama.CRDT/Models/CrdtDocumentOfT.cs` | A generic version of `CrdtDocument` that holds a POCO and its associated `CrdtMetadata`, unifying the API for patch generation and application. |
 | `$/Ama.CRDT/Models/CrdtGraph.cs` | A data model for a graph structure with vertices and edges, suitable for CRDT management. |
@@ -131,8 +132,10 @@
 | `$/Ama.CRDT/Models/OrSetState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Partitioning/BPlusTreeNode.cs` | Represents a node in the B+ Tree index, containing keys and either child offsets (for internal nodes) or partition data (for leaf nodes). |
 | `$/Ama.CRDT/Models/Partitioning/BTreeHeader.cs` | Represents the header of the B+ Tree index file, storing metadata like the root node offset and degree of the tree. |
+| `$/Ama.CRDT/Models/Partitioning/CompositePartitionKey.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Partitioning/Partition.cs` | A data structure representing a partition in a partitioned data store. |
 | `$/Ama.CRDT/Models/Partitioning/PartitionContent.cs` | A data structure representing the data and metadata content of a single partition. |
+| `$/Ama.CRDT/Models/Partitioning/PartitionStreams.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Partitioning/SplitResult.cs` | A data structure representing the result of a partition split operation, containing the content for the two new partitions and the key that divides them. |
 | `$/Ama.CRDT/Models/PnCounterState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
@@ -167,6 +170,7 @@
 | `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning, enabling them to split and merge their associated metadata over larger-than-memory data structures. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitioningStrategy.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` | Defines the contract for managing a CRDT document that is partitioned across one or more streams, allowing it to scale beyond available memory. |
+| `$/Ama.CRDT/Services/Partitioning/IPartitionStreamProvider.cs` | Defines a contract for providing data and index streams for logical partitions, enabling extensible storage. |
 | `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a CRDT document that is partitioned, allowing it to scale beyond available memory by storing data and an index in streams. |
 | `$/Ama.CRDT/Services/Partitioning/Serialization/IIndexSerializationHelper.cs` | Defines the contract for serializing and deserializing B+ Tree index components (headers and nodes) to and from a stream. |
 | `$/Ama.CRDT/Services/Partitioning/Serialization/IndexDefaultSerializationHelper.cs` | The default implementation of `IIndexSerializationHelper`, using System.Text.Json for serialization. |
@@ -236,6 +240,7 @@
 | `$/Specs/add-approval-quorum-strategy.md` | Specification file for implementing the Approval Quorum strategy. |
 | `$/Specs/add-leader-election-strategy.md` | Specification file for implementing the Leader Election strategy. |
 | `$/Specs/add-more-text-specific-strategies.md` | No description provided. |
+| `$/Specs/done/add-composite-partition-keys.md` | No description provided. |
 | `$/Specs/done/add-counter-map-strategy.md` | No description provided. |
 | `$/Specs/done/add-exclusive-lock-strategy.md` | No description provided. |
 | `$/Specs/done/add-more-list-and-sequence-strategies.md` | No description provided. |
@@ -248,9 +253,10 @@
 | `$/Specs/done/add-vote-counter-strategy.md` | No description provided. |
 | `$/Specs/done/create-example-console-app-that-show-cases-the-crdts-with-out-locks.md` | No description provided. |
 | `$/Specs/done/implement-correctly-lcs-list-strategy.md` | No description provided. |
+| `$/Specs/done/introduce-partitioning-for-larger-than-memory-data.md` | No description provided. |
 | `$/Specs/done/make-package-dev-friendly.md` | No description provided. |
 | `$/Specs/done/make-the-api-surface-better.md` | No description provided. |
+| `$/Specs/done/partition-manager-needs-to-be-data-neutral.md` | No description provided. |
 | `$/Specs/done/publish-as-a-nuget-package.md` | No description provided. |
 | `$/Specs/done/readme-update-2025-08-24.md` | No description provided. |
-| `$/Specs/introduce-partitioning-for-larger-than-memory-data.md` | No description provided. |
 | `$/Specs/make-crdt-strategies-composable.md` | No description provided. |

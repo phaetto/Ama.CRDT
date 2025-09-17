@@ -194,7 +194,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
     {
         // Arrange
         // 1. Start with a common ancestor.
-        var ancestor = new TestModel { Tags = new List<string> { "A", "C" } };
+        var ancestor = new TestModel { Tags = { "A", "C" } };
         var docAncestor = new CrdtDocument<TestModel>(ancestor, metadataManagerA.Initialize(ancestor));
 
 
@@ -208,34 +208,31 @@ public sealed class ArrayLcsStrategyTests : IDisposable
             new TestModel { Tags = ["A", "X", "C"] });
 
         // 3. Apply these patches to a third replica to create a converged state.
-        var doc_converged = new TestModel { Tags = new List<string>(ancestor.Tags) };
-        var meta_converged = metadataManagerA.Initialize(doc_converged);
-        var document_converged = new CrdtDocument<TestModel>(doc_converged, meta_converged);
-        applicatorA.ApplyPatch(document_converged, patchB);
-        applicatorA.ApplyPatch(document_converged, patchX);
+        var docConverged = new CrdtDocument<TestModel>(new TestModel { Tags = new List<string>(ancestor.Tags) }, metadataManagerA.Initialize(ancestor));
+        applicatorA.ApplyPatch(docConverged, patchB);
+        applicatorA.ApplyPatch(docConverged, patchX);
 
         // Sanity check: "B" and "X" now have the same position string "1.5" in the metadata.
-        var positionalTrackers = meta_converged.PositionalTrackers["$.tags"];
+        var positionalTrackers = docConverged.Metadata.PositionalTrackers["$.tags"];
         positionalTrackers.Count(p => p.Position == "1.5").ShouldBe(2);
 
         // 4. Create a new state by inserting "Y" between "B" and "X".
-        var doc_after_Y_insert = new TestModel { Tags = new List<string>(doc_converged.Tags) };
-        var index_of_B = doc_after_Y_insert.Tags.IndexOf("B");
-        var index_of_X = doc_after_Y_insert.Tags.IndexOf("X");
-        
-        doc_after_Y_insert.Tags.Insert(Math.Max(index_of_B, index_of_X), "Y");
+        var doc_after_Y_insert = new TestModel { Tags = new List<string>(docConverged.Data.Tags) };
+        // Order depends on replica IDs, find them to insert deterministically
+        var indexB = doc_after_Y_insert.Tags.IndexOf("B");
+        var indexX = doc_after_Y_insert.Tags.IndexOf("X");
+        doc_after_Y_insert.Tags.Insert(Math.Max(indexB, indexX), "Y");
 
         // Act
         // 5. Generate a patch for this new insertion. This will call GeneratePositionBetween("1.5", "1.5").
         var patchY = patcherA.GeneratePatch(
-            document_converged,
+            docConverged,
             doc_after_Y_insert);
 
         // Assert
         // 6. The new operation for "Y" should also have the position "1.5", relying on its OperationId for tie-breaking.
         patchY.Operations.ShouldHaveSingleItem();
-        var opY = patchY.Operations.Single();
-        var positionalItem = (PositionalItem)opY.Value!;
+        var positionalItem = patchY.Operations.Single().Value.ShouldBeOfType<PositionalItem>();
         positionalItem.Value.ShouldBe("Y");
         positionalItem.Position.ShouldBe("1.5");
     }

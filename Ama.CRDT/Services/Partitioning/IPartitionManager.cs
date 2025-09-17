@@ -2,7 +2,6 @@ namespace Ama.CRDT.Services.Partitioning;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
-using System.IO;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -15,11 +14,9 @@ public interface IPartitionManager<T> where T : class
     /// <summary>
     /// Initializes a new partitioned CRDT document.
     /// </summary>
-    /// <param name="dataStream">The stream to store the partitioned data.</param>
-    /// <param name="indexStream">The stream to store the partition index.</param>
-    /// <param name="initialObject">The initial object to populate the document with.</param>
+    /// <param name="initialObject">The initial object to populate the document with. The logical partition key will be extracted from this object.</param>
     /// <returns>A task that represents the asynchronous initialization operation.</returns>
-    Task InitializeAsync(Stream dataStream, Stream indexStream, T initialObject);
+    Task InitializeAsync(T initialObject);
 
     /// <summary>
     /// Applies a CRDT patch to the partitioned document. The manager will locate the correct partition(s),
@@ -32,17 +29,17 @@ public interface IPartitionManager<T> where T : class
     /// <summary>
     /// Retrieves the partition metadata for a given key.
     /// </summary>
-    /// <param name="key">The key to find the partition for.</param>
+    /// <param name="key">The composite key (of type <see cref="CompositePartitionKey"/>) used to find the partition.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the partition information, or null if not found.</returns>
     Task<Partition?> GetPartitionAsync(object key);
 
     /// <summary>
     /// Retrieves the deserialized content (data and metadata) of the partition that contains the specified key.
     /// </summary>
-    /// <param name="key">The key to locate the partition.</param>
+    /// <param name="key">The composite key (of type <see cref="CompositePartitionKey"/>) used to locate the partition.</param>
     /// <returns>
     /// A task that represents the asynchronous operation.
-    /// The task result contains the data and metadata, or null if the partition is not found.
+    /// The task result contains the data and metadata as a <see cref="CrdtDocument{T}"/>, or null if the partition is not found.
     /// </returns>
-    Task<PartitionContent?> GetPartitionContentAsync(object key);
+    Task<CrdtDocument<T>?> GetPartitionContentAsync(object key);
 }
