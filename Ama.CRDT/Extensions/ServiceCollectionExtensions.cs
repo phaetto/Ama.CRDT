@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization.Converters;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Partitioning.Serialization;
 using Ama.CRDT.Services.Partitioning.Strategies;
@@ -48,6 +49,10 @@ public static class ServiceCollectionExtensions
     /// </example>
     public static IServiceCollection AddCrdt(this IServiceCollection services)
     {
+        // Add metrics
+        services.TryAddSingleton<PartitionManagerCrdtMetrics>();
+        services.TryAddSingleton<BPlusTreeCrdtMetrics>();
+
         // Scoped context that holds the replica ID.
         // It's populated by CrdtScopeFactory.
         services.AddScoped<ReplicaContext>();

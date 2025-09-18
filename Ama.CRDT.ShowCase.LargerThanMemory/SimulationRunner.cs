@@ -30,24 +30,19 @@ public sealed class SimulationRunner(IServiceProvider serviceProvider, ICrdtScop
         if (!allBlogPostIds.Any())
         {
             Console.WriteLine($"--- No existing data found. Initializing Replica 1 and Generating Data ---");
-            var newBlogPostId = Guid.NewGuid();
+            using (var scope = scopeFactory.CreateScope(replicaIds.First()))
+            {
+                var dataGenerator = scope.ServiceProvider.GetRequiredService<DataGeneratorService>();
+                await dataGenerator.GenerateDataAsync();
+            }
+            Console.WriteLine($"--- Data Generation for Replica 1 Complete ---");
+
             using (var scope = scopeFactory.CreateScope(replicaIds.First()))
             {
                 var partitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
-                var dataGenerator = scope.ServiceProvider.GetRequiredService<DataGeneratorService>();
-                
-                var blogPost = new BlogPost
-                {
-                    Id = newBlogPostId,
-                    Title = "CRDTs for Larger-than-Memory Data",
-                    Content = "This post explores how to use partitioned CRDTs...",
-                };
-                
-                await partitionManager.InitializeAsync(blogPost);
-                await dataGenerator.GenerateDataAsync(newBlogPostId);
+                var keys = await partitionManager.GetAllLogicalKeysAsync();
+                allBlogPostIds = keys.Cast<Guid>().ToList();
             }
-            Console.WriteLine($"--- Data Generation for Replica 1 Complete ---");
-            allBlogPostIds.Add(newBlogPostId);
 
             Console.WriteLine($"--- Bootstrapping Other Replicas ---");
             var sourceDir = Path.Combine(Environment.CurrentDirectory, "data", replicaIds.First());

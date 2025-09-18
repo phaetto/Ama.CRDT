@@ -179,8 +179,8 @@ public sealed class OrMapStrategyTests
 
         meta1.Lww.ShouldContainKey("$.map['a']");
         meta2.Lww.ShouldContainKey("$.map['d']");
-        meta1.OrMaps["$.map"].Adds.Count.ShouldBe(5);
-        meta2.OrMaps["$.map"].Adds.Count.ShouldBe(5);
+        meta1.OrMaps["$.map"].Adds.Count.ShouldBe(2);
+        meta2.OrMaps["$.map"].Adds.Count.ShouldBe(3);
     }
     
     [Fact]

@@ -8,9 +8,11 @@ using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Text.Json;
 using Xunit;
@@ -47,11 +49,17 @@ public sealed class PartitionManagerTests
     
         public TestInfrastructure()
         {
+            var meterFactoryMock = new Mock<IMeterFactory>();
+            var meter = new Meter("TestMeterForPartitionManagerTests");
+            meterFactoryMock.Setup(f => f.Create(It.IsAny<MeterOptions>())).Returns(meter);
+
             var services = new ServiceCollection()
                 .AddCrdt()
                 // Register the stream provider as a Singleton for tests to ensure
                 // all scopes share the same underlying index and data streams.
-                .AddSingleton<IPartitionStreamProvider, InMemoryPartitionStreamProvider>();
+                .AddSingleton<IPartitionStreamProvider, InMemoryPartitionStreamProvider>()
+                // Replace the default NullMeterFactory with our mock
+                .AddSingleton(meterFactoryMock.Object);
 
             ServiceProvider = services.BuildServiceProvider();
             ScopeFactory = ServiceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -399,22 +407,5 @@ public sealed class PartitionManagerTests
 
         // Assert
         result.ShouldBeNull();
-    }
-
-    [Fact]
-    public async Task GetPartitionContentAsync_WithInvalidKeyType_ShouldThrowArgumentException()
-    {
-        // Arrange
-        using var infrastructure = new TestInfrastructure();
-        using var scope = infrastructure.ScopeFactory.CreateScope("A");
-        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<PartitionedMapModel>>();
-        var invalidKey = "not-a-composite-key";
-
-        // Act & Assert
-        var exception = await Should.ThrowAsync<ArgumentException>(async () =>
-        {
-            await manager.GetPartitionContentAsync(invalidKey);
-        });
-        exception.Message.ShouldStartWith($"Key must be of type {nameof(CompositePartitionKey)} for partitioned documents.");
     }
 }

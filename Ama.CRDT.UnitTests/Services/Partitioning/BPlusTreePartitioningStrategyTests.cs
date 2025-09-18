@@ -1,16 +1,28 @@
 namespace Ama.CRDT.UnitTests.Services.Partitioning;
 
 using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Partitioning.Serialization;
 using Ama.CRDT.Services.Partitioning.Strategies;
+using Moq;
 using Shouldly;
 using System.Collections.Concurrent;
+using System.Diagnostics.Metrics;
 using Xunit;
 
 public sealed class BPlusTreePartitioningStrategyTests
 {
     private readonly IndexDefaultSerializationHelper serializationHelper = new();
+    private readonly BPlusTreeCrdtMetrics metrics;
+
+    public BPlusTreePartitioningStrategyTests()
+    {
+        var meterFactoryMock = new Mock<IMeterFactory>();
+        var meter = new Meter("TestMeterForBPlusTree");
+        meterFactoryMock.Setup(f => f.Create(It.IsAny<MeterOptions>())).Returns(meter);
+        metrics = new BPlusTreeCrdtMetrics(meterFactoryMock.Object);
+    }
 
     private sealed class InMemoryPartitionStreamProvider : IPartitionStreamProvider
     {
@@ -33,7 +45,7 @@ public sealed class BPlusTreePartitioningStrategyTests
     {
         // Arrange
         var streamProvider = new InMemoryPartitionStreamProvider();
-        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
+        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider, metrics);
         var key = new CompositePartitionKey("A", 1);
 
         // Act
@@ -54,7 +66,7 @@ public sealed class BPlusTreePartitioningStrategyTests
         var streamProvider = new InMemoryPartitionStreamProvider();
         
         // Phase 1: Create and populate the index
-        var strategy1 = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
+        var strategy1 = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider, metrics);
         await strategy1.InitializeAsync();
         var p10 = new DataPartition(new CompositePartitionKey("A", 10), null, 1L, 1, 1L, 1);
         var p20 = new DataPartition(new CompositePartitionKey("A", 20), null, 2L, 2, 2L, 2);
@@ -62,7 +74,7 @@ public sealed class BPlusTreePartitioningStrategyTests
         await strategy1.InsertPartitionAsync(p20);
 
         // Phase 2: Create a new strategy instance and initialize from the same stream
-        var strategy2 = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
+        var strategy2 = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider, metrics);
         await strategy2.InitializeAsync();
 
         // Assert
@@ -83,7 +95,7 @@ public sealed class BPlusTreePartitioningStrategyTests
     {
         // Arrange
         var streamProvider = new InMemoryPartitionStreamProvider();
-        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
+        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider, metrics);
         await strategy.InitializeAsync();
         var key = new CompositePartitionKey("tenant-a", 10);
         var partition = new DataPartition(key, null, 100L, 200, 300L, 100);
@@ -105,7 +117,7 @@ public sealed class BPlusTreePartitioningStrategyTests
     {
         // Arrange
         var streamProvider = new InMemoryPartitionStreamProvider();
-        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
+        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider, metrics);
         await strategy.InitializeAsync();
 
         var pA_header_key = new CompositePartitionKey("A", null);
@@ -143,7 +155,7 @@ public sealed class BPlusTreePartitioningStrategyTests
         const int degree = 8;
         const int splitSize = 2 * degree;
         var streamProvider = new InMemoryPartitionStreamProvider();
-        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
+        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider, metrics);
         const string logicalKey = "A";
         await strategy.InitializeAsync();
         
@@ -171,7 +183,7 @@ public sealed class BPlusTreePartitioningStrategyTests
     {
         // Arrange
         var streamProvider = new InMemoryPartitionStreamProvider();
-        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
+        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider, metrics);
         const string logicalKey = "A";
         await strategy.InitializeAsync();
         
@@ -194,7 +206,7 @@ public sealed class BPlusTreePartitioningStrategyTests
     {
         // Arrange
         var streamProvider = new InMemoryPartitionStreamProvider();
-        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
+        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider, metrics);
         const string logicalKey = "A";
         await strategy.InitializeAsync();
 
@@ -219,7 +231,7 @@ public sealed class BPlusTreePartitioningStrategyTests
     {
         // Arrange
         var streamProvider = new InMemoryPartitionStreamProvider();
-        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
+        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider, metrics);
         await strategy.InitializeAsync();
         
         var header_key = new CompositePartitionKey("A", null);
@@ -249,7 +261,7 @@ public sealed class BPlusTreePartitioningStrategyTests
     {
         // Arrange
         var streamProvider = new InMemoryPartitionStreamProvider();
-        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
+        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider, metrics);
         const string logicalKey = "StressTest";
         await strategy.InitializeAsync();
         

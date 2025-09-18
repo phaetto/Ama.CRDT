@@ -32,7 +32,7 @@ public interface IPartitionManager<T> where T : class, new()
     /// </summary>
     /// <param name="key">The composite key (of type <see cref="CompositePartitionKey"/>) used to find the partition.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the partition information, or null if not found.</returns>
-    Task<IPartition?> GetPartitionAsync(object key);
+    Task<IPartition?> GetPartitionAsync(CompositePartitionKey key);
 
     /// <summary>
     /// Retrieves the deserialized content (data and metadata) of the partition that contains the specified key.
@@ -42,7 +42,7 @@ public interface IPartitionManager<T> where T : class, new()
     /// A task that represents the asynchronous operation.
     /// The task result contains the data and metadata as a <see cref="CrdtDocument{T}"/>, or null if the partition is not found.
     /// </returns>
-    Task<CrdtDocument<T>?> GetPartitionContentAsync(object key);
+    Task<CrdtDocument<T>?> GetPartitionContentAsync(CompositePartitionKey key);
 
     /// <summary>
     /// Retrieves all data partitions for a given logical key, sorted by their start range key.
