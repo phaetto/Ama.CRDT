@@ -12,6 +12,7 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Xunit;
 
 public sealed class OrMapStrategyTests
@@ -157,8 +158,11 @@ public sealed class OrMapStrategyTests
         originalDoc.Metadata.Lww["$.map['a']"] = timestampProvider.Create(1);
         originalDoc.Metadata.Lww["$.map['d']"] = timestampProvider.Create(1);
 
+        var propertyInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map));
+        propertyInfo.ShouldNotBeNull();
+
         // Act
-        var result = strategy.Split(originalDoc.Data, originalDoc.Metadata, typeof(TestModel));
+        var result = strategy.Split(originalDoc.Data, originalDoc.Metadata, propertyInfo);
 
         // Assert
         var doc1 = result.Partition1.Data as TestModel;
@@ -192,8 +196,11 @@ public sealed class OrMapStrategyTests
         var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "b", 0 } }); // Conflict on "b"
         doc2.Metadata.Lww["$.map['b']"] = timestampProvider.Create(5); // Older timestamp
 
+        var propertyInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map));
+        propertyInfo.ShouldNotBeNull();
+
         // Act
-        var result = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, typeof(TestModel));
+        var result = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propertyInfo);
 
         // Assert
         var mergedDoc = result.Data as TestModel;

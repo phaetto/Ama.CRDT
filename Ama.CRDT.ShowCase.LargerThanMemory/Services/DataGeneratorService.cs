@@ -47,7 +47,7 @@ public sealed class DataGeneratorService(
             for (int i = 0; i < 100; i++) // Create batches of 100
             {
                 var comment = commentFaker.Generate();
-                toState.Comments.Add(comment.Id, comment);
+                toState.Comments.Add(comment);
             }
 
             var patch = patcher.GeneratePatch(fromDocument, toState);
@@ -60,6 +60,11 @@ public sealed class DataGeneratorService(
             {
                 currentSize = GetDirectorySize(replicaPath);
                 Console.WriteLine($"Generated {batchCount * 100} comments. Current size: {(double)currentSize / (1024 * 1024):F2} MB");
+            }
+
+            if (batchCount > 50)
+            {
+                break;
             }
         }
 

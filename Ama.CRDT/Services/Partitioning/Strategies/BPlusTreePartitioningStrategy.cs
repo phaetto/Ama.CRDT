@@ -154,7 +154,7 @@ public sealed class BPlusTreePartitioningStrategy(IIndexSerializationHelper seri
         var allPartitions = new List<IPartition>();
         await GetAllPartitionsRecursiveAsync(indexStream, header.RootNodeOffset, allPartitions);
 
-        allPartitions.Sort((p1, p2) => Comparer<object>.Default.Compare(p1.GetPartitionKey(), p2.GetPartitionKey()));
+        allPartitions.Sort((p1, p2) => p1.GetPartitionKey().CompareTo(p2.GetPartitionKey()));
 
         return allPartitions;
     }
@@ -165,9 +165,11 @@ public sealed class BPlusTreePartitioningStrategy(IIndexSerializationHelper seri
 
         var node = await serializationHelper.ReadNodeAsync(indexStream, nodeOffset);
         
-        partitions.AddRange(node.Partitions.Cast<IPartition>());
-
-        if (!node.IsLeaf)
+        if (node.IsLeaf)
+        {
+            partitions.AddRange(node.Partitions);
+        }
+        else
         {
             foreach (var childOffset in node.ChildrenOffsets)
             {
@@ -186,22 +188,8 @@ public sealed class BPlusTreePartitioningStrategy(IIndexSerializationHelper seri
 
         if (node.IsLeaf)
         {
-            int keyIndex = -1;
             bool isDeletingHeader = partitionToDelete is HeaderPartition;
-            
-            for (int i = 0; i < node.Keys.Count; i++)
-            {
-                if (Comparer<object>.Default.Compare(node.Keys[i], key) == 0)
-                {
-                    var existingPartition = (IPartition)node.Partitions[i];
-                    bool isExistingAHeader = existingPartition is HeaderPartition;
-                    if (isDeletingHeader == isExistingAHeader)
-                    {
-                        keyIndex = i;
-                        break;
-                    }
-                }
-            }
+            int keyIndex = node.Partitions.FindIndex(p => p.GetPartitionKey().CompareTo(key) == 0 && p is HeaderPartition == isDeletingHeader);
             
             if (keyIndex == -1)
             {
@@ -215,7 +203,7 @@ public sealed class BPlusTreePartitioningStrategy(IIndexSerializationHelper seri
         }
 
         int childIndex = 0;
-        while (childIndex < node.Keys.Count && Comparer<object>.Default.Compare(key, node.Keys[childIndex]) >= 0)
+        while (childIndex < node.Keys.Count && key.CompareTo(node.Keys[childIndex]) >= 0)
         {
             childIndex++;
         }
@@ -283,7 +271,7 @@ public sealed class BPlusTreePartitioningStrategy(IIndexSerializationHelper seri
         if (childIndex > 0)
         {
             var firstKeyInChildSubtree = await GetFirstKeyOfSubtree(indexStream, node.ChildrenOffsets[childIndex]);
-            if (firstKeyInChildSubtree != null && Comparer<object>.Default.Compare(node.Keys[childIndex - 1], firstKeyInChildSubtree) != 0)
+            if (firstKeyInChildSubtree != null && node.Keys[childIndex - 1].CompareTo(firstKeyInChildSubtree) != 0)
             {
                 node.Keys[childIndex - 1] = firstKeyInChildSubtree;
                 nodeModified = true;
@@ -410,7 +398,7 @@ public sealed class BPlusTreePartitioningStrategy(IIndexSerializationHelper seri
         if (node.IsLeaf)
         {
             int i = 0;
-            while (i < node.Keys.Count && Comparer<object>.Default.Compare(key, node.Keys[i]) > 0) i++;
+            while (i < node.Keys.Count && key.CompareTo(node.Keys[i]) > 0) i++;
             node.Keys.Insert(i, key);
             node.Partitions.Insert(i, partition);
             
@@ -420,7 +408,7 @@ public sealed class BPlusTreePartitioningStrategy(IIndexSerializationHelper seri
         else
         {
             int i = 0;
-            while (i < node.Keys.Count && Comparer<object>.Default.Compare(key, node.Keys[i]) > 0) i++;
+            while (i < node.Keys.Count && key.CompareTo(node.Keys[i]) > 0) i++;
             
             var childOffset = node.ChildrenOffsets[i];
             var childNode = await serializationHelper.ReadNodeAsync(indexStream, childOffset);
@@ -431,7 +419,7 @@ public sealed class BPlusTreePartitioningStrategy(IIndexSerializationHelper seri
                 currentHeader = await SplitChildAsync(indexStream, currentHeader, node, i, childNode, childOffset);
                 parentNeedsReallocation = true;
 
-                if (Comparer<object>.Default.Compare(key, node.Keys[i]) > 0)
+                if (key.CompareTo(node.Keys[i]) > 0)
                 {
                     i++;
                 }
@@ -504,9 +492,9 @@ public sealed class BPlusTreePartitioningStrategy(IIndexSerializationHelper seri
             // because of how CompositePartitionKey is compared (null RangeKey comes first).
             for (int i = node.Keys.Count - 1; i >= 0; i--)
             {
-                if (Comparer<object>.Default.Compare(key, node.Keys[i]) >= 0)
+                if (key.CompareTo(node.Keys[i]) >= 0)
                 {
-                    candidatePartition = (IPartition)node.Partitions[i];
+                    candidatePartition = node.Partitions[i];
                     break;
                 }
             }
@@ -526,7 +514,7 @@ public sealed class BPlusTreePartitioningStrategy(IIndexSerializationHelper seri
         }
 
         int childIndex = 0;
-        while (childIndex < node.Keys.Count && Comparer<object>.Default.Compare(key, node.Keys[childIndex]) >= 0)
+        while (childIndex < node.Keys.Count && key.CompareTo(node.Keys[childIndex]) >= 0)
         {
             childIndex++;
         }
@@ -541,22 +529,8 @@ public sealed class BPlusTreePartitioningStrategy(IIndexSerializationHelper seri
 
         if (node.IsLeaf)
         {
-            int indexToUpdate = -1;
             bool isUpdatingHeader = partition is HeaderPartition;
-
-            for (int i = 0; i < node.Keys.Count; i++)
-            {
-                if (Comparer<object>.Default.Compare(node.Keys[i], key) == 0)
-                {
-                    var existingPartition = (IPartition)node.Partitions[i];
-                    bool isExistingAHeader = existingPartition is HeaderPartition;
-                    if (isUpdatingHeader == isExistingAHeader)
-                    {
-                        indexToUpdate = i;
-                        break;
-                    }
-                }
-            }
+            int indexToUpdate = node.Partitions.FindIndex(p => p.GetPartitionKey().CompareTo(key) == 0 && p is HeaderPartition == isUpdatingHeader);
 
             if (indexToUpdate != -1)
             {
@@ -572,7 +546,7 @@ public sealed class BPlusTreePartitioningStrategy(IIndexSerializationHelper seri
         else
         {
             int childIndex = 0;
-            while (childIndex < node.Keys.Count && Comparer<object>.Default.Compare(key, node.Keys[childIndex]) >= 0)
+            while (childIndex < node.Keys.Count && key.CompareTo(node.Keys[childIndex]) >= 0)
             {
                 childIndex++;
             }
@@ -600,7 +574,7 @@ public sealed class BPlusTreePartitioningStrategy(IIndexSerializationHelper seri
         return (offset, newHeader);
     }
     
-    private async Task<object?> GetFirstKeyOfSubtree(Stream stream, long nodeOffset)
+    private async Task<IComparable?> GetFirstKeyOfSubtree(Stream stream, long nodeOffset)
     {
         var node = await serializationHelper.ReadNodeAsync(stream, nodeOffset);
         if (node.IsLeaf)

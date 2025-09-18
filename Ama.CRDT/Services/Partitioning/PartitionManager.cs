@@ -62,7 +62,11 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     {
         ArgumentNullException.ThrowIfNull(initialObject);
 
-        var logicalKey = partitionKeyProperty.GetValue(initialObject) ?? throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' cannot be null.");
+        var logicalKeyObj = partitionKeyProperty.GetValue(initialObject) ?? throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' cannot be null.");
+        if (logicalKeyObj is not IComparable logicalKey)
+        {
+            throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' must implement IComparable.");
+        }
         var dataStream = await streamProvider.GetDataStreamAsync(logicalKey);
         var indexStream = await streamProvider.GetIndexStreamAsync();
         
@@ -102,15 +106,14 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         
         var dataDataWriteResult = await WriteToStreamAsync(dataStream, dataObject);
         var dataMetaWriteResult = await WriteToStreamAsync(dataStream, dataMetadata);
-        var startRangeKey = partitionableStrategy.GetStartKey(initialObject);
+        var startRangeKey = partitionableStrategy.GetStartKey(initialObject, partitionableProperty);
 
         // For an empty partitionable collection, the strategy can return a null start key.
         // This would collide with the header partition's key (which also uses a null range key).
         // We must create a distinct, non-null "minimum" value for the initial data partition's key.
         if (startRangeKey is null)
         {
-            var keyType = GetPartitionKeyType(partitionableProperty.PropertyType);
-            startRangeKey = GetMinValueForType(keyType);
+            startRangeKey = partitionableStrategy.GetMinimumKey(partitionableProperty);
         }
         
         var dataPartitionKey = new CompositePartitionKey(logicalKey, startRangeKey);
@@ -219,7 +222,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     }
 
     /// <inheritdoc/>
-    public async Task<List<IPartition>> GetAllDataPartitionsAsync(object logicalKey)
+    public async Task<List<IPartition>> GetAllDataPartitionsAsync(IComparable logicalKey)
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
         var allPartitions = await partitioningStrategy.GetAllPartitionsAsync();
@@ -233,7 +236,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     }
 
     /// <inheritdoc/>
-    public async Task<IEnumerable<object>> GetAllLogicalKeysAsync()
+    public async Task<IEnumerable<IComparable>> GetAllLogicalKeysAsync()
     {
         await partitioningStrategy.InitializeAsync();
         var allPartitions = await partitioningStrategy.GetAllPartitionsAsync();
@@ -272,7 +275,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         if (partitionToSplit is not DataPartition dataPartitionToSplit) return;
 
         var crdtDoc = await LoadPartitionContentAsync(dataPartitionToSplit, dataStream);
-        var splitResult = partitionableStrategy.Split(crdtDoc.Data!, crdtDoc.Metadata!, typeof(T));
+        var splitResult = partitionableStrategy.Split(crdtDoc.Data!, crdtDoc.Metadata!, partitionableProperty);
 
         var p1DataWrite = await WriteToStreamAsync(dataStream, splitResult.Partition1.Data);
         var p1MetaWrite = await WriteToStreamAsync(dataStream, splitResult.Partition1.Metadata);
@@ -327,7 +330,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         var targetDocument = await LoadPartitionContentAsync(targetPartition, dataStream);
         var sourceDocument = await LoadPartitionContentAsync(sourcePartition, dataStream);
         
-        var mergedContent = partitionableStrategy.Merge(targetDocument.Data!, targetDocument.Metadata!, sourceDocument.Data!, sourceDocument.Metadata!, typeof(T));
+        var mergedContent = partitionableStrategy.Merge(targetDocument.Data!, targetDocument.Metadata!, sourceDocument.Data!, sourceDocument.Metadata!, partitionableProperty);
         
         var dataWriteResult = await WriteToStreamAsync(dataStream, mergedContent.Data);
         var metaWriteResult = await WriteToStreamAsync(dataStream, mergedContent.Metadata);
@@ -374,65 +377,6 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         }
         
         return property;
-    }
-
-    private static Type GetPartitionKeyType(Type propertyType)
-    {
-        // First, check if the type itself is a generic dictionary or enumerable interface
-        if (propertyType.IsGenericType)
-        {
-            var genericDef = propertyType.GetGenericTypeDefinition();
-            if (genericDef == typeof(IDictionary<,>))
-            {
-                return propertyType.GetGenericArguments()[0];
-            }
-            if (genericDef == typeof(IEnumerable<>))
-            {
-                return propertyType.GetGenericArguments()[0];
-            }
-        }
-
-        // Then check implemented interfaces
-        var dictionaryInterface = propertyType.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
-        if (dictionaryInterface != null)
-        {
-            return dictionaryInterface.GetGenericArguments()[0];
-        }
-
-        var enumerableInterface = propertyType.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
-        if (enumerableInterface != null)
-        {
-            return enumerableInterface.GetGenericArguments()[0];
-        }
-
-        throw new NotSupportedException($"Cannot determine partition key type for property type '{propertyType.Name}'.");
-    }
-
-    private static object GetMinValueForType(Type type)
-    {
-        if (type == typeof(string))
-        {
-            return string.Empty;
-        }
-
-        if (type == typeof(Guid))
-        {
-            return Guid.Empty;
-        }
-
-        if (type.IsValueType)
-        {
-            var minValueField = type.GetField("MinValue", BindingFlags.Public | BindingFlags.Static);
-            if (minValueField != null)
-            {
-                return minValueField.GetValue(null)!;
-            }
-        }
-
-        throw new NotSupportedException($"Cannot determine a minimum value for partition key type '{type.Name}'. " +
-                                        "This is required when initializing with an empty partitionable collection. " +
-                                        "Either provide a non-empty collection on initialization or use a key type with a known minimum value " +
-                                        "(e.g., int, long, string, DateTime, Guid).");
     }
 
     private async Task<CrdtDocument<T>> LoadPartitionContentAsync(IPartition partition, Stream dataStream)
