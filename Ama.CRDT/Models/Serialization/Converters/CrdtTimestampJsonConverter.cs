@@ -1,4 +1,5 @@
-namespace Ama.CRDT.Models.Serialization;
+namespace Ama.CRDT.Models.Serialization.Converters;
+using Ama.CRDT.Models;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;

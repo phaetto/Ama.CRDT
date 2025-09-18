@@ -61,6 +61,8 @@ public static class CrdtJsonContext
     private static void AddCrdtConverters(JsonSerializerOptions options)
     {
         options.Converters.Add(PolymorphicObjectJsonConverter.Instance);
+        options.Converters.Add(PolymorphicComparableJsonConverter.Instance);
+        options.Converters.Add(PolymorphicPartitionJsonConverter.Instance);
         options.Converters.Add(new CrdtTimestampJsonConverter());
         options.Converters.Add(new ObjectKeyDictionaryJsonConverter());
     }

@@ -1,6 +1,6 @@
 namespace Ama.CRDT.UnitTests.Models.Serialization;
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Serialization;
+using Ama.CRDT.Models.Serialization.Converters;
 using Shouldly;
 using System.Text.Json;
 

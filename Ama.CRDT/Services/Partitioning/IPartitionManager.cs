@@ -47,13 +47,13 @@ public interface IPartitionManager<T> where T : class, new()
     /// <summary>
     /// Retrieves all data partitions for a given logical key, sorted by their start range key.
     /// </summary>
-    /// <param name="logicalKey">The logical key identifying the document.</param>
+    /// <param name="logicalKey">The logical key identifying the document. Must implement <see cref="IComparable"/>.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains a sorted list of data partitions.</returns>
-    Task<List<IPartition>> GetAllDataPartitionsAsync(object logicalKey);
+    Task<List<IPartition>> GetAllDataPartitionsAsync(IComparable logicalKey);
 
     /// <summary>
     /// Retrieves all unique logical keys present in the index.
     /// </summary>
     /// <returns>A task that represents the asynchronous operation. The task result contains a collection of unique logical keys.</returns>
-    Task<IEnumerable<object>> GetAllLogicalKeysAsync();
+    Task<IEnumerable<IComparable>> GetAllLogicalKeysAsync();
 }

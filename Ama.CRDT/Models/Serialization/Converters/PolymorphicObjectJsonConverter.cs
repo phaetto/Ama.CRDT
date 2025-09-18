@@ -19,8 +19,8 @@ public sealed class PolymorphicObjectJsonConverter : JsonConverter<object>
     private const string TypeDiscriminator = "$type";
     private const string ValueProperty = "value";
 
-    private static readonly ConcurrentDictionary<string, Type> TypeMap = new();
-    private static readonly ConcurrentDictionary<Type, string> DiscriminatorMap = new();
+    internal static readonly ConcurrentDictionary<string, Type> TypeMap = new();
+    internal static readonly ConcurrentDictionary<Type, string> DiscriminatorMap = new();
 
     static PolymorphicObjectJsonConverter()
     {

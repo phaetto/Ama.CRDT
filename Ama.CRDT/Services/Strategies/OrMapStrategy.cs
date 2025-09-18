@@ -110,45 +110,81 @@ public sealed class OrMapStrategy(
     }
     
     /// <inheritdoc/>
-    public object? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath)
+    public IComparable? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath)
     {
         if (!operation.JsonPath.StartsWith(partitionablePropertyPath, StringComparison.Ordinal))
         {
-            // This operation is for a header field, not the partitionable dictionary.
             return null;
         }
 
-        if (operation.Value is OrMapAddItem mapAdd) return mapAdd.Key;
-        if (operation.Value is OrMapRemoveItem mapRemove) return mapRemove.Key;
-        
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapAddItem)) is OrMapAddItem convertedAdd) return convertedAdd.Key;
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapRemoveItem)) is OrMapRemoveItem convertedRemove) return convertedRemove.Key;
-
-        // Fallback for LWW ops on dictionary values. The key is embedded in the path.
-        var relativePath = operation.JsonPath[partitionablePropertyPath.Length..];
-        if (relativePath.StartsWith("['") && relativePath.EndsWith("']"))
+        object? key = null;
+        if (operation.Value is OrMapAddItem mapAdd) key = mapAdd.Key;
+        else if (operation.Value is OrMapRemoveItem mapRemove) key = mapRemove.Key;
+        else if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapAddItem)) is OrMapAddItem convertedAdd) key = convertedAdd.Key;
+        else if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapRemoveItem)) is OrMapRemoveItem convertedRemove) key = convertedRemove.Key;
+        else 
         {
-            return relativePath[2..^2].Replace("\\'", "'");
+            var relativePath = operation.JsonPath[partitionablePropertyPath.Length..];
+            if (relativePath.StartsWith("['") && relativePath.EndsWith("']"))
+            {
+                key = relativePath[2..^2].Replace("\\'", "'");
+            }
         }
-        
-        return null; // Should not happen for a well-formed path.
+
+        if (key is null) return null;
+        if (key is IComparable comparableKey) return comparableKey;
+    
+        throw new InvalidOperationException($"The key of a partitionable OR-Map must implement IComparable. Key: '{key}'");
     }
 
     /// <inheritdoc/>
-    public object? GetStartKey(object data)
+    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var dictProperty = FindDictionaryProperty(data.GetType());
-        var dict = (IDictionary?)dictProperty.GetValue(data);
-        return dict is not null && dict.Count > 0 ? dict.Keys.Cast<object>().Min() : null;
+        var dict = (IDictionary?)partitionableProperty.GetValue(data);
+        var key = dict is not null && dict.Count > 0 ? dict.Keys.Cast<object>().Min() : null;
+        if (key is null) return null;
+        if (key is IComparable comparableKey) return comparableKey;
+
+        throw new InvalidOperationException($"The key of a partitionable OR-Map must implement IComparable. Key: '{key}'");
     }
 
     /// <inheritdoc/>
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, Type documentType)
+    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
     {
-        var dictProperty = FindDictionaryProperty(documentType);
-        var path = $"$.{char.ToLowerInvariant(dictProperty.Name[0])}{dictProperty.Name[1..]}";
+        var keyType = PocoPathHelper.GetDictionaryKeyType(partitionableProperty);
 
-        var dict = (IDictionary)dictProperty.GetValue(originalData)!;
+        if (keyType == typeof(string))
+        {
+            return string.Empty;
+        }
+
+        if (keyType == typeof(Guid))
+        {
+            return Guid.Empty;
+        }
+
+        if (keyType.IsValueType)
+        {
+            var minValueField = keyType.GetField("MinValue", BindingFlags.Public | BindingFlags.Static);
+            if (minValueField != null && minValueField.GetValue(null) is IComparable comparable)
+            {
+                return comparable;
+            }
+        }
+
+        throw new NotSupportedException($"Cannot determine a minimum value for partition key type '{keyType.Name}'. " +
+                                        "This is required when initializing with an empty partitionable collection. " +
+                                        "Either provide a non-empty collection on initialization or use a key type with a known minimum value " +
+                                        "(e.g., int, long, string, DateTime, Guid).");
+    }
+
+    /// <inheritdoc/>
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    {
+        var documentType = partitionableProperty.DeclaringType!;
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+
+        var dict = (IDictionary)partitionableProperty.GetValue(originalData)!;
         if (dict.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
@@ -158,31 +194,35 @@ public sealed class OrMapStrategy(
         var splitIndex = sortedKeys.Count / 2;
         var splitKey = sortedKeys[splitIndex];
 
+        if (splitKey is not IComparable comparableSplitKey)
+        {
+            throw new InvalidOperationException($"The key of a partitionable OR-Map must implement IComparable. Key: '{splitKey}'");
+        }
+
         var doc1 = Activator.CreateInstance(documentType)!;
         var dict1 = (IDictionary)Activator.CreateInstance(dict.GetType())!;
         foreach (var key in sortedKeys.Take(splitIndex)) dict1.Add(key, dict[key]);
-        dictProperty.SetValue(doc1, dict1);
+        partitionableProperty.SetValue(doc1, dict1);
 
         var doc2 = Activator.CreateInstance(documentType)!;
         var dict2 = (IDictionary)Activator.CreateInstance(dict.GetType())!;
         foreach (var key in sortedKeys.Skip(splitIndex)) dict2.Add(key, dict[key]);
-        dictProperty.SetValue(doc2, dict2);
+        partitionableProperty.SetValue(doc2, dict2);
 
         var (meta1, meta2) = SplitMetadata(path, originalMetadata, sortedKeys.Take(splitIndex).ToHashSet(), sortedKeys.Skip(splitIndex).ToHashSet());
 
-        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
+        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), comparableSplitKey);
     }
 
     /// <inheritdoc/>
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, Type documentType)
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
     {
-        var dictProperty = FindDictionaryProperty(documentType);
-        var path = $"$.{char.ToLowerInvariant(dictProperty.Name[0])}{dictProperty.Name[1..]}";
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
         
-        var dict1 = (IDictionary)dictProperty.GetValue(data1)!;
-        var dict2 = (IDictionary)dictProperty.GetValue(data2)!;
+        var dict1 = (IDictionary)partitionableProperty.GetValue(data1)!;
+        var dict2 = (IDictionary)partitionableProperty.GetValue(data2)!;
 
-        var mergedDoc = Activator.CreateInstance(documentType)!;
+        var mergedDoc = Activator.CreateInstance(partitionableProperty.DeclaringType!)!;
         var mergedDict = (IDictionary)Activator.CreateInstance(dict1.GetType())!;
 
         var mergedMeta = MergeMetadata(path, meta1, meta2);
@@ -222,12 +262,12 @@ public sealed class OrMapStrategy(
         // Reconstruct dictionary based on merged OR-Set state to handle removals
         if (mergedMeta.OrMaps.TryGetValue(path, out var orState))
         {
-            var keyType = PocoPathHelper.GetDictionaryKeyType(dictProperty);
+            var keyType = PocoPathHelper.GetDictionaryKeyType(partitionableProperty);
             var comparer = comparerProvider.GetComparer(keyType);
             ReconstructDictionary(mergedDict, orState.Adds, orState.Removes, comparer);
         }
     
-        dictProperty.SetValue(mergedDoc, mergedDict);
+        partitionableProperty.SetValue(mergedDoc, mergedDict);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
@@ -394,17 +434,5 @@ public sealed class OrMapStrategy(
                 dict.Remove(key);
             }
         }
-    }
-    
-    private static PropertyInfo FindDictionaryProperty(Type documentType)
-    {
-        var dictProperty = documentType.GetProperties()
-            .FirstOrDefault(p => p.GetCustomAttribute<CrdtOrMapStrategyAttribute>() is not null);
-        
-        if (dictProperty is null)
-        {
-            throw new NotSupportedException($"Type '{documentType.Name}' does not have a dictionary property decorated with [CrdtOrMapStrategy] for partitioning.");
-        }
-        return dictProperty;
     }
 }

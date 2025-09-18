@@ -9,8 +9,9 @@ public readonly record struct CrdtPatch(IReadOnlyList<CrdtOperation> Operations)
     /// <summary>
     /// The logical key for the document being patched, used for partitioning.
     /// This must be populated when applying patches to a partitioned document.
+    /// The key must implement <see cref="IComparable"/>.
     /// </summary>
-    public object? LogicalKey { get; init; }
+    public IComparable? LogicalKey { get; init; }
 
     /// <inheritdoc />
     public bool Equals(CrdtPatch other)

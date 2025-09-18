@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Serialization.Converters;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Partitioning.Serialization;
@@ -300,7 +301,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtTimestampType<TTimestamp>(this IServiceCollection services, string discriminator)
         where TTimestamp : ICrdtTimestamp
     {
-        Models.Serialization.CrdtTimestampJsonConverter.Register(discriminator, typeof(TTimestamp));
+        CrdtTimestampJsonConverter.Register(discriminator, typeof(TTimestamp));
         return services;
     }
 
