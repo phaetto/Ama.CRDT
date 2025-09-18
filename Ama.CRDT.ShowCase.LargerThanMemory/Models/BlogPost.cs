@@ -9,6 +9,6 @@ public sealed class BlogPost
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
 
-    [CrdtOrMapStrategy]
-    public IDictionary<Guid, Comment> Comments { get; set; } = new Dictionary<Guid, Comment>();
+    [CrdtArrayLcsStrategy]
+    public IList<Comment> Comments { get; set; } = [];
 }

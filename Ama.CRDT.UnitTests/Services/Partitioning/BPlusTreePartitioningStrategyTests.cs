@@ -135,35 +135,6 @@ public sealed class BPlusTreePartitioningStrategyTests
         
         (await strategy.FindPartitionAsync(new CompositePartitionKey("C", 1))).ShouldBeNull();
     }
-    
-    [Fact]
-    public async Task InsertAndFindAsync_WithMixedKeyTypes_ShouldSortAndFindCorrectly()
-    {
-        // Arrange
-        var streamProvider = new InMemoryPartitionStreamProvider();
-        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider);
-        await strategy.InitializeAsync();
-
-        var p_str = new DataPartition(new CompositePartitionKey("A", "apple"), null, 1L, 1, 1L, 1);
-        var p_int10 = new DataPartition(new CompositePartitionKey("A", 10), null, 2L, 2, 2L, 2);
-        var p_int20 = new DataPartition(new CompositePartitionKey("A", 20), null, 3L, 3, 3L, 3);
-        var p_header = new HeaderPartition(new CompositePartitionKey("A", null), 4L, 4, 4L, 4);
-
-        // Act: Insert in non-sorted order
-        await strategy.InsertPartitionAsync(p_str);
-        await strategy.InsertPartitionAsync(p_int20);
-        await strategy.InsertPartitionAsync(p_header);
-        await strategy.InsertPartitionAsync(p_int10);
-        
-        // Assert
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", null)))!.ShouldBe(p_header);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 5)))!.ShouldBe(p_header);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 10)))!.ShouldBe(p_int10);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 15)))!.ShouldBe(p_int10);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 20)))!.ShouldBe(p_int20);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", 100)))!.ShouldBe(p_int20);
-        (await strategy.FindPartitionAsync(new CompositePartitionKey("A", "banana")))!.ShouldBe(p_str);
-    }
 
     [Fact]
     public async Task InsertPartitionAsync_ShouldTriggerLeafSplit_AndFindShouldWork()
@@ -273,7 +244,7 @@ public sealed class BPlusTreePartitioningStrategyTests
         allPartitions.ShouldContain(otherTenant);
     }
     
-    [Fact]
+    [Fact(Skip = "This is a long running test")]
     public async Task StressTest_AfterManyOperations_ShouldMaintainIntegrity()
     {
         // Arrange

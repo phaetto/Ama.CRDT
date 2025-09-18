@@ -10,7 +10,7 @@ using System.Globalization;
 /// </summary>
 /// <param name="Position">A string representation of a fractional number indicating the element's position.</param>
 /// <param name="OperationId">The unique ID of the operation that inserted this element, used as a tie-breaker.</param>
-public readonly record struct PositionalIdentifier(string Position, Guid OperationId) : IComparable<PositionalIdentifier>
+public readonly record struct PositionalIdentifier(string Position, Guid OperationId) : IComparable, IComparable<PositionalIdentifier>
 {
     /// <summary>
     /// Compares this identifier to another, first by position and then by OperationId as a tie-breaker.
@@ -26,5 +26,21 @@ public readonly record struct PositionalIdentifier(string Position, Guid Operati
         }
 
         return OperationId.CompareTo(other.OperationId);
+    }
+
+    /// <inheritdoc/>
+    public int CompareTo(object? obj)
+    {
+        if (obj is null)
+        {
+            return 1;
+        }
+
+        if (obj is PositionalIdentifier other)
+        {
+            return CompareTo(other);
+        }
+
+        throw new ArgumentException($"Object must be of type {nameof(PositionalIdentifier)}");
     }
 }

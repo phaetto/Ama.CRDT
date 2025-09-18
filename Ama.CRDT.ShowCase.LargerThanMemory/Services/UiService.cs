@@ -171,7 +171,7 @@ public sealed class UiService
 
         if (content.HasValue && content.Value.Data?.Comments is { Count: > 0 } comments)
         {
-            var newComments = comments.Values
+            var newComments = comments
                 .Select(c => $"{c.Author}: {c.Text.Substring(0, Math.Min(c.Text.Length, 50))}...")
                 .ToList();
             

@@ -121,17 +121,16 @@ public sealed class ArrayLcsStrategy(
     }
 
     /// <inheritdoc/>
-    public object? GetStartKey(object data)
+    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var listProperty = FindListProperty(data.GetType());
-        var list = (IList?)listProperty.GetValue(data);
+        var list = (IList?)partitionableProperty.GetValue(data);
         if (list is null || list.Count == 0) return null;
         
         return new PositionalIdentifier("1", Guid.Empty);
     }
     
     /// <inheritdoc/>
-    public object? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath)
+    public IComparable? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath)
     {
         if (!operation.JsonPath.StartsWith(partitionablePropertyPath, StringComparison.Ordinal))
         {
@@ -154,12 +153,21 @@ public sealed class ArrayLcsStrategy(
     }
 
     /// <inheritdoc/>
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, Type documentType)
+    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
     {
-        var listProperty = FindListProperty(documentType);
-        var path = $"$.{char.ToLowerInvariant(listProperty.Name[0])}{listProperty.Name[1..]}";
+        // For ArrayLcsStrategy, the key type is always PositionalIdentifier, which is internal to the strategy.
+        // The provided property is not used because the key is strategy-defined.
+        // "0" is chosen as it is guaranteed to be less than any position generated for actual elements (which start at "1").
+        return new PositionalIdentifier("0", Guid.Empty);
+    }
 
-        var list = (IList)listProperty.GetValue(originalData)!;
+    /// <inheritdoc/>
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    {
+        var documentType = partitionableProperty.DeclaringType!;
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+
+        var list = (IList)partitionableProperty.GetValue(originalData)!;
         if (list.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
@@ -176,7 +184,7 @@ public sealed class ArrayLcsStrategy(
         var doc1 = Activator.CreateInstance(documentType)!;
         var list1 = (IList)Activator.CreateInstance(list.GetType())!;
         for (int i = 0; i < splitIndex; i++) list1.Add(list[i]);
-        listProperty.SetValue(doc1, list1);
+        partitionableProperty.SetValue(doc1, list1);
         
         var meta1 = new CrdtMetadata { PositionalTrackers = { [path] = positions.Take(splitIndex).ToList() } };
         CloneNonPositionalMetadata(originalMetadata, meta1, path);
@@ -184,7 +192,7 @@ public sealed class ArrayLcsStrategy(
         var doc2 = Activator.CreateInstance(documentType)!;
         var list2 = (IList)Activator.CreateInstance(list.GetType())!;
         for (int i = splitIndex; i < list.Count; i++) list2.Add(list[i]);
-        listProperty.SetValue(doc2, list2);
+        partitionableProperty.SetValue(doc2, list2);
         
         var meta2 = new CrdtMetadata { PositionalTrackers = { [path] = positions.Skip(splitIndex).ToList() } };
         CloneNonPositionalMetadata(originalMetadata, meta2, path);
@@ -193,13 +201,13 @@ public sealed class ArrayLcsStrategy(
     }
 
     /// <inheritdoc/>
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, Type documentType)
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
     {
-        var listProperty = FindListProperty(documentType);
-        var path = $"$.{char.ToLowerInvariant(listProperty.Name[0])}{listProperty.Name[1..]}";
+        var documentType = partitionableProperty.DeclaringType!;
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var list1 = (IList)listProperty.GetValue(data1)!;
-        var list2 = (IList)listProperty.GetValue(data2)!;
+        var list1 = (IList)partitionableProperty.GetValue(data1)!;
+        var list2 = (IList)partitionableProperty.GetValue(data2)!;
 
         var mergedDoc = Activator.CreateInstance(documentType)!;
         var mergedList = (IList)Activator.CreateInstance(list1.GetType())!;
@@ -207,7 +215,7 @@ public sealed class ArrayLcsStrategy(
         foreach (var item in list1) mergedList.Add(item);
         foreach (var item in list2) mergedList.Add(item);
         
-        listProperty.SetValue(mergedDoc, mergedList);
+        partitionableProperty.SetValue(mergedDoc, mergedList);
         
         var mergedMeta = new CrdtMetadata();
         CloneNonPositionalMetadata(meta1, mergedMeta, path);
@@ -324,18 +332,6 @@ public sealed class ArrayLcsStrategy(
         }
         lcs.Reverse();
         return lcs;
-    }
-
-    private static PropertyInfo FindListProperty(Type documentType)
-    {
-        var listProperty = documentType.GetProperties()
-            .FirstOrDefault(p => p.GetCustomAttribute<CrdtArrayLcsStrategyAttribute>() is not null);
-            
-        if (listProperty is null)
-        {
-            throw new NotSupportedException($"Type '{documentType.Name}' does not have a list property decorated with [CrdtArrayLcsStrategy] for partitioning.");
-        }
-        return listProperty;
     }
     
     private static void CloneNonPositionalMetadata(CrdtMetadata source, CrdtMetadata destination, string excludedPathPrefix)

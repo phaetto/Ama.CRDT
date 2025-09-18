@@ -1,6 +1,7 @@
 namespace Ama.CRDT.Models.Serialization;
 
 using System.Text.Json.Serialization.Metadata;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Models.Serialization.Converters;
 
 /// <summary>
@@ -35,6 +36,16 @@ public sealed class CrdtJsonTypeInfoResolver : DefaultJsonTypeInfoResolver
         foreach (var property in jsonTypeInfo.Properties)
         {
             if (property.PropertyType == typeof(object))
+            {
+                property.CustomConverter = objectConverter;
+            }
+
+            if (property.PropertyType == typeof(IComparable))
+            {
+                property.CustomConverter = objectConverter;
+            }
+
+            if (property.PropertyType == typeof(IPartition))
             {
                 property.CustomConverter = objectConverter;
             }
