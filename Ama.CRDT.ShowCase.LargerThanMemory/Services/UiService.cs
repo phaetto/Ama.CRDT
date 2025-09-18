@@ -21,11 +21,17 @@ public sealed class UiService
     private IPartitionManager<BlogPost> partitionManager;
 
     private Window topPane;
+    private FrameView rightPane;
     private ListView postListView;
+    private TextView postContentView;
     private ListView commentListView;
+
     private readonly List<string> displayedComments = new();
+    private readonly List<BlogPostHeader> blogPostHeaders = new();
     private List<IPartition> commentPartitions = [];
     private int currentPartitionIndex = -1;
+    
+    private sealed record BlogPostHeader(Guid Id, string Title);
 
     public UiService(IServiceProvider serviceProvider, List<string> replicaIds, List<Guid> blogPostIds)
     {
@@ -65,7 +71,7 @@ public sealed class UiService
             Height = Dim.Fill(1)
         };
 
-        postListView = new ListView(blogPostIds.Select(id => $"Blog Post: {id}").ToList())
+        postListView = new ListView(new List<string>())
         {
             X = 0,
             Y = 0,
@@ -75,7 +81,7 @@ public sealed class UiService
         postListView.SelectedItemChanged += OnPostSelected;
         leftPane.Add(postListView);
 
-        var rightPane = new FrameView("Comments (Loaded On-Demand)")
+        rightPane = new FrameView("Selected Post")
         {
             X = 40,
             Y = 1,
@@ -83,14 +89,26 @@ public sealed class UiService
             Height = Dim.Fill(1),
         };
 
+        var postContentLabel = new Label("Content:") { X = 0, Y = 0 };
+        postContentView = new TextView()
+        {
+            X = 0,
+            Y = Pos.Bottom(postContentLabel),
+            Width = Dim.Fill(),
+            Height = Dim.Percent(30),
+            ReadOnly = true
+        };
+
+        var commentsLabel = new Label("Comments (Loaded On-Demand):") { X = 0, Y = Pos.Bottom(postContentView) + 1 };
         commentListView = new ListView()
         {
             X = 0,
-            Y = 0,
+            Y = Pos.Bottom(commentsLabel),
             Width = Dim.Fill(),
             Height = Dim.Fill(),
         };
-        rightPane.Add(commentListView);
+        rightPane.Add(postContentLabel, postContentView, commentsLabel, commentListView);
+
 
         var statusBar = new StatusBar(new[]
         {
@@ -105,7 +123,7 @@ public sealed class UiService
 
         Application.Run();
         Application.Shutdown();
-        currentScope.Dispose();
+        currentScope?.Dispose();
     }
 
     private MenuItem[] CreateReplicaMenuItems()
@@ -125,33 +143,65 @@ public sealed class UiService
             topPane.Title = $"CRDT Showcase - Viewing: {replicaId}";
         }
         
-        if (postListView?.SelectedItem >= 0)
-        {
-            OnPostSelected(new ListViewItemEventArgs(postListView.SelectedItem, postListView.Source.ToList()[postListView.SelectedItem]));
-        }
-        else if (commentListView is not null)
-        {
-            displayedComments.Clear();
-            commentListView.SetSource(displayedComments);
-        }
+        LoadBlogPostHeadersAsync();
     }
     
+    private async void LoadBlogPostHeadersAsync()
+    {
+        if (partitionManager is null || blogPostIds is null) return;
+
+        Application.MainLoop.Invoke(() =>
+        {
+            postListView.SetSource(new List<string> { "Loading..." });
+            rightPane.Title = "Selected Post";
+            postContentView.Text = "";
+            displayedComments.Clear();
+            commentListView.SetSource(displayedComments);
+        });
+
+        blogPostHeaders.Clear();
+        foreach (var id in blogPostIds)
+        {
+            var key = new CompositePartitionKey(id, null);
+            var content = await partitionManager.GetPartitionContentAsync(key);
+            if (content.HasValue)
+            {
+                blogPostHeaders.Add(new BlogPostHeader(content.Value.Data.Id, content.Value.Data.Title));
+            }
+        }
+
+        Application.MainLoop.Invoke(() =>
+        {
+            postListView.SetSource(blogPostHeaders.Select(h => h.Title).ToList());
+        });
+    }
+
     private async void OnPostSelected(ListViewItemEventArgs args)
     {
-        if (partitionManager is null || commentListView is null || args is null || args.Item < 0 || blogPostIds is null || args.Item >= blogPostIds.Count)
+        if (partitionManager is null || commentListView is null || args.Item < 0 || blogPostHeaders is null || args.Item >= blogPostHeaders.Count)
         {
-            if (commentListView is not null)
-            {
-                displayedComments.Clear();
-                commentListView.SetSource(displayedComments);
-            }
+            rightPane.Title = "Selected Post";
+            postContentView.Text = "";
+            displayedComments.Clear();
+            commentListView.SetSource(displayedComments);
             return;
         }
 
-        selectedBlogPostId = blogPostIds[args.Item];
-        
+        var selectedHeader = blogPostHeaders[args.Item];
+        selectedBlogPostId = selectedHeader.Id;
+
+        var headerKey = new CompositePartitionKey(selectedBlogPostId, null);
+        var headerContent = await partitionManager.GetPartitionContentAsync(headerKey);
+
+        if (headerContent.HasValue)
+        {
+            var post = headerContent.Value.Data;
+            rightPane.Title = post.Title;
+            postContentView.Text = post.Content;
+        }
+
         commentPartitions = await partitionManager.GetAllDataPartitionsAsync(selectedBlogPostId);
-        currentPartitionIndex = -1;
+        currentPartitionIndex = commentPartitions.Count;
         displayedComments.Clear();
         commentListView.SetSource(displayedComments);
         LoadNextPartition();
@@ -159,27 +209,34 @@ public sealed class UiService
 
     private async void LoadNextPartition()
     {
-        if (commentPartitions == null || currentPartitionIndex + 1 >= commentPartitions.Count)
+        if (commentPartitions == null || currentPartitionIndex - 1 < 0)
         {
             MessageBox.Query("Info", "No more partitions to load.", "Ok");
             return;
         }
 
-        currentPartitionIndex++;
+        currentPartitionIndex--;
         var partition = commentPartitions[currentPartitionIndex];
         var content = await partitionManager.GetPartitionContentAsync(partition.GetPartitionKey());
 
         if (content.HasValue && content.Value.Data?.Comments is { Count: > 0 } comments)
         {
-            var newComments = comments
-                .Select(c => $"{c.Author}: {c.Text.Substring(0, Math.Min(c.Text.Length, 50))}...")
+            var scrollToIndex = displayedComments.Count;
+            var newComments = comments.Values
+                .OrderByDescending(c => c.CreatedAt)
+                .Select(c => $"[{c.CreatedAt:g}] {c.Author}: {c.Text}")
                 .ToList();
             
-            displayedComments.Add($"--- Partition {currentPartitionIndex+1}/{commentPartitions.Count} ---");
+            displayedComments.Add($"--- Partition {currentPartitionIndex + 1}/{commentPartitions.Count} ({comments.Count} comments) ---");
             displayedComments.AddRange(newComments);
 
             commentListView.SetSource(displayedComments);
-            commentListView.MoveEnd();
+
+            if (scrollToIndex < commentListView.Source.Count)
+            {
+                commentListView.TopItem = scrollToIndex;
+                commentListView.SelectedItem = scrollToIndex;
+            }
         }
     }
 }

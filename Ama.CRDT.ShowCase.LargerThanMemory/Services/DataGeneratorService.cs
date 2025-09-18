@@ -1,82 +1,97 @@
 namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
 using Bogus;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 public sealed class DataGeneratorService(
     IPartitionManager<BlogPost> partitionManager,
-    ReplicaContext replicaContext,
-    FileSystemPartitionStreamProvider streamProvider,
     ICrdtPatcher patcher,
     ICrdtMetadataManager metadataManager)
 {
-    private const double MaxSizeGb = 0.05;
-    private const long MaxSizeBytes = (long)(MaxSizeGb * 1024 * 1024 * 1024);
+    private const int BlogPostCount = 20;
+    private const int MinCommentsPerPost = 50000;
+    private const int MaxCommentsPerPost = 100000;
+    private const int BatchSize = 10;
+    private static readonly DateTimeOffset NewestCommentDate = DateTimeOffset.UtcNow;
 
-    public async Task GenerateDataAsync(Guid blogPostId)
+    public async Task GenerateDataAsync()
     {
-        var replicaPath = streamProvider.GetReplicaBasePath();
-        if (Directory.Exists(replicaPath) && GetDirectorySize(replicaPath) > MaxSizeBytes)
-        {
-            Console.WriteLine($"Data for replica {replicaContext.ReplicaId} already exists and exceeds the size limit. Skipping generation.");
-            return;
-        }
-        
-        Console.WriteLine($"Generating data for replica {replicaContext.ReplicaId} up to {MaxSizeGb} GB. This may take a while...");
+        Console.WriteLine($"Generating {BlogPostCount} blog posts with {MinCommentsPerPost}-{MaxCommentsPerPost} comments each. This may take a while...");
+
+        var blogPostFaker = new Faker<BlogPost>()
+            .RuleFor(bp => bp.Id, f => Guid.NewGuid())
+            .RuleFor(bp => bp.Title, f => f.Lorem.Sentence(5, 5))
+            .RuleFor(bp => bp.Content, f => f.Lorem.Paragraphs(3));
 
         var commentFaker = new Faker<Comment>()
             .CustomInstantiator(f => new Comment(
                 Guid.NewGuid(),
                 f.Name.FullName(),
                 f.Lorem.Paragraphs(1),
-                f.Date.PastOffset(1)
+                default // Will be set sequentially to be older
             ));
+        
+        var random = new Random();
 
-        long currentSize = 0;
-        int batchCount = 0;
-
-        var fromState = new BlogPost { Id = blogPostId };
-        var fromDocument = new CrdtDocument<BlogPost>(fromState, metadataManager.Initialize(fromState));
-
-        while (currentSize < MaxSizeBytes)
+        for (int i = 0; i < BlogPostCount; i++)
         {
-            var toState = new BlogPost { Id = blogPostId };
-            for (int i = 0; i < 100; i++) // Create batches of 100
-            {
-                var comment = commentFaker.Generate();
-                toState.Comments.Add(comment);
-            }
+            var blogPost = blogPostFaker.Generate();
+            blogPost.Comments = new Dictionary<DateTimeOffset, Comment>(); // Start with empty comments
 
-            var patch = patcher.GeneratePatch(fromDocument, toState);
-            patch = patch with { LogicalKey = blogPostId };
-            await partitionManager.ApplyPatchAsync(patch);
-            
-            batchCount++;
+            Console.WriteLine($"Generating post '{blogPost.Title}'...");
+            await partitionManager.InitializeAsync(blogPost);
 
-            if (batchCount % 10 == 0) // Check size every 10 batches
-            {
-                currentSize = GetDirectorySize(replicaPath);
-                Console.WriteLine($"Generated {batchCount * 100} comments. Current size: {(double)currentSize / (1024 * 1024):F2} MB");
-            }
+            // Get the initial document with its server-side generated metadata. This is cheap as the collection is empty.
+            var crdtDocument = await partitionManager.GetPartitionContentAsync(new CompositePartitionKey(blogPost.Id, null));
+            var metadata = crdtDocument.Value.Metadata;
 
-            if (batchCount > 50)
+            var totalComments = random.Next(MinCommentsPerPost, MaxCommentsPerPost + 1);
+            var commentsGenerated = 0;
+            var currentCommentDate = NewestCommentDate;
+
+            while (commentsGenerated < totalComments)
             {
-                break;
+                var currentBatchSize = Math.Min(BatchSize, totalComments - commentsGenerated);
+                if (currentBatchSize <= 0) break;
+                
+                var commentsBatch = new Dictionary<DateTimeOffset, Comment>(currentBatchSize);
+                for (var j = 0; j < currentBatchSize; j++)
+                {
+                    var comment = commentFaker.Generate();
+                    currentCommentDate = currentCommentDate.AddMinutes(-random.Next(1, 60)); // Make each comment older than the previous one
+                    commentsBatch.Add(currentCommentDate, comment with { CreatedAt = currentCommentDate });
+                }
+
+                // To generate a patch for additions, we can compare an empty dictionary with the new batch.
+                // It is crucial to use the LATEST metadata for the patch generation.
+                var fromDocument = new CrdtDocument<BlogPost>(
+                    new BlogPost { Id = blogPost.Id, Comments = new Dictionary<DateTimeOffset, Comment>() },
+                    metadata); // Use the single, evolving metadata object
+
+                var toState = new BlogPost { Id = blogPost.Id, Comments = commentsBatch };
+                
+                var patch = patcher.GeneratePatch(fromDocument, toState);
+                patch = patch with { LogicalKey = blogPost.Id };
+                await partitionManager.ApplyPatchAsync(patch);
+
+                // Manually advance the version vector in our local metadata copy to keep it in sync.
+                foreach (var op in patch.Operations)
+                {
+                    metadataManager.AdvanceVersionVector(metadata, op);
+                }
+
+                commentsGenerated += currentBatchSize;
+                Console.WriteLine($"  - Added {commentsGenerated}/{totalComments} comments.");
             }
         }
 
         Console.WriteLine("Data generation complete.");
-    }
-
-    private static long GetDirectorySize(string path)
-    {
-        if (!Directory.Exists(path))
-        {
-            return 0;
-        }
-        return new DirectoryInfo(path).GetFiles("*.*", SearchOption.AllDirectories).Sum(fi => fi.Length);
     }
 }

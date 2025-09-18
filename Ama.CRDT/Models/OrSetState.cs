@@ -32,7 +32,8 @@ public sealed record OrSetState(IDictionary<object, ISet<Guid>> Adds, IDictionar
             int setHash = 0;
             if (value is not null)
             {
-                foreach (var item in value.OrderBy(t => t))
+                // Removed expensive OrderBy for performance. XORing hash codes is order-independent.
+                foreach (var item in value)
                 {
                     setHash ^= item.GetHashCode();
                 }
