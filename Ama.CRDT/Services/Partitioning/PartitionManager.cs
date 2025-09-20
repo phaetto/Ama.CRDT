@@ -166,10 +166,10 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
                 }
                 else if (updatedPartition.DataLength < MinPartitionDataSize)
                 {
-                    var allPartitions = await partitioningStrategy.GetAllPartitionsAsync();
-                    if (allPartitions.Count(p => p is DataPartition dp && dp.GetPartitionKey().LogicalKey.Equals(logicalKey)) > 1)
+                    var partitionCount = await partitioningStrategy.GetPartitionCountAsync(logicalKey);
+                    if (partitionCount > 2) // Header + at least one other data partition
                     {
-                        await MergePartitionIfNeededAsync(updatedPartition, allPartitions, dataStream);
+                        await MergePartitionIfNeededAsync(updatedPartition, dataStream);
                     }
                 }
             }
@@ -225,18 +225,39 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     }
 
     /// <inheritdoc/>
-    public async Task<List<IPartition>> GetAllDataPartitionsAsync(IComparable logicalKey)
+    public async IAsyncEnumerable<IPartition> GetAllDataPartitionsAsync(IComparable logicalKey)
     {
         using var _ = new MetricTimer(metrics.GetAllDataPartitionsDuration);
         ArgumentNullException.ThrowIfNull(logicalKey);
-        var allPartitions = await partitioningStrategy.GetAllPartitionsAsync();
+        
+        await foreach (var partition in partitioningStrategy.GetAllPartitionsAsync(logicalKey))
+        {
+            if (partition is DataPartition dataPartition)
+            {
+                yield return dataPartition;
+            }
+        }
+    }
 
-        return allPartitions
-            .OfType<DataPartition>()
-            .Where(p => p.GetPartitionKey().LogicalKey.Equals(logicalKey))
-            .OrderBy(p => p.StartKey)
-            .Cast<IPartition>()
-            .ToList();
+    /// <inheritdoc/>
+    public async Task<long> GetDataPartitionCountAsync(IComparable logicalKey)
+    {
+        using var _ = new MetricTimer(metrics.GetDataPartitionCountDuration);
+        ArgumentNullException.ThrowIfNull(logicalKey);
+        return await partitioningStrategy.GetPartitionCountAsync(logicalKey) - 1; // One is always a header
+    }
+
+    /// <inheritdoc/>
+    public async Task<IPartition?> GetDataPartitionByIndexAsync(IComparable logicalKey, long index)
+    {
+        using var _ = new MetricTimer(metrics.GetDataPartitionByIndexDuration);
+        ArgumentNullException.ThrowIfNull(logicalKey);
+        if (index < 0)
+        {
+            return null;
+        }
+        
+        return await partitioningStrategy.GetDataPartitionByIndexAsync(logicalKey, index);
     }
 
     /// <inheritdoc/>
@@ -244,11 +265,13 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     {
         using var _ = new MetricTimer(metrics.GetAllLogicalKeysDuration);
         await partitioningStrategy.InitializeAsync();
-        var allPartitions = await partitioningStrategy.GetAllPartitionsAsync();
-        return allPartitions
-            .Select(p => p.GetPartitionKey().LogicalKey)
-            .Distinct()
-            .ToList();
+        
+        var logicalKeys = new HashSet<IComparable>();
+        await foreach (var partition in partitioningStrategy.GetAllPartitionsAsync())
+        {
+            logicalKeys.Add(partition.GetPartitionKey().LogicalKey);
+        }
+        return logicalKeys;
     }
 
     private async Task<Dictionary<IPartition, List<CrdtOperation>>> GroupOperationsByPartitionAsync(CrdtPatch patch)
@@ -309,18 +332,22 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         await partitioningStrategy.InsertPartitionAsync(p2);
     }
 
-    private async Task MergePartitionIfNeededAsync(IPartition partitionToMerge, List<IPartition> allPartitions, Stream dataStream)
+    private async Task MergePartitionIfNeededAsync(IPartition partitionToMerge, Stream dataStream)
     {
         using var _ = new MetricTimer(metrics.MergePartitionDuration);
         if (partitionToMerge is not DataPartition dataPartitionToMerge) return;
 
         var logicalKey = dataPartitionToMerge.StartKey.LogicalKey;
-        var logicalPartitions = allPartitions
-            .OfType<DataPartition>()
-            .Where(p => p.StartKey.LogicalKey.Equals(logicalKey))
-            .OrderBy(p => p.StartKey)
-            .ToList();
-
+        
+        var logicalPartitions = new List<DataPartition>();
+        await foreach(var p in partitioningStrategy.GetAllPartitionsAsync(logicalKey))
+        {
+            if (p is DataPartition dp)
+            {
+                logicalPartitions.Add(dp);
+            }
+        }
+        
         var partitionIndex = logicalPartitions.FindIndex(p => p.StartKey.Equals(dataPartitionToMerge.StartKey));
         if (partitionIndex == -1) return;
 

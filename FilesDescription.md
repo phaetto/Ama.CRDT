@@ -139,7 +139,7 @@
 | `$/Ama.CRDT/Models/OrSetItem.cs` | Contains payload record structs (`OrSetAddItem`, `OrSetRemoveItem`) for OR-Set (Observed-Remove Set) operations, bundling values with unique tags. |
 | `$/Ama.CRDT/Models/OrSetState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Partitioning/BPlusTreeNode.cs` | Represents a node in the B+ Tree index, containing keys and either child offsets (for internal nodes) or partition data (for leaf nodes). |
-| `$/Ama.CRDT/Models/Partitioning/BTreeHeader.cs` | Represents the header of the B+ Tree index file, storing metadata like the root node offset and degree of the tree. |
+| `$/Ama.CRDT/Models/Partitioning/BTreeHeader.cs` | Represents the header of the B+ Tree index file, storing metadata like the root node offset, degree of the tree, total partition count, and the next available offset for writing. |
 | `$/Ama.CRDT/Models/Partitioning/CompositePartitionKey.cs` | Represents a composite key for partitioning, consisting of a logical key and a range key. It now uses `IComparable` for keys to support natural sorting of different key types and implements `IComparable` for consistent ordering. |
 | `$/Ama.CRDT/Models/Partitioning/DataPartition.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Partitioning/HeaderPartition.cs` | No description provided. |
@@ -183,13 +183,13 @@
 | `$/Ama.CRDT/Services/Metrics/MetricTimer.cs` | A helper `IDisposable` struct that uses a `Stopwatch` to measure the duration of a code block and records it to a `Histogram` upon disposal. |
 | `$/Ama.CRDT/Services/Metrics/PartitionManagerCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `PartitionManager`. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning. It defines methods for splitting and merging partition data and metadata, and for extracting partition keys from operations and data models. |
-| `$/Ama.CRDT/Services/Partitioning/IPartitioningStrategy.cs` | No description provided. |
-| `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` | Defines the contract for managing a CRDT document that is partitioned across one or more streams, now requiring `IComparable` for logical keys and supporting retrieval of all logical keys. |
+| `$/Ama.CRDT/Services/Partitioning/IPartitioningStrategy.cs` | Defines the contract for a strategy that manages the indexing of data partitions, now supporting asynchronous streaming of partitions and efficient counting. |
+| `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` | Defines the contract for managing a partitioned CRDT document, now supporting asynchronous streaming of partitions via `IAsyncEnumerable` and efficient counting of data partitions for a given logical key. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionStreamProvider.cs` | Defines a contract for providing data and index streams for logical partitions, enabling extensible storage. |
-| `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a CRDT document that is partitioned, allowing it to scale beyond available memory. It coordinates with an `IPartitioningStrategy` and `IPartitionableCrdtStrategy` to handle data distribution, splitting, and merging. |
+| `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a partitioned CRDT document, allowing it to scale beyond memory. It now supports streaming partitions via `IAsyncEnumerable` and getting partition counts, improving performance for large datasets. |
 | `$/Ama.CRDT/Services/Partitioning/Serialization/IIndexSerializationHelper.cs` | Defines the contract for serializing and deserializing B+ Tree index components (headers and nodes) to and from a stream. |
 | `$/Ama.CRDT/Services/Partitioning/Serialization/IndexDefaultSerializationHelper.cs` | The default implementation of `IIndexSerializationHelper`, using System.Text.Json for serialization. |
-| `$/Ama.CRDT/Services/Partitioning/Strategies/BPlusTreePartitioningStrategy.cs` | An implementation of `IPartitioningStrategy` that uses a B+ Tree to index partitions based on their start key. It now uses `IComparable.CompareTo` for all key comparisons. |
+| `$/Ama.CRDT/Services/Partitioning/Strategies/BPlusTreePartitioningStrategy.cs` | An implementation of `IPartitioningStrategy` using a B+ Tree. It now supports asynchronous streaming of partitions and maintains a total partition count in its header for efficiency. |
 | `$/Ama.CRDT/Services/Providers/CrdtStrategyProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/ElementComparerProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `EpochTimestamp` based on Unix milliseconds. |

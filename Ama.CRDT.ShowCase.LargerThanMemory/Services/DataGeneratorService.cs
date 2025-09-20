@@ -15,7 +15,7 @@ public sealed class DataGeneratorService(
     ICrdtPatcher patcher,
     ICrdtMetadataManager metadataManager)
 {
-    private const int BlogPostCount = 20;
+    private const int BlogPostCount = 1;
     private const int MinCommentsPerPost = 50000;
     private const int MaxCommentsPerPost = 100000;
     private const int BatchSize = 10;
