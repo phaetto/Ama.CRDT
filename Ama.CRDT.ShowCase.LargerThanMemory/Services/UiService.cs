@@ -28,7 +28,7 @@ public sealed class UiService
 
     private readonly List<string> displayedComments = new();
     private readonly List<BlogPostHeader> blogPostHeaders = new();
-    private List<IPartition> commentPartitions = [];
+    private long totalPartitionCount = 0;
     private int currentPartitionIndex = -1;
     
     private sealed record BlogPostHeader(Guid Id, string Title);
@@ -200,8 +200,8 @@ public sealed class UiService
             postContentView.Text = post.Content;
         }
 
-        commentPartitions = await partitionManager.GetAllDataPartitionsAsync(selectedBlogPostId);
-        currentPartitionIndex = commentPartitions.Count;
+        totalPartitionCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId);
+        currentPartitionIndex = (int)totalPartitionCount;
         displayedComments.Clear();
         commentListView.SetSource(displayedComments);
         LoadNextPartition();
@@ -209,14 +209,21 @@ public sealed class UiService
 
     private async void LoadNextPartition()
     {
-        if (commentPartitions == null || currentPartitionIndex - 1 < 0)
+        if (currentPartitionIndex - 1 < 0)
         {
             MessageBox.Query("Info", "No more partitions to load.", "Ok");
             return;
         }
 
         currentPartitionIndex--;
-        var partition = commentPartitions[currentPartitionIndex];
+        var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, currentPartitionIndex);
+
+        if (partition is null)
+        {
+            MessageBox.ErrorQuery("Error", $"Could not load partition at index {currentPartitionIndex}. The index might be out of sync.", "Ok");
+            return;
+        }
+
         var content = await partitionManager.GetPartitionContentAsync(partition.GetPartitionKey());
 
         if (content.HasValue && content.Value.Data?.Comments is { Count: > 0 } comments)
@@ -227,7 +234,7 @@ public sealed class UiService
                 .Select(c => $"[{c.CreatedAt:g}] {c.Author}: {c.Text}")
                 .ToList();
             
-            displayedComments.Add($"--- Partition {currentPartitionIndex + 1}/{commentPartitions.Count} ({comments.Count} comments) ---");
+            displayedComments.Add($"--- Partition {currentPartitionIndex + 1}/{totalPartitionCount} ({comments.Count} comments) ---");
             displayedComments.AddRange(newComments);
 
             commentListView.SetSource(displayedComments);

@@ -45,8 +45,25 @@ public interface IPartitioningStrategy
     Task DeletePartitionAsync(IPartition partition);
 
     /// <summary>
-    /// Retrieves all partitions from the index, sorted by their key.
+    /// Retrieves partitions from the index as an asynchronously enumerable sequence.
+    /// This method streams partitions and is suitable for large datasets.
     /// </summary>
-    /// <returns>A task that represents the asynchronous operation. The task result contains a list of all partitions.</returns>
-    Task<List<IPartition>> GetAllPartitionsAsync();
+    /// <param name="logicalKey">Optional. If provided, retrieves only partitions matching this logical key.</param>
+    /// <returns>An asynchronously enumerable sequence of partitions.</returns>
+    IAsyncEnumerable<IPartition> GetAllPartitionsAsync(IComparable? logicalKey = null);
+
+    /// <summary>
+    /// Gets the total number of partitions in the index.
+    /// </summary>
+    /// <param name="logicalKey">Optional. If provided, returns the count of partitions for that logical key.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the total number of partitions.</returns>
+    Task<long> GetPartitionCountAsync(IComparable? logicalKey = null);
+
+    /// <summary>
+    /// Retrieves a single data partition for a given logical key by its zero-based index.
+    /// </summary>
+    /// <param name="logicalKey">The logical key for which to retrieve the partition.</param>
+    /// <param name="index">The zero-based index of the partition to retrieve.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the data partition, or null if the index is out of bounds.</returns>
+    Task<IPartition?> GetDataPartitionByIndexAsync(IComparable logicalKey, long index);
 }
