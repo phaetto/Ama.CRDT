@@ -2,6 +2,7 @@ namespace Ama.CRDT.Services.Partitioning.Serialization;
 
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Models.Serialization;
+using Ama.CRDT.Models.Serialization.Converters;
 using System;
 using System.IO;
 using System.Linq;
@@ -22,9 +23,9 @@ public sealed class IndexDefaultSerializationHelper : IIndexSerializationHelper
         // outside its source-generated graph. By adding the converter directly, we ensure
         // it's used for BPlusTreeNode's 'Keys' property.
         serializerOptions = new JsonSerializerOptions(CrdtJsonContext.DefaultOptions);
-        if (!serializerOptions.Converters.Any(c => c is Models.Serialization.Converters.PolymorphicObjectJsonConverter))
+        if (!serializerOptions.Converters.Any(c => c is PolymorphicObjectJsonConverter))
         {
-            serializerOptions.Converters.Add(Models.Serialization.Converters.PolymorphicObjectJsonConverter.Instance);
+            serializerOptions.Converters.Add(PolymorphicObjectJsonConverter.Instance);
         }
     }
 
