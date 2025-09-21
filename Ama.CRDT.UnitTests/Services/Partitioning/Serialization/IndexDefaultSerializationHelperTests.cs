@@ -3,7 +3,6 @@ namespace Ama.CRDT.UnitTests.Services.Partitioning.Serialization;
 using System;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
@@ -52,7 +51,6 @@ public sealed class IndexDefaultSerializationHelperTests
         var originalNode = new BPlusTreeNode
         {
             IsLeaf = true,
-            NextLeafOffset = 9999L
         };
         var startKey1 = new CompositePartitionKey(logicalKey, "10");
         var startKey2 = new CompositePartitionKey(logicalKey, "20");
@@ -74,7 +72,6 @@ public sealed class IndexDefaultSerializationHelperTests
         readNode.Keys.Count.ShouldBe(2);
         readNode.Partitions.Count.ShouldBe(2);
         readNode.ChildrenOffsets.ShouldBeEmpty();
-        readNode.NextLeafOffset.ShouldBe(9999L);
 
         readNode.Keys[0].ShouldBeOfType<CompositePartitionKey>().ShouldBe(startKey1);
         readNode.Partitions[0].ShouldBeOfType<DataPartition>().StartKey.ShouldBe(startKey1);
@@ -138,7 +135,6 @@ public sealed class IndexDefaultSerializationHelperTests
         readNode.Keys.Count.ShouldBe(1);
         readNode.ChildrenOffsets.Count.ShouldBe(2);
         readNode.Partitions.ShouldBeEmpty();
-        readNode.NextLeafOffset.ShouldBe(-1);
         readNode.ChildrenOffsets[0].ShouldBe(1234L);
         readNode.ChildrenOffsets[1].ShouldBe(5678L);
     }

@@ -25,6 +25,7 @@ public sealed class PartitionManagerCrdtMetrics
     public Histogram<double> GetDataPartitionCountDuration { get; }
     public Histogram<double> GetDataPartitionByIndexDuration { get; }
     public Histogram<double> GetAllLogicalKeysDuration { get; }
+    public Histogram<double> GetFullObjectDuration { get; }
 
 
     public PartitionManagerCrdtMetrics(IMeterFactory meterFactory)
@@ -53,5 +54,6 @@ public sealed class PartitionManagerCrdtMetrics
         GetDataPartitionCountDuration = meter.CreateHistogram<double>("crdt.partition_manager.get_data_partition_count.duration", "ms", "The duration of counting data partitions for a logical key.");
         GetDataPartitionByIndexDuration = meter.CreateHistogram<double>("crdt.partition_manager.get_data_partition_by_index.duration", "ms", "The duration of retrieving a data partition by its index.");
         GetAllLogicalKeysDuration = meter.CreateHistogram<double>("crdt.partition_manager.get_all_logical_keys.duration", "ms", "The duration of retrieving all distinct logical keys.");
+        GetFullObjectDuration = meter.CreateHistogram<double>("crdt.partition_manager.get_full_object.duration", "ms", "The duration of retrieving and assembling a full object from its partitions.");
     }
 }

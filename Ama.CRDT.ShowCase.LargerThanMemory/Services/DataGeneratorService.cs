@@ -1,7 +1,6 @@
 namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
@@ -49,7 +48,7 @@ public sealed class DataGeneratorService(
             await partitionManager.InitializeAsync(blogPost);
 
             // Get the initial document with its server-side generated metadata. This is cheap as the collection is empty.
-            var crdtDocument = await partitionManager.GetPartitionContentAsync(new CompositePartitionKey(blogPost.Id, null));
+            var crdtDocument = await partitionManager.GetHeaderPartitionContentAsync(blogPost.Id);
             var metadata = crdtDocument.Value.Metadata;
 
             var totalComments = random.Next(MinCommentsPerPost, MaxCommentsPerPost + 1);
@@ -88,8 +87,9 @@ public sealed class DataGeneratorService(
                 }
 
                 commentsGenerated += currentBatchSize;
-                Console.WriteLine($"  - Added {commentsGenerated}/{totalComments} comments.");
+                Console.Write($"\r  - Added {commentsGenerated}/{totalComments} comments.");
             }
+            Console.WriteLine();
         }
 
         Console.WriteLine("Data generation complete.");

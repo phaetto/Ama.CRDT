@@ -10,7 +10,6 @@ public sealed record BPlusTreeNode
     
     // For leaf nodes
     public List<IPartition> Partitions { get; set; } = new();
-    public long NextLeafOffset { get; set; } = -1;
     
     // For internal nodes
     public List<long> ChildrenOffsets { get; set; } = new();
