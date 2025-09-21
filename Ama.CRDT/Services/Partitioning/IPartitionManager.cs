@@ -45,11 +45,28 @@ public interface IPartitionManager<T> where T : class, new()
     Task<CrdtDocument<T>?> GetPartitionContentAsync(CompositePartitionKey key);
 
     /// <summary>
-    /// Retrieves all data partitions for a given logical key, sorted by their start range key.
+    /// Retrieves all data partitions for a given logical key as an asynchronously enumerable sequence.
+    /// This method streams partitions and is suitable for large datasets.
     /// </summary>
     /// <param name="logicalKey">The logical key identifying the document. Must implement <see cref="IComparable"/>.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains a sorted list of data partitions.</returns>
-    Task<List<IPartition>> GetAllDataPartitionsAsync(IComparable logicalKey);
+    /// <returns>An asynchronously enumerable sequence of data partitions, sorted by their start range key.</returns>
+    IAsyncEnumerable<IPartition> GetAllDataPartitionsAsync(IComparable logicalKey);
+
+    /// <summary>
+    /// Retrieves the count of all data partitions for a given logical key.
+    /// </summary>
+    /// <param name="logicalKey">The logical key identifying the document.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the number of data partitions.</returns>
+    Task<long> GetDataPartitionCountAsync(IComparable logicalKey);
+
+    /// <summary>
+    /// Retrieves a single data partition for a given logical key by its zero-based index.
+    /// Partitions are ordered by their start range key.
+    /// </summary>
+    /// <param name="logicalKey">The logical key identifying the document.</param>
+    /// <param name="index">The zero-based index of the data partition to retrieve.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the data partition, or null if the index is out of bounds.</returns>
+    Task<IPartition?> GetDataPartitionByIndexAsync(IComparable logicalKey, long index);
 
     /// <summary>
     /// Retrieves all unique logical keys present in the index.

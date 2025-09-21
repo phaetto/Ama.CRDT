@@ -12,9 +12,11 @@ using Moq;
 using Shouldly;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Xunit;
 
 [PartitionKey(nameof(TenantId))]
@@ -82,7 +84,7 @@ public sealed class PartitionManagerTests
         // Assert
         var strategy = scope.ServiceProvider.GetRequiredService<IPartitioningStrategy>();
 
-        var allPartitions = await strategy.GetAllPartitionsAsync();
+        var allPartitions = await ToListAsync(strategy.GetAllPartitionsAsync());
         var partitions = allPartitions.Where(p => p.GetPartitionKey().LogicalKey.Equals("tenant-1")).ToList();
         partitions.Count.ShouldBe(2);
 
@@ -128,7 +130,7 @@ public sealed class PartitionManagerTests
         await manager.InitializeAsync(initialObject);
 
         // Assert
-        var dataPartitions = await manager.GetAllDataPartitionsAsync("tenant-1");
+        var dataPartitions = await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1"));
         dataPartitions.Count.ShouldBe(1);
 
         var headerKey = new CompositePartitionKey("tenant-1", null);
@@ -153,7 +155,7 @@ public sealed class PartitionManagerTests
         await manager.InitializeAsync(initialObject);
 
         // Assert initial state
-        var initialDataPartitions = await manager.GetAllDataPartitionsAsync("tenant-1");
+        var initialDataPartitions = await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1"));
         initialDataPartitions.Count.ShouldBe(1);
         var initialDataContent = (await manager.GetPartitionContentAsync(initialDataPartitions.Single().GetPartitionKey()))!.Value.Data!;
         initialDataContent.Items.ShouldBeEmpty();
@@ -164,7 +166,7 @@ public sealed class PartitionManagerTests
         await manager.ApplyPatchAsync(patch1);
 
         // Assert 1: First item is present
-        var midDataPartitions = await manager.GetAllDataPartitionsAsync("tenant-1");
+        var midDataPartitions = await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1"));
         midDataPartitions.Count.ShouldBe(1);
         var midDataContent = (await manager.GetPartitionContentAsync(midDataPartitions.Single().GetPartitionKey()))!.Value.Data!;
         midDataContent.Items.Count.ShouldBe(1);
@@ -176,7 +178,7 @@ public sealed class PartitionManagerTests
         await manager.ApplyPatchAsync(patch2);
 
         // Assert 2: Both items are present in the same partition
-        var finalDataPartitions = await manager.GetAllDataPartitionsAsync("tenant-1");
+        var finalDataPartitions = await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1"));
         finalDataPartitions.Count.ShouldBe(1);
 
         var finalDataContent = (await manager.GetPartitionContentAsync(finalDataPartitions.Single().GetPartitionKey()))!.Value.Data!;
@@ -201,7 +203,7 @@ public sealed class PartitionManagerTests
         await manager.InitializeAsync(initialObject);
 
         // Act
-        var dataPartitions = await manager.GetAllDataPartitionsAsync("tenant-1");
+        var dataPartitions = await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1"));
 
         // Assert
         dataPartitions.Count.ShouldBe(1);
@@ -262,12 +264,12 @@ public sealed class PartitionManagerTests
         await managerB.ApplyPatchAsync(patch);
 
         // Assert
-        var docA = (await managerA.GetAllDataPartitionsAsync("tenant-A")).Single();
+        var docA = (await ToListAsync(managerA.GetAllDataPartitionsAsync("tenant-A"))).Single();
         var contentA = (await managerA.GetPartitionContentAsync(docA.GetPartitionKey()))!.Value.Data!;
         contentA.Items.Count.ShouldBe(1);
         contentA.Items.ShouldNotContainKey("b2");
         
-        var allPartitionsB = await managerB.GetAllDataPartitionsAsync("tenant-B");
+        var allPartitionsB = await ToListAsync(managerB.GetAllDataPartitionsAsync("tenant-B"));
         var allItemsB = new Dictionary<string, string>();
         foreach (var p in allPartitionsB)
         {
@@ -297,7 +299,7 @@ public sealed class PartitionManagerTests
 
         // Assert
         var headerKey = new CompositePartitionKey("tenant-1", null);
-        var dataPartitions = await manager.GetAllDataPartitionsAsync("tenant-1");
+        var dataPartitions = await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1"));
 
         var headerDoc = await manager.GetPartitionContentAsync(headerKey);
         headerDoc.ShouldNotBeNull();
@@ -322,7 +324,7 @@ public sealed class PartitionManagerTests
         var initialObject = new PartitionedMapModel { TenantId = "tenant-1", Items = { { "a", "val-a" }, { "c", largeString } } };
         await manager.InitializeAsync(initialObject);
         
-        (await manager.GetAllDataPartitionsAsync("tenant-1")).Count.ShouldBe(1);
+        (await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1"))).Count.ShouldBe(1);
         
         var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("b", largeString, Guid.NewGuid()), scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>().Now())])
             { LogicalKey = "tenant-1" };
@@ -331,7 +333,7 @@ public sealed class PartitionManagerTests
         await manager.ApplyPatchAsync(patch);
 
         // Assert
-        var dataPartitions = await manager.GetAllDataPartitionsAsync("tenant-1");
+        var dataPartitions = await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1"));
         dataPartitions.Count.ShouldBe(2);
 
         var headerKey = new CompositePartitionKey("tenant-1", null);
@@ -407,5 +409,51 @@ public sealed class PartitionManagerTests
 
         // Assert
         result.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task GetDataPartitionByIndexAsync_ShouldReturnCorrectPartition()
+    {
+        // Arrange
+        using var infrastructure = new TestInfrastructure();
+        using var scope = infrastructure.ScopeFactory.CreateScope("A");
+        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<PartitionedMapModel>>();
+        
+        var largeString = new string('x', 4500);
+        var items = new Dictionary<string, string>
+        {
+            { "a", "val-a" },
+            { "b", largeString },
+            { "c", "val-c" },
+            { "d", largeString },
+            { "e", "val-e" },
+        };
+        var initialObject = new PartitionedMapModel { TenantId = "tenant-1", Items = items };
+        await manager.InitializeAsync(initialObject);
+
+        var allDataPartitions = await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1"));
+        allDataPartitions.Count.ShouldBeGreaterThan(1);
+
+        // Act & Assert
+        for (var i = 0; i < allDataPartitions.Count; i++)
+        {
+            var partitionFromIndex = await manager.GetDataPartitionByIndexAsync("tenant-1", i);
+            partitionFromIndex.ShouldNotBeNull();
+            partitionFromIndex.GetPartitionKey().ShouldBe(allDataPartitions[i].GetPartitionKey());
+        }
+        
+        (await manager.GetDataPartitionByIndexAsync("tenant-1", allDataPartitions.Count)).ShouldBeNull();
+        (await manager.GetDataPartitionByIndexAsync("tenant-1", -1)).ShouldBeNull();
+        (await manager.GetDataPartitionByIndexAsync("non-existent", 0)).ShouldBeNull();
+    }
+
+    private async Task<List<T>> ToListAsync<T>(IAsyncEnumerable<T> asyncEnumerable)
+    {
+        var list = new List<T>();
+        await foreach (var item in asyncEnumerable)
+        {
+            list.Add(item);
+        }
+        return list;
     }
 }

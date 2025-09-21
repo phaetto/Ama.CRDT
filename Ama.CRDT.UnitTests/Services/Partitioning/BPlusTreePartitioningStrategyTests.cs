@@ -7,8 +7,14 @@ using Ama.CRDT.Services.Partitioning.Serialization;
 using Ama.CRDT.Services.Partitioning.Strategies;
 using Moq;
 using Shouldly;
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics.Metrics;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
 using Xunit;
 
 public sealed class BPlusTreePartitioningStrategyTests
@@ -176,6 +182,10 @@ public sealed class BPlusTreePartitioningStrategyTests
         (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, -5))).ShouldBeNull();
         (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, 5)))!.ShouldBe(partitions[0]);
         (await strategy.FindPartitionAsync(new CompositePartitionKey(logicalKey, 10 * (splitSize - 1) + 5)))!.ShouldBe(partitions[splitSize - 1]);
+
+        var allPartitionsFromLeaves = await GetAllPartitionsFromLeafTraversal(strategy, streamProvider);
+        allPartitionsFromLeaves.Count.ShouldBe(partitions.Count);
+        allPartitionsFromLeaves.ShouldBe(partitions.Cast<IPartition>(), ignoreOrder: false);
     }
     
     [Fact]
@@ -246,7 +256,7 @@ public sealed class BPlusTreePartitioningStrategyTests
         await strategy.InsertPartitionAsync(otherTenant);
 
         // Act
-        var allPartitions = await strategy.GetAllPartitionsAsync();
+        var allPartitions = await ToListAsync(strategy.GetAllPartitionsAsync());
 
         // Assert
         allPartitions.Count.ShouldBe(4);
@@ -254,6 +264,47 @@ public sealed class BPlusTreePartitioningStrategyTests
         allPartitions.ShouldContain(data1);
         allPartitions.ShouldContain(data2);
         allPartitions.ShouldContain(otherTenant);
+    }
+
+    [Fact]
+    public async Task GetDataPartitionByIndexAsync_ShouldReturnCorrectPartitions()
+    {
+        // Arrange
+        var streamProvider = new InMemoryPartitionStreamProvider();
+        var strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider, metrics);
+        await strategy.InitializeAsync();
+        
+        var headerA = new HeaderPartition(new CompositePartitionKey("A", null), 1L, 1, 1L, 1);
+        var dataA1 = new DataPartition(new CompositePartitionKey("A", 10), null, 2L, 2, 2L, 2);
+        var dataA2 = new DataPartition(new CompositePartitionKey("A", 20), null, 3L, 3, 3L, 3);
+        var dataA3 = new DataPartition(new CompositePartitionKey("A", 30), null, 4L, 4, 4L, 4);
+
+        var headerB = new HeaderPartition(new CompositePartitionKey("B", null), 5L, 5, 5L, 5);
+        var dataB1 = new DataPartition(new CompositePartitionKey("B", 100), null, 6L, 6, 6L, 6);
+
+        await strategy.InsertPartitionAsync(headerA);
+        await strategy.InsertPartitionAsync(dataA1);
+        await strategy.InsertPartitionAsync(dataA2);
+        await strategy.InsertPartitionAsync(dataA3);
+        await strategy.InsertPartitionAsync(headerB);
+        await strategy.InsertPartitionAsync(dataB1);
+
+        // Act & Assert
+        // Check Tenant A
+        (await strategy.GetDataPartitionByIndexAsync("A", 0))!.ShouldBe(dataA1);
+        (await strategy.GetDataPartitionByIndexAsync("A", 1))!.ShouldBe(dataA2);
+        (await strategy.GetDataPartitionByIndexAsync("A", 2))!.ShouldBe(dataA3);
+        (await strategy.GetDataPartitionByIndexAsync("A", 3)).ShouldBeNull(); // Out of bounds
+
+        // Check Tenant B
+        (await strategy.GetDataPartitionByIndexAsync("B", 0))!.ShouldBe(dataB1);
+        (await strategy.GetDataPartitionByIndexAsync("B", 1)).ShouldBeNull(); // Out of bounds
+
+        // Check non-existent tenant
+        (await strategy.GetDataPartitionByIndexAsync("C", 0)).ShouldBeNull();
+        
+        // Check negative index
+        (await strategy.GetDataPartitionByIndexAsync("A", -1)).ShouldBeNull();
     }
     
     [Fact(Skip = "This is a long running test")]
@@ -284,7 +335,7 @@ public sealed class BPlusTreePartitioningStrategyTests
             expectedPartitions.Add(p.GetPartitionKey(), p);
         }
 
-        var allPartitionsAfterInsert = await strategy.GetAllPartitionsAsync();
+        var allPartitionsAfterInsert = await ToListAsync(strategy.GetAllPartitionsAsync());
         allPartitionsAfterInsert.Count.ShouldBe(initialCount);
         foreach (var p in expectedPartitions.Values)
         {
@@ -302,7 +353,7 @@ public sealed class BPlusTreePartitioningStrategyTests
             expectedPartitions.Remove(p.GetPartitionKey());
         }
 
-        var allPartitionsAfterDelete = await strategy.GetAllPartitionsAsync();
+        var allPartitionsAfterDelete = await ToListAsync(strategy.GetAllPartitionsAsync());
         allPartitionsAfterDelete.Count.ShouldBe(initialCount - deleteCount);
         
         // Verify remaining partitions are findable
@@ -348,10 +399,61 @@ public sealed class BPlusTreePartitioningStrategyTests
         }
         
         // Final Verification
-        var finalPartitions = (await strategy.GetAllPartitionsAsync()).OrderBy(p => p.GetPartitionKey()).ToList();
+        var finalPartitions = (await ToListAsync(strategy.GetAllPartitionsAsync())).OrderBy(p => p.GetPartitionKey()).ToList();
         var expectedFinalPartitions = expectedPartitions.Values.OrderBy(p => p.GetPartitionKey()).ToList();
         
         finalPartitions.Count.ShouldBe(expectedFinalPartitions.Count);
         finalPartitions.ShouldBe(expectedFinalPartitions, ignoreOrder: false);
+    }
+    
+    private async Task<List<IPartition>> GetAllPartitionsFromLeafTraversal(BPlusTreePartitioningStrategy strategy, InMemoryPartitionStreamProvider streamProvider)
+    {
+        var indexStream = await streamProvider.GetIndexStreamAsync();
+        var header = await serializationHelper.ReadHeaderAsync(indexStream, 1024);
+        if (header.RootNodeOffset == -1) return new List<IPartition>();
+
+        var firstLeafOffset = await GetFirstLeafOffset(strategy, header.RootNodeOffset, indexStream);
+        if (firstLeafOffset == -1) return new List<IPartition>();
+
+        var partitions = new List<IPartition>();
+        var currentOffset = firstLeafOffset;
+        
+        var readNodeMethod = typeof(BPlusTreePartitioningStrategy).GetMethod("ReadNodeAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+        if (readNodeMethod is null) throw new InvalidOperationException("Could not find ReadNodeAsync method via reflection.");
+
+        while (currentOffset != -1)
+        {
+            var node = await (Task<BPlusTreeNode>)readNodeMethod.Invoke(strategy, new object[] { indexStream, currentOffset });
+            
+            partitions.AddRange(node.Partitions);
+            currentOffset = node.NextLeafOffset;
+        }
+        return partitions;
+    }
+
+    private async Task<long> GetFirstLeafOffset(BPlusTreePartitioningStrategy strategy, long nodeOffset, Stream indexStream)
+    {
+        var readNodeMethod = typeof(BPlusTreePartitioningStrategy).GetMethod("ReadNodeAsync", BindingFlags.NonPublic | BindingFlags.Instance);
+        if (readNodeMethod is null) throw new InvalidOperationException("Could not find ReadNodeAsync method via reflection.");
+
+        var node = await (Task<BPlusTreeNode>)readNodeMethod.Invoke(strategy, new object[] { indexStream, nodeOffset });
+
+        if (node.IsLeaf)
+        {
+            return nodeOffset;
+        }
+        
+        if (node.ChildrenOffsets.Count == 0) return -1;
+        return await GetFirstLeafOffset(strategy, node.ChildrenOffsets[0], indexStream);
+    }
+    
+    private async Task<List<T>> ToListAsync<T>(IAsyncEnumerable<T> asyncEnumerable)
+    {
+        var list = new List<T>();
+        await foreach (var item in asyncEnumerable)
+        {
+            list.Add(item);
+        }
+        return list;
     }
 }
