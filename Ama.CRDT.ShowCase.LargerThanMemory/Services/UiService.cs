@@ -3,7 +3,6 @@ namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
@@ -12,6 +11,8 @@ using Terminal.Gui;
 
 public sealed class UiService
 {
+    private const string CommentsPropertyName = nameof(BlogPost.Comments);
+
     private readonly IServiceProvider serviceProvider;
     private readonly List<string> replicaIds;
     private readonly List<Guid> blogPostIds;
@@ -162,8 +163,7 @@ public sealed class UiService
         blogPostHeaders.Clear();
         foreach (var id in blogPostIds)
         {
-            var key = new CompositePartitionKey(id, null);
-            var content = await partitionManager.GetPartitionContentAsync(key);
+            var content = await partitionManager.GetHeaderPartitionContentAsync(id);
             if (content.HasValue)
             {
                 blogPostHeaders.Add(new BlogPostHeader(content.Value.Data.Id, content.Value.Data.Title));
@@ -190,8 +190,7 @@ public sealed class UiService
         var selectedHeader = blogPostHeaders[args.Item];
         selectedBlogPostId = selectedHeader.Id;
 
-        var headerKey = new CompositePartitionKey(selectedBlogPostId, null);
-        var headerContent = await partitionManager.GetPartitionContentAsync(headerKey);
+        var headerContent = await partitionManager.GetHeaderPartitionContentAsync(selectedBlogPostId);
 
         if (headerContent.HasValue)
         {
@@ -200,7 +199,7 @@ public sealed class UiService
             postContentView.Text = post.Content;
         }
 
-        totalPartitionCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId);
+        totalPartitionCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
         currentPartitionIndex = (int)totalPartitionCount;
         displayedComments.Clear();
         commentListView.SetSource(displayedComments);
@@ -216,7 +215,7 @@ public sealed class UiService
         }
 
         currentPartitionIndex--;
-        var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, currentPartitionIndex);
+        var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, currentPartitionIndex, CommentsPropertyName);
 
         if (partition is null)
         {
@@ -224,7 +223,7 @@ public sealed class UiService
             return;
         }
 
-        var content = await partitionManager.GetPartitionContentAsync(partition.GetPartitionKey());
+        var content = await partitionManager.GetDataPartitionContentAsync(partition.GetPartitionKey(), CommentsPropertyName);
 
         if (content.HasValue && content.Value.Data?.Comments is { Count: > 0 } comments)
         {
