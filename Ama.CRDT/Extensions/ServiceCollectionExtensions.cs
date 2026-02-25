@@ -82,8 +82,8 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped(typeof(IPartitionManager<>), typeof(PartitionManager<>));
         services.TryAddScoped(CreateValidatedInstance<BPlusTreePartitioningStrategy>);
         services.TryAddScoped<IPartitioningStrategy>(sp => sp.GetRequiredService<BPlusTreePartitioningStrategy>());
-        services.TryAddScoped(CreateValidatedInstance<IndexDefaultSerializationHelper>);
-        services.TryAddScoped<IIndexSerializationHelper>(sp => sp.GetRequiredService<IndexDefaultSerializationHelper>());
+        services.TryAddScoped(CreateValidatedInstance<DefaultPartitionSerializationService>);
+        services.TryAddScoped<IPartitionSerializationService>(sp => sp.GetRequiredService<DefaultPartitionSerializationService>());
 
         // Register the default timestamp provider with validation.
         // This can be overridden by AddCrdtTimestampProvider.

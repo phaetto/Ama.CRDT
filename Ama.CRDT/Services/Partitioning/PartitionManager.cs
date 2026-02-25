@@ -3,16 +3,15 @@ namespace Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
-using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Metrics;
+using Ama.CRDT.Services.Partitioning.Serialization;
 using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Reflection;
-using System.Text.Json;
 
 /// <summary>
 /// Manages a CRDT document that is partitioned, allowing it to scale beyond available memory by storing data and an index in streams.
@@ -25,6 +24,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     private readonly ICrdtApplicator crdtApplicator;
     private readonly ICrdtMetadataManager metadataManager;
     private readonly IPartitionStreamProvider streamProvider;
+    private readonly IPartitionSerializationService serializationService;
     private readonly PartitionManagerCrdtMetrics metrics;
 
     private readonly PropertyInfo partitionKeyProperty;
@@ -42,6 +42,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         ICrdtApplicator crdtApplicator,
         ICrdtMetadataManager metadataManager,
         ICrdtStrategyProvider strategyProvider,
+        IPartitionSerializationService serializationService,
         IServiceProvider serviceProvider,
         ReplicaContext replicaContext,
         PartitionManagerCrdtMetrics metrics)
@@ -60,6 +61,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         this.partitioningStrategy = partitioningStrategy;
         this.crdtApplicator = crdtApplicator;
         this.metadataManager = metadataManager;
+        this.serializationService = serializationService;
         this.metrics = metrics;
 
         partitionKeyProperty = partitionKeyCache.GetOrAdd(typeof(T), FindPartitionKeyProperty);
@@ -74,7 +76,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         ArgumentNullException.ThrowIfNull(initialObject);
 
         var logicalKey = GetLogicalKey(initialObject);
-        var headerObject = JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(initialObject, CrdtJsonContext.DefaultOptions), CrdtJsonContext.DefaultOptions)!;
+        var headerObject = serializationService.CloneObject(initialObject)!;
 
         foreach (var (path, (prop, _)) in partitionableProperties)
         {
@@ -546,15 +548,15 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         dataStream.Seek(partition.DataOffset, SeekOrigin.Begin);
         await dataStream.ReadExactlyAsync(docBuffer);
         using var docStream = new MemoryStream(docBuffer);
-        var doc = await JsonSerializer.DeserializeAsync<T>(docStream, CrdtJsonContext.DefaultOptions);
+        var doc = await serializationService.DeserializeObjectAsync<T>(docStream);
         
         var metaBuffer = new byte[partition.MetadataLength];
         dataStream.Seek(partition.MetadataOffset, SeekOrigin.Begin);
         await dataStream.ReadExactlyAsync(metaBuffer);
         using var metaStream = new MemoryStream(metaBuffer);
-        var meta = await JsonSerializer.DeserializeAsync<CrdtMetadata>(metaStream, CrdtJsonContext.DefaultOptions);
+        var meta = await serializationService.DeserializeObjectAsync<CrdtMetadata>(metaStream);
 
-        return new CrdtDocument<T>(doc, meta);
+        return new CrdtDocument<T>(doc!, meta!);
     }
     
     private async Task<StreamWriteResult> WriteToStreamAsync(Stream dataStream, object content)
@@ -562,7 +564,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         using var _ = new MetricTimer(metrics.StreamWriteDuration);
         dataStream.Seek(0, SeekOrigin.End);
         var offset = dataStream.Position;
-        await JsonSerializer.SerializeAsync(dataStream, content, content.GetType(), CrdtJsonContext.DefaultOptions);
+        await serializationService.SerializeObjectAsync(dataStream, content);
         await dataStream.FlushAsync();
         var length = dataStream.Position - offset;
         return new StreamWriteResult(offset, length);

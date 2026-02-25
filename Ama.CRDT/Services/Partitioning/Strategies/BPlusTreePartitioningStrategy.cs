@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 /// The tree is stored and managed within a provided index stream.
 /// </summary>
 public sealed class BPlusTreePartitioningStrategy(
-    IIndexSerializationHelper serializationHelper,
+    IPartitionSerializationService serializationService,
     IPartitionStreamProvider streamProvider,
     BPlusTreeCrdtMetrics metrics) : IPartitioningStrategy
 {
@@ -78,7 +78,7 @@ public sealed class BPlusTreePartitioningStrategy(
         if (indexStream.Length > 0)
         {
             // Stream is not empty, assume it's an existing index and just load its header to validate.
-            await serializationHelper.ReadHeaderAsync(indexStream, HeaderSize);
+            await serializationService.ReadHeaderAsync(indexStream, HeaderSize);
         }
         else
         {
@@ -92,7 +92,7 @@ public sealed class BPlusTreePartitioningStrategy(
             var (rootOffset, newHeader) = await AllocateAndWriteNodeAsync(indexStream, header, root, propertyName);
         
             header = newHeader with { RootNodeOffset = rootOffset };
-            await serializationHelper.WriteHeaderAsync(indexStream, header, HeaderSize);
+            await serializationService.WriteHeaderAsync(indexStream, header, HeaderSize);
         }
     }
     
@@ -106,7 +106,7 @@ public sealed class BPlusTreePartitioningStrategy(
             return null; // No data besides a potentially empty header, so no partitions.
         }
         
-        var header = await serializationHelper.ReadHeaderAsync(indexStream, HeaderSize);
+        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize);
         
         if (header.RootNodeOffset == -1)
         {
@@ -121,7 +121,7 @@ public sealed class BPlusTreePartitioningStrategy(
         using var _ = new MetricTimer(metrics.InsertDuration);
         var indexStream = await getIndexStream();
         
-        var header = await serializationHelper.ReadHeaderAsync(indexStream, HeaderSize);
+        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize);
         if (header.RootNodeOffset == -1)
         {
             throw new InvalidOperationException("Strategy has not been initialized correctly, root node is missing.");
@@ -148,7 +148,7 @@ public sealed class BPlusTreePartitioningStrategy(
             var (newRootOffset, newHeader) = await InsertNonFullAsync(indexStream, header, root, header.RootNodeOffset, partition, propertyName);
             header = newHeader with { RootNodeOffset = newRootOffset };
         }
-        await serializationHelper.WriteHeaderAsync(indexStream, header, HeaderSize);
+        await serializationService.WriteHeaderAsync(indexStream, header, HeaderSize);
     }
 
     private async Task UpdatePartitionInternalAsync(IPartition partition, string propertyName, Func<Task<Stream>> getIndexStream)
@@ -156,7 +156,7 @@ public sealed class BPlusTreePartitioningStrategy(
         using var _ = new MetricTimer(metrics.UpdateDuration);
         var indexStream = await getIndexStream();
         
-        var header = await serializationHelper.ReadHeaderAsync(indexStream, HeaderSize);
+        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize);
         if (header.RootNodeOffset == -1)
         {
             throw new InvalidOperationException("Strategy has not been initialized correctly, root node is missing.");
@@ -164,7 +164,7 @@ public sealed class BPlusTreePartitioningStrategy(
         
         var (newRootOffset, newHeader) = await UpdateInNodeAsync(indexStream, header, header.RootNodeOffset, partition, propertyName);
         var headerToWrite = newHeader with { RootNodeOffset = newRootOffset };
-        await serializationHelper.WriteHeaderAsync(indexStream, headerToWrite, HeaderSize);
+        await serializationService.WriteHeaderAsync(indexStream, headerToWrite, HeaderSize);
     }
 
     private async Task DeletePartitionInternalAsync(IPartition partition, string propertyName, Func<Task<Stream>> getIndexStream)
@@ -172,7 +172,7 @@ public sealed class BPlusTreePartitioningStrategy(
         using var _ = new MetricTimer(metrics.DeleteDuration);
         var indexStream = await getIndexStream();
 
-        var header = await serializationHelper.ReadHeaderAsync(indexStream, HeaderSize);
+        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize);
         if (header.RootNodeOffset == -1)
         {
             throw new InvalidOperationException("Cannot delete from an empty tree.");
@@ -189,7 +189,7 @@ public sealed class BPlusTreePartitioningStrategy(
         }
 
         var headerToWrite = finalHeader with { RootNodeOffset = newRootOffset };
-        await serializationHelper.WriteHeaderAsync(indexStream, headerToWrite, HeaderSize);
+        await serializationService.WriteHeaderAsync(indexStream, headerToWrite, HeaderSize);
     }
     
     internal async IAsyncEnumerable<IPartition> GetAllPartitionsInternalAsync(string propertyName, Func<Task<Stream>> getIndexStream, IComparable? logicalKey = null)
@@ -202,7 +202,7 @@ public sealed class BPlusTreePartitioningStrategy(
             yield break;
         }
 
-        var header = await serializationHelper.ReadHeaderAsync(indexStream, HeaderSize);
+        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize);
         if (header.RootNodeOffset == -1)
         {
             yield break;
@@ -223,7 +223,7 @@ public sealed class BPlusTreePartitioningStrategy(
             return 0;
         }
 
-        var header = await serializationHelper.ReadHeaderAsync(indexStream, HeaderSize);
+        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize);
         if (logicalKey is null)
         {
             return header.PartitionCount;
@@ -703,7 +703,7 @@ public sealed class BPlusTreePartitioningStrategy(
     {
         metrics.NodeWrites.Add(1);
         var offset = header.NextAvailableOffset;
-        var writtenBytes = await serializationHelper.WriteNodeAsync(indexStream, node, offset);
+        var writtenBytes = await serializationService.WriteNodeAsync(indexStream, node, offset);
         AddToCache((propertyName, offset), node);
         var newHeader = header with { NextAvailableOffset = offset + writtenBytes };
         return (offset, newHeader);
@@ -763,7 +763,7 @@ public sealed class BPlusTreePartitioningStrategy(
         }
 
         metrics.NodeReads.Add(1);
-        var node = await serializationHelper.ReadNodeAsync(indexStream, nodeOffset);
+        var node = await serializationService.ReadNodeAsync(indexStream, nodeOffset);
         AddToCache((propertyName, nodeOffset), node);
         return node;
     }

@@ -18,7 +18,7 @@ using Xunit;
 
 public sealed class BPlusTreePartitioningStrategyTests
 {
-    private readonly IndexDefaultSerializationHelper serializationHelper = new();
+    private readonly DefaultPartitionSerializationService serializationService = new();
     private readonly BPlusTreeCrdtMetrics metrics;
     private readonly BPlusTreePartitioningStrategy strategy;
     private readonly InMemoryPartitionStreamProvider streamProvider;
@@ -36,7 +36,7 @@ public sealed class BPlusTreePartitioningStrategyTests
         meterFactoryMock.Setup(f => f.Create(It.IsAny<MeterOptions>())).Returns(meter);
         metrics = new BPlusTreeCrdtMetrics(meterFactoryMock.Object);
         streamProvider = new InMemoryPartitionStreamProvider();
-        strategy = new BPlusTreePartitioningStrategy(serializationHelper, streamProvider, metrics);
+        strategy = new BPlusTreePartitioningStrategy(serializationService, streamProvider, metrics);
     }
 
     private sealed class InMemoryPartitionStreamProvider : IPartitionStreamProvider
