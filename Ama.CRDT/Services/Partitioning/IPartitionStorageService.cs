@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 /// <summary>
 /// Provides a high-level abstraction for saving and loading partitioned CRDT data and metadata.
-/// This interface entirely hides Stream usage and pointer management, allowing the PartitionManager
+/// This interface entirely hides Stream usage and index pointer management, allowing the PartitionManager
 /// to work purely with domain models.
 /// </summary>
 public interface IPartitionStorageService
@@ -45,14 +45,39 @@ public interface IPartitionStorageService
     Task ClearHeaderDataAsync(IComparable logicalKey, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Saves a property partition index entry.
+    /// Initializes the index for a given property.
     /// </summary>
-    Task SavePartitionAsync(string propertyName, IPartition partition, CancellationToken cancellationToken = default);
+    Task InitializePropertyIndexAsync(string propertyName, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Saves a header partition index entry.
+    /// Initializes the header index.
     /// </summary>
-    Task SaveHeaderPartitionAsync(IComparable logicalKey, HeaderPartition headerPartition, CancellationToken cancellationToken = default);
+    Task InitializeHeaderIndexAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Inserts a new property partition into the index.
+    /// </summary>
+    Task InsertPropertyPartitionAsync(string propertyName, IPartition partition, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Inserts a new header partition into the index.
+    /// </summary>
+    Task InsertHeaderPartitionAsync(IComparable logicalKey, HeaderPartition headerPartition, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates an existing property partition in the index.
+    /// </summary>
+    Task UpdatePropertyPartitionAsync(string propertyName, IPartition partition, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates an existing header partition in the index.
+    /// </summary>
+    Task UpdateHeaderPartitionAsync(IComparable logicalKey, HeaderPartition headerPartition, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a property partition from the index.
+    /// </summary>
+    Task DeletePropertyPartitionAsync(string propertyName, IPartition partition, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves all data partitions for a given logical key and property as an asynchronously enumerable sequence.
@@ -60,7 +85,27 @@ public interface IPartitionStorageService
     IAsyncEnumerable<IPartition> GetPartitionsAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Finds a specific property partition by its composite key.
+    /// </summary>
+    Task<IPartition?> GetPropertyPartitionAsync(CompositePartitionKey key, string propertyName, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the total number of property partitions for a logical key.
+    /// </summary>
+    Task<long> GetPropertyPartitionCountAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a property partition by its sequential index for a logical key.
+    /// </summary>
+    Task<IPartition?> GetPropertyPartitionByIndexAsync(IComparable logicalKey, long index, string propertyName, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Retrieves the header partition for a given logical key.
     /// </summary>
     Task<HeaderPartition?> GetHeaderPartitionAsync(IComparable logicalKey, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves all header partitions, optionally filtered by a logical key.
+    /// </summary>
+    IAsyncEnumerable<IPartition> GetAllHeaderPartitionsAsync(CancellationToken cancellationToken = default);
 }

@@ -288,6 +288,13 @@ internal static partial class PocoPathHelper
             return value;
         }
     }
+
+    public static T? CloneObject<T>(T original)
+    {
+        if (original is null) return default;
+        var json = System.Text.Json.JsonSerializer.Serialize(original, Ama.CRDT.Models.Serialization.CrdtJsonContext.DefaultOptions);
+        return System.Text.Json.JsonSerializer.Deserialize<T>(json, Ama.CRDT.Models.Serialization.CrdtJsonContext.DefaultOptions);
+    }
     
     private static IReadOnlyDictionary<string, PropertyInfo> GetPropertiesForType(Type type)
     {
