@@ -5,16 +5,13 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
-using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -49,7 +46,7 @@ public sealed class PartitionManagerTests
         var services = new ServiceCollection()
             .AddCrdt()
             .AddSingleton(meterFactoryMock.Object)
-            .AddSingleton(mockStorage.Object) // Inject the mock instead of BPlusTreePartitionStorageService
+            .AddSingleton(mockStorage.Object) // Inject the mock instead of StreamPartitionStorageService
             .BuildServiceProvider();
 
         var scopeFactory = services.GetRequiredService<ICrdtScopeFactory>();
