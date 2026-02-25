@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Partitioning.Strategies;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Partitioning.Serialization;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -185,7 +186,10 @@ public sealed class BPlusTreePartitioningStrategy(
         // If root becomes an internal node with no keys and one child, the child becomes the new root.
         if (!root.IsLeaf && root.Keys.Count == 0 && root.ChildrenOffsets.Count == 1)
         {
+            long obsoleteRootOffset = newRootOffset;
             newRootOffset = root.ChildrenOffsets[0];
+            finalHeader = await FreeNodeAsync(indexStream, finalHeader, obsoleteRootOffset);
+            RemoveFromCache((propertyName, obsoleteRootOffset));
         }
 
         var headerToWrite = finalHeader with { RootNodeOffset = newRootOffset };
@@ -313,7 +317,7 @@ public sealed class BPlusTreePartitioningStrategy(
             node.Keys.RemoveAt(keyIndex);
             node.Partitions.RemoveAt(keyIndex);
             currentHeader = currentHeader with { PartitionCount = currentHeader.PartitionCount - 1 };
-            (nodeOffset, currentHeader) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName);
+            (nodeOffset, currentHeader) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset);
             return (nodeOffset, currentHeader);
         }
 
@@ -341,7 +345,7 @@ public sealed class BPlusTreePartitioningStrategy(
                 }
                 else
                 {
-                    (var h1, var mergedOffset, var mergedNode) = await MergeWithSiblingAsync(indexStream, currentHeader, node, childIndex, childNode, leftSibling, isLeftSibling: true, propertyName);
+                    (var h1, var mergedOffset, var mergedNode) = await MergeWithSiblingAsync(indexStream, currentHeader, node, childIndex, childNode, childOffset, leftSibling, leftSiblingOffset, isLeftSibling: true, propertyName);
                     currentHeader = h1;
                     childIndex--;
                     childOffset = mergedOffset;
@@ -363,7 +367,7 @@ public sealed class BPlusTreePartitioningStrategy(
                 }
                 else
                 {
-                    (var h1, var mergedOffset, var mergedNode) = await MergeWithSiblingAsync(indexStream, currentHeader, node, childIndex, childNode, rightSibling, isLeftSibling: false, propertyName);
+                    (var h1, var mergedOffset, var mergedNode) = await MergeWithSiblingAsync(indexStream, currentHeader, node, childIndex, childNode, childOffset, rightSibling, rightSiblingOffset, isLeftSibling: false, propertyName);
                     currentHeader = h1;
                     childOffset = mergedOffset;
                     node.ChildrenOffsets[childIndex] = childOffset;
@@ -393,7 +397,7 @@ public sealed class BPlusTreePartitioningStrategy(
 
         if (nodeModified)
         {
-            (nodeOffset, currentHeader) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName);
+            (nodeOffset, currentHeader) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset);
             return (nodeOffset, currentHeader);
         }
 
@@ -448,15 +452,20 @@ public sealed class BPlusTreePartitioningStrategy(
             }
         }
         
-        (var newSiblingOffset, var h1) = await AllocateAndWriteNodeAsync(stream, currentHeader, sibling, propertyName);
-        (var newChildOffset, var h2) = await AllocateAndWriteNodeAsync(stream, h1, child, propertyName);
+        (var newSiblingOffset, var h1) = await AllocateAndWriteNodeAsync(stream, currentHeader, sibling, propertyName, siblingOffset);
+        (var newChildOffset, var h2) = await AllocateAndWriteNodeAsync(stream, h1, child, propertyName, childOffset);
         return (h2, newSiblingOffset, newChildOffset);
     }
 
-    private async Task<(BTreeHeader newHeader, long mergedNodeOffset, BPlusTreeNode mergedNode)> MergeWithSiblingAsync(Stream stream, BTreeHeader header, BPlusTreeNode parent, int childIndex, BPlusTreeNode child, BPlusTreeNode sibling, bool isLeftSibling, string propertyName)
+    private async Task<(BTreeHeader newHeader, long mergedNodeOffset, BPlusTreeNode mergedNode)> MergeWithSiblingAsync(
+        Stream stream, BTreeHeader header, BPlusTreeNode parent, int childIndex, 
+        BPlusTreeNode child, long childOffset, BPlusTreeNode sibling, long siblingOffset, bool isLeftSibling, string propertyName)
     {
         metrics.NodesMerged.Add(1);
         BPlusTreeNode mergedNode;
+        var currentHeader = header;
+        long offsetToKeep, offsetToFree;
+
         if (isLeftSibling)
         {
             var separatorIndex = childIndex - 1;
@@ -475,6 +484,8 @@ public sealed class BPlusTreePartitioningStrategy(
             }
             parent.Keys.RemoveAt(separatorIndex);
             mergedNode = sibling;
+            offsetToKeep = siblingOffset;
+            offsetToFree = childOffset;
         }
         else
         {
@@ -495,9 +506,15 @@ public sealed class BPlusTreePartitioningStrategy(
 
             parent.Keys.RemoveAt(separatorIndex);
             mergedNode = child;
+            offsetToKeep = childOffset;
+            offsetToFree = siblingOffset;
         }
 
-        var (offset, newHeader) = await AllocateAndWriteNodeAsync(stream, header, mergedNode, propertyName);
+        // Release the node that got folded in
+        currentHeader = await FreeNodeAsync(stream, currentHeader, offsetToFree);
+        RemoveFromCache((propertyName, offsetToFree));
+
+        var (offset, newHeader) = await AllocateAndWriteNodeAsync(stream, currentHeader, mergedNode, propertyName, offsetToKeep);
         return (newHeader, offset, mergedNode);
     }
 
@@ -514,7 +531,7 @@ public sealed class BPlusTreePartitioningStrategy(
             node.Partitions.Insert(i, partition);
             
             currentHeader = currentHeader with { PartitionCount = currentHeader.PartitionCount + 1 };
-            (var newOffset, currentHeader) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName);
+            (var newOffset, currentHeader) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset);
             return (newOffset, currentHeader);
         }
         else
@@ -550,7 +567,7 @@ public sealed class BPlusTreePartitioningStrategy(
 
             if (parentNeedsReallocation)
             {
-                (var newOffset, currentHeader) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName);
+                (var newOffset, currentHeader) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset);
                 return (newOffset, currentHeader);
             }
             
@@ -589,15 +606,13 @@ public sealed class BPlusTreePartitioningStrategy(
         var (rightNodeOffset, h1) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, rightNode, propertyName);
         currentHeader = h1;
 
-        var (leftNodeOffset, h2) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, fullChildNode, propertyName);
+        var (leftNodeOffset, h2) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, fullChildNode, propertyName, fullChildNodeOffset);
         currentHeader = h2;
 
         parentNode.Keys.Insert(childIndex, keyToPromote);
         parentNode.ChildrenOffsets[childIndex] = leftNodeOffset;
         parentNode.ChildrenOffsets.Insert(childIndex + 1, rightNodeOffset);
         
-        RemoveFromCache((propertyName, fullChildNodeOffset));
-
         return currentHeader;
     }
 
@@ -668,7 +683,7 @@ public sealed class BPlusTreePartitioningStrategy(
             if (indexToUpdate != -1)
             {
                 node.Partitions[indexToUpdate] = partition;
-                (var newOffset, currentHeader) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName);
+                (var newOffset, currentHeader) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset);
                 return (newOffset, currentHeader);
             }
             else
@@ -691,7 +706,7 @@ public sealed class BPlusTreePartitioningStrategy(
             if (newChildOffset != childOffset)
             {
                 node.ChildrenOffsets[childIndex] = newChildOffset;
-                (var newOffset, currentHeader) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName);
+                (var newOffset, currentHeader) = await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset);
                 return (newOffset, currentHeader);
             }
             
@@ -699,16 +714,115 @@ public sealed class BPlusTreePartitioningStrategy(
         }
     }
 
-    private async Task<(long offset, BTreeHeader newHeader)> AllocateAndWriteNodeAsync(Stream indexStream, BTreeHeader header, BPlusTreeNode node, string propertyName)
+    private async Task<(long offset, BTreeHeader newHeader)> AllocateAndWriteNodeAsync(Stream indexStream, BTreeHeader header, BPlusTreeNode node, string propertyName, long oldOffset = -1)
     {
         metrics.NodeWrites.Add(1);
-        var offset = header.NextAvailableOffset;
-        var writtenBytes = await serializationService.WriteNodeAsync(indexStream, node, offset);
-        AddToCache((propertyName, offset), node);
-        var newHeader = header with { NextAvailableOffset = offset + writtenBytes };
-        return (offset, newHeader);
+        var nodeData = await serializationService.SerializeNodeToBytesAsync(node);
+        long requiredSize = nodeData.Length;
+        var currentHeader = header;
+        long offsetToUse = -1;
+
+        if (oldOffset != -1)
+        {
+            // Attempt to reuse the old offset in place if it's large enough
+            indexStream.Seek(oldOffset, SeekOrigin.Begin);
+            var lengthBuffer = new byte[sizeof(int)];
+            await indexStream.ReadExactlyAsync(lengthBuffer);
+            long oldSize = BitConverter.ToInt32(lengthBuffer) + 4; // Include length prefix size
+
+            if (requiredSize <= oldSize)
+            {
+                offsetToUse = oldOffset;
+                metrics.InPlaceOverwrites.Add(1);
+                metrics.BytesSaved.Add(requiredSize);
+                // The remaining unused space within the old block is safely ignored by ReadNodeAsync
+            }
+            else
+            {
+                // Add the old block to the free list
+                currentHeader = AddFreeBlock(currentHeader, oldOffset, oldSize);
+            }
+        }
+
+        if (offsetToUse == -1)
+        {
+            (offsetToUse, currentHeader) = AllocateFromFreeList(currentHeader, requiredSize);
+        }
+
+        await serializationService.WriteNodeBytesAsync(indexStream, nodeData, offsetToUse);
+        
+        AddToCache((propertyName, offsetToUse), node);
+        if (oldOffset != -1 && oldOffset != offsetToUse)
+        {
+            RemoveFromCache((propertyName, oldOffset));
+        }
+        
+        return (offsetToUse, currentHeader);
     }
     
+    private BTreeHeader AddFreeBlock(BTreeHeader header, long offset, long size)
+    {
+        metrics.BlocksFreed.Add(1);
+        var blocks = header.FreeBlocks?.ToList() ?? new List<FreeBlock>();
+        blocks.Add(new FreeBlock(offset, size));
+        
+        // Cap at 20 free blocks to ensure the BTreeHeader easily fits within the 1024 byte limit.
+        // We keep the largest blocks to maximize the chance of them being reused.
+        if (blocks.Count > 20)
+        {
+            blocks = blocks.OrderByDescending(b => b.Size).Take(20).ToList();
+        }
+        
+        return header with { FreeBlocks = blocks };
+    }
+
+    private (long offset, BTreeHeader header) AllocateFromFreeList(BTreeHeader header, long requiredSize)
+    {
+        if (header.FreeBlocks == null || header.FreeBlocks.Count == 0)
+        {
+            long newOffset = header.NextAvailableOffset;
+            return (newOffset, header with { NextAvailableOffset = newOffset + requiredSize });
+        }
+
+        int bestIndex = -1;
+        long bestSize = long.MaxValue;
+
+        // Find the smallest free block that can fit the required size (Best Fit)
+        for (int i = 0; i < header.FreeBlocks.Count; i++)
+        {
+            var block = header.FreeBlocks[i];
+            if (block.Size >= requiredSize && block.Size < bestSize)
+            {
+                bestIndex = i;
+                bestSize = block.Size;
+            }
+        }
+
+        if (bestIndex != -1)
+        {
+            var block = header.FreeBlocks[bestIndex];
+            var blocks = header.FreeBlocks.ToList();
+            blocks.RemoveAt(bestIndex);
+            
+            metrics.BlocksReused.Add(1);
+            metrics.BytesSaved.Add(requiredSize);
+
+            return (block.Offset, header with { FreeBlocks = blocks });
+        }
+
+        long offset = header.NextAvailableOffset;
+        return (offset, header with { NextAvailableOffset = offset + requiredSize });
+    }
+
+    private async Task<BTreeHeader> FreeNodeAsync(Stream stream, BTreeHeader header, long offset)
+    {
+        stream.Seek(offset, SeekOrigin.Begin);
+        var lengthBuffer = new byte[sizeof(int)];
+        await stream.ReadExactlyAsync(lengthBuffer);
+        long size = BitConverter.ToInt32(lengthBuffer) + 4;
+        return AddFreeBlock(header, offset, size);
+    }
+
     private async Task<IComparable?> GetFirstKeyOfSubtree(Stream stream, long nodeOffset, string propertyName)
     {
         var node = await ReadNodeAsync(stream, nodeOffset, propertyName);
