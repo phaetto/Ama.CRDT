@@ -39,6 +39,14 @@ Add the testing methodology (manual, unit, integration, end-to-end tests?)
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.
 --->
+1. **Dedicated `IPartitionStorageService` (Recommended)**: Define a custom service interface tailored exactly to the needs of the `PartitionManager`. This interface will orchestrate the `IPartitionStreamProvider` and a serialization service internally. It will expose domain-specific methods like `SavePartitionAsync(propertyName, partition)`, `GetPartitionsAsync(propertyName, logicalKey)`, and `GetHeaderPartitionAsync(propertyName)`. 
+*Reasoning*: This provides the highest level of cohesion and accurately models the domain language of CRDT partitions. It thoroughly isolates the `PartitionManager` from I/O and serialization concerns, allowing it to focus purely on CRDT logic like partition splitting, merging, and state management.
+
+2. **Generic Repository Pattern (`IRepository<IPartition>`)**: Use a standard repository interface (e.g., `Add`, `Update`, `GetById`, `FindAsync`).
+*Reasoning*: While familiar, this generic approach does not cleanly map to the specialized concepts of "Header Partitions" versus "Data Partitions" or the streaming nature of continuous partition loading based on composite logical keys. It would force awkward query specifications onto the implementation. Rejected.
+
+3. **Fat `IPartitionStreamProvider`**: Expand the existing `IPartitionStreamProvider` to not just return `Stream` instances, but to also serialize/deserialize and return strongly-typed `IPartition` objects.
+*Reasoning*: This violates the Single Responsibility Principle. The stream provider's job should strictly be about abstracting the storage medium (File System, Blob Storage, Memory) and providing raw streams. Making it handle polymorphic JSON serialization mixes I/O with data translation logic. Rejected.
 
 <!---AI - Stage 1--->
 # Proposed Techical Steps
@@ -46,6 +54,14 @@ Add the solutions that you rejected as well.
 Here you should append the tasks that you probably need to do.
 An example would be like what files you need to create and what functionality those files would have.
 --->
+1. Create a new interface file `$/Ama.CRDT/Services/Partitioning/IPartitionStorageService.cs`.
+2. Define the strongly-typed asynchronous contract methods within `IPartitionStorageService`:
+   - `Task SavePartitionAsync(string propertyName, IPartition partition, CancellationToken cancellationToken = default);`
+   - `Task SaveHeaderPartitionAsync(string propertyName, HeaderPartition headerPartition, CancellationToken cancellationToken = default);`
+   - `IAsyncEnumerable<IPartition> GetPartitionsAsync(string propertyName, IComparable? logicalKey = null, CancellationToken cancellationToken = default);`
+   - `Task<HeaderPartition?> GetHeaderPartitionAsync(string propertyName, CancellationToken cancellationToken = default);`
+3. Create a unit test file `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionStorageServiceContractTests.cs` to write tests using `Moq` that validate the interface shape against expected operations.
+4. Update the high-level architecture documentation in `$/README.md` to mention `IPartitionStorageService` as the new abstraction layer replacing direct stream management in `PartitionManager`.
 
 <!---AI - Stage 1--->
 # Proposed Files Needed
@@ -57,6 +73,12 @@ Format this list in the following way:
 With each file in one line.
 Remember to ask to load any unit tests if they are related to any files you will want to change.
 --->
+- `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` (To understand the required operations that the storage interface needs to support)
+- `$/Ama.CRDT/Models/Partitioning/IPartition.cs` (The core domain models the storage interface will handle)
+- `$/Ama.CRDT/Models/Partitioning/HeaderPartition.cs` (To ensure header-specific methods are appropriately accommodated)
+- `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` (To analyze the current stream usage that needs to be abstracted into the new service)
+- `$/Ama.CRDT/Services/Partitioning/IPartitionStreamProvider.cs` (To understand the layer just beneath the proposed storage service)
+- `$/README.md` (To evaluate where architecture documentation updates are necessary)
 
 <!---AI - Stage 2--->
 # Changes Done
@@ -66,6 +88,10 @@ Format this list in the following way:
 	- `$/<Full file path from solution root>` (Reason to be used/loaded)
 Add all the things that you did in a different way than expected.
 --->
+- `$/Ama.CRDT/Services/Partitioning/IPartitionStorageService.cs` (Created the new interface to abstract stream usage).
+- `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionStorageServiceContractTests.cs` (Created mock unit tests to verify the interface contract).
+- `$/README.md` (Updated high-level architecture documentation).
+- Adjusted the proposed interface method signatures. The original proposed signatures in Stage 1 like `SavePartitionAsync(string propertyName, IPartition partition)` lacked the generic `TData` and `CrdtMetadata` required to actually persist content without streams. Therefore, methods like `SavePartitionContentAsync` and `LoadPartitionContentAsync` were added to better encapsulate the serialization and stream offset updates. Additionally, `logicalKey` was added where appropriate (e.g., header partitions) as headers don't strictly relate to a property name.
 
 <!---AI - Stage 2--->
 # Manual Changes Needed
@@ -79,18 +105,21 @@ Example types of changes are:
 	- Settings in other systems (for example, enable some flag or permissions in Github)
 If there are none, then just write "No manual changes needed to be applied."
 --->
+No manual changes needed to be applied.
 
 <!---AI - Stage 2--->
 ## Possible Techical Debt
 <!---
 Here you add comments about possible technical debt you encountered or implemented but it was too much to change or out of scope.
 --->
+The `IPartitionStorageService` interface introduces a large surface area. Future refactoring might separate the index querying methods (`GetPartitionsAsync`) from the pure data storage methods (`LoadPartitionContentAsync`), but keeping them unified simplifies the `PartitionManager` dependencies for now.
 
 <!---AI - Stage 2--->
 ## Last notes and implementation details
 <!---
 Here you add comments about the implementation that didn't fit on the previous section.
 --->
+The new `IPartitionStorageService` interface successfully hides `Stream` usage. Once implemented, it will allow `PartitionManager` to be completely unaware of `IPartitionStreamProvider` and `IPartitionSerializationService`, focusing purely on CRDT logic like splitting and merging.
 
 # Code Revisions
 <!---

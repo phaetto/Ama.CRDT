@@ -1,0 +1,10 @@
+{
+  "buildCommand": "dotnet build",
+  "testCommand": "dotnet test --no-build",
+  "workingDirectory": "./",
+  "commandPaths": {
+  },
+  "fileSearchPatterns": [
+    "*"
+  ]
+}

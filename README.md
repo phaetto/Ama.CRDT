@@ -598,6 +598,8 @@ await partitionManager.ApplyPatchAsync(patch);
 -   **`ICrdtApplicator`**: A scoped service that applies a `CrdtPatch` to a document. It uses the `ICrdtStrategyProvider` to find the correct strategy to modify the POCO and its metadata. It also handles idempotency checks using version vectors for supported strategies.
 -   **`ICrdtStrategyProvider`**: A service that inspects a property's attributes (e.g., `[CrdtCounterStrategy]`) to resolve the appropriate `ICrdtStrategy` from the DI container. It provides default strategies (LWW for simple types, ArrayLcs for collections) if no attribute is present.
 -   **`ICrdtMetadataManager`**: A scoped helper service for managing the `CrdtMetadata` object. It can initialize metadata from a POCO, compact it to save space, and perform other state management tasks.
+-   **`IPartitionManager<T>`**: Manages partitioned CRDT documents, translating operations into specific partition updates.
+-   **`IPartitionStorageService`**: An abstraction layer used to save and load strongly-typed partitions without dealing with underlying streams, files, or pointers directly. It orchestrates storage providers and serialization.
 
 ## Building and Testing
 
