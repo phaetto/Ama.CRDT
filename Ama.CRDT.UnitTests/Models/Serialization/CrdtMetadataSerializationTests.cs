@@ -105,7 +105,6 @@ public sealed class CrdtMetadataSerializationTests
         metadata.OrSets.ShouldBeEmpty();
         metadata.PriorityQueues.ShouldBeEmpty();
         metadata.LseqTrackers.ShouldBeEmpty();
-        metadata.ExclusiveLocks.ShouldBeEmpty();
         metadata.LwwMaps.ShouldBeEmpty();
         metadata.OrMaps.ShouldBeEmpty();
         metadata.CounterMaps.ShouldBeEmpty();
@@ -145,7 +144,6 @@ public sealed class CrdtMetadataSerializationTests
             new Dictionary<object, ICrdtTimestamp>()
         ));
         metadata.LseqTrackers.Add("$.lseq1", [new LseqItem(new LseqIdentifier(ImmutableList.Create(new LseqPathSegment(1, "r1"))), "A")]);
-        metadata.ExclusiveLocks.Add("$.lock1", new LockInfo("replica1", timestamp));
         metadata.LwwMaps.Add("$.lwwmap1", new Dictionary<object, ICrdtTimestamp> { ["key1"] = new EpochTimestamp(1), [2] = new EpochTimestamp(2) });
         metadata.OrMaps.Add("$.ormap1", new OrSetState(
              new Dictionary<object, ISet<Guid>> { ["key1"] = new HashSet<Guid> { guid1 } },
