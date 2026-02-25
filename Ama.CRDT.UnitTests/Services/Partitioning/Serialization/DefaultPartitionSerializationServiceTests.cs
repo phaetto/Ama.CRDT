@@ -217,7 +217,6 @@ public sealed class DefaultPartitionSerializationServiceTests
         var deserialized = await service.DeserializeObjectAsync<HeaderPartition>(stream);
 
         // Assert
-        deserialized.ShouldNotBeNull();
         deserialized.ShouldBe(original);
     }
     
@@ -231,7 +230,6 @@ public sealed class DefaultPartitionSerializationServiceTests
         var cloned = service.CloneObject(original);
 
         // Assert
-        cloned.ShouldNotBeNull();
         cloned.ShouldNotBeSameAs(original);
         cloned.ShouldBe(original);
     }

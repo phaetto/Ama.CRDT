@@ -57,7 +57,7 @@ It should look like this:
 - [ ] `$/specs/file_2_.md`: `Description`
 --->
 - [X] `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/01-create-partition-serialization-service.md`: Extract stream serialization logic into a dedicated, reusable `IPartitionSerializationService`.
-- [ ] `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/02-define-partition-storage-interface.md`: Define the high-level `IPartitionStorageService` interface abstracting storage mechanisms.
+- [X] `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/02-define-partition-storage-interface.md`: Define the high-level `IPartitionStorageService` interface abstracting storage mechanisms.
 - [ ] `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/03-implement-bplustree-storage-service.md`: Create the `BPlusTreePartitionStorageService` that implements `IPartitionStorageService` managing underlying stream logic.
 - [ ] `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/04-refactor-partition-manager.md`: Refactor `PartitionManager` to consume the new `IPartitionStorageService` and strip out pointer/stream logic.
 - [ ] `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/05-update-tests-and-showcase.md`: Update DI extensions, unit tests, and showcase projects to align with the new decoupled architecture.
