@@ -58,18 +58,9 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
     /// <inheritdoc/>
     public async Task<long> WriteNodeAsync(Stream stream, BPlusTreeNode node, long offset)
     {
-        using var memStream = new MemoryStream();
-        await JsonSerializer.SerializeAsync(memStream, node, typeof(BPlusTreeNode), serializerOptions);
-        var nodeData = memStream.ToArray();
-
-        stream.Seek(offset, SeekOrigin.Begin);
-
-        var lengthPrefix = BitConverter.GetBytes(nodeData.Length);
-        await stream.WriteAsync(lengthPrefix);
-        await stream.WriteAsync(nodeData);
-        await stream.FlushAsync();
-
-        return lengthPrefix.Length + nodeData.Length;
+        var nodeBytes = await SerializeNodeToBytesAsync(node);
+        await WriteNodeBytesAsync(stream, nodeBytes, offset);
+        return nodeBytes.Length;
     }
 
     /// <inheritdoc/>
@@ -105,5 +96,28 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
     {
         var bytes = JsonSerializer.SerializeToUtf8Bytes(original, serializerOptions);
         return JsonSerializer.Deserialize<T>(bytes, serializerOptions);
+    }
+
+    /// <inheritdoc/>
+    public async Task<byte[]> SerializeNodeToBytesAsync(BPlusTreeNode node)
+    {
+        using var memStream = new MemoryStream();
+        await JsonSerializer.SerializeAsync(memStream, node, typeof(BPlusTreeNode), serializerOptions);
+        var jsonBytes = memStream.ToArray();
+
+        var lengthPrefix = BitConverter.GetBytes(jsonBytes.Length);
+        var result = new byte[lengthPrefix.Length + jsonBytes.Length];
+        Buffer.BlockCopy(lengthPrefix, 0, result, 0, lengthPrefix.Length);
+        Buffer.BlockCopy(jsonBytes, 0, result, lengthPrefix.Length, jsonBytes.Length);
+        
+        return result;
+    }
+
+    /// <inheritdoc/>
+    public async Task WriteNodeBytesAsync(Stream stream, byte[] nodeBytes, long offset)
+    {
+        stream.Seek(offset, SeekOrigin.Begin);
+        await stream.WriteAsync(nodeBytes.AsMemory());
+        await stream.FlushAsync();
     }
 }
