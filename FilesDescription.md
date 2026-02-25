@@ -179,7 +179,6 @@
 | `$/Ama.CRDT/Services/ICrdtPatcher.cs` | Defines the contract for a service that compares two versions of a data model and generates a CRDT patch. |
 | `$/Ama.CRDT/Services/ICrdtScopeFactory.cs` | Defines the contract for a factory that creates isolated `IServiceScope` instances for CRDT replicas, each configured with a unique replica ID. |
 | `$/Ama.CRDT/Services/Metrics/BPlusTreeCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `BPlusTreePartitioningStrategy`. |
-| `$/Ama.CRDT/Services/Metrics/CrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments (Counters and Histograms) for monitoring the performance and behavior of the CRDT library, particularly the `PartitionManager`. |
 | `$/Ama.CRDT/Services/Metrics/MetricTimer.cs` | A helper `IDisposable` struct that uses a `Stopwatch` to measure the duration of a code block and records it to a `Histogram` upon disposal. |
 | `$/Ama.CRDT/Services/Metrics/PartitionManagerCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `PartitionManager`. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning. It defines methods for splitting and merging partition data and metadata, and for extracting partition keys from operations and data models. |
@@ -243,12 +242,14 @@
 | `$/features/allow-to-choose-strategy-using-attributes-specs/06-create-benchmark-project.md` | No description provided. |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/07-update-readme-documentation.md` | No description provided. |
 | `$/features/allow-to-choose-strategy-using-attributes.md` | No description provided. |
+| `$/features/design.png` | No description provided. |
 | `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/01-core-crdt-data-structures.md` | No description provided. |
 | `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/02-json-diff-and-patch-generation.md` | No description provided. |
 | `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/03-json-patch-application.md` | No description provided. |
 | `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/04-public-api-and-integration.md` | No description provided. |
 | `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/put-the-lww-structures-in-metadata.md` | No description provided. |
 | `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services.md` | No description provided. |
+| `$/features/refactoring-of-streams-to-be-handled-by-special-service.md` | No description provided. |
 | `$/FilesDescription.md` | No description provided. |
 | `$/LICENSE` | No description provided. |
 | `$/README.md` | The main documentation for the Ama.CRDT library, including usage examples, architecture overview, and guides for advanced extensibility points like custom comparers and timestamp providers. |
@@ -276,4 +277,4 @@
 | `$/Specs/done/partition-manager-needs-to-be-data-neutral.md` | No description provided. |
 | `$/Specs/done/publish-as-a-nuget-package.md` | No description provided. |
 | `$/Specs/done/readme-update-2025-08-24.md` | No description provided. |
-| `$/Specs/make-crdt-strategies-composable.md` | No description provided. |
+| `$/Specs/done/support-multiple-properties-for-partition-manager.md` | No description provided. |
