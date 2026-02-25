@@ -66,4 +66,20 @@ public interface IPartitionSerializationService
     /// <param name="original">The object to clone.</param>
     /// <returns>A deep copy of the object.</returns>
     T? CloneObject<T>(T original);
+
+    /// <summary>
+    /// Serializes a node to a byte array, including its length prefix.
+    /// </summary>
+    /// <param name="node">The node to serialize.</param>
+    /// <returns>A task that resolves to the serialized node as a byte array.</returns>
+    Task<byte[]> SerializeNodeToBytesAsync(BPlusTreeNode node);
+
+    /// <summary>
+    /// Writes a pre-serialized node byte array to the specified offset.
+    /// </summary>
+    /// <param name="stream">The stream to write to.</param>
+    /// <param name="nodeBytes">The pre-serialized node bytes.</param>
+    /// <param name="offset">The offset in the stream where writing should begin.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task WriteNodeBytesAsync(Stream stream, byte[] nodeBytes, long offset);
 }

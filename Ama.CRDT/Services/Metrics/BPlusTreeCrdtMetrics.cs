@@ -19,6 +19,12 @@ public sealed class BPlusTreeCrdtMetrics
     public Counter<long> NodesBorrowed { get; }
     public Counter<long> NodeReads { get; }
     public Counter<long> NodeWrites { get; }
+    
+    // Space reuse metrics
+    public Counter<long> BlocksReused { get; }
+    public Counter<long> InPlaceOverwrites { get; }
+    public Counter<long> BytesSaved { get; }
+    public Counter<long> BlocksFreed { get; }
 
     public BPlusTreeCrdtMetrics(IMeterFactory meterFactory)
     {
@@ -37,5 +43,10 @@ public sealed class BPlusTreeCrdtMetrics
         NodesBorrowed = meter.CreateCounter<long>("crdt.bplus_tree.nodes.borrowed.count", "nodes", "The number of times a B+ Tree node borrowed from a sibling.");
         NodeReads = meter.CreateCounter<long>("crdt.bplus_tree.node.reads.count", "nodes", "The number of B+ Tree nodes read from the stream.");
         NodeWrites = meter.CreateCounter<long>("crdt.bplus_tree.node.writes.count", "nodes", "The number of B+ Tree nodes written to the stream.");
+        
+        BlocksReused = meter.CreateCounter<long>("crdt.bplus_tree.blocks.reused.count", "blocks", "The number of times a free block was successfully reused instead of appending to the stream.");
+        InPlaceOverwrites = meter.CreateCounter<long>("crdt.bplus_tree.blocks.inplace_overwrites.count", "blocks", "The number of times a node update fit within its existing block size and was overwritten in place.");
+        BytesSaved = meter.CreateCounter<long>("crdt.bplus_tree.bytes.saved.count", "bytes", "The total number of bytes saved (not appended) by reusing free blocks or overwriting in place.");
+        BlocksFreed = meter.CreateCounter<long>("crdt.bplus_tree.blocks.freed.count", "blocks", "The number of blocks successfully added to the free block list.");
     }
 }
