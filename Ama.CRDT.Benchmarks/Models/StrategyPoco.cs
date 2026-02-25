@@ -59,10 +59,6 @@ public class StrategyPoco
     [CrdtStateMachineStrategy(typeof(MyStateMachine))]
     public string State { get; set; } = "Created";
 
-    [CrdtExclusiveLockStrategy(lockHolderPropertyPath: "$.lockHolder")]
-    public string? LockedValue { get; set; } = "Value";
-    public string? LockHolder { get; set; }
-
     [CrdtPriorityQueueStrategy(nameof(PrioItem.Priority))]
     public List<PrioItem> PrioQueue { get; set; } = new()
     {

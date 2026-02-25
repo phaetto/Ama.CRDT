@@ -83,17 +83,6 @@ public sealed class CrdtMetadataManagerTests
             Should.Throw<ArgumentException>(() => manager.AdvanceVersionVector(metadata, null!, timestamp));
             Should.Throw<ArgumentException>(() => manager.AdvanceVersionVector(metadata, " ", timestamp));
         }
-
-        if (testLocking)
-        {
-            Should.Throw<ArgumentNullException>(() => manager.ExclusiveLock(null!, "p", "lh", timestamp));
-            Should.Throw<ArgumentException>(() => manager.ExclusiveLock(metadata, null!, "lh", timestamp));
-            Should.Throw<ArgumentException>(() => manager.ExclusiveLock(metadata, "p", null!, timestamp));
-            Should.Throw<ArgumentNullException>(() => manager.ExclusiveLock(metadata, "p", "lh", null!));
-            Should.Throw<ArgumentNullException>(() => manager.ReleaseLock(null!, "p", timestamp));
-            Should.Throw<ArgumentException>(() => manager.ReleaseLock(metadata, null!, timestamp));
-            Should.Throw<ArgumentNullException>(() => manager.ReleaseLock(metadata, "p", null!));
-        }
     }
 
     [Fact]
@@ -105,7 +94,6 @@ public sealed class CrdtMetadataManagerTests
         metadata.PositionalTrackers["$.b"] = [];
         metadata.AverageRegisters["$.c"] = new Dictionary<string, AverageRegisterValue>();
         metadata.PriorityQueues["$.d"] = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, ICrdtTimestamp>());
-        metadata.ExclusiveLocks["$.e"] = new LockInfo("holder", timestampProviderMock.Object.Create(100));
         metadata.LwwMaps["$.f"] = new Dictionary<object, ICrdtTimestamp>();
         metadata.OrMaps["$.g"] = new OrSetState(new Dictionary<object, ISet<Guid>>(), new Dictionary<object, ISet<Guid>>());
         metadata.CounterMaps["$.h"] = new Dictionary<object, PnCounterState> { { "key", new PnCounterState(1, 1) } };
@@ -121,7 +109,6 @@ public sealed class CrdtMetadataManagerTests
         metadata.PositionalTrackers.ShouldBeEmpty();
         metadata.AverageRegisters.ShouldBeEmpty();
         metadata.PriorityQueues.ShouldBeEmpty();
-        metadata.ExclusiveLocks.ShouldBeEmpty();
         metadata.LwwMaps.ShouldBeEmpty();
         metadata.OrMaps.ShouldBeEmpty();
         metadata.CounterMaps.ShouldBeEmpty();
@@ -259,63 +246,6 @@ public sealed class CrdtMetadataManagerTests
         // Assert
         metadata.VersionVector[replicaId].ShouldBe(timestampProviderMock.Object.Create(105));
         metadata.SeenExceptions.ShouldBeEmpty();
-    }
-
-    [Fact]
-    public void ExclusiveLock_ShouldSetLock_WhenTimestampIsNewer()
-    {
-        // Arrange
-        var metadata = new CrdtMetadata();
-        var path = "$.prop";
-        manager.ExclusiveLock(metadata, path, "holder1", timestampProviderMock.Object.Create(100));
-
-        // Act
-        manager.ExclusiveLock(metadata, path, "holder2", timestampProviderMock.Object.Create(200));
-
-        // Assert
-        metadata.ExclusiveLocks[path].ShouldNotBeNull();
-        metadata.ExclusiveLocks[path]?.LockHolderId.ShouldBe("holder2");
-        metadata.ExclusiveLocks[path]?.Timestamp.ShouldBe(timestampProviderMock.Object.Create(200));
-    }
-
-    [Fact]
-    public void ReleaseLock_ShouldReleaseLock_WhenTimestampIsNewer()
-    {
-        // Arrange
-        var metadata = new CrdtMetadata();
-        var path = "$.prop";
-        manager.ExclusiveLock(metadata, path, "holder1", timestampProviderMock.Object.Create(100));
-
-        // Act
-        manager.ReleaseLock(metadata, path, timestampProviderMock.Object.Create(200));
-        
-        // Assert
-        metadata.ExclusiveLocks[path].ShouldBeNull();
-    }
-    
-    [Fact]
-    public void Initialize_WithLockedProperty_ShouldNotPopulateExclusiveLocks()
-    {
-        // Arrange
-        var model = new TestLockModel { UserId = "user1", LockedValue = "abc" };
-        var property = typeof(TestLockModel).GetProperty(nameof(TestLockModel.LockedValue))!;
-        strategyProviderMock.Setup(m => m.GetStrategy(It.Is<PropertyInfo>(p => p.Name == nameof(TestLockModel.LockedValue))))
-                           .Returns(new ExclusiveLockStrategy(new ReplicaContext { ReplicaId = "test" }));
-        
-        // Act
-        var metadata = manager.Initialize(model, timestampProviderMock.Object.Create(100));
-
-        // Assert
-        metadata.ExclusiveLocks.ShouldContainKey("$.lockedValue");
-        metadata.ExclusiveLocks["$.lockedValue"].ShouldBeNull();
-    }
-
-    private sealed class TestLockModel
-    {
-        public string UserId { get; set; }
-
-        [CrdtExclusiveLockStrategy("$.userId")]
-        public string LockedValue { get; set; }
     }
     
     private void SetupSequentialTimestampProviderMock()

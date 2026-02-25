@@ -75,12 +75,6 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     public IDictionary<string, List<LseqItem>> LseqTrackers { get; set; } = new Dictionary<string, List<LseqItem>>();
     
     /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the Exclusive Lock strategy.
-    /// The key is the JSON path to the locked property. A null value indicates the lock is released.
-    /// </summary>
-    public IDictionary<string, LockInfo?> ExclusiveLocks { get; set; } = new Dictionary<string, LockInfo?>();
-
-    /// <summary>
     /// Gets or sets a dictionary that stores the state for properties managed by the Last-Writer-Wins Map (LWW-Map) strategy.
     /// The outer key is the JSON Path to the property. The inner dictionary maps each key from the user's dictionary to its LWW timestamp.
     /// </summary>
@@ -128,7 +122,6 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
             && DictionaryEquals(OrSets, other.OrSets)
             && DictionaryEquals(PriorityQueues, other.PriorityQueues)
             && DictionaryOfListsEquals(LseqTrackers, other.LseqTrackers)
-            && DictionaryEquals(ExclusiveLocks, other.ExclusiveLocks)
             && DictionaryOfDictionariesEquals(LwwMaps, other.LwwMaps)
             && DictionaryEquals(OrMaps, other.OrMaps)
             && DictionaryOfDictionariesEquals(CounterMaps, other.CounterMaps)
@@ -150,7 +143,6 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         hash.Add(GetDictionaryHashCode(OrSets));
         hash.Add(GetDictionaryHashCode(PriorityQueues));
         hash.Add(GetDictionaryOfListsHashCode(LseqTrackers));
-        hash.Add(GetDictionaryHashCode(ExclusiveLocks));
         hash.Add(GetDictionaryOfDictionariesHashCode(LwwMaps));
         hash.Add(GetDictionaryHashCode(OrMaps));
         hash.Add(GetDictionaryOfDictionariesHashCode(CounterMaps));
