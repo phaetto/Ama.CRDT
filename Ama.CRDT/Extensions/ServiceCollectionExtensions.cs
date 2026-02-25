@@ -84,6 +84,8 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<IPartitioningStrategy>(sp => sp.GetRequiredService<BPlusTreePartitioningStrategy>());
         services.TryAddScoped(CreateValidatedInstance<DefaultPartitionSerializationService>);
         services.TryAddScoped<IPartitionSerializationService>(sp => sp.GetRequiredService<DefaultPartitionSerializationService>());
+        services.TryAddScoped(CreateValidatedInstance<BPlusTreePartitionStorageService>);
+        services.TryAddScoped<IPartitionStorageService>(sp => sp.GetRequiredService<BPlusTreePartitionStorageService>());
 
         // Register the default timestamp provider with validation.
         // This can be overridden by AddCrdtTimestampProvider.
@@ -259,7 +261,6 @@ public static class ServiceCollectionExtensions
     /// }
     /// 
     /// // In your DI setup:
-    /// builder.Services.AddCrdt();
     /// builder.Services.AddCrdtTimestampProvider<LogicalClockProvider>();
     /// ]]>
     /// </code>
@@ -298,7 +299,6 @@ public static class ServiceCollectionExtensions
     /// }
     /// 
     /// // In your DI setup:
-    /// builder.Services.AddCrdt();
     /// builder.Services.AddCrdtTimestampType<MyCustomTimestamp>("my-custom");
     /// ]]>
     /// </code>
@@ -324,7 +324,6 @@ public static class ServiceCollectionExtensions
     /// public sealed record MyCustomPayload(Guid Id, string Data);
     /// 
     /// // In your DI setup:
-    /// builder.Services.AddCrdt();
     /// builder.Services.AddCrdtSerializableType<MyCustomPayload>("my-payload");
     /// ]]>
     /// </code>
