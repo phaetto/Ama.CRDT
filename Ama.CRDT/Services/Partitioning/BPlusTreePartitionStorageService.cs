@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -76,9 +78,20 @@ public sealed class BPlusTreePartitionStorageService : IPartitionStorageService
     {
         using var _ = new MetricTimer(metrics.StreamWriteDuration);
         var dataStream = await streamProvider.GetPropertyDataStreamAsync(logicalKey, propertyName);
+        var header = await ReadOrCreateDataHeaderAsync(dataStream);
         
-        var newDataWriteResult = await WriteToStreamAsync(dataStream, data, cancellationToken);
-        var newMetaWriteResult = await WriteToStreamAsync(dataStream, metadata, cancellationToken);
+        long oldDataOffset = partitionToUpdate is DataPartition dp1 && dp1.DataOffset > 0 ? dp1.DataOffset : -1;
+        long oldDataLength = partitionToUpdate.DataLength;
+        long oldMetaOffset = partitionToUpdate is DataPartition dp2 && dp2.MetadataOffset > 0 ? dp2.MetadataOffset : -1;
+        long oldMetaLength = partitionToUpdate.MetadataLength;
+
+        var newDataWriteResult = await WriteToStreamAsync(dataStream, data, header, oldDataOffset, oldDataLength, cancellationToken);
+        header = newDataWriteResult.Header;
+
+        var newMetaWriteResult = await WriteToStreamAsync(dataStream, metadata, header, oldMetaOffset, oldMetaLength, cancellationToken);
+        header = newMetaWriteResult.Header;
+
+        await WriteDataHeaderAsync(dataStream, header);
 
         return partitionToUpdate switch
         {
@@ -92,21 +105,80 @@ public sealed class BPlusTreePartitionStorageService : IPartitionStorageService
     {
         using var _ = new MetricTimer(metrics.StreamWriteDuration);
         var dataStream = await streamProvider.GetHeaderDataStreamAsync(logicalKey);
+        var header = await ReadOrCreateDataHeaderAsync(dataStream);
         
-        var newDataWriteResult = await WriteToStreamAsync(dataStream, data, cancellationToken);
-        var newMetaWriteResult = await WriteToStreamAsync(dataStream, metadata, cancellationToken);
+        long oldDataOffset = partitionToUpdate.DataOffset > 0 ? partitionToUpdate.DataOffset : -1;
+        long oldDataLength = partitionToUpdate.DataLength;
+        long oldMetaOffset = partitionToUpdate.MetadataOffset > 0 ? partitionToUpdate.MetadataOffset : -1;
+        long oldMetaLength = partitionToUpdate.MetadataLength;
+
+        var newDataWriteResult = await WriteToStreamAsync(dataStream, data, header, oldDataOffset, oldDataLength, cancellationToken);
+        header = newDataWriteResult.Header;
+
+        var newMetaWriteResult = await WriteToStreamAsync(dataStream, metadata, header, oldMetaOffset, oldMetaLength, cancellationToken);
+        header = newMetaWriteResult.Header;
+
+        await WriteDataHeaderAsync(dataStream, header);
 
         return partitionToUpdate with { DataOffset = newDataWriteResult.Offset, DataLength = newDataWriteResult.Length, MetadataOffset = newMetaWriteResult.Offset, MetadataLength = newMetaWriteResult.Length };
     }
 
-    private async Task<(long Offset, long Length)> WriteToStreamAsync(Stream dataStream, object content, CancellationToken cancellationToken)
+    private async Task<(long Offset, long Length, DataStreamHeader Header)> WriteToStreamAsync(
+        Stream dataStream, object content, DataStreamHeader header, long oldOffset, long oldLength, CancellationToken cancellationToken)
     {
-        dataStream.Seek(0, SeekOrigin.End);
-        var offset = dataStream.Position;
-        await serializationService.SerializeObjectAsync(dataStream, content); // Removed the cancellationToken argument to match the interface
+        using var ms = new MemoryStream();
+        await serializationService.SerializeObjectAsync(ms, content);
+        var requiredSize = ms.Length;
+
+        var freeState = new FreeSpaceState(header.NextAvailableOffset, header.FreeBlocks);
+        var (offsetToUse, newState) = StreamSpaceAllocator.Allocate(freeState, requiredSize, oldOffset, oldLength);
+
+        dataStream.Seek(offsetToUse, SeekOrigin.Begin);
+        ms.Seek(0, SeekOrigin.Begin);
+        await ms.CopyToAsync(dataStream, cancellationToken);
         await dataStream.FlushAsync(cancellationToken);
-        var length = dataStream.Position - offset;
-        return (offset, length);
+
+        var newHeader = header with { NextAvailableOffset = newState.NextAvailableOffset, FreeBlocks = newState.FreeBlocks };
+        return (offsetToUse, requiredSize, newHeader);
+    }
+
+    private async Task<DataStreamHeader> ReadOrCreateDataHeaderAsync(Stream stream)
+    {
+        if (stream.Length < 1024)
+        {
+            var newHeader = new DataStreamHeader();
+            await WriteDataHeaderAsync(stream, newHeader);
+            return newHeader;
+        }
+
+        var buffer = new byte[1024];
+        stream.Seek(0, SeekOrigin.Begin);
+        await stream.ReadExactlyAsync(buffer);
+        var jsonString = Encoding.UTF8.GetString(buffer).TrimEnd();
+        
+        if (string.IsNullOrWhiteSpace(jsonString)) 
+        {
+            var newHeader = new DataStreamHeader();
+            await WriteDataHeaderAsync(stream, newHeader);
+            return newHeader;
+        }
+
+        return JsonSerializer.Deserialize<DataStreamHeader>(jsonString) ?? new DataStreamHeader();
+    }
+
+    private async Task WriteDataHeaderAsync(Stream stream, DataStreamHeader header)
+    {
+        var jsonString = JsonSerializer.Serialize(header);
+        var buffer = Encoding.UTF8.GetBytes(jsonString);
+        if (buffer.Length > 1024) throw new InvalidOperationException("Data stream header exceeded 1024 bytes.");
+
+        var padded = new byte[1024];
+        Array.Fill(padded, (byte)' ');
+        Array.Copy(buffer, padded, buffer.Length);
+
+        stream.Seek(0, SeekOrigin.Begin);
+        await stream.WriteAsync(padded);
+        await stream.FlushAsync();
     }
 
     /// <inheritdoc/>
@@ -114,6 +186,7 @@ public sealed class BPlusTreePartitionStorageService : IPartitionStorageService
     {
         var stream = await streamProvider.GetPropertyDataStreamAsync(logicalKey, propertyName);
         stream.SetLength(0);
+        await ReadOrCreateDataHeaderAsync(stream);
     }
 
     /// <inheritdoc/>
@@ -121,6 +194,7 @@ public sealed class BPlusTreePartitionStorageService : IPartitionStorageService
     {
         var stream = await streamProvider.GetHeaderDataStreamAsync(logicalKey);
         stream.SetLength(0);
+        await ReadOrCreateDataHeaderAsync(stream);
     }
 
     /// <inheritdoc/>
