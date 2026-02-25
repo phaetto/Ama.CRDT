@@ -41,6 +41,14 @@ Add the testing methodology (manual, unit, integration, end-to-end tests?)
 Here you will need to put a number of solutions that would fit for this problem.
 Add the solutions that you rejected as well.
 --->
+1. **Full Dependency Injection Replacement (Recommended)**: Change the `PartitionManager` to purely depend on `IPartitionStorageService`. All logic dealing with stream providers, strategies, byte offsets, and serialization is removed and delegated to the storage service. `PartitionManager` becomes a high-level orchestrator focusing exclusively on CRDT logic (splitting rules, data limits, iteration).
+   *Reasoning*: Perfectly adheres to the Single Responsibility Principle, makes testing `PartitionManager` dramatically easier (by mocking `IPartitionStorageService` returning POCOs rather than mocking streams), and cleanly isolates the storage layer.
+
+2. **Facade Pattern Adaptation**: Maintain `IPartitionStreamProvider` and `IPartitioningStrategy` as dependencies in `PartitionManager`, but wrap them internally within a transient instance of a storage service.
+   *Reasoning for rejection*: This fails to meet the requirement of cleaning up the constructor and merely hides the dependencies rather than structurally improving the composition of the class. It leaves testing complicated.
+
+3. **Hybrid Storage/Manager Layer**: Merge the new storage service methods directly into `PartitionManager` as private helper methods, essentially maintaining the current structure but using better internal abstractions.
+   *Reasoning for rejection*: Explicitly contradicts the goal of stripping out serialization and stream logic from the manager, failing to achieve the desired separation of concerns.
 
 <!---AI - Stage 1--->
 # Proposed Techical Steps
@@ -48,6 +56,21 @@ Add the solutions that you rejected as well.
 Here you should append the tasks that you probably need to do.
 An example would be like what files you need to create and what functionality those files would have.
 --->
+1. **Update `PartitionManager` Constructor**: 
+   - Remove `IPartitionStreamProvider` and `IPartitioningStrategy` from the constructor and private fields.
+   - Inject `IPartitionStorageService` and store it in a read-only field.
+2. **Refactor Read Operations**:
+   - Update `GetPartitionAsync`, `GetPartitionsAsync`, etc., to use `_storageService.LoadPartitionAsync` or `_storageService.GetPartitionsAsync`.
+   - Remove any stream seeking, reading, and deserialization code.
+3. **Refactor Write Operations (Split/Merge)**:
+   - When a partition exceeds the threshold and needs to split, use the high-level `_storageService.SavePartitionAsync` or equivalent to save the newly created split partitions and update the B-Tree index.
+   - Remove any pointer/offset calculation logic; the storage service will manage where objects are written.
+4. **Update Unit Tests**:
+   - Refactor `PartitionManagerTests` to mock `IPartitionStorageService`.
+   - Setup the mocks to return pre-constructed `DataPartition` or `HeaderPartition` objects instead of mocking `MemoryStream` behaviors.
+   - Assert that `_storageService.SavePartitionAsync` is called with the expected split payloads during split scenarios.
+5. **Update Dependency Injection**:
+   - Open `ServiceCollectionExtensions.cs` and ensure `PartitionManager` is registered and resolved correctly alongside the new `IPartitionStorageService`.
 
 <!---AI - Stage 1--->
 # Proposed Files Needed
@@ -59,6 +82,11 @@ Format this list in the following way:
 With each file in one line.
 Remember to ask to load any unit tests if they are related to any files you will want to change.
 --->
+- `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` (To completely refactor the implementation)
+- `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` (To verify if any interface changes are required, though minimal expected)
+- `$/Ama.CRDT/Services/Partitioning/IPartitionStorageService.cs` (To strictly adhere to the new contract for saving and loading)
+- `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionManagerTests.cs` (To update the unit tests to mock the new storage service instead of streams)
+- `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` (To ensure proper DI registration of the refactored dependencies)
 
 <!---AI - Stage 2--->
 # Changes Done
@@ -68,6 +96,11 @@ Format this list in the following way:
 	- `$/<Full file path from solution root>` (Reason to be used/loaded)
 Add all the things that you did in a different way than expected.
 --->
+- `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` (Validated that it uses pure `IPartitionStorageService` logic to remove streams and pointers, correctly performing limits checks to split and merge operations)
+- `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` (Ensured signatures align purely with domain objects and interface models instead of direct byte operations)
+- `$/Ama.CRDT/Services/Partitioning/IPartitionStorageService.cs` (Confirmed the contract matches the required execution patterns for `PartitionManager` functionality)
+- `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionManagerTests.cs` (Rewrote from integration tests relying on `InMemoryPartitionStreamProvider` into precise unit tests utilizing `Moq` against `IPartitionStorageService`, correctly verifying storage interactions for Split/Merge behavior over logical partitions)
+- `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` (Ensured `BPlusTreePartitionStorageService` correctly registers as `IPartitionStorageService` allowing `PartitionManager` resolution)
 
 <!---AI - Stage 2--->
 # Manual Changes Needed
@@ -81,18 +114,21 @@ Example types of changes are:
 	- Settings in other systems (for example, enable some flag or permissions in Github)
 If there are none, then just write "No manual changes needed to be applied."
 --->
+No manual changes needed to be applied.
 
 <!---AI - Stage 2--->
 ## Possible Techical Debt
 <!---
 Here you add comments about possible technical debt you encountered or implemented but it was too much to change or out of scope.
 --->
+Replacing the integration tests inside `PartitionManagerTests` with unit tests utilizing Moq limits confidence on the end-to-end runtime integration behavior. It is recommended to create a separate suite of End-to-End or pure Integration tests testing `PartitionManager` -> `BPlusTreePartitionStorageService` -> `FilePartitionStreamProvider` together, if not already handled inside Showcase tests or higher-level abstractions.
 
 <!---AI - Stage 2--->
 ## Last notes and implementation details
 <!---
 Here you add comments about the implementation that didn't fit on the previous section.
 --->
+Mocking `IAsyncEnumerable` behavior efficiently with `Moq` was achieved natively via a helper `AsAsyncEnumerable` allowing transparent test iterations on mocked partitioned streams. `PartitionManager` has now achieved full separation of concerns from underlying persistence/stream structures.
 
 # Code Revisions
 <!---
