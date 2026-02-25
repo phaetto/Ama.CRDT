@@ -1,5 +1,5 @@
 {
-  "buildCommand": "dotnet build",
+  "buildCommand": "dotnet build --property:WarningLevel=0",
   "testCommand": "dotnet test --no-build",
   "workingDirectory": "./",
   "commandPaths": {
