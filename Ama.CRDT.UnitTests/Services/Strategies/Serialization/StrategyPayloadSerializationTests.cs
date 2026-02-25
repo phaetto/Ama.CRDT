@@ -114,9 +114,6 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     }
     private sealed class StateMachineModel { [CrdtStateMachineStrategy(typeof(OrderStatusStateMachine))] public string Status { get; set; } }
 
-    // ExclusiveLockStrategy
-    private sealed class ExclusiveLockModel { public string UserId { get; set; } [CrdtExclusiveLockStrategy("$.userId")] public string LockedValue { get; set; } }
-
     // GraphStrategy
     private sealed class GraphModel { [CrdtGraphStrategy] public CrdtGraph Graph { get; set; } = new(); }
 
@@ -177,8 +174,7 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     [Fact] public void MinWinsMapStrategy_Payload_ShouldBeSerializable() => TestStrategy(new MinWinsMapModel { Map = { { "A", 20 } } }, new MinWinsMapModel { Map = { { "A", 10 } } });
     [Fact] public void PriorityQueueStrategy_Payload_ShouldBeSerializable() => TestStrategy(new PriorityQueueModel { Items = { new Item("A", 10) } }, new PriorityQueueModel { Items = { new Item("A", 10), new Item("B", 5) } });
     [Fact] public void StateMachineStrategy_Payload_ShouldBeSerializable() => TestStrategy(new StateMachineModel { Status = "PENDING" }, new StateMachineModel { Status = "PROCESSING" });
-    [Fact] public void ExclusiveLockStrategy_Payload_ShouldBeSerializable() => TestStrategy(new ExclusiveLockModel { LockedValue = "A" }, new ExclusiveLockModel { UserId = "user1", LockedValue = "B" });
-
+    
     [Fact]
     public void GraphStrategy_Payload_ShouldBeSerializable()
     {

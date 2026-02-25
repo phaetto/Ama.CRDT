@@ -201,12 +201,6 @@ public class StrategyBenchmarks
         toPocoForStateMachine.State = "InProgress";
         stateMachinePatch = patcher.GeneratePatch(fromDoc, toPocoForStateMachine);
 
-        // ExclusiveLock
-        toPocoForExclusiveLock = basePoco.Clone();
-        toPocoForExclusiveLock.LockedValue = "New Value";
-        toPocoForExclusiveLock.LockHolder = "benchmark-replica";
-        exclusiveLockPatch = patcher.GeneratePatch(fromDoc, toPocoForExclusiveLock);
-
         // PriorityQueue
         toPocoForPriorityQueue = basePoco.Clone();
         toPocoForPriorityQueue.PrioQueue.Add(new PrioItem { Id = 3, Priority = 5, Value = "C" });

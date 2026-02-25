@@ -109,7 +109,6 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped(CreateValidatedInstance<LseqStrategy>);
         services.TryAddScoped(CreateValidatedInstance<VoteCounterStrategy>);
         services.TryAddScoped(CreateValidatedInstance<StateMachineStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<ExclusiveLockStrategy>);
         services.TryAddScoped(CreateValidatedInstance<LwwMapStrategy>);
         services.TryAddScoped(CreateValidatedInstance<OrMapStrategy>);
         services.TryAddScoped(CreateValidatedInstance<CounterMapStrategy>);
@@ -139,7 +138,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICrdtStrategy, LseqStrategy>(sp => sp.GetRequiredService<LseqStrategy>());
         services.AddScoped<ICrdtStrategy, VoteCounterStrategy>(sp => sp.GetRequiredService<VoteCounterStrategy>());
         services.AddScoped<ICrdtStrategy, StateMachineStrategy>(sp => sp.GetRequiredService<StateMachineStrategy>());
-        services.AddScoped<ICrdtStrategy, ExclusiveLockStrategy>(sp => sp.GetRequiredService<ExclusiveLockStrategy>());
         services.AddScoped<ICrdtStrategy, LwwMapStrategy>(sp => sp.GetRequiredService<LwwMapStrategy>());
         services.AddScoped<ICrdtStrategy, OrMapStrategy>(sp => sp.GetRequiredService<OrMapStrategy>());
         services.AddScoped<ICrdtStrategy, CounterMapStrategy>(sp => sp.GetRequiredService<CounterMapStrategy>());

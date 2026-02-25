@@ -148,29 +148,4 @@ public interface ICrdtMetadataManager
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="timestamp"/> is null.</exception>
     /// <exception cref="System.ArgumentException">Thrown if <paramref name="replicaId"/> is null or whitespace.</exception>
     void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, [DisallowNull] string replicaId, [DisallowNull] ICrdtTimestamp timestamp);
-    
-    /// <summary>
-    /// Acquires an exclusive lock on a property using a Last-Writer-Wins (LWW) rule.
-    /// If the provided timestamp is greater than the existing lock's timestamp, the lock is updated with the new holder.
-    /// This is used by the <c>ExclusiveLockStrategy</c> to control access to a specific property.
-    /// </summary>
-    /// <param name="metadata">The metadata object to update.</param>
-    /// <param name="path">The JSON path to the property to lock.</param>
-    /// <param name="lockHolderId">The identifier of the new lock holder.</param>
-    /// <param name="timestamp">The timestamp of the lock operation.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="timestamp"/> is null.</exception>
-    /// <exception cref="System.ArgumentException">Thrown if <paramref name="path"/> or <paramref name="lockHolderId"/> is null or whitespace.</exception>
-    void ExclusiveLock([DisallowNull] CrdtMetadata metadata, [DisallowNull] string path, [DisallowNull] string lockHolderId, [DisallowNull] ICrdtTimestamp timestamp);
-
-    /// <summary>
-    /// Releases an exclusive lock on a property using a Last-Writer-Wins (LWW) rule.
-    /// If the provided timestamp is greater than the existing lock's timestamp, the lock is released.
-    /// This allows for conflict-free, optimistic locking where the latest operation (lock or unlock) wins.
-    /// </summary>
-    /// <param name="metadata">The metadata object to update.</param>
-    /// <param name="path">The JSON path to the property to unlock.</param>
-    /// <param name="timestamp">The timestamp of the unlock operation.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="timestamp"/> is null.</exception>
-    /// <exception cref="System.ArgumentException">Thrown if <paramref name="path"/> is null or whitespace.</exception>
-    void ReleaseLock([DisallowNull] CrdtMetadata metadata, [DisallowNull] string path, [DisallowNull] ICrdtTimestamp timestamp);
 }

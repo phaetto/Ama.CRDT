@@ -79,7 +79,6 @@ public sealed class CrdtMetadataManager(
         document.Metadata.OrSets.Clear();
         document.Metadata.PriorityQueues.Clear();
         document.Metadata.LseqTrackers.Clear();
-        document.Metadata.ExclusiveLocks.Clear();
         document.Metadata.LwwMaps.Clear();
         document.Metadata.OrMaps.Clear();
         document.Metadata.CounterMaps.Clear();
@@ -144,7 +143,6 @@ public sealed class CrdtMetadataManager(
         foreach (var kvp in metadata.LseqTrackers) { newMetadata.LseqTrackers.Add(kvp.Key, new List<LseqItem>(kvp.Value)); }
         foreach (var kvp in metadata.VersionVector) { newMetadata.VersionVector.Add(kvp.Key, kvp.Value); }
         foreach (var op in metadata.SeenExceptions) { newMetadata.SeenExceptions.Add(op); }
-        foreach (var kvp in metadata.ExclusiveLocks) { newMetadata.ExclusiveLocks.Add(kvp.Key, kvp.Value); }
 
         foreach (var kvp in metadata.LwwMaps)
         {
@@ -227,7 +225,6 @@ public sealed class CrdtMetadataManager(
             foreach (var kvp in metadata.LwwSets) merged.LwwSets[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.OrSets) merged.OrSets[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.PriorityQueues) merged.PriorityQueues[kvp.Key] = kvp.Value;
-            foreach (var kvp in metadata.ExclusiveLocks) merged.ExclusiveLocks[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.OrMaps) merged.OrMaps[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.TwoPhaseGraphs) merged.TwoPhaseGraphs[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.ReplicatedTrees) merged.ReplicatedTrees[kvp.Key] = kvp.Value;
@@ -340,37 +337,6 @@ public sealed class CrdtMetadataManager(
         }
     }
 
-    /// <inheritdoc/>
-    public void ExclusiveLock([DisallowNull] CrdtMetadata metadata, string path, string lockHolderId, [DisallowNull] ICrdtTimestamp timestamp)
-    {
-        ArgumentNullException.ThrowIfNull(metadata);
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        ArgumentException.ThrowIfNullOrWhiteSpace(lockHolderId);
-        ArgumentNullException.ThrowIfNull(timestamp);
-
-        if (metadata.ExclusiveLocks.TryGetValue(path, out var currentLock) && currentLock is not null && timestamp.CompareTo(currentLock.Timestamp) <= 0)
-        {
-            return;
-        }
-
-        metadata.ExclusiveLocks[path] = new LockInfo(lockHolderId, timestamp);
-    }
-
-    /// <inheritdoc/>
-    public void ReleaseLock([DisallowNull] CrdtMetadata metadata, string path, [DisallowNull] ICrdtTimestamp timestamp)
-    {
-        ArgumentNullException.ThrowIfNull(metadata);
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        ArgumentNullException.ThrowIfNull(timestamp);
-
-        if (metadata.ExclusiveLocks.TryGetValue(path, out var currentLock) && currentLock is not null && timestamp.CompareTo(currentLock.Timestamp) <= 0)
-        {
-            return;
-        }
-
-        metadata.ExclusiveLocks[path] = null;
-    }
-
     private void PopulateMetadataRecursive(CrdtMetadata metadata, object obj, string path, ICrdtTimestamp timestamp, object root)
     {
         if (obj is null)
@@ -450,9 +416,6 @@ public sealed class CrdtMetadataManager(
             case LwwStrategy:
                 metadata.Lww[propertyPath] = timestamp;
                 break;
-            case ExclusiveLockStrategy:
-                InitializeExclusiveLockMetadata(metadata, propertyInfo, propertyPath, timestamp, root);
-                break;
             case ArrayLcsStrategy:
                 if (propertyValue is IList lcsList)
                 {
@@ -506,14 +469,6 @@ public sealed class CrdtMetadataManager(
                 InitializeReplicatedTreeMetadata(metadata, propertyInfo, propertyPath, propertyValue, timestamp);
                 break;
         }
-    }
-
-    private void InitializeExclusiveLockMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, string propertyPath, ICrdtTimestamp timestamp, object root)
-    {
-        if (propertyInfo.GetCustomAttribute<CrdtExclusiveLockStrategyAttribute>() is not { } attr) return;
-
-        var (_, _, value) = PocoPathHelper.ResolvePath(root, attr.LockHolderPropertyPath);
-        metadata.ExclusiveLocks[propertyPath] = null;
     }
 
     private void InitializeSetMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)

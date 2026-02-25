@@ -49,7 +49,6 @@ public sealed class PolymorphicObjectJsonConverter : JsonConverter<object>
         Register("patch", typeof(CrdtPatch));
         Register("op", typeof(CrdtOperation));
         Register("edge", typeof(Edge));
-        Register("ex-lock-payload", typeof(ExclusiveLockPayload));
         Register("graph-edge-payload", typeof(GraphEdgePayload));
         Register("graph-vertex-payload", typeof(GraphVertexPayload));
         Register("lseq-id", typeof(LseqIdentifier));
