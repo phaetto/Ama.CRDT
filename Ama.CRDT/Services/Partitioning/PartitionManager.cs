@@ -405,8 +405,8 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         var p1Empty = new DataPartition(p1Key, p2Key, 0, 0, 0, 0);
         var p2Empty = new DataPartition(p2Key, dataPartitionToSplit.EndKey, 0, 0, 0, 0);
 
-        var p1 = await storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p1Empty, splitResult.Partition1.Data, splitResult.Partition1.Metadata);
-        var p2 = await storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p2Empty, splitResult.Partition2.Data, splitResult.Partition2.Metadata);
+        var p1 = await storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p1Empty, (T)splitResult.Partition1.Data, splitResult.Partition1.Metadata);
+        var p2 = await storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p2Empty, (T)splitResult.Partition2.Data, splitResult.Partition2.Metadata);
 
         await storageService.DeletePropertyPartitionAsync(propertyName, dataPartitionToSplit);
         await storageService.InsertPropertyPartitionAsync(propertyName, p1);
@@ -456,7 +456,8 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         var mergedContent = strategy.Merge(targetDocument!.Value.Data!, targetDocument.Value.Metadata!, sourceDocument!.Value.Data!, sourceDocument.Value.Metadata!, prop);
         
         var mergedEmpty = new DataPartition(targetPartition.StartKey, sourcePartition.EndKey, 0, 0, 0, 0);
-        var mergedPartition = await storageService.SavePartitionContentAsync(logicalKey, propertyName, mergedEmpty, mergedContent.Data, mergedContent.Metadata);
+
+        var mergedPartition = await storageService.SavePartitionContentAsync(logicalKey, propertyName, mergedEmpty, (T)mergedContent.Data, mergedContent.Metadata);
 
         await storageService.DeletePropertyPartitionAsync(propertyName, targetPartition);
         await storageService.DeletePropertyPartitionAsync(propertyName, sourcePartition);
