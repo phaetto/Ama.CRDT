@@ -1,4 +1,8 @@
-namespace Ama.CRDT.Services.Partitioning;
+namespace Ama.CRDT.Services.Partitioning.Streams;
+
+using System;
+using System.IO;
+using System.Threading.Tasks;
 
 /// <summary>
 /// Defines a contract for a service that provides data and index streams for partitioned documents.

@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models.Serialization.Converters;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.Partitioning.Streams;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;

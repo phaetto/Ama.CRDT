@@ -1,7 +1,7 @@
 namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.Partitioning.Streams;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 
