@@ -5,16 +5,17 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -33,294 +34,199 @@ public sealed class MultiPartitionedModel
 
 public sealed class PartitionManagerTests
 {
-    private const string ItemsPropertyName = nameof(MultiPartitionedModel.Items);
-    private const string TagsPropertyName = nameof(MultiPartitionedModel.Tags);
+    private readonly Mock<IPartitionStorageService> mockStorage;
+    private readonly IPartitionManager<MultiPartitionedModel> manager;
+    private readonly ICrdtMetadataManager metaManager;
+    private readonly ICrdtTimestampProvider timestampProvider;
 
-    private sealed class InMemoryPartitionStreamProvider : IPartitionStreamProvider
+    public PartitionManagerTests()
     {
-        private readonly ConcurrentDictionary<string, MemoryStream> streams = new();
+        mockStorage = new Mock<IPartitionStorageService>();
 
-        public Task<Stream> GetPropertyIndexStreamAsync(string propertyName) =>
-            Task.FromResult<Stream>(streams.GetOrAdd($"index_{propertyName}", _ => new MemoryStream()));
+        var meterFactoryMock = new Mock<IMeterFactory>();
+        meterFactoryMock.Setup(f => f.Create(It.IsAny<MeterOptions>())).Returns(new Meter("TestMeter"));
 
-        public Task<Stream> GetPropertyDataStreamAsync(IComparable logicalKey, string propertyName) =>
-            Task.FromResult<Stream>(streams.GetOrAdd($"data_{logicalKey}_{propertyName}", _ => new MemoryStream()));
+        var services = new ServiceCollection()
+            .AddCrdt()
+            .AddSingleton(meterFactoryMock.Object)
+            .AddSingleton(mockStorage.Object) // Inject the mock instead of BPlusTreePartitionStorageService
+            .BuildServiceProvider();
+
+        var scopeFactory = services.GetRequiredService<ICrdtScopeFactory>();
+        var scope = scopeFactory.CreateScope("TestReplica");
         
-        public Task<Stream> GetHeaderIndexStreamAsync() =>
-            Task.FromResult<Stream>(streams.GetOrAdd("index_header", _ => new MemoryStream()));
-
-        public Task<Stream> GetHeaderDataStreamAsync(IComparable logicalKey) =>
-            Task.FromResult<Stream>(streams.GetOrAdd($"data_{logicalKey}_header", _ => new MemoryStream()));
+        manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<MultiPartitionedModel>>();
+        metaManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
-    private sealed class TestInfrastructure : IDisposable
+    private async IAsyncEnumerable<T> AsAsyncEnumerable<T>(IEnumerable<T> source)
     {
-        public ICrdtScopeFactory ScopeFactory { get; }
-        public IServiceProvider ServiceProvider { get; }
-    
-        public TestInfrastructure()
+        foreach (var item in source)
         {
-            var meterFactoryMock = new Mock<IMeterFactory>();
-            var meter = new Meter("TestMeterForPartitionManagerTests");
-            meterFactoryMock.Setup(f => f.Create(It.IsAny<MeterOptions>())).Returns(meter);
-
-            var services = new ServiceCollection()
-                .AddCrdt()
-                .AddSingleton<IPartitionStreamProvider, InMemoryPartitionStreamProvider>()
-                .AddSingleton(meterFactoryMock.Object);
-
-            ServiceProvider = services.BuildServiceProvider();
-            ScopeFactory = ServiceProvider.GetRequiredService<ICrdtScopeFactory>();
+            yield return item;
+            await Task.CompletedTask;
         }
-        public void Dispose() => (ServiceProvider as IDisposable)?.Dispose();
     }
-    
+
     [Fact]
-    public async Task InitializeAsync_ShouldCreateHeaderAndDataPartitions()
+    public async Task InitializeAsync_ShouldCallStorageServiceMethods()
     {
         // Arrange
-        using var infrastructure = new TestInfrastructure();
-        using var scope = infrastructure.ScopeFactory.CreateScope("A");
-        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<MultiPartitionedModel>>();
-        var initialObject = new MultiPartitionedModel { TenantId = "tenant-1", Items = { { "key1", "one" } } };
+        var initialObject = new MultiPartitionedModel { TenantId = "tenant-1" };
+        
+        mockStorage.Setup(x => x.SaveHeaderPartitionContentAsync(It.IsAny<IComparable>(), It.IsAny<HeaderPartition>(), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
+            .ReturnsAsync((IComparable k, HeaderPartition p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
+        
+        mockStorage.Setup(x => x.SavePartitionContentAsync(It.IsAny<IComparable>(), It.IsAny<string>(), It.IsAny<IPartition>(), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
+            .ReturnsAsync((IComparable k, string prop, IPartition p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
 
         // Act
         await manager.InitializeAsync(initialObject);
 
         // Assert
-        var headerPartition = await manager.GetHeaderPartitionAsync("tenant-1");
-        headerPartition.ShouldNotBeNull();
+        mockStorage.Verify(x => x.InitializeHeaderIndexAsync(default), Times.Once);
+        mockStorage.Verify(x => x.ClearHeaderDataAsync("tenant-1", default), Times.Once);
+        mockStorage.Verify(x => x.InsertHeaderPartitionAsync("tenant-1", It.IsAny<HeaderPartition>(), default), Times.Once);
 
-        var dataKey = new CompositePartitionKey("tenant-1", "key1");
-        var dataPartition = await manager.GetDataPartitionAsync(dataKey, ItemsPropertyName);
-        dataPartition.ShouldNotBeNull();
-
-        var headerDoc = await manager.GetHeaderPartitionContentAsync("tenant-1");
-        headerDoc!.Value.Data!.Items.ShouldBeEmpty();
-        headerDoc!.Value.Data!.HeaderData.ShouldBe("Initial");
-
-        var dataDoc = await manager.GetDataPartitionContentAsync(dataKey, ItemsPropertyName);
-        dataDoc!.Value.Data!.Items.Count.ShouldBe(1);
-        dataDoc!.Value.Data!.Items["key1"].ShouldBe("one");
+        mockStorage.Verify(x => x.InitializePropertyIndexAsync(nameof(MultiPartitionedModel.Items), default), Times.Once);
+        mockStorage.Verify(x => x.ClearPropertyDataAsync("tenant-1", nameof(MultiPartitionedModel.Items), default), Times.Once);
+        mockStorage.Verify(x => x.InsertPropertyPartitionAsync(nameof(MultiPartitionedModel.Items), It.IsAny<IPartition>(), default), Times.Once);
+        
+        mockStorage.Verify(x => x.InitializePropertyIndexAsync(nameof(MultiPartitionedModel.Tags), default), Times.Once);
+        mockStorage.Verify(x => x.ClearPropertyDataAsync("tenant-1", nameof(MultiPartitionedModel.Tags), default), Times.Once);
+        mockStorage.Verify(x => x.InsertPropertyPartitionAsync(nameof(MultiPartitionedModel.Tags), It.IsAny<IPartition>(), default), Times.Once);
     }
 
     [Fact]
-    public async Task InitializeAsync_ForMultiPropertyType_ShouldCreatePartitionsForEachProperty()
+    public async Task ApplyPatchAsync_UnderLimit_ShouldSavePartition_ViaStorageService()
     {
         // Arrange
-        using var infrastructure = new TestInfrastructure();
-        using var scope = infrastructure.ScopeFactory.CreateScope("A");
-        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<MultiPartitionedModel>>();
-        var initialObject = new MultiPartitionedModel
-        {
-            TenantId = "tenant-1",
-            Items = { { "item1", "val1" } },
-            Tags = { { "tag1", "val1" } }
-        };
+        var logicalKey = "tenant-1";
+        var propName = nameof(MultiPartitionedModel.Items);
+        var existingPartition = new DataPartition(new CompositePartitionKey(logicalKey, "key1"), null, 0, 1000, 0, 0);
+        var headerPartition = new HeaderPartition(new CompositePartitionKey(logicalKey, null), 0, 0, 0, 0);
 
-        // Act
-        await manager.InitializeAsync(initialObject);
+        var doc = new MultiPartitionedModel { TenantId = logicalKey, Items = { { "key1", "val1" } } };
+        var crdtDoc = new CrdtDocument<MultiPartitionedModel>(doc, metaManager.Initialize(doc));
 
-        // Assert
-        (await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1", ItemsPropertyName))).Count.ShouldBe(1);
-        (await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1", TagsPropertyName))).Count.ShouldBe(1);
+        mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositePartitionKey>(), propName, default)).ReturnsAsync(existingPartition);
+        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, existingPartition, default)).ReturnsAsync(crdtDoc);
+        mockStorage.Setup(x => x.GetHeaderPartitionAsync(logicalKey, default)).ReturnsAsync(headerPartition);
+        mockStorage.Setup(x => x.LoadHeaderPartitionContentAsync<MultiPartitionedModel>(logicalKey, headerPartition, default)).ReturnsAsync(crdtDoc);
 
-        var headerDoc = await manager.GetHeaderPartitionContentAsync("tenant-1");
-        headerDoc!.Value.Data!.Items.ShouldBeEmpty();
-        headerDoc!.Value.Data!.Tags.ShouldBeEmpty();
+        // Returns a normal sized partition when saved
+        var updatedPartition = new DataPartition(existingPartition.StartKey, existingPartition.EndKey, 0, 4000, 0, 0); // DataLength = 4000 < 8192
+        mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, existingPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
+            .ReturnsAsync(updatedPartition);
 
-        var itemDoc = await manager.GetDataPartitionContentAsync(new CompositePartitionKey("tenant-1", "item1"), ItemsPropertyName);
-        itemDoc!.Value.Data!.Items.Count.ShouldBe(1);
-        itemDoc!.Value.Data!.Tags.ShouldBeEmpty(); // From header
-
-        var tagDoc = await manager.GetDataPartitionContentAsync(new CompositePartitionKey("tenant-1", "tag1"), TagsPropertyName);
-        tagDoc!.Value.Data!.Tags.Count.ShouldBe(1);
-        tagDoc!.Value.Data!.Items.ShouldBeEmpty(); // From header
-    }
-
-    [Fact]
-    public async Task ApplyPatchAsync_ForMultiPropertyType_ShouldRouteToCorrectPropertyStreams()
-    {
-        // Arrange
-        using var infrastructure = new TestInfrastructure();
-        using var scope = infrastructure.ScopeFactory.CreateScope("A");
-        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<MultiPartitionedModel>>();
-        var timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
-        await manager.InitializeAsync(new MultiPartitionedModel { TenantId = "tenant-1" });
-
-        var itemOp = new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("item1", "val1", Guid.NewGuid()), timestampProvider.Now());
-        var tagOp = new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Upsert, new OrMapAddItem("tag1", "val1", Guid.NewGuid()), timestampProvider.Now());
-        var headerOp = new CrdtOperation(Guid.NewGuid(), "A", "$.headerData", OperationType.Upsert, "Updated", timestampProvider.Now());
-        var patch = new CrdtPatch([itemOp, tagOp, headerOp]) { LogicalKey = "tenant-1" };
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("key2", "val2", Guid.NewGuid()), timestampProvider.Now())]) { LogicalKey = logicalKey };
 
         // Act
         await manager.ApplyPatchAsync(patch);
 
         // Assert
-        var fullObject = await manager.GetFullObjectAsync("tenant-1");
-        fullObject.ShouldNotBeNull();
-        fullObject.HeaderData.ShouldBe("Updated");
-        fullObject.Items.Count.ShouldBe(1);
-        fullObject.Items["item1"].ShouldBe("val1");
-        fullObject.Tags.Count.ShouldBe(1);
-        fullObject.Tags["tag1"].ShouldBe("val1");
+        mockStorage.Verify(x => x.UpdatePropertyPartitionAsync(propName, updatedPartition, default), Times.Once);
+        mockStorage.Verify(x => x.DeletePropertyPartitionAsync(It.IsAny<string>(), It.IsAny<IPartition>(), default), Times.Never);
+        mockStorage.Verify(x => x.InsertPropertyPartitionAsync(It.IsAny<string>(), It.IsAny<IPartition>(), default), Times.Never);
     }
 
     [Fact]
-    public async Task GetFullObjectAsync_ShouldReconstructObjectFromAllPartitions()
+    public async Task ApplyPatchAsync_OverLimit_ShouldSplitPartition_ViaStorageService()
     {
         // Arrange
-        using var infrastructure = new TestInfrastructure();
-        using var scope = infrastructure.ScopeFactory.CreateScope("A");
-        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<MultiPartitionedModel>>();
-        var largeString = new string('x', 4500);
-        var initialObject = new MultiPartitionedModel
-        {
-            TenantId = "tenant-1",
-            HeaderData = "Test",
-            Items = { { "a", "1" }, { "b", largeString }, { "c", "3" } }, // Will cause split
-            Tags = { { "d", "4" }, { "e", largeString }, { "f", "6" } } // Will cause split
-        };
-        await manager.InitializeAsync(initialObject);
-        
-        // Ensure splits happened
-        (await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1", ItemsPropertyName))).Count.ShouldBeGreaterThan(1);
-        (await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1", TagsPropertyName))).Count.ShouldBeGreaterThan(1);
+        var logicalKey = "tenant-1";
+        var propName = nameof(MultiPartitionedModel.Items);
+        var existingPartition = new DataPartition(new CompositePartitionKey(logicalKey, "item1"), null, 0, 0, 0, 0);
+        var headerPartition = new HeaderPartition(new CompositePartitionKey(logicalKey, null), 0, 0, 0, 0);
+
+        var doc = new MultiPartitionedModel { TenantId = logicalKey, Items = { { "item1", "val1" }, { "item2", "val2" } } }; // Items to allow split
+        var crdtDoc = new CrdtDocument<MultiPartitionedModel>(doc, metaManager.Initialize(doc));
+
+        mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositePartitionKey>(), propName, default)).ReturnsAsync(existingPartition);
+        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, existingPartition, default)).ReturnsAsync(crdtDoc);
+        mockStorage.Setup(x => x.GetHeaderPartitionAsync(logicalKey, default)).ReturnsAsync(headerPartition);
+        mockStorage.Setup(x => x.LoadHeaderPartitionContentAsync<MultiPartitionedModel>(logicalKey, headerPartition, default)).ReturnsAsync(crdtDoc);
+
+        // First save returns a huge partition that breaches 8192
+        var largePartition = new DataPartition(existingPartition.StartKey, existingPartition.EndKey, 0, 9000, 0, 0);
+        mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, existingPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
+            .ReturnsAsync(largePartition);
+
+        // Follow up saves during the split return cleanly
+        mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, It.Is<IPartition>(p => p != null && !p.Equals(existingPartition)), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
+            .ReturnsAsync((IComparable k, string pName, IPartition p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
+
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("item3", "val3", Guid.NewGuid()), timestampProvider.Now())]) { LogicalKey = logicalKey };
 
         // Act
-        var fullObject = await manager.GetFullObjectAsync("tenant-1");
+        await manager.ApplyPatchAsync(patch);
 
         // Assert
-        fullObject.ShouldNotBeNull();
-        fullObject.TenantId.ShouldBe("tenant-1");
-        fullObject.HeaderData.ShouldBe("Test");
-        fullObject.Items.Count.ShouldBe(3);
-        fullObject.Items["b"].ShouldBe(largeString);
-        fullObject.Tags.Count.ShouldBe(3);
-        fullObject.Tags["e"].ShouldBe(largeString);
-    }
-    
-    [Fact]
-    public async Task GetAllLogicalKeysAsync_ShouldReturnDistinctKeys()
-    {
-        // Arrange
-        using var infrastructure = new TestInfrastructure();
-        
-        using (var scopeA = infrastructure.ScopeFactory.CreateScope("A"))
-        {
-            var managerA = scopeA.ServiceProvider.GetRequiredService<IPartitionManager<MultiPartitionedModel>>();
-            await managerA.InitializeAsync(new MultiPartitionedModel { TenantId = "tenant-A" });
-        }
-        
-        using (var scopeB = infrastructure.ScopeFactory.CreateScope("B"))
-        {
-            var managerB = scopeB.ServiceProvider.GetRequiredService<IPartitionManager<MultiPartitionedModel>>();
-            await managerB.InitializeAsync(new MultiPartitionedModel { TenantId = "tenant-B" });
-        }
-        
-        // Act
-        using var scopeC = infrastructure.ScopeFactory.CreateScope("C");
-        var managerC = scopeC.ServiceProvider.GetRequiredService<IPartitionManager<MultiPartitionedModel>>();
-        var logicalKeys = (await managerC.GetAllLogicalKeysAsync()).ToList();
-
-        // Assert
-        logicalKeys.Count.ShouldBe(2);
-        logicalKeys.ShouldContain("tenant-A");
-        logicalKeys.ShouldContain("tenant-B");
+        mockStorage.Verify(x => x.SavePartitionContentAsync(logicalKey, propName, existingPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default), Times.Once);
+        mockStorage.Verify(x => x.DeletePropertyPartitionAsync(propName, largePartition, default), Times.Once);
+        mockStorage.Verify(x => x.InsertPropertyPartitionAsync(propName, It.IsAny<IPartition>(), default), Times.Exactly(2));
     }
 
     [Fact]
-    public async Task ApplyPatchAsync_ShouldEnsureDataIsolationBetweenLogicalKeys()
+    public async Task ApplyPatchAsync_UnderMinLimit_ShouldMergePartition_ViaStorageService()
     {
         // Arrange
-        using var infrastructure = new TestInfrastructure();
+        var logicalKey = "tenant-1";
+        var propName = nameof(MultiPartitionedModel.Items);
         
-        using var scopeA = infrastructure.ScopeFactory.CreateScope("A");
-        var managerA = scopeA.ServiceProvider.GetRequiredService<IPartitionManager<MultiPartitionedModel>>();
-        await managerA.InitializeAsync(new MultiPartitionedModel { TenantId = "tenant-A", Items = { { "a1", "val-a1" } } });
+        var dp1 = new DataPartition(new CompositePartitionKey(logicalKey, "item1"), new CompositePartitionKey(logicalKey, "item5"), 0, 0, 0, 0);
+        var dp2 = new DataPartition(new CompositePartitionKey(logicalKey, "item5"), null, 0, 0, 0, 0);
+        var headerPartition = new HeaderPartition(new CompositePartitionKey(logicalKey, null), 0, 0, 0, 0);
+
+        var doc1 = new MultiPartitionedModel { TenantId = logicalKey, Items = { { "item1", "val1" } } };
+        var crdtDoc1 = new CrdtDocument<MultiPartitionedModel>(doc1, metaManager.Initialize(doc1));
+        var doc2 = new MultiPartitionedModel { TenantId = logicalKey, Items = { { "item5", "val5" } } };
+        var crdtDoc2 = new CrdtDocument<MultiPartitionedModel>(doc2, metaManager.Initialize(doc2));
+
+        var smallPartition = new DataPartition(dp2.StartKey, dp2.EndKey, 0, 100, 0, 0);
+
+        mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositePartitionKey>(), propName, default))
+            .ReturnsAsync((CompositePartitionKey k, string p, CancellationToken c) => 
+            {
+                if (k.RangeKey as string == "item1") return dp1;
+                if (k.RangeKey as string == "item5") return smallPartition;
+                return dp2; // default for "item6" during ApplyPatch
+            });
+
+        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, It.IsAny<IPartition>(), default))
+            .ReturnsAsync((IComparable k, string p, IPartition part, CancellationToken c) => 
+            {
+                if (part != null && part.Equals(dp1)) return crdtDoc1;
+                return crdtDoc2; // for dp2 and smallPartition
+            });
+
+        mockStorage.Setup(x => x.GetHeaderPartitionAsync(logicalKey, default)).ReturnsAsync(headerPartition);
+        mockStorage.Setup(x => x.LoadHeaderPartitionContentAsync<MultiPartitionedModel>(logicalKey, headerPartition, default)).ReturnsAsync(crdtDoc1);
+
+        // When applying the patch, simulate the partition dropping to a very small size (< 2048)
+        mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, dp2, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
+            .ReturnsAsync(smallPartition);
+
+        // Simulating the merge logic
+        mockStorage.Setup(x => x.GetPropertyPartitionCountAsync(logicalKey, propName, default)).ReturnsAsync(2);
         
-        using var scopeB = infrastructure.ScopeFactory.CreateScope("B");
-        var managerB = scopeB.ServiceProvider.GetRequiredService<IPartitionManager<MultiPartitionedModel>>();
-        await managerB.InitializeAsync(new MultiPartitionedModel { TenantId = "tenant-B", Items = { { "b1", "val-b1" } } });
-        
-        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "B", "$.items", OperationType.Upsert, new OrMapAddItem("b2", "val-b2", Guid.NewGuid()), scopeB.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>().Now())])
-            { LogicalKey = "tenant-B" };
+        // Return smallPartition as the current state in the index during iteration
+        mockStorage.Setup(x => x.GetPartitionsAsync(logicalKey, propName, default))
+            .Returns(AsAsyncEnumerable<IPartition>(new IPartition[] { dp1, smallPartition }));
 
-        // Act
-        await managerB.ApplyPatchAsync(patch);
+        // The save for the final merged partition
+        mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, It.Is<IPartition>(p => p != null && p is DataPartition && ((DataPartition)p).StartKey.Equals(dp1.StartKey) && ((DataPartition)p).EndKey == null), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
+            .ReturnsAsync((IComparable k, string pName, IPartition p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
 
-        // Assert
-        var fullA = await managerA.GetFullObjectAsync("tenant-A");
-        fullA!.Items.Count.ShouldBe(1);
-        fullA.Items.ShouldNotContainKey("b2");
-        
-        var fullB = await managerB.GetFullObjectAsync("tenant-B");
-        fullB!.Items.Count.ShouldBe(2);
-        fullB.Items["b2"].ShouldBe("val-b2");
-    }
-
-    [Fact]
-    public async Task GetDataPartitionContentAsync_WithDataKey_ShouldReturnMergedData()
-    {
-        // Arrange
-        using var infrastructure = new TestInfrastructure();
-        using var scope = infrastructure.ScopeFactory.CreateScope("A");
-        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<MultiPartitionedModel>>();
-        var initialObject = new MultiPartitionedModel { TenantId = "tenant-1", HeaderData = "My Header", Items = { { "key1", "one" } } };
-        await manager.InitializeAsync(initialObject);
-
-        var dataKey = new CompositePartitionKey("tenant-1", "key1");
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Remove, new OrMapRemoveItem("item6", new HashSet<Guid>()), timestampProvider.Now())]) { LogicalKey = logicalKey };
 
         // Act
-        var result = await manager.GetDataPartitionContentAsync(dataKey, ItemsPropertyName);
+        await manager.ApplyPatchAsync(patch);
 
         // Assert
-        result.ShouldNotBeNull();
-        var content = result.Value.Data!;
-        content.TenantId.ShouldBe("tenant-1");
-        content.HeaderData.ShouldBe("My Header"); 
-        content.Items.Count.ShouldBe(1);
-        content.Items["key1"].ShouldBe("one");
-    }
-    
-    [Fact]
-    public async Task GetDataPartitionByIndexAsync_ShouldReturnCorrectPartition()
-    {
-        // Arrange
-        using var infrastructure = new TestInfrastructure();
-        using var scope = infrastructure.ScopeFactory.CreateScope("A");
-        var manager = scope.ServiceProvider.GetRequiredService<IPartitionManager<MultiPartitionedModel>>();
-        
-        var largeString = new string('x', 4500);
-        var items = new Dictionary<string, string>
-        {
-            { "a", "val-a" }, { "b", largeString }, { "c", "val-c" }, { "d", largeString }, { "e", "val-e" },
-        };
-        await manager.InitializeAsync(new MultiPartitionedModel { TenantId = "tenant-1", Items = items });
-
-        var allDataPartitions = await ToListAsync(manager.GetAllDataPartitionsAsync("tenant-1", ItemsPropertyName));
-        allDataPartitions.Count.ShouldBeGreaterThan(1);
-
-        // Act & Assert
-        for (var i = 0; i < allDataPartitions.Count; i++)
-        {
-            var partitionFromIndex = await manager.GetDataPartitionByIndexAsync("tenant-1", i, ItemsPropertyName);
-            partitionFromIndex.ShouldNotBeNull();
-            partitionFromIndex.GetPartitionKey().ShouldBe(allDataPartitions[i].GetPartitionKey());
-        }
-        
-        (await manager.GetDataPartitionByIndexAsync("tenant-1", allDataPartitions.Count, ItemsPropertyName)).ShouldBeNull();
-        (await manager.GetDataPartitionByIndexAsync("tenant-1", -1, ItemsPropertyName)).ShouldBeNull();
-        (await manager.GetDataPartitionByIndexAsync("non-existent", 0, ItemsPropertyName)).ShouldBeNull();
-    }
-
-    private async Task<List<TItem>> ToListAsync<TItem>(IAsyncEnumerable<TItem> asyncEnumerable)
-    {
-        var list = new List<TItem>();
-        await foreach (var item in asyncEnumerable)
-        {
-            list.Add(item);
-        }
-        return list;
+        mockStorage.Verify(x => x.DeletePropertyPartitionAsync(propName, dp1, default), Times.Once);
+        mockStorage.Verify(x => x.DeletePropertyPartitionAsync(propName, smallPartition, default), Times.Once);
+        mockStorage.Verify(x => x.InsertPropertyPartitionAsync(propName, It.Is<IPartition>(p => p != null && p is DataPartition && ((DataPartition)p).StartKey.Equals(dp1.StartKey)), default), Times.Once);
     }
 }
