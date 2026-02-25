@@ -719,35 +719,39 @@ public sealed class BPlusTreePartitioningStrategy(
         metrics.NodeWrites.Add(1);
         var nodeData = await serializationService.SerializeNodeToBytesAsync(node);
         long requiredSize = nodeData.Length;
-        var currentHeader = header;
-        long offsetToUse = -1;
-
+        
+        long oldSize = -1;
         if (oldOffset != -1)
         {
-            // Attempt to reuse the old offset in place if it's large enough
             indexStream.Seek(oldOffset, SeekOrigin.Begin);
             var lengthBuffer = new byte[sizeof(int)];
             await indexStream.ReadExactlyAsync(lengthBuffer);
-            long oldSize = BitConverter.ToInt32(lengthBuffer) + 4; // Include length prefix size
+            oldSize = BitConverter.ToInt32(lengthBuffer) + 4; // Include length prefix size
+        }
 
-            if (requiredSize <= oldSize)
+        var freeState = new FreeSpaceState(header.NextAvailableOffset, header.FreeBlocks);
+        var (offsetToUse, newState) = StreamSpaceAllocator.Allocate(freeState, requiredSize, oldOffset, oldSize);
+
+        if (oldOffset != -1)
+        {
+            if (offsetToUse == oldOffset)
             {
-                offsetToUse = oldOffset;
                 metrics.InPlaceOverwrites.Add(1);
                 metrics.BytesSaved.Add(requiredSize);
-                // The remaining unused space within the old block is safely ignored by ReadNodeAsync
             }
             else
             {
-                // Add the old block to the free list
-                currentHeader = AddFreeBlock(currentHeader, oldOffset, oldSize);
+                metrics.BlocksFreed.Add(1);
             }
         }
 
-        if (offsetToUse == -1)
+        if (offsetToUse != oldOffset && newState.NextAvailableOffset == freeState.NextAvailableOffset)
         {
-            (offsetToUse, currentHeader) = AllocateFromFreeList(currentHeader, requiredSize);
+            metrics.BlocksReused.Add(1);
+            metrics.BytesSaved.Add(requiredSize);
         }
+
+        var currentHeader = header with { NextAvailableOffset = newState.NextAvailableOffset, FreeBlocks = newState.FreeBlocks?.ToList() };
 
         await serializationService.WriteNodeBytesAsync(indexStream, nodeData, offsetToUse);
         
@@ -760,67 +764,18 @@ public sealed class BPlusTreePartitioningStrategy(
         return (offsetToUse, currentHeader);
     }
     
-    private BTreeHeader AddFreeBlock(BTreeHeader header, long offset, long size)
-    {
-        metrics.BlocksFreed.Add(1);
-        var blocks = header.FreeBlocks?.ToList() ?? new List<FreeBlock>();
-        blocks.Add(new FreeBlock(offset, size));
-        
-        // Cap at 20 free blocks to ensure the BTreeHeader easily fits within the 1024 byte limit.
-        // We keep the largest blocks to maximize the chance of them being reused.
-        if (blocks.Count > 20)
-        {
-            blocks = blocks.OrderByDescending(b => b.Size).Take(20).ToList();
-        }
-        
-        return header with { FreeBlocks = blocks };
-    }
-
-    private (long offset, BTreeHeader header) AllocateFromFreeList(BTreeHeader header, long requiredSize)
-    {
-        if (header.FreeBlocks == null || header.FreeBlocks.Count == 0)
-        {
-            long newOffset = header.NextAvailableOffset;
-            return (newOffset, header with { NextAvailableOffset = newOffset + requiredSize });
-        }
-
-        int bestIndex = -1;
-        long bestSize = long.MaxValue;
-
-        // Find the smallest free block that can fit the required size (Best Fit)
-        for (int i = 0; i < header.FreeBlocks.Count; i++)
-        {
-            var block = header.FreeBlocks[i];
-            if (block.Size >= requiredSize && block.Size < bestSize)
-            {
-                bestIndex = i;
-                bestSize = block.Size;
-            }
-        }
-
-        if (bestIndex != -1)
-        {
-            var block = header.FreeBlocks[bestIndex];
-            var blocks = header.FreeBlocks.ToList();
-            blocks.RemoveAt(bestIndex);
-            
-            metrics.BlocksReused.Add(1);
-            metrics.BytesSaved.Add(requiredSize);
-
-            return (block.Offset, header with { FreeBlocks = blocks });
-        }
-
-        long offset = header.NextAvailableOffset;
-        return (offset, header with { NextAvailableOffset = offset + requiredSize });
-    }
-
     private async Task<BTreeHeader> FreeNodeAsync(Stream stream, BTreeHeader header, long offset)
     {
         stream.Seek(offset, SeekOrigin.Begin);
         var lengthBuffer = new byte[sizeof(int)];
         await stream.ReadExactlyAsync(lengthBuffer);
         long size = BitConverter.ToInt32(lengthBuffer) + 4;
-        return AddFreeBlock(header, offset, size);
+
+        var freeState = new FreeSpaceState(header.NextAvailableOffset, header.FreeBlocks);
+        var newState = StreamSpaceAllocator.Free(freeState, offset, size);
+        metrics.BlocksFreed.Add(1);
+
+        return header with { FreeBlocks = newState.FreeBlocks?.ToList() };
     }
 
     private async Task<IComparable?> GetFirstKeyOfSubtree(Stream stream, long nodeOffset, string propertyName)
