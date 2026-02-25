@@ -208,9 +208,8 @@ public sealed class PartitionManagerTests
         // Simulating the merge logic
         mockStorage.Setup(x => x.GetPropertyPartitionCountAsync(logicalKey, propName, default)).ReturnsAsync(2);
         
-        // Return smallPartition as the current state in the index during iteration
-        mockStorage.Setup(x => x.GetPartitionsAsync(logicalKey, propName, default))
-            .Returns(AsAsyncEnumerable<IPartition>(new IPartition[] { dp1, smallPartition }));
+        // Return dp1 as the previous partition via index lookup for the merge resolution
+        mockStorage.Setup(x => x.GetPropertyPartitionByIndexAsync(logicalKey, 0, propName, default)).ReturnsAsync(dp1);
 
         // The save for the final merged partition
         mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, It.Is<IPartition>(p => p != null && p is DataPartition && ((DataPartition)p).StartKey.Equals(dp1.StartKey) && ((DataPartition)p).EndKey == null), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))

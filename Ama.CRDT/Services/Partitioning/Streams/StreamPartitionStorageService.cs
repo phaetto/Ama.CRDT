@@ -435,19 +435,64 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         {
             foreach (var partition in node.Partitions)
             {
-                if (logicalKey == null || partition.GetPartitionKey().LogicalKey.Equals(logicalKey))
+                if (logicalKey == null)
                 {
                     yield return partition;
+                }
+                else
+                {
+                    var partitionKey = partition.GetPartitionKey();
+                    int cmp = partitionKey.LogicalKey.CompareTo(logicalKey);
+
+                    if (cmp == 0)
+                    {
+                        yield return partition;
+                    }
+                    else if (cmp > 0)
+                    {
+                        // Since the B+ Tree leaves are sorted by CompositePartitionKey,
+                        // if we exceed the target logicalKey we can safely stop traversing this and subsequent nodes.
+                        yield break;
+                    }
                 }
             }
         }
         else // Internal node
         {
-            foreach (var childOffset in node.ChildrenOffsets)
+            for (int i = 0; i < node.ChildrenOffsets.Count; i++)
             {
-                await foreach (var partition in TraverseAndYieldPartitionsAsync(indexStream, childOffset, propertyName, logicalKey))
+                bool shouldTraverse = true;
+                
+                if (logicalKey != null)
                 {
-                    yield return partition;
+                    // Internal nodes hold separation keys (CompositePartitionKey)
+                    // Child i holds keys in range [node.Keys[i-1], node.Keys[i])
+                    
+                    // Prune upper bound
+                    if (i < node.Keys.Count && node.Keys[i] is CompositePartitionKey upperBound)
+                    {
+                        if (upperBound.LogicalKey.CompareTo(logicalKey) < 0)
+                        {
+                            shouldTraverse = false;
+                        }
+                    }
+                    
+                    // Prune lower bound
+                    if (i > 0 && node.Keys[i - 1] is CompositePartitionKey lowerBound)
+                    {
+                        if (lowerBound.LogicalKey.CompareTo(logicalKey) > 0)
+                        {
+                            shouldTraverse = false;
+                        }
+                    }
+                }
+
+                if (shouldTraverse)
+                {
+                    await foreach (var partition in TraverseAndYieldPartitionsAsync(indexStream, node.ChildrenOffsets[i], propertyName, logicalKey))
+                    {
+                        yield return partition;
+                    }
                 }
             }
         }
@@ -780,7 +825,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
                 }
             }
 
-            if (candidatePartition is not null && EqualityComparer<object>.Default.Equals(candidatePartition.GetPartitionKey().LogicalKey, key.LogicalKey))
+            if (candidatePartition is not null && candidatePartition.GetPartitionKey().LogicalKey.CompareTo(key.LogicalKey) == 0)
             {
                 if (key.RangeKey is null && candidatePartition is not HeaderPartition) return null;
                 return candidatePartition;

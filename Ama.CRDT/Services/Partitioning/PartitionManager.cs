@@ -482,36 +482,34 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         if (partitionToMerge is not DataPartition dataPartitionToMerge) return;
 
         var logicalKey = dataPartitionToMerge.StartKey.LogicalKey;
-        var logicalPartitions = new List<DataPartition>();
         
-        await foreach(var p in storageService.GetPartitionsAsync(logicalKey, propertyName))
-        {
-            if (p is DataPartition dp)
-            {
-                logicalPartitions.Add(dp);
-            }
-        }
-        
-        var partitionIndex = logicalPartitions.FindIndex(p => p.StartKey.Equals(dataPartitionToMerge.StartKey));
-        if (partitionIndex == -1) return;
+        DataPartition targetPartition;
+        DataPartition sourcePartition;
 
-        int targetIndex;
-        int sourceIndex;
-
-        if (partitionIndex > 0)
+        if (dataPartitionToMerge.EndKey.HasValue)
         {
-            targetIndex = partitionIndex - 1;
-            sourceIndex = partitionIndex;
-        }
-        else 
-        {
-            if (logicalPartitions.Count < 2) return;
-            targetIndex = partitionIndex;
-            sourceIndex = partitionIndex + 1;
-        }
+            // Prefer merging with the next partition to avoid scanning all partitions.
+            // Since EndKey equals the StartKey of the next partition, this is a highly optimized O(1) lookup.
+            var nextPartitionObj = await storageService.GetPropertyPartitionAsync(dataPartitionToMerge.EndKey.Value, propertyName);
+            if (nextPartitionObj is not DataPartition nextPartition) return;
 
-        var targetPartition = logicalPartitions[targetIndex];
-        var sourcePartition = logicalPartitions[sourceIndex];
+            targetPartition = dataPartitionToMerge;
+            sourcePartition = nextPartition;
+        }
+        else
+        {
+            // If EndKey is null, it is the last partition, so it has no next partition. 
+            // Merge with the previous one. We retrieve it efficiently via index.
+            var partitionCount = await storageService.GetPropertyPartitionCountAsync(logicalKey, propertyName);
+            if (partitionCount < 2) return;
+
+            // The last partition is at index `partitionCount - 1`, so the previous is at `partitionCount - 2`.
+            var previousPartitionObj = await storageService.GetPropertyPartitionByIndexAsync(logicalKey, partitionCount - 2, propertyName);
+            if (previousPartitionObj is not DataPartition previousPartition) return;
+
+            targetPartition = previousPartition;
+            sourcePartition = dataPartitionToMerge;
+        }
         
         var targetDocument = await GetDataPartitionContentAsync(targetPartition.GetPartitionKey(), prop.Name);
         var sourceDocument = await GetDataPartitionContentAsync(sourcePartition.GetPartitionKey(), prop.Name);
