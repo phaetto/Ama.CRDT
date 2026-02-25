@@ -47,6 +47,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Helpers/Models.cs` | Contains simple data models for unit testing path conversion and resolution helpers. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs, and testing new centralized reflection helpers for getting/setting values and retrieving type information. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/BPlusTreePartitioningStrategyTests.cs` | Contains unit tests for `BPlusTreePartitioningStrategy`, verifying initialization, partition finding, and B+ Tree node splitting logic under insertions. It now tests header and property partitions in their separate, isolated indexes. |
+| `$/Ama.CRDT.UnitTests/Services/Partitioning/BPlusTreePartitionStorageServiceTests.cs` | Contains unit tests for `BPlusTreePartitionStorageService`, verifying its interaction with the stream provider and serialization service, including the behavior of writing headers and allocating space. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionManagerTests.cs` | Contains unit tests for `PartitionManager` and `BPlusTreePartitioningStrategy`, verifying initialization, patch application, and partition splitting logic. It has been updated to reflect the new stream provider and strategy interfaces that distinguish between header and property partitions. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionStorageServiceContractTests.cs` | Contains mock unit tests to verify the `IPartitionStorageService` interface contract. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/Serialization/IndexDefaultSerializationHelperTests.cs` | Contains unit tests for the `IndexDefaultSerializationHelper`, verifying that B+ Tree headers and nodes (with various key types) are correctly serialized to and deserialized from a stream. |
@@ -143,6 +144,8 @@
 | `$/Ama.CRDT/Models/Partitioning/BTreeHeader.cs` | Represents the header of the B+ Tree index file, storing metadata like the root node offset, degree of the tree, total partition count, and the next available offset for writing. |
 | `$/Ama.CRDT/Models/Partitioning/CompositePartitionKey.cs` | Represents a composite key for partitioning, consisting of a logical key and a range key. It now uses `IComparable` for keys to support natural sorting of different key types and implements `IComparable` for consistent ordering. |
 | `$/Ama.CRDT/Models/Partitioning/DataPartition.cs` | No description provided. |
+| `$/Ama.CRDT/Models/Partitioning/DataStreamHeader.cs` | Represents the header of a data stream, storing allocation metadata for reusing space. |
+| `$/Ama.CRDT/Models/Partitioning/FreeSpaceState.cs` | Encapsulates the state required for allocating and freeing space within a stream. |
 | `$/Ama.CRDT/Models/Partitioning/HeaderPartition.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Partitioning/IPartition.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Partitioning/PartitionContent.cs` | A data structure representing the data and metadata content of a single partition. |
@@ -190,6 +193,7 @@
 | `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a partitioned CRDT document, allowing it to scale beyond memory. It now explicitly separates logic for header and property partitions, using dedicated stream providers and strategy methods to avoid ambiguity. |
 | `$/Ama.CRDT/Services/Partitioning/Serialization/IIndexSerializationHelper.cs` | Defines the contract for serializing and deserializing B+ Tree index components (headers and nodes) to and from a stream. |
 | `$/Ama.CRDT/Services/Partitioning/Serialization/IndexDefaultSerializationHelper.cs` | The default implementation of `IIndexSerializationHelper`, using System.Text.Json for serialization. |
+| `$/Ama.CRDT/Services/Partitioning/StreamSpaceAllocator.cs` | A common utility for allocating and freeing space within a stream, managing in-place updates and free block reuse. |
 | `$/Ama.CRDT/Services/Partitioning/Strategies/BPlusTreePartitioningStrategy.cs` | An implementation of `IPartitioningStrategy` using a B+ Tree. It now internally distinguishes between header and property B-Tree indexes by using dedicated stream provider methods, ensuring data isolation. |
 | `$/Ama.CRDT/Services/Providers/CrdtStrategyProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/ElementComparerProvider.cs` | No description provided. |
@@ -231,52 +235,3 @@
 | `$/Ama.CRDT/Services/Strategies/TwoPhaseSetStrategy.cs` | Implements the 2P-Set (Two-Phase Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/VoteCounterStrategy.cs` | Implements the Vote Counter strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get dictionary key/value types. |
 | `$/CodingStandards.md` | Contains the coding standards for the project, including versioning and publishing guidelines. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/01-crdt-strategy-attribute-and-interface.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/02-lww-strategy-implementation.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/03-counter-strategy-implementation.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/04-refactor-patcher-to-use-strategies.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/05-01-arraylcsstrategy-needs-to-check-deep-objects.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/05-02-manage-metadata-state-deifferently-in-strategies.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/05-03-make-sure-there-are-reset-functions-for-the-state-to-keep-it-small.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/05-refactor-applicator-to-use-strategies.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/06-01-optimize-the-application-benchmarks.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/06-02-rewrite-node-management-to-reflection.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/06-create-benchmark-project.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/07-update-readme-documentation.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes.md` | No description provided. |
-| `$/features/design.png` | No description provided. |
-| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/01-core-crdt-data-structures.md` | No description provided. |
-| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/02-json-diff-and-patch-generation.md` | No description provided. |
-| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/03-json-patch-application.md` | No description provided. |
-| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/04-public-api-and-integration.md` | No description provided. |
-| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/put-the-lww-structures-in-metadata.md` | No description provided. |
-| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services.md` | No description provided. |
-| `$/features/refactoring-of-streams-to-be-handled-by-special-service.md` | No description provided. |
-| `$/FilesDescription.md` | No description provided. |
-| `$/LICENSE` | No description provided. |
-| `$/README.md` | The main documentation for the Ama.CRDT library, including usage examples, architecture overview, and guides for advanced extensibility points like custom comparers and timestamp providers. |
-| `$/Specs/add-approval-quorum-strategy.md` | Specification file for implementing the Approval Quorum strategy. |
-| `$/Specs/add-leader-election-strategy.md` | Specification file for implementing the Leader Election strategy. |
-| `$/Specs/add-more-text-specific-strategies.md` | No description provided. |
-| `$/Specs/create-larger-than-memory-showcase.md` | No description provided. |
-| `$/Specs/done/add-composite-partition-keys.md` | No description provided. |
-| `$/Specs/done/add-counter-map-strategy.md` | No description provided. |
-| `$/Specs/done/add-exclusive-lock-strategy.md` | No description provided. |
-| `$/Specs/done/add-more-list-and-sequence-strategies.md` | No description provided. |
-| `$/Specs/done/add-more-numeric-and-value-based-strategies.md` | No description provided. |
-| `$/Specs/done/add-more-object-and-map-strategies.md` | No description provided. |
-| `$/Specs/done/add-more-set-strategies.md` | No description provided. |
-| `$/Specs/done/add-more-specialized-data-structure-strategies.md` | No description provided. |
-| `$/Specs/done/add-roslyn-analyzers.md` | No description provided. |
-| `$/Specs/done/add-state-machine-strategy.md` | No description provided. |
-| `$/Specs/done/add-vote-counter-strategy.md` | No description provided. |
-| `$/Specs/done/create-example-console-app-that-show-cases-the-crdts-with-out-locks.md` | No description provided. |
-| `$/Specs/done/fix-the-brittle-header-partition.md` | No description provided. |
-| `$/Specs/done/implement-correctly-lcs-list-strategy.md` | No description provided. |
-| `$/Specs/done/introduce-partitioning-for-larger-than-memory-data.md` | No description provided. |
-| `$/Specs/done/make-package-dev-friendly.md` | No description provided. |
-| `$/Specs/done/make-the-api-surface-better.md` | No description provided. |
-| `$/Specs/done/partition-manager-needs-to-be-data-neutral.md` | No description provided. |
-| `$/Specs/done/publish-as-a-nuget-package.md` | No description provided. |
-| `$/Specs/done/readme-update-2025-08-24.md` | No description provided. |
-| `$/Specs/done/support-multiple-properties-for-partition-manager.md` | No description provided. |

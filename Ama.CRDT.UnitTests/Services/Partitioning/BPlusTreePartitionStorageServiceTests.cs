@@ -59,10 +59,10 @@ public class BPlusTreePartitionStorageServiceTests
         var result = (DataPartition)await service.SavePartitionContentAsync("A", "prop", originalPartition, data, meta);
 
         // Assert
-        result.DataOffset.ShouldBe(0);
+        result.DataOffset.ShouldBe(1024);
         result.DataLength.ShouldBe(1);
-        result.MetadataOffset.ShouldBe(1);
+        result.MetadataOffset.ShouldBe(1025);
         result.MetadataLength.ShouldBe(1);
-        mockStream.Length.ShouldBe(2); // One byte for data, one byte for metadata
+        mockStream.Length.ShouldBe(1026); // 1024 bytes header, one byte for data, one byte for metadata
     }
 }
