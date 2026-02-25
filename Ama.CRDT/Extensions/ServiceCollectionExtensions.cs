@@ -4,8 +4,8 @@ using Ama.CRDT.Models.Serialization.Converters;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Partitioning;
-using Ama.CRDT.Services.Partitioning.Serialization;
-using Ama.CRDT.Services.Partitioning.Strategies;
+using Ama.CRDT.Services.Partitioning.Streams;
+using Ama.CRDT.Services.Partitioning.Streams.Serialization;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
@@ -80,12 +80,10 @@ public static class ServiceCollectionExtensions
 
         // Register Partitioning services
         services.TryAddScoped(typeof(IPartitionManager<>), typeof(PartitionManager<>));
-        services.TryAddScoped(CreateValidatedInstance<BPlusTreePartitioningStrategy>);
-        services.TryAddScoped<IPartitioningStrategy>(sp => sp.GetRequiredService<BPlusTreePartitioningStrategy>());
         services.TryAddScoped(CreateValidatedInstance<DefaultPartitionSerializationService>);
         services.TryAddScoped<IPartitionSerializationService>(sp => sp.GetRequiredService<DefaultPartitionSerializationService>());
-        services.TryAddScoped(CreateValidatedInstance<BPlusTreePartitionStorageService>);
-        services.TryAddScoped<IPartitionStorageService>(sp => sp.GetRequiredService<BPlusTreePartitionStorageService>());
+        services.TryAddScoped(CreateValidatedInstance<StreamPartitionStorageService>);
+        services.TryAddScoped<IPartitionStorageService>(sp => sp.GetRequiredService<StreamPartitionStorageService>());
 
         // Register the default timestamp provider with validation.
         // This can be overridden by AddCrdtTimestampProvider.
@@ -201,33 +199,12 @@ public static class ServiceCollectionExtensions
     }
     
     /// <summary>
-    /// Registers a custom partition stream provider, replacing the default <see cref="FilePartitionStreamProvider"/>.
+    /// Registers a custom partition stream provider, replacing the default file-based one.
     /// This is essential for scenarios where partitions need to be stored in a custom backend, such as cloud blob storage, a database, or an in-memory store for testing.
     /// </summary>
     /// <typeparam name="TProvider">The type of the stream provider to register. Must implement <see cref="IPartitionStreamProvider"/>.</typeparam>
     /// <param name="services">The <see cref="IServiceCollection"/> to add the service to.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
-    /// <example>
-    /// <code>
-    /// <![CDATA[
-    /// // An in-memory stream provider for testing.
-    /// public class InMemoryPartitionStreamProvider : IPartitionStreamProvider
-    /// {
-    ///     private readonly System.Collections.Concurrent.ConcurrentDictionary<object, (System.IO.MemoryStream data, System.IO.MemoryStream index)> streams = new();
-    /// 
-    ///     public System.Threading.Tasks.Task<PartitionStreams> GetStreamsAsync(object logicalKey)
-    ///     {
-    ///         var (dataStream, indexStream) = streams.GetOrAdd(logicalKey, _ => (new System.IO.MemoryStream(), new System.IO.MemoryStream()));
-    ///         return System.Threading.Tasks.Task.FromResult(new PartitionStreams(dataStream, indexStream));
-    ///     }
-    /// }
-    /// 
-    /// // In your DI setup:
-    /// builder.Services.AddCrdt();
-    /// builder.Services.AddCrdtPartitionStreamProvider<InMemoryPartitionStreamProvider>();
-    /// ]]>
-    /// </code>
-    /// </example>
     public static IServiceCollection AddCrdtPartitionStreamProvider<TProvider>(this IServiceCollection services)
         where TProvider : class, IPartitionStreamProvider
     {

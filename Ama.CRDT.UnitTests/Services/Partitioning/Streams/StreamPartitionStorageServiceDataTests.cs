@@ -1,10 +1,10 @@
-namespace Ama.CRDT.UnitTests.Services.Partitioning;
+namespace Ama.CRDT.UnitTests.Services.Partitioning.Streams;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Metrics;
-using Ama.CRDT.Services.Partitioning;
-using Ama.CRDT.Services.Partitioning.Serialization;
+using Ama.CRDT.Services.Partitioning.Streams;
+using Ama.CRDT.Services.Partitioning.Streams.Serialization;
 using Moq;
 using Shouldly;
 using System;
@@ -13,7 +13,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Xunit;
 
-public class BPlusTreePartitionStorageServiceTests
+public class StreamPartitionStorageServiceDataTests
 {
     public class TestData { public string Id { get; set; } = "1"; }
 
@@ -26,9 +26,9 @@ public class BPlusTreePartitionStorageServiceTests
         meterFactoryMock.Setup(m => m.Create(It.IsAny<MeterOptions>())).Returns(meter);
         
         var metrics = new PartitionManagerCrdtMetrics(meterFactoryMock.Object);
+        var treeMetrics = new BPlusTreeCrdtMetrics(meterFactoryMock.Object);
 
         var streamProviderMock = new Mock<IPartitionStreamProvider>();
-        var strategyMock = new Mock<IPartitioningStrategy>();
         var serializationMock = new Mock<IPartitionSerializationService>();
 
         var mockStream = new MemoryStream();
@@ -45,11 +45,11 @@ public class BPlusTreePartitionStorageServiceTests
             })
             .Returns(Task.CompletedTask);
 
-        var service = new BPlusTreePartitionStorageService(
+        var service = new StreamPartitionStorageService(
             serviceProviderMock.Object,
-            strategyMock.Object,
             serializationMock.Object,
-            metrics);
+            metrics,
+            treeMetrics);
 
         var originalPartition = new DataPartition(new CompositePartitionKey("A", "B"), null, 0, 0, 0, 0);
         var data = new TestData();

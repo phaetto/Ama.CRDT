@@ -46,11 +46,11 @@
 | `$/Ama.CRDT.UnitTests/Services/CrdtPatcherTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/Models.cs` | Contains simple data models for unit testing path conversion and resolution helpers. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs, and testing new centralized reflection helpers for getting/setting values and retrieving type information. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/BPlusTreePartitioningStrategyTests.cs` | Contains unit tests for `BPlusTreePartitioningStrategy`, verifying initialization, partition finding, and B+ Tree node splitting logic under insertions. It now tests header and property partitions in their separate, isolated indexes. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/BPlusTreePartitionStorageServiceTests.cs` | Contains unit tests for `BPlusTreePartitionStorageService`, verifying its interaction with the stream provider and serialization service, including the behavior of writing headers and allocating space. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionManagerTests.cs` | Contains unit tests for `PartitionManager` and `BPlusTreePartitioningStrategy`, verifying initialization, patch application, and partition splitting logic. It has been updated to reflect the new stream provider and strategy interfaces that distinguish between header and property partitions. |
+| `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionManagerTests.cs` | Contains unit tests for `PartitionManager`, verifying initialization, patch application, and partition splitting logic using a mock `IPartitionStorageService`. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionStorageServiceContractTests.cs` | Contains mock unit tests to verify the `IPartitionStorageService` interface contract. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/Serialization/IndexDefaultSerializationHelperTests.cs` | Contains unit tests for the `IndexDefaultSerializationHelper`, verifying that B+ Tree headers and nodes (with various key types) are correctly serialized to and deserialized from a stream. |
+| `$/Ama.CRDT.UnitTests/Services/Partitioning/Streams/Serialization/DefaultPartitionSerializationServiceTests.cs` | Contains unit tests for the `DefaultPartitionSerializationService`, verifying that B+ Tree headers and nodes (with various key types) are correctly serialized to and deserialized from a stream. |
+| `$/Ama.CRDT.UnitTests/Services/Partitioning/Streams/StreamPartitionStorageServiceDataTests.cs` | Contains unit tests for `StreamPartitionStorageService`, verifying its interaction with the stream provider and serialization service, including the behavior of writing headers and allocating space. |
+| `$/Ama.CRDT.UnitTests/Services/Partitioning/Streams/StreamPartitionStorageServiceIndexTests.cs` | Contains unit tests for `StreamPartitionStorageService`, specifically verifying initialization, partition finding, and B+ Tree node splitting/merging logic under insertions/deletions. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/ArrayLcsStrategyTests.cs` | Contains unit tests for `ArrayLcsStrategy`, focusing on convergence properties under concurrent operations. This file includes a test that specifically reproduces a known bug related to the non-commutative application of array insertion patches. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/AverageRegisterStrategyTests.cs` | Contains unit tests for the `AverageRegisterStrategy`, verifying convergence, idempotence, and commutativity. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/BoundedCounterStrategyTests.cs` | Contains unit tests for the `BoundedCounterStrategy`, verifying that values are correctly clamped within their defined bounds. |
@@ -140,16 +140,16 @@
 | `$/Ama.CRDT/Models/OrMapItem.cs` | Contains payload record structs (`OrMapAddItem`, `OrMapRemoveItem`) for OR-Map (Observed-Remove Map) operations, bundling keys and values with unique tags. |
 | `$/Ama.CRDT/Models/OrSetItem.cs` | Contains payload record structs (`OrSetAddItem`, `OrSetRemoveItem`) for OR-Set (Observed-Remove Set) operations, bundling values with unique tags. |
 | `$/Ama.CRDT/Models/OrSetState.cs` | No description provided. |
-| `$/Ama.CRDT/Models/Partitioning/BPlusTreeNode.cs` | Represents a node in the B+ Tree index, containing keys and either child offsets (for internal nodes) or partition data (for leaf nodes). |
-| `$/Ama.CRDT/Models/Partitioning/BTreeHeader.cs` | Represents the header of the B+ Tree index file, storing metadata like the root node offset, degree of the tree, total partition count, and the next available offset for writing. |
 | `$/Ama.CRDT/Models/Partitioning/CompositePartitionKey.cs` | Represents a composite key for partitioning, consisting of a logical key and a range key. It now uses `IComparable` for keys to support natural sorting of different key types and implements `IComparable` for consistent ordering. |
 | `$/Ama.CRDT/Models/Partitioning/DataPartition.cs` | No description provided. |
-| `$/Ama.CRDT/Models/Partitioning/DataStreamHeader.cs` | Represents the header of a data stream, storing allocation metadata for reusing space. |
-| `$/Ama.CRDT/Models/Partitioning/FreeSpaceState.cs` | Encapsulates the state required for allocating and freeing space within a stream. |
 | `$/Ama.CRDT/Models/Partitioning/HeaderPartition.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Partitioning/IPartition.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Partitioning/PartitionContent.cs` | A data structure representing the data and metadata content of a single partition. |
 | `$/Ama.CRDT/Models/Partitioning/SplitResult.cs` | A data structure representing the result of a partition split operation, containing the content for the two new partitions and the key that divides them. It now uses `IComparable` for the split key to support various key types. |
+| `$/Ama.CRDT/Models/Partitioning/Streams/BPlusTreeNode.cs` | Represents a node in the B+ Tree index, containing keys and either child offsets (for internal nodes) or partition data (for leaf nodes). |
+| `$/Ama.CRDT/Models/Partitioning/Streams/BTreeHeader.cs` | Represents the header of the B+ Tree index file, storing metadata like the root node offset, degree of the tree, total partition count, and the next available offset for writing. |
+| `$/Ama.CRDT/Models/Partitioning/Streams/DataStreamHeader.cs` | Represents the header of a data stream, storing allocation metadata for reusing space. |
+| `$/Ama.CRDT/Models/Partitioning/Streams/FreeSpaceState.cs` | Encapsulates the state required for allocating and freeing space within a stream. |
 | `$/Ama.CRDT/Models/PnCounterState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
@@ -186,15 +186,14 @@
 | `$/Ama.CRDT/Services/Metrics/MetricTimer.cs` | A helper `IDisposable` struct that uses a `Stopwatch` to measure the duration of a code block and records it to a `Histogram` upon disposal. |
 | `$/Ama.CRDT/Services/Metrics/PartitionManagerCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `PartitionManager`. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning. It defines methods for splitting and merging partition data and metadata, and for extracting partition keys from operations and data models. |
-| `$/Ama.CRDT/Services/Partitioning/IPartitioningStrategy.cs` | Defines the contract for a strategy that manages the indexing of data partitions within a stream. Index streams are identified by a property name. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` | Defines the contract for managing a partitioned CRDT document, now supporting asynchronous streaming of partitions via `IAsyncEnumerable` and efficient counting of data partitions for a given logical key. It provides a user-friendly API using property names (`nameof`) and specific methods for header partitions. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionStorageService.cs` | Defines a high-level abstraction for saving and loading partitioned CRDT data and metadata, hiding underlying stream operations. |
-| `$/Ama.CRDT/Services/Partitioning/IPartitionStreamProvider.cs` | Defines a contract for providing data and index streams for logical partitions, enabling extensible storage. It now explicitly separates header streams from property-based streams. |
 | `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a partitioned CRDT document, allowing it to scale beyond memory. It now explicitly separates logic for header and property partitions, using dedicated stream providers and strategy methods to avoid ambiguity. |
-| `$/Ama.CRDT/Services/Partitioning/Serialization/IIndexSerializationHelper.cs` | Defines the contract for serializing and deserializing B+ Tree index components (headers and nodes) to and from a stream. |
-| `$/Ama.CRDT/Services/Partitioning/Serialization/IndexDefaultSerializationHelper.cs` | The default implementation of `IIndexSerializationHelper`, using System.Text.Json for serialization. |
-| `$/Ama.CRDT/Services/Partitioning/StreamSpaceAllocator.cs` | A common utility for allocating and freeing space within a stream, managing in-place updates and free block reuse. |
-| `$/Ama.CRDT/Services/Partitioning/Strategies/BPlusTreePartitioningStrategy.cs` | An implementation of `IPartitioningStrategy` using a B+ Tree. It now internally distinguishes between header and property B-Tree indexes by using dedicated stream provider methods, ensuring data isolation. |
+| `$/Ama.CRDT/Services/Partitioning/Streams/IPartitionStreamProvider.cs` | Defines a contract for providing data and index streams for logical partitions, enabling extensible storage. It now explicitly separates header streams from property-based streams. |
+| `$/Ama.CRDT/Services/Partitioning/Streams/Serialization/DefaultPartitionSerializationService.cs` | The default implementation of `IPartitionSerializationService`, using System.Text.Json for serialization. |
+| `$/Ama.CRDT/Services/Partitioning/Streams/Serialization/IPartitionSerializationService.cs` | Defines the contract for serializing and deserializing B+ Tree index components (headers and nodes) to and from a stream. |
+| `$/Ama.CRDT/Services/Partitioning/Streams/StreamPartitionStorageService.cs` | An implementation of `IPartitionStorageService` that coordinates raw streams and an internal B+ Tree index to persist and search partition data. This centralizes space allocation, caching, and serialization operations. |
+| `$/Ama.CRDT/Services/Partitioning/Streams/StreamSpaceAllocator.cs` | A common utility for allocating and freeing space within a stream, managing in-place updates and free block reuse. |
 | `$/Ama.CRDT/Services/Providers/CrdtStrategyProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/ElementComparerProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `EpochTimestamp` based on Unix milliseconds. |
