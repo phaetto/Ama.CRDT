@@ -2,6 +2,7 @@ namespace Ama.CRDT.Partitioning.Streams.Services.Serialization;
 
 using Ama.CRDT.Models.Partitioning.Streams;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -15,16 +16,18 @@ public interface IPartitionSerializationService
     /// <param name="stream">The stream to write to.</param>
     /// <param name="header">The header object to serialize.</param>
     /// <param name="headerSize">The fixed size allocated for the header.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    Task WriteHeaderAsync(Stream stream, BTreeHeader header, int headerSize);
+    Task WriteHeaderAsync(Stream stream, BTreeHeader header, int headerSize, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Reads the B+ Tree header from the stream.
     /// </summary>
     /// <param name="stream">The stream to read from.</param>
     /// <param name="headerSize">The fixed size of the header.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that resolves to the deserialized header object.</returns>
-    Task<BTreeHeader> ReadHeaderAsync(Stream stream, int headerSize);
+    Task<BTreeHeader> ReadHeaderAsync(Stream stream, int headerSize, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Writes a B+ Tree node to the stream at a specific offset.
@@ -32,32 +35,36 @@ public interface IPartitionSerializationService
     /// <param name="stream">The stream to write to.</param>
     /// <param name="node">The node object to serialize.</param>
     /// <param name="offset">The offset in the stream where writing should begin.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that resolves to the number of bytes written.</returns>
-    Task<long> WriteNodeAsync(Stream stream, BPlusTreeNode node, long offset);
+    Task<long> WriteNodeAsync(Stream stream, BPlusTreeNode node, long offset, CancellationToken cancellationToken = default);
     
     /// <summary>
     /// Reads a B+ Tree node from the stream at a specific offset.
     /// </summary>
     /// <param name="stream">The stream to read from.</param>
     /// <param name="offset">The offset in the stream where reading should begin.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that resolves to the deserialized node object.</returns>
-    Task<BPlusTreeNode> ReadNodeAsync(Stream stream, long offset);
+    Task<BPlusTreeNode> ReadNodeAsync(Stream stream, long offset, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Serializes an object to the provided stream.
     /// </summary>
     /// <param name="stream">The stream to write to.</param>
     /// <param name="content">The object to serialize.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    Task SerializeObjectAsync(Stream stream, object content);
+    Task SerializeObjectAsync(Stream stream, object content, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Deserializes an object from the provided stream.
     /// </summary>
     /// <typeparam name="T">The type to deserialize into.</typeparam>
     /// <param name="stream">The stream to read from.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that resolves to the deserialized object.</returns>
-    Task<T?> DeserializeObjectAsync<T>(Stream stream);
+    Task<T?> DeserializeObjectAsync<T>(Stream stream, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Creates a deep copy of an object using the underlying serialization mechanism.
@@ -71,8 +78,9 @@ public interface IPartitionSerializationService
     /// Serializes a node to a byte array, including its length prefix.
     /// </summary>
     /// <param name="node">The node to serialize.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that resolves to the serialized node as a byte array.</returns>
-    Task<byte[]> SerializeNodeToBytesAsync(BPlusTreeNode node);
+    Task<byte[]> SerializeNodeToBytesAsync(BPlusTreeNode node, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Writes a pre-serialized node byte array to the specified offset.
@@ -80,6 +88,7 @@ public interface IPartitionSerializationService
     /// <param name="stream">The stream to write to.</param>
     /// <param name="nodeBytes">The pre-serialized node bytes.</param>
     /// <param name="offset">The offset in the stream where writing should begin.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    Task WriteNodeBytesAsync(Stream stream, byte[] nodeBytes, long offset);
+    Task WriteNodeBytesAsync(Stream stream, byte[] nodeBytes, long offset, CancellationToken cancellationToken = default);
 }

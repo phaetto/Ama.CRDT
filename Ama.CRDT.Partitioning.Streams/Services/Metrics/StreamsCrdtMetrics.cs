@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Partitioning.Streams.Services.Metrics;
 
+using System;
 using System.Diagnostics.Metrics;
 
 public sealed class StreamsCrdtMetrics
@@ -28,6 +29,8 @@ public sealed class StreamsCrdtMetrics
 
     public StreamsCrdtMetrics(IMeterFactory meterFactory)
     {
+        ArgumentNullException.ThrowIfNull(meterFactory);
+
         meter = meterFactory.Create("Ama.CRDT.Partitioning.Streams");
 
         InitializationDuration = meter.CreateHistogram<double>("crdt.streams.initialization.duration", "ms", "The duration of the B+ Tree index initialization.");
