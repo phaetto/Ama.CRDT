@@ -3,6 +3,7 @@ namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
@@ -12,6 +13,7 @@ using Terminal.Gui;
 public sealed class UiService
 {
     private const string CommentsPropertyName = nameof(BlogPost.Comments);
+    private const string TagsPropertyName = nameof(BlogPost.Tags);
 
     private readonly IServiceProvider serviceProvider;
     private readonly List<string> replicaIds;
@@ -20,17 +22,24 @@ public sealed class UiService
 
     private IServiceScope currentScope;
     private IPartitionManager<BlogPost> partitionManager;
+    private string currentReplicaId;
 
     private Window topPane;
     private FrameView rightPane;
     private ListView postListView;
     private TextView postContentView;
+    private ListView tagsListView;
     private ListView commentListView;
 
     private readonly List<string> displayedComments = new();
+    private readonly List<string> displayedTags = new();
     private readonly List<BlogPostHeader> blogPostHeaders = new();
-    private long totalPartitionCount = 0;
-    private int currentPartitionIndex = -1;
+    
+    private long totalCommentPartitionCount = 0;
+    private int currentCommentPartitionIndex = -1;
+    
+    private long totalTagPartitionCount = 0;
+    private int currentTagPartitionIndex = -1;
     
     private sealed record BlogPostHeader(Guid Id, string Title);
 
@@ -60,6 +69,13 @@ public sealed class UiService
             new MenuBarItem("_File", new[]
             {
                 new MenuItem("_Quit", "", () => Application.RequestStop())
+            }),
+            new MenuBarItem("_Actions", new[]
+            {
+                new MenuItem("_New Post", "", ShowNewPostDialog),
+                new MenuItem("Add _Comment", "", ShowAddCommentDialog),
+                new MenuItem("Add _Tag", "", ShowAddTagDialog),
+                new MenuItem("_Sync Replicas", "", SyncReplicas)
             }),
             new MenuBarItem("_Replica", CreateReplicaMenuItems())
         });
@@ -100,7 +116,16 @@ public sealed class UiService
             ReadOnly = true
         };
 
-        var commentsLabel = new Label("Comments (Loaded On-Demand):") { X = 0, Y = Pos.Bottom(postContentView) + 1 };
+        var tagsLabel = new Label("Tags (Loaded On-Demand):") { X = 0, Y = Pos.Bottom(postContentView) + 1 };
+        tagsListView = new ListView()
+        {
+            X = 0,
+            Y = Pos.Bottom(tagsLabel),
+            Width = Dim.Fill(),
+            Height = Dim.Percent(20),
+        };
+
+        var commentsLabel = new Label("Comments (Loaded On-Demand):") { X = 0, Y = Pos.Bottom(tagsListView) + 1 };
         commentListView = new ListView()
         {
             X = 0,
@@ -108,12 +133,12 @@ public sealed class UiService
             Width = Dim.Fill(),
             Height = Dim.Fill(),
         };
-        rightPane.Add(postContentLabel, postContentView, commentsLabel, commentListView);
-
+        rightPane.Add(postContentLabel, postContentView, tagsLabel, tagsListView, commentsLabel, commentListView);
 
         var statusBar = new StatusBar(new[]
         {
-            new StatusItem(Key.F2, "~F2~ Load Next Partition", LoadNextPartition),
+            new StatusItem(Key.F2, "~F2~ Load Next Partitions", LoadNextPartitions),
+            new StatusItem(Key.F5, "~F5~ Sync Changes", SyncReplicas),
             new StatusItem(Key.CtrlMask | Key.Q, "~^Q~ Quit", () => Application.RequestStop())
         });
 
@@ -134,6 +159,7 @@ public sealed class UiService
 
     private void SwitchReplica(string replicaId)
     {
+        currentReplicaId = replicaId;
         currentScope?.Dispose();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         currentScope = scopeFactory.CreateScope(replicaId);
@@ -156,11 +182,22 @@ public sealed class UiService
             postListView.SetSource(new List<string> { "Loading..." });
             rightPane.Title = "Selected Post";
             postContentView.Text = "";
+            displayedTags.Clear();
+            tagsListView.SetSource(displayedTags);
             displayedComments.Clear();
             commentListView.SetSource(displayedComments);
         });
 
         blogPostHeaders.Clear();
+        var uniqueKeys = await partitionManager.GetAllLogicalKeysAsync();
+        
+        // Add new ids not found in the original list (received from sync)
+        foreach(var key in uniqueKeys.Cast<Guid>()) {
+            if (!blogPostIds.Contains(key)) {
+                blogPostIds.Add(key);
+            }
+        }
+
         foreach (var id in blogPostIds)
         {
             var content = await partitionManager.GetHeaderPartitionContentAsync(id);
@@ -173,6 +210,12 @@ public sealed class UiService
         Application.MainLoop.Invoke(() =>
         {
             postListView.SetSource(blogPostHeaders.Select(h => h.Title).ToList());
+            
+            // Re-select currently selected post if available
+            var index = blogPostHeaders.FindIndex(h => h.Id == selectedBlogPostId);
+            if (index >= 0 && index < postListView.Source.Count) {
+                postListView.SelectedItem = index;
+            }
         });
     }
 
@@ -182,6 +225,8 @@ public sealed class UiService
         {
             rightPane.Title = "Selected Post";
             postContentView.Text = "";
+            displayedTags.Clear();
+            tagsListView.SetSource(displayedTags);
             displayedComments.Clear();
             commentListView.SetSource(displayedComments);
             return;
@@ -199,27 +244,73 @@ public sealed class UiService
             postContentView.Text = post.Content;
         }
 
-        totalPartitionCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
-        currentPartitionIndex = (int)totalPartitionCount;
+        totalTagPartitionCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, TagsPropertyName);
+        currentTagPartitionIndex = (int)totalTagPartitionCount;
+        displayedTags.Clear();
+        tagsListView.SetSource(displayedTags);
+
+        totalCommentPartitionCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
+        currentCommentPartitionIndex = (int)totalCommentPartitionCount;
         displayedComments.Clear();
         commentListView.SetSource(displayedComments);
-        LoadNextPartition();
+        
+        LoadNextPartitions();
     }
 
-    private async void LoadNextPartition()
+    private void LoadNextPartitions()
     {
-        if (currentPartitionIndex - 1 < 0)
+        LoadNextTagPartition();
+        LoadNextCommentPartition();
+    }
+
+    private async void LoadNextTagPartition()
+    {
+        if (currentTagPartitionIndex - 1 < 0)
         {
-            MessageBox.Query("Info", "No more partitions to load.", "Ok");
             return;
         }
 
-        currentPartitionIndex--;
-        var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, currentPartitionIndex, CommentsPropertyName);
+        currentTagPartitionIndex--;
+        var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, currentTagPartitionIndex, TagsPropertyName);
 
         if (partition is null)
         {
-            MessageBox.ErrorQuery("Error", $"Could not load partition at index {currentPartitionIndex}. The index might be out of sync.", "Ok");
+            MessageBox.ErrorQuery("Error", $"Could not load tag partition at index {currentTagPartitionIndex}. The index might be out of sync.", "Ok");
+            return;
+        }
+
+        var content = await partitionManager.GetDataPartitionContentAsync(partition.GetPartitionKey(), TagsPropertyName);
+
+        if (content.HasValue && content.Value.Data?.Tags is { Count: > 0 } tags)
+        {
+            var scrollToIndex = displayedTags.Count;
+            
+            displayedTags.Add($"--- Partition {currentTagPartitionIndex + 1}/{totalTagPartitionCount} ({tags.Count} tags) ---");
+            displayedTags.AddRange(tags);
+
+            tagsListView.SetSource(displayedTags);
+
+            if (scrollToIndex < tagsListView.Source.Count)
+            {
+                tagsListView.TopItem = scrollToIndex;
+                tagsListView.SelectedItem = scrollToIndex;
+            }
+        }
+    }
+
+    private async void LoadNextCommentPartition()
+    {
+        if (currentCommentPartitionIndex - 1 < 0)
+        {
+            return;
+        }
+
+        currentCommentPartitionIndex--;
+        var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, currentCommentPartitionIndex, CommentsPropertyName);
+
+        if (partition is null)
+        {
+            MessageBox.ErrorQuery("Error", $"Could not load comment partition at index {currentCommentPartitionIndex}. The index might be out of sync.", "Ok");
             return;
         }
 
@@ -233,7 +324,7 @@ public sealed class UiService
                 .Select(c => $"[{c.CreatedAt:g}] {c.Author}: {c.Text}")
                 .ToList();
             
-            displayedComments.Add($"--- Partition {currentPartitionIndex + 1}/{totalPartitionCount} ({comments.Count} comments) ---");
+            displayedComments.Add($"--- Partition {currentCommentPartitionIndex + 1}/{totalCommentPartitionCount} ({comments.Count} comments) ---");
             displayedComments.AddRange(newComments);
 
             commentListView.SetSource(displayedComments);
@@ -244,5 +335,183 @@ public sealed class UiService
                 commentListView.SelectedItem = scrollToIndex;
             }
         }
+    }
+
+    private void ShowNewPostDialog()
+    {
+        var dialog = new Dialog("Create New Post", 60, 14);
+        var titleLabel = new Label("Title:") { X = 1, Y = 1 };
+        var titleText = new TextField("") { X = 10, Y = 1, Width = 40 };
+        var contentLabel = new Label("Content:") { X = 1, Y = 3 };
+        var contentText = new TextView() { X = 10, Y = 3, Width = 40, Height = 4 };
+
+        var btnOk = new Button("Create", is_default: true);
+        var btnCancel = new Button("Cancel");
+
+        btnOk.Clicked += async () => {
+            Application.RequestStop();
+            var title = titleText.Text?.ToString();
+            var content = contentText.Text?.ToString();
+            if (string.IsNullOrWhiteSpace(title)) return;
+
+            var id = Guid.NewGuid();
+            var newPost = new BlogPost { Id = id, Title = title, Content = content ?? "" };
+            
+            await partitionManager.InitializeAsync(new BlogPost { Id = id });
+            var emptyDoc = await partitionManager.GetHeaderPartitionContentAsync(id);
+            var patcher = currentScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+            
+            var patch = patcher.GeneratePatch(emptyDoc.Value, newPost);
+            patch = patch with { LogicalKey = id };
+            await partitionManager.ApplyPatchAsync(patch);
+
+            var syncService = serviceProvider.GetRequiredService<SyncService>();
+            syncService.QueuePatch(currentReplicaId, patch, replicaIds);
+
+            Application.MainLoop.Invoke(() => {
+                if (!blogPostIds.Contains(id)) {
+                    blogPostIds.Add(id);
+                }
+                LoadBlogPostHeadersAsync();
+            });
+        };
+        btnCancel.Clicked += () => Application.RequestStop();
+
+        dialog.AddButton(btnOk);
+        dialog.AddButton(btnCancel);
+        dialog.Add(titleLabel, titleText, contentLabel, contentText);
+        Application.Run(dialog);
+    }
+
+    private void ShowAddCommentDialog()
+    {
+        if (selectedBlogPostId == Guid.Empty) {
+            MessageBox.ErrorQuery("Error", "Please select a post first.", "Ok");
+            return;
+        }
+
+        var dialog = new Dialog("Add Comment", 50, 10);
+        var authorLabel = new Label("Author:") { X = 1, Y = 1 };
+        var authorText = new TextField("User") { X = 10, Y = 1, Width = 30 };
+        var contentLabel = new Label("Text:") { X = 1, Y = 3 };
+        var contentText = new TextField("") { X = 10, Y = 3, Width = 30 };
+
+        var btnOk = new Button("Add", is_default: true);
+        var btnCancel = new Button("Cancel");
+
+        btnOk.Clicked += async () => {
+            Application.RequestStop();
+            var author = authorText.Text?.ToString();
+            var content = contentText.Text?.ToString();
+            if (string.IsNullOrWhiteSpace(author) || string.IsNullOrWhiteSpace(content)) return;
+
+            var comment = new Comment(Guid.NewGuid(), author, content, DateTimeOffset.UtcNow);
+            
+            var headerContent = await partitionManager.GetHeaderPartitionContentAsync(selectedBlogPostId);
+            var patcher = currentScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+            
+            var fromDoc = new CrdtDocument<BlogPost>(new BlogPost { Id = selectedBlogPostId, Comments = new Dictionary<DateTimeOffset, Comment>() }, headerContent.Value.Metadata);
+            var toState = new BlogPost { Id = selectedBlogPostId, Comments = new Dictionary<DateTimeOffset, Comment> { { comment.CreatedAt, comment } } };
+            
+            var patch = patcher.GeneratePatch(fromDoc, toState);
+            patch = patch with { LogicalKey = selectedBlogPostId };
+            await partitionManager.ApplyPatchAsync(patch);
+
+            var syncService = serviceProvider.GetRequiredService<SyncService>();
+            syncService.QueuePatch(currentReplicaId, patch, replicaIds);
+
+            totalCommentPartitionCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
+            currentCommentPartitionIndex = (int)totalCommentPartitionCount;
+            
+            Application.MainLoop.Invoke(() => {
+                displayedComments.Clear();
+                LoadNextCommentPartition();
+            });
+        };
+        btnCancel.Clicked += () => Application.RequestStop();
+
+        dialog.AddButton(btnOk);
+        dialog.AddButton(btnCancel);
+        dialog.Add(authorLabel, authorText, contentLabel, contentText);
+        Application.Run(dialog);
+    }
+
+    private void ShowAddTagDialog()
+    {
+        if (selectedBlogPostId == Guid.Empty) {
+            MessageBox.ErrorQuery("Error", "Please select a post first.", "Ok");
+            return;
+        }
+
+        var dialog = new Dialog("Add Tag", 40, 8);
+        var tagLabel = new Label("Tag:") { X = 1, Y = 1 };
+        var tagText = new TextField("") { X = 6, Y = 1, Width = 20 };
+
+        var btnOk = new Button("Add", is_default: true);
+        var btnCancel = new Button("Cancel");
+
+        btnOk.Clicked += async () => {
+            Application.RequestStop();
+            var newTag = tagText.Text?.ToString();
+            if (string.IsNullOrWhiteSpace(newTag)) return;
+
+            var headerContent = await partitionManager.GetHeaderPartitionContentAsync(selectedBlogPostId);
+            var patcher = currentScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+            
+            var header = headerContent.Value.Data;
+            var fromDoc = new CrdtDocument<BlogPost>(header, headerContent.Value.Metadata);
+            
+            var toState = new BlogPost { Id = header.Id, Title = header.Title, Content = header.Content, Tags = header.Tags.ToList() };
+            toState.Tags.Add(newTag);
+            
+            var patch = patcher.GeneratePatch(fromDoc, toState);
+            patch = patch with { LogicalKey = selectedBlogPostId };
+            await partitionManager.ApplyPatchAsync(patch);
+
+            var syncService = serviceProvider.GetRequiredService<SyncService>();
+            syncService.QueuePatch(currentReplicaId, patch, replicaIds);
+
+            Application.MainLoop.Invoke(() => {
+                var index = blogPostHeaders.FindIndex(h => h.Id == selectedBlogPostId);
+                if (index >= 0) {
+                    OnPostSelected(new ListViewItemEventArgs(index, null));
+                }
+            });
+        };
+        btnCancel.Clicked += () => Application.RequestStop();
+
+        dialog.AddButton(btnOk);
+        dialog.AddButton(btnCancel);
+        dialog.Add(tagLabel, tagText);
+        Application.Run(dialog);
+    }
+
+    private async void SyncReplicas()
+    {
+        var syncService = serviceProvider.GetRequiredService<SyncService>();
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        int syncCount = 0;
+
+        foreach (var replica in replicaIds.Where(r => r != currentReplicaId))
+        {
+            using var scope = scopeFactory.CreateScope(replica);
+            var targetPartitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
+            
+            while (syncService.TryDequeue(replica, out var patch))
+            {
+                var keys = await targetPartitionManager.GetAllLogicalKeysAsync();
+                if (!keys.Contains((Guid)patch.LogicalKey))
+                {
+                    await targetPartitionManager.InitializeAsync(new BlogPost { Id = (Guid)patch.LogicalKey });
+                }
+                await targetPartitionManager.ApplyPatchAsync(patch);
+                syncCount++;
+            }
+        }
+
+        Application.MainLoop.Invoke(() => {
+            MessageBox.Query("Sync Complete", $"Successfully synced {syncCount} patches to other replicas.", "Ok");
+            LoadBlogPostHeadersAsync();
+        });
     }
 }

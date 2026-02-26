@@ -7,6 +7,7 @@ using Ama.CRDT.ShowCase.LargerThanMemory.Models;
 using Bogus;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 public sealed class DataGeneratorService(
@@ -15,8 +16,10 @@ public sealed class DataGeneratorService(
     ICrdtMetadataManager metadataManager)
 {
     private const int BlogPostCount = 10;
-    private const int MinCommentsPerPost = 5000;
+    private const int MinCommentsPerPost = 1000;
     private const int MaxCommentsPerPost = 10000;
+    private const int MinTagsPerPost = 20;
+    private const int MaxTagsPerPost = 200;
     private const int BatchSize = 10;
     private static readonly DateTimeOffset NewestCommentDate = DateTimeOffset.UtcNow;
 
@@ -38,11 +41,13 @@ public sealed class DataGeneratorService(
             ));
         
         var random = new Random();
+        var faker = new Faker();
 
         for (int i = 0; i < BlogPostCount; i++)
         {
             var blogPost = blogPostFaker.Generate();
             blogPost.Comments = new Dictionary<DateTimeOffset, Comment>(); // Start with empty comments
+            blogPost.Tags = new List<string>(); // Start empty, will be seeded via patch to showcase strategy
 
             Console.WriteLine($"Generating post '{blogPost.Title}'...");
             await partitionManager.InitializeAsync(blogPost);
@@ -50,6 +55,20 @@ public sealed class DataGeneratorService(
             // Get the initial document with its server-side generated metadata. This is cheap as the collection is empty.
             var crdtDocument = await partitionManager.GetHeaderPartitionContentAsync(blogPost.Id);
             var metadata = crdtDocument.Value.Metadata;
+
+            // Generate tags and create a patch to showcase Array LCS strategy
+            var tags = faker.Lorem.Words(random.Next(MinTagsPerPost, MaxTagsPerPost)).ToList();
+            var fromDocForTags = new CrdtDocument<BlogPost>(
+                new BlogPost { Id = blogPost.Id, Title = blogPost.Title, Content = blogPost.Content, Tags = new List<string>() },
+                metadata);
+            
+            var toStateForTags = new BlogPost { Id = blogPost.Id, Title = blogPost.Title, Content = blogPost.Content, Tags = tags };
+            var tagsPatch = patcher.GeneratePatch(fromDocForTags, toStateForTags);
+            tagsPatch = tagsPatch with { LogicalKey = blogPost.Id };
+            await partitionManager.ApplyPatchAsync(tagsPatch);
+
+            // Update local metadata manually because we need it for comments later
+            foreach (var op in tagsPatch.Operations) metadataManager.AdvanceVersionVector(metadata, op);
 
             var totalComments = random.Next(MinCommentsPerPost, MaxCommentsPerPost + 1);
             var commentsGenerated = 0;

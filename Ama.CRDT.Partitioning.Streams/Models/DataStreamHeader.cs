@@ -1,4 +1,4 @@
-namespace Ama.CRDT.Models.Partitioning.Streams;
+namespace Ama.CRDT.Partitioning.Streams.Models;
 
 using System.Collections.Generic;
 

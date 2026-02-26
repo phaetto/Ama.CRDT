@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
-using Ama.CRDT.Models.Partitioning.Streams;
+using Ama.CRDT.Partitioning.Streams.Models;
 using Ama.CRDT.Partitioning.Streams.Services.Serialization;
 using Shouldly;
 using Xunit;

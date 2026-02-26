@@ -19,14 +19,30 @@
 | `$/Ama.CRDT.Benchmarks/Models/StrategyPoco.cs` | A data model containing properties decorated with attributes for each supported CRDT strategy, used for isolated strategy benchmarking. |
 | `$/Ama.CRDT.Benchmarks/Program.cs` | The entry point for the benchmark runner. |
 | `$/Ama.CRDT.Benchmarks/README.md` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams.UnitTests/Ama.CRDT.Partitioning.Streams.UnitTests.csproj` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams.UnitTests/Serialization/DefaultPartitionSerializationServiceTests.cs` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams.UnitTests/StreamPartitionStorageServiceDataTests.cs` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams.UnitTests/StreamPartitionStorageServiceIndexTests.cs` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams/Ama.CRDT.Partitioning.Streams.csproj` | No description provided. |
 | `$/Ama.CRDT.Partitioning.Streams/Extensions/StreamPartitioningServiceCollectionExtensions.cs` | Provides dependency injection extension methods to register the new stream-based partitioning module. |
+| `$/Ama.CRDT.Partitioning.Streams/Models/BPlusTreeNode.cs` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams/Models/BTreeHeader.cs` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams/Models/DataStreamHeader.cs` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams/Models/FreeSpaceState.cs` | No description provided. |
 | `$/Ama.CRDT.Partitioning.Streams/README.md` | Details the features and provides usage examples for setting up dependency injection and integrating stream providers for partition persistence. |
+| `$/Ama.CRDT.Partitioning.Streams/Services/IPartitionStreamProvider.cs` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams/Services/Metrics/StreamsCrdtMetrics.cs` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams/Services/Serialization/DefaultPartitionSerializationService.cs` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams/Services/Serialization/IPartitionSerializationService.cs` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams/Services/StreamPartitionStorageService.cs` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams/Services/StreamSpaceAllocator.cs` | No description provided. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/BlogPost.cs` | The root data model for the showcase, representing a blog post. It is decorated with `[PartitionKey]` and its `Comments` list uses `[CrdtArrayLcsStrategy]` to enable partitioning. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/Comment.cs` | A simple record representing a comment in the blog post. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Program.cs` | The main entry point for the showcase application, responsible for setting up dependency injection and starting the simulation. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/DataGeneratorService.cs` | A service responsible for programmatically generating a configurable number of blog posts, each with a random number of comments, to demonstrate the system's ability to handle large, partitioned datasets. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/FileSystemPartitionStreamProvider.cs` | An implementation of `IPartitionStreamProvider` that stores CRDT index and data files on the local filesystem, organized into directories for each replica. It now explicitly separates header and property streams. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/SyncService.cs` | Simulates a network synchronization queue for patches. Keeps track of patches that need to be pushed to other replicas, demonstrating syncing mechanics between disconnected environments. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/UiService.cs` | Implements the `Terminal.Gui`-based user interface for browsing blog posts. It displays post titles, content, and comments, demonstrating on-demand loading of data from partitions. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/SimulationRunner.cs` | Orchestrates the showcase by checking for existing data, triggering the data generation process if needed, and launching the user interface. It uses `IPartitionManager` to discover existing documents at startup. |
 | `$/Ama.CRDT.ShowCase/Ama.CRDT.ShowCase.csproj` | The project file for the showcase console application. |
@@ -50,15 +66,11 @@
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs, and testing new centralized reflection helpers for getting/setting values and retrieving type information. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionManagerTests.cs` | Contains unit tests for `PartitionManager`, verifying initialization, patch application, and partition splitting logic using a mock `IPartitionStorageService`. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionStorageServiceContractTests.cs` | Contains mock unit tests to verify the `IPartitionStorageService` interface contract. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/Streams/Serialization/DefaultPartitionSerializationServiceTests.cs` | Contains unit tests for the `DefaultPartitionSerializationService`, verifying that B+ Tree headers and nodes (with various key types) are correctly serialized to and deserialized from a stream. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/Streams/StreamPartitionStorageServiceDataTests.cs` | Contains unit tests for `StreamPartitionStorageService`, verifying its interaction with the stream provider and serialization service, including the behavior of writing headers and allocating space. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/Streams/StreamPartitionStorageServiceIndexTests.cs` | Contains unit tests for `StreamPartitionStorageService`, specifically verifying initialization, partition finding, and B+ Tree node splitting/merging logic under insertions/deletions. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/ArrayLcsStrategyTests.cs` | Contains unit tests for `ArrayLcsStrategy`, focusing on convergence properties under concurrent operations. This file includes a test that specifically reproduces a known bug related to the non-commutative application of array insertion patches. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/AverageRegisterStrategyTests.cs` | Contains unit tests for the `AverageRegisterStrategy`, verifying convergence, idempotence, and commutativity. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/BoundedCounterStrategyTests.cs` | Contains unit tests for the `BoundedCounterStrategy`, verifying that values are correctly clamped within their defined bounds. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/CounterMapStrategyTests.cs` | Contains unit tests for `CounterMapStrategy`, verifying convergence and correct patch generation for concurrent increments and decrements on dictionary keys. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/CounterStrategyTests.cs` | Contains unit tests for the `CounterStrategy` implementation, verifying both patch generation and its simplified, unconditional data application logic. |
-| `$/Ama.CRDT.UnitTests/Services/Strategies/ExclusiveLockStrategyTests.cs` | Contains unit tests for the `ExclusiveLockStrategy`, verifying convergence, LWW-based conflict resolution, and rejection of changes when a lock is held by another party. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/FixedSizeArrayStrategyTests.cs` | Contains unit tests for the `FixedSizeArrayStrategy`, verifying convergence and idempotence for concurrent updates. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GCounterStrategyTests.cs` | Contains unit tests for the `GCounterStrategy`, ensuring it only generates and applies positive increments. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GraphStrategyTests.cs` | Contains unit tests for `GraphStrategy`, verifying convergence and correct patch generation for concurrent additions of vertices and edges. |
@@ -87,7 +99,6 @@
 | `$/Ama.CRDT/Attributes/CrdtBoundedCounterStrategyAttribute.cs` | An attribute to mark a numeric property as a Bounded Counter, which clamps its value within a specified min/max range. |
 | `$/Ama.CRDT/Attributes/CrdtCounterMapStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the Counter-Map strategy, where each key is treated as an independent PN-Counter. |
 | `$/Ama.CRDT/Attributes/CrdtCounterStrategyAttribute.cs` | No description provided. |
-| `$/Ama.CRDT/Attributes/CrdtExclusiveLockStrategyAttribute.cs` | An attribute to mark a property to be managed by the Exclusive Lock strategy. It uses LWW for conflict resolution and requires a path to a property on the root object that holds the lock holder's ID. |
 | `$/Ama.CRDT/Attributes/CrdtFixedSizeArrayStrategyAttribute.cs` | An attribute to mark a collection property as a fixed-size array, where each index is an LWW-Register. |
 | `$/Ama.CRDT/Attributes/CrdtGCounterStrategyAttribute.cs` | An attribute to mark a numeric property as a G-Counter (Grow-Only Counter), which only permits positive increments. |
 | `$/Ama.CRDT/Attributes/CrdtGraphStrategyAttribute.cs` | An attribute to mark a `CrdtGraph` property to be managed by the Graph strategy. |
@@ -129,11 +140,9 @@
 | `$/Ama.CRDT/Models/CrdtTree.cs` | A data model for a tree data structure with nodes that can be added, removed, and moved, suitable for CRDT management. |
 | `$/Ama.CRDT/Models/Edge.cs` | No description provided. |
 | `$/Ama.CRDT/Models/EpochTimestamp.cs` | A default, backward-compatible implementation of `ICrdtTimestamp` that wraps a `long` value representing Unix milliseconds. |
-| `$/Ama.CRDT/Models/ExclusiveLockPayload.cs` | A data structure for the payload of an Exclusive Lock operation, containing the property value and the lock holder's ID. |
 | `$/Ama.CRDT/Models/GraphEdgePayload.cs` | A data structure for the payload of a graph edge operation. |
 | `$/Ama.CRDT/Models/GraphVertexPayload.cs` | A data structure for the payload of a graph vertex operation. |
 | `$/Ama.CRDT/Models/ICrdtTimestamp.cs` | Represents a logical point in time for a CRDT operation, allowing for different timestamping mechanisms. |
-| `$/Ama.CRDT/Models/LockInfo.cs` | No description provided. |
 | `$/Ama.CRDT/Models/LseqIdentifier.cs` | A record struct for the dense, ordered identifier used in LSEQ, composed of a path of `LseqPathSegment` instances. |
 | `$/Ama.CRDT/Models/LseqItem.cs` | A record struct that pairs an LseqIdentifier with its corresponding value in the LSEQ metadata. |
 | `$/Ama.CRDT/Models/LseqPathSegment.cs` | Represents a single, serializable segment in an LSEQ identifier's path, containing a position and a replica ID. |
@@ -148,10 +157,6 @@
 | `$/Ama.CRDT/Models/Partitioning/IPartition.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Partitioning/PartitionContent.cs` | A data structure representing the data and metadata content of a single partition. |
 | `$/Ama.CRDT/Models/Partitioning/SplitResult.cs` | A data structure representing the result of a partition split operation, containing the content for the two new partitions and the key that divides them. It now uses `IComparable` for the split key to support various key types. |
-| `$/Ama.CRDT/Models/Partitioning/Streams/BPlusTreeNode.cs` | Represents a node in the B+ Tree index, containing keys and either child offsets (for internal nodes) or partition data (for leaf nodes). |
-| `$/Ama.CRDT/Models/Partitioning/Streams/BTreeHeader.cs` | Represents the header of the B+ Tree index file, storing metadata like the root node offset, degree of the tree, total partition count, and the next available offset for writing. |
-| `$/Ama.CRDT/Models/Partitioning/Streams/DataStreamHeader.cs` | Represents the header of a data stream, storing allocation metadata for reusing space. |
-| `$/Ama.CRDT/Models/Partitioning/Streams/FreeSpaceState.cs` | Encapsulates the state required for allocating and freeing space within a stream. |
 | `$/Ama.CRDT/Models/PnCounterState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
@@ -184,18 +189,12 @@
 | `$/Ama.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing CRDT metadata. Its responsibilities include initializing, resetting, cloning, merging, and compacting metadata state such as LWW timestamps, positional trackers, and version vectors. This service is critical for enabling conflict-free merges by externalizing the state needed for resolution. |
 | `$/Ama.CRDT/Services/ICrdtPatcher.cs` | Defines the contract for a service that compares two versions of a data model and generates a CRDT patch. |
 | `$/Ama.CRDT/Services/ICrdtScopeFactory.cs` | Defines the contract for a factory that creates isolated `IServiceScope` instances for CRDT replicas, each configured with a unique replica ID. |
-| `$/Ama.CRDT/Services/Metrics/BPlusTreeCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `BPlusTreePartitioningStrategy`. |
 | `$/Ama.CRDT/Services/Metrics/MetricTimer.cs` | A helper `IDisposable` struct that uses a `Stopwatch` to measure the duration of a code block and records it to a `Histogram` upon disposal. |
 | `$/Ama.CRDT/Services/Metrics/PartitionManagerCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `PartitionManager`. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning. It defines methods for splitting and merging partition data and metadata, and for extracting partition keys from operations and data models. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` | Defines the contract for managing a partitioned CRDT document, now supporting asynchronous streaming of partitions via `IAsyncEnumerable` and efficient counting of data partitions for a given logical key. It provides a user-friendly API using property names (`nameof`) and specific methods for header partitions. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionStorageService.cs` | Defines a high-level abstraction for saving and loading partitioned CRDT data and metadata, hiding underlying stream operations. |
 | `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a partitioned CRDT document, allowing it to scale beyond memory. It now explicitly separates logic for header and property partitions, using dedicated stream providers and strategy methods to avoid ambiguity. |
-| `$/Ama.CRDT/Services/Partitioning/Streams/IPartitionStreamProvider.cs` | Defines a contract for providing data and index streams for logical partitions, enabling extensible storage. It now explicitly separates header streams from property-based streams. |
-| `$/Ama.CRDT/Services/Partitioning/Streams/Serialization/DefaultPartitionSerializationService.cs` | The default implementation of `IPartitionSerializationService`, using System.Text.Json for serialization. |
-| `$/Ama.CRDT/Services/Partitioning/Streams/Serialization/IPartitionSerializationService.cs` | Defines the contract for serializing and deserializing B+ Tree index components (headers and nodes) to and from a stream. |
-| `$/Ama.CRDT/Services/Partitioning/Streams/StreamPartitionStorageService.cs` | An implementation of `IPartitionStorageService` that coordinates raw streams and an internal B+ Tree index to persist and search partition data. This centralizes space allocation, caching, and serialization operations. |
-| `$/Ama.CRDT/Services/Partitioning/Streams/StreamSpaceAllocator.cs` | A common utility for allocating and freeing space within a stream, managing in-place updates and free block reuse. |
 | `$/Ama.CRDT/Services/Providers/CrdtStrategyProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/ElementComparerProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `EpochTimestamp` based on Unix milliseconds. |
@@ -211,7 +210,6 @@
 | `$/Ama.CRDT/Services/Strategies/BoundedCounterStrategy.cs` | Implements a counter that is clamped within a specified minimum and maximum value. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/CounterMapStrategy.cs` | Implements the Counter-Map strategy, where each key in a dictionary is treated as an independent PN-Counter. |
 | `$/Ama.CRDT/Services/Strategies/CounterStrategy.cs` | Implements the CRDT Counter strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get the current value and apply the increment. |
-| `$/Ama.CRDT/Services/Strategies/ExclusiveLockStrategy.cs` | Implements an optimistic exclusive lock strategy. Changes are only generated or applied if the lock is not held by a conflicting party. Lock state is resolved using LWW. |
 | `$/Ama.CRDT/Services/Strategies/FixedSizeArrayStrategy.cs` | Implements a strategy for fixed-size arrays where each index is an LWW-Register. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/GCounterStrategy.cs` | Implements the G-Counter (Grow-Only Counter) strategy, which only allows for positive increments. |
 | `$/Ama.CRDT/Services/Strategies/GeneratePatchContext.cs` | Defines the context object for the `ICrdtStrategy.GeneratePatch` method, encapsulating all necessary parameters. |
@@ -236,3 +234,58 @@
 | `$/Ama.CRDT/Services/Strategies/TwoPhaseSetStrategy.cs` | Implements the 2P-Set (Two-Phase Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/VoteCounterStrategy.cs` | Implements the Vote Counter strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get dictionary key/value types. |
 | `$/CodingStandards.md` | Contains the coding standards for the project, including versioning and publishing guidelines. |
+| `$/features/allow-to-choose-strategy-using-attributes-specs/01-crdt-strategy-attribute-and-interface.md` | No description provided. |
+| `$/features/allow-to-choose-strategy-using-attributes-specs/02-lww-strategy-implementation.md` | No description provided. |
+| `$/features/allow-to-choose-strategy-using-attributes-specs/03-counter-strategy-implementation.md` | No description provided. |
+| `$/features/allow-to-choose-strategy-using-attributes-specs/04-refactor-patcher-to-use-strategies.md` | No description provided. |
+| `$/features/allow-to-choose-strategy-using-attributes-specs/05-01-arraylcsstrategy-needs-to-check-deep-objects.md` | No description provided. |
+| `$/features/allow-to-choose-strategy-using-attributes-specs/05-02-manage-metadata-state-deifferently-in-strategies.md` | No description provided. |
+| `$/features/allow-to-choose-strategy-using-attributes-specs/05-03-make-sure-there-are-reset-functions-for-the-state-to-keep-it-small.md` | No description provided. |
+| `$/features/allow-to-choose-strategy-using-attributes-specs/05-refactor-applicator-to-use-strategies.md` | No description provided. |
+| `$/features/allow-to-choose-strategy-using-attributes-specs/06-01-optimize-the-application-benchmarks.md` | No description provided. |
+| `$/features/allow-to-choose-strategy-using-attributes-specs/06-02-rewrite-node-management-to-reflection.md` | No description provided. |
+| `$/features/allow-to-choose-strategy-using-attributes-specs/06-create-benchmark-project.md` | No description provided. |
+| `$/features/allow-to-choose-strategy-using-attributes-specs/07-update-readme-documentation.md` | No description provided. |
+| `$/features/allow-to-choose-strategy-using-attributes.md` | No description provided. |
+| `$/features/design.png` | No description provided. |
+| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/01-core-crdt-data-structures.md` | No description provided. |
+| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/02-json-diff-and-patch-generation.md` | No description provided. |
+| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/03-json-patch-application.md` | No description provided. |
+| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/04-public-api-and-integration.md` | No description provided. |
+| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/put-the-lww-structures-in-metadata.md` | No description provided. |
+| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services.md` | No description provided. |
+| `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/01-create-partition-serialization-service.md` | No description provided. |
+| `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/02-define-partition-storage-interface.md` | No description provided. |
+| `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/03-implement-bplustree-storage-service.md` | No description provided. |
+| `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/04-refactor-partition-manager.md` | No description provided. |
+| `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/05-update-tests-and-showcase.md` | No description provided. |
+| `$/features/refactoring-of-streams-to-be-handled-by-special-service.md` | No description provided. |
+| `$/FilesDescription.md` | No description provided. |
+| `$/LICENSE` | No description provided. |
+| `$/README.md` | No description provided. |
+| `$/solution.settings.json` | No description provided. |
+| `$/Specs/add-approval-quorum-strategy.md` | No description provided. |
+| `$/Specs/add-leader-election-strategy.md` | No description provided. |
+| `$/Specs/add-more-text-specific-strategies.md` | No description provided. |
+| `$/Specs/create-larger-than-memory-showcase.md` | No description provided. |
+| `$/Specs/done/add-composite-partition-keys.md` | No description provided. |
+| `$/Specs/done/add-counter-map-strategy.md` | No description provided. |
+| `$/Specs/done/add-exclusive-lock-strategy.md` | No description provided. |
+| `$/Specs/done/add-more-list-and-sequence-strategies.md` | No description provided. |
+| `$/Specs/done/add-more-numeric-and-value-based-strategies.md` | No description provided. |
+| `$/Specs/done/add-more-object-and-map-strategies.md` | No description provided. |
+| `$/Specs/done/add-more-set-strategies.md` | No description provided. |
+| `$/Specs/done/add-more-specialized-data-structure-strategies.md` | No description provided. |
+| `$/Specs/done/add-roslyn-analyzers.md` | No description provided. |
+| `$/Specs/done/add-state-machine-strategy.md` | No description provided. |
+| `$/Specs/done/add-vote-counter-strategy.md` | No description provided. |
+| `$/Specs/done/create-example-console-app-that-show-cases-the-crdts-with-out-locks.md` | No description provided. |
+| `$/Specs/done/fix-the-brittle-header-partition.md` | No description provided. |
+| `$/Specs/done/implement-correctly-lcs-list-strategy.md` | No description provided. |
+| `$/Specs/done/introduce-partitioning-for-larger-than-memory-data.md` | No description provided. |
+| `$/Specs/done/make-package-dev-friendly.md` | No description provided. |
+| `$/Specs/done/make-the-api-surface-better.md` | No description provided. |
+| `$/Specs/done/partition-manager-needs-to-be-data-neutral.md` | No description provided. |
+| `$/Specs/done/publish-as-a-nuget-package.md` | No description provided. |
+| `$/Specs/done/readme-update-2025-08-24.md` | No description provided. |
+| `$/Specs/done/support-multiple-properties-for-partition-manager.md` | No description provided. |
