@@ -9,7 +9,7 @@ var builder = Host.CreateDefaultBuilder(args);
 builder.ConfigureServices((context, services) =>
 {
     services.AddCrdt();
-    services.AddCrdtPartitionStreamProvider<FileSystemPartitionStreamProvider>();
+    services.AddCrdtStreamPartitioning<FileSystemPartitionStreamProvider>();
 
     services.AddScoped<DataGeneratorService>();
     services.AddScoped<UiService>();

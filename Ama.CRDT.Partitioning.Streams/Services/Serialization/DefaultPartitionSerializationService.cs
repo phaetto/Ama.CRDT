@@ -1,4 +1,4 @@
-namespace Ama.CRDT.Services.Partitioning.Streams.Serialization;
+namespace Ama.CRDT.Partitioning.Streams.Services.Serialization;
 
 using Ama.CRDT.Models.Partitioning.Streams;
 using Ama.CRDT.Models.Serialization;

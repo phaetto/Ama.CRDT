@@ -9,12 +9,13 @@
 
   <ItemGroup>
     <PackageReference Include="Bogus" Version="35.5.1" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0-preview.5.24306.7" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.8" />
     <PackageReference Include="Terminal.Gui" Version="1.16.0" />
   </ItemGroup>
   
   <ItemGroup>
     <ProjectReference Include="..\Ama.CRDT.Analyzers\Ama.CRDT.Analyzers.csproj" />
+    <ProjectReference Include="..\Ama.CRDT.Partitioning.Streams\Ama.CRDT.Partitioning.Streams.csproj" />
     <ProjectReference Include="..\Ama.CRDT\Ama.CRDT.csproj" />
   </ItemGroup>
 

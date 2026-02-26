@@ -7,7 +7,6 @@ All field names should not be prefixed by underscore.
 You should use interfaces for IEnumerable, IList, IDictionary when possible.
 Add sealed in the classes that are not inherited.
 Use readonly record struct for data structures.
-Do not put comments in code. Only if there is something unique happening.
 Interfaces should be in their own file.
 Use xUnit, Moq and Shouldly when changing things in unt tests.
 Put all the private methods towards the end of a file.
