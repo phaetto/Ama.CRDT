@@ -1,10 +1,11 @@
-namespace Ama.CRDT.UnitTests.Services.Partitioning.Streams;
+namespace Ama.CRDT.Partitioning.Streams.UnitTests;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Partitioning.Streams.Services;
+using Ama.CRDT.Partitioning.Streams.Services.Metrics;
+using Ama.CRDT.Partitioning.Streams.Services.Serialization;
 using Ama.CRDT.Services.Metrics;
-using Ama.CRDT.Services.Partitioning.Streams;
-using Ama.CRDT.Services.Partitioning.Streams.Serialization;
 using Moq;
 using Shouldly;
 using System;
@@ -26,7 +27,7 @@ public class StreamPartitionStorageServiceDataTests
         meterFactoryMock.Setup(m => m.Create(It.IsAny<MeterOptions>())).Returns(meter);
         
         var metrics = new PartitionManagerCrdtMetrics(meterFactoryMock.Object);
-        var treeMetrics = new BPlusTreeCrdtMetrics(meterFactoryMock.Object);
+        var treeMetrics = new StreamsCrdtMetrics(meterFactoryMock.Object);
 
         var streamProviderMock = new Mock<IPartitionStreamProvider>();
         var serializationMock = new Mock<IPartitionSerializationService>();

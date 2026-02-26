@@ -1,10 +1,13 @@
-namespace Ama.CRDT.Services.Partitioning.Streams;
+using Ama.CRDT.Services.Partitioning;
+
+namespace Ama.CRDT.Partitioning.Streams.Services;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Models.Partitioning.Streams;
+using Ama.CRDT.Partitioning.Streams.Services.Metrics;
+using Ama.CRDT.Partitioning.Streams.Services.Serialization;
 using Ama.CRDT.Services.Metrics;
-using Ama.CRDT.Services.Partitioning.Streams.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
@@ -28,7 +31,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     private readonly IPartitionStreamProvider streamProvider;
     private readonly IPartitionSerializationService serializationService;
     private readonly PartitionManagerCrdtMetrics metrics;
-    private readonly BPlusTreeCrdtMetrics treeMetrics;
+    private readonly StreamsCrdtMetrics treeMetrics;
 
     // Cache for B+ Tree nodes, keyed by (propertyName, offset) to support multiple index streams.
     private readonly Dictionary<(string, long), LinkedListNode<KeyValuePair<(string, long), BPlusTreeNode>>> nodeCache = new();
@@ -38,7 +41,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         IServiceProvider serviceProvider,
         IPartitionSerializationService serializationService,
         PartitionManagerCrdtMetrics metrics,
-        BPlusTreeCrdtMetrics treeMetrics)
+        StreamsCrdtMetrics treeMetrics)
     {
         this.streamProvider = serviceProvider.GetService<IPartitionStreamProvider>() ??
             throw new InvalidOperationException(

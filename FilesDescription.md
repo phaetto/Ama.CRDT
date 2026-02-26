@@ -19,6 +19,8 @@
 | `$/Ama.CRDT.Benchmarks/Models/StrategyPoco.cs` | A data model containing properties decorated with attributes for each supported CRDT strategy, used for isolated strategy benchmarking. |
 | `$/Ama.CRDT.Benchmarks/Program.cs` | The entry point for the benchmark runner. |
 | `$/Ama.CRDT.Benchmarks/README.md` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams/Extensions/StreamPartitioningServiceCollectionExtensions.cs` | Provides dependency injection extension methods to register the new stream-based partitioning module. |
+| `$/Ama.CRDT.Partitioning.Streams/README.md` | Details the features and provides usage examples for setting up dependency injection and integrating stream providers for partition persistence. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/BlogPost.cs` | The root data model for the showcase, representing a blog post. It is decorated with `[PartitionKey]` and its `Comments` list uses `[CrdtArrayLcsStrategy]` to enable partitioning. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/Comment.cs` | A simple record representing a comment in the blog post. |
@@ -117,7 +119,7 @@
 | `$/Ama.CRDT/Attributes/Strategies/MergeableAttribute.cs` | Marks a CRDT strategy as having a mergeable state, suitable for parallel reduction. |
 | `$/Ama.CRDT/Attributes/Strategies/SequentialOperationsAttribute.cs` | Marks a CRDT strategy as requiring sequential operation application, making it unsuitable for parallel reduction. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
-| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup. It registers all core services and strategies within a validation factory to ensure they are only resolved from replica-specific scopes created by `ICrdtScopeFactory`. It also supports registering custom comparers, timestamp providers, and partition stream providers. |
+| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup. Removes stream-specific registration logic to support decoupling into its own package. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
 | `$/Ama.CRDT/Models/CrdtDocumentOfT.cs` | A generic version of `CrdtDocument` that holds a POCO and its associated `CrdtMetadata`, unifying the API for patch generation and application. |
 | `$/Ama.CRDT/Models/CrdtGraph.cs` | A data model for a graph structure with vertices and edges, suitable for CRDT management. |

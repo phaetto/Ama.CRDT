@@ -1,4 +1,4 @@
-namespace Ama.CRDT.UnitTests.Services.Partitioning.Streams.Serialization;
+namespace Ama.CRDT.Partitioning.Streams.UnitTests.Serialization;
 
 using System;
 using System.IO;
@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Models.Partitioning.Streams;
-using Ama.CRDT.Services.Partitioning.Streams.Serialization;
+using Ama.CRDT.Partitioning.Streams.Services.Serialization;
 using Shouldly;
 using Xunit;
 
