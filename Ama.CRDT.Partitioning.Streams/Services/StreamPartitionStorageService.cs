@@ -3,7 +3,6 @@ namespace Ama.CRDT.Partitioning.Streams.Services;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
-using Ama.CRDT.Models.Partitioning.Streams;
 using Ama.CRDT.Partitioning.Streams.Services.Metrics;
 using Ama.CRDT.Partitioning.Streams.Services.Serialization;
 using Ama.CRDT.Services.Metrics;
@@ -17,6 +16,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Ama.CRDT.Partitioning.Streams.Models;
 
 /// <summary>
 /// An implementation of <see cref="IPartitionStorageService"/> that coordinates raw streams and an internal B+ Tree index

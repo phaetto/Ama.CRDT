@@ -1,6 +1,6 @@
 namespace Ama.CRDT.Partitioning.Streams.Services;
 
-using Ama.CRDT.Models.Partitioning.Streams;
+using Ama.CRDT.Partitioning.Streams.Models;
 using System.Collections.Generic;
 using System.Linq;
 

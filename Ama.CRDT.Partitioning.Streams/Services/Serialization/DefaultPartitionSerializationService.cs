@@ -1,8 +1,8 @@
 namespace Ama.CRDT.Partitioning.Streams.Services.Serialization;
 
-using Ama.CRDT.Models.Partitioning.Streams;
 using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Models.Serialization.Converters;
+using Ama.CRDT.Partitioning.Streams.Models;
 using System;
 using System.IO;
 using System.Linq;
@@ -16,6 +16,16 @@ using System.Threading.Tasks;
 public sealed class DefaultPartitionSerializationService : IPartitionSerializationService
 {
     private readonly JsonSerializerOptions serializerOptions;
+
+    static DefaultPartitionSerializationService()
+    {
+        // Dynamically register our external stream-specific models to the polymorphic converter 
+        // without introducing circular dependencies into the core Ama.CRDT logic.
+        PolymorphicObjectJsonConverter.Register("bplus-tree-node", typeof(BPlusTreeNode));
+        PolymorphicObjectJsonConverter.Register("bplus-tree-header", typeof(BTreeHeader));
+        PolymorphicObjectJsonConverter.Register("data-stream-header", typeof(DataStreamHeader));
+        PolymorphicObjectJsonConverter.Register("free-space-state", typeof(FreeSpaceState));
+    }
 
     public DefaultPartitionSerializationService()
     {

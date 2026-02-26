@@ -1,4 +1,5 @@
 using Ama.CRDT.Extensions;
+using Ama.CRDT.Partitioning.Streams.Extensions;
 using Ama.CRDT.ShowCase.LargerThanMemory;
 using Ama.CRDT.ShowCase.LargerThanMemory.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,9 @@ builder.ConfigureServices((context, services) =>
 
     services.AddScoped<DataGeneratorService>();
     services.AddScoped<UiService>();
+    
+    // Add SyncService to simulate network propagation
+    services.AddSingleton<SyncService>();
 
     services.AddSingleton<SimulationRunner>();
 });
