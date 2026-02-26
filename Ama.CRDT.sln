@@ -27,6 +27,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ama.CRDT.Analyzers.UnitTest
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ama.CRDT.ShowCase.LargerThanMemory", "Ama.CRDT.ShowCase.LargerThanMemory\Ama.CRDT.ShowCase.LargerThanMemory.csproj", "{C76CC066-B0FD-4588-8EAC-4093C809C996}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ama.CRDT.Partitioning.Streams", "Ama.CRDT.Partitioning.Streams\Ama.CRDT.Partitioning.Streams.csproj", "{4D2AC29F-DC5D-4E58-A3A1-9ED70640EA47}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ama.CRDT.Partitioning.Streams.UnitTests", "Ama.CRDT.Partitioning.Streams.UnitTests\Ama.CRDT.Partitioning.Streams.UnitTests.csproj", "{3D4DA6DC-7F0B-48B3-873C-25B66A7D9F96}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -61,6 +65,14 @@ Global
 		{C76CC066-B0FD-4588-8EAC-4093C809C996}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C76CC066-B0FD-4588-8EAC-4093C809C996}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C76CC066-B0FD-4588-8EAC-4093C809C996}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4D2AC29F-DC5D-4E58-A3A1-9ED70640EA47}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4D2AC29F-DC5D-4E58-A3A1-9ED70640EA47}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4D2AC29F-DC5D-4E58-A3A1-9ED70640EA47}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4D2AC29F-DC5D-4E58-A3A1-9ED70640EA47}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3D4DA6DC-7F0B-48B3-873C-25B66A7D9F96}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3D4DA6DC-7F0B-48B3-873C-25B66A7D9F96}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3D4DA6DC-7F0B-48B3-873C-25B66A7D9F96}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3D4DA6DC-7F0B-48B3-873C-25B66A7D9F96}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

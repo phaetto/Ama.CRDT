@@ -4,8 +4,6 @@ using Ama.CRDT.Models.Serialization.Converters;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Partitioning;
-using Ama.CRDT.Services.Partitioning.Streams;
-using Ama.CRDT.Services.Partitioning.Streams.Serialization;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,7 +49,6 @@ public static class ServiceCollectionExtensions
     {
         // Add metrics
         services.TryAddSingleton<PartitionManagerCrdtMetrics>();
-        services.TryAddSingleton<BPlusTreeCrdtMetrics>();
 
         // Scoped context that holds the replica ID.
         // It's populated by CrdtScopeFactory.
@@ -80,10 +77,6 @@ public static class ServiceCollectionExtensions
 
         // Register Partitioning services
         services.TryAddScoped(typeof(IPartitionManager<>), typeof(PartitionManager<>));
-        services.TryAddScoped(CreateValidatedInstance<DefaultPartitionSerializationService>);
-        services.TryAddScoped<IPartitionSerializationService>(sp => sp.GetRequiredService<DefaultPartitionSerializationService>());
-        services.TryAddScoped(CreateValidatedInstance<StreamPartitionStorageService>);
-        services.TryAddScoped<IPartitionStorageService>(sp => sp.GetRequiredService<StreamPartitionStorageService>());
 
         // Register the default timestamp provider with validation.
         // This can be overridden by AddCrdtTimestampProvider.
@@ -195,23 +188,6 @@ public static class ServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IElementComparer, TComparer>());
         return services;
     }
-    
-    /// <summary>
-    /// Registers a custom partition stream provider, replacing the default file-based one.
-    /// This is essential for scenarios where partitions need to be stored in a custom backend, such as cloud blob storage, a database, or an in-memory store for testing.
-    /// </summary>
-    /// <typeparam name="TProvider">The type of the stream provider to register. Must implement <see cref="IPartitionStreamProvider"/>.</typeparam>
-    /// <param name="services">The <see cref="IServiceCollection"/> to add the service to.</param>
-    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
-    public static IServiceCollection AddCrdtPartitionStreamProvider<TProvider>(this IServiceCollection services)
-        where TProvider : class, IPartitionStreamProvider
-    {
-        // Register the custom provider implementation with validation.
-        services.AddScoped(CreateValidatedInstance<TProvider>);
-        // Override the IPartitionStreamProvider registration to point to the custom implementation.
-        services.AddScoped<IPartitionStreamProvider>(sp => sp.GetRequiredService<TProvider>());
-        return services;
-    }
 
     /// <summary>
     /// Registers a custom timestamp provider, replacing the default <see cref="SequentialTimestampProvider"/>.
@@ -305,7 +281,7 @@ public static class ServiceCollectionExtensions
     /// </example>
     public static IServiceCollection AddCrdtSerializableType<T>(this IServiceCollection services, string discriminator)
     {
-        Models.Serialization.Converters.PolymorphicObjectJsonConverter.Register(discriminator, typeof(T));
+        PolymorphicObjectJsonConverter.Register(discriminator, typeof(T));
         return services;
     }
 

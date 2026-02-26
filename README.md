@@ -618,7 +618,6 @@ dotnet test
 To see the performance counters when debugging you can use one of the following in a command prompt:
 ```bash
 dotnet-counters monitor --name Ama.CRDT.ShowCase.LargerThanMemory --counters "Ama.CRDT.Partitioning" --maxHistograms 30
-dotnet-counters monitor --name Ama.CRDT.ShowCase.LargerThanMemory --counters "Ama.CRDT.BPlusTree" --maxHistograms 30
 ```
 
 Or use powershell if you prefer:
