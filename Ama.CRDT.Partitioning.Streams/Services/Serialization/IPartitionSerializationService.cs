@@ -1,6 +1,6 @@
 namespace Ama.CRDT.Partitioning.Streams.Services.Serialization;
 
-using Ama.CRDT.Models.Partitioning.Streams;
+using Ama.CRDT.Partitioning.Streams.Models;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;

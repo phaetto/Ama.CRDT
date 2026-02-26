@@ -2,7 +2,6 @@ namespace Ama.CRDT.Models.Serialization.Converters;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
-using Ama.CRDT.Models.Partitioning.Streams;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -65,9 +64,7 @@ public sealed class PolymorphicObjectJsonConverter : JsonConverter<object>
         Register("tree-move", typeof(TreeMoveNodePayload));
         Register("vote-payload", typeof(VotePayload));
         
-        // Register partitioning types
-        Register("bplus-tree-node", typeof(BPlusTreeNode));
-        Register("bplus-tree-header", typeof(BTreeHeader));
+        // Register core partitioning types
         Register("comp-key", typeof(CompositePartitionKey));
         Register("header-partition", typeof(HeaderPartition));
         Register("data-partition", typeof(DataPartition));
@@ -75,11 +72,11 @@ public sealed class PolymorphicObjectJsonConverter : JsonConverter<object>
 
     /// <summary>
     /// Registers a type with a unique discriminator for polymorphic serialization.
-    /// This is intended for internal use. The public API is `ServiceCollectionExtensions.AddCrdtSerializableType`.
+    /// Exposing this publicly allows plugin packages (like Streams) to inject their own specific model types.
     /// </summary>
     /// <param name="discriminator">A short, unique string to identify the type.</param>
     /// <param name="type">The type to register.</param>
-    internal static void Register(string discriminator, Type type)
+    public static void Register(string discriminator, Type type)
     {
         if (string.IsNullOrWhiteSpace(discriminator))
             throw new ArgumentException("Discriminator cannot be null or whitespace.", nameof(discriminator));

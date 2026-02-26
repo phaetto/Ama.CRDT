@@ -1,4 +1,4 @@
-namespace Ama.CRDT.Extensions;
+namespace Ama.CRDT.Partitioning.Streams.Extensions;
 
 using Ama.CRDT.Partitioning.Streams.Services;
 using Ama.CRDT.Partitioning.Streams.Services.Metrics;
