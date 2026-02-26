@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Diagnostics.Metrics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -49,16 +50,16 @@ public sealed class StreamPartitionStorageServiceIndexTests
         private readonly ConcurrentDictionary<string, MemoryStream> streams = new();
         private const string HeaderIdentifier = "__HEADER__";
 
-        public Task<Stream> GetPropertyIndexStreamAsync(string propertyName) =>
+        public Task<Stream> GetPropertyIndexStreamAsync(string propertyName, CancellationToken cancellationToken = default) =>
             Task.FromResult<Stream>(streams.GetOrAdd($"index_{propertyName}", _ => new MemoryStream()));
 
-        public Task<Stream> GetPropertyDataStreamAsync(IComparable logicalKey, string propertyName) =>
+        public Task<Stream> GetPropertyDataStreamAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default) =>
             Task.FromResult<Stream>(streams.GetOrAdd($"data_{logicalKey}_{propertyName}", _ => new MemoryStream()));
 
-        public Task<Stream> GetHeaderIndexStreamAsync() =>
+        public Task<Stream> GetHeaderIndexStreamAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<Stream>(streams.GetOrAdd($"index_{HeaderIdentifier}", _ => new MemoryStream()));
         
-        public Task<Stream> GetHeaderDataStreamAsync(IComparable logicalKey) =>
+        public Task<Stream> GetHeaderDataStreamAsync(IComparable logicalKey, CancellationToken cancellationToken = default) =>
             Task.FromResult<Stream>(streams.GetOrAdd($"data_{logicalKey}_{HeaderIdentifier}", _ => new MemoryStream()));
 
         public Task<long> GetIndexStreamLengthAsync(string propertyOrHeader)
@@ -703,10 +704,10 @@ public sealed class StreamPartitionStorageServiceIndexTests
         return partitions;
     }
 
-    private async Task<List<T>> ToListAsync<T>(IAsyncEnumerable<T> asyncEnumerable)
+    private async Task<List<T>> ToListAsync<T>(IAsyncEnumerable<T> asyncEnumerable, CancellationToken cancellationToken = default)
     {
         var list = new List<T>();
-        await foreach (var item in asyncEnumerable)
+        await foreach (var item in asyncEnumerable.WithCancellation(cancellationToken))
         {
             list.Add(item);
         }

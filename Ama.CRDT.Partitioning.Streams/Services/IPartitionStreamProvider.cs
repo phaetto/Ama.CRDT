@@ -2,6 +2,7 @@ namespace Ama.CRDT.Partitioning.Streams.Services;
 
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -15,27 +16,31 @@ public interface IPartitionStreamProvider
     /// Implementations should ensure that this method returns a consistent stream instance for a given property name.
     /// </summary>
     /// <param name="propertyName">The name of the partitionable property (e.g., "Comments").</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the index stream.</returns>
-    Task<Stream> GetPropertyIndexStreamAsync(string propertyName);
+    Task<Stream> GetPropertyIndexStreamAsync(string propertyName, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the data stream for a specific logical partition key and property.
     /// </summary>
     /// <param name="logicalKey">The logical key identifying the data partition (e.g., a document ID).</param>
     /// <param name="propertyName">The name of the partitionable property (e.g., "Comments").</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the data stream for the partition.</returns>
-    Task<Stream> GetPropertyDataStreamAsync(IComparable logicalKey, string propertyName);
+    Task<Stream> GetPropertyDataStreamAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the index stream for the header partitions.
     /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the header index stream.</returns>
-    Task<Stream> GetHeaderIndexStreamAsync();
+    Task<Stream> GetHeaderIndexStreamAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the data stream for a specific header partition.
     /// </summary>
     /// <param name="logicalKey">The logical key identifying the header partition (e.g., a document ID).</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the data stream for the header partition.</returns>
-    Task<Stream> GetHeaderDataStreamAsync(IComparable logicalKey);
+    Task<Stream> GetHeaderDataStreamAsync(IComparable logicalKey, CancellationToken cancellationToken = default);
 }
