@@ -108,7 +108,7 @@ public sealed class PartitionManagerTests
         var crdtDoc = new CrdtDocument<MultiPartitionedModel>(doc, metaManager.Initialize(doc));
 
         mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositePartitionKey>(), propName, default)).ReturnsAsync(existingPartition);
-        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, existingPartition, default)).ReturnsAsync(crdtDoc);
+        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, It.IsAny<IPartition>(), default)).ReturnsAsync(crdtDoc);
         mockStorage.Setup(x => x.GetHeaderPartitionAsync(logicalKey, default)).ReturnsAsync(headerPartition);
         mockStorage.Setup(x => x.LoadHeaderPartitionContentAsync<MultiPartitionedModel>(logicalKey, headerPartition, default)).ReturnsAsync(crdtDoc);
 
@@ -141,7 +141,9 @@ public sealed class PartitionManagerTests
         var crdtDoc = new CrdtDocument<MultiPartitionedModel>(doc, metaManager.Initialize(doc));
 
         mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositePartitionKey>(), propName, default)).ReturnsAsync(existingPartition);
-        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, existingPartition, default)).ReturnsAsync(crdtDoc);
+        
+        // Use It.IsAny<IPartition> so when SplitPartitionAsync loads the largePartition, it doesn't return a default/null struct.
+        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, It.IsAny<IPartition>(), default)).ReturnsAsync(crdtDoc);
         mockStorage.Setup(x => x.GetHeaderPartitionAsync(logicalKey, default)).ReturnsAsync(headerPartition);
         mockStorage.Setup(x => x.LoadHeaderPartitionContentAsync<MultiPartitionedModel>(logicalKey, headerPartition, default)).ReturnsAsync(crdtDoc);
 
@@ -224,5 +226,64 @@ public sealed class PartitionManagerTests
         mockStorage.Verify(x => x.DeletePropertyPartitionAsync(propName, dp1, default), Times.Once);
         mockStorage.Verify(x => x.DeletePropertyPartitionAsync(propName, smallPartition, default), Times.Once);
         mockStorage.Verify(x => x.InsertPropertyPartitionAsync(propName, It.Is<IPartition>(p => p != null && p is DataPartition && ((DataPartition)p).StartKey.Equals(dp1.StartKey)), default), Times.Once);
+    }
+
+    [Fact]
+    public async Task ApplyPatchAsync_ModifiesHeaderMetadata_ButStripsDataMetadata()
+    {
+        // Arrange
+        var logicalKey = "tenant-metadata-test";
+        var propName = nameof(MultiPartitionedModel.Items);
+        var existingPartition = new DataPartition(new CompositePartitionKey(logicalKey, "k1"), null, 0, 1000, 0, 0);
+        var headerPartition = new HeaderPartition(new CompositePartitionKey(logicalKey, null), 0, 0, 0, 0);
+
+        var doc = new MultiPartitionedModel { TenantId = logicalKey };
+        
+        var headerCrdtDoc = new CrdtDocument<MultiPartitionedModel>(doc, metaManager.Initialize(doc));
+        // Inject dummy global state
+        var ts = timestampProvider.Now();
+        headerCrdtDoc.Metadata!.VersionVector["replica-1"] = ts;
+
+        var dataCrdtDoc = new CrdtDocument<MultiPartitionedModel>(doc, metaManager.Initialize(doc));
+        // Clear global state from data doc (as it would be loaded from store)
+        dataCrdtDoc.Metadata!.VersionVector.Clear();
+        dataCrdtDoc.Metadata.SeenExceptions.Clear();
+
+        mockStorage.Setup(x => x.GetHeaderPartitionAsync(logicalKey, default)).ReturnsAsync(headerPartition);
+        mockStorage.Setup(x => x.LoadHeaderPartitionContentAsync<MultiPartitionedModel>(logicalKey, headerPartition, default)).ReturnsAsync(headerCrdtDoc);
+        
+        mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositePartitionKey>(), propName, default)).ReturnsAsync(existingPartition);
+        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, It.IsAny<IPartition>(), default)).ReturnsAsync(dataCrdtDoc);
+
+        mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, existingPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
+            .ReturnsAsync(existingPartition);
+            
+        mockStorage.Setup(x => x.SaveHeaderPartitionContentAsync(logicalKey, headerPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
+            .ReturnsAsync(headerPartition);
+
+        var operationTs = timestampProvider.Now();
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "replica-2", "$.items", OperationType.Upsert, new OrMapAddItem("k1", "v1", Guid.NewGuid()), operationTs)]) { LogicalKey = logicalKey };
+
+        // Act
+        await manager.ApplyPatchAsync(patch);
+
+        // Assert
+        // 1. Data partition was saved, and its metadata has NO version vector / seen exceptions
+        mockStorage.Verify(x => x.SavePartitionContentAsync(
+            logicalKey, 
+            propName, 
+            existingPartition, 
+            It.IsAny<MultiPartitionedModel>(), 
+            It.Is<CrdtMetadata>(m => m.VersionVector.Count == 0 && m.SeenExceptions.Count == 0), 
+            default), Times.Once);
+
+        // 2. Header partition was saved, and its metadata HAS the retained version vector for replica-1.
+        // Even though no header operations applied, it persists the partition back because data ops trigger a save.
+        mockStorage.Verify(x => x.SaveHeaderPartitionContentAsync(
+            logicalKey, 
+            headerPartition, 
+            It.IsAny<MultiPartitionedModel>(), 
+            It.Is<CrdtMetadata>(m => m.VersionVector.ContainsKey("replica-1") && m.VersionVector["replica-1"].Equals(ts)), 
+            default), Times.Once);
     }
 }
