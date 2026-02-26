@@ -16,8 +16,8 @@ public sealed class DataGeneratorService(
     ICrdtMetadataManager metadataManager)
 {
     private const int BlogPostCount = 10;
-    private const int MinCommentsPerPost = 1000;
-    private const int MaxCommentsPerPost = 10000;
+    private const int MinCommentsPerPost = 500;
+    private const int MaxCommentsPerPost = 1000;
     private const int MinTagsPerPost = 20;
     private const int MaxTagsPerPost = 200;
     private const int BatchSize = 10;
