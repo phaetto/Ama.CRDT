@@ -33,14 +33,14 @@ public class StreamPartitionStorageServiceDataTests
         var serializationMock = new Mock<IPartitionSerializationService>();
 
         var mockStream = new MemoryStream();
-        streamProviderMock.Setup(x => x.GetPropertyDataStreamAsync(It.IsAny<IComparable>(), It.IsAny<string>()))
+        streamProviderMock.Setup(x => x.GetPropertyDataStreamAsync(It.IsAny<IComparable>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(mockStream);
 
         var serviceProviderMock = new Mock<IServiceProvider>();
         serviceProviderMock.Setup(x => x.GetService(typeof(IPartitionStreamProvider))).Returns(streamProviderMock.Object);
 
-        serializationMock.Setup(x => x.SerializeObjectAsync(It.IsAny<Stream>(), It.IsAny<object>()))
-            .Callback<Stream, object>((s, o) =>
+        serializationMock.Setup(x => x.SerializeObjectAsync(It.IsAny<Stream>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .Callback<Stream, object, CancellationToken>((s, o, c) =>
             {
                 s.WriteByte(1); // Write dummy data
             })
