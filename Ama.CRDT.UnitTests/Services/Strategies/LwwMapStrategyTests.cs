@@ -11,6 +11,7 @@ using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading;
 using Xunit;
 
@@ -122,6 +123,183 @@ public sealed class LwwMapStrategyTests
         
         // Assert
         doc.Data.Map["a"].ShouldBe(2); // newer op applied
+    }
+
+    [Fact]
+    public void GetStartKey_ShouldReturnSmallestKey()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
+        var doc = new TestModel { Map = new Dictionary<string, int> { { "c", 3 }, { "a", 1 }, { "b", 2 } } };
+        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        // Act
+        var startKey = strategy.GetStartKey(doc, prop);
+
+        // Assert
+        startKey.ShouldBe("a");
+    }
+
+    [Fact]
+    public void GetStartKey_EmptyDictionary_ShouldReturnNull()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
+        var doc = new TestModel { Map = new Dictionary<string, int>() };
+        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        // Act
+        var startKey = strategy.GetStartKey(doc, prop);
+
+        // Assert
+        startKey.ShouldBeNull();
+    }
+
+    [Fact]
+    public void GetKeyFromOperation_ShouldExtractKey()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("myKey", 42), timestampProvider.Now());
+
+        // Act
+        var key = strategy.GetKeyFromOperation(op, "$.map");
+
+        // Assert
+        key.ShouldBe("myKey");
+    }
+
+    [Fact]
+    public void GetKeyFromOperation_MismatchedPath_ShouldReturnNull()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.otherMap", OperationType.Upsert, new KeyValuePair<object, object?>("myKey", 42), timestampProvider.Now());
+
+        // Act
+        var key = strategy.GetKeyFromOperation(op, "$.map");
+
+        // Assert
+        key.ShouldBeNull();
+    }
+
+    [Fact]
+    public void GetMinimumKey_ShouldReturnEmptyStringForStringKeys()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
+        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        // Act
+        var minKey = strategy.GetMinimumKey(prop);
+
+        // Assert
+        minKey.ShouldBe(string.Empty);
+    }
+
+    [Fact]
+    public void Split_ShouldDivideDataAndMetadata()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
+        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "b", 2 }, { "c", 3 }, { "d", 4 } });
+        
+        doc.Metadata.LwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>
+        {
+            { "a", timestampProvider.Create(1) },
+            { "b", timestampProvider.Create(2) },
+            { "c", timestampProvider.Create(3) },
+            { "d", timestampProvider.Create(4) }
+        };
+
+        // Act
+        var result = strategy.Split(doc.Data, doc.Metadata, prop);
+
+        // Assert
+        result.SplitKey.ShouldBe("c");
+        
+        var doc1 = (TestModel)result.Partition1.Data;
+        var meta1 = result.Partition1.Metadata;
+        doc1.Map.Count.ShouldBe(2);
+        doc1.Map.ShouldContainKey("a");
+        doc1.Map.ShouldContainKey("b");
+
+        meta1.LwwMaps["$.map"].Count.ShouldBe(2);
+        meta1.LwwMaps["$.map"].ShouldContainKey("a");
+        meta1.LwwMaps["$.map"].ShouldContainKey("b");
+
+        var doc2 = (TestModel)result.Partition2.Data;
+        var meta2 = result.Partition2.Metadata;
+        doc2.Map.Count.ShouldBe(2);
+        doc2.Map.ShouldContainKey("c");
+        doc2.Map.ShouldContainKey("d");
+
+        meta2.LwwMaps["$.map"].Count.ShouldBe(2);
+        meta2.LwwMaps["$.map"].ShouldContainKey("c");
+        meta2.LwwMaps["$.map"].ShouldContainKey("d");
+    }
+
+    [Fact]
+    public void Split_WithLessThanTwoItems_ShouldThrow()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
+        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
+        
+        doc.Metadata.LwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>
+        {
+            { "a", timestampProvider.Create(1) }
+        };
+
+        // Act & Assert
+        Should.Throw<InvalidOperationException>(() => strategy.Split(doc.Data, doc.Metadata, prop));
+    }
+
+    [Fact]
+    public void Merge_ShouldCombineDataAndMetadata()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
+        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "overlap", 100 } });
+        doc1.Metadata.LwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>
+        {
+            { "a", timestampProvider.Create(1) },
+            { "overlap", timestampProvider.Create(100) }
+        };
+
+        var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "overlap", 200 } });
+        doc2.Metadata.LwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>
+        {
+            { "c", timestampProvider.Create(3) },
+            { "overlap", timestampProvider.Create(200) } // Higher timestamp, should win
+        };
+
+        // Act
+        var result = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, prop);
+
+        // Assert
+        var mergedDoc = (TestModel)result.Data;
+        var mergedMeta = result.Metadata;
+
+        mergedDoc.Map.Count.ShouldBe(3);
+        mergedDoc.Map["a"].ShouldBe(1);
+        mergedDoc.Map["c"].ShouldBe(3);
+        mergedDoc.Map["overlap"].ShouldBe(200);
+
+        mergedMeta.LwwMaps["$.map"].Count.ShouldBe(3);
+        mergedMeta.LwwMaps["$.map"]["overlap"].ShouldBe(timestampProvider.Create(200));
     }
 
     private sealed class TestModel

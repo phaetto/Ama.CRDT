@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 /// <summary>
@@ -113,6 +114,203 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     /// It uses OR-Set logic, mapping a node's ID to unique tags for its additions and removals.
     /// </summary>
     public IDictionary<string, OrSetState> ReplicatedTrees { get; set; } = new Dictionary<string, OrSetState>();
+
+    /// <summary>
+    /// Creates a deep copy of this metadata instance.
+    /// </summary>
+    /// <returns>A new <see cref="CrdtMetadata"/> object that is a copy of this instance.</returns>
+    public CrdtMetadata DeepClone()
+    {
+        var newMetadata = new CrdtMetadata();
+
+        foreach (var kvp in Lww) { newMetadata.Lww.Add(kvp.Key, kvp.Value); }
+        foreach (var kvp in PositionalTrackers) { newMetadata.PositionalTrackers.Add(kvp.Key, new List<PositionalIdentifier>(kvp.Value)); }
+        foreach (var kvp in AverageRegisters) { newMetadata.AverageRegisters.Add(kvp.Key, new Dictionary<string, AverageRegisterValue>(kvp.Value)); }
+
+        foreach (var kvp in TwoPhaseSets)
+        {
+            newMetadata.TwoPhaseSets.Add(kvp.Key, new TwoPhaseSetState(
+                Adds: new HashSet<object>(kvp.Value.Adds, (kvp.Value.Adds as HashSet<object>)?.Comparer),
+                Tomstones: new HashSet<object>(kvp.Value.Tomstones, (kvp.Value.Tomstones as HashSet<object>)?.Comparer)
+            ));
+        }
+
+        foreach (var kvp in LwwSets)
+        {
+            newMetadata.LwwSets.Add(kvp.Key, new LwwSetState(
+                Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
+                Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
+            ));
+        }
+
+        foreach (var kvp in OrSets)
+        {
+            var addedComparer = (kvp.Value.Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var newAdded = kvp.Value.Adds.ToDictionary(
+                innerKvp => innerKvp.Key,
+                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                addedComparer);
+
+            var removedComparer = (kvp.Value.Removes as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var newRemoved = kvp.Value.Removes.ToDictionary(
+                innerKvp => innerKvp.Key,
+                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                removedComparer);
+
+            newMetadata.OrSets.Add(kvp.Key, new OrSetState(Adds: newAdded, Removes: newRemoved));
+        }
+
+        foreach (var kvp in PriorityQueues)
+        {
+            newMetadata.PriorityQueues.Add(kvp.Key, new LwwSetState(
+                Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
+                Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
+            ));
+        }
+
+        foreach (var kvp in LseqTrackers) { newMetadata.LseqTrackers.Add(kvp.Key, new List<LseqItem>(kvp.Value)); }
+        foreach (var kvp in RgaTrackers) { newMetadata.RgaTrackers.Add(kvp.Key, new List<RgaItem>(kvp.Value)); }
+        foreach (var kvp in VersionVector) { newMetadata.VersionVector.Add(kvp.Key, kvp.Value); }
+        foreach (var op in SeenExceptions) { newMetadata.SeenExceptions.Add(op); }
+
+        foreach (var kvp in LwwMaps)
+        {
+            newMetadata.LwwMaps.Add(kvp.Key, new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer));
+        }
+
+        foreach (var kvp in OrMaps)
+        {
+            var addedComparer = (kvp.Value.Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var newAdded = kvp.Value.Adds.ToDictionary(
+                innerKvp => innerKvp.Key,
+                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                addedComparer);
+
+            var removedComparer = (kvp.Value.Removes as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var newRemoved = kvp.Value.Removes.ToDictionary(
+                innerKvp => innerKvp.Key,
+                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                removedComparer);
+
+            newMetadata.OrMaps.Add(kvp.Key, new OrSetState(Adds: newAdded, Removes: newRemoved));
+        }
+
+        foreach (var kvp in CounterMaps)
+        {
+            newMetadata.CounterMaps.Add(kvp.Key, new Dictionary<object, PnCounterState>(kvp.Value, (kvp.Value as Dictionary<object, PnCounterState>)?.Comparer));
+        }
+        
+        foreach (var kvp in TwoPhaseGraphs)
+        {
+            newMetadata.TwoPhaseGraphs.Add(kvp.Key, new TwoPhaseGraphState(
+                VertexAdds: new HashSet<object>(kvp.Value.VertexAdds, (kvp.Value.VertexAdds as HashSet<object>)?.Comparer),
+                VertexTombstones: new HashSet<object>(kvp.Value.VertexTombstones, (kvp.Value.VertexTombstones as HashSet<object>)?.Comparer),
+                EdgeAdds: new HashSet<object>(kvp.Value.EdgeAdds, (kvp.Value.EdgeAdds as HashSet<object>)?.Comparer),
+                EdgeTombstones: new HashSet<object>(kvp.Value.EdgeTombstones, (kvp.Value.EdgeTombstones as HashSet<object>)?.Comparer)
+            ));
+        }
+
+        foreach (var kvp in ReplicatedTrees)
+        {
+            var addedComparer = (kvp.Value.Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var newAdded = kvp.Value.Adds.ToDictionary(
+                innerKvp => innerKvp.Key,
+                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                addedComparer);
+
+            var removedComparer = (kvp.Value.Removes as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var newRemoved = kvp.Value.Removes.ToDictionary(
+                innerKvp => innerKvp.Key,
+                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                removedComparer);
+
+            newMetadata.ReplicatedTrees.Add(kvp.Key, new OrSetState(Adds: newAdded, Removes: newRemoved));
+        }
+
+        return newMetadata;
+    }
+
+    /// <summary>
+    /// Merges multiple <see cref="CrdtMetadata"/> instances into a single, unified state.
+    /// </summary>
+    /// <param name="metadatas">The metadata instances to merge.</param>
+    /// <returns>A new <see cref="CrdtMetadata"/> containing the merged state.</returns>
+    public static CrdtMetadata Merge(params CrdtMetadata[] metadatas)
+    {
+        ArgumentNullException.ThrowIfNull(metadatas);
+
+        if (metadatas.Length == 0)
+        {
+            return new CrdtMetadata();
+        }
+
+        if (metadatas.Length == 1)
+        {
+            return metadatas[0].DeepClone();
+        }
+
+        var merged = new CrdtMetadata();
+
+        foreach (var metadata in metadatas.Where(m => m is not null))
+        {
+            foreach (var kvp in metadata.Lww) 
+            {
+                if (!merged.Lww.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
+                {
+                    merged.Lww[kvp.Key] = kvp.Value;
+                }
+            }
+            
+            foreach (var kvp in metadata.TwoPhaseSets) merged.TwoPhaseSets[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.LwwSets) merged.LwwSets[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.OrSets) merged.OrSets[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.PriorityQueues) merged.PriorityQueues[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.OrMaps) merged.OrMaps[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.TwoPhaseGraphs) merged.TwoPhaseGraphs[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.ReplicatedTrees) merged.ReplicatedTrees[kvp.Key] = kvp.Value;
+            
+            foreach (var op in metadata.SeenExceptions) merged.SeenExceptions.Add(op);
+            
+            foreach (var kvp in metadata.PositionalTrackers) merged.PositionalTrackers[kvp.Key] = new List<PositionalIdentifier>(kvp.Value);
+            foreach (var kvp in metadata.LseqTrackers) merged.LseqTrackers[kvp.Key] = new List<LseqItem>(kvp.Value);
+            
+            foreach (var kvp in metadata.AverageRegisters) merged.AverageRegisters[kvp.Key] = new Dictionary<string, AverageRegisterValue>(kvp.Value);
+            foreach (var kvp in metadata.LwwMaps) merged.LwwMaps[kvp.Key] = new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer);
+            foreach (var kvp in metadata.CounterMaps) merged.CounterMaps[kvp.Key] = new Dictionary<object, PnCounterState>(kvp.Value, (kvp.Value as Dictionary<object, PnCounterState>)?.Comparer);
+            
+            foreach (var kvp in metadata.RgaTrackers)
+            {
+                if (!merged.RgaTrackers.TryGetValue(kvp.Key, out var existing))
+                {
+                    merged.RgaTrackers[kvp.Key] = new List<RgaItem>(kvp.Value);
+                }
+                else
+                {
+                    var mergedItemsDict = existing.ToDictionary(x => x.Identifier);
+                    foreach (var item in kvp.Value)
+                    {
+                        if (!mergedItemsDict.TryGetValue(item.Identifier, out var eItem) || (!eItem.IsDeleted && item.IsDeleted))
+                        {
+                            mergedItemsDict[item.Identifier] = item;
+                        }
+                    }
+                    var mergedItems = mergedItemsDict.Values.ToList();
+                    mergedItems.Sort((a, b) => a.Identifier.CompareTo(b.Identifier));
+                    merged.RgaTrackers[kvp.Key] = mergedItems;
+                }
+            }
+            
+            foreach (var (replicaId, clock) in metadata.VersionVector)
+            {
+                if (!merged.VersionVector.TryGetValue(replicaId, out var existingClock) || clock > existingClock)
+                {
+                    merged.VersionVector[replicaId] = clock;
+                }
+            }
+        }
+
+        return merged;
+    }
 
     /// <inheritdoc />
     public bool Equals(CrdtMetadata? other)

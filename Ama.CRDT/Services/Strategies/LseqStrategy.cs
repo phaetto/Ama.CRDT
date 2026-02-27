@@ -278,7 +278,11 @@ public sealed class LseqStrategy(
         var doc1 = Activator.CreateInstance(documentType)!;
         var doc2 = Activator.CreateInstance(documentType)!;
 
-        var (meta1, meta2) = SplitMetadata(path, originalMetadata, items1, items2);
+        var meta1 = originalMetadata.DeepClone();
+        var meta2 = originalMetadata.DeepClone();
+
+        meta1.LseqTrackers[path] = items1;
+        meta2.LseqTrackers[path] = items2;
 
         ReconstructListForSplitMerge(doc1, path, items1);
         ReconstructListForSplitMerge(doc2, path, items2);
@@ -292,12 +296,22 @@ public sealed class LseqStrategy(
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
         var mergedDoc = Activator.CreateInstance(partitionableProperty.DeclaringType!)!;
-        var mergedMeta = MergeMetadata(path, meta1, meta2);
+        
+        var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        if (mergedMeta.LseqTrackers.TryGetValue(path, out var mergedItems))
-        {
-            ReconstructListForSplitMerge(mergedDoc, path, mergedItems);
-        }
+        var items1 = meta1.LseqTrackers.TryGetValue(path, out var i1) ? i1 : new List<LseqItem>();
+        var items2 = meta2.LseqTrackers.TryGetValue(path, out var i2) ? i2 : new List<LseqItem>();
+
+        var mergedItemsDict = new Dictionary<LseqIdentifier, LseqItem>();
+        foreach (var item in items1) mergedItemsDict[item.Identifier] = item;
+        foreach (var item in items2) mergedItemsDict[item.Identifier] = item;
+
+        var mergedItems = mergedItemsDict.Values.ToList();
+        mergedItems.Sort((a, b) => a.Identifier.CompareTo(b.Identifier));
+
+        mergedMeta.LseqTrackers[path] = mergedItems;
+
+        ReconstructListForSplitMerge(mergedDoc, path, mergedItems);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
@@ -329,59 +343,6 @@ public sealed class LseqStrategy(
         }
 
         return new LseqIdentifier(newPath.ToImmutable());
-    }
-
-    private static (CrdtMetadata, CrdtMetadata) SplitMetadata(string path, CrdtMetadata original, List<LseqItem> items1, List<LseqItem> items2)
-    {
-        var meta1 = new CrdtMetadata();
-        var meta2 = new CrdtMetadata();
-
-        CloneNonPartitionableMetadata(original, meta1);
-        CloneNonPartitionableMetadata(original, meta2);
-
-        meta1.LseqTrackers[path] = items1;
-        meta2.LseqTrackers[path] = items2;
-
-        return (meta1, meta2);
-    }
-
-    private static CrdtMetadata MergeMetadata(string path, CrdtMetadata meta1, CrdtMetadata meta2)
-    {
-        var merged = new CrdtMetadata();
-        merged.VersionVector = meta1.VersionVector.Union(meta2.VersionVector)
-            .GroupBy(kvp => kvp.Key).ToDictionary(g => g.Key, g => g.MaxBy(kvp => kvp.Value)!.Value);
-
-        var items1 = meta1.LseqTrackers.TryGetValue(path, out var i1) ? i1 : new List<LseqItem>();
-        var items2 = meta2.LseqTrackers.TryGetValue(path, out var i2) ? i2 : new List<LseqItem>();
-
-        var mergedItemsDict = new Dictionary<LseqIdentifier, LseqItem>();
-        foreach (var item in items1) mergedItemsDict[item.Identifier] = item;
-        foreach (var item in items2) mergedItemsDict[item.Identifier] = item;
-
-        var mergedItems = mergedItemsDict.Values.ToList();
-        mergedItems.Sort((a, b) => a.Identifier.CompareTo(b.Identifier));
-
-        merged.LseqTrackers[path] = mergedItems;
-
-        foreach (var (lwwPath, ts) in meta1.Lww.Concat(meta2.Lww))
-        {
-            if (!merged.Lww.TryGetValue(lwwPath, out var existingTs) || ts.CompareTo(existingTs) > 0)
-            {
-                merged.Lww[lwwPath] = ts;
-            }
-        }
-
-        return merged;
-    }
-
-    private static void CloneNonPartitionableMetadata(CrdtMetadata source, CrdtMetadata destination)
-    {
-        destination.VersionVector = new Dictionary<string, long>(source.VersionVector);
-        destination.SeenExceptions = new HashSet<CrdtOperation>(source.SeenExceptions);
-        foreach (var kvp in source.Lww)
-        {
-            destination.Lww[kvp.Key] = kvp.Value;
-        }
     }
 
     private static void ReconstructListForSplitMerge(object root, string path, List<LseqItem> lseqItems)
