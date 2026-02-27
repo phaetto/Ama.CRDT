@@ -149,6 +149,7 @@ This library uses attributes on your POCO properties to determine how to merge c
 | `[CrdtPriorityQueueStrategy]` | Manages a collection as a priority queue, sorted by a specified property on the elements. | Task queues, notification lists, or any scenario where items need to be processed based on priority. |
 | `[CrdtFixedSizeArrayStrategy]` | Manages a fixed-size array where each index is an LWW-Register. Useful for representing grids or slots. | Game boards, seating charts, or fixed-size buffers where each position is updated independently. |
 | `[CrdtLseqStrategy]` | An ordered list strategy that generates fractional indexes to avoid conflicts during concurrent insertions. | Collaborative text editors and other real-time sequence editing applications requiring high-precision ordering. |
+| `[CrdtRgaStrategy]` | An ordered list strategy (Replicated Growable Array) that links elements to predecessors and uses tombstones for deletions. | Collaborative text editing, rich text sequences, or lists requiring stable, precise element ordering under concurrent edits. |
 | `[CrdtVoteCounterStrategy]` | Manages a dictionary of options to voter sets, ensuring each voter can only have one active vote at a time. | Polls, surveys, or any system where users vote for one of several options. |
 | **Object & Map Strategies** | | |
 | `[CrdtLwwMapStrategy]` | A Last-Writer-Wins Map. Each key-value pair is an independent LWW-Register. Conflicts are resolved per-key. | Storing user preferences, feature flags, or any key-value data where the last update for a given key should win. |
@@ -162,7 +163,6 @@ This library uses attributes on your POCO properties to determine how to merge c
 | `[CrdtReplicatedTreeStrategy]`| Manages a hierarchical tree structure. Uses OR-Set for node existence (allowing re-addition) and LWW for parent-child links (move operations). | Collaborative document outlines, folder structures, or comment threads where items can be concurrently added, removed, and reorganized. |
 | **State & Locking Strategies** | | |
 | `[CrdtStateMachineStrategy]` | Enforces valid state transitions using a user-defined validator, with LWW for conflict resolution. | Order processing (Pending -> Shipped -> Delivered), workflows, or any property with a constrained lifecycle. |
-| `[CrdtExclusiveLockStrategy]` | An optimistic exclusive lock where the latest lock or unlock operation (based on LWW) wins. | Preventing concurrent edits on a sub-document or resource without a central locking service. |
 
 ## Advanced Usage: Multi-Replica Synchronization
 
@@ -310,7 +310,7 @@ metadataManager.PruneLwwTombstones(myMetadata, thresholdTimestamp);
 
 ### Version Vector Compaction
 
-The library uses a version vector (`CrdtMetadata.VersionVector`) and a set of seen exceptions (`SeenExceptions`) to provide idempotency. This process is managed automatically by the `CrdtApplicator` for strategies marked with `[IdempotentWithContinuousTimeAttribute]` when using a continuous timestamp provider (like `SequentialTimestampProvider`), keeping metadata size under control without manual intervention.
+The library uses a version vector (`CrdtMetadata.VersionVector`) and a set of seen exceptions (`SeenExceptions`) to provide idempotency. This process is managed automatically by the `CrdtApplicator` for  all strategies, keeping metadata size under control without manual intervention.
 
 ### Serializing Metadata Efficiently
 
@@ -512,6 +512,8 @@ Now, when a patch with a `VectorClockTimestamp` is serialized, the JSON will inc
 ## Handling Larger-Than-Memory Data with Partitioning
 
 For very large documents, especially those containing massive collections, loading the entire object into memory for every operation can be inefficient or impossible. The partitioning feature allows you to store the document across one or more streams (e.g., files on disk), loading only the relevant parts when applying a patch. This is ideal for scenarios like managing multi-tenant data or huge dictionaries where operations typically only affect a small subset of the data.
+
+You need to select the medium that is used for larger than memory: [See Ama.CRDT.Partitioning.Streams for Streams implementation](./Ama.CRDT.Partitioning.Streams/README.md)
 
 ### Setup
 
