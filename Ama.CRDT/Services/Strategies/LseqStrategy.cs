@@ -3,10 +3,16 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
+using System.Reflection;
 
 /// <summary>
 /// Implements the LSEQ (Log-structured Sequence) strategy. LSEQ assigns dense, ordered identifiers
@@ -21,7 +27,7 @@ using System.Collections.Immutable;
 public sealed class LseqStrategy(
     IElementComparerProvider elementComparerProvider,
     ICrdtTimestampProvider timestampProvider,
-    ReplicaContext replicaContext) : ICrdtStrategy
+    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     private const int Base = 32;
@@ -135,6 +141,85 @@ public sealed class LseqStrategy(
         ReconstructList(root, operation.JsonPath, lseqItems);
     }
 
+    /// <inheritdoc/>
+    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    {
+        // For LSEQ, the true key is the LseqIdentifier, which is stored in metadata, not in the POCO elements directly.
+        // Therefore, we cannot determine the exact start key from the raw data object alone.
+        // Returning null instructs the PartitionManager to use the absolute minimum key for the initial partition.
+        return null;
+    }
+
+    /// <inheritdoc/>
+    public IComparable? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath)
+    {
+        if (!operation.JsonPath.StartsWith(partitionablePropertyPath, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        object? key = null;
+        if (operation.Value is LseqItem item) key = item.Identifier;
+        else if (operation.Value is LseqIdentifier id) key = id;
+        else if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqItem)) is LseqItem convItem) key = convItem.Identifier;
+        else if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqIdentifier)) is LseqIdentifier convId) key = convId;
+
+        if (key is null) return null;
+        if (key is IComparable comparableKey) return comparableKey;
+    
+        throw new InvalidOperationException($"The key of a partitionable Lseq must implement IComparable. Key: '{key}'");
+    }
+
+    /// <inheritdoc/>
+    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    {
+        return new LseqIdentifier(ImmutableList<LseqPathSegment>.Empty);
+    }
+
+    /// <inheritdoc/>
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    {
+        var documentType = partitionableProperty.DeclaringType!;
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+
+        if (!originalMetadata.LseqTrackers.TryGetValue(path, out var lseqItems) || lseqItems.Count < 2)
+        {
+            throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
+        }
+
+        var splitIndex = lseqItems.Count / 2;
+        var splitKey = lseqItems[splitIndex].Identifier;
+
+        var items1 = lseqItems.Take(splitIndex).ToList();
+        var items2 = lseqItems.Skip(splitIndex).ToList();
+
+        var doc1 = Activator.CreateInstance(documentType)!;
+        var doc2 = Activator.CreateInstance(documentType)!;
+
+        var (meta1, meta2) = SplitMetadata(path, originalMetadata, items1, items2);
+
+        ReconstructList(doc1, path, items1);
+        ReconstructList(doc2, path, items2);
+
+        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
+    }
+
+    /// <inheritdoc/>
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    {
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+
+        var mergedDoc = Activator.CreateInstance(partitionableProperty.DeclaringType!)!;
+        var mergedMeta = MergeMetadata(path, meta1, meta2);
+
+        if (mergedMeta.LseqTrackers.TryGetValue(path, out var mergedItems))
+        {
+            ReconstructList(mergedDoc, path, mergedItems);
+        }
+
+        return new PartitionContent(mergedDoc, mergedMeta);
+    }
+
     private LseqIdentifier GenerateIdentifierBetween(LseqIdentifier? prev, LseqIdentifier? next, string replicaId)
     {
         var p1 = prev?.Path ?? ImmutableList<LseqPathSegment>.Empty;
@@ -164,15 +249,73 @@ public sealed class LseqStrategy(
         return new LseqIdentifier(newPath.ToImmutable());
     }
 
+    private static (CrdtMetadata, CrdtMetadata) SplitMetadata(string path, CrdtMetadata original, List<LseqItem> items1, List<LseqItem> items2)
+    {
+        var meta1 = new CrdtMetadata();
+        var meta2 = new CrdtMetadata();
+
+        CloneNonPartitionableMetadata(original, meta1);
+        CloneNonPartitionableMetadata(original, meta2);
+
+        meta1.LseqTrackers[path] = items1;
+        meta2.LseqTrackers[path] = items2;
+
+        return (meta1, meta2);
+    }
+
+    private static CrdtMetadata MergeMetadata(string path, CrdtMetadata meta1, CrdtMetadata meta2)
+    {
+        var merged = new CrdtMetadata();
+        merged.VersionVector = meta1.VersionVector.Union(meta2.VersionVector)
+            .GroupBy(kvp => kvp.Key).ToDictionary(g => g.Key, g => g.MaxBy(kvp => kvp.Value)!.Value);
+
+        var items1 = meta1.LseqTrackers.TryGetValue(path, out var i1) ? i1 : new List<LseqItem>();
+        var items2 = meta2.LseqTrackers.TryGetValue(path, out var i2) ? i2 : new List<LseqItem>();
+
+        var mergedItemsDict = new Dictionary<LseqIdentifier, LseqItem>();
+        foreach (var item in items1) mergedItemsDict[item.Identifier] = item;
+        foreach (var item in items2) mergedItemsDict[item.Identifier] = item;
+
+        var mergedItems = mergedItemsDict.Values.ToList();
+        mergedItems.Sort((a, b) => a.Identifier.CompareTo(b.Identifier));
+
+        merged.LseqTrackers[path] = mergedItems;
+
+        foreach (var (lwwPath, ts) in meta1.Lww.Concat(meta2.Lww))
+        {
+            if (!merged.Lww.TryGetValue(lwwPath, out var existingTs) || ts.CompareTo(existingTs) > 0)
+            {
+                merged.Lww[lwwPath] = ts;
+            }
+        }
+
+        return merged;
+    }
+
+    private static void CloneNonPartitionableMetadata(CrdtMetadata source, CrdtMetadata destination)
+    {
+        destination.VersionVector = new Dictionary<string, long>(source.VersionVector);
+        destination.SeenExceptions = new HashSet<CrdtOperation>(source.SeenExceptions);
+        foreach (var kvp in source.Lww)
+        {
+            destination.Lww[kvp.Key] = kvp.Value;
+        }
+    }
+
     private static void ReconstructList(object root, string path, List<LseqItem> lseqItems)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
         if (parent is null || property is null) return;
 
-        var list = property.GetValue(parent) as IList;
-        if (list is null) return;
-
         var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var list = property.GetValue(parent) as IList;
+        
+        if (list is null)
+        {
+            var listType = typeof(List<>).MakeGenericType(elementType);
+            list = (IList)Activator.CreateInstance(listType)!;
+            property.SetValue(parent, list);
+        }
 
         list.Clear();
         foreach (var item in lseqItems)
