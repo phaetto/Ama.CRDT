@@ -19,8 +19,8 @@ using Ama.CRDT.Attributes.Strategies;
 [CrdtSupportedType(typeof(long))]
 [Commutative]
 [Associative]
-[IdempotentWithContinuousTime]
-[Mergeable]
+[Idempotent]
+[StateBased]
 public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;

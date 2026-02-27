@@ -18,8 +18,8 @@ using Ama.CRDT.Services;
 [CrdtSupportedType(typeof(IDictionary))]
 [Commutative]
 [Associative]
-[IdempotentWithContinuousTime]
-[Mergeable]
+[Idempotent]
+[StateBased]
 public sealed class CounterMapStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext) : ICrdtStrategy

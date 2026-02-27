@@ -14,7 +14,7 @@ using Ama.CRDT.Services;
 [Commutative]
 [Associative]
 [Idempotent]
-[Mergeable]
+[StateBased]
 public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;

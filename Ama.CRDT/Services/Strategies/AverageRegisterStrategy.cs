@@ -19,7 +19,7 @@ using Ama.CRDT.Services;
 [Commutative]
 [Associative]
 [Idempotent]
-[Mergeable]
+[StateBased]
 public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
