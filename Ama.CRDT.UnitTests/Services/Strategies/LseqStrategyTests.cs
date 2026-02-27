@@ -4,11 +4,15 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+using System.Reflection;
 using Xunit;
 
 public sealed class LseqStrategyTests : IDisposable
@@ -21,6 +25,8 @@ public sealed class LseqStrategyTests : IDisposable
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
     private readonly IServiceScope scopeC;
+    private readonly IPartitionableCrdtStrategy lseqStrategy;
+    private readonly PropertyInfo itemsProperty;
 
     public LseqStrategyTests()
     {
@@ -39,6 +45,10 @@ public sealed class LseqStrategyTests : IDisposable
         
         applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        
+        var strategyProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
+        itemsProperty = typeof(LseqTestModel).GetProperty(nameof(LseqTestModel.Items))!;
+        lseqStrategy = (IPartitionableCrdtStrategy)strategyProvider.GetStrategy(itemsProperty);
     }
 
     public void Dispose()
@@ -156,6 +166,165 @@ public sealed class LseqStrategyTests : IDisposable
         {
             state.ShouldBe(firstState, ignoreOrder: false);
         }
+    }
+
+    [Fact]
+    public void GetMinimumKey_ShouldReturnEmptyLseqIdentifier()
+    {
+        // Act
+        var minKey = lseqStrategy.GetMinimumKey(itemsProperty);
+
+        // Assert
+        minKey.ShouldBeOfType<LseqIdentifier>();
+        var lseqId = (LseqIdentifier)minKey;
+        lseqId.Path.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void GetStartKey_ShouldReturnNull()
+    {
+        // Arrange
+        var doc = new LseqTestModel { Items = ["A", "B", "C"] };
+
+        // Act
+        var startKey = lseqStrategy.GetStartKey(doc, itemsProperty);
+
+        // Assert
+        startKey.ShouldBeNull();
+    }
+
+    [Fact]
+    public void GetKeyFromOperation_WithUpsert_ShouldExtractLseqIdentifier()
+    {
+        // Arrange
+        var path = ImmutableList.Create(new LseqPathSegment(5, "ReplicaA"));
+        var id = new LseqIdentifier(path);
+        var item = new LseqItem(id, "TestValue");
+        var operation = new CrdtOperation(Guid.NewGuid(), "ReplicaA", "$.items", OperationType.Upsert, item, new EpochTimestamp(1));
+
+        // Act
+        var key = lseqStrategy.GetKeyFromOperation(operation, "$.items");
+
+        // Assert
+        key.ShouldBeOfType<LseqIdentifier>();
+        key.ShouldBe(id);
+    }
+
+    [Fact]
+    public void GetKeyFromOperation_WithRemove_ShouldExtractLseqIdentifier()
+    {
+        // Arrange
+        var path = ImmutableList.Create(new LseqPathSegment(10, "ReplicaB"));
+        var id = new LseqIdentifier(path);
+        var operation = new CrdtOperation(Guid.NewGuid(), "ReplicaB", "$.items", OperationType.Remove, id, new EpochTimestamp(2));
+
+        // Act
+        var key = lseqStrategy.GetKeyFromOperation(operation, "$.items");
+
+        // Assert
+        key.ShouldBeOfType<LseqIdentifier>();
+        key.ShouldBe(id);
+    }
+
+    [Fact]
+    public void GetKeyFromOperation_WithMismatchedPath_ShouldReturnNull()
+    {
+        // Arrange
+        var path = ImmutableList.Create(new LseqPathSegment(5, "ReplicaA"));
+        var id = new LseqIdentifier(path);
+        var item = new LseqItem(id, "TestValue");
+        var operation = new CrdtOperation(Guid.NewGuid(), "ReplicaA", "$.otherItems", OperationType.Upsert, item, new EpochTimestamp(1));
+
+        // Act
+        var key = lseqStrategy.GetKeyFromOperation(operation, "$.items");
+
+        // Assert
+        key.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Split_WithFourItems_ShouldSplitIntoTwoPartitions()
+    {
+        // Arrange
+        var doc0 = new LseqTestModel { Items = new List<string>() };
+        var crdtDoc = new CrdtDocument<LseqTestModel>(doc0, metadataManagerA.Initialize(doc0));
+        
+        var modified = new LseqTestModel { Items = new List<string> { "Item1", "Item2", "Item3", "Item4" } };
+        var patch = patcherA.GeneratePatch(crdtDoc, modified);
+        applicatorA.ApplyPatch(crdtDoc, patch);
+
+        // Verify pre-split setup
+        crdtDoc.Data.Items.Count.ShouldBe(4);
+        crdtDoc.Metadata.LseqTrackers["$.items"].Count.ShouldBe(4);
+        var originalIdentifiers = crdtDoc.Metadata.LseqTrackers["$.items"].Select(i => i.Identifier).ToList();
+
+        // Act
+        var splitResult = lseqStrategy.Split(crdtDoc.Data, crdtDoc.Metadata, itemsProperty);
+
+        // Assert
+        splitResult.SplitKey.ShouldBeOfType<LseqIdentifier>();
+        var expectedSplitKey = originalIdentifiers[2]; // index 4 / 2 = 2
+        splitResult.SplitKey.ShouldBe(expectedSplitKey);
+
+        var p1Data = (LseqTestModel)splitResult.Partition1.Data;
+        var p2Data = (LseqTestModel)splitResult.Partition2.Data;
+        
+        p1Data.Items.Count.ShouldBe(2);
+        p2Data.Items.Count.ShouldBe(2);
+
+        var p1Meta = splitResult.Partition1.Metadata;
+        var p2Meta = splitResult.Partition2.Metadata;
+
+        p1Meta.LseqTrackers["$.items"].Count.ShouldBe(2);
+        p2Meta.LseqTrackers["$.items"].Count.ShouldBe(2);
+
+        p1Meta.LseqTrackers["$.items"].Select(i => i.Identifier).ShouldBeSubsetOf(originalIdentifiers.Take(2));
+        p2Meta.LseqTrackers["$.items"].Select(i => i.Identifier).ShouldBeSubsetOf(originalIdentifiers.Skip(2));
+    }
+
+    [Fact]
+    public void Merge_WithTwoAdjacentPartitions_ShouldCombineItemsAndMetadata()
+    {
+        // Arrange
+        var doc0 = new LseqTestModel { Items = new List<string>() };
+        var crdtDoc = new CrdtDocument<LseqTestModel>(doc0, metadataManagerA.Initialize(doc0));
+        var modified = new LseqTestModel { Items = new List<string> { "Alpha", "Beta", "Gamma", "Delta" } };
+        var patch = patcherA.GeneratePatch(crdtDoc, modified);
+        applicatorA.ApplyPatch(crdtDoc, patch);
+
+        var splitResult = lseqStrategy.Split(crdtDoc.Data, crdtDoc.Metadata, itemsProperty);
+
+        // Act
+        var mergedResult = lseqStrategy.Merge(
+            splitResult.Partition1.Data, splitResult.Partition1.Metadata, 
+            splitResult.Partition2.Data, splitResult.Partition2.Metadata, 
+            itemsProperty);
+
+        // Assert
+        var mergedData = (LseqTestModel)mergedResult.Data;
+        mergedData.Items.Count.ShouldBe(4);
+        mergedData.Items.ShouldContain("Alpha");
+        mergedData.Items.ShouldContain("Beta");
+        mergedData.Items.ShouldContain("Gamma");
+        mergedData.Items.ShouldContain("Delta");
+
+        mergedResult.Metadata.LseqTrackers["$.items"].Count.ShouldBe(4);
+        mergedResult.Metadata.VersionVector.ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void Split_WithLessThanTwoItems_ShouldThrowInvalidOperationException()
+    {
+        // Arrange
+        var doc0 = new LseqTestModel { Items = new List<string>() };
+        var crdtDoc = new CrdtDocument<LseqTestModel>(doc0, metadataManagerA.Initialize(doc0));
+        var modified = new LseqTestModel { Items = new List<string> { "SingleItem" } };
+        var patch = patcherA.GeneratePatch(crdtDoc, modified);
+        applicatorA.ApplyPatch(crdtDoc, patch);
+
+        // Act & Assert
+        Should.Throw<InvalidOperationException>(() => 
+            lseqStrategy.Split(crdtDoc.Data, crdtDoc.Metadata, itemsProperty));
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
