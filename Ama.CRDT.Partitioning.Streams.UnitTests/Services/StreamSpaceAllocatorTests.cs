@@ -1,7 +1,6 @@
 namespace Ama.CRDT.Partitioning.Streams.UnitTests.Services;
 
 using System.Collections.Generic;
-using System.Linq;
 using Ama.CRDT.Partitioning.Streams.Models;
 using Ama.CRDT.Partitioning.Streams.Services;
 using Shouldly;
