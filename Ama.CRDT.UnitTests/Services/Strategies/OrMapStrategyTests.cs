@@ -54,7 +54,7 @@ public sealed class OrMapStrategyTests
 
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         var doc2Model = new TestModel { Map = new Dictionary<string, int>(doc1.Data.Map) };
-        var doc2Metadata = metadataManager.Clone(doc1.Metadata);
+        var doc2Metadata = doc1.Metadata.DeepClone();
         var doc2 = new CrdtDocument<TestModel>(doc2Model, doc2Metadata!);
 
         var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("b", 2, Guid.NewGuid()), timestampProvider.Create(1));

@@ -145,13 +145,13 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
 
         // Act: Scenario 1 (A then B)
         var model1 = new TestModel { Tree = { Nodes = new Dictionary<object, TreeNode>(ancestor.Tree.Nodes) } };
-        var doc1 = new CrdtDocument<TestModel>(model1, metadataManager.Clone(docAncestor.Metadata));
+        var doc1 = new CrdtDocument<TestModel>(model1, docAncestor.Metadata.DeepClone());
         applicator.ApplyPatch(doc1, patchA);
         applicator.ApplyPatch(doc1, patchB);
 
         // Act: Scenario 2 (B then A)
         var model2 = new TestModel { Tree = { Nodes = new Dictionary<object, TreeNode>(ancestor.Tree.Nodes) } };
-        var doc2 = new CrdtDocument<TestModel>(model2, metadataManager.Clone(docAncestor.Metadata));
+        var doc2 = new CrdtDocument<TestModel>(model2, docAncestor.Metadata.DeepClone());
         applicator.ApplyPatch(doc2, patchB);
         applicator.ApplyPatch(doc2, patchA);
 
@@ -177,13 +177,13 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
         
         // Act: Scenario 1 (Remove then Add)
         var model1 = new TestModel { Tree = { Nodes = new Dictionary<object, TreeNode>(ancestor.Tree.Nodes) } };
-        var doc1 = new CrdtDocument<TestModel>(model1, metadataManager.Clone(docAncestor.Metadata));
+        var doc1 = new CrdtDocument<TestModel>(model1, docAncestor.Metadata.DeepClone());
         applicator.ApplyPatch(doc1, patchRemove);
         applicator.ApplyPatch(doc1, patchAdd);
 
         // Act: Scenario 2 (Add then Remove)
         var model2 = new TestModel { Tree = { Nodes = new Dictionary<object, TreeNode>(ancestor.Tree.Nodes) } };
-        var doc2 = new CrdtDocument<TestModel>(model2, metadataManager.Clone(docAncestor.Metadata));
+        var doc2 = new CrdtDocument<TestModel>(model2, docAncestor.Metadata.DeepClone());
         applicator.ApplyPatch(doc2, patchAdd);
         applicator.ApplyPatch(doc2, patchRemove);
         

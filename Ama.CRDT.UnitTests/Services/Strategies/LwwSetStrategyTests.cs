@@ -118,14 +118,14 @@ public sealed class LwwSetStrategyTests : IDisposable
 
         // Scenario 1: Add (t=1), then Remove (t=2) -> Should be removed
         var model1 = new TestModel();
-        var meta1 = metadataManagerA.Clone(metaAncestor);
+        var meta1 = metaAncestor.DeepClone();
         var doc1 = new CrdtDocument<TestModel>(model1, meta1);
         applicatorA.ApplyPatch(doc1, patchAdd);
         applicatorA.ApplyPatch(doc1, patchRemove);
         
         // Scenario 2: Remove (t=2), then Add (t=1) -> Should be removed
         var model2 = new TestModel();
-        var meta2 = metadataManagerA.Clone(metaAncestor);
+        var meta2 = metaAncestor.DeepClone();
         var doc2 = new CrdtDocument<TestModel>(model2, meta2);
         applicatorA.ApplyPatch(doc2, patchRemove);
         applicatorA.ApplyPatch(doc2, patchAdd);
@@ -195,7 +195,7 @@ public sealed class LwwSetStrategyTests : IDisposable
         foreach (var permutation in permutations)
         {
             var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
-            var meta = metadataManagerA.Clone(metaAncestor);
+            var meta = metaAncestor.DeepClone();
             var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in permutation)
             {

@@ -119,13 +119,13 @@ public sealed class GraphStrategyTests : IDisposable
 
         // Act: Scenario 1 (A then B)
         var model1 = new TestModel();
-        var doc1 = new CrdtDocument<TestModel>(model1, metadataManager.Clone(metadata));
+        var doc1 = new CrdtDocument<TestModel>(model1, metadata.DeepClone());
         applicator.ApplyPatch(doc1, patchA);
         applicator.ApplyPatch(doc1, patchB);
 
         // Act: Scenario 2 (B then A)
         var model2 = new TestModel();
-        var doc2 = new CrdtDocument<TestModel>(model2, metadataManager.Clone(metadata));
+        var doc2 = new CrdtDocument<TestModel>(model2, metadata.DeepClone());
         applicator.ApplyPatch(doc2, patchB);
         applicator.ApplyPatch(doc2, patchA);
 

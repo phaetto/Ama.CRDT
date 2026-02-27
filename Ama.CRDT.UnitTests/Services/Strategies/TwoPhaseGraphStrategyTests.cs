@@ -111,13 +111,13 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
 
         // Act: Scenario 1 (A then B)
         var model1 = new TestModel { Graph = { Vertices = { "A" } } };
-        var doc1 = new CrdtDocument<TestModel>(model1, metadataManager.Clone(docAncestor.Metadata));
+        var doc1 = new CrdtDocument<TestModel>(model1, docAncestor.Metadata.DeepClone());
         applicator.ApplyPatch(doc1, patchA);
         applicator.ApplyPatch(doc1, patchB);
 
         // Act: Scenario 2 (B then A)
         var model2 = new TestModel { Graph = { Vertices = { "A" } } };
-        var doc2 = new CrdtDocument<TestModel>(model2, metadataManager.Clone(docAncestor.Metadata));
+        var doc2 = new CrdtDocument<TestModel>(model2, docAncestor.Metadata.DeepClone());
         applicator.ApplyPatch(doc2, patchB);
         applicator.ApplyPatch(doc2, patchA);
 
