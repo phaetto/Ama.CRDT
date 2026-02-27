@@ -96,6 +96,10 @@ public class StrategyBenchmarks
     private StrategyPoco toPocoForSortedSet = default!;
     private CrdtPatch sortedSetPatch = default!;
 
+    // Rga
+    private StrategyPoco toPocoForRga = default!;
+    private CrdtPatch rgaPatch = default!;
+
     #endregion
 
     [GlobalSetup]
@@ -212,6 +216,12 @@ public class StrategyBenchmarks
         toPocoForSortedSet.SortedSet.Add(new PrioItem { Id = 3, Priority = 5, Value = "C" });
         toPocoForSortedSet.SortedSet.RemoveAll(p => p.Id == 1);
         sortedSetPatch = patcher.GeneratePatch(fromDoc, toPocoForSortedSet);
+
+        // Rga
+        toPocoForRga = basePoco.Clone();
+        toPocoForRga.RgaList.Insert(1, "D");
+        toPocoForRga.RgaList.Remove("C");
+        rgaPatch = patcher.GeneratePatch(fromDoc, toPocoForRga);
         #endregion
     }
 
@@ -272,6 +282,9 @@ public class StrategyBenchmarks
 
     [Benchmark(Description = "GeneratePatch: SortedSet")]
     public CrdtPatch GeneratePatch_SortedSet() => patcher.GeneratePatch(fromDoc, toPocoForSortedSet);
+
+    [Benchmark(Description = "GeneratePatch: RGA")]
+    public CrdtPatch GeneratePatch_Rga() => patcher.GeneratePatch(fromDoc, toPocoForRga);
     #endregion
 
     #region ApplyPatch Benchmarks
@@ -331,5 +344,8 @@ public class StrategyBenchmarks
 
     [Benchmark(Description = "ApplyPatch: SortedSet")]
     public StrategyPoco ApplyPatch_SortedSet() => applicator.ApplyPatch(new CrdtDocument<StrategyPoco>(basePoco.Clone(), new CrdtMetadata()), sortedSetPatch);
+
+    [Benchmark(Description = "ApplyPatch: RGA")]
+    public StrategyPoco ApplyPatch_Rga() => applicator.ApplyPatch(new CrdtDocument<StrategyPoco>(basePoco.Clone(), new CrdtMetadata()), rgaPatch);
     #endregion
 }
