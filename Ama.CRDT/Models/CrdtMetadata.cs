@@ -1,6 +1,8 @@
 namespace Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization;
-
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
 /// Encapsulates the state required for conflict resolution, such as LWW timestamps and version vectors,
@@ -20,10 +22,10 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     public IDictionary<string, ICrdtTimestamp> Lww { get; set; } = new Dictionary<string, ICrdtTimestamp>();
 
     /// <summary>
-    /// Gets or sets a version vector mapping a ReplicaId to the latest contiguous timestamp received from that replica.
-    /// Operations with timestamps less than or equal to this value are considered seen and are ignored.
+    /// Gets or sets a version vector mapping a ReplicaId to the latest contiguous causal sequence clock received from that replica.
+    /// Operations with clocks less than or equal to this value are considered seen and are ignored.
     /// </summary>
-    public IDictionary<string, ICrdtTimestamp> VersionVector { get; set; } = new Dictionary<string, ICrdtTimestamp>();
+    public IDictionary<string, long> VersionVector { get; set; } = new Dictionary<string, long>();
 
     /// <summary>
     /// Gets or sets a set of operations that have been received out of order.

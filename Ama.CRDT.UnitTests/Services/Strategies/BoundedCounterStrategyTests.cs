@@ -32,7 +32,6 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -90,7 +89,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Level = initial };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.level", OperationType.Increment, (decimal)delta, timestampProvider.Create(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.level", OperationType.Increment, (decimal)delta, timestampProvider.Create(2L), 1);
         
         // Act
         strategy.ApplyOperation(new ApplyOperationContext(model, new CrdtMetadata(), operation));
@@ -104,7 +103,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new NoAttributeModel { Value = 50 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.value", OperationType.Increment, 10m, timestampProvider.Create(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.value", OperationType.Increment, 10m, timestampProvider.Create(2L), 1);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act & Assert
@@ -120,7 +119,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
-            new(Guid.NewGuid(), "r1", "$.Level", OperationType.Increment, 10m, timestampProvider.Create(1L))
+            new(Guid.NewGuid(), "r1", "$.Level", OperationType.Increment, 10m, timestampProvider.Create(1L), 1)
         });
 
         // Act
@@ -137,9 +136,9 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     public void ApplyPatch_IsCommutativeAndAssociative()
     {
         // Arrange
-        var patch1 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r1", "$.Level", OperationType.Increment, 10m, timestampProvider.Create(1L)) });   // 50 -> 60
-        var patch2 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r2", "$.Level", OperationType.Increment, -20m, timestampProvider.Create(2L)) }); // 60 -> 40
-        var patch3 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r3", "$.Level", OperationType.Increment, 70m, timestampProvider.Create(3L)) });  // 40 -> 100 (clamped)
+        var patch1 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r1", "$.Level", OperationType.Increment, 10m, timestampProvider.Create(1L), 1) });   // 50 -> 60
+        var patch2 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r2", "$.Level", OperationType.Increment, -20m, timestampProvider.Create(2L), 1) }); // 60 -> 40
+        var patch3 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r3", "$.Level", OperationType.Increment, 70m, timestampProvider.Create(3L), 1) });  // 40 -> 100 (clamped)
 
         var patches = new[] { patch1, patch2, patch3 };
         var permutations = GetPermutations(patches, 3);

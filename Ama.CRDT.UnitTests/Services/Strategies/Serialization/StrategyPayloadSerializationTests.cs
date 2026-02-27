@@ -16,6 +16,16 @@ using Xunit;
 
 public sealed class StrategyPayloadSerializationTests : IDisposable
 {
+    // Local test provider to guarantee strictly increasing timestamps during rapid test execution
+    private sealed class TestTimestampProvider : ICrdtTimestampProvider
+    {
+        private long current = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        private readonly EpochTimestampProvider defaultProvider = new();
+        
+        public ICrdtTimestamp Now() => defaultProvider.Create(System.Threading.Interlocked.Increment(ref current));
+        public ICrdtTimestamp Create(long value) => defaultProvider.Create(value);
+    }
+
     #region Models and Helpers
 
     // LwwStrategy
@@ -135,6 +145,7 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     {
         var services = new ServiceCollection()
             .AddCrdt()
+            .AddSingleton<ICrdtTimestampProvider, TestTimestampProvider>()
             .AddCrdtComparer<ItemComparer>()
             .AddSingleton<OrderStatusStateMachine>()
             .AddCrdtSerializableType<User>("test-user")

@@ -241,8 +241,8 @@ public sealed class PartitionManagerTests
         
         var headerCrdtDoc = new CrdtDocument<MultiPartitionedModel>(doc, metaManager.Initialize(doc));
         // Inject dummy global state
-        var ts = timestampProvider.Now();
-        headerCrdtDoc.Metadata!.VersionVector["replica-1"] = ts;
+        long currentClock = 100L;
+        headerCrdtDoc.Metadata!.VersionVector["replica-1"] = currentClock;
 
         var dataCrdtDoc = new CrdtDocument<MultiPartitionedModel>(doc, metaManager.Initialize(doc));
         // Clear global state from data doc (as it would be loaded from store)
@@ -283,7 +283,7 @@ public sealed class PartitionManagerTests
             logicalKey, 
             headerPartition, 
             It.IsAny<MultiPartitionedModel>(), 
-            It.Is<CrdtMetadata>(m => m.VersionVector.ContainsKey("replica-1") && m.VersionVector["replica-1"].Equals(ts)), 
+            It.Is<CrdtMetadata>(m => m.VersionVector.ContainsKey("replica-1") && m.VersionVector["replica-1"] == currentClock), 
             default), Times.Once);
     }
 }

@@ -22,7 +22,7 @@ public sealed class CrdtMetadataManagerTests
         strategyProviderMock = new Mock<ICrdtStrategyProvider>();
         timestampProviderMock = new Mock<ICrdtTimestampProvider>();
         elementComparerProviderMock = new Mock<IElementComparerProvider>();
-        manager = new CrdtMetadataManager(strategyProviderMock.Object, timestampProviderMock.Object, elementComparerProviderMock.Object);
+        manager = new CrdtMetadataManager(strategyProviderMock.Object, timestampProviderMock.Object, elementComparerProviderMock.Object,new ReplicaContext { ReplicaId = "replica" });
         timestampProviderMock.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(v => new SequentialTimestamp(v));
     }
     
@@ -75,10 +75,8 @@ public sealed class CrdtMetadataManagerTests
         if (testAdvanceVector)
         {
             Should.Throw<ArgumentNullException>(() => manager.AdvanceVersionVector(null!, operation));
-            Should.Throw<ArgumentNullException>(() => manager.AdvanceVersionVector(null!, "r", timestamp));
-            Should.Throw<ArgumentNullException>(() => manager.AdvanceVersionVector(metadata, "r", null!));
-            Should.Throw<ArgumentException>(() => manager.AdvanceVersionVector(metadata, null!, timestamp));
-            Should.Throw<ArgumentException>(() => manager.AdvanceVersionVector(metadata, " ", timestamp));
+            Should.Throw<ArgumentException>(() => manager.AdvanceVersionVector(metadata, null!, 1L));
+            Should.Throw<ArgumentException>(() => manager.AdvanceVersionVector(metadata, " ", 1L));
         }
     }
 
@@ -130,21 +128,6 @@ public sealed class CrdtMetadataManagerTests
         metadata.Lww.ShouldNotContainKey("$.b");
         metadata.Lww.Count.ShouldBe(1);
     }
-    
-    [Fact]
-    public void AdvanceVersionVector_WhenProviderIsNotContinuous_ShouldDoNothing()
-    {
-        // Arrange
-        var metadata = new CrdtMetadata();
-        var replicaId = "replica-1";
-        timestampProviderMock.Setup(p => p.IsContinuous).Returns(false);
-
-        // Act
-        manager.AdvanceVersionVector(metadata, replicaId, timestampProviderMock.Object.Create(100));
-
-        // Assert
-        metadata.VersionVector.ShouldBeEmpty();
-    }
 
     [Theory]
     [InlineData(100, 50)]
@@ -152,48 +135,43 @@ public sealed class CrdtMetadataManagerTests
     public void AdvanceVersionVector_WhenOperationIsOldOrSame_ShouldDoNothing(long vector, long newOp)
     {
         // Arrange
-        SetupSequentialTimestampProviderMock();
         var metadata = new CrdtMetadata();
         var replicaId = "replica-1";
-        metadata.VersionVector[replicaId] = timestampProviderMock.Object.Create(vector);
+        metadata.VersionVector[replicaId] = vector;
 
         // Act
-        manager.AdvanceVersionVector(metadata, replicaId, timestampProviderMock.Object.Create(newOp));
+        manager.AdvanceVersionVector(metadata, replicaId, newOp);
 
         // Assert
-        metadata.VersionVector[replicaId].ShouldBe(timestampProviderMock.Object.Create(vector));
+        metadata.VersionVector[replicaId].ShouldBe(vector);
     }
 
     [Fact]
     public void AdvanceVersionVector_WithNoExceptionsAndNoGap_ShouldAdvanceVector()
     {
         // Arrange
-        SetupSequentialTimestampProviderMock();
         var metadata = new CrdtMetadata();
         var replicaId = "replica-1";
-        metadata.VersionVector[replicaId] = timestampProviderMock.Object.Create(100);
-        var newTimestamp = timestampProviderMock.Object.Create(101);
+        metadata.VersionVector[replicaId] = 100;
 
         // Act
-        manager.AdvanceVersionVector(metadata, replicaId, newTimestamp);
+        manager.AdvanceVersionVector(metadata, replicaId, 101);
 
         // Assert
-        metadata.VersionVector[replicaId].ShouldBe(newTimestamp);
+        metadata.VersionVector[replicaId].ShouldBe(101);
     }
 
     [Fact]
     public void AdvanceVersionVector_WithNoExceptionsAndGap_ShouldNotAdvanceVector()
     {
         // Arrange
-        SetupSequentialTimestampProviderMock();
         var metadata = new CrdtMetadata();
         var replicaId = "replica-1";
-        var initialVector = timestampProviderMock.Object.Create(100);
+        long initialVector = 100;
         metadata.VersionVector[replicaId] = initialVector;
-        var newTimestamp = timestampProviderMock.Object.Create(105);
 
         // Act
-        manager.AdvanceVersionVector(metadata, replicaId, newTimestamp);
+        manager.AdvanceVersionVector(metadata, replicaId, 105);
 
         // Assert
         metadata.VersionVector[replicaId].ShouldBe(initialVector);
@@ -203,66 +181,44 @@ public sealed class CrdtMetadataManagerTests
     public void AdvanceVersionVector_WithGapInExceptions_ShouldAdvanceToLastContiguousTimestamp()
     {
         // Arrange
-        SetupSequentialTimestampProviderMock();
         var metadata = new CrdtMetadata();
         var replicaId = "replica-1";
-        metadata.VersionVector[replicaId] = timestampProviderMock.Object.Create(100);
+        metadata.VersionVector[replicaId] = 100;
         
         // Exceptions with a gap at 103
-        metadata.SeenExceptions.Add(CreateOp(replicaId, 101));
         metadata.SeenExceptions.Add(CreateOp(replicaId, 102));
         metadata.SeenExceptions.Add(CreateOp(replicaId, 104));
         
-        // Act
-        manager.AdvanceVersionVector(metadata, replicaId, timestampProviderMock.Object.Create(105));
+        // Act - Apply the contiguous next operation (101)
+        manager.AdvanceVersionVector(metadata, replicaId, 101);
 
-        // Assert
-        metadata.VersionVector[replicaId].ShouldBe(timestampProviderMock.Object.Create(102));
+        // Assert - should eat 102, stop at 103 (gap), leaving 104 in exceptions
+        metadata.VersionVector[replicaId].ShouldBe(102);
         metadata.SeenExceptions.Count.ShouldBe(1);
-        metadata.SeenExceptions.Single().Timestamp.ShouldBe(timestampProviderMock.Object.Create(104));
+        metadata.SeenExceptions.Single().Clock.ShouldBe(104);
     }
 
     [Fact]
     public void AdvanceVersionVector_WithAllExceptionsPresent_ShouldAdvanceToNewTimestampAndClearExceptions()
     {
         // Arrange
-        SetupSequentialTimestampProviderMock();
         var metadata = new CrdtMetadata();
         var replicaId = "replica-1";
-        metadata.VersionVector[replicaId] = timestampProviderMock.Object.Create(100);
+        metadata.VersionVector[replicaId] = 100;
         
-        // Exceptions that fill the gap
-        metadata.SeenExceptions.Add(CreateOp(replicaId, 101));
+        // Exceptions that fill the gap after 101
         metadata.SeenExceptions.Add(CreateOp(replicaId, 102));
         metadata.SeenExceptions.Add(CreateOp(replicaId, 103));
         metadata.SeenExceptions.Add(CreateOp(replicaId, 104));
         
-        // Act
-        manager.AdvanceVersionVector(metadata, replicaId, timestampProviderMock.Object.Create(105));
+        // Act - Apply 101
+        manager.AdvanceVersionVector(metadata, replicaId, 101);
 
-        // Assert
-        metadata.VersionVector[replicaId].ShouldBe(timestampProviderMock.Object.Create(105));
+        // Assert - should consume up to 104
+        metadata.VersionVector[replicaId].ShouldBe(104);
         metadata.SeenExceptions.ShouldBeEmpty();
     }
     
-    private void SetupSequentialTimestampProviderMock()
-    {
-        timestampProviderMock.Setup(p => p.IsContinuous).Returns(true);
-        timestampProviderMock.Setup(p => p.Init()).Returns(timestampProviderMock.Object.Create(0));
-        timestampProviderMock.Setup(p => p.IterateBetween(It.IsAny<ICrdtTimestamp>(), It.IsAny<ICrdtTimestamp>()))
-            .Returns<ICrdtTimestamp, ICrdtTimestamp>((start, end) =>
-            {
-                var startVal = ((SequentialTimestamp)start).Value;
-                var endVal = ((SequentialTimestamp)end).Value;
-                var result = new List<ICrdtTimestamp>();
-                for (var i = startVal + 1; i < endVal; i++)
-                {
-                    result.Add(timestampProviderMock.Object.Create(i));
-                }
-                return result;
-            });
-    }
-
-    private CrdtOperation CreateOp(string replicaId, long timestampValue)
-        => new(Guid.NewGuid(), replicaId, "path", OperationType.Upsert, null, timestampProviderMock.Object.Create(timestampValue));
+    private CrdtOperation CreateOp(string replicaId, long clockValue)
+        => new(Guid.NewGuid(), replicaId, "path", OperationType.Upsert, null, timestampProviderMock.Object.Create(0), clockValue);
 }
