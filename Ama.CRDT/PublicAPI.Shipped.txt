@@ -11,9 +11,6 @@ Ama.CRDT.Attributes.CrdtCounterMapStrategyAttribute
 Ama.CRDT.Attributes.CrdtCounterMapStrategyAttribute.CrdtCounterMapStrategyAttribute() -> void
 Ama.CRDT.Attributes.CrdtCounterStrategyAttribute
 Ama.CRDT.Attributes.CrdtCounterStrategyAttribute.CrdtCounterStrategyAttribute() -> void
-Ama.CRDT.Attributes.CrdtExclusiveLockStrategyAttribute
-Ama.CRDT.Attributes.CrdtExclusiveLockStrategyAttribute.CrdtExclusiveLockStrategyAttribute(string! lockHolderPropertyPath) -> void
-Ama.CRDT.Attributes.CrdtExclusiveLockStrategyAttribute.LockHolderPropertyPath.get -> string!
 Ama.CRDT.Attributes.CrdtFixedSizeArrayStrategyAttribute
 Ama.CRDT.Attributes.CrdtFixedSizeArrayStrategyAttribute.CrdtFixedSizeArrayStrategyAttribute(int size) -> void
 Ama.CRDT.Attributes.CrdtFixedSizeArrayStrategyAttribute.Size.get -> int
@@ -48,6 +45,8 @@ Ama.CRDT.Attributes.CrdtPriorityQueueStrategyAttribute.CrdtPriorityQueueStrategy
 Ama.CRDT.Attributes.CrdtPriorityQueueStrategyAttribute.PriorityPropertyName.get -> string!
 Ama.CRDT.Attributes.CrdtReplicatedTreeStrategyAttribute
 Ama.CRDT.Attributes.CrdtReplicatedTreeStrategyAttribute.CrdtReplicatedTreeStrategyAttribute() -> void
+Ama.CRDT.Attributes.CrdtRgaStrategyAttribute
+Ama.CRDT.Attributes.CrdtRgaStrategyAttribute.CrdtRgaStrategyAttribute() -> void
 Ama.CRDT.Attributes.CrdtSortedSetStrategyAttribute
 Ama.CRDT.Attributes.CrdtSortedSetStrategyAttribute.CrdtSortedSetStrategyAttribute() -> void
 Ama.CRDT.Attributes.CrdtSortedSetStrategyAttribute.CrdtSortedSetStrategyAttribute(string! sortPropertyName) -> void
@@ -67,18 +66,19 @@ Ama.CRDT.Attributes.CrdtTwoPhaseSetStrategyAttribute
 Ama.CRDT.Attributes.CrdtTwoPhaseSetStrategyAttribute.CrdtTwoPhaseSetStrategyAttribute() -> void
 Ama.CRDT.Attributes.CrdtVoteCounterStrategyAttribute
 Ama.CRDT.Attributes.CrdtVoteCounterStrategyAttribute.CrdtVoteCounterStrategyAttribute() -> void
+Ama.CRDT.Attributes.PartitionKeyAttribute
+Ama.CRDT.Attributes.PartitionKeyAttribute.PartitionKeyAttribute(string! propertyName) -> void
+Ama.CRDT.Attributes.PartitionKeyAttribute.PropertyName.get -> string!
 Ama.CRDT.Attributes.Strategies.AssociativeAttribute
 Ama.CRDT.Attributes.Strategies.AssociativeAttribute.AssociativeAttribute() -> void
 Ama.CRDT.Attributes.Strategies.CommutativeAttribute
 Ama.CRDT.Attributes.Strategies.CommutativeAttribute.CommutativeAttribute() -> void
 Ama.CRDT.Attributes.Strategies.IdempotentAttribute
 Ama.CRDT.Attributes.Strategies.IdempotentAttribute.IdempotentAttribute() -> void
-Ama.CRDT.Attributes.Strategies.IdempotentWithContinuousTimeAttribute
-Ama.CRDT.Attributes.Strategies.IdempotentWithContinuousTimeAttribute.IdempotentWithContinuousTimeAttribute() -> void
-Ama.CRDT.Attributes.Strategies.MergeableAttribute
-Ama.CRDT.Attributes.Strategies.MergeableAttribute.MergeableAttribute() -> void
-Ama.CRDT.Attributes.Strategies.SequentialOperationsAttribute
-Ama.CRDT.Attributes.Strategies.SequentialOperationsAttribute.SequentialOperationsAttribute() -> void
+Ama.CRDT.Attributes.Strategies.OperationBasedAttribute
+Ama.CRDT.Attributes.Strategies.OperationBasedAttribute.OperationBasedAttribute() -> void
+Ama.CRDT.Attributes.Strategies.StateBasedAttribute
+Ama.CRDT.Attributes.Strategies.StateBasedAttribute.StateBasedAttribute() -> void
 Ama.CRDT.Extensions.IStateMachine<TState>
 Ama.CRDT.Extensions.IStateMachine<TState>.IsValidTransition(TState from, TState to) -> bool
 Ama.CRDT.Extensions.ServiceCollectionExtensions
@@ -112,9 +112,8 @@ Ama.CRDT.Models.CrdtMetadata.AverageRegisters.set -> void
 Ama.CRDT.Models.CrdtMetadata.CounterMaps.get -> System.Collections.Generic.IDictionary<string!, System.Collections.Generic.IDictionary<object!, Ama.CRDT.Models.PnCounterState!>!>!
 Ama.CRDT.Models.CrdtMetadata.CounterMaps.set -> void
 Ama.CRDT.Models.CrdtMetadata.CrdtMetadata() -> void
+Ama.CRDT.Models.CrdtMetadata.DeepClone() -> Ama.CRDT.Models.CrdtMetadata!
 Ama.CRDT.Models.CrdtMetadata.Equals(Ama.CRDT.Models.CrdtMetadata? other) -> bool
-Ama.CRDT.Models.CrdtMetadata.ExclusiveLocks.get -> System.Collections.Generic.IDictionary<string!, Ama.CRDT.Models.LockInfo?>!
-Ama.CRDT.Models.CrdtMetadata.ExclusiveLocks.set -> void
 Ama.CRDT.Models.CrdtMetadata.LseqTrackers.get -> System.Collections.Generic.IDictionary<string!, System.Collections.Generic.List<Ama.CRDT.Models.LseqItem>!>!
 Ama.CRDT.Models.CrdtMetadata.LseqTrackers.set -> void
 Ama.CRDT.Models.CrdtMetadata.Lww.get -> System.Collections.Generic.IDictionary<string!, Ama.CRDT.Models.ICrdtTimestamp!>!
@@ -133,18 +132,22 @@ Ama.CRDT.Models.CrdtMetadata.PriorityQueues.get -> System.Collections.Generic.ID
 Ama.CRDT.Models.CrdtMetadata.PriorityQueues.set -> void
 Ama.CRDT.Models.CrdtMetadata.ReplicatedTrees.get -> System.Collections.Generic.IDictionary<string!, Ama.CRDT.Models.OrSetState!>!
 Ama.CRDT.Models.CrdtMetadata.ReplicatedTrees.set -> void
+Ama.CRDT.Models.CrdtMetadata.RgaTrackers.get -> System.Collections.Generic.IDictionary<string!, System.Collections.Generic.List<Ama.CRDT.Models.RgaItem>!>!
+Ama.CRDT.Models.CrdtMetadata.RgaTrackers.set -> void
 Ama.CRDT.Models.CrdtMetadata.SeenExceptions.get -> System.Collections.Generic.ISet<Ama.CRDT.Models.CrdtOperation>!
 Ama.CRDT.Models.CrdtMetadata.SeenExceptions.set -> void
 Ama.CRDT.Models.CrdtMetadata.TwoPhaseGraphs.get -> System.Collections.Generic.IDictionary<string!, Ama.CRDT.Models.TwoPhaseGraphState!>!
 Ama.CRDT.Models.CrdtMetadata.TwoPhaseGraphs.set -> void
 Ama.CRDT.Models.CrdtMetadata.TwoPhaseSets.get -> System.Collections.Generic.IDictionary<string!, Ama.CRDT.Models.TwoPhaseSetState!>!
 Ama.CRDT.Models.CrdtMetadata.TwoPhaseSets.set -> void
-Ama.CRDT.Models.CrdtMetadata.VersionVector.get -> System.Collections.Generic.IDictionary<string!, Ama.CRDT.Models.ICrdtTimestamp!>!
+Ama.CRDT.Models.CrdtMetadata.VersionVector.get -> System.Collections.Generic.IDictionary<string!, long>!
 Ama.CRDT.Models.CrdtMetadata.VersionVector.set -> void
 Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Models.CrdtOperation.Clock.get -> long
+Ama.CRDT.Models.CrdtOperation.Clock.init -> void
 Ama.CRDT.Models.CrdtOperation.CrdtOperation() -> void
-Ama.CRDT.Models.CrdtOperation.CrdtOperation(System.Guid Id, string! ReplicaId, string! JsonPath, Ama.CRDT.Models.OperationType Type, object? Value, Ama.CRDT.Models.ICrdtTimestamp! Timestamp) -> void
-Ama.CRDT.Models.CrdtOperation.Deconstruct(out System.Guid Id, out string! ReplicaId, out string! JsonPath, out Ama.CRDT.Models.OperationType Type, out object? Value, out Ama.CRDT.Models.ICrdtTimestamp! Timestamp) -> void
+Ama.CRDT.Models.CrdtOperation.CrdtOperation(System.Guid Id, string! ReplicaId, string! JsonPath, Ama.CRDT.Models.OperationType Type, object? Value, Ama.CRDT.Models.ICrdtTimestamp! Timestamp, long Clock = 0) -> void
+Ama.CRDT.Models.CrdtOperation.Deconstruct(out System.Guid Id, out string! ReplicaId, out string! JsonPath, out Ama.CRDT.Models.OperationType Type, out object? Value, out Ama.CRDT.Models.ICrdtTimestamp! Timestamp, out long Clock) -> void
 Ama.CRDT.Models.CrdtOperation.Equals(Ama.CRDT.Models.CrdtOperation other) -> bool
 Ama.CRDT.Models.CrdtOperation.Id.get -> System.Guid
 Ama.CRDT.Models.CrdtOperation.Id.init -> void
@@ -163,6 +166,8 @@ Ama.CRDT.Models.CrdtPatch.CrdtPatch() -> void
 Ama.CRDT.Models.CrdtPatch.CrdtPatch(System.Collections.Generic.IReadOnlyList<Ama.CRDT.Models.CrdtOperation>! Operations) -> void
 Ama.CRDT.Models.CrdtPatch.Deconstruct(out System.Collections.Generic.IReadOnlyList<Ama.CRDT.Models.CrdtOperation>! Operations) -> void
 Ama.CRDT.Models.CrdtPatch.Equals(Ama.CRDT.Models.CrdtPatch other) -> bool
+Ama.CRDT.Models.CrdtPatch.LogicalKey.get -> System.IComparable?
+Ama.CRDT.Models.CrdtPatch.LogicalKey.init -> void
 Ama.CRDT.Models.CrdtPatch.Operations.get -> System.Collections.Generic.IReadOnlyList<Ama.CRDT.Models.CrdtOperation>!
 Ama.CRDT.Models.CrdtPatch.Operations.init -> void
 Ama.CRDT.Models.CrdtTree
@@ -190,15 +195,6 @@ Ama.CRDT.Models.EpochTimestamp.EpochTimestamp(long Value) -> void
 Ama.CRDT.Models.EpochTimestamp.Equals(Ama.CRDT.Models.EpochTimestamp other) -> bool
 Ama.CRDT.Models.EpochTimestamp.Value.get -> long
 Ama.CRDT.Models.EpochTimestamp.Value.init -> void
-Ama.CRDT.Models.ExclusiveLockPayload
-Ama.CRDT.Models.ExclusiveLockPayload.Deconstruct(out object? Value, out string? LockHolderId) -> void
-Ama.CRDT.Models.ExclusiveLockPayload.Equals(Ama.CRDT.Models.ExclusiveLockPayload other) -> bool
-Ama.CRDT.Models.ExclusiveLockPayload.ExclusiveLockPayload() -> void
-Ama.CRDT.Models.ExclusiveLockPayload.ExclusiveLockPayload(object? Value, string? LockHolderId) -> void
-Ama.CRDT.Models.ExclusiveLockPayload.LockHolderId.get -> string?
-Ama.CRDT.Models.ExclusiveLockPayload.LockHolderId.init -> void
-Ama.CRDT.Models.ExclusiveLockPayload.Value.get -> object?
-Ama.CRDT.Models.ExclusiveLockPayload.Value.init -> void
 Ama.CRDT.Models.GraphEdgePayload
 Ama.CRDT.Models.GraphEdgePayload.Deconstruct(out Ama.CRDT.Models.Edge Edge) -> void
 Ama.CRDT.Models.GraphEdgePayload.Edge.get -> Ama.CRDT.Models.Edge
@@ -214,17 +210,9 @@ Ama.CRDT.Models.GraphVertexPayload.GraphVertexPayload(object! Vertex) -> void
 Ama.CRDT.Models.GraphVertexPayload.Vertex.get -> object!
 Ama.CRDT.Models.GraphVertexPayload.Vertex.init -> void
 Ama.CRDT.Models.ICrdtTimestamp
-Ama.CRDT.Models.LockInfo
-Ama.CRDT.Models.LockInfo.<Clone>$() -> Ama.CRDT.Models.LockInfo!
-Ama.CRDT.Models.LockInfo.Deconstruct(out string! LockHolderId, out Ama.CRDT.Models.ICrdtTimestamp! Timestamp) -> void
-Ama.CRDT.Models.LockInfo.Equals(Ama.CRDT.Models.LockInfo? other) -> bool
-Ama.CRDT.Models.LockInfo.LockHolderId.get -> string!
-Ama.CRDT.Models.LockInfo.LockHolderId.init -> void
-Ama.CRDT.Models.LockInfo.LockInfo(string! LockHolderId, Ama.CRDT.Models.ICrdtTimestamp! Timestamp) -> void
-Ama.CRDT.Models.LockInfo.Timestamp.get -> Ama.CRDT.Models.ICrdtTimestamp!
-Ama.CRDT.Models.LockInfo.Timestamp.init -> void
 Ama.CRDT.Models.LseqIdentifier
 Ama.CRDT.Models.LseqIdentifier.CompareTo(Ama.CRDT.Models.LseqIdentifier other) -> int
+Ama.CRDT.Models.LseqIdentifier.CompareTo(object? obj) -> int
 Ama.CRDT.Models.LseqIdentifier.Deconstruct(out System.Collections.Immutable.ImmutableList<Ama.CRDT.Models.LseqPathSegment>! Path) -> void
 Ama.CRDT.Models.LseqIdentifier.Equals(Ama.CRDT.Models.LseqIdentifier other) -> bool
 Ama.CRDT.Models.LseqIdentifier.LseqIdentifier() -> void
@@ -310,6 +298,77 @@ Ama.CRDT.Models.OrSetState.Equals(Ama.CRDT.Models.OrSetState? other) -> bool
 Ama.CRDT.Models.OrSetState.OrSetState(System.Collections.Generic.IDictionary<object!, System.Collections.Generic.ISet<System.Guid>!>! Adds, System.Collections.Generic.IDictionary<object!, System.Collections.Generic.ISet<System.Guid>!>! Removes) -> void
 Ama.CRDT.Models.OrSetState.Removes.get -> System.Collections.Generic.IDictionary<object!, System.Collections.Generic.ISet<System.Guid>!>!
 Ama.CRDT.Models.OrSetState.Removes.init -> void
+Ama.CRDT.Models.Partitioning.CompositePartitionKey
+Ama.CRDT.Models.Partitioning.CompositePartitionKey.CompareTo(Ama.CRDT.Models.Partitioning.CompositePartitionKey other) -> int
+Ama.CRDT.Models.Partitioning.CompositePartitionKey.CompareTo(object? obj) -> int
+Ama.CRDT.Models.Partitioning.CompositePartitionKey.CompositePartitionKey() -> void
+Ama.CRDT.Models.Partitioning.CompositePartitionKey.CompositePartitionKey(System.IComparable! LogicalKey, System.IComparable? RangeKey) -> void
+Ama.CRDT.Models.Partitioning.CompositePartitionKey.Deconstruct(out System.IComparable! LogicalKey, out System.IComparable? RangeKey) -> void
+Ama.CRDT.Models.Partitioning.CompositePartitionKey.Equals(Ama.CRDT.Models.Partitioning.CompositePartitionKey other) -> bool
+Ama.CRDT.Models.Partitioning.CompositePartitionKey.LogicalKey.get -> System.IComparable!
+Ama.CRDT.Models.Partitioning.CompositePartitionKey.LogicalKey.init -> void
+Ama.CRDT.Models.Partitioning.CompositePartitionKey.RangeKey.get -> System.IComparable?
+Ama.CRDT.Models.Partitioning.CompositePartitionKey.RangeKey.init -> void
+Ama.CRDT.Models.Partitioning.DataPartition
+Ama.CRDT.Models.Partitioning.DataPartition.DataLength.get -> long
+Ama.CRDT.Models.Partitioning.DataPartition.DataLength.init -> void
+Ama.CRDT.Models.Partitioning.DataPartition.DataOffset.get -> long
+Ama.CRDT.Models.Partitioning.DataPartition.DataOffset.init -> void
+Ama.CRDT.Models.Partitioning.DataPartition.DataPartition() -> void
+Ama.CRDT.Models.Partitioning.DataPartition.DataPartition(Ama.CRDT.Models.Partitioning.CompositePartitionKey StartKey, Ama.CRDT.Models.Partitioning.CompositePartitionKey? EndKey, long DataOffset, long DataLength, long MetadataOffset, long MetadataLength) -> void
+Ama.CRDT.Models.Partitioning.DataPartition.Deconstruct(out Ama.CRDT.Models.Partitioning.CompositePartitionKey StartKey, out Ama.CRDT.Models.Partitioning.CompositePartitionKey? EndKey, out long DataOffset, out long DataLength, out long MetadataOffset, out long MetadataLength) -> void
+Ama.CRDT.Models.Partitioning.DataPartition.EndKey.get -> Ama.CRDT.Models.Partitioning.CompositePartitionKey?
+Ama.CRDT.Models.Partitioning.DataPartition.EndKey.init -> void
+Ama.CRDT.Models.Partitioning.DataPartition.Equals(Ama.CRDT.Models.Partitioning.DataPartition other) -> bool
+Ama.CRDT.Models.Partitioning.DataPartition.GetPartitionKey() -> Ama.CRDT.Models.Partitioning.CompositePartitionKey
+Ama.CRDT.Models.Partitioning.DataPartition.MetadataLength.get -> long
+Ama.CRDT.Models.Partitioning.DataPartition.MetadataLength.init -> void
+Ama.CRDT.Models.Partitioning.DataPartition.MetadataOffset.get -> long
+Ama.CRDT.Models.Partitioning.DataPartition.MetadataOffset.init -> void
+Ama.CRDT.Models.Partitioning.DataPartition.StartKey.get -> Ama.CRDT.Models.Partitioning.CompositePartitionKey
+Ama.CRDT.Models.Partitioning.DataPartition.StartKey.init -> void
+Ama.CRDT.Models.Partitioning.HeaderPartition
+Ama.CRDT.Models.Partitioning.HeaderPartition.DataLength.get -> long
+Ama.CRDT.Models.Partitioning.HeaderPartition.DataLength.init -> void
+Ama.CRDT.Models.Partitioning.HeaderPartition.DataOffset.get -> long
+Ama.CRDT.Models.Partitioning.HeaderPartition.DataOffset.init -> void
+Ama.CRDT.Models.Partitioning.HeaderPartition.Deconstruct(out Ama.CRDT.Models.Partitioning.CompositePartitionKey Key, out long DataOffset, out long DataLength, out long MetadataOffset, out long MetadataLength) -> void
+Ama.CRDT.Models.Partitioning.HeaderPartition.Equals(Ama.CRDT.Models.Partitioning.HeaderPartition other) -> bool
+Ama.CRDT.Models.Partitioning.HeaderPartition.GetPartitionKey() -> Ama.CRDT.Models.Partitioning.CompositePartitionKey
+Ama.CRDT.Models.Partitioning.HeaderPartition.HeaderPartition() -> void
+Ama.CRDT.Models.Partitioning.HeaderPartition.HeaderPartition(Ama.CRDT.Models.Partitioning.CompositePartitionKey Key, long DataOffset, long DataLength, long MetadataOffset, long MetadataLength) -> void
+Ama.CRDT.Models.Partitioning.HeaderPartition.Key.get -> Ama.CRDT.Models.Partitioning.CompositePartitionKey
+Ama.CRDT.Models.Partitioning.HeaderPartition.Key.init -> void
+Ama.CRDT.Models.Partitioning.HeaderPartition.MetadataLength.get -> long
+Ama.CRDT.Models.Partitioning.HeaderPartition.MetadataLength.init -> void
+Ama.CRDT.Models.Partitioning.HeaderPartition.MetadataOffset.get -> long
+Ama.CRDT.Models.Partitioning.HeaderPartition.MetadataOffset.init -> void
+Ama.CRDT.Models.Partitioning.IPartition
+Ama.CRDT.Models.Partitioning.IPartition.DataLength.get -> long
+Ama.CRDT.Models.Partitioning.IPartition.DataOffset.get -> long
+Ama.CRDT.Models.Partitioning.IPartition.GetPartitionKey() -> Ama.CRDT.Models.Partitioning.CompositePartitionKey
+Ama.CRDT.Models.Partitioning.IPartition.MetadataLength.get -> long
+Ama.CRDT.Models.Partitioning.IPartition.MetadataOffset.get -> long
+Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Models.Partitioning.PartitionContent.Data.get -> object!
+Ama.CRDT.Models.Partitioning.PartitionContent.Data.init -> void
+Ama.CRDT.Models.Partitioning.PartitionContent.Deconstruct(out object! Data, out Ama.CRDT.Models.CrdtMetadata! Metadata) -> void
+Ama.CRDT.Models.Partitioning.PartitionContent.Equals(Ama.CRDT.Models.Partitioning.PartitionContent other) -> bool
+Ama.CRDT.Models.Partitioning.PartitionContent.Metadata.get -> Ama.CRDT.Models.CrdtMetadata!
+Ama.CRDT.Models.Partitioning.PartitionContent.Metadata.init -> void
+Ama.CRDT.Models.Partitioning.PartitionContent.PartitionContent() -> void
+Ama.CRDT.Models.Partitioning.PartitionContent.PartitionContent(object! Data, Ama.CRDT.Models.CrdtMetadata! Metadata) -> void
+Ama.CRDT.Models.Partitioning.SplitResult
+Ama.CRDT.Models.Partitioning.SplitResult.Deconstruct(out Ama.CRDT.Models.Partitioning.PartitionContent Partition1, out Ama.CRDT.Models.Partitioning.PartitionContent Partition2, out System.IComparable! SplitKey) -> void
+Ama.CRDT.Models.Partitioning.SplitResult.Equals(Ama.CRDT.Models.Partitioning.SplitResult other) -> bool
+Ama.CRDT.Models.Partitioning.SplitResult.Partition1.get -> Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Models.Partitioning.SplitResult.Partition1.init -> void
+Ama.CRDT.Models.Partitioning.SplitResult.Partition2.get -> Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Models.Partitioning.SplitResult.Partition2.init -> void
+Ama.CRDT.Models.Partitioning.SplitResult.SplitKey.get -> System.IComparable!
+Ama.CRDT.Models.Partitioning.SplitResult.SplitKey.init -> void
+Ama.CRDT.Models.Partitioning.SplitResult.SplitResult() -> void
+Ama.CRDT.Models.Partitioning.SplitResult.SplitResult(Ama.CRDT.Models.Partitioning.PartitionContent Partition1, Ama.CRDT.Models.Partitioning.PartitionContent Partition2, System.IComparable! SplitKey) -> void
 Ama.CRDT.Models.PnCounterState
 Ama.CRDT.Models.PnCounterState.<Clone>$() -> Ama.CRDT.Models.PnCounterState!
 Ama.CRDT.Models.PnCounterState.Deconstruct(out decimal P, out decimal N) -> void
@@ -321,6 +380,7 @@ Ama.CRDT.Models.PnCounterState.P.init -> void
 Ama.CRDT.Models.PnCounterState.PnCounterState(decimal P, decimal N) -> void
 Ama.CRDT.Models.PositionalIdentifier
 Ama.CRDT.Models.PositionalIdentifier.CompareTo(Ama.CRDT.Models.PositionalIdentifier other) -> int
+Ama.CRDT.Models.PositionalIdentifier.CompareTo(object? obj) -> int
 Ama.CRDT.Models.PositionalIdentifier.Deconstruct(out string! Position, out System.Guid OperationId) -> void
 Ama.CRDT.Models.PositionalIdentifier.Equals(Ama.CRDT.Models.PositionalIdentifier other) -> bool
 Ama.CRDT.Models.PositionalIdentifier.OperationId.get -> System.Guid
@@ -338,6 +398,30 @@ Ama.CRDT.Models.PositionalItem.PositionalItem() -> void
 Ama.CRDT.Models.PositionalItem.PositionalItem(string! Position, object? Value) -> void
 Ama.CRDT.Models.PositionalItem.Value.get -> object?
 Ama.CRDT.Models.PositionalItem.Value.init -> void
+Ama.CRDT.Models.RgaIdentifier
+Ama.CRDT.Models.RgaIdentifier.CompareTo(Ama.CRDT.Models.RgaIdentifier other) -> int
+Ama.CRDT.Models.RgaIdentifier.CompareTo(object? obj) -> int
+Ama.CRDT.Models.RgaIdentifier.Deconstruct(out long Timestamp, out string! ReplicaId) -> void
+Ama.CRDT.Models.RgaIdentifier.Equals(Ama.CRDT.Models.RgaIdentifier other) -> bool
+Ama.CRDT.Models.RgaIdentifier.ReplicaId.get -> string!
+Ama.CRDT.Models.RgaIdentifier.ReplicaId.init -> void
+Ama.CRDT.Models.RgaIdentifier.RgaIdentifier() -> void
+Ama.CRDT.Models.RgaIdentifier.RgaIdentifier(long Timestamp, string! ReplicaId) -> void
+Ama.CRDT.Models.RgaIdentifier.Timestamp.get -> long
+Ama.CRDT.Models.RgaIdentifier.Timestamp.init -> void
+Ama.CRDT.Models.RgaItem
+Ama.CRDT.Models.RgaItem.Deconstruct(out Ama.CRDT.Models.RgaIdentifier Identifier, out Ama.CRDT.Models.RgaIdentifier? LeftIdentifier, out object? Value, out bool IsDeleted) -> void
+Ama.CRDT.Models.RgaItem.Equals(Ama.CRDT.Models.RgaItem other) -> bool
+Ama.CRDT.Models.RgaItem.Identifier.get -> Ama.CRDT.Models.RgaIdentifier
+Ama.CRDT.Models.RgaItem.Identifier.init -> void
+Ama.CRDT.Models.RgaItem.IsDeleted.get -> bool
+Ama.CRDT.Models.RgaItem.IsDeleted.init -> void
+Ama.CRDT.Models.RgaItem.LeftIdentifier.get -> Ama.CRDT.Models.RgaIdentifier?
+Ama.CRDT.Models.RgaItem.LeftIdentifier.init -> void
+Ama.CRDT.Models.RgaItem.RgaItem() -> void
+Ama.CRDT.Models.RgaItem.RgaItem(Ama.CRDT.Models.RgaIdentifier Identifier, Ama.CRDT.Models.RgaIdentifier? LeftIdentifier, object? Value, bool IsDeleted) -> void
+Ama.CRDT.Models.RgaItem.Value.get -> object?
+Ama.CRDT.Models.RgaItem.Value.init -> void
 Ama.CRDT.Models.SequentialTimestamp
 Ama.CRDT.Models.SequentialTimestamp.CompareTo(Ama.CRDT.Models.ICrdtTimestamp? other) -> int
 Ama.CRDT.Models.SequentialTimestamp.Deconstruct(out long Value) -> void
@@ -346,15 +430,19 @@ Ama.CRDT.Models.SequentialTimestamp.SequentialTimestamp() -> void
 Ama.CRDT.Models.SequentialTimestamp.SequentialTimestamp(long Value) -> void
 Ama.CRDT.Models.SequentialTimestamp.Value.get -> long
 Ama.CRDT.Models.SequentialTimestamp.Value.init -> void
+Ama.CRDT.Models.Serialization.Converters.CrdtTimestampJsonConverter
+Ama.CRDT.Models.Serialization.Converters.CrdtTimestampJsonConverter.CrdtTimestampJsonConverter() -> void
 Ama.CRDT.Models.Serialization.Converters.ObjectKeyDictionaryJsonConverter
 Ama.CRDT.Models.Serialization.Converters.ObjectKeyDictionaryJsonConverter.ObjectKeyDictionaryJsonConverter() -> void
+Ama.CRDT.Models.Serialization.Converters.PolymorphicComparableJsonConverter
+Ama.CRDT.Models.Serialization.Converters.PolymorphicComparableJsonConverter.PolymorphicComparableJsonConverter() -> void
 Ama.CRDT.Models.Serialization.Converters.PolymorphicObjectJsonConverter
 Ama.CRDT.Models.Serialization.Converters.PolymorphicObjectJsonConverter.PolymorphicObjectJsonConverter() -> void
+Ama.CRDT.Models.Serialization.Converters.PolymorphicPartitionJsonConverter
+Ama.CRDT.Models.Serialization.Converters.PolymorphicPartitionJsonConverter.PolymorphicPartitionJsonConverter() -> void
 Ama.CRDT.Models.Serialization.CrdtJsonContext
 Ama.CRDT.Models.Serialization.CrdtJsonTypeInfoResolver
 Ama.CRDT.Models.Serialization.CrdtMetadataJsonResolver
-Ama.CRDT.Models.Serialization.CrdtTimestampJsonConverter
-Ama.CRDT.Models.Serialization.CrdtTimestampJsonConverter.CrdtTimestampJsonConverter() -> void
 Ama.CRDT.Models.TreeAddNodePayload
 Ama.CRDT.Models.TreeAddNodePayload.Deconstruct(out object! NodeId, out object? Value, out object? ParentId, out System.Guid Tag) -> void
 Ama.CRDT.Models.TreeAddNodePayload.Equals(Ama.CRDT.Models.TreeAddNodePayload other) -> bool
@@ -429,23 +517,20 @@ Ama.CRDT.Models.VotePayload.Voter.get -> object!
 Ama.CRDT.Models.VotePayload.Voter.init -> void
 Ama.CRDT.Services.CrdtApplicator
 Ama.CRDT.Services.CrdtApplicator.ApplyPatch<T>(Ama.CRDT.Models.CrdtDocument<T!> document, Ama.CRDT.Models.CrdtPatch patch) -> T!
-Ama.CRDT.Services.CrdtApplicator.CrdtApplicator(Ama.CRDT.Services.Providers.ICrdtStrategyProvider! strategyProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ICrdtMetadataManager! metadataManager) -> void
+Ama.CRDT.Services.CrdtApplicator.CrdtApplicator(Ama.CRDT.Services.Providers.ICrdtStrategyProvider! strategyProvider, Ama.CRDT.Services.ICrdtMetadataManager! metadataManager) -> void
 Ama.CRDT.Services.CrdtMetadataManager
 Ama.CRDT.Services.CrdtMetadataManager.AdvanceVersionVector(Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.CrdtMetadataManager.AdvanceVersionVector(Ama.CRDT.Models.CrdtMetadata! metadata, string! replicaId, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
-Ama.CRDT.Services.CrdtMetadataManager.Clone(Ama.CRDT.Models.CrdtMetadata! metadata) -> Ama.CRDT.Models.CrdtMetadata!
-Ama.CRDT.Services.CrdtMetadataManager.CrdtMetadataManager(Ama.CRDT.Services.Providers.ICrdtStrategyProvider! strategyProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.Providers.IElementComparerProvider! elementComparerProvider) -> void
-Ama.CRDT.Services.CrdtMetadataManager.ExclusiveLock(Ama.CRDT.Models.CrdtMetadata! metadata, string! path, string! lockHolderId, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
+Ama.CRDT.Services.CrdtMetadataManager.AdvanceVersionVector(Ama.CRDT.Models.CrdtMetadata! metadata, string! replicaId, long clock) -> void
+Ama.CRDT.Services.CrdtMetadataManager.CrdtMetadataManager(Ama.CRDT.Services.Providers.ICrdtStrategyProvider! strategyProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.Providers.IElementComparerProvider! elementComparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.CrdtMetadataManager.Initialize<T>(Ama.CRDT.Models.CrdtDocument<T!> document) -> void
 Ama.CRDT.Services.CrdtMetadataManager.Initialize<T>(Ama.CRDT.Models.CrdtDocument<T!> document, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
 Ama.CRDT.Services.CrdtMetadataManager.Initialize<T>(T! document) -> Ama.CRDT.Models.CrdtMetadata!
 Ama.CRDT.Services.CrdtMetadataManager.Initialize<T>(T! document, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> Ama.CRDT.Models.CrdtMetadata!
 Ama.CRDT.Services.CrdtMetadataManager.PruneLwwTombstones(Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.ICrdtTimestamp! threshold) -> void
-Ama.CRDT.Services.CrdtMetadataManager.ReleaseLock(Ama.CRDT.Models.CrdtMetadata! metadata, string! path, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
 Ama.CRDT.Services.CrdtMetadataManager.Reset<T>(Ama.CRDT.Models.CrdtDocument<T!> document) -> void
 Ama.CRDT.Services.CrdtMetadataManager.Reset<T>(Ama.CRDT.Models.CrdtDocument<T!> document, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
 Ama.CRDT.Services.CrdtPatcher
-Ama.CRDT.Services.CrdtPatcher.CrdtPatcher(Ama.CRDT.Services.Providers.ICrdtStrategyProvider! strategyProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider) -> void
+Ama.CRDT.Services.CrdtPatcher.CrdtPatcher(Ama.CRDT.Services.Providers.ICrdtStrategyProvider! strategyProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.CrdtPatcher.DifferentiateObject(Ama.CRDT.Services.DifferentiateObjectContext! context) -> void
 Ama.CRDT.Services.CrdtPatcher.GeneratePatch<T>(Ama.CRDT.Models.CrdtDocument<T!> from, T! changed) -> Ama.CRDT.Models.CrdtPatch
 Ama.CRDT.Services.CrdtPatcher.GeneratePatch<T>(Ama.CRDT.Models.CrdtDocument<T!> from, T! changed, Ama.CRDT.Models.ICrdtTimestamp! changeTimestamp) -> Ama.CRDT.Models.CrdtPatch
@@ -476,15 +561,12 @@ Ama.CRDT.Services.ICrdtApplicator
 Ama.CRDT.Services.ICrdtApplicator.ApplyPatch<T>(Ama.CRDT.Models.CrdtDocument<T!> document, Ama.CRDT.Models.CrdtPatch patch) -> T!
 Ama.CRDT.Services.ICrdtMetadataManager
 Ama.CRDT.Services.ICrdtMetadataManager.AdvanceVersionVector(Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
-Ama.CRDT.Services.ICrdtMetadataManager.AdvanceVersionVector(Ama.CRDT.Models.CrdtMetadata! metadata, string! replicaId, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
-Ama.CRDT.Services.ICrdtMetadataManager.Clone(Ama.CRDT.Models.CrdtMetadata! metadata) -> Ama.CRDT.Models.CrdtMetadata!
-Ama.CRDT.Services.ICrdtMetadataManager.ExclusiveLock(Ama.CRDT.Models.CrdtMetadata! metadata, string! path, string! lockHolderId, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
+Ama.CRDT.Services.ICrdtMetadataManager.AdvanceVersionVector(Ama.CRDT.Models.CrdtMetadata! metadata, string! replicaId, long clock) -> void
 Ama.CRDT.Services.ICrdtMetadataManager.Initialize<T>(Ama.CRDT.Models.CrdtDocument<T!> document) -> void
 Ama.CRDT.Services.ICrdtMetadataManager.Initialize<T>(Ama.CRDT.Models.CrdtDocument<T!> document, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
 Ama.CRDT.Services.ICrdtMetadataManager.Initialize<T>(T! document) -> Ama.CRDT.Models.CrdtMetadata!
 Ama.CRDT.Services.ICrdtMetadataManager.Initialize<T>(T! document, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> Ama.CRDT.Models.CrdtMetadata!
 Ama.CRDT.Services.ICrdtMetadataManager.PruneLwwTombstones(Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.ICrdtTimestamp! threshold) -> void
-Ama.CRDT.Services.ICrdtMetadataManager.ReleaseLock(Ama.CRDT.Models.CrdtMetadata! metadata, string! path, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
 Ama.CRDT.Services.ICrdtMetadataManager.Reset<T>(Ama.CRDT.Models.CrdtDocument<T!> document) -> void
 Ama.CRDT.Services.ICrdtMetadataManager.Reset<T>(Ama.CRDT.Models.CrdtDocument<T!> document, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
 Ama.CRDT.Services.ICrdtPatcher
@@ -493,33 +575,101 @@ Ama.CRDT.Services.ICrdtPatcher.GeneratePatch<T>(Ama.CRDT.Models.CrdtDocument<T!>
 Ama.CRDT.Services.ICrdtPatcher.GeneratePatch<T>(Ama.CRDT.Models.CrdtDocument<T!> from, T! changed, Ama.CRDT.Models.ICrdtTimestamp! changeTimestamp) -> Ama.CRDT.Models.CrdtPatch
 Ama.CRDT.Services.ICrdtScopeFactory
 Ama.CRDT.Services.ICrdtScopeFactory.CreateScope(string! replicaId) -> Microsoft.Extensions.DependencyInjection.IServiceScope!
+Ama.CRDT.Services.Metrics.MetricTimer
+Ama.CRDT.Services.Metrics.MetricTimer.Deconstruct(out System.Diagnostics.Metrics.Histogram<double>! Histogram) -> void
+Ama.CRDT.Services.Metrics.MetricTimer.Dispose() -> void
+Ama.CRDT.Services.Metrics.MetricTimer.Equals(Ama.CRDT.Services.Metrics.MetricTimer other) -> bool
+Ama.CRDT.Services.Metrics.MetricTimer.Histogram.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.MetricTimer.Histogram.init -> void
+Ama.CRDT.Services.Metrics.MetricTimer.MetricTimer() -> void
+Ama.CRDT.Services.Metrics.MetricTimer.MetricTimer(System.Diagnostics.Metrics.Histogram<double>! Histogram) -> void
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.ApplicatorApplyPatchDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.ApplyPatchDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.GetAllDataPartitionsDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.GetAllLogicalKeysDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.GetDataPartitionByIndexDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.GetDataPartitionCountDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.GetFullObjectDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.GetPartitionContentDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.GetPartitionDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.GroupOperationsDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.InitializationDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.MergePartitionDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.PartitionManagerCrdtMetrics(System.Diagnostics.Metrics.IMeterFactory! meterFactory) -> void
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.PartitionsMerged.get -> System.Diagnostics.Metrics.Counter<long>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.PartitionsSplit.get -> System.Diagnostics.Metrics.Counter<long>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.PatchesApplied.get -> System.Diagnostics.Metrics.Counter<long>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.PersistChangesDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.SplitPartitionDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.StrategySplitDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.StreamReadDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics.StreamWriteDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
+Ama.CRDT.Services.Partitioning.IPartitionableCrdtStrategy
+Ama.CRDT.Services.Partitioning.IPartitionableCrdtStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Partitioning.IPartitionableCrdtStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Partitioning.IPartitionableCrdtStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
+Ama.CRDT.Services.Partitioning.IPartitionableCrdtStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Services.Partitioning.IPartitionableCrdtStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
+Ama.CRDT.Services.Partitioning.IPartitionManager<T>
+Ama.CRDT.Services.Partitioning.IPartitionManager<T>.ApplyPatchAsync(Ama.CRDT.Models.CrdtPatch patch, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Partitioning.IPartitionManager<T>.GetAllDataPartitionsAsync(System.IComparable! logicalKey, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Ama.CRDT.Models.Partitioning.IPartition!>!
+Ama.CRDT.Services.Partitioning.IPartitionManager<T>.GetAllLogicalKeysAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IEnumerable<System.IComparable!>!>!
+Ama.CRDT.Services.Partitioning.IPartitionManager<T>.GetDataPartitionAsync(Ama.CRDT.Models.Partitioning.CompositePartitionKey key, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.Partitioning.IPartition?>!
+Ama.CRDT.Services.Partitioning.IPartitionManager<T>.GetDataPartitionByIndexAsync(System.IComparable! logicalKey, long index, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.Partitioning.IPartition?>!
+Ama.CRDT.Services.Partitioning.IPartitionManager<T>.GetDataPartitionContentAsync(Ama.CRDT.Models.Partitioning.CompositePartitionKey key, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.CrdtDocument<T!>?>!
+Ama.CRDT.Services.Partitioning.IPartitionManager<T>.GetDataPartitionCountAsync(System.IComparable! logicalKey, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Ama.CRDT.Services.Partitioning.IPartitionManager<T>.GetFullObjectAsync(System.IComparable! logicalKey, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T?>!
+Ama.CRDT.Services.Partitioning.IPartitionManager<T>.GetHeaderPartitionAsync(System.IComparable! logicalKey, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.Partitioning.IPartition?>!
+Ama.CRDT.Services.Partitioning.IPartitionManager<T>.GetHeaderPartitionContentAsync(System.IComparable! logicalKey, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.CrdtDocument<T!>?>!
+Ama.CRDT.Services.Partitioning.IPartitionManager<T>.InitializeAsync(T! initialObject, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.ClearHeaderDataAsync(System.IComparable! logicalKey, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.ClearPropertyDataAsync(System.IComparable! logicalKey, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.DeletePropertyPartitionAsync(string! propertyName, Ama.CRDT.Models.Partitioning.IPartition! partition, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.GetAllHeaderPartitionsAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Ama.CRDT.Models.Partitioning.IPartition!>!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.GetHeaderPartitionAsync(System.IComparable! logicalKey, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.Partitioning.HeaderPartition?>!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.GetPartitionsAsync(System.IComparable! logicalKey, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Ama.CRDT.Models.Partitioning.IPartition!>!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.GetPropertyPartitionAsync(Ama.CRDT.Models.Partitioning.CompositePartitionKey key, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.Partitioning.IPartition?>!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.GetPropertyPartitionByIndexAsync(System.IComparable! logicalKey, long index, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.Partitioning.IPartition?>!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.GetPropertyPartitionCountAsync(System.IComparable! logicalKey, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.InitializeHeaderIndexAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.InitializePropertyIndexAsync(string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.InsertHeaderPartitionAsync(System.IComparable! logicalKey, Ama.CRDT.Models.Partitioning.HeaderPartition headerPartition, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.InsertPropertyPartitionAsync(string! propertyName, Ama.CRDT.Models.Partitioning.IPartition! partition, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.LoadHeaderPartitionContentAsync<TData>(System.IComparable! logicalKey, Ama.CRDT.Models.Partitioning.HeaderPartition partition, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.CrdtDocument<TData!>>!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.LoadPartitionContentAsync<TData>(System.IComparable! logicalKey, string! propertyName, Ama.CRDT.Models.Partitioning.IPartition! partition, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.CrdtDocument<TData!>>!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.SaveHeaderPartitionContentAsync<TData>(System.IComparable! logicalKey, Ama.CRDT.Models.Partitioning.HeaderPartition partitionToUpdate, TData! data, Ama.CRDT.Models.CrdtMetadata! metadata, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.Partitioning.HeaderPartition>!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.SavePartitionContentAsync<TData>(System.IComparable! logicalKey, string! propertyName, Ama.CRDT.Models.Partitioning.IPartition! partitionToUpdate, TData! data, Ama.CRDT.Models.CrdtMetadata! metadata, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.Partitioning.IPartition!>!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.UpdateHeaderPartitionAsync(System.IComparable! logicalKey, Ama.CRDT.Models.Partitioning.HeaderPartition headerPartition, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Partitioning.IPartitionStorageService.UpdatePropertyPartitionAsync(string! propertyName, Ama.CRDT.Models.Partitioning.IPartition! partition, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Partitioning.PartitionManager<T>
+Ama.CRDT.Services.Partitioning.PartitionManager<T>.ApplyPatchAsync(Ama.CRDT.Models.CrdtPatch patch, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Partitioning.PartitionManager<T>.GetAllDataPartitionsAsync(System.IComparable! logicalKey, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IAsyncEnumerable<Ama.CRDT.Models.Partitioning.IPartition!>!
+Ama.CRDT.Services.Partitioning.PartitionManager<T>.GetAllLogicalKeysAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IEnumerable<System.IComparable!>!>!
+Ama.CRDT.Services.Partitioning.PartitionManager<T>.GetDataPartitionAsync(Ama.CRDT.Models.Partitioning.CompositePartitionKey key, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.Partitioning.IPartition?>!
+Ama.CRDT.Services.Partitioning.PartitionManager<T>.GetDataPartitionByIndexAsync(System.IComparable! logicalKey, long index, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.Partitioning.IPartition?>!
+Ama.CRDT.Services.Partitioning.PartitionManager<T>.GetDataPartitionContentAsync(Ama.CRDT.Models.Partitioning.CompositePartitionKey key, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.CrdtDocument<T!>?>!
+Ama.CRDT.Services.Partitioning.PartitionManager<T>.GetDataPartitionCountAsync(System.IComparable! logicalKey, string! propertyName, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<long>!
+Ama.CRDT.Services.Partitioning.PartitionManager<T>.GetFullObjectAsync(System.IComparable! logicalKey, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T?>!
+Ama.CRDT.Services.Partitioning.PartitionManager<T>.GetHeaderPartitionAsync(System.IComparable! logicalKey, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.Partitioning.IPartition?>!
+Ama.CRDT.Services.Partitioning.PartitionManager<T>.GetHeaderPartitionContentAsync(System.IComparable! logicalKey, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.CrdtDocument<T!>?>!
+Ama.CRDT.Services.Partitioning.PartitionManager<T>.InitializeAsync(T! initialObject, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Partitioning.PartitionManager<T>.PartitionManager(Ama.CRDT.Services.Partitioning.IPartitionStorageService! storageService, Ama.CRDT.Services.ICrdtApplicator! crdtApplicator, Ama.CRDT.Services.ICrdtMetadataManager! metadataManager, Ama.CRDT.Services.Providers.ICrdtStrategyProvider! strategyProvider, Ama.CRDT.Services.ReplicaContext! replicaContext, Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics! metrics) -> void
 Ama.CRDT.Services.Providers.EpochTimestampProvider
 Ama.CRDT.Services.Providers.EpochTimestampProvider.Create(long value) -> Ama.CRDT.Models.ICrdtTimestamp!
 Ama.CRDT.Services.Providers.EpochTimestampProvider.EpochTimestampProvider() -> void
-Ama.CRDT.Services.Providers.EpochTimestampProvider.Init() -> Ama.CRDT.Models.ICrdtTimestamp!
-Ama.CRDT.Services.Providers.EpochTimestampProvider.IsContinuous.get -> bool
-Ama.CRDT.Services.Providers.EpochTimestampProvider.IterateBetween(Ama.CRDT.Models.ICrdtTimestamp! start, Ama.CRDT.Models.ICrdtTimestamp! end) -> System.Collections.Generic.IEnumerable<Ama.CRDT.Models.ICrdtTimestamp!>!
 Ama.CRDT.Services.Providers.EpochTimestampProvider.Now() -> Ama.CRDT.Models.ICrdtTimestamp!
 Ama.CRDT.Services.Providers.ICrdtStrategyProvider
 Ama.CRDT.Services.Providers.ICrdtStrategyProvider.GetStrategy(Ama.CRDT.Models.CrdtOperation operation, object! root) -> Ama.CRDT.Services.Strategies.ICrdtStrategy!
 Ama.CRDT.Services.Providers.ICrdtStrategyProvider.GetStrategy(System.Reflection.PropertyInfo! propertyInfo) -> Ama.CRDT.Services.Strategies.ICrdtStrategy!
 Ama.CRDT.Services.Providers.ICrdtTimestampProvider
 Ama.CRDT.Services.Providers.ICrdtTimestampProvider.Create(long value) -> Ama.CRDT.Models.ICrdtTimestamp!
-Ama.CRDT.Services.Providers.ICrdtTimestampProvider.Init() -> Ama.CRDT.Models.ICrdtTimestamp!
-Ama.CRDT.Services.Providers.ICrdtTimestampProvider.IsContinuous.get -> bool
-Ama.CRDT.Services.Providers.ICrdtTimestampProvider.IterateBetween(Ama.CRDT.Models.ICrdtTimestamp! start, Ama.CRDT.Models.ICrdtTimestamp! end) -> System.Collections.Generic.IEnumerable<Ama.CRDT.Models.ICrdtTimestamp!>!
 Ama.CRDT.Services.Providers.ICrdtTimestampProvider.Now() -> Ama.CRDT.Models.ICrdtTimestamp!
 Ama.CRDT.Services.Providers.IElementComparer
 Ama.CRDT.Services.Providers.IElementComparer.CanCompare(System.Type! type) -> bool
 Ama.CRDT.Services.Providers.IElementComparerProvider
 Ama.CRDT.Services.Providers.IElementComparerProvider.GetComparer(System.Type! elementType) -> System.Collections.Generic.IEqualityComparer<object!>!
-Ama.CRDT.Services.Providers.SequentialTimestampProvider
-Ama.CRDT.Services.Providers.SequentialTimestampProvider.Create(long value) -> Ama.CRDT.Models.ICrdtTimestamp!
-Ama.CRDT.Services.Providers.SequentialTimestampProvider.Init() -> Ama.CRDT.Models.ICrdtTimestamp!
-Ama.CRDT.Services.Providers.SequentialTimestampProvider.IsContinuous.get -> bool
-Ama.CRDT.Services.Providers.SequentialTimestampProvider.IterateBetween(Ama.CRDT.Models.ICrdtTimestamp! start, Ama.CRDT.Models.ICrdtTimestamp! end) -> System.Collections.Generic.IEnumerable<Ama.CRDT.Models.ICrdtTimestamp!>!
-Ama.CRDT.Services.Providers.SequentialTimestampProvider.Now() -> Ama.CRDT.Models.ICrdtTimestamp!
-Ama.CRDT.Services.Providers.SequentialTimestampProvider.SequentialTimestampProvider() -> void
 Ama.CRDT.Services.ReplicaContext
 Ama.CRDT.Services.ReplicaContext.ReplicaContext() -> void
 Ama.CRDT.Services.ReplicaContext.ReplicaId.get -> string!
@@ -539,6 +689,11 @@ Ama.CRDT.Services.Strategies.ArrayLcsStrategy
 Ama.CRDT.Services.Strategies.ArrayLcsStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.ArrayLcsStrategy.ArrayLcsStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.ArrayLcsStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.ArrayLcsStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.ArrayLcsStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.ArrayLcsStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
+Ama.CRDT.Services.Strategies.ArrayLcsStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Services.Strategies.ArrayLcsStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.AverageRegisterStrategy
 Ama.CRDT.Services.Strategies.AverageRegisterStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.AverageRegisterStrategy.AverageRegisterStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
@@ -551,14 +706,15 @@ Ama.CRDT.Services.Strategies.CounterMapStrategy
 Ama.CRDT.Services.Strategies.CounterMapStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.CounterMapStrategy.CounterMapStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.CounterMapStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.CounterMapStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.CounterMapStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.CounterMapStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
+Ama.CRDT.Services.Strategies.CounterMapStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Services.Strategies.CounterMapStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.CounterStrategy
 Ama.CRDT.Services.Strategies.CounterStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.CounterStrategy.CounterStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.CounterStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
-Ama.CRDT.Services.Strategies.ExclusiveLockStrategy
-Ama.CRDT.Services.Strategies.ExclusiveLockStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
-Ama.CRDT.Services.Strategies.ExclusiveLockStrategy.ExclusiveLockStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
-Ama.CRDT.Services.Strategies.ExclusiveLockStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy
 Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy.FixedSizeArrayStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
@@ -599,22 +755,42 @@ Ama.CRDT.Services.Strategies.GraphStrategy.GraphStrategy(Ama.CRDT.Services.Repli
 Ama.CRDT.Services.Strategies.GSetStrategy
 Ama.CRDT.Services.Strategies.GSetStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.GSetStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.GSetStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.GSetStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.GSetStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
 Ama.CRDT.Services.Strategies.GSetStrategy.GSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.GSetStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Services.Strategies.GSetStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.ICrdtStrategy
 Ama.CRDT.Services.Strategies.ICrdtStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.ICrdtStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.LseqStrategy
 Ama.CRDT.Services.Strategies.LseqStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.LseqStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.LseqStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.LseqStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.LseqStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
 Ama.CRDT.Services.Strategies.LseqStrategy.LseqStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! elementComparerProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.LseqStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Services.Strategies.LseqStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.LwwMapStrategy
 Ama.CRDT.Services.Strategies.LwwMapStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.LwwMapStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.LwwMapStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.LwwMapStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.LwwMapStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
 Ama.CRDT.Services.Strategies.LwwMapStrategy.LwwMapStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.LwwMapStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Services.Strategies.LwwMapStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.LwwSetStrategy
 Ama.CRDT.Services.Strategies.LwwSetStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.LwwSetStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.LwwSetStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.LwwSetStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.LwwSetStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
 Ama.CRDT.Services.Strategies.LwwSetStrategy.LwwSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.LwwSetStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Services.Strategies.LwwSetStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.LwwStrategy
 Ama.CRDT.Services.Strategies.LwwStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.LwwStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
@@ -622,7 +798,12 @@ Ama.CRDT.Services.Strategies.LwwStrategy.LwwStrategy(Ama.CRDT.Services.ReplicaCo
 Ama.CRDT.Services.Strategies.MaxWinsMapStrategy
 Ama.CRDT.Services.Strategies.MaxWinsMapStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.MaxWinsMapStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.MaxWinsMapStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.MaxWinsMapStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.MaxWinsMapStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
 Ama.CRDT.Services.Strategies.MaxWinsMapStrategy.MaxWinsMapStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.MaxWinsMapStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Services.Strategies.MaxWinsMapStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.MaxWinsStrategy
 Ama.CRDT.Services.Strategies.MaxWinsStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.MaxWinsStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
@@ -630,7 +811,12 @@ Ama.CRDT.Services.Strategies.MaxWinsStrategy.MaxWinsStrategy(Ama.CRDT.Services.R
 Ama.CRDT.Services.Strategies.MinWinsMapStrategy
 Ama.CRDT.Services.Strategies.MinWinsMapStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.MinWinsMapStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.MinWinsMapStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.MinWinsMapStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.MinWinsMapStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
+Ama.CRDT.Services.Strategies.MinWinsMapStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
 Ama.CRDT.Services.Strategies.MinWinsMapStrategy.MinWinsMapStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.MinWinsMapStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.MinWinsStrategy
 Ama.CRDT.Services.Strategies.MinWinsStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.MinWinsStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
@@ -638,11 +824,21 @@ Ama.CRDT.Services.Strategies.MinWinsStrategy.MinWinsStrategy(Ama.CRDT.Services.R
 Ama.CRDT.Services.Strategies.OrMapStrategy
 Ama.CRDT.Services.Strategies.OrMapStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.OrMapStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.OrMapStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.OrMapStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.OrMapStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
+Ama.CRDT.Services.Strategies.OrMapStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
 Ama.CRDT.Services.Strategies.OrMapStrategy.OrMapStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.OrMapStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.OrSetStrategy
 Ama.CRDT.Services.Strategies.OrSetStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.OrSetStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.OrSetStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.OrSetStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.OrSetStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
+Ama.CRDT.Services.Strategies.OrSetStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
 Ama.CRDT.Services.Strategies.OrSetStrategy.OrSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.OrSetStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.PriorityQueueStrategy
 Ama.CRDT.Services.Strategies.PriorityQueueStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.PriorityQueueStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
@@ -651,9 +847,21 @@ Ama.CRDT.Services.Strategies.ReplicatedTreeStrategy
 Ama.CRDT.Services.Strategies.ReplicatedTreeStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.ReplicatedTreeStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
 Ama.CRDT.Services.Strategies.ReplicatedTreeStrategy.ReplicatedTreeStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.RgaStrategy
+Ama.CRDT.Services.Strategies.RgaStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
+Ama.CRDT.Services.Strategies.RgaStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.RgaStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.RgaStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.RgaStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
+Ama.CRDT.Services.Strategies.RgaStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Services.Strategies.RgaStrategy.RgaStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! elementComparerProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.RgaStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.SortedSetStrategy
 Ama.CRDT.Services.Strategies.SortedSetStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.SortedSetStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.SortedSetStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.SortedSetStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.SortedSetStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
 Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry
 Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.Deconstruct(out Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType Type, out int OldIndex, out int NewIndex) -> void
 Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.Equals(Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry other) -> bool
@@ -669,7 +877,9 @@ Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType
 Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType.Add = 1 -> Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType
 Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType.Match = 0 -> Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType
 Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType.Remove = 2 -> Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntryType
+Ama.CRDT.Services.Strategies.SortedSetStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
 Ama.CRDT.Services.Strategies.SortedSetStrategy.SortedSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
+Ama.CRDT.Services.Strategies.SortedSetStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.StateMachineStrategy
 Ama.CRDT.Services.Strategies.StateMachineStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.StateMachineStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
@@ -681,10 +891,20 @@ Ama.CRDT.Services.Strategies.TwoPhaseGraphStrategy.TwoPhaseGraphStrategy(Ama.CRD
 Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy
 Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
+Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.TwoPhaseSetStrategy.TwoPhaseSetStrategy(Ama.CRDT.Services.Providers.IElementComparerProvider! comparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 Ama.CRDT.Services.Strategies.VoteCounterStrategy
 Ama.CRDT.Services.Strategies.VoteCounterStrategy.ApplyOperation(Ama.CRDT.Services.Strategies.ApplyOperationContext! context) -> void
 Ama.CRDT.Services.Strategies.VoteCounterStrategy.GeneratePatch(Ama.CRDT.Services.Strategies.GeneratePatchContext! context) -> void
+Ama.CRDT.Services.Strategies.VoteCounterStrategy.GetKeyFromOperation(Ama.CRDT.Models.CrdtOperation operation, string! partitionablePropertyPath) -> System.IComparable?
+Ama.CRDT.Services.Strategies.VoteCounterStrategy.GetMinimumKey(System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable!
+Ama.CRDT.Services.Strategies.VoteCounterStrategy.GetStartKey(object! data, System.Reflection.PropertyInfo! partitionableProperty) -> System.IComparable?
+Ama.CRDT.Services.Strategies.VoteCounterStrategy.Merge(object! data1, Ama.CRDT.Models.CrdtMetadata! meta1, object! data2, Ama.CRDT.Models.CrdtMetadata! meta2, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.PartitionContent
+Ama.CRDT.Services.Strategies.VoteCounterStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, System.Reflection.PropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.VoteCounterStrategy.VoteCounterStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext) -> void
 override Ama.CRDT.Models.AverageRegisterValue.GetHashCode() -> int
 override Ama.CRDT.Models.CrdtDocument<T>.GetHashCode() -> int
@@ -701,12 +921,8 @@ override Ama.CRDT.Models.CrdtTree.GetHashCode() -> int
 override Ama.CRDT.Models.CrdtTree.ToString() -> string!
 override Ama.CRDT.Models.Edge.GetHashCode() -> int
 override Ama.CRDT.Models.EpochTimestamp.GetHashCode() -> int
-override Ama.CRDT.Models.ExclusiveLockPayload.GetHashCode() -> int
 override Ama.CRDT.Models.GraphEdgePayload.GetHashCode() -> int
 override Ama.CRDT.Models.GraphVertexPayload.GetHashCode() -> int
-override Ama.CRDT.Models.LockInfo.Equals(object? obj) -> bool
-override Ama.CRDT.Models.LockInfo.GetHashCode() -> int
-override Ama.CRDT.Models.LockInfo.ToString() -> string!
 override Ama.CRDT.Models.LseqIdentifier.GetHashCode() -> int
 override Ama.CRDT.Models.LseqIdentifier.ToString() -> string!
 override Ama.CRDT.Models.LseqItem.GetHashCode() -> int
@@ -721,18 +937,30 @@ override Ama.CRDT.Models.OrSetRemoveItem.GetHashCode() -> int
 override Ama.CRDT.Models.OrSetState.Equals(object? obj) -> bool
 override Ama.CRDT.Models.OrSetState.GetHashCode() -> int
 override Ama.CRDT.Models.OrSetState.ToString() -> string!
+override Ama.CRDT.Models.Partitioning.CompositePartitionKey.GetHashCode() -> int
+override Ama.CRDT.Models.Partitioning.CompositePartitionKey.ToString() -> string!
+override Ama.CRDT.Models.Partitioning.DataPartition.GetHashCode() -> int
+override Ama.CRDT.Models.Partitioning.HeaderPartition.GetHashCode() -> int
+override Ama.CRDT.Models.Partitioning.PartitionContent.GetHashCode() -> int
+override Ama.CRDT.Models.Partitioning.SplitResult.GetHashCode() -> int
 override Ama.CRDT.Models.PnCounterState.Equals(object? obj) -> bool
 override Ama.CRDT.Models.PnCounterState.GetHashCode() -> int
 override Ama.CRDT.Models.PnCounterState.ToString() -> string!
 override Ama.CRDT.Models.PositionalIdentifier.GetHashCode() -> int
 override Ama.CRDT.Models.PositionalItem.GetHashCode() -> int
+override Ama.CRDT.Models.RgaIdentifier.GetHashCode() -> int
+override Ama.CRDT.Models.RgaItem.GetHashCode() -> int
 override Ama.CRDT.Models.SequentialTimestamp.GetHashCode() -> int
+override Ama.CRDT.Models.Serialization.Converters.CrdtTimestampJsonConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> Ama.CRDT.Models.ICrdtTimestamp?
+override Ama.CRDT.Models.Serialization.Converters.CrdtTimestampJsonConverter.Write(System.Text.Json.Utf8JsonWriter! writer, Ama.CRDT.Models.ICrdtTimestamp! value, System.Text.Json.JsonSerializerOptions! options) -> void
 override Ama.CRDT.Models.Serialization.Converters.ObjectKeyDictionaryJsonConverter.CanConvert(System.Type! typeToConvert) -> bool
 override Ama.CRDT.Models.Serialization.Converters.ObjectKeyDictionaryJsonConverter.CreateConverter(System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> System.Text.Json.Serialization.JsonConverter!
+override Ama.CRDT.Models.Serialization.Converters.PolymorphicComparableJsonConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> System.IComparable?
+override Ama.CRDT.Models.Serialization.Converters.PolymorphicComparableJsonConverter.Write(System.Text.Json.Utf8JsonWriter! writer, System.IComparable! value, System.Text.Json.JsonSerializerOptions! options) -> void
 override Ama.CRDT.Models.Serialization.Converters.PolymorphicObjectJsonConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> object?
 override Ama.CRDT.Models.Serialization.Converters.PolymorphicObjectJsonConverter.Write(System.Text.Json.Utf8JsonWriter! writer, object! value, System.Text.Json.JsonSerializerOptions! options) -> void
-override Ama.CRDT.Models.Serialization.CrdtTimestampJsonConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> Ama.CRDT.Models.ICrdtTimestamp?
-override Ama.CRDT.Models.Serialization.CrdtTimestampJsonConverter.Write(System.Text.Json.Utf8JsonWriter! writer, Ama.CRDT.Models.ICrdtTimestamp! value, System.Text.Json.JsonSerializerOptions! options) -> void
+override Ama.CRDT.Models.Serialization.Converters.PolymorphicPartitionJsonConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> Ama.CRDT.Models.Partitioning.IPartition?
+override Ama.CRDT.Models.Serialization.Converters.PolymorphicPartitionJsonConverter.Write(System.Text.Json.Utf8JsonWriter! writer, Ama.CRDT.Models.Partitioning.IPartition! value, System.Text.Json.JsonSerializerOptions! options) -> void
 override Ama.CRDT.Models.TreeAddNodePayload.GetHashCode() -> int
 override Ama.CRDT.Models.TreeMoveNodePayload.GetHashCode() -> int
 override Ama.CRDT.Models.TreeNode.Equals(object? obj) -> bool
@@ -749,6 +977,7 @@ override Ama.CRDT.Models.VotePayload.GetHashCode() -> int
 override Ama.CRDT.Services.DifferentiateObjectContext.Equals(object? obj) -> bool
 override Ama.CRDT.Services.DifferentiateObjectContext.GetHashCode() -> int
 override Ama.CRDT.Services.DifferentiateObjectContext.ToString() -> string!
+override Ama.CRDT.Services.Metrics.MetricTimer.GetHashCode() -> int
 override Ama.CRDT.Services.Strategies.ApplyOperationContext.Equals(object? obj) -> bool
 override Ama.CRDT.Services.Strategies.ApplyOperationContext.GetHashCode() -> int
 override Ama.CRDT.Services.Strategies.ApplyOperationContext.ToString() -> string!
@@ -765,6 +994,7 @@ static Ama.CRDT.Models.AverageRegisterValue.operator !=(Ama.CRDT.Models.AverageR
 static Ama.CRDT.Models.AverageRegisterValue.operator ==(Ama.CRDT.Models.AverageRegisterValue left, Ama.CRDT.Models.AverageRegisterValue right) -> bool
 static Ama.CRDT.Models.CrdtGraph.operator !=(Ama.CRDT.Models.CrdtGraph? left, Ama.CRDT.Models.CrdtGraph? right) -> bool
 static Ama.CRDT.Models.CrdtGraph.operator ==(Ama.CRDT.Models.CrdtGraph? left, Ama.CRDT.Models.CrdtGraph? right) -> bool
+static Ama.CRDT.Models.CrdtMetadata.Merge(params Ama.CRDT.Models.CrdtMetadata![]! metadatas) -> Ama.CRDT.Models.CrdtMetadata!
 static Ama.CRDT.Models.CrdtMetadata.operator !=(Ama.CRDT.Models.CrdtMetadata? left, Ama.CRDT.Models.CrdtMetadata? right) -> bool
 static Ama.CRDT.Models.CrdtMetadata.operator ==(Ama.CRDT.Models.CrdtMetadata? left, Ama.CRDT.Models.CrdtMetadata? right) -> bool
 static Ama.CRDT.Models.CrdtOperation.operator !=(Ama.CRDT.Models.CrdtOperation left, Ama.CRDT.Models.CrdtOperation right) -> bool
@@ -777,14 +1007,10 @@ static Ama.CRDT.Models.Edge.operator !=(Ama.CRDT.Models.Edge left, Ama.CRDT.Mode
 static Ama.CRDT.Models.Edge.operator ==(Ama.CRDT.Models.Edge left, Ama.CRDT.Models.Edge right) -> bool
 static Ama.CRDT.Models.EpochTimestamp.operator !=(Ama.CRDT.Models.EpochTimestamp left, Ama.CRDT.Models.EpochTimestamp right) -> bool
 static Ama.CRDT.Models.EpochTimestamp.operator ==(Ama.CRDT.Models.EpochTimestamp left, Ama.CRDT.Models.EpochTimestamp right) -> bool
-static Ama.CRDT.Models.ExclusiveLockPayload.operator !=(Ama.CRDT.Models.ExclusiveLockPayload left, Ama.CRDT.Models.ExclusiveLockPayload right) -> bool
-static Ama.CRDT.Models.ExclusiveLockPayload.operator ==(Ama.CRDT.Models.ExclusiveLockPayload left, Ama.CRDT.Models.ExclusiveLockPayload right) -> bool
 static Ama.CRDT.Models.GraphEdgePayload.operator !=(Ama.CRDT.Models.GraphEdgePayload left, Ama.CRDT.Models.GraphEdgePayload right) -> bool
 static Ama.CRDT.Models.GraphEdgePayload.operator ==(Ama.CRDT.Models.GraphEdgePayload left, Ama.CRDT.Models.GraphEdgePayload right) -> bool
 static Ama.CRDT.Models.GraphVertexPayload.operator !=(Ama.CRDT.Models.GraphVertexPayload left, Ama.CRDT.Models.GraphVertexPayload right) -> bool
 static Ama.CRDT.Models.GraphVertexPayload.operator ==(Ama.CRDT.Models.GraphVertexPayload left, Ama.CRDT.Models.GraphVertexPayload right) -> bool
-static Ama.CRDT.Models.LockInfo.operator !=(Ama.CRDT.Models.LockInfo? left, Ama.CRDT.Models.LockInfo? right) -> bool
-static Ama.CRDT.Models.LockInfo.operator ==(Ama.CRDT.Models.LockInfo? left, Ama.CRDT.Models.LockInfo? right) -> bool
 static Ama.CRDT.Models.LseqIdentifier.operator !=(Ama.CRDT.Models.LseqIdentifier left, Ama.CRDT.Models.LseqIdentifier right) -> bool
 static Ama.CRDT.Models.LseqIdentifier.operator ==(Ama.CRDT.Models.LseqIdentifier left, Ama.CRDT.Models.LseqIdentifier right) -> bool
 static Ama.CRDT.Models.LseqItem.operator !=(Ama.CRDT.Models.LseqItem left, Ama.CRDT.Models.LseqItem right) -> bool
@@ -803,22 +1029,39 @@ static Ama.CRDT.Models.OrSetRemoveItem.operator !=(Ama.CRDT.Models.OrSetRemoveIt
 static Ama.CRDT.Models.OrSetRemoveItem.operator ==(Ama.CRDT.Models.OrSetRemoveItem left, Ama.CRDT.Models.OrSetRemoveItem right) -> bool
 static Ama.CRDT.Models.OrSetState.operator !=(Ama.CRDT.Models.OrSetState? left, Ama.CRDT.Models.OrSetState? right) -> bool
 static Ama.CRDT.Models.OrSetState.operator ==(Ama.CRDT.Models.OrSetState? left, Ama.CRDT.Models.OrSetState? right) -> bool
+static Ama.CRDT.Models.Partitioning.CompositePartitionKey.operator !=(Ama.CRDT.Models.Partitioning.CompositePartitionKey left, Ama.CRDT.Models.Partitioning.CompositePartitionKey right) -> bool
+static Ama.CRDT.Models.Partitioning.CompositePartitionKey.operator ==(Ama.CRDT.Models.Partitioning.CompositePartitionKey left, Ama.CRDT.Models.Partitioning.CompositePartitionKey right) -> bool
+static Ama.CRDT.Models.Partitioning.DataPartition.operator !=(Ama.CRDT.Models.Partitioning.DataPartition left, Ama.CRDT.Models.Partitioning.DataPartition right) -> bool
+static Ama.CRDT.Models.Partitioning.DataPartition.operator ==(Ama.CRDT.Models.Partitioning.DataPartition left, Ama.CRDT.Models.Partitioning.DataPartition right) -> bool
+static Ama.CRDT.Models.Partitioning.HeaderPartition.operator !=(Ama.CRDT.Models.Partitioning.HeaderPartition left, Ama.CRDT.Models.Partitioning.HeaderPartition right) -> bool
+static Ama.CRDT.Models.Partitioning.HeaderPartition.operator ==(Ama.CRDT.Models.Partitioning.HeaderPartition left, Ama.CRDT.Models.Partitioning.HeaderPartition right) -> bool
+static Ama.CRDT.Models.Partitioning.PartitionContent.operator !=(Ama.CRDT.Models.Partitioning.PartitionContent left, Ama.CRDT.Models.Partitioning.PartitionContent right) -> bool
+static Ama.CRDT.Models.Partitioning.PartitionContent.operator ==(Ama.CRDT.Models.Partitioning.PartitionContent left, Ama.CRDT.Models.Partitioning.PartitionContent right) -> bool
+static Ama.CRDT.Models.Partitioning.SplitResult.operator !=(Ama.CRDT.Models.Partitioning.SplitResult left, Ama.CRDT.Models.Partitioning.SplitResult right) -> bool
+static Ama.CRDT.Models.Partitioning.SplitResult.operator ==(Ama.CRDT.Models.Partitioning.SplitResult left, Ama.CRDT.Models.Partitioning.SplitResult right) -> bool
 static Ama.CRDT.Models.PnCounterState.operator !=(Ama.CRDT.Models.PnCounterState? left, Ama.CRDT.Models.PnCounterState? right) -> bool
 static Ama.CRDT.Models.PnCounterState.operator ==(Ama.CRDT.Models.PnCounterState? left, Ama.CRDT.Models.PnCounterState? right) -> bool
 static Ama.CRDT.Models.PositionalIdentifier.operator !=(Ama.CRDT.Models.PositionalIdentifier left, Ama.CRDT.Models.PositionalIdentifier right) -> bool
 static Ama.CRDT.Models.PositionalIdentifier.operator ==(Ama.CRDT.Models.PositionalIdentifier left, Ama.CRDT.Models.PositionalIdentifier right) -> bool
 static Ama.CRDT.Models.PositionalItem.operator !=(Ama.CRDT.Models.PositionalItem left, Ama.CRDT.Models.PositionalItem right) -> bool
 static Ama.CRDT.Models.PositionalItem.operator ==(Ama.CRDT.Models.PositionalItem left, Ama.CRDT.Models.PositionalItem right) -> bool
+static Ama.CRDT.Models.RgaIdentifier.operator !=(Ama.CRDT.Models.RgaIdentifier left, Ama.CRDT.Models.RgaIdentifier right) -> bool
+static Ama.CRDT.Models.RgaIdentifier.operator ==(Ama.CRDT.Models.RgaIdentifier left, Ama.CRDT.Models.RgaIdentifier right) -> bool
+static Ama.CRDT.Models.RgaItem.operator !=(Ama.CRDT.Models.RgaItem left, Ama.CRDT.Models.RgaItem right) -> bool
+static Ama.CRDT.Models.RgaItem.operator ==(Ama.CRDT.Models.RgaItem left, Ama.CRDT.Models.RgaItem right) -> bool
 static Ama.CRDT.Models.SequentialTimestamp.operator !=(Ama.CRDT.Models.SequentialTimestamp left, Ama.CRDT.Models.SequentialTimestamp right) -> bool
 static Ama.CRDT.Models.SequentialTimestamp.operator ==(Ama.CRDT.Models.SequentialTimestamp left, Ama.CRDT.Models.SequentialTimestamp right) -> bool
+static Ama.CRDT.Models.Serialization.Converters.CrdtTimestampJsonConverter.Register(string! discriminator, System.Type! type) -> void
+static Ama.CRDT.Models.Serialization.Converters.PolymorphicComparableJsonConverter.Instance.get -> Ama.CRDT.Models.Serialization.Converters.PolymorphicComparableJsonConverter!
 static Ama.CRDT.Models.Serialization.Converters.PolymorphicObjectJsonConverter.Instance.get -> Ama.CRDT.Models.Serialization.Converters.PolymorphicObjectJsonConverter!
+static Ama.CRDT.Models.Serialization.Converters.PolymorphicObjectJsonConverter.Register(string! discriminator, System.Type! type) -> void
+static Ama.CRDT.Models.Serialization.Converters.PolymorphicPartitionJsonConverter.Instance.get -> Ama.CRDT.Models.Serialization.Converters.PolymorphicPartitionJsonConverter!
 static Ama.CRDT.Models.Serialization.CrdtJsonContext.DefaultOptions.get -> System.Text.Json.JsonSerializerOptions!
 static Ama.CRDT.Models.Serialization.CrdtJsonContext.MetadataCompactOptions.get -> System.Text.Json.JsonSerializerOptions!
 static Ama.CRDT.Models.Serialization.CrdtJsonTypeInfoResolver.ApplyCrdtModifiers(System.Text.Json.Serialization.Metadata.JsonTypeInfo! jsonTypeInfo) -> void
 static Ama.CRDT.Models.Serialization.CrdtJsonTypeInfoResolver.Instance.get -> Ama.CRDT.Models.Serialization.CrdtJsonTypeInfoResolver!
 static Ama.CRDT.Models.Serialization.CrdtMetadataJsonResolver.ApplyMetadataModifiers(System.Text.Json.Serialization.Metadata.JsonTypeInfo! jsonTypeInfo) -> void
 static Ama.CRDT.Models.Serialization.CrdtMetadataJsonResolver.Instance.get -> Ama.CRDT.Models.Serialization.CrdtMetadataJsonResolver!
-static Ama.CRDT.Models.Serialization.CrdtTimestampJsonConverter.Register(string! discriminator, System.Type! type) -> void
 static Ama.CRDT.Models.TreeAddNodePayload.operator !=(Ama.CRDT.Models.TreeAddNodePayload left, Ama.CRDT.Models.TreeAddNodePayload right) -> bool
 static Ama.CRDT.Models.TreeAddNodePayload.operator ==(Ama.CRDT.Models.TreeAddNodePayload left, Ama.CRDT.Models.TreeAddNodePayload right) -> bool
 static Ama.CRDT.Models.TreeMoveNodePayload.operator !=(Ama.CRDT.Models.TreeMoveNodePayload left, Ama.CRDT.Models.TreeMoveNodePayload right) -> bool
@@ -835,6 +1078,8 @@ static Ama.CRDT.Models.VotePayload.operator !=(Ama.CRDT.Models.VotePayload left,
 static Ama.CRDT.Models.VotePayload.operator ==(Ama.CRDT.Models.VotePayload left, Ama.CRDT.Models.VotePayload right) -> bool
 static Ama.CRDT.Services.DifferentiateObjectContext.operator !=(Ama.CRDT.Services.DifferentiateObjectContext? left, Ama.CRDT.Services.DifferentiateObjectContext? right) -> bool
 static Ama.CRDT.Services.DifferentiateObjectContext.operator ==(Ama.CRDT.Services.DifferentiateObjectContext? left, Ama.CRDT.Services.DifferentiateObjectContext? right) -> bool
+static Ama.CRDT.Services.Metrics.MetricTimer.operator !=(Ama.CRDT.Services.Metrics.MetricTimer left, Ama.CRDT.Services.Metrics.MetricTimer right) -> bool
+static Ama.CRDT.Services.Metrics.MetricTimer.operator ==(Ama.CRDT.Services.Metrics.MetricTimer left, Ama.CRDT.Services.Metrics.MetricTimer right) -> bool
 static Ama.CRDT.Services.Strategies.ApplyOperationContext.operator !=(Ama.CRDT.Services.Strategies.ApplyOperationContext? left, Ama.CRDT.Services.Strategies.ApplyOperationContext? right) -> bool
 static Ama.CRDT.Services.Strategies.ApplyOperationContext.operator ==(Ama.CRDT.Services.Strategies.ApplyOperationContext? left, Ama.CRDT.Services.Strategies.ApplyOperationContext? right) -> bool
 static Ama.CRDT.Services.Strategies.GeneratePatchContext.operator !=(Ama.CRDT.Services.Strategies.GeneratePatchContext? left, Ama.CRDT.Services.Strategies.GeneratePatchContext? right) -> bool
@@ -856,8 +1101,6 @@ static readonly Ama.CRDT.Models.SequentialTimestamp.MinValue -> Ama.CRDT.Models.
 ~override Ama.CRDT.Models.Edge.ToString() -> string
 ~override Ama.CRDT.Models.EpochTimestamp.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.EpochTimestamp.ToString() -> string
-~override Ama.CRDT.Models.ExclusiveLockPayload.Equals(object obj) -> bool
-~override Ama.CRDT.Models.ExclusiveLockPayload.ToString() -> string
 ~override Ama.CRDT.Models.GraphEdgePayload.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.GraphEdgePayload.ToString() -> string
 ~override Ama.CRDT.Models.GraphVertexPayload.Equals(object obj) -> bool
@@ -875,10 +1118,23 @@ static readonly Ama.CRDT.Models.SequentialTimestamp.MinValue -> Ama.CRDT.Models.
 ~override Ama.CRDT.Models.OrSetAddItem.ToString() -> string
 ~override Ama.CRDT.Models.OrSetRemoveItem.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.OrSetRemoveItem.ToString() -> string
+~override Ama.CRDT.Models.Partitioning.CompositePartitionKey.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Partitioning.DataPartition.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Partitioning.DataPartition.ToString() -> string
+~override Ama.CRDT.Models.Partitioning.HeaderPartition.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Partitioning.HeaderPartition.ToString() -> string
+~override Ama.CRDT.Models.Partitioning.PartitionContent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Partitioning.PartitionContent.ToString() -> string
+~override Ama.CRDT.Models.Partitioning.SplitResult.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Partitioning.SplitResult.ToString() -> string
 ~override Ama.CRDT.Models.PositionalIdentifier.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.PositionalIdentifier.ToString() -> string
 ~override Ama.CRDT.Models.PositionalItem.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.PositionalItem.ToString() -> string
+~override Ama.CRDT.Models.RgaIdentifier.Equals(object obj) -> bool
+~override Ama.CRDT.Models.RgaIdentifier.ToString() -> string
+~override Ama.CRDT.Models.RgaItem.Equals(object obj) -> bool
+~override Ama.CRDT.Models.RgaItem.ToString() -> string
 ~override Ama.CRDT.Models.SequentialTimestamp.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.SequentialTimestamp.ToString() -> string
 ~override Ama.CRDT.Models.TreeAddNodePayload.Equals(object obj) -> bool
@@ -889,6 +1145,8 @@ static readonly Ama.CRDT.Models.SequentialTimestamp.MinValue -> Ama.CRDT.Models.
 ~override Ama.CRDT.Models.TreeRemoveNodePayload.ToString() -> string
 ~override Ama.CRDT.Models.VotePayload.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.VotePayload.ToString() -> string
+~override Ama.CRDT.Services.Metrics.MetricTimer.Equals(object obj) -> bool
+~override Ama.CRDT.Services.Metrics.MetricTimer.ToString() -> string
 ~override Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.Equals(object obj) -> bool
 ~override Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.ToString() -> string
 ~static Ama.CRDT.Models.CrdtDocument<T>.operator !=(Ama.CRDT.Models.CrdtDocument<T> left, Ama.CRDT.Models.CrdtDocument<T> right) -> bool

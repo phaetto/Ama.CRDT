@@ -82,7 +82,6 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     /// <inheritdoc/>
     public async Task ApplyPatchAsync(CrdtPatch patch, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(patch);
         using var _ = new MetricTimer(metrics.ApplyPatchDuration);
         
         if (patch.Operations is null || !patch.Operations.Any())
@@ -240,7 +239,6 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     /// <inheritdoc/>
     public async Task<IPartition?> GetDataPartitionAsync(CompositePartitionKey key, string propertyName, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(key);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
         using var _ = new MetricTimer(metrics.GetPartitionDuration);
         
@@ -250,7 +248,6 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     /// <inheritdoc/>
     public async Task<CrdtDocument<T>?> GetDataPartitionContentAsync(CompositePartitionKey key, string propertyName, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(key);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
         using var _ = new MetricTimer(metrics.GetPartitionContentDuration);
         
