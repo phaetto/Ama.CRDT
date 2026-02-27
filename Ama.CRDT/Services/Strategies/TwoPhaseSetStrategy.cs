@@ -84,20 +84,47 @@ public sealed class TwoPhaseSetStrategy(
                 break;
         }
 
-        ReconstructList(list, state.Adds, state.Tomstones);
+        bool isLiveNow = state.Adds.Contains(itemValue) && !state.Tomstones.Contains(itemValue);
+
+        if (isLiveNow)
+        {
+            InsertSorted(list, itemValue, comparer);
+        }
+        else
+        {
+            RemoveFromList(list, itemValue, comparer);
+        }
     }
     
-    private static void ReconstructList(IList list, ISet<object> adds, ISet<object> tombstones)
+    private static void InsertSorted(IList list, object item, IEqualityComparer<object> comparer)
     {
-        var liveItems = adds.Except(tombstones);
-        
-        // Sort the items to ensure a deterministic order across all replicas.
-        var sortedItems = liveItems.OrderBy(i => i.ToString(), StringComparer.Ordinal).ToList();
-        
-        list.Clear();
-        foreach (var item in sortedItems)
+        for (int i = 0; i < list.Count; i++)
         {
-            list.Add(item);
+            if (comparer.Equals(list[i], item)) return; // Already exists
+        }
+
+        var itemStr = item.ToString() ?? string.Empty;
+        for (int i = 0; i < list.Count; i++)
+        {
+            var currentStr = list[i]?.ToString() ?? string.Empty;
+            if (string.CompareOrdinal(itemStr, currentStr) < 0)
+            {
+                list.Insert(i, item);
+                return;
+            }
+        }
+        list.Add(item);
+    }
+
+    private static void RemoveFromList(IList list, object item, IEqualityComparer<object> comparer)
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (comparer.Equals(list[i], item))
+            {
+                list.RemoveAt(i);
+                return;
+            }
         }
     }
 }

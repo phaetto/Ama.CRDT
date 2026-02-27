@@ -76,25 +76,45 @@ public sealed class OrSetStrategy(
             metadata.OrSets[operation.JsonPath] = state;
         }
 
+        object? modifiedItemValue = null;
+
         switch (operation.Type)
         {
             case OperationType.Upsert:
-                ApplyUpsert(state, operation.Value, elementType);
+                modifiedItemValue = ApplyUpsert(state, operation.Value, elementType);
                 break;
             case OperationType.Remove:
-                ApplyRemove(state, operation.Value, elementType);
+                modifiedItemValue = ApplyRemove(state, operation.Value, elementType);
                 break;
         }
 
-        ReconstructList(list, state.Adds, state.Removes, comparer);
+        if (modifiedItemValue is null) return;
+
+        bool isLiveNow = false;
+        if (state.Adds.TryGetValue(modifiedItemValue, out var addTags))
+        {
+            if (!state.Removes.TryGetValue(modifiedItemValue, out var rmTags) || addTags.Except(rmTags).Any())
+            {
+                isLiveNow = true;
+            }
+        }
+
+        if (isLiveNow)
+        {
+            InsertSorted(list, modifiedItemValue, comparer);
+        }
+        else
+        {
+            RemoveFromList(list, modifiedItemValue, comparer);
+        }
     }
     
-    private static void ApplyUpsert(OrSetState state, object? opValue, Type elementType)
+    private static object? ApplyUpsert(OrSetState state, object? opValue, Type elementType)
     {
-        if (PocoPathHelper.ConvertValue(opValue, typeof(OrSetAddItem)) is not OrSetAddItem payload) return;
+        if (PocoPathHelper.ConvertValue(opValue, typeof(OrSetAddItem)) is not OrSetAddItem payload) return null;
         
         var itemValue = PocoPathHelper.ConvertValue(payload.Value, elementType);
-        if (itemValue is null) return;
+        if (itemValue is null) return null;
         
         if (!state.Adds.TryGetValue(itemValue, out var addTags))
         {
@@ -102,14 +122,16 @@ public sealed class OrSetStrategy(
             state.Adds[itemValue] = addTags;
         }
         addTags.Add(payload.Tag);
+
+        return itemValue;
     }
 
-    private static void ApplyRemove(OrSetState state, object? opValue, Type elementType)
+    private static object? ApplyRemove(OrSetState state, object? opValue, Type elementType)
     {
-        if (PocoPathHelper.ConvertValue(opValue, typeof(OrSetRemoveItem)) is not OrSetRemoveItem payload) return;
+        if (PocoPathHelper.ConvertValue(opValue, typeof(OrSetRemoveItem)) is not OrSetRemoveItem payload) return null;
 
         var itemValue = PocoPathHelper.ConvertValue(payload.Value, elementType);
-        if (itemValue is null) return;
+        if (itemValue is null) return null;
 
         if (!state.Removes.TryGetValue(itemValue, out var removeTags))
         {
@@ -120,34 +142,39 @@ public sealed class OrSetStrategy(
         {
             removeTags.Add(tag);
         }
-    }
-    
-    private static void ReconstructList(IList list, IDictionary<object, ISet<Guid>> adds, IDictionary<object, ISet<Guid>> removes, IEqualityComparer<object> comparer)
-    {
-        var liveItems = new HashSet<object>(comparer);
 
-        foreach (var (item, addTags) in adds)
+        return itemValue;
+    }
+
+    private static void InsertSorted(IList list, object item, IEqualityComparer<object> comparer)
+    {
+        for (int i = 0; i < list.Count; i++)
         {
-            if (removes.TryGetValue(item, out var removeTags))
+            if (comparer.Equals(list[i], item)) return; // Already exists
+        }
+
+        var itemStr = item.ToString() ?? string.Empty;
+        for (int i = 0; i < list.Count; i++)
+        {
+            var currentStr = list[i]?.ToString() ?? string.Empty;
+            if (string.CompareOrdinal(itemStr, currentStr) < 0)
             {
-                if (addTags.Except(removeTags).Any())
-                {
-                    liveItems.Add(item);
-                }
-            }
-            else
-            {
-                liveItems.Add(item);
+                list.Insert(i, item);
+                return;
             }
         }
-        
-        // Sort the items to ensure a deterministic order across all replicas.
-        var sortedItems = liveItems.OrderBy(i => i.ToString(), StringComparer.Ordinal).ToList();
-        
-        list.Clear();
-        foreach (var item in sortedItems)
+        list.Add(item);
+    }
+
+    private static void RemoveFromList(IList list, object item, IEqualityComparer<object> comparer)
+    {
+        for (int i = 0; i < list.Count; i++)
         {
-            list.Add(item);
+            if (comparer.Equals(list[i], item))
+            {
+                list.RemoveAt(i);
+                return;
+            }
         }
     }
 }

@@ -5,6 +5,9 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 [CrdtSupportedType(typeof(CrdtTree))]
 [Commutative]
@@ -97,12 +100,35 @@ public sealed class ReplicatedTreeStrategy(
             var nodeId = addPayload.NodeId;
             ApplyAdd(state, nodeId, addPayload.Tag);
             
-            var node = new TreeNode { Id = nodeId, Value = addPayload.Value, ParentId = addPayload.ParentId };
-            tree.Nodes[nodeId] = node;
+            bool isLive = true;
+            if (state.Removes.TryGetValue(nodeId, out var rmTags) && state.Adds.TryGetValue(nodeId, out var addTags))
+            {
+                isLive = addTags.Except(rmTags).Any();
+            }
+
+            if (isLive)
+            {
+                var node = new TreeNode { Id = nodeId, Value = addPayload.Value, ParentId = addPayload.ParentId };
+                tree.Nodes[nodeId] = node;
+            }
         }
         else if (payload is TreeRemoveNodePayload removePayload)
         {
             ApplyRemove(state, removePayload.NodeId, removePayload.Tags);
+
+            bool isLive = false;
+            if (state.Adds.TryGetValue(removePayload.NodeId, out var addTags))
+            {
+                if (!state.Removes.TryGetValue(removePayload.NodeId, out var rmTags) || addTags.Except(rmTags).Any())
+                {
+                    isLive = true;
+                }
+            }
+
+            if (!isLive)
+            {
+                tree.Nodes.Remove(removePayload.NodeId);
+            }
         }
         else if (payload is TreeMoveNodePayload movePayload)
         {
@@ -120,12 +146,6 @@ public sealed class ReplicatedTreeStrategy(
                 metadata.Lww[nodePath] = operation.Timestamp;
             }
         }
-        else
-        {
-            return;
-        }
-        
-        ReconstructTree(tree, state, idComparer);
     }
     
     private static void ApplyAdd(OrSetState state, object nodeId, Guid tag)
@@ -148,33 +168,6 @@ public sealed class ReplicatedTreeStrategy(
         foreach (var tag in tags)
         {
             removeTags.Add(tag);
-        }
-    }
-
-    private static void ReconstructTree(CrdtTree tree, OrSetState state, IEqualityComparer<object> idComparer)
-    {
-        var liveKeys = new HashSet<object>(idComparer);
-        foreach (var (key, addTags) in state.Adds)
-        {
-            var isLive = true;
-            if (state.Removes.TryGetValue(key, out var removeTags))
-            {
-                if (!addTags.Except(removeTags).Any())
-                {
-                    isLive = false;
-                }
-            }
-            if (isLive)
-            {
-                liveKeys.Add(key);
-            }
-        }
-
-        var keysToRemove = tree.Nodes.Keys.Where(k => !liveKeys.Contains(k)).ToList();
-
-        foreach (var key in keysToRemove)
-        {
-            tree.Nodes.Remove(key);
         }
     }
 }
