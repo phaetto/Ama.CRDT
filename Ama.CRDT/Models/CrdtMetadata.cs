@@ -77,6 +77,12 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     public IDictionary<string, List<LseqItem>> LseqTrackers { get; set; } = new Dictionary<string, List<LseqItem>>();
     
     /// <summary>
+    /// Gets or sets a dictionary that stores the state for properties managed by the RGA (Replicated Growable Array) strategy.
+    /// The key is the JSON Path to the array. The value is a list of RGA nodes tracking insertion causality and tombstones.
+    /// </summary>
+    public IDictionary<string, List<RgaItem>> RgaTrackers { get; set; } = new Dictionary<string, List<RgaItem>>();
+    
+    /// <summary>
     /// Gets or sets a dictionary that stores the state for properties managed by the Last-Writer-Wins Map (LWW-Map) strategy.
     /// The outer key is the JSON Path to the property. The inner dictionary maps each key from the user's dictionary to its LWW timestamp.
     /// </summary>
@@ -124,6 +130,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
             && DictionaryEquals(OrSets, other.OrSets)
             && DictionaryEquals(PriorityQueues, other.PriorityQueues)
             && DictionaryOfListsEquals(LseqTrackers, other.LseqTrackers)
+            && DictionaryOfListsEquals(RgaTrackers, other.RgaTrackers)
             && DictionaryOfDictionariesEquals(LwwMaps, other.LwwMaps)
             && DictionaryEquals(OrMaps, other.OrMaps)
             && DictionaryOfDictionariesEquals(CounterMaps, other.CounterMaps)
@@ -145,6 +152,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         hash.Add(GetDictionaryHashCode(OrSets));
         hash.Add(GetDictionaryHashCode(PriorityQueues));
         hash.Add(GetDictionaryOfListsHashCode(LseqTrackers));
+        hash.Add(GetDictionaryOfListsHashCode(RgaTrackers));
         hash.Add(GetDictionaryOfDictionariesHashCode(LwwMaps));
         hash.Add(GetDictionaryHashCode(OrMaps));
         hash.Add(GetDictionaryOfDictionariesHashCode(CounterMaps));

@@ -98,6 +98,7 @@ public sealed class CrdtMetadataManager(
         document.Metadata.OrSets.Clear();
         document.Metadata.PriorityQueues.Clear();
         document.Metadata.LseqTrackers.Clear();
+        document.Metadata.RgaTrackers.Clear();
         document.Metadata.LwwMaps.Clear();
         document.Metadata.OrMaps.Clear();
         document.Metadata.CounterMaps.Clear();
@@ -168,6 +169,7 @@ public sealed class CrdtMetadataManager(
         }
 
         foreach (var kvp in metadata.LseqTrackers) { newMetadata.LseqTrackers.Add(kvp.Key, new List<LseqItem>(kvp.Value)); }
+        foreach (var kvp in metadata.RgaTrackers) { newMetadata.RgaTrackers.Add(kvp.Key, new List<RgaItem>(kvp.Value)); }
         foreach (var kvp in metadata.VersionVector) { newMetadata.VersionVector.Add(kvp.Key, kvp.Value); }
         foreach (var op in metadata.SeenExceptions) { newMetadata.SeenExceptions.Add(op); }
 
@@ -264,6 +266,28 @@ public sealed class CrdtMetadataManager(
             foreach (var kvp in metadata.AverageRegisters) merged.AverageRegisters[kvp.Key] = new Dictionary<string, AverageRegisterValue>(kvp.Value);
             foreach (var kvp in metadata.LwwMaps) merged.LwwMaps[kvp.Key] = new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer);
             foreach (var kvp in metadata.CounterMaps) merged.CounterMaps[kvp.Key] = new Dictionary<object, PnCounterState>(kvp.Value, (kvp.Value as Dictionary<object, PnCounterState>)?.Comparer);
+            
+            foreach (var kvp in metadata.RgaTrackers)
+            {
+                if (!merged.RgaTrackers.TryGetValue(kvp.Key, out var existing))
+                {
+                    merged.RgaTrackers[kvp.Key] = new List<RgaItem>(kvp.Value);
+                }
+                else
+                {
+                    var mergedItemsDict = existing.ToDictionary(x => x.Identifier);
+                    foreach (var item in kvp.Value)
+                    {
+                        if (!mergedItemsDict.TryGetValue(item.Identifier, out var eItem) || (!eItem.IsDeleted && item.IsDeleted))
+                        {
+                            mergedItemsDict[item.Identifier] = item;
+                        }
+                    }
+                    var mergedItems = mergedItemsDict.Values.ToList();
+                    mergedItems.Sort((a, b) => a.Identifier.CompareTo(b.Identifier));
+                    merged.RgaTrackers[kvp.Key] = mergedItems;
+                }
+            }
             
             foreach (var (replicaId, clock) in metadata.VersionVector)
             {
@@ -459,6 +483,22 @@ public sealed class CrdtMetadataManager(
                         lseqItems.Add(new LseqItem(new LseqIdentifier(path), lseqList[i]));
                     }
                     metadata.LseqTrackers[propertyPath] = lseqItems;
+                }
+                break;
+            case RgaStrategy:
+                if (propertyValue is IList rgaList)
+                {
+                    var rgaItems = new List<RgaItem>();
+                    RgaIdentifier? prevId = null;
+                    var ticksBase = DateTime.UtcNow.Ticks;
+                    for (var i = 0; i < rgaList.Count; i++)
+                    {
+                        var id = new RgaIdentifier(ticksBase + i, replicaContext.ReplicaId);
+                        var item = new RgaItem(id, prevId, rgaList[i], false);
+                        rgaItems.Add(item);
+                        prevId = id;
+                    }
+                    metadata.RgaTrackers[propertyPath] = rgaItems;
                 }
                 break;
             case VoteCounterStrategy:

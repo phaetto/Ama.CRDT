@@ -73,6 +73,9 @@ public class StrategyPoco
         new() { Id = 2, Priority = 20, Value = "B" }
     };
 
+    [CrdtRgaStrategy]
+    public List<string> RgaList { get; set; } = new() { "A", "B", "C" };
+
     public StrategyPoco Clone()
     {
         var clone = (StrategyPoco)MemberwiseClone();
