@@ -131,7 +131,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
                 }
 
                 // Remove global state from the data partition's metadata so it is not persisted in the data stream.
-                dataDoc.Metadata.VersionVector = new Dictionary<string, ICrdtTimestamp>();
+                dataDoc.Metadata.VersionVector = new Dictionary<string, long>();
                 dataDoc.Metadata.SeenExceptions = new HashSet<CrdtOperation>();
 
                 var updatedPartition = await PersistPartitionChangesAsync(patch.LogicalKey, partition, dataDoc.Data!, dataDoc.Metadata, propertyName, cancellationToken);

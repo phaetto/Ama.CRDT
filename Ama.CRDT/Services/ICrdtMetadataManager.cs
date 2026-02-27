@@ -54,8 +54,6 @@ public interface ICrdtMetadataManager
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata or <paramref name="document"/>.Data is null.</exception>
     void Initialize<T>([DisallowNull] CrdtDocument<T> document) where T : class;
 
-
-
     /// <summary>
     /// Populates an existing <see cref="CrdtMetadata"/> object with state derived from a document using a specific timestamp.
     /// This method is essential for all strategies that derive state from the document, including LWW, sequence, and set-based strategies.
@@ -109,7 +107,7 @@ public interface ICrdtMetadataManager
     /// <summary>
     /// Merges multiple metadata objects into a single new one.
     /// This is useful in partitioning scenarios where metadata from a header partition and a data partition need to be combined.
-    /// For most properties, this is a union of dictionaries. For the VersionVector, it takes the maximum timestamp for each replica.
+    /// For most properties, this is a union of dictionaries. For the VersionVector, it takes the maximum clock sequence for each replica.
     /// The returned metadata object is a deep copy.
     /// </summary>
     /// <param name="metadatas">A collection of metadata objects to merge.</param>
@@ -129,23 +127,23 @@ public interface ICrdtMetadataManager
     /// <summary>
     /// Advances the version vector for the replica that generated the operation, pruning any covered exceptions.
     /// This is a core causality tracking mechanism used by the applicator to prevent duplicate operation application.
-    /// By tracking the latest seen timestamp for each replica, it ensures that an operation is applied only once.
+    /// By tracking the latest contiguous causal sequence clock for each replica, it ensures that an operation is applied only once.
     /// It is automatically called for the strategies that support it after it applies the operation.
     /// </summary>
     /// <param name="metadata">The metadata object to update.</param>
-    /// <param name="operation">The operation whose replica and timestamp will be used to advance the vector.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="operation"/> is null.</exception>
-    void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, [DisallowNull] CrdtOperation operation);
+    /// <param name="operation">The operation whose replica and clock sequence will be used to advance the vector.</param>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
+    void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, CrdtOperation operation);
 
     /// <summary>
-    /// Advances the version vector for a specific replica with a given timestamp, pruning any covered exceptions.
+    /// Advances the version vector for a specific replica with a given causal clock sequence, pruning any covered exceptions.
     /// This is a core causality tracking mechanism used by the applicator to prevent duplicate operation application.
     /// It is automatically called for the strategies that support it after it applies the operation.
     /// </summary>
     /// <param name="metadata">The metadata object to update.</param>
     /// <param name="replicaId">The ID of the replica whose version vector is being advanced.</param>
-    /// <param name="timestamp">The new timestamp for the replica's version vector.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="timestamp"/> is null.</exception>
+    /// <param name="clock">The new causal clock sequence for the replica's version vector.</param>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
     /// <exception cref="System.ArgumentException">Thrown if <paramref name="replicaId"/> is null or whitespace.</exception>
-    void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, [DisallowNull] string replicaId, [DisallowNull] ICrdtTimestamp timestamp);
+    void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, [DisallowNull] string replicaId, long clock);
 }

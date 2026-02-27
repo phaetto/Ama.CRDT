@@ -13,7 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 /// <inheritdoc/>
-public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTimestampProvider timestampProvider) : ICrdtPatcher
+public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTimestampProvider timestampProvider, ReplicaContext replicaContext) : ICrdtPatcher
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropertyCache = new();
@@ -45,6 +45,20 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
             changeTimestamp
         );
         DifferentiateObject(context);
+
+        var replicaId = replicaContext.ReplicaId;
+        var localClock = from.Metadata.VersionVector.TryGetValue(replicaId, out var currentClock) ? currentClock : 0L;
+
+        for (int i = 0; i < operations.Count; i++)
+        {
+            localClock++;
+            var op = operations[i];
+            operations[i] = op with { ReplicaId = replicaId, Clock = localClock };
+        }
+
+        // We DO NOT mutate from.Metadata.VersionVector here.
+        // It is the responsibility of the caller to apply the generated patch locally 
+        // to properly update both the VersionVector AND the strategy-specific metadata states.
 
         return new CrdtPatch(operations);
     }

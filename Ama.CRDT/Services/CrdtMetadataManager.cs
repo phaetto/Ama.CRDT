@@ -11,12 +11,15 @@ using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System;
+using System.Collections.Generic;
 
 /// <inheritdoc/>
 public sealed class CrdtMetadataManager(
     ICrdtStrategyProvider strategyProvider,
     ICrdtTimestampProvider timestampProvider,
-    IElementComparerProvider elementComparerProvider) : ICrdtMetadataManager
+    IElementComparerProvider elementComparerProvider,
+    ReplicaContext replicaContext) : ICrdtMetadataManager
 {
     private static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new()
     {
@@ -37,6 +40,15 @@ public sealed class CrdtMetadataManager(
         ArgumentNullException.ThrowIfNull(timestamp);
 
         var metadata = new CrdtMetadata();
+
+        if (!string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
+        {
+            if (!metadata.VersionVector.ContainsKey(replicaContext.ReplicaId))
+            {
+                metadata.VersionVector[replicaContext.ReplicaId] = 0;
+            }
+        }
+
         PopulateMetadataRecursive(metadata, document, "$", timestamp, document);
         return metadata;
     }
@@ -53,6 +65,14 @@ public sealed class CrdtMetadataManager(
         ArgumentNullException.ThrowIfNull(document.Metadata);
         ArgumentNullException.ThrowIfNull(document.Data);
         ArgumentNullException.ThrowIfNull(timestamp);
+
+        if (!string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
+        {
+            if (!document.Metadata.VersionVector.ContainsKey(replicaContext.ReplicaId))
+            {
+                document.Metadata.VersionVector[replicaContext.ReplicaId] = 0;
+            }
+        }
 
         PopulateMetadataRecursive(document.Metadata, document.Data, "$", timestamp, document.Data);
     }
@@ -83,6 +103,14 @@ public sealed class CrdtMetadataManager(
         document.Metadata.CounterMaps.Clear();
         document.Metadata.TwoPhaseGraphs.Clear();
         document.Metadata.ReplicatedTrees.Clear();
+
+        if (!string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
+        {
+            if (!document.Metadata.VersionVector.ContainsKey(replicaContext.ReplicaId))
+            {
+                document.Metadata.VersionVector[replicaContext.ReplicaId] = 0;
+            }
+        }
 
         PopulateMetadataRecursive(document.Metadata, document.Data, "$", timestamp, document.Data);
     }
@@ -237,11 +265,11 @@ public sealed class CrdtMetadataManager(
             foreach (var kvp in metadata.LwwMaps) merged.LwwMaps[kvp.Key] = new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer);
             foreach (var kvp in metadata.CounterMaps) merged.CounterMaps[kvp.Key] = new Dictionary<object, PnCounterState>(kvp.Value, (kvp.Value as Dictionary<object, PnCounterState>)?.Comparer);
             
-            foreach (var (replicaId, timestamp) in metadata.VersionVector)
+            foreach (var (replicaId, clock) in metadata.VersionVector)
             {
-                if (!merged.VersionVector.TryGetValue(replicaId, out var existingTimestamp) || timestamp.CompareTo(existingTimestamp) > 0)
+                if (!merged.VersionVector.TryGetValue(replicaId, out var existingClock) || clock > existingClock)
                 {
-                    merged.VersionVector[replicaId] = timestamp;
+                    merged.VersionVector[replicaId] = clock;
                 }
             }
         }
@@ -270,63 +298,51 @@ public sealed class CrdtMetadataManager(
     public void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
     {
         ArgumentNullException.ThrowIfNull(metadata);
-        AdvanceVersionVector(metadata, operation.ReplicaId, operation.Timestamp);
+        AdvanceVersionVector(metadata, operation.ReplicaId, operation.Clock);
     }
 
     /// <inheritdoc/>
-    public void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, string replicaId, [DisallowNull] ICrdtTimestamp timestamp)
+    public void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, string replicaId, long clock)
     {
         ArgumentNullException.ThrowIfNull(metadata);
         ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
-        ArgumentNullException.ThrowIfNull(timestamp);
 
-        if (!timestampProvider.IsContinuous)
+        if (!metadata.VersionVector.TryGetValue(replicaId, out var vectorClock))
+        {
+            metadata.VersionVector[replicaId] = vectorClock = 0;
+        }
+
+        if (vectorClock >= clock)
         {
             return;
         }
 
-        if (!metadata.VersionVector.TryGetValue(replicaId, out var vectorTimestamp))
-        {
-            metadata.VersionVector[replicaId] = vectorTimestamp = timestampProvider.Init();
-        }
+        var advancedClock = vectorClock;
 
-        if (vectorTimestamp.CompareTo(timestamp) >= 0)
+        if (clock == vectorClock + 1)
         {
-            return;
-        }
+            advancedClock = clock;
 
-        var advancedVector = vectorTimestamp;
-        
-        if (metadata.SeenExceptions.Count > 0)
-        {
-            var exceptionsForReplica = metadata.SeenExceptions
-                .Where(op => op.ReplicaId == replicaId && op.Timestamp.CompareTo(vectorTimestamp) > 0)
-                .ToLookup(op => op.Timestamp);
-
-            if (exceptionsForReplica.Count > 0)
+            if (metadata.SeenExceptions.Count > 0)
             {
-                foreach (var tsInBetween in timestampProvider.IterateBetween(vectorTimestamp, timestamp))
+                var exceptionsForReplica = metadata.SeenExceptions
+                    .Where(op => op.ReplicaId == replicaId && op.Clock > advancedClock)
+                    .Select(op => op.Clock)
+                    .ToHashSet();
+
+                while (exceptionsForReplica.Contains(advancedClock + 1))
                 {
-                    if (!exceptionsForReplica.Contains(tsInBetween))
-                    {
-                        break;
-                    }
-                    advancedVector = tsInBetween;
+                    advancedClock++;
                 }
             }
         }
-        
-        if (!timestampProvider.IterateBetween(advancedVector, timestamp).Any())
-        {
-            advancedVector = timestamp;
-        }
 
-        metadata.VersionVector[replicaId] = advancedVector;
+        metadata.VersionVector[replicaId] = advancedClock;
 
         if (metadata.SeenExceptions.Count > 0)
         {
             var exceptionsToRemove = metadata.SeenExceptions
-                .Where(op => op.ReplicaId == replicaId && op.Timestamp.CompareTo(advancedVector) <= 0)
+                .Where(op => op.ReplicaId == replicaId && op.Clock <= advancedClock)
                 .ToList();
 
             foreach (var exception in exceptionsToRemove)

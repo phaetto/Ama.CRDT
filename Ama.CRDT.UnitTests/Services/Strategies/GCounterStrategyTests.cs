@@ -31,7 +31,6 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>()
             .BuildServiceProvider();
 
         scopeA = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("A");
@@ -84,7 +83,7 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Count = 10 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, 5m, timestampProvider.Create(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, 5m, timestampProvider.Create(2L), 1);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act
@@ -99,7 +98,7 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Count = 10 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, -5m, timestampProvider.Create(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, -5m, timestampProvider.Create(2L), 1);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act
@@ -114,7 +113,7 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Count = 10 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Upsert, 15, timestampProvider.Create(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Upsert, 15, timestampProvider.Create(2L), 1);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act & Assert
@@ -130,7 +129,7 @@ public sealed class GCounterStrategyTests : IDisposable
         var document = new CrdtDocument<TestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
-            new(Guid.NewGuid(), "r1", "$.Count", OperationType.Increment, 5m, timestampProvider.Create(1L))
+            new(Guid.NewGuid(), "r1", "$.Count", OperationType.Increment, 5m, timestampProvider.Create(1L), 1)
         });
 
         // Act
@@ -147,9 +146,9 @@ public sealed class GCounterStrategyTests : IDisposable
     public void ApplyPatch_IsCommutativeAndAssociative()
     {
         // Arrange
-        var patch1 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r1", "$.Count", OperationType.Increment, 10m, timestampProvider.Create(1L)) });
-        var patch2 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r2", "$.Count", OperationType.Increment, 5m, timestampProvider.Create(2L)) });
-        var patch3 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r3", "$.Count", OperationType.Increment, 20m, timestampProvider.Create(3L)) });
+        var patch1 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r1", "$.Count", OperationType.Increment, 10m, timestampProvider.Create(1L), 1) });
+        var patch2 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r2", "$.Count", OperationType.Increment, 5m, timestampProvider.Create(2L), 1) });
+        var patch3 = new CrdtPatch(new List<CrdtOperation> { new(Guid.NewGuid(), "r3", "$.Count", OperationType.Increment, 20m, timestampProvider.Create(3L), 1) });
 
         var patches = new[] { patch1, patch2, patch3 };
         var permutations = GetPermutations(patches, 3);

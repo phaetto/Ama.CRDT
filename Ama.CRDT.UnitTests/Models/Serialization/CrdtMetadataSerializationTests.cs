@@ -47,7 +47,7 @@ public sealed class CrdtMetadataSerializationTests
         // Arrange
         var metadata = new CrdtMetadata();
         metadata.Lww.Add("$.prop1", new EpochTimestamp(12345));
-        metadata.VersionVector.Add("replica1", new SequentialTimestamp(100));
+        metadata.VersionVector.Add("replica1", 100L);
 
         // Act
         var json = JsonSerializer.Serialize(metadata, CrdtJsonContext.MetadataCompactOptions);
@@ -120,7 +120,7 @@ public sealed class CrdtMetadataSerializationTests
         var metadata = new CrdtMetadata();
 
         metadata.Lww.Add("$.prop1", new EpochTimestamp(12345));
-        metadata.VersionVector.Add("replica1", new SequentialTimestamp(100));
+        metadata.VersionVector.Add("replica1", 100L);
         metadata.SeenExceptions.Add(new CrdtOperation(guid, "replica2", "$.prop2", OperationType.Upsert, "value", timestamp));
         metadata.PositionalTrackers.Add("$.array", [new PositionalIdentifier("0.5", guid)]);
         metadata.AverageRegisters.Add("$.avg", new Dictionary<string, AverageRegisterValue>

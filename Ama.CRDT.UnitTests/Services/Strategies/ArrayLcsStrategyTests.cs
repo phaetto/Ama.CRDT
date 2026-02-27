@@ -33,7 +33,6 @@ public sealed class ArrayLcsStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -134,7 +133,8 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         foreach (var permutation in permutations)
         {
             var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
-            var meta = metadataManagerA.Initialize(model);
+            // Clone the metadata to keep the original initialized version vector state
+            var meta = metadataManagerA.Clone(metaAncestor);
             var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in permutation)
             {
@@ -171,14 +171,14 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         // Act
         // Scenario 1: Remove B, then Insert X
         var finalModel_1 = new TestModel { Tags = new List<string>(ancestor.Tags) };
-        var finalMeta_1 = metadataManagerA.Initialize(finalModel_1);
+        var finalMeta_1 = metadataManagerA.Clone(metaAncestor);
         var document_1 = new CrdtDocument<TestModel>(finalModel_1, finalMeta_1);
         applicatorA.ApplyPatch(document_1, patch_RemoveB);
         applicatorA.ApplyPatch(document_1, patch_InsertX);
 
         // Scenario 2: Insert X, then Remove B
         var finalModel_2 = new TestModel { Tags = new List<string>(ancestor.Tags) };
-        var finalMeta_2 = metadataManagerA.Initialize(finalModel_2);
+        var finalMeta_2 = metadataManagerA.Clone(metaAncestor);
         var document_2 = new CrdtDocument<TestModel>(finalModel_2, finalMeta_2);
         applicatorA.ApplyPatch(document_2, patch_InsertX);
         applicatorA.ApplyPatch(document_2, patch_RemoveB);
@@ -208,7 +208,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
             new TestModel { Tags = ["A", "X", "C"] });
 
         // 3. Apply these patches to a third replica to create a converged state.
-        var docConverged = new CrdtDocument<TestModel>(new TestModel { Tags = new List<string>(ancestor.Tags) }, metadataManagerA.Initialize(ancestor));
+        var docConverged = new CrdtDocument<TestModel>(new TestModel { Tags = new List<string>(ancestor.Tags) }, metadataManagerA.Clone(docAncestor.Metadata));
         applicatorA.ApplyPatch(docConverged, patchB);
         applicatorA.ApplyPatch(docConverged, patchX);
 

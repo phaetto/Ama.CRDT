@@ -379,7 +379,7 @@ public sealed class OrMapStrategy(
 
     private static void CloneNonPartitionableMetadata(CrdtMetadata source, CrdtMetadata destination)
     {
-        destination.VersionVector = new Dictionary<string, ICrdtTimestamp>(source.VersionVector);
+        destination.VersionVector = new Dictionary<string, long>(source.VersionVector);
         destination.SeenExceptions = new HashSet<CrdtOperation>(source.SeenExceptions);
         // Only copy LWW entries that are NOT part of a partitionable collection, which we assume don't follow the collection path pattern.
         // This is a simplification; a more robust solution might need explicit marking of which LWW entries are "header" vs "data".
