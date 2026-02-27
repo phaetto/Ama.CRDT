@@ -496,6 +496,18 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         await storageService.DeletePropertyPartitionAsync(propertyName, dataPartitionToSplit, cancellationToken);
         await storageService.InsertPropertyPartitionAsync(propertyName, p1, cancellationToken);
         await storageService.InsertPropertyPartitionAsync(propertyName, p2, cancellationToken);
+
+        // Recursively split if the resulting partitions are still larger than the allowed maximum, 
+        // provided we are actually making progress (the split resulted in smaller sizes)
+        if (p1 is DataPartition dp1 && dp1.DataLength > MaxPartitionDataSize && dp1.DataLength < dataPartitionToSplit.DataLength)
+        {
+            await SplitPartitionAsync(dp1, propertyName, strategy, prop, cancellationToken);
+        }
+
+        if (p2 is DataPartition dp2 && dp2.DataLength > MaxPartitionDataSize && dp2.DataLength < dataPartitionToSplit.DataLength)
+        {
+            await SplitPartitionAsync(dp2, propertyName, strategy, prop, cancellationToken);
+        }
     }
 
     private async Task MergePartitionIfNeededAsync(IPartition partitionToMerge, string propertyName, IPartitionableCrdtStrategy strategy, PropertyInfo prop, CancellationToken cancellationToken)
