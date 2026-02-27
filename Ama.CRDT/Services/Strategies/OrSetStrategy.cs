@@ -3,12 +3,15 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Ama.CRDT.Services;
 
 /// <summary>
@@ -22,7 +25,7 @@ using Ama.CRDT.Services;
 [StateBased]
 public sealed class OrSetStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext) : ICrdtStrategy
+    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     
@@ -108,6 +111,172 @@ public sealed class OrSetStrategy(
             RemoveFromList(list, modifiedItemValue, comparer);
         }
     }
+
+    /// <inheritdoc/>
+    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    {
+        var list = partitionableProperty.GetValue(data) as IList;
+        if (list == null || list.Count == 0) return null;
+
+        var items = new List<IComparable>();
+        foreach (var item in list)
+        {
+            if (item is IComparable c) items.Add(c);
+            else if (item != null) items.Add(item.ToString()!);
+        }
+        return items.OrderBy(k => k).FirstOrDefault();
+    }
+
+    /// <inheritdoc/>
+    public IComparable? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath)
+    {
+        if (!operation.JsonPath.StartsWith(partitionablePropertyPath, StringComparison.Ordinal)) return null;
+
+        if (operation.Type == OperationType.Upsert)
+        {
+            var payload = PocoPathHelper.ConvertValue(operation.Value, typeof(OrSetAddItem));
+            if (payload is OrSetAddItem addItem) return addItem.Value as IComparable ?? addItem.Value?.ToString() as IComparable;
+        }
+        else if (operation.Type == OperationType.Remove)
+        {
+            var payload = PocoPathHelper.ConvertValue(operation.Value, typeof(OrSetRemoveItem));
+            if (payload is OrSetRemoveItem remItem) return remItem.Value as IComparable ?? remItem.Value?.ToString() as IComparable;
+        }
+
+        return null;
+    }
+
+    /// <inheritdoc/>
+    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    {
+        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        return GetMinimumKeyForType(elementType);
+    }
+
+    /// <inheritdoc/>
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    {
+        var documentType = partitionableProperty.DeclaringType!;
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+
+        if (!originalMetadata.OrSets.TryGetValue(path, out var state) || state.Adds.Count + state.Removes.Count < 2)
+        {
+            throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
+        }
+
+        var allKeys = state.Adds.Keys.Union(state.Removes.Keys).Cast<IComparable>().OrderBy(k => k).ToList();
+        var splitIndex = allKeys.Count / 2;
+        var splitKey = allKeys[splitIndex];
+
+        var keys1 = allKeys.Take(splitIndex).ToHashSet();
+        var keys2 = allKeys.Skip(splitIndex).ToHashSet();
+
+        var meta1 = originalMetadata.DeepClone();
+        var meta2 = originalMetadata.DeepClone();
+
+        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        var comparer = comparerProvider.GetComparer(elementType);
+
+        var adds1 = new Dictionary<object, ISet<Guid>>(comparer);
+        var adds2 = new Dictionary<object, ISet<Guid>>(comparer);
+        foreach (var kvp in state.Adds)
+        {
+            if (keys1.Contains((IComparable)kvp.Key)) adds1[kvp.Key] = new HashSet<Guid>(kvp.Value);
+            else adds2[kvp.Key] = new HashSet<Guid>(kvp.Value);
+        }
+
+        var rems1 = new Dictionary<object, ISet<Guid>>(comparer);
+        var rems2 = new Dictionary<object, ISet<Guid>>(comparer);
+        foreach (var kvp in state.Removes)
+        {
+            if (keys1.Contains((IComparable)kvp.Key)) rems1[kvp.Key] = new HashSet<Guid>(kvp.Value);
+            else rems2[kvp.Key] = new HashSet<Guid>(kvp.Value);
+        }
+
+        meta1.OrSets[path] = new OrSetState(adds1, rems1);
+        meta2.OrSets[path] = new OrSetState(adds2, rems2);
+
+        var doc1 = Activator.CreateInstance(documentType)!;
+        var doc2 = Activator.CreateInstance(documentType)!;
+
+        ReconstructListForSplitMerge(doc1, path, meta1.OrSets[path], elementType, comparer);
+        ReconstructListForSplitMerge(doc2, path, meta2.OrSets[path], elementType, comparer);
+
+        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
+    }
+
+    /// <inheritdoc/>
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    {
+        var documentType = partitionableProperty.DeclaringType!;
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+
+        var mergedDoc = Activator.CreateInstance(documentType)!;
+        var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
+
+        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        var comparer = comparerProvider.GetComparer(elementType);
+
+        var adds = new Dictionary<object, ISet<Guid>>(comparer);
+        var rems = new Dictionary<object, ISet<Guid>>(comparer);
+
+        if (meta1.OrSets.TryGetValue(path, out var state1))
+        {
+            foreach (var kvp in state1.Adds) adds[kvp.Key] = new HashSet<Guid>(kvp.Value);
+            foreach (var kvp in state1.Removes) rems[kvp.Key] = new HashSet<Guid>(kvp.Value);
+        }
+        if (meta2.OrSets.TryGetValue(path, out var state2))
+        {
+            foreach (var kvp in state2.Adds)
+            {
+                if (!adds.TryGetValue(kvp.Key, out var set)) { set = new HashSet<Guid>(); adds[kvp.Key] = set; }
+                foreach (var t in kvp.Value) set.Add(t);
+            }
+            foreach (var kvp in state2.Removes)
+            {
+                if (!rems.TryGetValue(kvp.Key, out var set)) { set = new HashSet<Guid>(); rems[kvp.Key] = set; }
+                foreach (var t in kvp.Value) set.Add(t);
+            }
+        }
+
+        var mergedState = new OrSetState(adds, rems);
+        mergedMeta.OrSets[path] = mergedState;
+
+        ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType, comparer);
+
+        return new PartitionContent(mergedDoc, mergedMeta);
+    }
+
+    private static void ReconstructListForSplitMerge(object root, string path, OrSetState state, Type elementType, IEqualityComparer<object> comparer)
+    {
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
+        if (parent is null || property is null) return;
+
+        var list = property.GetValue(parent) as IList;
+        if (list is null)
+        {
+            var listType = typeof(List<>).MakeGenericType(elementType);
+            list = (IList)Activator.CreateInstance(listType)!;
+            property.SetValue(parent, list);
+        }
+
+        list.Clear();
+        var liveItems = new List<object>();
+
+        foreach (var kvp in state.Adds)
+        {
+            var item = kvp.Key;
+            var addTags = kvp.Value;
+            if (!state.Removes.TryGetValue(item, out var rmTags) || addTags.Except(rmTags).Any())
+            {
+                var converted = PocoPathHelper.ConvertValue(item, elementType);
+                if (converted != null) liveItems.Add(converted);
+            }
+        }
+
+        liveItems.Sort((x, y) => string.CompareOrdinal(x.ToString(), y.ToString()));
+        foreach (var item in liveItems) list.Add(item);
+    }
     
     private static object? ApplyUpsert(OrSetState state, object? opValue, Type elementType)
     {
@@ -176,5 +345,28 @@ public sealed class OrSetStrategy(
                 return;
             }
         }
+    }
+
+    private static IComparable GetMinimumKeyForType(Type keyType)
+    {
+        if (keyType == typeof(string)) return string.Empty;
+        if (keyType == typeof(int)) return int.MinValue;
+        if (keyType == typeof(long)) return long.MinValue;
+        if (keyType == typeof(short)) return short.MinValue;
+        if (keyType == typeof(byte)) return byte.MinValue;
+        if (keyType == typeof(Guid)) return Guid.Empty;
+        if (keyType == typeof(DateTime)) return DateTime.MinValue;
+        if (keyType == typeof(DateTimeOffset)) return DateTimeOffset.MinValue;
+        if (keyType == typeof(char)) return char.MinValue;
+        if (keyType == typeof(double)) return double.MinValue;
+        if (keyType == typeof(float)) return float.MinValue;
+        if (keyType == typeof(decimal)) return decimal.MinValue;
+
+        if (keyType.IsValueType)
+        {
+            return (IComparable)Activator.CreateInstance(keyType)!;
+        }
+
+        throw new InvalidOperationException($"Cannot determine minimum key for type {keyType}.");
     }
 }
