@@ -110,7 +110,8 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped(CreateValidatedInstance<GraphStrategy>);
         services.TryAddScoped(CreateValidatedInstance<TwoPhaseGraphStrategy>);
         services.TryAddScoped(CreateValidatedInstance<ReplicatedTreeStrategy>);
-        
+        services.TryAddScoped(CreateValidatedInstance<RgaStrategy>);
+
         // Register all concrete strategies as ICrdtStrategy.
         // This will resolve the concrete type, which in turn triggers our validating factory.
         services.AddScoped<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
@@ -139,6 +140,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICrdtStrategy, GraphStrategy>(sp => sp.GetRequiredService<GraphStrategy>());
         services.AddScoped<ICrdtStrategy, TwoPhaseGraphStrategy>(sp => sp.GetRequiredService<TwoPhaseGraphStrategy>());
         services.AddScoped<ICrdtStrategy, ReplicatedTreeStrategy>(sp => sp.GetRequiredService<ReplicatedTreeStrategy>());
+        services.AddScoped<ICrdtStrategy, RgaStrategy>(sp => sp.GetRequiredService<RgaStrategy>());
 
         // Register partitionable strategies.
         services.AddScoped<IPartitionableCrdtStrategy, OrMapStrategy>(sp => sp.GetRequiredService<OrMapStrategy>());
