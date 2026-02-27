@@ -21,6 +21,7 @@
 | `$/Ama.CRDT.Benchmarks/README.md` | No description provided. |
 | `$/Ama.CRDT.Partitioning.Streams.UnitTests/Ama.CRDT.Partitioning.Streams.UnitTests.csproj` | No description provided. |
 | `$/Ama.CRDT.Partitioning.Streams.UnitTests/Serialization/DefaultPartitionSerializationServiceTests.cs` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams.UnitTests/Services/StreamSpaceAllocatorTests.cs` | Contains unit tests for the `StreamSpaceAllocator` class, verifying block allocation, free list reuse with best-fit logic, and free list size limits. |
 | `$/Ama.CRDT.Partitioning.Streams.UnitTests/StreamPartitionStorageServiceDataTests.cs` | No description provided. |
 | `$/Ama.CRDT.Partitioning.Streams.UnitTests/StreamPartitionStorageServiceIndexTests.cs` | No description provided. |
 | `$/Ama.CRDT.Partitioning.Streams/Ama.CRDT.Partitioning.Streams.csproj` | No description provided. |
@@ -259,7 +260,6 @@
 | `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/04-refactor-partition-manager.md` | No description provided. |
 | `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/05-update-tests-and-showcase.md` | No description provided. |
 | `$/features/refactoring-of-streams-to-be-handled-by-special-service.md` | No description provided. |
-| `$/FilesDescription.md` | No description provided. |
 | `$/LICENSE` | No description provided. |
 | `$/README.md` | No description provided. |
 | `$/solution.settings.json` | No description provided. |
