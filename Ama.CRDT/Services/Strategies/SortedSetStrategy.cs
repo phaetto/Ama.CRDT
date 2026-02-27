@@ -3,8 +3,10 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Services.Partitioning;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -24,7 +26,7 @@ using Ama.CRDT.Services.Providers;
 [OperationBased]
 public sealed class SortedSetStrategy(
     IElementComparerProvider comparerProvider, 
-    ReplicaContext replicaContext) : ICrdtStrategy
+    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -177,6 +179,115 @@ public sealed class SortedSetStrategy(
             }
         }
     }
+
+    /// <inheritdoc/>
+    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    {
+        var list = partitionableProperty.GetValue(data) as IList;
+        if (list == null || list.Count == 0) return null;
+
+        var attr = partitionableProperty.GetCustomAttribute<CrdtSortedSetStrategyAttribute>();
+        var sortPropName = attr?.SortPropertyName;
+
+        var keys = new List<IComparable>();
+        foreach (var item in list)
+        {
+            var key = GetSortKey(item, sortPropName);
+            if (key is IComparable c) keys.Add(c);
+            else if (key != null) keys.Add(key.ToString()!);
+        }
+
+        return keys.OrderBy(k => k).FirstOrDefault();
+    }
+
+    /// <inheritdoc/>
+    public IComparable? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath)
+    {
+        if (!operation.JsonPath.StartsWith(partitionablePropertyPath, StringComparison.Ordinal)) return null;
+
+        // Note: For elements, GetSortKey will inherently try to parse "Id" or use the element itself.
+        var sortKey = GetSortKey(operation.Value, null);
+        return sortKey as IComparable ?? sortKey?.ToString() as IComparable;
+    }
+
+    /// <inheritdoc/>
+    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    {
+        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        var attr = partitionableProperty.GetCustomAttribute<CrdtSortedSetStrategyAttribute>();
+        var sortPropName = attr?.SortPropertyName ?? "Id";
+        
+        var prop = elementType.GetProperty(sortPropName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+        if (prop != null)
+        {
+            return GetMinimumKeyForType(prop.PropertyType);
+        }
+
+        return string.Empty;
+    }
+
+    /// <inheritdoc/>
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    {
+        var documentType = partitionableProperty.DeclaringType!;
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+
+        var list = partitionableProperty.GetValue(originalData) as IList;
+        if (list == null || list.Count < 2)
+        {
+            throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
+        }
+
+        var attr = partitionableProperty.GetCustomAttribute<CrdtSortedSetStrategyAttribute>();
+        var sortPropName = attr?.SortPropertyName;
+
+        var items = list.Cast<object>().Select(x => new { Item = x, SortKey = GetSortKey(x, sortPropName) as IComparable ?? GetSortKey(x, sortPropName)?.ToString() as IComparable })
+            .Where(x => x.SortKey != null).OrderBy(x => x.SortKey).ToList();
+
+        var splitIndex = items.Count / 2;
+        var splitKey = items[splitIndex].SortKey;
+
+        var keys1 = items.Take(splitIndex).Select(x => x.SortKey).ToHashSet();
+        var keys2 = items.Skip(splitIndex).Select(x => x.SortKey).ToHashSet();
+
+        var doc1 = Activator.CreateInstance(documentType)!;
+        var doc2 = Activator.CreateInstance(documentType)!;
+
+        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+
+        ReconstructListForSplitMerge(doc1, path, list, keys1, sortPropName, elementType);
+        ReconstructListForSplitMerge(doc2, path, list, keys2, sortPropName, elementType);
+
+        return new SplitResult(new PartitionContent(doc1, originalMetadata.DeepClone()), new PartitionContent(doc2, originalMetadata.DeepClone()), splitKey!);
+    }
+
+    /// <inheritdoc/>
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    {
+        var documentType = partitionableProperty.DeclaringType!;
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+
+        var mergedDoc = Activator.CreateInstance(documentType)!;
+        var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
+
+        var list1 = partitionableProperty.GetValue(data1) as IList;
+        var list2 = partitionableProperty.GetValue(data2) as IList;
+
+        var (parent, property, _) = PocoPathHelper.ResolvePath(mergedDoc, path);
+        if (parent is not null && property is not null)
+        {
+            var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+            var mergedList = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(elementType))!;
+
+            if (list1 != null) foreach (var item in list1) mergedList.Add(item);
+            if (list2 != null) foreach (var item in list2) mergedList.Add(item);
+
+            property.SetValue(parent, mergedList);
+            SortList(mergedList, partitionableProperty);
+        }
+
+        return new PartitionContent(mergedDoc, mergedMeta);
+    }
     
     internal List<LcsDiffEntry> Diff(List<object> from, List<object> to, IEqualityComparer<object> itemComparer)
     {
@@ -257,6 +368,31 @@ public sealed class SortedSetStrategy(
         }
     }
 
+    private static void ReconstructListForSplitMerge(object root, string path, IList sourceList, HashSet<IComparable?> keysToKeep, string? sortPropName, Type elementType)
+    {
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
+        if (parent is null || property is null) return;
+
+        var list = property.GetValue(parent) as IList;
+        if (list is null)
+        {
+            var listType = typeof(List<>).MakeGenericType(elementType);
+            list = (IList)Activator.CreateInstance(listType)!;
+            property.SetValue(parent, list);
+        }
+
+        list.Clear();
+        foreach (var item in sourceList)
+        {
+            var sortKey = GetSortKey(item, sortPropName) as IComparable ?? GetSortKey(item, sortPropName)?.ToString() as IComparable;
+            if (keysToKeep.Contains(sortKey))
+            {
+                var converted = PocoPathHelper.ConvertValue(item, elementType);
+                if (converted != null) list.Add(converted);
+            }
+        }
+    }
+
     private static object? GetSortKey(object? obj, string? sortPropertyName)
     {
         if (obj is null)
@@ -302,5 +438,28 @@ public sealed class SortedSetStrategy(
         }
 
         return obj;
+    }
+
+    private static IComparable GetMinimumKeyForType(Type keyType)
+    {
+        if (keyType == typeof(string)) return string.Empty;
+        if (keyType == typeof(int)) return int.MinValue;
+        if (keyType == typeof(long)) return long.MinValue;
+        if (keyType == typeof(short)) return short.MinValue;
+        if (keyType == typeof(byte)) return byte.MinValue;
+        if (keyType == typeof(Guid)) return Guid.Empty;
+        if (keyType == typeof(DateTime)) return DateTime.MinValue;
+        if (keyType == typeof(DateTimeOffset)) return DateTimeOffset.MinValue;
+        if (keyType == typeof(char)) return char.MinValue;
+        if (keyType == typeof(double)) return double.MinValue;
+        if (keyType == typeof(float)) return float.MinValue;
+        if (keyType == typeof(decimal)) return decimal.MinValue;
+
+        if (keyType.IsValueType)
+        {
+            return (IComparable)Activator.CreateInstance(keyType)!;
+        }
+
+        throw new InvalidOperationException($"Cannot determine minimum key for type {keyType}.");
     }
 }

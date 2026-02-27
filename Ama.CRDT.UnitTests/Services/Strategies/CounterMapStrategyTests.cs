@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -12,6 +13,7 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Xunit;
 
 public sealed class CounterMapStrategyTests
@@ -161,9 +163,137 @@ public sealed class CounterMapStrategyTests
         Convert.ToDecimal(((KeyValuePair<object, object?>)opC.Value!).Value).ShouldBe(3);
     }
 
+    [Fact]
+    public void GetStartKey_ShouldReturnSmallestKeyOrNull()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        // Act & Assert
+        strategy.GetStartKey(new TestModel(), propInfo).ShouldBeNull();
+        strategy.GetStartKey(new TestModel { Map = { ["c"] = 1, ["a"] = 2, ["b"] = 3 } }, propInfo).ShouldBe("a");
+    }
+
+    [Fact]
+    public void GetKeyFromOperation_ShouldExtractKeyCorrectly()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("myKey", 5), timestampProvider.Now(), 1);
+
+        // Act & Assert
+        strategy.GetKeyFromOperation(op, "$.map").ShouldBe("myKey");
+        strategy.GetKeyFromOperation(op, "$.otherPath").ShouldBeNull();
+    }
+
+    [Fact]
+    public void GetMinimumKey_ShouldReturnCorrectMinValue()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
+        var stringMapProp = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var intMapProp = typeof(TestModelInt).GetProperty(nameof(TestModelInt.Map))!;
+
+        // Act & Assert
+        strategy.GetMinimumKey(stringMapProp).ShouldBe(string.Empty);
+        strategy.GetMinimumKey(intMapProp).ShouldBe(int.MinValue);
+    }
+
+    [Fact]
+    public void Split_ShouldDivideDataAndMetadataEqually()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        var doc = CreateDocument(new Dictionary<string, int>());
+        
+        // Setup initial state via ApplyOperation to correctly populate metadata
+        var operations = new[]
+        {
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now()),
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now()),
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now()),
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now())
+        };
+
+        foreach (var op in operations)
+        {
+            strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op));
+        }
+
+        // Act
+        var result = strategy.Split(doc.Data, doc.Metadata, propInfo);
+
+        // Assert
+        result.SplitKey.ShouldBe("c");
+
+        var doc1 = (TestModel)result.Partition1.Data;
+        var doc2 = (TestModel)result.Partition2.Data;
+
+        doc1.Map.Keys.ShouldBe(["a", "b"], ignoreOrder: true);
+        doc1.Map["a"].ShouldBe(10);
+        doc1.Map["b"].ShouldBe(20);
+
+        doc2.Map.Keys.ShouldBe(["c", "d"], ignoreOrder: true);
+        doc2.Map["c"].ShouldBe(30);
+        doc2.Map["d"].ShouldBe(40);
+
+        result.Partition1.Metadata.CounterMaps["$.map"].Keys.ShouldBe(["a", "b"], ignoreOrder: true);
+        result.Partition2.Metadata.CounterMaps["$.map"].Keys.ShouldBe(["c", "d"], ignoreOrder: true);
+    }
+
+    [Fact]
+    public void Merge_ShouldCombineDataAndMetadata()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        var doc1 = CreateDocument(new Dictionary<string, int>());
+        var doc2 = CreateDocument(new Dictionary<string, int>());
+
+        // Setup partition 1
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, 
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, 
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now())));
+
+        // Setup partition 2
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, 
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, 
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now())));
+
+        // Act
+        var merged = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo);
+
+        // Assert
+        var mergedDoc = (TestModel)merged.Data;
+        mergedDoc.Map.Keys.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
+        mergedDoc.Map["a"].ShouldBe(10);
+        mergedDoc.Map["b"].ShouldBe(20);
+        mergedDoc.Map["c"].ShouldBe(30);
+        mergedDoc.Map["d"].ShouldBe(40);
+
+        merged.Metadata.CounterMaps["$.map"].Keys.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
+    }
+
     private sealed class TestModel
     {
         [CrdtCounterMapStrategy]
         public Dictionary<string, int> Map { get; set; } = [];
+    }
+
+    private sealed class TestModelInt
+    {
+        [CrdtCounterMapStrategy]
+        public Dictionary<int, int> Map { get; set; } = [];
     }
 }

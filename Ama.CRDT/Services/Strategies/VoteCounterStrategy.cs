@@ -3,11 +3,14 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Services.Partitioning;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Ama.CRDT.Services;
 
 [CrdtSupportedType(typeof(IDictionary))]
@@ -15,7 +18,7 @@ using Ama.CRDT.Services;
 [Associative]
 [Idempotent]
 [StateBased]
-public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : ICrdtStrategy
+public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -85,6 +88,202 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : ICrdtSt
         AddVoterToOption(dictionary, voter, newOption, dictValueType);
         
         metadata.Lww[voterMetaPath] = operation.Timestamp;
+    }
+
+    /// <inheritdoc/>
+    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    {
+        var dict = partitionableProperty.GetValue(data) as IDictionary;
+        if (dict == null) return null;
+
+        var voters = new HashSet<IComparable>();
+        foreach (DictionaryEntry entry in dict)
+        {
+            if (entry.Value is IEnumerable vList)
+            {
+                foreach (var v in vList)
+                {
+                    if (v is IComparable comp) voters.Add(comp);
+                    else if (v != null) voters.Add(v.ToString()!);
+                }
+            }
+        }
+        return voters.OrderBy(v => v).FirstOrDefault();
+    }
+
+    /// <inheritdoc/>
+    public IComparable? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath)
+    {
+        if (!operation.JsonPath.StartsWith(partitionablePropertyPath, StringComparison.Ordinal)) return null;
+
+        var payloadObj = PocoPathHelper.ConvertValue(operation.Value, typeof(VotePayload));
+        if (payloadObj is VotePayload vote)
+        {
+            return vote.Voter as IComparable ?? vote.Voter?.ToString() as IComparable;
+        }
+        return null;
+    }
+
+    /// <inheritdoc/>
+    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    {
+        var dictValueType = PocoPathHelper.GetDictionaryValueType(partitionableProperty);
+        var voterType = dictValueType.GetGenericArguments()[0];
+        return GetMinimumKeyForType(voterType);
+    }
+
+    /// <inheritdoc/>
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    {
+        var documentType = partitionableProperty.DeclaringType!;
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+
+        var dict = partitionableProperty.GetValue(originalData) as IDictionary;
+        var allVoters = new HashSet<IComparable>();
+        
+        if (dict != null)
+        {
+            foreach (DictionaryEntry entry in dict)
+            {
+                if (entry.Value is IEnumerable vList)
+                {
+                    foreach (var v in vList)
+                    {
+                        if (v is IComparable comp) allVoters.Add(comp);
+                        else if (v != null) allVoters.Add(v.ToString()!);
+                    }
+                }
+            }
+        }
+
+        if (allVoters.Count < 2)
+        {
+            throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
+        }
+
+        var sortedVoters = allVoters.OrderBy(v => v).ToList();
+        var splitIndex = sortedVoters.Count / 2;
+        var splitKey = sortedVoters[splitIndex];
+
+        var voters1 = sortedVoters.Take(splitIndex).ToHashSet();
+        var voters2 = sortedVoters.Skip(splitIndex).ToHashSet();
+
+        var doc1 = Activator.CreateInstance(documentType)!;
+        var doc2 = Activator.CreateInstance(documentType)!;
+
+        var meta1 = originalMetadata.DeepClone();
+        var meta2 = originalMetadata.DeepClone();
+
+        var keysToRemove1 = meta1.Lww.Keys.Where(k => k.StartsWith(path + ".['")).ToList();
+        foreach (var k in keysToRemove1) meta1.Lww.Remove(k);
+        
+        var keysToRemove2 = meta2.Lww.Keys.Where(k => k.StartsWith(path + ".['")).ToList();
+        foreach (var k in keysToRemove2) meta2.Lww.Remove(k);
+
+        foreach (var voter in voters1)
+        {
+            var voterMetaPath = $"{path}.['{GetVoterKey(voter)}']";
+            if (originalMetadata.Lww.TryGetValue(voterMetaPath, out var ts)) meta1.Lww[voterMetaPath] = ts;
+        }
+
+        foreach (var voter in voters2)
+        {
+            var voterMetaPath = $"{path}.['{GetVoterKey(voter)}']";
+            if (originalMetadata.Lww.TryGetValue(voterMetaPath, out var ts)) meta2.Lww[voterMetaPath] = ts;
+        }
+
+        if (dict != null)
+        {
+            ReconstructDictionaryForSplitMerge(doc1, path, dict, voters1, partitionableProperty);
+            ReconstructDictionaryForSplitMerge(doc2, path, dict, voters2, partitionableProperty);
+        }
+
+        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
+    }
+
+    /// <inheritdoc/>
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    {
+        var documentType = partitionableProperty.DeclaringType!;
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+
+        var mergedDoc = Activator.CreateInstance(documentType)!;
+        var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
+
+        var dict1 = partitionableProperty.GetValue(data1) as IDictionary;
+        var dict2 = partitionableProperty.GetValue(data2) as IDictionary;
+
+        var (parent, property, _) = PocoPathHelper.ResolvePath(mergedDoc, path);
+        if (parent is not null && property is not null)
+        {
+            Type dictType = property.PropertyType;
+            if (dictType.IsInterface)
+            {
+                dictType = typeof(Dictionary<,>).MakeGenericType(
+                    PocoPathHelper.GetDictionaryKeyType(partitionableProperty),
+                    PocoPathHelper.GetDictionaryValueType(partitionableProperty)
+                );
+            }
+            var mergedDict = (IDictionary)Activator.CreateInstance(dictType)!;
+            var dictValueType = PocoPathHelper.GetDictionaryValueType(partitionableProperty);
+
+            if (dict1 != null)
+            {
+                foreach (DictionaryEntry entry in dict1)
+                {
+                    if (entry.Value is IEnumerable vList)
+                    {
+                        foreach (var v in vList) AddVoterToOption(mergedDict, v, entry.Key, dictValueType);
+                    }
+                }
+            }
+            if (dict2 != null)
+            {
+                foreach (DictionaryEntry entry in dict2)
+                {
+                    if (entry.Value is IEnumerable vList)
+                    {
+                        foreach (var v in vList) AddVoterToOption(mergedDict, v, entry.Key, dictValueType);
+                    }
+                }
+            }
+            property.SetValue(parent, mergedDict);
+        }
+
+        return new PartitionContent(mergedDoc, mergedMeta);
+    }
+
+    private static void ReconstructDictionaryForSplitMerge(object root, string path, IDictionary sourceDict, HashSet<IComparable> votersToKeep, PropertyInfo partitionableProperty)
+    {
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
+        if (parent is null || property is null) return;
+
+        Type dictType = property.PropertyType;
+        if (dictType.IsInterface)
+        {
+            dictType = typeof(Dictionary<,>).MakeGenericType(
+                PocoPathHelper.GetDictionaryKeyType(partitionableProperty),
+                PocoPathHelper.GetDictionaryValueType(partitionableProperty)
+            );
+        }
+        var dict = (IDictionary)Activator.CreateInstance(dictType)!;
+        var dictValueType = PocoPathHelper.GetDictionaryValueType(partitionableProperty);
+
+        foreach (DictionaryEntry entry in sourceDict)
+        {
+            if (entry.Value is IEnumerable vList)
+            {
+                foreach (var v in vList)
+                {
+                    var comparableVoter = v as IComparable ?? v?.ToString() as IComparable;
+                    if (comparableVoter != null && votersToKeep.Contains(comparableVoter))
+                    {
+                        AddVoterToOption(dict, v!, entry.Key, dictValueType);
+                    }
+                }
+            }
+        }
+        property.SetValue(parent, dict);
     }
 
     private static void RemoveVoterFromAllOptions(IDictionary dictionary, object voter)
@@ -207,5 +406,28 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : ICrdtSt
     private string GetVoterKey(object voter)
     {
         return voter.ToString() ?? "";
+    }
+
+    private static IComparable GetMinimumKeyForType(Type keyType)
+    {
+        if (keyType == typeof(string)) return string.Empty;
+        if (keyType == typeof(int)) return int.MinValue;
+        if (keyType == typeof(long)) return long.MinValue;
+        if (keyType == typeof(short)) return short.MinValue;
+        if (keyType == typeof(byte)) return byte.MinValue;
+        if (keyType == typeof(Guid)) return Guid.Empty;
+        if (keyType == typeof(DateTime)) return DateTime.MinValue;
+        if (keyType == typeof(DateTimeOffset)) return DateTimeOffset.MinValue;
+        if (keyType == typeof(char)) return char.MinValue;
+        if (keyType == typeof(double)) return double.MinValue;
+        if (keyType == typeof(float)) return float.MinValue;
+        if (keyType == typeof(decimal)) return decimal.MinValue;
+
+        if (keyType.IsValueType)
+        {
+            return (IComparable)Activator.CreateInstance(keyType)!;
+        }
+
+        throw new InvalidOperationException($"Cannot determine minimum key for type {keyType}.");
     }
 }
