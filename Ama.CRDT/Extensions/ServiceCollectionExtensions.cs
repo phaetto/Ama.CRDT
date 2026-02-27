@@ -192,7 +192,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers a custom timestamp provider, replacing the default <see cref="SequentialTimestampProvider"/>.
+    /// Registers a custom timestamp provider, replacing the default <see cref="EpochTimestampProvider"/>.
     /// This allows for the integration of different clock types, such as logical or hybrid clocks, which can provide stronger causality guarantees in distributed systems than wall-clock time.
     /// </summary>
     /// <typeparam name="TProvider">The type of the timestamp provider to register. Must implement <see cref="ICrdtTimestampProvider"/>.</typeparam>
