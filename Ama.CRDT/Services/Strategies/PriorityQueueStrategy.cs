@@ -16,7 +16,7 @@ using System.Reflection;
 [Commutative]
 [Associative]
 [Idempotent]
-[Mergeable]
+[StateBased]
 public sealed class PriorityQueueStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext) : ICrdtStrategy

@@ -17,7 +17,7 @@ using System.Collections.Immutable;
 [Commutative]
 [Associative]
 [Idempotent]
-[SequentialOperations]
+[OperationBased]
 public sealed class LseqStrategy(
     IElementComparerProvider elementComparerProvider,
     ICrdtTimestampProvider timestampProvider,

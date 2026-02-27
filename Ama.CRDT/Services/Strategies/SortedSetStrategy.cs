@@ -21,7 +21,7 @@ using Ama.CRDT.Services.Providers;
 [Commutative]
 [Associative]
 [Idempotent]
-[SequentialOperations]
+[OperationBased]
 public sealed class SortedSetStrategy(
     IElementComparerProvider comparerProvider, 
     ReplicaContext replicaContext) : ICrdtStrategy

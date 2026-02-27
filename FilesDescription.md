@@ -126,9 +126,8 @@
 | `$/Ama.CRDT/Attributes/Strategies/AssociativeAttribute.cs` | Marks a CRDT strategy as having the associative property, meaning the order of operation grouping does not affect the outcome. |
 | `$/Ama.CRDT/Attributes/Strategies/CommutativeAttribute.cs` | Marks a CRDT strategy as having the commutative property, meaning the order of operations does not affect the outcome. |
 | `$/Ama.CRDT/Attributes/Strategies/IdempotentAttribute.cs` | Marks a CRDT strategy as having the idempotent property, meaning applying the same operation multiple times has the same effect as applying it once. |
-| `$/Ama.CRDT/Attributes/Strategies/IdempotentWithContinuousTimeAttribute.cs` | No description provided. |
-| `$/Ama.CRDT/Attributes/Strategies/MergeableAttribute.cs` | Marks a CRDT strategy as having a mergeable state, suitable for parallel reduction. |
-| `$/Ama.CRDT/Attributes/Strategies/SequentialOperationsAttribute.cs` | Marks a CRDT strategy as requiring sequential operation application, making it unsuitable for parallel reduction. |
+| `$/Ama.CRDT/Attributes/Strategies/OperationBasedAttribute.cs` | Marks a CRDT strategy as Operation-based (CmRDT), relying on causal delivery and exactly-once operation application. |
+| `$/Ama.CRDT/Attributes/Strategies/StateBasedAttribute.cs` | Marks a CRDT strategy as State-based (CvRDT), allowing its entire state and metadata to be deterministically merged. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup. Removes stream-specific registration logic to support decoupling into its own package. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |

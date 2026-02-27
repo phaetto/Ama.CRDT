@@ -19,7 +19,7 @@ using Ama.CRDT.Services;
 [Commutative]
 [Associative]
 [Idempotent]
-[Mergeable]
+[StateBased]
 public sealed class MinWinsMapStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext) : ICrdtStrategy

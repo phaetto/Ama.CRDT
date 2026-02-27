@@ -10,7 +10,7 @@ using Ama.CRDT.Services.Providers;
 [Commutative]
 [Associative]
 [Idempotent]
-[Mergeable]
+[StateBased]
 public sealed class ReplicatedTreeStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext) : ICrdtStrategy
