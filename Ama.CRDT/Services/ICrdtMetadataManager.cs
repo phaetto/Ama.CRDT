@@ -6,7 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Defines a service for managing CRDT metadata. Its responsibilities include initializing, resetting,
-/// cloning, merging, and compacting metadata state such as LWW timestamps, positional trackers, and version vectors.
+/// and compacting metadata state such as LWW timestamps, positional trackers, and version vectors.
 /// This service is critical for enabling conflict-free merges by externalizing the state needed for resolution.
 /// </summary>
 public interface ICrdtMetadataManager
@@ -83,37 +83,6 @@ public interface ICrdtMetadataManager
     /// <param name="timestamp">The timestamp to use for initialization.</param>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata, <paramref name="document"/>.Data, or <paramref name="timestamp"/> is null.</exception>
     void Reset<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
-
-    /// <summary>
-    /// Creates a deep clone of the provided metadata object.
-    /// This is a general-purpose utility that benefits any workflow requiring an isolated copy of the metadata,
-    /// such as for speculative application of patches or for maintaining state snapshots for debugging.
-    /// </summary>
-    /// <param name="metadata">The metadata object to clone.</param>
-    /// <returns>A new <see cref="CrdtMetadata"/> object with all properties copied.</returns>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
-    /// <example>
-    /// <code>
-    /// <![CDATA[
-    /// var originalMetadata = metadataManager.Initialize(myDoc);
-    /// var clonedMetadata = metadataManager.Clone(originalMetadata);
-    /// // 'clonedMetadata' is now an independent copy of 'originalMetadata'.
-    /// // Changes to one will not affect the other.
-    /// ]]>
-    /// </code>
-    /// </example>
-    CrdtMetadata Clone([DisallowNull] CrdtMetadata metadata);
-    
-    /// <summary>
-    /// Merges multiple metadata objects into a single new one.
-    /// This is useful in partitioning scenarios where metadata from a header partition and a data partition need to be combined.
-    /// For most properties, this is a union of dictionaries. For the VersionVector, it takes the maximum clock sequence for each replica.
-    /// The returned metadata object is a deep copy.
-    /// </summary>
-    /// <param name="metadatas">A collection of metadata objects to merge.</param>
-    /// <returns>A new <see cref="CrdtMetadata"/> object containing the merged state.</returns>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadatas"/> is null.</exception>
-    CrdtMetadata Merge(params CrdtMetadata[] metadatas);
 
     /// <summary>
     /// Removes LWW tombstones from the metadata that are older than the specified threshold.

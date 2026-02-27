@@ -276,7 +276,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         var collection = prop.GetValue(dataDoc.Data);
         prop.SetValue(headerDoc.Value.Data, collection);
 
-        var mergedMeta = metadataManager.Merge(headerDoc.Value.Metadata!, dataDoc.Metadata!);
+        var mergedMeta = CrdtMetadata.Merge(headerDoc.Value.Metadata!, dataDoc.Metadata!);
         return new CrdtDocument<T>(headerDoc.Value.Data, mergedMeta);
     }
     

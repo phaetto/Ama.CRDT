@@ -186,16 +186,16 @@ public sealed class ArrayLcsStrategy(
         for (int i = 0; i < splitIndex; i++) list1.Add(list[i]);
         partitionableProperty.SetValue(doc1, list1);
         
-        var meta1 = new CrdtMetadata { PositionalTrackers = { [path] = positions.Take(splitIndex).ToList() } };
-        CloneNonPositionalMetadata(originalMetadata, meta1, path);
+        var meta1 = originalMetadata.DeepClone();
+        meta1.PositionalTrackers[path] = positions.Take(splitIndex).ToList();
 
         var doc2 = Activator.CreateInstance(documentType)!;
         var list2 = (IList)Activator.CreateInstance(list.GetType())!;
         for (int i = splitIndex; i < list.Count; i++) list2.Add(list[i]);
         partitionableProperty.SetValue(doc2, list2);
         
-        var meta2 = new CrdtMetadata { PositionalTrackers = { [path] = positions.Skip(splitIndex).ToList() } };
-        CloneNonPositionalMetadata(originalMetadata, meta2, path);
+        var meta2 = originalMetadata.DeepClone();
+        meta2.PositionalTrackers[path] = positions.Skip(splitIndex).ToList();
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
@@ -217,9 +217,7 @@ public sealed class ArrayLcsStrategy(
         
         partitionableProperty.SetValue(mergedDoc, mergedList);
         
-        var mergedMeta = new CrdtMetadata();
-        CloneNonPositionalMetadata(meta1, mergedMeta, path);
-        CloneNonPositionalMetadata(meta2, mergedMeta, path);
+        var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
         
         var positions1 = meta1.PositionalTrackers.TryGetValue(path, out var p1) ? p1 : new List<PositionalIdentifier>();
         var positions2 = meta2.PositionalTrackers.TryGetValue(path, out var p2) ? p2 : new List<PositionalIdentifier>();
@@ -332,25 +330,5 @@ public sealed class ArrayLcsStrategy(
         }
         lcs.Reverse();
         return lcs;
-    }
-    
-    private static void CloneNonPositionalMetadata(CrdtMetadata source, CrdtMetadata destination, string excludedPathPrefix)
-    {
-        // For simplicity in this example, we assume non-conflicting merges for other metadata types.
-        // A real implementation would need more robust merging for LWW, VersionVectors etc.
-        foreach (var (key, value) in source.Lww.Where(kv => !kv.Key.StartsWith(excludedPathPrefix, StringComparison.Ordinal)))
-        {
-            if (!destination.Lww.ContainsKey(key))
-            {
-                destination.Lww[key] = value;
-            }
-        }
-        foreach (var (key, value) in source.VersionVector)
-        {
-            if (!destination.VersionVector.TryGetValue(key, out var existing) || value.CompareTo(existing) > 0)
-            {
-                destination.VersionVector[key] = value;
-            }
-        }
     }
 }

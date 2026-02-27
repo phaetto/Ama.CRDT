@@ -78,7 +78,11 @@ public sealed class RgaStrategy(
         var leftItems = sortedItems.Take(splitIndex).ToList();
         var rightItems = sortedItems.Skip(splitIndex).ToList();
 
-        var (leftMeta, rightMeta) = SplitMetadata(path, originalMetadata, leftItems, rightItems);
+        var leftMeta = originalMetadata.DeepClone();
+        var rightMeta = originalMetadata.DeepClone();
+        
+        leftMeta.RgaTrackers[path] = leftItems;
+        rightMeta.RgaTrackers[path] = rightItems;
 
         var leftData = Activator.CreateInstance(originalData.GetType())!;
         var rightData = Activator.CreateInstance(originalData.GetType())!;
@@ -107,7 +111,8 @@ public sealed class RgaStrategy(
         var mergedItems = items1.Concat(items2).DistinctBy(x => x.Identifier).ToList();
         mergedItems = RebuildRgaOrder(mergedItems);
 
-        var mergedMeta = MergeMetadata(path, meta1, meta2, mergedItems);
+        var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
+        mergedMeta.RgaTrackers[path] = mergedItems;
 
         var mergedData = Activator.CreateInstance(data1.GetType())!;
         ReconstructList(mergedData, path, mergedItems);
@@ -314,50 +319,6 @@ public sealed class RgaStrategy(
         }
 
         metadata.RgaTrackers[operation.JsonPath] = items;
-    }
-
-    private static (CrdtMetadata, CrdtMetadata) SplitMetadata(string path, CrdtMetadata original, List<RgaItem> items1, List<RgaItem> items2)
-    {
-        var meta1 = new CrdtMetadata();
-        var meta2 = new CrdtMetadata();
-
-        CloneNonPartitionableMetadata(original, meta1);
-        CloneNonPartitionableMetadata(original, meta2);
-
-        meta1.RgaTrackers[path] = items1;
-        meta2.RgaTrackers[path] = items2;
-
-        return (meta1, meta2);
-    }
-
-    private static CrdtMetadata MergeMetadata(string path, CrdtMetadata meta1, CrdtMetadata meta2, List<RgaItem> mergedItems)
-    {
-        var merged = new CrdtMetadata();
-        merged.VersionVector = meta1.VersionVector.Union(meta2.VersionVector)
-            .GroupBy(kvp => kvp.Key).ToDictionary(g => g.Key, g => g.MaxBy(kvp => kvp.Value)!.Value);
-        
-        foreach (var (lwwPath, ts) in meta1.Lww.Concat(meta2.Lww))
-        {
-            if (!merged.Lww.TryGetValue(lwwPath, out var existingTs) || ts.CompareTo(existingTs) > 0)
-            {
-                merged.Lww[lwwPath] = ts;
-            }
-        }
-        
-        merged.RgaTrackers[path] = mergedItems;
-
-        return merged;
-    }
-
-    private static void CloneNonPartitionableMetadata(CrdtMetadata source, CrdtMetadata destination)
-    {
-        destination.VersionVector = new Dictionary<string, long>(source.VersionVector);
-        destination.SeenExceptions = new HashSet<CrdtOperation>(source.SeenExceptions);
-        // Only copy LWW entries that are NOT part of a partitionable collection.
-        foreach (var (key, value) in source.Lww.Where(kvp => !kvp.Key.Contains('[')))
-        {
-            destination.Lww[key] = value;
-        }
     }
 
     private static List<RgaItem> RebuildRgaOrder(List<RgaItem> items)

@@ -93,7 +93,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
             modifiedModel);
 
         var targetModel = new TestModel { Values = new List<int>(initialModel.Values) };
-        var targetMeta = metadataManagerA.Clone(initialMeta);
+        var targetMeta = initialMeta.DeepClone();
         var targetDocument = new CrdtDocument<TestModel>(targetModel, targetMeta);
 
         // Act
@@ -133,14 +133,14 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
 
         // Scenario 1: A then B
         var model1 = new TestModel { Values = new List<int>(ancestor.Values) };
-        var meta1 = metadataManagerA.Clone(metaAncestor);
+        var meta1 = metaAncestor.DeepClone();
         var doc1 = new CrdtDocument<TestModel>(model1, meta1);
         applicatorA.ApplyPatch(doc1, patchA);
         applicatorA.ApplyPatch(doc1, patchB);
 
         // Scenario 2: B then A
         var model2 = new TestModel { Values = new List<int>(ancestor.Values) };
-        var meta2 = metadataManagerA.Clone(metaAncestor);
+        var meta2 = metaAncestor.DeepClone();
         var doc2 = new CrdtDocument<TestModel>(model2, meta2);
         applicatorA.ApplyPatch(doc2, patchB);
         applicatorA.ApplyPatch(doc2, patchA);
@@ -183,7 +183,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         foreach (var p in permutations)
         {
             var model = new TestModel { Values = new List<int>(ancestor.Values) };
-            var meta = metadataManagerA.Clone(metaAncestor);
+            var meta = metaAncestor.DeepClone();
             var document = new CrdtDocument<TestModel>(model, meta);
             foreach (var patch in p)
             {
@@ -234,7 +234,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         
         // Act
         var model = new TestModel { Values = new List<int>(ancestor.Values) };
-        var meta = metadataManagerA.Clone(metaAncestor);
+        var meta = metaAncestor.DeepClone();
         var document = new CrdtDocument<TestModel>(model, meta);
         applicatorA.ApplyPatch(document, patchA);
         applicatorA.ApplyPatch(document, patchB);
