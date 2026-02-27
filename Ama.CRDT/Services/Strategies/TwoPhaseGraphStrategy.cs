@@ -5,6 +5,9 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 [CrdtSupportedType(typeof(CrdtGraph))]
 [Commutative]
@@ -65,38 +68,35 @@ public sealed class TwoPhaseGraphStrategy(
         if (payload is GraphVertexPayload vertexPayload)
         {
             if (operation.Type == OperationType.Upsert) 
-                state.VertexAdds.Add(vertexPayload.Vertex);
-            else 
-                state.VertexTombstones.Add(vertexPayload.Vertex);
-        }
-        else if (payload is GraphEdgePayload edgePayload)
-        {
-            if (operation.Type == OperationType.Upsert) 
-                state.EdgeAdds.Add(edgePayload.Edge);
-            else 
-                state.EdgeTombstones.Add(edgePayload.Edge);
-        }
-        
-        ReconstructGraph(graph, state);
-    }
-
-    private static void ReconstructGraph(CrdtGraph graph, TwoPhaseGraphState state)
-    {
-        graph.Vertices.Clear();
-        foreach (var vertex in state.VertexAdds)
-        {
-            if (!state.VertexTombstones.Contains(vertex))
             {
-                graph.Vertices.Add(vertex);
+                if (!state.VertexTombstones.Contains(vertexPayload.Vertex) && state.VertexAdds.Add(vertexPayload.Vertex))
+                {
+                    graph.Vertices.Add(vertexPayload.Vertex);
+                }
+            }
+            else 
+            {
+                if (state.VertexTombstones.Add(vertexPayload.Vertex))
+                {
+                    graph.Vertices.Remove(vertexPayload.Vertex);
+                }
             }
         }
-        
-        graph.Edges.Clear();
-        foreach (var edge in state.EdgeAdds)
+        else if (payload is GraphEdgePayload edgePayload && edgePayload.Edge is Edge edge)
         {
-            if (!state.EdgeTombstones.Contains(edge) && edge is Edge typedEdge)
+            if (operation.Type == OperationType.Upsert) 
             {
-                graph.Edges.Add(typedEdge);
+                if (!state.EdgeTombstones.Contains(edgePayload.Edge) && state.EdgeAdds.Add(edgePayload.Edge))
+                {
+                    graph.Edges.Add(edge);
+                }
+            }
+            else 
+            {
+                if (state.EdgeTombstones.Add(edgePayload.Edge))
+                {
+                    graph.Edges.Remove(edge);
+                }
             }
         }
     }

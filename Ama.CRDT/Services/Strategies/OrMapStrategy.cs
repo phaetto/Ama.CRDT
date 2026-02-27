@@ -102,11 +102,17 @@ public sealed class OrMapStrategy(
                 ApplyUpsert(dict, metadata, state, operation, keyType, valueType);
                 break;
             case OperationType.Remove:
-                ApplyRemove(state, operation.Value, keyType);
+                var removedKey = ApplyRemove(state, operation.Value, keyType);
+                if (removedKey != null)
+                {
+                    if (!state.Adds.TryGetValue(removedKey, out var addTags) || 
+                       (state.Removes.TryGetValue(removedKey, out var rmTags) && !addTags.Except(rmTags).Any()))
+                    {
+                        dict.Remove(removedKey);
+                    }
+                }
                 break;
         }
-
-        ReconstructDictionary(dict, state.Adds, state.Removes, comparer);
     }
     
     /// <inheritdoc/>
@@ -271,7 +277,23 @@ public sealed class OrMapStrategy(
         // Reconstruct dictionary based on merged OR-Set state to handle removals
         if (mergedMeta.OrMaps.TryGetValue(path, out var orState))
         {
-            ReconstructDictionary(mergedDict, orState.Adds, orState.Removes, comparer);
+            var liveKeys = new HashSet<object>(comparer);
+            foreach (var (key, addTags) in orState.Adds)
+            {
+                if (!orState.Removes.TryGetValue(key, out var rmTags) || addTags.Except(rmTags).Any())
+                {
+                    liveKeys.Add(key);
+                }
+            }
+            
+            var currentKeys = mergedDict.Keys.Cast<object>().ToList();
+            foreach (var key in currentKeys)
+            {
+                if (!liveKeys.Contains(key))
+                {
+                    mergedDict.Remove(key);
+                }
+            }
         }
     
         partitionableProperty.SetValue(mergedDoc, mergedDict);
@@ -381,8 +403,6 @@ public sealed class OrMapStrategy(
     {
         destination.VersionVector = new Dictionary<string, long>(source.VersionVector);
         destination.SeenExceptions = new HashSet<CrdtOperation>(source.SeenExceptions);
-        // Only copy LWW entries that are NOT part of a partitionable collection, which we assume don't follow the collection path pattern.
-        // This is a simplification; a more robust solution might need explicit marking of which LWW entries are "header" vs "data".
         foreach (var (key, value) in source.Lww.Where(kvp => !kvp.Key.Contains("['")))
         {
             destination.Lww[key] = value;
@@ -412,12 +432,12 @@ public sealed class OrMapStrategy(
         }
     }
 
-    private static void ApplyRemove(OrSetState state, object? opValue, Type keyType)
+    private static object? ApplyRemove(OrSetState state, object? opValue, Type keyType)
     {
-        if (PocoPathHelper.ConvertValue(opValue, typeof(OrMapRemoveItem)) is not OrMapRemoveItem payload) return;
+        if (PocoPathHelper.ConvertValue(opValue, typeof(OrMapRemoveItem)) is not OrMapRemoveItem payload) return null;
 
         var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
-        if (itemKey is null) return;
+        if (itemKey is null) return null;
 
         if (!state.Removes.TryGetValue(itemKey, out var removeTags))
         {
@@ -428,33 +448,7 @@ public sealed class OrMapStrategy(
         {
             removeTags.Add(tag);
         }
-    }
 
-    private static void ReconstructDictionary(IDictionary dict, IDictionary<object, ISet<Guid>> adds, IDictionary<object, ISet<Guid>> removes, IEqualityComparer<object> comparer)
-    {
-        var liveKeys = new HashSet<object>(comparer);
-        foreach (var (key, addTags) in adds)
-        {
-            if (removes.TryGetValue(key, out var removeTags))
-            {
-                if (addTags.Except(removeTags).Any())
-                {
-                    liveKeys.Add(key);
-                }
-            }
-            else
-            {
-                liveKeys.Add(key);
-            }
-        }
-
-        var currentKeys = dict.Keys.Cast<object>().ToList();
-        foreach (var key in currentKeys)
-        {
-            if (!liveKeys.Contains(key))
-            {
-                dict.Remove(key);
-            }
-        }
+        return itemKey;
     }
 }

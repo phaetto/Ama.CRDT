@@ -99,29 +99,55 @@ public sealed class LwwSetStrategy(
                 break;
         }
 
-        ReconstructList(list, state.Adds, state.Removes, comparer);
-    }
-    
-    private static void ReconstructList(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, ICrdtTimestamp> removes, IEqualityComparer<object> comparer)
-    {
-        var liveItems = new HashSet<object>(comparer);
-
-        foreach (var (item, addTimestamp) in adds)
+        // Incrementally update list instead of reconstructing it
+        bool isLiveNow = false;
+        if (state.Adds.TryGetValue(itemValue, out var finalAddTs))
         {
-            if (!removes.TryGetValue(item, out var removeTimestamp) || addTimestamp.CompareTo(removeTimestamp) > 0)
+            if (!state.Removes.TryGetValue(itemValue, out var finalRemoveTs) || finalAddTs.CompareTo(finalRemoveTs) > 0)
             {
-                liveItems.Add(item);
+                isLiveNow = true;
             }
         }
-        
-        // Sort the items to ensure a deterministic order across all replicas.
-        // We sort by string representation as a universal, stable mechanism.
-        var sortedItems = liveItems.OrderBy(i => i.ToString(), StringComparer.Ordinal).ToList();
-        
-        list.Clear();
-        foreach (var item in sortedItems)
+
+        if (isLiveNow)
         {
-            list.Add(item);
+            InsertSorted(list, itemValue, comparer);
+        }
+        else
+        {
+            RemoveFromList(list, itemValue, comparer);
+        }
+    }
+    
+    private static void InsertSorted(IList list, object item, IEqualityComparer<object> comparer)
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (comparer.Equals(list[i], item)) return; // Already exists
+        }
+
+        var itemStr = item.ToString() ?? string.Empty;
+        for (int i = 0; i < list.Count; i++)
+        {
+            var currentStr = list[i]?.ToString() ?? string.Empty;
+            if (string.CompareOrdinal(itemStr, currentStr) < 0)
+            {
+                list.Insert(i, item);
+                return;
+            }
+        }
+        list.Add(item);
+    }
+
+    private static void RemoveFromList(IList list, object item, IEqualityComparer<object> comparer)
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (comparer.Equals(list[i], item))
+            {
+                list.RemoveAt(i);
+                return;
+            }
         }
     }
 }
