@@ -42,7 +42,6 @@ public sealed class CrdtPatcherTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddCrdt();
-        services.AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
 
         var serviceProvider = services.BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

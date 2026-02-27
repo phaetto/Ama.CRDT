@@ -13,32 +13,42 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-public sealed class MinWinsStrategyTests
+public sealed class MinWinsStrategyTests : IDisposable
 {
     private sealed class TestModel { public int BestTime { get; set; } }
     
-    private readonly IServiceProvider serviceProvider;
+    private readonly IServiceScope scopeA;
+    private readonly IServiceScope scopeB;
+    private readonly MinWinsStrategy strategyA;
+    private readonly MinWinsStrategy strategyB;
     private readonly ICrdtTimestampProvider timestampProvider;
-    private readonly string replicaId = Guid.NewGuid().ToString();
 
     public MinWinsStrategyTests()
     {
-        var services = new ServiceCollection();
-        services.AddCrdt()
-            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
-        
-        serviceProvider = services.BuildServiceProvider();
-        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .BuildServiceProvider();
+
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+
+        scopeA = scopeFactory.CreateScope("A");
+        scopeB = scopeFactory.CreateScope("B");
+
+        strategyA = scopeA.ServiceProvider.GetRequiredService<MinWinsStrategy>();
+        strategyB = scopeB.ServiceProvider.GetRequiredService<MinWinsStrategy>();
+        timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+    }
+
+    public void Dispose()
+    {
+        scopeA.Dispose();
+        scopeB.Dispose();
     }
     
     [Fact]
     public void GeneratePatch_ShouldCreateUpsert_WhenValueChanges()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MinWinsStrategy>();
-
         var operations = new List<CrdtOperation>();
         var property = typeof(TestModel).GetProperty(nameof(TestModel.BestTime))!;
         var context = new GeneratePatchContext(
@@ -55,7 +65,7 @@ public sealed class MinWinsStrategyTests
         );
         
         // Act
-        strategy.GeneratePatch(context);
+        strategyA.GeneratePatch(context);
 
         // Assert
         var op = operations.ShouldHaveSingleItem();
@@ -67,16 +77,12 @@ public sealed class MinWinsStrategyTests
     public void ApplyOperation_ShouldUpdate_WhenIncomingIsLower()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MinWinsStrategy>();
-
         var model = new TestModel { BestTime = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 100, timestampProvider.Create(2L));
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act
-        strategy.ApplyOperation(context);
+        strategyA.ApplyOperation(context);
         
         // Assert
         model.BestTime.ShouldBe(100);
@@ -86,16 +92,12 @@ public sealed class MinWinsStrategyTests
     public void ApplyOperation_ShouldNotUpdate_WhenIncomingIsHigher()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MinWinsStrategy>();
-
         var model = new TestModel { BestTime = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 200, timestampProvider.Create(2L));
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act
-        strategy.ApplyOperation(context);
+        strategyA.ApplyOperation(context);
         
         // Assert
         model.BestTime.ShouldBe(150);
@@ -105,18 +107,14 @@ public sealed class MinWinsStrategyTests
     public void ApplyOperation_IsIdempotent()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MinWinsStrategy>();
-
         var model = new TestModel { BestTime = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 100, timestampProvider.Create(2L));
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
     
         // Act
-        strategy.ApplyOperation(context);
+        strategyA.ApplyOperation(context);
         var scoreAfterFirst = model.BestTime;
-        strategy.ApplyOperation(context);
+        strategyA.ApplyOperation(context);
     
         // Assert
         model.BestTime.ShouldBe(scoreAfterFirst);
@@ -127,10 +125,6 @@ public sealed class MinWinsStrategyTests
     public void ApplyOperation_IsCommutative()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MinWinsStrategy>();
-
         var model1 = new TestModel { BestTime = 300 };
         var model2 = new TestModel { BestTime = 300 };
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.bestTime", OperationType.Upsert, 200, timestampProvider.Create(2L));
@@ -138,12 +132,12 @@ public sealed class MinWinsStrategyTests
 
         // Act
         // op1 then op2
-        strategy.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1));
-        strategy.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2));
 
         // op2 then op1
-        strategy.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2));
-        strategy.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1));
     
         // Assert
         model1.BestTime.ShouldBe(200); // min(300, 200, 250)
@@ -155,10 +149,6 @@ public sealed class MinWinsStrategyTests
     public void ApplyOperation_IsAssociative()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MinWinsStrategy>();
-
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.bestTime", OperationType.Upsert, 200, timestampProvider.Create(2L));
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.bestTime", OperationType.Upsert, 250, timestampProvider.Create(3L));
         var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.bestTime", OperationType.Upsert, 150, timestampProvider.Create(4L));
@@ -174,7 +164,7 @@ public sealed class MinWinsStrategyTests
             var meta = new CrdtMetadata();
             foreach (var op in p)
             {
-                strategy.ApplyOperation(new ApplyOperationContext(model, meta, op));
+                strategyA.ApplyOperation(new ApplyOperationContext(model, meta, op));
             }
             finalTimes.Add(model.BestTime);
         }

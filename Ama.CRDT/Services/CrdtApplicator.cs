@@ -1,6 +1,5 @@
 namespace Ama.CRDT.Services;
 
-using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -12,7 +11,6 @@ using System;
 /// </summary>
 public sealed class CrdtApplicator(
     ICrdtStrategyProvider strategyProvider,
-    ICrdtTimestampProvider timestampProvider,
     ICrdtMetadataManager metadataManager) : ICrdtApplicator
 {
     /// <inheritdoc/>
@@ -41,12 +39,11 @@ public sealed class CrdtApplicator(
 
         var strategy = strategyProvider.GetStrategy(operation, document);
 
-        var isSupportingVersionVector = timestampProvider.IsContinuous &&
-            Attribute.IsDefined(strategy.GetType(), typeof(IdempotentWithContinuousTimeAttribute));
-        if (isSupportingVersionVector)
+        // Causal ordering using Clock. A clock of 0 indicates a legacy operation without causal tracking.
+        if (operation.Clock > 0)
         {
-            if (metadata.VersionVector.TryGetValue(operation.ReplicaId, out var lastSeenTimestamp) &&
-                operation.Timestamp.CompareTo(lastSeenTimestamp) <= 0)
+            if (metadata.VersionVector.TryGetValue(operation.ReplicaId, out var lastSeenClock) &&
+                operation.Clock <= lastSeenClock)
             {
                 return;
             }
@@ -60,7 +57,7 @@ public sealed class CrdtApplicator(
         var context = new ApplyOperationContext(document, metadata, operation);
         strategy.ApplyOperation(context);
 
-        if (isSupportingVersionVector)
+        if (operation.Clock > 0)
         {
             metadataManager.AdvanceVersionVector(metadata, operation);
         }

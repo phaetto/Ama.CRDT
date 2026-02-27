@@ -80,8 +80,8 @@ public static class ServiceCollectionExtensions
 
         // Register the default timestamp provider with validation.
         // This can be overridden by AddCrdtTimestampProvider.
-        services.TryAddScoped(CreateValidatedInstance<SequentialTimestampProvider>);
-        services.TryAddScoped<ICrdtTimestampProvider>(sp => sp.GetRequiredService<SequentialTimestampProvider>());
+        services.TryAddScoped(CreateValidatedInstance<EpochTimestampProvider>);
+        services.TryAddScoped<ICrdtTimestampProvider>(sp => sp.GetRequiredService<EpochTimestampProvider>());
 
         // Register all strategies with validation.
         services.TryAddScoped(CreateValidatedInstance<LwwStrategy>);

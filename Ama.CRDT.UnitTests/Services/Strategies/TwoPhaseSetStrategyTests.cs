@@ -21,8 +21,10 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
+    private readonly IServiceScope scopeC;
     private readonly ICrdtPatcher patcherA;
     private readonly ICrdtPatcher patcherB;
+    private readonly ICrdtPatcher patcherC;
     private readonly ICrdtApplicator applicatorA;
     private readonly ICrdtMetadataManager metadataManagerA;
 
@@ -35,9 +37,11 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         scopeA = scopeFactory.CreateScope("A");
         scopeB = scopeFactory.CreateScope("B");
+        scopeC = scopeFactory.CreateScope("C");
 
         patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherC = scopeC.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
     }
@@ -46,6 +50,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     {
         scopeA.Dispose();
         scopeB.Dispose();
+        scopeC.Dispose();
     }
     
     [Fact]
@@ -159,7 +164,6 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         var ancestor = new TestModel { Tags = { "A", "B" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
         var ancestorDocument = new CrdtDocument<TestModel>(ancestor, metaAncestor);
-        var patcherC = patcherB;
 
         // Replica A removes B
         var patch1 = patcherA.GeneratePatch(

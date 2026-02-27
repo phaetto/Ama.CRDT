@@ -29,7 +29,6 @@ public sealed class CrdtApplicatorTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddCrdt();
-        services.AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
 
         var serviceProvider = services.BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -78,7 +77,7 @@ public sealed class CrdtApplicatorTests : IDisposable
         var existingTimestamp = timestampProvider.Create(200);
 
         metadata.Lww["$.name"] = existingTimestamp;
-        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Stale", opTimestamp);
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Stale", opTimestamp, 1);
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
         // Act
@@ -96,7 +95,7 @@ public sealed class CrdtApplicatorTests : IDisposable
         var model = new TestModel { Likes = 10 };
         var metadata = new CrdtMetadata();
         var document = new CrdtDocument<TestModel>(model, metadata);
-        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(150));
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(150), 1);
         metadata.SeenExceptions.Add(operation);
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
@@ -115,7 +114,7 @@ public sealed class CrdtApplicatorTests : IDisposable
         var model = new TestModel { Likes = 10 };
         var metadata = new CrdtMetadata();
         var document = new CrdtDocument<TestModel>(model, metadata);
-        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(100));
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(100), 1);
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
         // Act
@@ -123,7 +122,6 @@ public sealed class CrdtApplicatorTests : IDisposable
 
         // Assert
         result.Likes.ShouldBe(15);
-        metadata.SeenExceptions.ShouldContain(operation);
     }
 
     [Fact]
@@ -133,8 +131,8 @@ public sealed class CrdtApplicatorTests : IDisposable
         var model = new TestModel { Name = "Initial", Likes = 10 };
         var metadata = new CrdtMetadata();
         var document = new CrdtDocument<TestModel>(model, metadata);
-        var lwwOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Updated", timestampProvider.Create(100));
-        var counterOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(100));
+        var lwwOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Updated", timestampProvider.Create(100), 1);
+        var counterOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(100), 2);
         var patch = new CrdtPatch(new List<CrdtOperation> { lwwOperation, counterOperation });
 
         // Act
@@ -145,13 +143,13 @@ public sealed class CrdtApplicatorTests : IDisposable
         result1.Name.ShouldBe("Updated");
         result1.Likes.ShouldBe(15);
         metadata.Lww["$.name"].ShouldBe(lwwOperation.Timestamp);
-        metadata.SeenExceptions.Count.ShouldBe(1);
-        metadata.SeenExceptions.ShouldContain(counterOperation);
+        metadata.SeenExceptions.Count.ShouldBe(0);
+        metadata.SeenExceptions.ShouldBeEmpty();
 
         result2.Name.ShouldBe("Updated");
         result2.Likes.ShouldBe(15);
         metadata.Lww["$.name"].ShouldBe(lwwOperation.Timestamp);
-        metadata.SeenExceptions.Count.ShouldBe(1);
+        metadata.SeenExceptions.Count.ShouldBe(0);
     }
     
     [Fact]
@@ -160,12 +158,12 @@ public sealed class CrdtApplicatorTests : IDisposable
         // Arrange
         var initialModel = new TestModel { Name = "Initial", Likes = 10 };
 
-        var opA_Lww = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Name A", timestampProvider.Create(100));
-        var opA_Counter = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(110));
+        var opA_Lww = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Name A", timestampProvider.Create(100), 1);
+        var opA_Counter = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(110), 2);
         var patchA = new CrdtPatch(new List<CrdtOperation> { opA_Lww, opA_Counter });
 
-        var opB_Lww = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.name", OperationType.Upsert, "Name B", timestampProvider.Create(200));
-        var opB_Counter = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.likes", OperationType.Increment, 3m, timestampProvider.Create(120));
+        var opB_Lww = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.name", OperationType.Upsert, "Name B", timestampProvider.Create(200), 1);
+        var opB_Counter = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.likes", OperationType.Increment, 3m, timestampProvider.Create(120), 2);
         var patchB = new CrdtPatch(new List<CrdtOperation> { opB_Lww, opB_Counter });
 
         var metadata_AB = new CrdtMetadata();

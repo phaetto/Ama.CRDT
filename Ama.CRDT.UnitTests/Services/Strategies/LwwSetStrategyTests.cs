@@ -23,6 +23,7 @@ public sealed class LwwSetStrategyTests : IDisposable
     
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
+    private readonly IServiceScope scopeC;
     private readonly ICrdtPatcher patcherA;
     private readonly ICrdtPatcher patcherB;
     private readonly ICrdtPatcher patcherC;
@@ -35,26 +36,27 @@ public sealed class LwwSetStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         scopeA = scopeFactory.CreateScope("A");
         scopeB = scopeFactory.CreateScope("B");
+        scopeC = scopeFactory.CreateScope("C");
 
         patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-        patcherC = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherC = scopeC.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         metadataManagerB = scopeB.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
-        metadataManagerC = scopeB.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        metadataManagerC = scopeC.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
     }
 
     public void Dispose()
     {
         scopeA.Dispose();
         scopeB.Dispose();
+        scopeC.Dispose();
     }
     
     [Fact]

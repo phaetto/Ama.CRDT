@@ -22,8 +22,10 @@ public sealed class GSetStrategyTests : IDisposable
 
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
+    private readonly IServiceScope scopeC;
     private readonly ICrdtPatcher patcherA;
     private readonly ICrdtPatcher patcherB;
+    private readonly ICrdtPatcher patcherC;
     private readonly ICrdtApplicator applicatorA;
     private readonly ICrdtMetadataManager metadataManagerA;
     private readonly ICrdtTimestampProvider timestampProvider;
@@ -32,25 +34,27 @@ public sealed class GSetStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
 
         scopeA = scopeFactory.CreateScope("A");
         scopeB = scopeFactory.CreateScope("B");
+        scopeC = scopeFactory.CreateScope("C");
 
         patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcherC = scopeC.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
-        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()
     {
         scopeA.Dispose();
         scopeB.Dispose();
+        scopeC.Dispose();
     }
 
     [Fact]
@@ -173,8 +177,6 @@ public sealed class GSetStrategyTests : IDisposable
         var ancestor = new TestModel { Tags = { "A" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
         var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
-        
-        var patcherC = patcherB; // Doesn't matter for this test
 
         var patch1 = patcherA.GeneratePatch(
             docAncestor,

@@ -13,33 +13,46 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-public sealed class LwwStrategyTests
+public sealed class LwwStrategyTests : IDisposable
 {
     private sealed class TestModel { public int Value { get; set; } }
+    
+    private sealed class NullableTestModel { public int? Value { get; set; } }
 
-    private readonly IServiceProvider serviceProvider;
+    private readonly IServiceScope scopeA;
+    private readonly IServiceScope scopeB;
+    private readonly LwwStrategy strategyA;
+    private readonly LwwStrategy strategyB;
     private readonly ICrdtTimestampProvider timestampProvider;
     private readonly Mock<ICrdtPatcher> mockPatcher = new();
     private readonly List<CrdtOperation> operations = new();
-    private readonly string replicaId = Guid.NewGuid().ToString();
 
     public LwwStrategyTests()
     {
-        var services = new ServiceCollection();
-        services.AddCrdt()
-            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
-        serviceProvider = services.BuildServiceProvider();
-        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .BuildServiceProvider();
+
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+
+        scopeA = scopeFactory.CreateScope("A");
+        scopeB = scopeFactory.CreateScope("B");
+
+        strategyA = scopeA.ServiceProvider.GetRequiredService<LwwStrategy>();
+        strategyB = scopeB.ServiceProvider.GetRequiredService<LwwStrategy>();
+        timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+    }
+
+    public void Dispose()
+    {
+        scopeA.Dispose();
+        scopeB.Dispose();
     }
 
     [Fact]
     public void GeneratePatch_WhenValueChanges_ShouldGenerateUpsert()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
-
         var originalValue = 10;
         var modifiedValue = 20;
         var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = timestampProvider.Create(100L) } };
@@ -49,7 +62,7 @@ public sealed class LwwStrategyTests
             mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, null, null, originalMeta, changeTimestamp);
 
         // Act
-        strategy.GeneratePatch(context);
+        strategyA.GeneratePatch(context);
 
         // Assert
         operations.Count.ShouldBe(1);
@@ -64,16 +77,12 @@ public sealed class LwwStrategyTests
     public void ApplyOperation_Upsert_ShouldUpdateValue()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
-
         var model = new TestModel { Value = 10 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act
-        strategy.ApplyOperation(context);
+        strategyA.ApplyOperation(context);
 
         // Assert
         model.Value.ShouldBe(20);
@@ -83,10 +92,6 @@ public sealed class LwwStrategyTests
     public void ApplyOperation_Remove_ShouldSetValueToNull()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
-
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Remove, null, timestampProvider.Create(200L));
         
         // This test is for when the property is nullable. For non-nullable value types, it will set to default.
@@ -95,7 +100,7 @@ public sealed class LwwStrategyTests
         var context = new ApplyOperationContext(nullableModel, new CrdtMetadata(), operation);
         
         // Act
-        strategy.ApplyOperation(context);
+        strategyA.ApplyOperation(context);
 
         // Assert
         nullableModel.Value.ShouldBeNull();
@@ -105,19 +110,15 @@ public sealed class LwwStrategyTests
     public void ApplyOperation_IsIdempotent()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
-
         var model = new TestModel { Value = 10 };
         var metadata = new CrdtMetadata();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
         var context = new ApplyOperationContext(model, metadata, operation);
 
         // Act
-        strategy.ApplyOperation(context);
+        strategyA.ApplyOperation(context);
         var valueAfterFirstApply = model.Value;
-        strategy.ApplyOperation(context);
+        strategyA.ApplyOperation(context);
 
         // Assert
         model.Value.ShouldBe(valueAfterFirstApply);
@@ -129,24 +130,20 @@ public sealed class LwwStrategyTests
     public void ApplyOperation_IsCommutative()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
-
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.Value", OperationType.Upsert, 30, timestampProvider.Create(300L));
 
         // Scenario 1: op1 then op2
         var model1 = new TestModel { Value = 10 };
         var meta1 = new CrdtMetadata();
-        strategy.ApplyOperation(new ApplyOperationContext(model1, meta1, op1));
-        strategy.ApplyOperation(new ApplyOperationContext(model1, meta1, op2));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op1));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op2));
 
         // Scenario 2: op2 then op1
         var model2 = new TestModel { Value = 10 };
         var meta2 = new CrdtMetadata();
-        strategy.ApplyOperation(new ApplyOperationContext(model2, meta2, op2));
-        strategy.ApplyOperation(new ApplyOperationContext(model2, meta2, op1));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op2));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op1));
 
         // Assert: The highest timestamp wins, so the final state is deterministic and commutative.
         model1.Value.ShouldBe(30);
@@ -157,10 +154,6 @@ public sealed class LwwStrategyTests
     public void ApplyOperation_IsAssociative()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<LwwStrategy>();
-
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.Value", OperationType.Upsert, 30, timestampProvider.Create(300L));
         var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.Value", OperationType.Upsert, 15, timestampProvider.Create(150L));
@@ -176,7 +169,7 @@ public sealed class LwwStrategyTests
             var meta = new CrdtMetadata();
             foreach (var op in permutation)
             {
-                strategy.ApplyOperation(new ApplyOperationContext(model, meta, op));
+                strategyA.ApplyOperation(new ApplyOperationContext(model, meta, op));
             }
             finalValues.Add(model.Value);
         }
@@ -185,8 +178,6 @@ public sealed class LwwStrategyTests
         // The highest timestamp wins (op2 with value 30)
         finalValues.ShouldAllBe(v => v == 30);
     }
-
-    private sealed class NullableTestModel { public int? Value { get; set; } }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {

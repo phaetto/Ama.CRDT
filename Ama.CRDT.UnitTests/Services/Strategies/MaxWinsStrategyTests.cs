@@ -13,32 +13,42 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-public sealed class MaxWinsStrategyTests
+public sealed class MaxWinsStrategyTests : IDisposable
 {
     private sealed class TestModel { public int HighScore { get; set; } }
     
-    private readonly IServiceProvider serviceProvider;
+    private readonly IServiceScope scopeA;
+    private readonly IServiceScope scopeB;
+    private readonly MaxWinsStrategy strategyA;
+    private readonly MaxWinsStrategy strategyB;
     private readonly ICrdtTimestampProvider timestampProvider;
-    private readonly string replicaId = Guid.NewGuid().ToString();
 
     public MaxWinsStrategyTests()
     {
-        var services = new ServiceCollection();
-        services.AddCrdt()
-            .AddSingleton<ICrdtTimestampProvider, SequentialTimestampProvider>();
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .BuildServiceProvider();
 
-        serviceProvider = services.BuildServiceProvider();
-        timestampProvider = serviceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+
+        scopeA = scopeFactory.CreateScope("A");
+        scopeB = scopeFactory.CreateScope("B");
+
+        strategyA = scopeA.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
+        strategyB = scopeB.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
+        timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+    }
+
+    public void Dispose()
+    {
+        scopeA.Dispose();
+        scopeB.Dispose();
     }
     
     [Fact]
     public void GeneratePatch_ShouldCreateUpsert_WhenValueChanges()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
-
         var operations = new List<CrdtOperation>();
         var property = typeof(TestModel).GetProperty(nameof(TestModel.HighScore))!;
         var context = new GeneratePatchContext(
@@ -55,7 +65,7 @@ public sealed class MaxWinsStrategyTests
         );
         
         // Act
-        strategy.GeneratePatch(context);
+        strategyA.GeneratePatch(context);
 
         // Assert
         var op = operations.ShouldHaveSingleItem();
@@ -67,16 +77,12 @@ public sealed class MaxWinsStrategyTests
     public void ApplyOperation_ShouldUpdate_WhenIncomingIsHigher()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
-
         var model = new TestModel { HighScore = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act
-        strategy.ApplyOperation(context);
+        strategyA.ApplyOperation(context);
         
         // Assert
         model.HighScore.ShouldBe(200);
@@ -86,16 +92,12 @@ public sealed class MaxWinsStrategyTests
     public void ApplyOperation_ShouldNotUpdate_WhenIncomingIsLower()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
-
         var model = new TestModel { HighScore = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 100, timestampProvider.Create(2L));
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act
-        strategy.ApplyOperation(context);
+        strategyA.ApplyOperation(context);
         
         // Assert
         model.HighScore.ShouldBe(150);
@@ -105,18 +107,14 @@ public sealed class MaxWinsStrategyTests
     public void ApplyOperation_IsIdempotent()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
-
         var model = new TestModel { HighScore = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
     
         // Act
-        strategy.ApplyOperation(context);
+        strategyA.ApplyOperation(context);
         var scoreAfterFirst = model.HighScore;
-        strategy.ApplyOperation(context);
+        strategyA.ApplyOperation(context);
     
         // Assert
         model.HighScore.ShouldBe(scoreAfterFirst);
@@ -127,10 +125,6 @@ public sealed class MaxWinsStrategyTests
     public void ApplyOperation_IsCommutative()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
-
         var model1 = new TestModel { HighScore = 100 };
         var model2 = new TestModel { HighScore = 100 };
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
@@ -138,12 +132,12 @@ public sealed class MaxWinsStrategyTests
 
         // Act
         // op1 then op2
-        strategy.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1));
-        strategy.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2));
 
         // op2 then op1
-        strategy.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2));
-        strategy.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1));
     
         // Assert
         model1.HighScore.ShouldBe(200); // max(100, 200, 150)
@@ -155,10 +149,6 @@ public sealed class MaxWinsStrategyTests
     public void ApplyOperation_IsAssociative()
     {
         // Arrange
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope(replicaId);
-        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
-
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.highScore", OperationType.Upsert, 150, timestampProvider.Create(3L));
         var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.highScore", OperationType.Upsert, 250, timestampProvider.Create(4L));
@@ -174,7 +164,7 @@ public sealed class MaxWinsStrategyTests
             var meta = new CrdtMetadata();
             foreach (var op in p)
             {
-                strategy.ApplyOperation(new ApplyOperationContext(model, meta, op));
+                strategyA.ApplyOperation(new ApplyOperationContext(model, meta, op));
             }
             finalScores.Add(model.HighScore);
         }

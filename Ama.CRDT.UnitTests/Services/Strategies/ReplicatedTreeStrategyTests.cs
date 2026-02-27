@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 public sealed class ReplicatedTreeStrategyTests : IDisposable
@@ -25,7 +26,7 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
     private readonly ICrdtPatcher patcherB;
     private readonly ICrdtApplicator applicator;
     private readonly ICrdtMetadataManager metadataManager;
-    private readonly ICrdtTimestampProvider timestampProviderB;
+    private readonly ICrdtTimestampProvider timestampProvider;
 
     public ReplicatedTreeStrategyTests()
     {
@@ -42,7 +43,7 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
         patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         applicator = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManager = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
-        timestampProviderB = scopeB.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()
@@ -135,13 +136,12 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
         // Replica A moves Child to ParentA
         var stateA = new TestModel { Tree = { Nodes = new Dictionary<object, TreeNode>(ancestor.Tree.Nodes) } };
         stateA.Tree.Nodes[childId] = new TreeNode { Id = childId, Value = "Child", ParentId = parentAId };
-        var patchA = patcherA.GeneratePatch(docAncestor, stateA);
+        var patchA = patcherA.GeneratePatch(docAncestor, stateA, timestampProvider.Create(1)); // Explicit timestamp
 
         // Replica B moves Child to ParentB (with a later timestamp)
         var stateB = new TestModel { Tree = { Nodes = new Dictionary<object, TreeNode>(ancestor.Tree.Nodes) } };
         stateB.Tree.Nodes[childId] = new TreeNode { Id = childId, Value = "Child", ParentId = parentBId };
-        // Ensure patch B has a later timestamp
-        var patchB = patcherB.GeneratePatch(docAncestor, stateB, timestampProviderB.Create(3));
+        var patchB = patcherB.GeneratePatch(docAncestor, stateB, timestampProvider.Create(3)); // Explicit later timestamp
 
         // Act: Scenario 1 (A then B)
         var model1 = new TestModel { Tree = { Nodes = new Dictionary<object, TreeNode>(ancestor.Tree.Nodes) } };
