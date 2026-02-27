@@ -18,7 +18,7 @@ using System.Reflection;
 [Commutative]
 [Associative]
 [Idempotent]
-[Mergeable]
+[StateBased]
 public sealed class OrMapStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext) : IPartitionableCrdtStrategy

@@ -15,8 +15,8 @@ using System.Reflection;
 [CrdtSupportedType(typeof(IList))]
 [Commutative]
 [Associative]
-[IdempotentWithContinuousTime]
-[SequentialOperations]
+[Idempotent]
+[OperationBased]
 public sealed class ArrayLcsStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext) : IPartitionableCrdtStrategy
