@@ -1,16 +1,16 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
-using Ama.CRDT.ShowCase.Models;
 using Ama.CRDT.Attributes;
-using Ama.CRDT.ShowCase.Services;
 using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using Xunit;
 using static Ama.CRDT.Services.Strategies.SortedSetStrategy;
@@ -75,7 +75,6 @@ public sealed class SortedSetStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtComparer<CaseInsensitiveStringComparer>()
             .AddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>()
             .BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -247,18 +246,20 @@ public sealed class SortedSetStrategyTests : IDisposable
     
     #endregion
 
+    private sealed record TestUser(string Id, string Name);
+
     private sealed record ConvergenceTestModel
     {
-        [CrdtSortedSetStrategy(nameof(User.Name))]
-        public List<User> Users { get; init; } = new();
+        [CrdtSortedSetStrategy] // Defaults to "Id"
+        public List<TestUser> Users { get; init; } = new();
     }
     
     [Fact]
     public void ApplyPatch_WithConcurrentArrayInsertions_ShouldBeCommutativeAndConverge()
     {
         // Arrange
-        var userA = new User(Guid.NewGuid(), "Alice");
-        var userB = new User(Guid.NewGuid(), "Bob");
+        var userA = new TestUser("Alice", "Alice");
+        var userB = new TestUser("Bob", "Bob");
 
         var modelA = new ConvergenceTestModel { Users = [userA] };
         var modelB = new ConvergenceTestModel { Users = [userB] };
@@ -296,7 +297,7 @@ public sealed class SortedSetStrategyTests : IDisposable
     public void ApplyPatch_IsIdempotent()
     {
         // Arrange
-        var userA = new User(Guid.NewGuid(), "Alice");
+        var userA = new TestUser("Alice", "Alice");
 
         var modelA = new ConvergenceTestModel { Users = [userA] };
 
@@ -324,9 +325,9 @@ public sealed class SortedSetStrategyTests : IDisposable
     public void ApplyPatch_WithConcurrentArrayInsertions_ShouldBeCommutativeAndAssociativeAndConverge()
     {
         // Arrange
-        var userA = new User(Guid.NewGuid(), "Alice");
-        var userB = new User(Guid.NewGuid(), "Bob");
-        var userC = new User(Guid.NewGuid(), "Charlie");
+        var userA = new TestUser("Alice", "Alice");
+        var userB = new TestUser("Bob", "Bob");
+        var userC = new TestUser("Charlie", "Charlie");
 
         var modelA = new ConvergenceTestModel { Users = [userA] };
         var modelB = new ConvergenceTestModel { Users = [userB] };
@@ -364,6 +365,80 @@ public sealed class SortedSetStrategyTests : IDisposable
         {
             state.ShouldBe(firstState);
         }
+    }
+
+    [Fact]
+    public void GetStartKey_ShouldReturnSmallestKeyOrNull()
+    {
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
+        var propInfo = typeof(ConvergenceTestModel).GetProperty(nameof(ConvergenceTestModel.Users))!;
+        
+        strategy.GetStartKey(new ConvergenceTestModel(), propInfo).ShouldBeNull();
+        strategy.GetStartKey(new ConvergenceTestModel { Users = { new TestUser("Charlie", "Charlie"), new TestUser("Alice", "Alice") } }, propInfo).ShouldBe("Alice");
+    }
+
+    [Fact]
+    public void GetKeyFromOperation_ShouldExtractCorrectly()
+    {
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
+        var op = new CrdtOperation(Guid.NewGuid(), "r1", "$.users", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now());
+        
+        strategy.GetKeyFromOperation(op, "$.users").ShouldBe("Bob");
+        strategy.GetKeyFromOperation(op, "$.otherPath").ShouldBeNull();
+    }
+
+    [Fact]
+    public void GetMinimumKey_ShouldReturnCorrectMinValue()
+    {
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
+        var propInfo = typeof(ConvergenceTestModel).GetProperty(nameof(ConvergenceTestModel.Users))!;
+        strategy.GetMinimumKey(propInfo).ShouldBe(string.Empty);
+    }
+
+    [Fact]
+    public void Split_ShouldDivideDataEquallyAndMaintainSort()
+    {
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
+        var doc = new ConvergenceTestModel();
+        var meta = metadataManagerA.Initialize(doc);
+        var propInfo = typeof(ConvergenceTestModel).GetProperty(nameof(ConvergenceTestModel.Users))!;
+
+        strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Alice", "Alice"), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[2]", OperationType.Upsert, new TestUser("Charlie", "Charlie"), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[3]", OperationType.Upsert, new TestUser("Dave", "Dave"), timestampProvider.Now())));
+
+        var result = strategy.Split(doc, meta, propInfo);
+
+        result.SplitKey.ShouldBe("Charlie");
+
+        var doc1 = (ConvergenceTestModel)result.Partition1.Data;
+        var doc2 = (ConvergenceTestModel)result.Partition2.Data;
+
+        doc1.Users.Select(u => u.Name).ShouldBe(["Alice", "Bob"], ignoreOrder: true);
+        doc2.Users.Select(u => u.Name).ShouldBe(["Charlie", "Dave"], ignoreOrder: true);
+    }
+
+    [Fact]
+    public void Merge_ShouldCombineDataAndSort()
+    {
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
+        var doc1 = new ConvergenceTestModel();
+        var meta1 = metadataManagerA.Initialize(doc1);
+        var doc2 = new ConvergenceTestModel();
+        var meta2 = metadataManagerA.Initialize(doc2);
+        var propInfo = typeof(ConvergenceTestModel).GetProperty(nameof(ConvergenceTestModel.Users))!;
+
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Dave", "Dave"), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Alice", "Alice"), timestampProvider.Now())));
+        
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Charlie", "Charlie"), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now())));
+
+        var result = strategy.Merge(doc1, meta1, doc2, meta2, propInfo);
+
+        var mergedDoc = (ConvergenceTestModel)result.Data;
+        mergedDoc.Users.Select(u => u.Name).ShouldBe(["Alice", "Bob", "Charlie", "Dave"]); // Already sorted correctly by Name
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

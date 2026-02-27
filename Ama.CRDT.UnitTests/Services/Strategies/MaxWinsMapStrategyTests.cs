@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -12,6 +13,7 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Xunit;
 
 public sealed class MaxWinsMapStrategyTests
@@ -148,6 +150,88 @@ public sealed class MaxWinsMapStrategyTests
         opC.Type.ShouldBe(OperationType.Upsert);
         ((KeyValuePair<object, object?>)opC.Value!).Key.ShouldBe("c");
         ((KeyValuePair<object, object?>)opC.Value!).Value.ShouldBe(200);
+    }
+
+    [Fact]
+    public void GetStartKey_ShouldReturnSmallestKeyOrNull()
+    {
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        strategy.GetStartKey(new TestModel(), propInfo).ShouldBeNull();
+        strategy.GetStartKey(new TestModel { Map = { ["c"] = 1, ["a"] = 2, ["b"] = 3 } }, propInfo).ShouldBe("a");
+    }
+
+    [Fact]
+    public void GetKeyFromOperation_ShouldExtractKeyCorrectly()
+    {
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("myKey", 5), timestampProvider.Now(), 1);
+
+        strategy.GetKeyFromOperation(op, "$.map").ShouldBe("myKey");
+        strategy.GetKeyFromOperation(op, "$.otherPath").ShouldBeNull();
+    }
+
+    [Fact]
+    public void GetMinimumKey_ShouldReturnCorrectMinValue()
+    {
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
+        var stringMapProp = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        strategy.GetMinimumKey(stringMapProp).ShouldBe(string.Empty);
+    }
+
+    [Fact]
+    public void Split_ShouldDivideDataEqually()
+    {
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        var doc = CreateDocument(new Dictionary<string, int>());
+        
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now())));
+
+        var result = strategy.Split(doc.Data, doc.Metadata, propInfo);
+
+        result.SplitKey.ShouldBe("c");
+
+        var doc1 = (TestModel)result.Partition1.Data;
+        var doc2 = (TestModel)result.Partition2.Data;
+
+        doc1.Map.Keys.ShouldBe(["a", "b"], ignoreOrder: true);
+        doc2.Map.Keys.ShouldBe(["c", "d"], ignoreOrder: true);
+    }
+
+    [Fact]
+    public void Merge_ShouldCombineDataAndResolveConflicts()
+    {
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        var doc1 = CreateDocument(new Dictionary<string, int>());
+        var doc2 = CreateDocument(new Dictionary<string, int>());
+
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now())));
+
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 50), timestampProvider.Now()))); // higher value
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now())));
+
+        var merged = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo);
+
+        var mergedDoc = (TestModel)merged.Data;
+        mergedDoc.Map.Keys.ShouldBe(["a", "b", "c"], ignoreOrder: true);
+        mergedDoc.Map["a"].ShouldBe(10);
+        mergedDoc.Map["b"].ShouldBe(50); // Max won
+        mergedDoc.Map["c"].ShouldBe(30);
     }
 
     private sealed class TestModel

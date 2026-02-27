@@ -3,13 +3,16 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using Xunit;
 
@@ -31,6 +34,8 @@ public sealed class LwwSetStrategyTests : IDisposable
     private readonly ICrdtMetadataManager metadataManagerA;
     private readonly ICrdtMetadataManager metadataManagerB;
     private readonly ICrdtMetadataManager metadataManagerC;
+    private readonly LwwSetStrategy strategyA;
+    private readonly ICrdtTimestampProvider timestampProvider;
 
     public LwwSetStrategyTests()
     {
@@ -50,6 +55,8 @@ public sealed class LwwSetStrategyTests : IDisposable
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         metadataManagerB = scopeB.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         metadataManagerC = scopeC.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        strategyA = scopeA.ServiceProvider.GetRequiredService<LwwSetStrategy>();
+        timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()
@@ -218,6 +225,79 @@ public sealed class LwwSetStrategyTests : IDisposable
         {
             state.ShouldBe(firstState, ignoreOrder:true);
         }
+    }
+
+    [Fact]
+    public void GetStartKey_ShouldReturnSmallestKeyOrNull()
+    {
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        
+        strategyA.GetStartKey(new TestModel(), propInfo).ShouldBeNull();
+        strategyA.GetStartKey(new TestModel { Tags = { "c", "a", "b" } }, propInfo).ShouldBe("a");
+    }
+
+    [Fact]
+    public void GetKeyFromOperation_ShouldExtractCorrectly()
+    {
+        var op = new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "myVal", timestampProvider.Now());
+        
+        strategyA.GetKeyFromOperation(op, "$.tags").ShouldBe("myVal");
+        strategyA.GetKeyFromOperation(op, "$.otherPath").ShouldBeNull();
+    }
+
+    [Fact]
+    public void GetMinimumKey_ShouldReturnCorrectMinValue()
+    {
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        strategyA.GetMinimumKey(propInfo).ShouldBe(string.Empty);
+    }
+
+    [Fact]
+    public void Split_ShouldDivideDataAndMetadataEqually()
+    {
+        var doc = new TestModel();
+        var meta = metadataManagerA.Initialize(doc);
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now())));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now())));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now())));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now())));
+
+        var result = strategyA.Split(doc, meta, propInfo);
+
+        result.SplitKey.ShouldBe("c");
+
+        var doc1 = (TestModel)result.Partition1.Data;
+        var doc2 = (TestModel)result.Partition2.Data;
+
+        doc1.Tags.ShouldBe(["a", "b"], ignoreOrder: true);
+        doc2.Tags.ShouldBe(["c", "d"], ignoreOrder: true);
+
+        result.Partition1.Metadata.LwwSets["$.tags"].Adds.Keys.ShouldContain("a");
+        result.Partition2.Metadata.LwwSets["$.tags"].Adds.Keys.ShouldContain("c");
+    }
+
+    [Fact]
+    public void Merge_ShouldCombineDataAndMetadata()
+    {
+        var doc1 = new TestModel();
+        var meta1 = metadataManagerA.Initialize(doc1);
+        var doc2 = new TestModel();
+        var meta2 = metadataManagerA.Initialize(doc2);
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now())));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now())));
+        
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now())));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now())));
+
+        var result = strategyA.Merge(doc1, meta1, doc2, meta2, propInfo);
+
+        var mergedDoc = (TestModel)result.Data;
+        mergedDoc.Tags.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
+        result.Metadata.LwwSets["$.tags"].Adds.Keys.Count.ShouldBeGreaterThanOrEqualTo(4);
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

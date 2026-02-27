@@ -3,12 +3,15 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Ama.CRDT.Services;
 
 /// <summary>
@@ -22,7 +25,7 @@ using Ama.CRDT.Services;
 [StateBased]
 public sealed class GSetStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext) : ICrdtStrategy
+    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -80,5 +83,145 @@ public sealed class GSetStrategy(
                 list.Add(item);
             }
         }
+    }
+
+    /// <inheritdoc/>
+    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    {
+        var list = partitionableProperty.GetValue(data) as IList;
+        if (list == null || list.Count == 0) return null;
+
+        var items = new List<IComparable>();
+        foreach (var item in list)
+        {
+            if (item is IComparable c) items.Add(c);
+            else if (item != null) items.Add(item.ToString()!);
+        }
+        return items.OrderBy(k => k).FirstOrDefault();
+    }
+
+    /// <inheritdoc/>
+    public IComparable? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath)
+    {
+        if (!operation.JsonPath.StartsWith(partitionablePropertyPath, StringComparison.Ordinal)) return null;
+
+        return operation.Value as IComparable ?? operation.Value?.ToString() as IComparable;
+    }
+
+    /// <inheritdoc/>
+    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    {
+        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        return GetMinimumKeyForType(elementType);
+    }
+
+    /// <inheritdoc/>
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    {
+        var documentType = partitionableProperty.DeclaringType!;
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+
+        var list = partitionableProperty.GetValue(originalData) as IList;
+        if (list == null || list.Count < 2)
+        {
+            throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
+        }
+
+        var sortedItems = list.Cast<object>().Select(x => x as IComparable ?? x?.ToString() as IComparable).Where(x => x != null).OrderBy(x => x).ToList();
+        var splitIndex = sortedItems.Count / 2;
+        var splitKey = sortedItems[splitIndex];
+
+        var keys1 = sortedItems.Take(splitIndex).ToHashSet();
+        var keys2 = sortedItems.Skip(splitIndex).ToHashSet();
+
+        var doc1 = Activator.CreateInstance(documentType)!;
+        var doc2 = Activator.CreateInstance(documentType)!;
+
+        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+
+        ReconstructListForSplitMerge(doc1, path, list, keys1, elementType);
+        ReconstructListForSplitMerge(doc2, path, list, keys2, elementType);
+
+        return new SplitResult(new PartitionContent(doc1, originalMetadata.DeepClone()), new PartitionContent(doc2, originalMetadata.DeepClone()), splitKey!);
+    }
+
+    /// <inheritdoc/>
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    {
+        var documentType = partitionableProperty.DeclaringType!;
+        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+
+        var mergedDoc = Activator.CreateInstance(documentType)!;
+        var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
+
+        var list1 = partitionableProperty.GetValue(data1) as IList;
+        var list2 = partitionableProperty.GetValue(data2) as IList;
+
+        var (parent, property, _) = PocoPathHelper.ResolvePath(mergedDoc, path);
+        if (parent is not null && property is not null)
+        {
+            var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+            var comparer = comparerProvider.GetComparer(elementType);
+            var mergedList = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(elementType))!;
+
+            var allItems = new HashSet<object>(comparer);
+            if (list1 != null) foreach (var item in list1) allItems.Add(item);
+            if (list2 != null) foreach (var item in list2) allItems.Add(item);
+
+            var sortedItems = allItems.OrderBy(i => i.ToString(), StringComparer.Ordinal).ToList();
+            foreach (var item in sortedItems) mergedList.Add(item);
+
+            property.SetValue(parent, mergedList);
+        }
+
+        return new PartitionContent(mergedDoc, mergedMeta);
+    }
+
+    private static void ReconstructListForSplitMerge(object root, string path, IList sourceList, HashSet<IComparable?> keysToKeep, Type elementType)
+    {
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
+        if (parent is null || property is null) return;
+
+        var list = property.GetValue(parent) as IList;
+        if (list is null)
+        {
+            var listType = typeof(List<>).MakeGenericType(elementType);
+            list = (IList)Activator.CreateInstance(listType)!;
+            property.SetValue(parent, list);
+        }
+
+        list.Clear();
+        foreach (var item in sourceList)
+        {
+            var comp = item as IComparable ?? item?.ToString() as IComparable;
+            if (keysToKeep.Contains(comp))
+            {
+                var converted = PocoPathHelper.ConvertValue(item, elementType);
+                if (converted != null) list.Add(converted);
+            }
+        }
+    }
+
+    private static IComparable GetMinimumKeyForType(Type keyType)
+    {
+        if (keyType == typeof(string)) return string.Empty;
+        if (keyType == typeof(int)) return int.MinValue;
+        if (keyType == typeof(long)) return long.MinValue;
+        if (keyType == typeof(short)) return short.MinValue;
+        if (keyType == typeof(byte)) return byte.MinValue;
+        if (keyType == typeof(Guid)) return Guid.Empty;
+        if (keyType == typeof(DateTime)) return DateTime.MinValue;
+        if (keyType == typeof(DateTimeOffset)) return DateTimeOffset.MinValue;
+        if (keyType == typeof(char)) return char.MinValue;
+        if (keyType == typeof(double)) return double.MinValue;
+        if (keyType == typeof(float)) return float.MinValue;
+        if (keyType == typeof(decimal)) return decimal.MinValue;
+
+        if (keyType.IsValueType)
+        {
+            return (IComparable)Activator.CreateInstance(keyType)!;
+        }
+
+        throw new InvalidOperationException($"Cannot determine minimum key for type {keyType}.");
     }
 }

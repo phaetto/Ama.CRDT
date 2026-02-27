@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -12,6 +13,7 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Xunit;
 
 public sealed class VoteCounterStrategyTests : IDisposable
@@ -242,5 +244,81 @@ public sealed class VoteCounterStrategyTests : IDisposable
         model2.Votes.ContainsKey("OptionA").ShouldBeFalse();
         model2.Votes.ContainsKey("OptionC").ShouldBeFalse();
         model2.Votes["OptionB"].ShouldContain("Voter1");
+    }
+
+    [Fact]
+    public void GetStartKey_ShouldReturnSmallestVoterOrNull()
+    {
+        var propInfo = typeof(Poll).GetProperty(nameof(Poll.Votes))!;
+        
+        strategyA.GetStartKey(new Poll(), propInfo).ShouldBeNull();
+        
+        var doc = new Poll { Votes = { ["Opt1"] = new HashSet<string> { "c", "a", "b" } } };
+        strategyA.GetStartKey(doc, propInfo).ShouldBe("a");
+    }
+
+    [Fact]
+    public void GetKeyFromOperation_ShouldExtractVoterProperly()
+    {
+        var op = new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("myVoter", "Opt"), timestampProvider.Now());
+        
+        strategyA.GetKeyFromOperation(op, "$.votes").ShouldBe("myVoter");
+        strategyA.GetKeyFromOperation(op, "$.otherPath").ShouldBeNull();
+    }
+
+    [Fact]
+    public void GetMinimumKey_ShouldReturnCorrectMinValueForVoterType()
+    {
+        var propInfo = typeof(Poll).GetProperty(nameof(Poll.Votes))!;
+        strategyA.GetMinimumKey(propInfo).ShouldBe(string.Empty);
+    }
+
+    [Fact]
+    public void Split_ShouldDivideDataAndMetadataEqually()
+    {
+        var doc = new Poll();
+        var meta = metadataManagerA.Initialize(doc);
+        var propInfo = typeof(Poll).GetProperty(nameof(Poll.Votes))!;
+
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("a", "O1"), timestampProvider.Now())));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("b", "O1"), timestampProvider.Now())));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("c", "O2"), timestampProvider.Now())));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("d", "O2"), timestampProvider.Now())));
+
+        var result = strategyA.Split(doc, meta, propInfo);
+
+        result.SplitKey.ShouldBe("c");
+
+        var doc1 = (Poll)result.Partition1.Data;
+        var doc2 = (Poll)result.Partition2.Data;
+
+        doc1.Votes["O1"].ShouldBe(["a", "b"], ignoreOrder: true);
+        doc2.Votes["O2"].ShouldBe(["c", "d"], ignoreOrder: true);
+
+        result.Partition1.Metadata.Lww.Keys.ShouldContain("$.votes.['a']");
+        result.Partition2.Metadata.Lww.Keys.ShouldContain("$.votes.['c']");
+    }
+
+    [Fact]
+    public void Merge_ShouldCombineDataAndMetadata()
+    {
+        var doc1 = new Poll();
+        var meta1 = metadataManagerA.Initialize(doc1);
+        var doc2 = new Poll();
+        var meta2 = metadataManagerA.Initialize(doc2);
+        var propInfo = typeof(Poll).GetProperty(nameof(Poll.Votes))!;
+
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("a", "O1"), timestampProvider.Now())));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("b", "O1"), timestampProvider.Now())));
+        
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("c", "O2"), timestampProvider.Now())));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("d", "O2"), timestampProvider.Now())));
+
+        var result = strategyA.Merge(doc1, meta1, doc2, meta2, propInfo);
+
+        var mergedDoc = (Poll)result.Data;
+        mergedDoc.Votes["O1"].ShouldBe(["a", "b"], ignoreOrder: true);
+        mergedDoc.Votes["O2"].ShouldBe(["c", "d"], ignoreOrder: true);
+        result.Metadata.Lww.Keys.Count.ShouldBeGreaterThanOrEqualTo(4);
     }
 }
