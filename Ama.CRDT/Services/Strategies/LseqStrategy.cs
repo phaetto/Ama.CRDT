@@ -35,7 +35,7 @@ public sealed class LseqStrategy(
     /// <inheritdoc />
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+        var (_, operations, path, property, originalValue, modifiedValue, _, _, originalMeta, _) = context;
 
         if (originalValue is not IList originalList || modifiedValue is not IList modifiedList) return;
 
@@ -46,64 +46,119 @@ public sealed class LseqStrategy(
         {
             originalItems = new List<LseqItem>();
         }
-        
-        var originalItemsByValue = originalItems.ToDictionary(i => i.Value!, i => i, comparer!);
-        var insertedItems = new Dictionary<object, LseqItem>(comparer);
 
-        // Deletions
-        foreach (var item in originalItems)
+        // 1. O(N) Optimization: Trim common prefix
+        int start = 0;
+        while (start < originalItems.Count && start < modifiedList.Count &&
+               comparer!.Equals(originalItems[start].Value, modifiedList[start]))
         {
-#pragma warning disable CS8620 // Argument cannot be used for parameter due to differences in the nullability of reference types.
-            if (!modifiedList.Cast<object>().Contains(item.Value, comparer))
-            {
-                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item.Identifier, timestampProvider.Create(0));
-                operations.Add(op);
-            }
-#pragma warning restore CS8620 // Argument cannot be used for parameter due to differences in the nullability of reference types.
+            start++;
         }
 
-        // Insertions
-        for (var i = 0; i < modifiedList.Count; i++)
+        // 2. O(N) Optimization: Trim common suffix
+        int endOrig = originalItems.Count - 1;
+        int endMod = modifiedList.Count - 1;
+        while (endOrig >= start && endMod >= start &&
+               comparer!.Equals(originalItems[endOrig].Value, modifiedList[endMod]))
         {
-            var currentItem = modifiedList[i]!;
-            if (originalItemsByValue.ContainsKey(currentItem))
-            {
-                continue;
-            }
+            endOrig--;
+            endMod--;
+        }
 
-            // Find the identifier of the previous element in the modified list.
-            LseqIdentifier? prevId = null;
-            if (i > 0)
-            {
-                var prevItem = modifiedList[i - 1]!;
-                if (originalItemsByValue.TryGetValue(prevItem, out var p))
-                {
-                    prevId = p.Identifier;
-                }
-                else if (insertedItems.TryGetValue(prevItem, out var ins))
-                {
-                    prevId = ins.Identifier;
-                }
-            }
+        // Slice arrays to compute LCS only on the changed middle section
+        var slicedOrig = new List<LseqItem>(endOrig - start + 1);
+        for (int i = start; i <= endOrig; i++) slicedOrig.Add(originalItems[i]);
 
-            // Find the identifier of the next element in the original sequence
-            // by looking ahead in the modified list for an element that already exists.
-            LseqIdentifier? nextId = null;
-            for (var j = i + 1; j < modifiedList.Count; j++)
+        var slicedMod = new List<object?>(endMod - start + 1);
+        for (int i = start; i <= endMod; i++) slicedMod.Add(modifiedList[i]);
+
+        // Calculate LCS on the trimmed slices (handles duplicates safely)
+        var lcsMatrix = new int[slicedOrig.Count + 1, slicedMod.Count + 1];
+        for (var i = 1; i <= slicedOrig.Count; i++)
+        {
+            for (var j = 1; j <= slicedMod.Count; j++)
             {
-                if (originalItemsByValue.TryGetValue(modifiedList[j]!, out var nextItemMetaData))
+                if (comparer!.Equals(slicedOrig[i - 1].Value, slicedMod[j - 1]))
                 {
-                    nextId = nextItemMetaData.Identifier;
-                    break;
+                    lcsMatrix[i, j] = lcsMatrix[i - 1, j - 1] + 1;
+                }
+                else
+                {
+                    lcsMatrix[i, j] = Math.Max(lcsMatrix[i - 1, j], lcsMatrix[i, j - 1]);
                 }
             }
+        }
 
-            var newId = GenerateIdentifierBetween(prevId, nextId, replicaId);
-            var newItem = new LseqItem(newId, currentItem);
-            insertedItems.Add(currentItem, newItem);
+        var matchedOriginal = new bool[slicedOrig.Count];
+        var matchedModified = new bool[slicedMod.Count];
+        var o = slicedOrig.Count;
+        var m = slicedMod.Count;
 
-            var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestampProvider.Create(0));
-            operations.Add(op);
+        while (o > 0 && m > 0)
+        {
+            if (comparer!.Equals(slicedOrig[o - 1].Value, slicedMod[m - 1]))
+            {
+                matchedOriginal[o - 1] = true;
+                matchedModified[m - 1] = true;
+                o--;
+                m--;
+            }
+            else if (lcsMatrix[o - 1, m] > lcsMatrix[o, m - 1])
+            {
+                o--;
+            }
+            else
+            {
+                m--;
+            }
+        }
+
+        // Emit removals for elements no longer present in the slice
+        for (var i = 0; i < slicedOrig.Count; i++)
+        {
+            if (!matchedOriginal[i])
+            {
+                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, slicedOrig[i].Identifier, timestampProvider.Create(0));
+                operations.Add(op);
+            }
+        }
+
+        // Emit insertions for new elements in the slice
+        LseqIdentifier? prevId = start > 0 ? originalItems[start - 1].Identifier : null;
+        var origIdx = 0;
+
+        for (var i = 0; i < slicedMod.Count; i++)
+        {
+            if (matchedModified[i])
+            {
+                while (!matchedOriginal[origIdx]) origIdx++;
+                prevId = slicedOrig[origIdx].Identifier;
+                origIdx++;
+            }
+            else
+            {
+                // Find nextId by looking ahead for the next matched item, or fallback to the suffix boundary
+                LseqIdentifier? nextId = null;
+                int lookAheadIdx = origIdx;
+                while (lookAheadIdx < slicedOrig.Count && !matchedOriginal[lookAheadIdx]) lookAheadIdx++;
+                
+                if (lookAheadIdx < slicedOrig.Count)
+                {
+                    nextId = slicedOrig[lookAheadIdx].Identifier;
+                }
+                else if (endOrig + 1 < originalItems.Count)
+                {
+                    nextId = originalItems[endOrig + 1].Identifier;
+                }
+
+                var newId = GenerateIdentifierBetween(prevId, nextId, replicaId);
+                var newItem = new LseqItem(newId, slicedMod[i]);
+                
+                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestampProvider.Create(0));
+                operations.Add(op);
+                
+                prevId = newId; // The newly inserted item becomes the predecessor for the next insertion
+            }
         }
     }
 
@@ -118,35 +173,62 @@ public sealed class LseqStrategy(
             metadata.LseqTrackers[operation.JsonPath] = lseqItems;
         }
 
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        if (parent is null || property is null) return;
+
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var list = property.GetValue(parent) as IList;
+
+        if (list is null)
+        {
+            var listType = typeof(List<>).MakeGenericType(elementType);
+            list = (IList)Activator.CreateInstance(listType)!;
+            property.SetValue(parent, list);
+        }
+
         switch (operation.Type)
         {
             case OperationType.Upsert:
                 if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqItem)) is LseqItem newItem)
                 {
-                    if (!lseqItems.Any(i => i.Identifier.Equals(newItem.Identifier)))
+                    // O(1) Check for existing to ensure idempotency
+                    var existingIdx = lseqItems.FindIndex(i => i.Identifier.Equals(newItem.Identifier));
+                    if (existingIdx >= 0) return;
+
+                    // O(N) Find insertion position to maintain sorted order
+                    int insertPos = 0;
+                    while (insertPos < lseqItems.Count && lseqItems[insertPos].Identifier.CompareTo(newItem.Identifier) < 0)
                     {
-                        lseqItems.Add(newItem);
+                        insertPos++;
                     }
+
+                    // Incrementally update both tracker and list without full reconstruction
+                    lseqItems.Insert(insertPos, newItem);
+                    list.Insert(insertPos, PocoPathHelper.ConvertValue(newItem.Value, elementType));
                 }
                 break;
             case OperationType.Remove:
                 if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqIdentifier)) is LseqIdentifier idToRemove)
                 {
-                    lseqItems.RemoveAll(i => i.Identifier.Equals(idToRemove));
+                    var removeIdx = lseqItems.FindIndex(i => i.Identifier.Equals(idToRemove));
+                    if (removeIdx >= 0)
+                    {
+                        lseqItems.RemoveAt(removeIdx);
+                        if (removeIdx < list.Count)
+                        {
+                            list.RemoveAt(removeIdx);
+                        }
+                    }
                 }
                 break;
         }
 
-        lseqItems.Sort((a, b) => a.Identifier.CompareTo(b.Identifier));
-        ReconstructList(root, operation.JsonPath, lseqItems);
+        metadata.LseqTrackers[operation.JsonPath] = lseqItems;
     }
 
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        // For LSEQ, the true key is the LseqIdentifier, which is stored in metadata, not in the POCO elements directly.
-        // Therefore, we cannot determine the exact start key from the raw data object alone.
-        // Returning null instructs the PartitionManager to use the absolute minimum key for the initial partition.
         return null;
     }
 
@@ -198,8 +280,8 @@ public sealed class LseqStrategy(
 
         var (meta1, meta2) = SplitMetadata(path, originalMetadata, items1, items2);
 
-        ReconstructList(doc1, path, items1);
-        ReconstructList(doc2, path, items2);
+        ReconstructListForSplitMerge(doc1, path, items1);
+        ReconstructListForSplitMerge(doc2, path, items2);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
@@ -214,7 +296,7 @@ public sealed class LseqStrategy(
 
         if (mergedMeta.LseqTrackers.TryGetValue(path, out var mergedItems))
         {
-            ReconstructList(mergedDoc, path, mergedItems);
+            ReconstructListForSplitMerge(mergedDoc, path, mergedItems);
         }
 
         return new PartitionContent(mergedDoc, mergedMeta);
@@ -302,7 +384,7 @@ public sealed class LseqStrategy(
         }
     }
 
-    private static void ReconstructList(object root, string path, List<LseqItem> lseqItems)
+    private static void ReconstructListForSplitMerge(object root, string path, List<LseqItem> lseqItems)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
         if (parent is null || property is null) return;
