@@ -1,6 +1,7 @@
 namespace Ama.CRDT.Analyzers;
 
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 using System.Collections.Immutable;
@@ -32,28 +33,46 @@ public sealed class CrdtIntentUsageAnalyzer : DiagnosticAnalyzer
         var invocation = (IInvocationOperation)context.Operation;
         var targetMethod = invocation.TargetMethod;
 
-        if (targetMethod.Name != "GenerateOperation" ||
-            targetMethod.ContainingType.ToDisplayString() != "Ama.CRDT.Services.ICrdtPatcher")
+        IPropertySymbol? propertySymbol = null;
+        ITypeSymbol? intentType = null;
+
+        var containingTypeStr = targetMethod.ContainingType.ToDisplayString();
+        var origType = targetMethod.ContainingType.OriginalDefinition;
+
+        if (targetMethod.Name == "GenerateOperation" && containingTypeStr == "Ama.CRDT.Services.ICrdtPatcher")
         {
-            return;
+            if (invocation.Arguments.Length < 3)
+            {
+                return;
+            }
+
+            propertySymbol = ExtractPropertySymbol(invocation.Arguments[1].Value);
+            intentType = ExtractIntentType(invocation.Arguments[2].Value);
+        }
+        else if (targetMethod.Name == "Build" && 
+                 origType.MetadataName == "IIntentBuilder`1" && 
+                 origType.ContainingNamespace.ToDisplayString() == "Ama.CRDT.Services")
+        {
+            if (invocation.Arguments.Length < 1 || invocation.Instance is null)
+            {
+                return;
+            }
+
+            propertySymbol = FindPropertySymbolFromBuilder(invocation.Instance);
+            intentType = ExtractIntentType(invocation.Arguments[0].Value);
+        }
+        else if (containingTypeStr == "Ama.CRDT.Extensions.IntentBuilderExtensions")
+        {
+            if (invocation.Arguments.Length < 1)
+            {
+                return;
+            }
+
+            propertySymbol = FindPropertySymbolFromBuilder(invocation.Arguments[0].Value);
+            intentType = GetIntentTypeForExtensionMethod(targetMethod, context.Compilation);
         }
 
-        if (invocation.Arguments.Length < 3)
-        {
-            return;
-        }
-
-        var expressionArg = invocation.Arguments[1];
-        var intentArg = invocation.Arguments[2];
-
-        var propertySymbol = ExtractPropertySymbol(expressionArg.Value);
-        if (propertySymbol is null)
-        {
-            return;
-        }
-
-        var intentType = ExtractIntentType(intentArg.Value);
-        if (intentType is null)
+        if (propertySymbol is null || intentType is null)
         {
             return;
         }
@@ -91,6 +110,46 @@ public sealed class CrdtIntentUsageAnalyzer : DiagnosticAnalyzer
         {
             ReportDiagnostic(context, invocation, strategyTypeSymbol, intentType, propertySymbol);
         }
+    }
+
+    private static IPropertySymbol? FindPropertySymbolFromBuilder(IOperation operation)
+    {
+        var current = operation;
+
+        while (current is IConversionOperation conversion)
+        {
+            current = conversion.Operand;
+        }
+
+        if (current is IInvocationOperation invocation)
+        {
+            if (invocation.TargetMethod.Name == "BuildOperation" &&
+                invocation.TargetMethod.ContainingType.ToDisplayString() == "Ama.CRDT.Services.ICrdtPatcher")
+            {
+                if (invocation.Arguments.Length >= 2)
+                {
+                    return ExtractPropertySymbol(invocation.Arguments[1].Value);
+                }
+            }
+        }
+        else if (current is ILocalReferenceOperation localRef)
+        {
+            var syntax = localRef.Local.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+            if (syntax is VariableDeclaratorSyntax declarator && declarator.Initializer != null)
+            {
+                var semanticModel = current.SemanticModel;
+                if (semanticModel != null)
+                {
+                    var initializerOp = semanticModel.GetOperation(declarator.Initializer.Value);
+                    if (initializerOp != null)
+                    {
+                        return FindPropertySymbolFromBuilder(initializerOp);
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     private static IPropertySymbol? ExtractPropertySymbol(IOperation operation)
@@ -139,6 +198,25 @@ public sealed class CrdtIntentUsageAnalyzer : DiagnosticAnalyzer
         }
 
         return current.Type;
+    }
+
+    private static ITypeSymbol? GetIntentTypeForExtensionMethod(IMethodSymbol method, Compilation compilation)
+    {
+        var mappingAttributeType = compilation.GetTypeByMetadataName("Ama.CRDT.Attributes.CrdtIntentMappingAttribute");
+        if (mappingAttributeType is null)
+        {
+            return null;
+        }
+
+        var attributeData = method.GetAttributes()
+            .FirstOrDefault(ad => ad.AttributeClass?.Equals(mappingAttributeType, SymbolEqualityComparer.Default) ?? false);
+
+        if (attributeData is null || attributeData.ConstructorArguments.Length == 0)
+        {
+            return null;
+        }
+
+        return attributeData.ConstructorArguments[0].Value as ITypeSymbol;
     }
 
     private static INamedTypeSymbol? GetStrategyTypeSymbol(IPropertySymbol propertySymbol, Compilation compilation)

@@ -3,6 +3,7 @@ namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
@@ -410,11 +411,13 @@ public sealed class UiService
             var headerContent = await partitionManager.GetHeaderPartitionContentAsync(selectedBlogPostId);
             var patcher = currentScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
             
-            var fromDoc = new CrdtDocument<BlogPost>(new BlogPost { Id = selectedBlogPostId, Comments = new Dictionary<DateTimeOffset, Comment>() }, headerContent.Value.Metadata);
-            var toState = new BlogPost { Id = selectedBlogPostId, Comments = new Dictionary<DateTimeOffset, Comment> { { comment.CreatedAt, comment } } };
+            var fromDoc = new CrdtDocument<BlogPost>(
+                new BlogPost { Id = selectedBlogPostId, Comments = new Dictionary<DateTimeOffset, Comment>() }, 
+                headerContent.Value.Metadata);
             
-            var patch = patcher.GeneratePatch(fromDoc, toState);
-            patch = patch with { LogicalKey = selectedBlogPostId };
+            var operation = patcher.BuildOperation(fromDoc, x => x.Comments).Set(comment.CreatedAt, comment);
+            var patch = new CrdtPatch(new[] { operation }) { LogicalKey = selectedBlogPostId };
+            
             await partitionManager.ApplyPatchAsync(patch);
 
             var syncService = serviceProvider.GetRequiredService<SyncService>();
@@ -461,11 +464,9 @@ public sealed class UiService
             var header = headerContent.Value.Data;
             var fromDoc = new CrdtDocument<BlogPost>(header, headerContent.Value.Metadata);
             
-            var toState = new BlogPost { Id = header.Id, Title = header.Title, Content = header.Content, Tags = header.Tags.ToList() };
-            toState.Tags.Add(newTag);
+            var operation = patcher.BuildOperation(fromDoc, x => x.Tags).Add(newTag);
+            var patch = new CrdtPatch(new[] { operation }) { LogicalKey = selectedBlogPostId };
             
-            var patch = patcher.GeneratePatch(fromDoc, toState);
-            patch = patch with { LogicalKey = selectedBlogPostId };
             await partitionManager.ApplyPatchAsync(patch);
 
             var syncService = serviceProvider.GetRequiredService<SyncService>();
