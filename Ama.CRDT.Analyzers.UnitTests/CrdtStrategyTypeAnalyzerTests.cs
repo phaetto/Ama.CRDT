@@ -167,4 +167,55 @@ public class MyPoco
         test.TestCode = source;
         await test.RunAsync();
     }
+
+    [Fact]
+    public async Task WhenStateMachineStrategyAppliedToValidType_ShouldNotReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes;
+using Ama.CRDT.Extensions;
+
+public class ValidStateValidator : IStateMachine<int>
+{
+    public bool IsValidTransition(int from, int to) => true;
+}
+
+public class MyPoco
+{
+    [CrdtStateMachineStrategy(typeof(ValidStateValidator))]
+    public int State { get; set; }
+}
+";
+        var test = CreateTest();
+        test.TestCode = source;
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenStateMachineStrategyAppliedToInvalidType_ShouldReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes;
+using Ama.CRDT.Extensions;
+
+public class InvalidStateValidator : IStateMachine<int>
+{
+    public bool IsValidTransition(int from, int to) => true;
+}
+
+public class MyPoco
+{
+    [CrdtStateMachineStrategy(typeof(InvalidStateValidator))]
+    public string State { get; set; }
+}
+";
+        var expected = new DiagnosticResult("CRDT0001", DiagnosticSeverity.Error)
+            .WithLocation(13, 19)
+            .WithArguments("StateMachineStrategy", "string");
+
+        var test = CreateTest();
+        test.TestCode = source;
+        test.ExpectedDiagnostics.Add(expected);
+        await test.RunAsync();
+    }
 }

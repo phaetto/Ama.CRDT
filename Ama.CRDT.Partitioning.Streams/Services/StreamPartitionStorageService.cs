@@ -85,7 +85,6 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     public async Task<CrdtDocument<TData>> LoadHeaderPartitionContentAsync<TData>(IComparable logicalKey, HeaderPartition partition, CancellationToken cancellationToken = default) where TData : class, new()
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
-        ArgumentNullException.ThrowIfNull(partition);
 
         var rwLock = GetLock(GetDataLockKey(logicalKey, HeaderIdentifier));
         using var _releaser = await rwLock.LockReadAsync(cancellationToken);
@@ -152,7 +151,6 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     public async Task<HeaderPartition> SaveHeaderPartitionContentAsync<TData>(IComparable logicalKey, HeaderPartition partitionToUpdate, TData data, CrdtMetadata metadata, CancellationToken cancellationToken = default) where TData : class, new()
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
-        ArgumentNullException.ThrowIfNull(partitionToUpdate);
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(metadata);
 
@@ -314,7 +312,6 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     public async Task InsertHeaderPartitionAsync(IComparable logicalKey, HeaderPartition headerPartition, CancellationToken cancellationToken = default) 
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
-        ArgumentNullException.ThrowIfNull(headerPartition);
 
         var rwLock = GetLock(GetIndexLockKey(HeaderIdentifier));
         using var _releaser = await rwLock.LockWriteAsync(cancellationToken);
@@ -338,7 +335,6 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     public async Task UpdateHeaderPartitionAsync(IComparable logicalKey, HeaderPartition headerPartition, CancellationToken cancellationToken = default) 
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
-        ArgumentNullException.ThrowIfNull(headerPartition);
 
         var rwLock = GetLock(GetIndexLockKey(HeaderIdentifier));
         using var _releaser = await rwLock.LockWriteAsync(cancellationToken);
@@ -369,7 +365,6 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     /// <inheritdoc/>
     public async Task<IPartition?> GetPropertyPartitionAsync(CompositePartitionKey key, string propertyName, CancellationToken cancellationToken = default) 
     {
-        ArgumentNullException.ThrowIfNull(key);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
 
         var rwLock = GetLock(GetIndexLockKey(propertyName));
