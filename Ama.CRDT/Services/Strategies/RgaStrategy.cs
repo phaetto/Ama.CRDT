@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -18,6 +19,8 @@ using System.Reflection;
 /// RGA maintains order by linking elements to their predecessors (causal trees) and uses tombstones for deletions.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedIntent(typeof(InsertIntent))]
+[CrdtSupportedIntent(typeof(RemoveIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -236,6 +239,46 @@ public sealed class RgaStrategy(
                 lastId = newId;
             }
         }
+    }
+
+    /// <inheritdoc />
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        var (_, metadata, path, _, intent, timestamp, _) = context;
+
+        if (!metadata.RgaTrackers.TryGetValue(path, out var items))
+        {
+            items = new List<RgaItem>();
+        }
+
+        var visibleItems = items.Where(x => !x.IsDeleted).ToList();
+
+        if (intent is InsertIntent insertIntent)
+        {
+            if (insertIntent.Index < 0 || insertIntent.Index > visibleItems.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(intent), "Index is out of range.");
+            }
+
+            RgaIdentifier? leftId = insertIntent.Index > 0 ? visibleItems[insertIntent.Index - 1].Identifier : null;
+            var newId = new RgaIdentifier(DateTime.UtcNow.Ticks, replicaId);
+            var newItem = new RgaItem(newId, leftId, insertIntent.Value, false);
+
+            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestamp);
+        }
+        
+        if (intent is RemoveIntent removeIntent)
+        {
+            if (removeIntent.Index < 0 || removeIntent.Index >= visibleItems.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(intent), "Index is out of range.");
+            }
+
+            var idToRemove = visibleItems[removeIntent.Index].Identifier;
+            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, idToRemove, timestamp);
+        }
+        
+        throw new NotSupportedException($"Intent type '{intent.GetType().Name}' is not supported by {nameof(RgaStrategy)}.");
     }
 
     /// <inheritdoc />
