@@ -1,5 +1,6 @@
 namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
@@ -59,16 +60,19 @@ public sealed class DataGeneratorService(
             // Generate tags and create a patch to showcase Array LCS strategy
             var tags = faker.Lorem.Words(random.Next(MinTagsPerPost, MaxTagsPerPost)).ToList();
             var fromDocForTags = new CrdtDocument<BlogPost>(
-                new BlogPost { Id = blogPost.Id, Title = blogPost.Title, Content = blogPost.Content, Tags = new List<string>() },
+                new BlogPost { Id = blogPost.Id, Tags = new List<string>() },
                 metadata);
             
-            var toStateForTags = new BlogPost { Id = blogPost.Id, Title = blogPost.Title, Content = blogPost.Content, Tags = tags };
-            var tagsPatch = patcher.GeneratePatch(fromDocForTags, toStateForTags);
-            tagsPatch = tagsPatch with { LogicalKey = blogPost.Id };
-            await partitionManager.ApplyPatchAsync(tagsPatch);
+            var tagsOperations = new List<CrdtOperation>(tags.Count);
+            foreach (var tag in tags)
+            {
+                var op = patcher.BuildOperation(fromDocForTags, x => x.Tags).Add(tag);
+                metadataManager.AdvanceVersionVector(metadata, op);
+                tagsOperations.Add(op);
+            }
 
-            // Update local metadata manually because we need it for comments later
-            foreach (var op in tagsPatch.Operations) metadataManager.AdvanceVersionVector(metadata, op);
+            var tagsPatch = new CrdtPatch(tagsOperations) { LogicalKey = blogPost.Id };
+            await partitionManager.ApplyPatchAsync(tagsPatch);
 
             var totalComments = random.Next(MinCommentsPerPost, MaxCommentsPerPost + 1);
             var commentsGenerated = 0;
@@ -79,31 +83,24 @@ public sealed class DataGeneratorService(
                 var currentBatchSize = Math.Min(BatchSize, totalComments - commentsGenerated);
                 if (currentBatchSize <= 0) break;
                 
-                var commentsBatch = new Dictionary<DateTimeOffset, Comment>(currentBatchSize);
-                for (var j = 0; j < currentBatchSize; j++)
-                {
-                    var comment = commentFaker.Generate();
-                    currentCommentDate = currentCommentDate.AddMinutes(-random.Next(1, 60)); // Make each comment older than the previous one
-                    commentsBatch.Add(currentCommentDate, comment with { CreatedAt = currentCommentDate });
-                }
-
-                // To generate a patch for additions, we can compare an empty dictionary with the new batch.
-                // It is crucial to use the LATEST metadata for the patch generation.
                 var fromDocument = new CrdtDocument<BlogPost>(
                     new BlogPost { Id = blogPost.Id, Comments = new Dictionary<DateTimeOffset, Comment>() },
                     metadata); // Use the single, evolving metadata object
 
-                var toState = new BlogPost { Id = blogPost.Id, Comments = commentsBatch };
-                
-                var patch = patcher.GeneratePatch(fromDocument, toState);
-                patch = patch with { LogicalKey = blogPost.Id };
-                await partitionManager.ApplyPatchAsync(patch);
-
-                // Manually advance the version vector in our local metadata copy to keep it in sync.
-                foreach (var op in patch.Operations)
+                var operations = new List<CrdtOperation>(currentBatchSize);
+                for (var j = 0; j < currentBatchSize; j++)
                 {
+                    var comment = commentFaker.Generate();
+                    currentCommentDate = currentCommentDate.AddMinutes(-random.Next(1, 60)); // Make each comment older than the previous one
+                    var finalComment = comment with { CreatedAt = currentCommentDate };
+                    
+                    var op = patcher.BuildOperation(fromDocument, x => x.Comments).Set(finalComment.CreatedAt, finalComment);
                     metadataManager.AdvanceVersionVector(metadata, op);
+                    operations.Add(op);
                 }
+                
+                var patch = new CrdtPatch(operations) { LogicalKey = blogPost.Id };
+                await partitionManager.ApplyPatchAsync(patch);
 
                 commentsGenerated += currentBatchSize;
                 Console.Write($"\r  - Added {commentsGenerated}/{totalComments} comments.");
