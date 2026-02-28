@@ -6,6 +6,7 @@ A .NET library for achieving eventual consistency in distributed systems using C
 
 - **Attribute-Driven Strategies**: Define conflict resolution logic directly on your POCO properties using a rich set of attributes like `[CrdtLwwStrategy]`, `[CrdtCounterStrategy]`, `[CrdtOrSetStrategy]`, and `[CrdtStateMachineStrategy]`.
 - **POCO-First**: Work directly with your C# objects. The library handles recursive diffing and patching seamlessly.
+- **Explicit Intent Builder**: Create precise patches by declaring specific intents (e.g., Increment, Add, Move) instead of diffing entire document states.
 - **Clean Data/Metadata Separation**: Keeps your data models pure by storing CRDT state (timestamps, version vectors) in a parallel `CrdtMetadata` object.
 - **Extensible**: Easily create and register your own custom CRDT strategies, element comparers, and timestamp providers.
 - **Multi-Replica Support**: Designed for scenarios with multiple concurrent writers, using a factory pattern to create services for each unique replica.
@@ -124,6 +125,32 @@ serverApplicator.ApplyPatch(serverDocument, patch);
 // serverDocument.Data.LoginCount is now 6
 // serverDocument.Data.Badges now contains ["newcomer", "explorer"]
 ```
+
+## Explicit Operations (Intent Builder)
+
+Sometimes you don't want to compare two entire objects to find a small change, or you want to explicitly capture a user's intent (e.g., "increment by 1") instead of setting absolute values. The library provides a strongly-typed fluent intent builder that bypasses the diffing process entirely:
+
+```csharp
+using Ama.CRDT.Extensions;
+using Ama.CRDT.Models;
+
+// ...
+
+// Build an explicit operation targeting the LoginCount property
+var incrementOp = patcher.BuildOperation(originalDocument, doc => doc.LoginCount)
+                         .Increment(1);
+
+// Build another explicit operation targeting a collection
+var addBadgeOp = patcher.BuildOperation(originalDocument, doc => doc.Badges)
+                        .Add("veteran");
+
+var patch = new CrdtPatch([incrementOp, addBadgeOp]);
+
+// Apply or distribute the patch as usual
+applicator.ApplyPatch(originalDocument, patch);
+```
+
+The `.BuildOperation(...)` syntax scales powerfully across all CRDT strategies and ensures your explicitly defined changes map exactly to `.Increment()`, `.Add()`, `.Remove()`, `.MoveNode()`, and more, in a completely strongly-typed fashion.
 
 ## Controlling Merge Behavior with CRDT Strategies
 
@@ -272,7 +299,7 @@ CrdtPatch receivedPatch = JsonSerializer.Deserialize<CrdtPatch>(jsonPayload, Crd
 // var document = ...;
 // applicator.ApplyPatch(document, receivedPatch);
 ```
-**Important**: If you have created a custom `ICrdtTimestamp` or a custom operation payload type, you must register it with the serialization system. See the section on "Extensibility" for details.
+**Important**: If you have created a custom `ICrdtTimestamp` or a custom operation payload type, you must register it with the serialization system using `AddCrdtTimestampType<T>()` or `AddCrdtSerializableType<T>()`. See the section on "Extensibility" for details.
 
 ## Managing Metadata Size
 
@@ -310,7 +337,7 @@ metadataManager.PruneLwwTombstones(myMetadata, thresholdTimestamp);
 
 ### Version Vector Compaction
 
-The library uses a version vector (`CrdtMetadata.VersionVector`) and a set of seen exceptions (`SeenExceptions`) to provide idempotency. This process is managed automatically by the `CrdtApplicator` for  all strategies, keeping metadata size under control without manual intervention.
+The library uses a version vector (`CrdtMetadata.VersionVector`) and a set of seen exceptions (`SeenExceptions`) to provide idempotency. This process is managed automatically by the `CrdtApplicator` for all strategies, keeping metadata size under control without manual intervention.
 
 ### Serializing Metadata Efficiently
 
@@ -596,7 +623,7 @@ await partitionManager.ApplyPatchAsync(patch);
 ## How It Works
 
 -   **`ICrdtScopeFactory`**: A singleton factory for creating isolated `IServiceScope` instances. Each scope is configured for a specific `ReplicaId` and provides its own set of scoped services. This is the primary entry point for working with multiple replicas.
--   **`ICrdtPatcher`**: A scoped service that generates a `CrdtPatch` by comparing two versions of a document. It is a stateless service that only reads the `from` document's metadata to understand the state before the change. It uses the `ICrdtStrategyProvider` to find the correct strategy for each property.
+-   **`ICrdtPatcher`**: A scoped service that generates a `CrdtPatch` by comparing two versions of a document. It is a stateless service that only reads the `from` document's metadata to understand the state before the change. It uses the `ICrdtStrategyProvider` to find the correct strategy for each property. It also exposes `.BuildOperation` for explicit intent creation.
 -   **`ICrdtApplicator`**: A scoped service that applies a `CrdtPatch` to a document. It uses the `ICrdtStrategyProvider` to find the correct strategy to modify the POCO and its metadata. It also handles idempotency checks using version vectors for supported strategies.
 -   **`ICrdtStrategyProvider`**: A service that inspects a property's attributes (e.g., `[CrdtCounterStrategy]`) to resolve the appropriate `ICrdtStrategy` from the DI container. It provides default strategies (LWW for simple types, ArrayLcs for collections) if no attribute is present.
 -   **`ICrdtMetadataManager`**: A scoped helper service for managing the `CrdtMetadata` object. It can initialize metadata from a POCO, compact it to save space, and perform other state management tasks.

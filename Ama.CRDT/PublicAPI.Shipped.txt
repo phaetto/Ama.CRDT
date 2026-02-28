@@ -1151,3 +1151,314 @@ static readonly Ama.CRDT.Models.SequentialTimestamp.MinValue -> Ama.CRDT.Models.
 ~override Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.ToString() -> string
 ~static Ama.CRDT.Models.CrdtDocument<T>.operator !=(Ama.CRDT.Models.CrdtDocument<T> left, Ama.CRDT.Models.CrdtDocument<T> right) -> bool
 ~static Ama.CRDT.Models.CrdtDocument<T>.operator ==(Ama.CRDT.Models.CrdtDocument<T> left, Ama.CRDT.Models.CrdtDocument<T> right) -> bool
+Ama.CRDT.Attributes.CrdtIntentMappingAttribute
+Ama.CRDT.Attributes.CrdtIntentMappingAttribute.CrdtIntentMappingAttribute(System.Type! intentType) -> void
+Ama.CRDT.Attributes.CrdtIntentMappingAttribute.IntentType.get -> System.Type!
+Ama.CRDT.Attributes.CrdtSupportedIntentAttribute
+Ama.CRDT.Attributes.CrdtSupportedIntentAttribute.CrdtSupportedIntentAttribute(System.Type! intentType) -> void
+Ama.CRDT.Attributes.CrdtSupportedIntentAttribute.IntentType.get -> System.Type!
+Ama.CRDT.Extensions.IntentBuilderExtensions
+Ama.CRDT.Models.Intents.AddEdgeIntent
+Ama.CRDT.Models.Intents.AddEdgeIntent.AddEdgeIntent() -> void
+Ama.CRDT.Models.Intents.AddEdgeIntent.AddEdgeIntent(Ama.CRDT.Models.Edge Edge) -> void
+Ama.CRDT.Models.Intents.AddEdgeIntent.Deconstruct(out Ama.CRDT.Models.Edge Edge) -> void
+Ama.CRDT.Models.Intents.AddEdgeIntent.Edge.get -> Ama.CRDT.Models.Edge
+Ama.CRDT.Models.Intents.AddEdgeIntent.Edge.init -> void
+Ama.CRDT.Models.Intents.AddEdgeIntent.Equals(Ama.CRDT.Models.Intents.AddEdgeIntent other) -> bool
+Ama.CRDT.Models.Intents.AddIntent
+Ama.CRDT.Models.Intents.AddIntent.AddIntent() -> void
+Ama.CRDT.Models.Intents.AddIntent.AddIntent(object? Value) -> void
+Ama.CRDT.Models.Intents.AddIntent.Deconstruct(out object? Value) -> void
+Ama.CRDT.Models.Intents.AddIntent.Equals(Ama.CRDT.Models.Intents.AddIntent other) -> bool
+Ama.CRDT.Models.Intents.AddIntent.Value.get -> object?
+Ama.CRDT.Models.Intents.AddIntent.Value.init -> void
+Ama.CRDT.Models.Intents.AddNodeIntent
+Ama.CRDT.Models.Intents.AddNodeIntent.AddNodeIntent() -> void
+Ama.CRDT.Models.Intents.AddNodeIntent.AddNodeIntent(Ama.CRDT.Models.TreeNode! Node) -> void
+Ama.CRDT.Models.Intents.AddNodeIntent.Deconstruct(out Ama.CRDT.Models.TreeNode! Node) -> void
+Ama.CRDT.Models.Intents.AddNodeIntent.Equals(Ama.CRDT.Models.Intents.AddNodeIntent other) -> bool
+Ama.CRDT.Models.Intents.AddNodeIntent.Node.get -> Ama.CRDT.Models.TreeNode!
+Ama.CRDT.Models.Intents.AddNodeIntent.Node.init -> void
+Ama.CRDT.Models.Intents.AddVertexIntent
+Ama.CRDT.Models.Intents.AddVertexIntent.AddVertexIntent() -> void
+Ama.CRDT.Models.Intents.AddVertexIntent.AddVertexIntent(object! Vertex) -> void
+Ama.CRDT.Models.Intents.AddVertexIntent.Deconstruct(out object! Vertex) -> void
+Ama.CRDT.Models.Intents.AddVertexIntent.Equals(Ama.CRDT.Models.Intents.AddVertexIntent other) -> bool
+Ama.CRDT.Models.Intents.AddVertexIntent.Vertex.get -> object!
+Ama.CRDT.Models.Intents.AddVertexIntent.Vertex.init -> void
+Ama.CRDT.Models.Intents.IncrementIntent
+Ama.CRDT.Models.Intents.IncrementIntent.Deconstruct(out object? Value) -> void
+Ama.CRDT.Models.Intents.IncrementIntent.Equals(Ama.CRDT.Models.Intents.IncrementIntent other) -> bool
+Ama.CRDT.Models.Intents.IncrementIntent.IncrementIntent() -> void
+Ama.CRDT.Models.Intents.IncrementIntent.IncrementIntent(object? Value) -> void
+Ama.CRDT.Models.Intents.IncrementIntent.Value.get -> object?
+Ama.CRDT.Models.Intents.IncrementIntent.Value.init -> void
+Ama.CRDT.Models.Intents.InsertIntent
+Ama.CRDT.Models.Intents.InsertIntent.Deconstruct(out int Index, out object? Value) -> void
+Ama.CRDT.Models.Intents.InsertIntent.Equals(Ama.CRDT.Models.Intents.InsertIntent other) -> bool
+Ama.CRDT.Models.Intents.InsertIntent.Index.get -> int
+Ama.CRDT.Models.Intents.InsertIntent.Index.init -> void
+Ama.CRDT.Models.Intents.InsertIntent.InsertIntent() -> void
+Ama.CRDT.Models.Intents.InsertIntent.InsertIntent(int Index, object? Value) -> void
+Ama.CRDT.Models.Intents.InsertIntent.Value.get -> object?
+Ama.CRDT.Models.Intents.InsertIntent.Value.init -> void
+Ama.CRDT.Models.Intents.IOperationIntent
+Ama.CRDT.Models.Intents.MapIncrementIntent
+Ama.CRDT.Models.Intents.MapIncrementIntent.Deconstruct(out object! Key, out object? Value) -> void
+Ama.CRDT.Models.Intents.MapIncrementIntent.Equals(Ama.CRDT.Models.Intents.MapIncrementIntent other) -> bool
+Ama.CRDT.Models.Intents.MapIncrementIntent.Key.get -> object!
+Ama.CRDT.Models.Intents.MapIncrementIntent.Key.init -> void
+Ama.CRDT.Models.Intents.MapIncrementIntent.MapIncrementIntent() -> void
+Ama.CRDT.Models.Intents.MapIncrementIntent.MapIncrementIntent(object! Key, object? Value) -> void
+Ama.CRDT.Models.Intents.MapIncrementIntent.Value.get -> object?
+Ama.CRDT.Models.Intents.MapIncrementIntent.Value.init -> void
+Ama.CRDT.Models.Intents.MapRemoveIntent
+Ama.CRDT.Models.Intents.MapRemoveIntent.Deconstruct(out object! Key) -> void
+Ama.CRDT.Models.Intents.MapRemoveIntent.Equals(Ama.CRDT.Models.Intents.MapRemoveIntent other) -> bool
+Ama.CRDT.Models.Intents.MapRemoveIntent.Key.get -> object!
+Ama.CRDT.Models.Intents.MapRemoveIntent.Key.init -> void
+Ama.CRDT.Models.Intents.MapRemoveIntent.MapRemoveIntent() -> void
+Ama.CRDT.Models.Intents.MapRemoveIntent.MapRemoveIntent(object! Key) -> void
+Ama.CRDT.Models.Intents.MapSetIntent
+Ama.CRDT.Models.Intents.MapSetIntent.Deconstruct(out object! Key, out object? Value) -> void
+Ama.CRDT.Models.Intents.MapSetIntent.Equals(Ama.CRDT.Models.Intents.MapSetIntent other) -> bool
+Ama.CRDT.Models.Intents.MapSetIntent.Key.get -> object!
+Ama.CRDT.Models.Intents.MapSetIntent.Key.init -> void
+Ama.CRDT.Models.Intents.MapSetIntent.MapSetIntent() -> void
+Ama.CRDT.Models.Intents.MapSetIntent.MapSetIntent(object! Key, object? Value) -> void
+Ama.CRDT.Models.Intents.MapSetIntent.Value.get -> object?
+Ama.CRDT.Models.Intents.MapSetIntent.Value.init -> void
+Ama.CRDT.Models.Intents.MoveNodeIntent
+Ama.CRDT.Models.Intents.MoveNodeIntent.Deconstruct(out object! NodeId, out object? NewParentId) -> void
+Ama.CRDT.Models.Intents.MoveNodeIntent.Equals(Ama.CRDT.Models.Intents.MoveNodeIntent other) -> bool
+Ama.CRDT.Models.Intents.MoveNodeIntent.MoveNodeIntent() -> void
+Ama.CRDT.Models.Intents.MoveNodeIntent.MoveNodeIntent(object! NodeId, object? NewParentId) -> void
+Ama.CRDT.Models.Intents.MoveNodeIntent.NewParentId.get -> object?
+Ama.CRDT.Models.Intents.MoveNodeIntent.NewParentId.init -> void
+Ama.CRDT.Models.Intents.MoveNodeIntent.NodeId.get -> object!
+Ama.CRDT.Models.Intents.MoveNodeIntent.NodeId.init -> void
+Ama.CRDT.Models.Intents.RemoveEdgeIntent
+Ama.CRDT.Models.Intents.RemoveEdgeIntent.Deconstruct(out Ama.CRDT.Models.Edge Edge) -> void
+Ama.CRDT.Models.Intents.RemoveEdgeIntent.Edge.get -> Ama.CRDT.Models.Edge
+Ama.CRDT.Models.Intents.RemoveEdgeIntent.Edge.init -> void
+Ama.CRDT.Models.Intents.RemoveEdgeIntent.Equals(Ama.CRDT.Models.Intents.RemoveEdgeIntent other) -> bool
+Ama.CRDT.Models.Intents.RemoveEdgeIntent.RemoveEdgeIntent() -> void
+Ama.CRDT.Models.Intents.RemoveEdgeIntent.RemoveEdgeIntent(Ama.CRDT.Models.Edge Edge) -> void
+Ama.CRDT.Models.Intents.RemoveIntent
+Ama.CRDT.Models.Intents.RemoveIntent.Deconstruct(out int Index) -> void
+Ama.CRDT.Models.Intents.RemoveIntent.Equals(Ama.CRDT.Models.Intents.RemoveIntent other) -> bool
+Ama.CRDT.Models.Intents.RemoveIntent.Index.get -> int
+Ama.CRDT.Models.Intents.RemoveIntent.Index.init -> void
+Ama.CRDT.Models.Intents.RemoveIntent.RemoveIntent() -> void
+Ama.CRDT.Models.Intents.RemoveIntent.RemoveIntent(int Index) -> void
+Ama.CRDT.Models.Intents.RemoveNodeIntent
+Ama.CRDT.Models.Intents.RemoveNodeIntent.Deconstruct(out object! NodeId) -> void
+Ama.CRDT.Models.Intents.RemoveNodeIntent.Equals(Ama.CRDT.Models.Intents.RemoveNodeIntent other) -> bool
+Ama.CRDT.Models.Intents.RemoveNodeIntent.NodeId.get -> object!
+Ama.CRDT.Models.Intents.RemoveNodeIntent.NodeId.init -> void
+Ama.CRDT.Models.Intents.RemoveNodeIntent.RemoveNodeIntent() -> void
+Ama.CRDT.Models.Intents.RemoveNodeIntent.RemoveNodeIntent(object! NodeId) -> void
+Ama.CRDT.Models.Intents.RemoveValueIntent
+Ama.CRDT.Models.Intents.RemoveValueIntent.Deconstruct(out object? Value) -> void
+Ama.CRDT.Models.Intents.RemoveValueIntent.Equals(Ama.CRDT.Models.Intents.RemoveValueIntent other) -> bool
+Ama.CRDT.Models.Intents.RemoveValueIntent.RemoveValueIntent() -> void
+Ama.CRDT.Models.Intents.RemoveValueIntent.RemoveValueIntent(object? Value) -> void
+Ama.CRDT.Models.Intents.RemoveValueIntent.Value.get -> object?
+Ama.CRDT.Models.Intents.RemoveValueIntent.Value.init -> void
+Ama.CRDT.Models.Intents.RemoveVertexIntent
+Ama.CRDT.Models.Intents.RemoveVertexIntent.Deconstruct(out object! Vertex) -> void
+Ama.CRDT.Models.Intents.RemoveVertexIntent.Equals(Ama.CRDT.Models.Intents.RemoveVertexIntent other) -> bool
+Ama.CRDT.Models.Intents.RemoveVertexIntent.RemoveVertexIntent() -> void
+Ama.CRDT.Models.Intents.RemoveVertexIntent.RemoveVertexIntent(object! Vertex) -> void
+Ama.CRDT.Models.Intents.RemoveVertexIntent.Vertex.get -> object!
+Ama.CRDT.Models.Intents.RemoveVertexIntent.Vertex.init -> void
+Ama.CRDT.Models.Intents.SetIndexIntent
+Ama.CRDT.Models.Intents.SetIndexIntent.Deconstruct(out int Index, out object? Value) -> void
+Ama.CRDT.Models.Intents.SetIndexIntent.Equals(Ama.CRDT.Models.Intents.SetIndexIntent other) -> bool
+Ama.CRDT.Models.Intents.SetIndexIntent.Index.get -> int
+Ama.CRDT.Models.Intents.SetIndexIntent.Index.init -> void
+Ama.CRDT.Models.Intents.SetIndexIntent.SetIndexIntent() -> void
+Ama.CRDT.Models.Intents.SetIndexIntent.SetIndexIntent(int Index, object? Value) -> void
+Ama.CRDT.Models.Intents.SetIndexIntent.Value.get -> object?
+Ama.CRDT.Models.Intents.SetIndexIntent.Value.init -> void
+Ama.CRDT.Models.Intents.SetIntent
+Ama.CRDT.Models.Intents.SetIntent.Deconstruct(out object? Value) -> void
+Ama.CRDT.Models.Intents.SetIntent.Equals(Ama.CRDT.Models.Intents.SetIntent other) -> bool
+Ama.CRDT.Models.Intents.SetIntent.SetIntent() -> void
+Ama.CRDT.Models.Intents.SetIntent.SetIntent(object? Value) -> void
+Ama.CRDT.Models.Intents.SetIntent.Value.get -> object?
+Ama.CRDT.Models.Intents.SetIntent.Value.init -> void
+Ama.CRDT.Models.Intents.VoteIntent
+Ama.CRDT.Models.Intents.VoteIntent.Deconstruct(out object! Voter, out object! Option) -> void
+Ama.CRDT.Models.Intents.VoteIntent.Equals(Ama.CRDT.Models.Intents.VoteIntent other) -> bool
+Ama.CRDT.Models.Intents.VoteIntent.Option.get -> object!
+Ama.CRDT.Models.Intents.VoteIntent.Option.init -> void
+Ama.CRDT.Models.Intents.VoteIntent.VoteIntent() -> void
+Ama.CRDT.Models.Intents.VoteIntent.VoteIntent(object! Voter, object! Option) -> void
+Ama.CRDT.Models.Intents.VoteIntent.Voter.get -> object!
+Ama.CRDT.Models.Intents.VoteIntent.Voter.init -> void
+Ama.CRDT.Services.CrdtPatcher.BuildOperation<T, TProp>(Ama.CRDT.Models.CrdtDocument<T!> document, System.Linq.Expressions.Expression<System.Func<T!, TProp>!>! propertyExpression) -> Ama.CRDT.Services.IIntentBuilder<TProp>!
+Ama.CRDT.Services.CrdtPatcher.GenerateOperation<T, TProp>(Ama.CRDT.Models.CrdtDocument<T!> document, System.Linq.Expressions.Expression<System.Func<T!, TProp>!>! propertyExpression, Ama.CRDT.Models.Intents.IOperationIntent! intent) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.ICrdtPatcher.BuildOperation<T, TProp>(Ama.CRDT.Models.CrdtDocument<T!> document, System.Linq.Expressions.Expression<System.Func<T!, TProp>!>! propertyExpression) -> Ama.CRDT.Services.IIntentBuilder<TProp>!
+Ama.CRDT.Services.ICrdtPatcher.GenerateOperation<T, TProp>(Ama.CRDT.Models.CrdtDocument<T!> document, System.Linq.Expressions.Expression<System.Func<T!, TProp>!>! propertyExpression, Ama.CRDT.Models.Intents.IOperationIntent! intent) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.IIntentBuilder<TProperty>
+Ama.CRDT.Services.IIntentBuilder<TProperty>.Build(Ama.CRDT.Models.Intents.IOperationIntent! intent) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.ArrayLcsStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.AverageRegisterStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.BoundedCounterStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.CounterMapStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.CounterStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.FixedSizeArrayStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.GCounterStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.GenerateOperationContext
+Ama.CRDT.Services.Strategies.GenerateOperationContext.Deconstruct(out object! DocumentRoot, out Ama.CRDT.Models.CrdtMetadata! Metadata, out string! JsonPath, out System.Reflection.PropertyInfo! Property, out Ama.CRDT.Models.Intents.IOperationIntent! Intent, out Ama.CRDT.Models.ICrdtTimestamp! Timestamp, out string! ReplicaId) -> void
+Ama.CRDT.Services.Strategies.GenerateOperationContext.DocumentRoot.get -> object!
+Ama.CRDT.Services.Strategies.GenerateOperationContext.DocumentRoot.init -> void
+Ama.CRDT.Services.Strategies.GenerateOperationContext.Equals(Ama.CRDT.Services.Strategies.GenerateOperationContext other) -> bool
+Ama.CRDT.Services.Strategies.GenerateOperationContext.GenerateOperationContext() -> void
+Ama.CRDT.Services.Strategies.GenerateOperationContext.GenerateOperationContext(object! DocumentRoot, Ama.CRDT.Models.CrdtMetadata! Metadata, string! JsonPath, System.Reflection.PropertyInfo! Property, Ama.CRDT.Models.Intents.IOperationIntent! Intent, Ama.CRDT.Models.ICrdtTimestamp! Timestamp, string! ReplicaId) -> void
+Ama.CRDT.Services.Strategies.GenerateOperationContext.Intent.get -> Ama.CRDT.Models.Intents.IOperationIntent!
+Ama.CRDT.Services.Strategies.GenerateOperationContext.Intent.init -> void
+Ama.CRDT.Services.Strategies.GenerateOperationContext.JsonPath.get -> string!
+Ama.CRDT.Services.Strategies.GenerateOperationContext.JsonPath.init -> void
+Ama.CRDT.Services.Strategies.GenerateOperationContext.Metadata.get -> Ama.CRDT.Models.CrdtMetadata!
+Ama.CRDT.Services.Strategies.GenerateOperationContext.Metadata.init -> void
+Ama.CRDT.Services.Strategies.GenerateOperationContext.Property.get -> System.Reflection.PropertyInfo!
+Ama.CRDT.Services.Strategies.GenerateOperationContext.Property.init -> void
+Ama.CRDT.Services.Strategies.GenerateOperationContext.ReplicaId.get -> string!
+Ama.CRDT.Services.Strategies.GenerateOperationContext.ReplicaId.init -> void
+Ama.CRDT.Services.Strategies.GenerateOperationContext.Timestamp.get -> Ama.CRDT.Models.ICrdtTimestamp!
+Ama.CRDT.Services.Strategies.GenerateOperationContext.Timestamp.init -> void
+Ama.CRDT.Services.Strategies.GraphStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.GSetStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.ICrdtStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.LseqStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.LwwMapStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.LwwSetStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.LwwStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.MaxWinsMapStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.MaxWinsStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.MinWinsMapStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.MinWinsStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.OrMapStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.OrSetStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.PriorityQueueStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.ReplicatedTreeStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.RgaStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.SortedSetStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.StateMachineStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.TwoPhaseGraphStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+Ama.CRDT.Services.Strategies.VoteCounterStrategy.GenerateOperation(Ama.CRDT.Services.Strategies.GenerateOperationContext context) -> Ama.CRDT.Models.CrdtOperation
+override Ama.CRDT.Models.Intents.AddEdgeIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.AddIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.AddNodeIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.AddVertexIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.IncrementIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.InsertIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.MapIncrementIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.MapRemoveIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.MapSetIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.MoveNodeIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.RemoveEdgeIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.RemoveIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.RemoveNodeIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.RemoveValueIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.RemoveVertexIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.SetIndexIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.SetIntent.GetHashCode() -> int
+override Ama.CRDT.Models.Intents.VoteIntent.GetHashCode() -> int
+override Ama.CRDT.Services.Strategies.GenerateOperationContext.GetHashCode() -> int
+static Ama.CRDT.Extensions.IntentBuilderExtensions.Add<TElement>(this Ama.CRDT.Services.IIntentBuilder<System.Collections.Generic.IEnumerable<TElement>!>! builder, TElement value) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.AddEdge(this Ama.CRDT.Services.IIntentBuilder<Ama.CRDT.Models.CrdtGraph!>! builder, Ama.CRDT.Models.Edge edge) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.AddNode(this Ama.CRDT.Services.IIntentBuilder<Ama.CRDT.Models.CrdtTree!>! builder, Ama.CRDT.Models.TreeNode! node) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.AddVertex(this Ama.CRDT.Services.IIntentBuilder<Ama.CRDT.Models.CrdtGraph!>! builder, object! vertex) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.Increment<TKey, TValue>(this Ama.CRDT.Services.IIntentBuilder<System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<TKey, TValue>>!>! builder, TKey key, TValue value) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.Increment<TNumber>(this Ama.CRDT.Services.IIntentBuilder<TNumber>! builder, TNumber value) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.Insert<TElement>(this Ama.CRDT.Services.IIntentBuilder<System.Collections.Generic.IEnumerable<TElement>!>! builder, int index, TElement value) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.MoveNode(this Ama.CRDT.Services.IIntentBuilder<Ama.CRDT.Models.CrdtTree!>! builder, object! nodeId, object? newParentId) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.Remove<TElement>(this Ama.CRDT.Services.IIntentBuilder<System.Collections.Generic.IEnumerable<TElement>!>! builder, TElement value) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.Remove<TKey, TValue>(this Ama.CRDT.Services.IIntentBuilder<System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<TKey, TValue>>!>! builder, TKey key) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.RemoveAt<TElement>(this Ama.CRDT.Services.IIntentBuilder<System.Collections.Generic.IEnumerable<TElement>!>! builder, int index) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.RemoveEdge(this Ama.CRDT.Services.IIntentBuilder<Ama.CRDT.Models.CrdtGraph!>! builder, Ama.CRDT.Models.Edge edge) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.RemoveNode(this Ama.CRDT.Services.IIntentBuilder<Ama.CRDT.Models.CrdtTree!>! builder, object! nodeId) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.RemoveVertex(this Ama.CRDT.Services.IIntentBuilder<Ama.CRDT.Models.CrdtGraph!>! builder, object! vertex) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.Set<TKey, TValue>(this Ama.CRDT.Services.IIntentBuilder<System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<TKey, TValue>>!>! builder, TKey key, TValue value) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.Set<TProperty>(this Ama.CRDT.Services.IIntentBuilder<TProperty>! builder, TProperty value) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.SetIndex<TElement>(this Ama.CRDT.Services.IIntentBuilder<System.Collections.Generic.IEnumerable<TElement>!>! builder, int index, TElement value) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Extensions.IntentBuilderExtensions.Vote<TKey, TValue>(this Ama.CRDT.Services.IIntentBuilder<System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<TKey, TValue>>!>! builder, TKey voter, TValue option) -> Ama.CRDT.Models.CrdtOperation
+static Ama.CRDT.Models.Intents.AddEdgeIntent.operator !=(Ama.CRDT.Models.Intents.AddEdgeIntent left, Ama.CRDT.Models.Intents.AddEdgeIntent right) -> bool
+static Ama.CRDT.Models.Intents.AddEdgeIntent.operator ==(Ama.CRDT.Models.Intents.AddEdgeIntent left, Ama.CRDT.Models.Intents.AddEdgeIntent right) -> bool
+static Ama.CRDT.Models.Intents.AddIntent.operator !=(Ama.CRDT.Models.Intents.AddIntent left, Ama.CRDT.Models.Intents.AddIntent right) -> bool
+static Ama.CRDT.Models.Intents.AddIntent.operator ==(Ama.CRDT.Models.Intents.AddIntent left, Ama.CRDT.Models.Intents.AddIntent right) -> bool
+static Ama.CRDT.Models.Intents.AddNodeIntent.operator !=(Ama.CRDT.Models.Intents.AddNodeIntent left, Ama.CRDT.Models.Intents.AddNodeIntent right) -> bool
+static Ama.CRDT.Models.Intents.AddNodeIntent.operator ==(Ama.CRDT.Models.Intents.AddNodeIntent left, Ama.CRDT.Models.Intents.AddNodeIntent right) -> bool
+static Ama.CRDT.Models.Intents.AddVertexIntent.operator !=(Ama.CRDT.Models.Intents.AddVertexIntent left, Ama.CRDT.Models.Intents.AddVertexIntent right) -> bool
+static Ama.CRDT.Models.Intents.AddVertexIntent.operator ==(Ama.CRDT.Models.Intents.AddVertexIntent left, Ama.CRDT.Models.Intents.AddVertexIntent right) -> bool
+static Ama.CRDT.Models.Intents.IncrementIntent.operator !=(Ama.CRDT.Models.Intents.IncrementIntent left, Ama.CRDT.Models.Intents.IncrementIntent right) -> bool
+static Ama.CRDT.Models.Intents.IncrementIntent.operator ==(Ama.CRDT.Models.Intents.IncrementIntent left, Ama.CRDT.Models.Intents.IncrementIntent right) -> bool
+static Ama.CRDT.Models.Intents.InsertIntent.operator !=(Ama.CRDT.Models.Intents.InsertIntent left, Ama.CRDT.Models.Intents.InsertIntent right) -> bool
+static Ama.CRDT.Models.Intents.InsertIntent.operator ==(Ama.CRDT.Models.Intents.InsertIntent left, Ama.CRDT.Models.Intents.InsertIntent right) -> bool
+static Ama.CRDT.Models.Intents.MapIncrementIntent.operator !=(Ama.CRDT.Models.Intents.MapIncrementIntent left, Ama.CRDT.Models.Intents.MapIncrementIntent right) -> bool
+static Ama.CRDT.Models.Intents.MapIncrementIntent.operator ==(Ama.CRDT.Models.Intents.MapIncrementIntent left, Ama.CRDT.Models.Intents.MapIncrementIntent right) -> bool
+static Ama.CRDT.Models.Intents.MapRemoveIntent.operator !=(Ama.CRDT.Models.Intents.MapRemoveIntent left, Ama.CRDT.Models.Intents.MapRemoveIntent right) -> bool
+static Ama.CRDT.Models.Intents.MapRemoveIntent.operator ==(Ama.CRDT.Models.Intents.MapRemoveIntent left, Ama.CRDT.Models.Intents.MapRemoveIntent right) -> bool
+static Ama.CRDT.Models.Intents.MapSetIntent.operator !=(Ama.CRDT.Models.Intents.MapSetIntent left, Ama.CRDT.Models.Intents.MapSetIntent right) -> bool
+static Ama.CRDT.Models.Intents.MapSetIntent.operator ==(Ama.CRDT.Models.Intents.MapSetIntent left, Ama.CRDT.Models.Intents.MapSetIntent right) -> bool
+static Ama.CRDT.Models.Intents.MoveNodeIntent.operator !=(Ama.CRDT.Models.Intents.MoveNodeIntent left, Ama.CRDT.Models.Intents.MoveNodeIntent right) -> bool
+static Ama.CRDT.Models.Intents.MoveNodeIntent.operator ==(Ama.CRDT.Models.Intents.MoveNodeIntent left, Ama.CRDT.Models.Intents.MoveNodeIntent right) -> bool
+static Ama.CRDT.Models.Intents.RemoveEdgeIntent.operator !=(Ama.CRDT.Models.Intents.RemoveEdgeIntent left, Ama.CRDT.Models.Intents.RemoveEdgeIntent right) -> bool
+static Ama.CRDT.Models.Intents.RemoveEdgeIntent.operator ==(Ama.CRDT.Models.Intents.RemoveEdgeIntent left, Ama.CRDT.Models.Intents.RemoveEdgeIntent right) -> bool
+static Ama.CRDT.Models.Intents.RemoveIntent.operator !=(Ama.CRDT.Models.Intents.RemoveIntent left, Ama.CRDT.Models.Intents.RemoveIntent right) -> bool
+static Ama.CRDT.Models.Intents.RemoveIntent.operator ==(Ama.CRDT.Models.Intents.RemoveIntent left, Ama.CRDT.Models.Intents.RemoveIntent right) -> bool
+static Ama.CRDT.Models.Intents.RemoveNodeIntent.operator !=(Ama.CRDT.Models.Intents.RemoveNodeIntent left, Ama.CRDT.Models.Intents.RemoveNodeIntent right) -> bool
+static Ama.CRDT.Models.Intents.RemoveNodeIntent.operator ==(Ama.CRDT.Models.Intents.RemoveNodeIntent left, Ama.CRDT.Models.Intents.RemoveNodeIntent right) -> bool
+static Ama.CRDT.Models.Intents.RemoveValueIntent.operator !=(Ama.CRDT.Models.Intents.RemoveValueIntent left, Ama.CRDT.Models.Intents.RemoveValueIntent right) -> bool
+static Ama.CRDT.Models.Intents.RemoveValueIntent.operator ==(Ama.CRDT.Models.Intents.RemoveValueIntent left, Ama.CRDT.Models.Intents.RemoveValueIntent right) -> bool
+static Ama.CRDT.Models.Intents.RemoveVertexIntent.operator !=(Ama.CRDT.Models.Intents.RemoveVertexIntent left, Ama.CRDT.Models.Intents.RemoveVertexIntent right) -> bool
+static Ama.CRDT.Models.Intents.RemoveVertexIntent.operator ==(Ama.CRDT.Models.Intents.RemoveVertexIntent left, Ama.CRDT.Models.Intents.RemoveVertexIntent right) -> bool
+static Ama.CRDT.Models.Intents.SetIndexIntent.operator !=(Ama.CRDT.Models.Intents.SetIndexIntent left, Ama.CRDT.Models.Intents.SetIndexIntent right) -> bool
+static Ama.CRDT.Models.Intents.SetIndexIntent.operator ==(Ama.CRDT.Models.Intents.SetIndexIntent left, Ama.CRDT.Models.Intents.SetIndexIntent right) -> bool
+static Ama.CRDT.Models.Intents.SetIntent.operator !=(Ama.CRDT.Models.Intents.SetIntent left, Ama.CRDT.Models.Intents.SetIntent right) -> bool
+static Ama.CRDT.Models.Intents.SetIntent.operator ==(Ama.CRDT.Models.Intents.SetIntent left, Ama.CRDT.Models.Intents.SetIntent right) -> bool
+static Ama.CRDT.Models.Intents.VoteIntent.operator !=(Ama.CRDT.Models.Intents.VoteIntent left, Ama.CRDT.Models.Intents.VoteIntent right) -> bool
+static Ama.CRDT.Models.Intents.VoteIntent.operator ==(Ama.CRDT.Models.Intents.VoteIntent left, Ama.CRDT.Models.Intents.VoteIntent right) -> bool
+static Ama.CRDT.Services.Strategies.GenerateOperationContext.operator !=(Ama.CRDT.Services.Strategies.GenerateOperationContext left, Ama.CRDT.Services.Strategies.GenerateOperationContext right) -> bool
+static Ama.CRDT.Services.Strategies.GenerateOperationContext.operator ==(Ama.CRDT.Services.Strategies.GenerateOperationContext left, Ama.CRDT.Services.Strategies.GenerateOperationContext right) -> bool
+~override Ama.CRDT.Models.Intents.AddEdgeIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.AddEdgeIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.AddIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.AddIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.AddNodeIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.AddNodeIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.AddVertexIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.AddVertexIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.IncrementIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.IncrementIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.InsertIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.InsertIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.MapIncrementIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.MapIncrementIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.MapRemoveIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.MapRemoveIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.MapSetIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.MapSetIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.MoveNodeIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.MoveNodeIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.RemoveEdgeIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.RemoveEdgeIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.RemoveIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.RemoveIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.RemoveNodeIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.RemoveNodeIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.RemoveValueIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.RemoveValueIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.RemoveVertexIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.RemoveVertexIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.SetIndexIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.SetIndexIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.SetIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.SetIntent.ToString() -> string
+~override Ama.CRDT.Models.Intents.VoteIntent.Equals(object obj) -> bool
+~override Ama.CRDT.Models.Intents.VoteIntent.ToString() -> string
+~override Ama.CRDT.Services.Strategies.GenerateOperationContext.Equals(object obj) -> bool
+~override Ama.CRDT.Services.Strategies.GenerateOperationContext.ToString() -> string
