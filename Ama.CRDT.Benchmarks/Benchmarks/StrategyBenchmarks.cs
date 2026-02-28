@@ -84,10 +84,6 @@ public class StrategyBenchmarks
     private StrategyPoco toPocoForStateMachine = default!;
     private CrdtPatch stateMachinePatch = default!;
 
-    // ExclusiveLock
-    private StrategyPoco toPocoForExclusiveLock = default!;
-    private CrdtPatch exclusiveLockPatch = default!;
-
     // PriorityQueue
     private StrategyPoco toPocoForPriorityQueue = default!;
     private CrdtPatch priorityQueuePatch = default!;
@@ -274,9 +270,6 @@ public class StrategyBenchmarks
     [Benchmark(Description = "GeneratePatch: StateMachine")]
     public CrdtPatch GeneratePatch_StateMachine() => patcher.GeneratePatch(fromDoc, toPocoForStateMachine);
 
-    [Benchmark(Description = "GeneratePatch: ExclusiveLock")]
-    public CrdtPatch GeneratePatch_ExclusiveLock() => patcher.GeneratePatch(fromDoc, toPocoForExclusiveLock);
-
     [Benchmark(Description = "GeneratePatch: PriorityQueue")]
     public CrdtPatch GeneratePatch_PriorityQueue() => patcher.GeneratePatch(fromDoc, toPocoForPriorityQueue);
 
@@ -335,9 +328,6 @@ public class StrategyBenchmarks
 
     [Benchmark(Description = "ApplyPatch: StateMachine")]
     public StrategyPoco ApplyPatch_StateMachine() => applicator.ApplyPatch(new CrdtDocument<StrategyPoco>(basePoco.Clone(), new CrdtMetadata()), stateMachinePatch);
-
-    [Benchmark(Description = "ApplyPatch: ExclusiveLock")]
-    public StrategyPoco ApplyPatch_ExclusiveLock() => applicator.ApplyPatch(new CrdtDocument<StrategyPoco>(basePoco.Clone(), new CrdtMetadata()), exclusiveLockPatch);
 
     [Benchmark(Description = "ApplyPatch: PriorityQueue")]
     public StrategyPoco ApplyPatch_PriorityQueue() => applicator.ApplyPatch(new CrdtDocument<StrategyPoco>(basePoco.Clone(), new CrdtMetadata()), priorityQueuePatch);
