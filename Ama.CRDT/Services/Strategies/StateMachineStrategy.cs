@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using System;
 using System.Linq;
@@ -15,6 +16,7 @@ using Ama.CRDT.Services;
 /// while using a Last-Writer-Wins (LWW) mechanism for conflict resolution among valid transitions.
 /// </summary>
 [CrdtSupportedType(typeof(object))]
+[CrdtSupportedIntent(typeof(SetIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -50,6 +52,33 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
 
         var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
         operations.Add(operation);
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        var (root, _, path, property, intent, timestamp, contextReplicaId) = context;
+
+        if (intent is not SetIntent setIntent)
+        {
+            throw new NotSupportedException($"Intent {intent.GetType().Name} is not supported by {nameof(StateMachineStrategy)}.");
+        }
+
+        var attribute = property.GetCustomAttribute<CrdtStateMachineStrategyAttribute>();
+        if (attribute is null)
+        {
+            throw new InvalidOperationException($"Property {property.Name} is missing the {nameof(CrdtStateMachineStrategyAttribute)}.");
+        }
+
+        var currentValue = PocoPathHelper.GetValue(root, path);
+        var incomingValue = PocoPathHelper.ConvertValue(setIntent.Value, property.PropertyType);
+
+        if (!IsValidTransition(attribute.ValidatorType, currentValue, incomingValue))
+        {
+            throw new InvalidOperationException($"Invalid state transition from '{currentValue}' to '{incomingValue}'.");
+        }
+
+        return new CrdtOperation(Guid.NewGuid(), contextReplicaId, path, OperationType.Upsert, incomingValue, timestamp);
     }
 
     /// <inheritdoc/>

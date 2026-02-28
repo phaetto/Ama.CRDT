@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
 using System;
@@ -10,6 +11,10 @@ using System.Collections.Generic;
 using System.Linq;
 
 [CrdtSupportedType(typeof(CrdtGraph))]
+[CrdtSupportedIntent(typeof(AddVertexIntent))]
+[CrdtSupportedIntent(typeof(RemoveVertexIntent))]
+[CrdtSupportedIntent(typeof(AddEdgeIntent))]
+[CrdtSupportedIntent(typeof(RemoveEdgeIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -45,6 +50,20 @@ public sealed class TwoPhaseGraphStrategy(
         {
             operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new GraphEdgePayload(edge), changeTimestamp));
         }
+    }
+
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        var (_, _, path, _, intent, changeTimestamp, replicaId) = context;
+
+        return intent switch
+        {
+            AddVertexIntent addVertex => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new GraphVertexPayload(addVertex.Vertex), changeTimestamp),
+            RemoveVertexIntent removeVertex => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new GraphVertexPayload(removeVertex.Vertex), changeTimestamp),
+            AddEdgeIntent addEdge => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new GraphEdgePayload(addEdge.Edge), changeTimestamp),
+            RemoveEdgeIntent removeEdge => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new GraphEdgePayload(removeEdge.Edge), changeTimestamp),
+            _ => throw new NotSupportedException($"Intent {intent.GetType().Name} is not supported by {nameof(TwoPhaseGraphStrategy)}.")
+        };
     }
 
     public void ApplyOperation(ApplyOperationContext context)

@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -83,6 +84,69 @@ public sealed class CounterStrategyTests : IDisposable
         op.Value.ShouldNotBeNull();
         op.Value.ShouldBe((decimal)delta);
         op.Timestamp.ShouldBe(expectedTimestamp);
+    }
+
+    [Fact]
+    public void GenerateOperation_ShouldCreateIncrementOperation_WhenIncrementIntentProvided()
+    {
+        // Arrange
+        var context = new GenerateOperationContext(
+            new TestModel { Score = 10 },
+            new CrdtMetadata(),
+            "$.Score",
+            typeof(TestModel).GetProperty(nameof(TestModel.Score))!,
+            new IncrementIntent(5m),
+            timestampProvider.Create(123),
+            "replica-A");
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Increment);
+        operation.Value.ShouldBe(5m);
+        operation.JsonPath.ShouldBe("$.Score");
+        operation.Timestamp.ShouldBe(timestampProvider.Create(123));
+    }
+
+    [Fact]
+    public void GenerateOperation_ShouldCreateIncrementOperation_WhenSetIntentProvided()
+    {
+        // Arrange
+        var context = new GenerateOperationContext(
+            new TestModel { Score = 10 },
+            new CrdtMetadata(),
+            "$.Score",
+            typeof(TestModel).GetProperty(nameof(TestModel.Score))!,
+            new SetIntent(15m), // Target is 15, Current is 10 => Expected delta is 5
+            timestampProvider.Create(123),
+            "replica-A");
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Increment);
+        operation.Value.ShouldBe(5m);
+        operation.JsonPath.ShouldBe("$.Score");
+        operation.Timestamp.ShouldBe(timestampProvider.Create(123));
+    }
+
+    [Fact]
+    public void GenerateOperation_ShouldThrowNotSupportedException_WhenUnsupportedIntentProvided()
+    {
+        // Arrange
+        var context = new GenerateOperationContext(
+            new TestModel { Score = 10 },
+            new CrdtMetadata(),
+            "$.Score",
+            typeof(TestModel).GetProperty(nameof(TestModel.Score))!,
+            new RemoveIntent(0),
+            timestampProvider.Create(123),
+            "replica-A");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
     }
 
     [Theory]

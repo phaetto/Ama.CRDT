@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -13,6 +14,8 @@ using System.Reflection;
 
 /// <inheritdoc/>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedIntent(typeof(InsertIntent))]
+[CrdtSupportedIntent(typeof(RemoveIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -40,16 +43,7 @@ public sealed class ArrayLcsStrategy(
         
         var comparer = comparerProvider.GetComparer(elementType);
 
-        if (!originalMeta.PositionalTrackers.TryGetValue(path, out var originalPositions)
-            || originalPositions.Count != originalList.Count
-            || originalPositions.All(p => p.OperationId == Guid.Empty))
-        {
-            originalPositions = new List<PositionalIdentifier>();
-            for (var i = 0; i < originalList.Count; i++)
-            {
-                originalPositions.Add(new PositionalIdentifier((i + 1).ToString(CultureInfo.InvariantCulture), Guid.Empty));
-            }
-        }
+        var originalPositions = GetOrInitializePositions(originalList, originalMeta, path);
         
         var lcs = LongestCommonSubsequence(originalList, modifiedList, comparer);
         
@@ -85,6 +79,51 @@ public sealed class ArrayLcsStrategy(
                 lastGeneratedPos = newPos;
             }
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        var root = context.DocumentRoot;
+        var metadata = context.Metadata;
+        var path = context.JsonPath;
+        var intent = context.Intent;
+        var timestamp = context.Timestamp;
+        var opReplicaId = context.ReplicaId;
+
+        var (parent, resolvedProperty, _) = PocoPathHelper.ResolvePath(root, path);
+        var list = (parent != null && resolvedProperty != null ? resolvedProperty.GetValue(parent) as IList : null) ?? new List<object>();
+
+        var positions = GetOrInitializePositions(list, metadata, path);
+
+        if (intent is InsertIntent insertIntent)
+        {
+            if (insertIntent.Index < 0 || insertIntent.Index > list.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(context), "Insert index is out of range.");
+            }
+
+            PositionalIdentifier? beforePos = insertIntent.Index > 0 ? positions[insertIntent.Index - 1] : null;
+            PositionalIdentifier? afterPos = insertIntent.Index < positions.Count ? positions[insertIntent.Index] : null;
+
+            var newPos = GeneratePositionBetween(beforePos?.Position, afterPos?.Position);
+            var newItem = new PositionalItem(newPos, insertIntent.Value);
+
+            return new CrdtOperation(Guid.NewGuid(), opReplicaId, path, OperationType.Upsert, newItem, timestamp);
+        }
+
+        if (intent is RemoveIntent removeIntent)
+        {
+            if (removeIntent.Index < 0 || removeIntent.Index >= list.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(context), "Remove index is out of range.");
+            }
+
+            var removedIdentifier = positions[removeIntent.Index];
+            return new CrdtOperation(Guid.NewGuid(), opReplicaId, path, OperationType.Remove, removedIdentifier, timestamp);
+        }
+
+        throw new NotSupportedException($"Intent {intent.GetType().Name} is not supported by {nameof(ArrayLcsStrategy)}.");
     }
 
     /// <inheritdoc/>
@@ -268,6 +307,22 @@ public sealed class ArrayLcsStrategy(
             positions.RemoveAt(index);
             list.RemoveAt(index);
         }
+    }
+
+    private static List<PositionalIdentifier> GetOrInitializePositions(IList currentList, CrdtMetadata metadata, string path)
+    {
+        if (!metadata.PositionalTrackers.TryGetValue(path, out var positions)
+            || positions.Count != currentList.Count
+            || positions.All(p => p.OperationId == Guid.Empty))
+        {
+            var newPositions = new List<PositionalIdentifier>();
+            for (var i = 0; i < currentList.Count; i++)
+            {
+                newPositions.Add(new PositionalIdentifier((i + 1).ToString(CultureInfo.InvariantCulture), Guid.Empty));
+            }
+            return newPositions;
+        }
+        return positions;
     }
     
     private static string GeneratePositionBetween(string? posBefore, string? posAfter)

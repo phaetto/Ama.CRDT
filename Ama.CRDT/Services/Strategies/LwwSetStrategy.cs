@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -19,6 +20,8 @@ using Ama.CRDT.Services;
 /// An element's membership is determined by the timestamp of its last add or remove operation.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedIntent(typeof(AddIntent))]
+[CrdtSupportedIntent(typeof(RemoveValueIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -53,6 +56,17 @@ public sealed class LwwSetStrategy(
         {
             operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item, changeTimestamp));
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        return context.Intent switch
+        {
+            AddIntent addIntent => new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, addIntent.Value, context.Timestamp),
+            RemoveValueIntent removeIntent => new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Remove, removeIntent.Value, context.Timestamp),
+            _ => throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported by {nameof(LwwSetStrategy)}.")
+        };
     }
 
     /// <inheritdoc/>

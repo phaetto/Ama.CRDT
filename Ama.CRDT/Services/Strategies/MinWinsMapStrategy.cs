@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -19,6 +20,7 @@ using Ama.CRDT.Services;
 /// This strategy makes the map's keys grow-only; removals are not propagated.
 /// </summary>
 [CrdtSupportedType(typeof(IDictionary))]
+[CrdtSupportedIntent(typeof(MapSetIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -62,6 +64,18 @@ public sealed class MinWinsMapStrategy(
                 operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp));
             }
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        if (context.Intent is MapSetIntent mapSetIntent)
+        {
+            var payload = new KeyValuePair<object, object?>(mapSetIntent.Key, mapSetIntent.Value);
+            return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, payload, context.Timestamp);
+        }
+
+        throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported by {nameof(MinWinsMapStrategy)}.");
     }
 
     /// <inheritdoc/>

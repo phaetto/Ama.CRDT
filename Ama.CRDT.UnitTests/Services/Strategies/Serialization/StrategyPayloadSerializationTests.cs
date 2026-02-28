@@ -22,7 +22,7 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
         private long current = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         private readonly EpochTimestampProvider defaultProvider = new();
         
-        public ICrdtTimestamp Now() => defaultProvider.Create(System.Threading.Interlocked.Increment(ref current));
+        public ICrdtTimestamp Now() => defaultProvider.Create(Interlocked.Increment(ref current));
         public ICrdtTimestamp Create(long value) => defaultProvider.Create(value);
     }
 

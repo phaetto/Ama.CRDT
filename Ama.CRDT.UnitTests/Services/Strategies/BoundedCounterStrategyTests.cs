@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using System.Collections.Generic;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using Moq;
@@ -77,7 +78,55 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         op.Type.ShouldBe(OperationType.Increment);
         op.Value.ShouldBe(10m);
     }
-    
+
+    [Fact]
+    public void GenerateOperation_ShouldCreateIncrement_WhenIntentIsIncrementIntent()
+    {
+        // Arrange
+        var intent = new IncrementIntent(15m);
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Level))!;
+        var metadata = new CrdtMetadata();
+        var context = new GenerateOperationContext(
+            new TestModel(),
+            metadata,
+            "$.Level",
+            property,
+            intent,
+            timestampProvider.Create(1L),
+            "r1"
+        );
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Increment);
+        operation.Value.ShouldBe(15m);
+        operation.JsonPath.ShouldBe("$.Level");
+        operation.ReplicaId.ShouldBe("r1");
+    }
+
+    [Fact]
+    public void GenerateOperation_ShouldThrowNotSupportedException_ForUnsupportedIntent()
+    {
+        // Arrange
+        var intent = new SetIntent(100);
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Level))!;
+        var metadata = new CrdtMetadata();
+        var context = new GenerateOperationContext(
+            new TestModel(),
+            metadata,
+            "$.Level",
+            property,
+            intent,
+            timestampProvider.Create(1L),
+            "r1"
+        );
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
+    }
+
     [Theory]
     [InlineData(50, 20, 70)]    // Normal increment
     [InlineData(50, -20, 30)]   // Normal decrement

@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
 using System;
@@ -10,6 +11,9 @@ using System.Collections.Generic;
 using System.Linq;
 
 [CrdtSupportedType(typeof(CrdtTree))]
+[CrdtSupportedIntent(typeof(AddNodeIntent))]
+[CrdtSupportedIntent(typeof(RemoveNodeIntent))]
+[CrdtSupportedIntent(typeof(MoveNodeIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -63,6 +67,50 @@ public sealed class ReplicatedTreeStrategy(
                 operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp));
             }
         }
+    }
+
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        return context.Intent switch
+        {
+            AddNodeIntent addIntent => new CrdtOperation(
+                Guid.NewGuid(),
+                context.ReplicaId,
+                context.JsonPath,
+                OperationType.Upsert,
+                new TreeAddNodePayload(addIntent.Node.Id, addIntent.Node.Value, addIntent.Node.ParentId, Guid.NewGuid()),
+                context.Timestamp),
+
+            RemoveNodeIntent removeIntent => GenerateRemoveOperation(context, removeIntent),
+
+            MoveNodeIntent moveIntent => new CrdtOperation(
+                Guid.NewGuid(),
+                context.ReplicaId,
+                context.JsonPath,
+                OperationType.Upsert,
+                new TreeMoveNodePayload(moveIntent.NodeId, moveIntent.NewParentId),
+                context.Timestamp),
+
+            _ => throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported by {nameof(ReplicatedTreeStrategy)}.")
+        };
+    }
+
+    private static CrdtOperation GenerateRemoveOperation(GenerateOperationContext context, RemoveNodeIntent intent)
+    {
+        var tags = new HashSet<Guid>();
+        if (context.Metadata.ReplicatedTrees.TryGetValue(context.JsonPath, out var state) &&
+            state.Adds.TryGetValue(intent.NodeId, out var addedTags))
+        {
+            tags = new HashSet<Guid>(addedTags);
+        }
+
+        return new CrdtOperation(
+            Guid.NewGuid(),
+            context.ReplicaId,
+            context.JsonPath,
+            OperationType.Remove,
+            new TreeRemoveNodePayload(intent.NodeId, tags),
+            context.Timestamp);
     }
 
     public void ApplyOperation(ApplyOperationContext context)
