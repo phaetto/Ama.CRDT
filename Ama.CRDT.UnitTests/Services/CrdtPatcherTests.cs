@@ -25,7 +25,11 @@ public sealed class CrdtPatcherTests : IDisposable
 
         public long Unchanged { get; init; }
 
+        [CrdtOrSetStrategy]
         public List<string>? Tags { get; init; }
+
+        [CrdtLwwMapStrategy]
+        public Dictionary<string, int>? Scores { get; init; }
     }
 
     private sealed record NestedModel
@@ -61,7 +65,7 @@ public sealed class CrdtPatcherTests : IDisposable
     {
         // Arrange
         var model = new TestModel();
-        var fromWithNullMeta = new CrdtDocument<TestModel>(model, null);
+        var fromWithNullMeta = new CrdtDocument<TestModel>(model, null!);
 
         // Act & Assert
         Should.Throw<ArgumentNullException>(() => patcher.GeneratePatch(fromWithNullMeta, model));
@@ -143,5 +147,77 @@ public sealed class CrdtPatcherTests : IDisposable
         op.Type.ShouldBe(OperationType.Upsert);
         op.Value!.ShouldBe("Nested Updated");
         op.Timestamp.ShouldBe(ts2);
+    }
+
+    [Fact]
+    public void BuildOperation_Set_ShouldProduceCorrectOperation()
+    {
+        // Arrange
+        var model = new TestModel { Name = "Original" };
+        var metadata = new CrdtMetadata();
+        var doc = new CrdtDocument<TestModel>(model, metadata);
+
+        // Act
+        var op = patcher.BuildOperation(doc, m => m.Name).Set("Updated");
+
+        // Assert
+        op.JsonPath.ShouldBe("$.name");
+        op.Type.ShouldBe(OperationType.Upsert);
+        op.Value.ShouldBe("Updated");
+        
+        var replicaContext = scope.ServiceProvider.GetRequiredService<ReplicaContext>();
+        op.ReplicaId.ShouldBe(replicaContext.ReplicaId);
+        op.Clock.ShouldBe(1);
+    }
+
+    [Fact]
+    public void BuildOperation_Increment_ShouldProduceCorrectOperation()
+    {
+        // Arrange
+        var model = new TestModel { Likes = 5 };
+        var metadata = new CrdtMetadata();
+        var doc = new CrdtDocument<TestModel>(model, metadata);
+
+        // Act
+        var op = patcher.BuildOperation(doc, m => m.Likes).Increment(10);
+
+        // Assert
+        op.JsonPath.ShouldBe("$.likes");
+        op.Type.ShouldBe(OperationType.Increment);
+        op.Value.ShouldBe(10);
+    }
+
+    [Fact]
+    public void BuildOperation_ListAdd_ShouldProduceCorrectOperation()
+    {
+        // Arrange
+        var model = new TestModel { Tags = [] };
+        var metadata = new CrdtMetadata();
+        var doc = new CrdtDocument<TestModel>(model, metadata);
+
+        // Act
+        var op = patcher.BuildOperation(doc, m => m.Tags).Add("NewTag");
+
+        // Assert
+        op.JsonPath.ShouldBe("$.tags");
+        op.Type.ShouldBe(OperationType.Upsert);
+        op.Value.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void BuildOperation_DictionaryMapSet_ShouldProduceCorrectOperation()
+    {
+        // Arrange
+        var model = new TestModel { Scores = new Dictionary<string, int>() };
+        var metadata = new CrdtMetadata();
+        var doc = new CrdtDocument<TestModel>(model, metadata);
+
+        // Act
+        var op = patcher.BuildOperation(doc, m => m.Scores).Set("Player1", 100);
+
+        // Assert
+        op.JsonPath.ShouldStartWith("$.scores");
+        op.Type.ShouldBe(OperationType.Upsert);
+        op.Value.ShouldBe(new KeyValuePair<object, object>("Player1", 100));
     }
 }
