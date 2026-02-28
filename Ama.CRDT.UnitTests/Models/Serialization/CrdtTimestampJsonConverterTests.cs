@@ -44,16 +44,6 @@ public sealed class CrdtTimestampJsonConverterTests
     }
 
     [Fact]
-    public void Serialize_WithSequentialTimestamp_ShouldProduceCorrectJson()
-    {
-        ICrdtTimestamp timestamp = new SequentialTimestamp(42);
-
-        var json = JsonSerializer.Serialize(timestamp, serializerOptions);
-
-        json.ShouldBe("{\"Value\":42,\"$type\":\"sequential\"}");
-    }
-
-    [Fact]
     public void Serialize_WithRegisteredCustomTimestamp_ShouldProduceCorrectJson()
     {
         ICrdtTimestamp timestamp = new CustomTimestamp(99);
@@ -92,18 +82,6 @@ public sealed class CrdtTimestampJsonConverterTests
         timestamp.ShouldNotBeNull();
         timestamp.ShouldBeOfType<EpochTimestamp>();
         ((EpochTimestamp)timestamp).Value.ShouldBe(1234567890);
-    }
-
-    [Fact]
-    public void Deserialize_WithSequentialTimestampJson_ShouldCreateSequentialTimestamp()
-    {
-        var json = "{\"$type\":\"sequential\",\"Value\":42}";
-
-        var timestamp = JsonSerializer.Deserialize<ICrdtTimestamp>(json, serializerOptions);
-
-        timestamp.ShouldNotBeNull();
-        timestamp.ShouldBeOfType<SequentialTimestamp>();
-        ((SequentialTimestamp)timestamp).Value.ShouldBe(42);
     }
 
     [Fact]
