@@ -67,7 +67,7 @@ public sealed class DataGeneratorService(
             foreach (var tag in tags)
             {
                 var op = patcher.BuildOperation(fromDocForTags, x => x.Tags).Add(tag);
-                metadataManager.AdvanceVersionVector(metadata, op);
+                metadataManager.AdvanceVersionVector(metadata!, op);
                 tagsOperations.Add(op);
             }
 
@@ -95,7 +95,7 @@ public sealed class DataGeneratorService(
                     var finalComment = comment with { CreatedAt = currentCommentDate };
                     
                     var op = patcher.BuildOperation(fromDocument, x => x.Comments).Set(finalComment.CreatedAt, finalComment);
-                    metadataManager.AdvanceVersionVector(metadata, op);
+                    metadataManager.AdvanceVersionVector(metadata!, op);
                     operations.Add(op);
                 }
                 
