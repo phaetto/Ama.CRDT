@@ -69,7 +69,6 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent) where T : class
     {
-        ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(document.Metadata);
         ArgumentNullException.ThrowIfNull(document.Data);
         ArgumentNullException.ThrowIfNull(propertyExpression);

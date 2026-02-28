@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -19,6 +20,7 @@ using Ama.CRDT.Services;
 /// In a G-Set, elements can only be added. Remove operations are ignored.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedIntent(typeof(AddIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -47,6 +49,26 @@ public sealed class GSetStrategy(
         {
             operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, item, changeTimestamp));
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        if (context.Intent is AddIntent addIntent)
+        {
+            var elementType = PocoPathHelper.GetCollectionElementType(context.Property);
+            var itemValue = PocoPathHelper.ConvertValue(addIntent.Value, elementType);
+
+            return new CrdtOperation(
+                Guid.NewGuid(),
+                context.ReplicaId,
+                context.JsonPath,
+                OperationType.Upsert,
+                itemValue,
+                context.Timestamp);
+        }
+
+        throw new NotSupportedException($"The intent {context.Intent.GetType().Name} is not supported by {nameof(GSetStrategy)}.");
     }
 
     /// <inheritdoc/>

@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -20,6 +21,9 @@ using System.Reflection;
 /// This avoids floating-point precision issues while providing a stable, convergent order.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedIntent(typeof(AddIntent))]
+[CrdtSupportedIntent(typeof(InsertIntent))]
+[CrdtSupportedIntent(typeof(RemoveIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -159,6 +163,60 @@ public sealed class LseqStrategy(
                 
                 prevId = newId; // The newly inserted item becomes the predecessor for the next insertion
             }
+        }
+    }
+
+    /// <inheritdoc />
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        if (string.IsNullOrEmpty(context.JsonPath))
+        {
+            throw new ArgumentException("JSON path cannot be null or empty.", nameof(context));
+        }
+
+        if (context.Intent is null)
+        {
+            throw new ArgumentNullException(nameof(context), "Intent cannot be null.");
+        }
+
+        if (!context.Metadata.LseqTrackers.TryGetValue(context.JsonPath, out var lseqItems))
+        {
+            lseqItems = new List<LseqItem>();
+        }
+
+        switch (context.Intent)
+        {
+            case AddIntent add:
+            {
+                var lastId = lseqItems.Count > 0 ? lseqItems[^1].Identifier : (LseqIdentifier?)null;
+                var newId = GenerateIdentifierBetween(lastId, null, context.ReplicaId);
+                
+                return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, new LseqItem(newId, add.Value), context.Timestamp);
+            }
+            case InsertIntent insert:
+            {
+                if (insert.Index < 0 || insert.Index > lseqItems.Count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(insert.Index), "Index is out of range.");
+                }
+
+                var prevId = insert.Index > 0 ? lseqItems[insert.Index - 1].Identifier : (LseqIdentifier?)null;
+                var nextId = insert.Index < lseqItems.Count ? lseqItems[insert.Index].Identifier : (LseqIdentifier?)null;
+                var newId = GenerateIdentifierBetween(prevId, nextId, context.ReplicaId);
+                
+                return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, new LseqItem(newId, insert.Value), context.Timestamp);
+            }
+            case RemoveIntent remove:
+            {
+                if (remove.Index < 0 || remove.Index >= lseqItems.Count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(remove.Index), "Index is out of range.");
+                }
+
+                return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Remove, lseqItems[remove.Index].Identifier, context.Timestamp);
+            }
+            default:
+                throw new NotSupportedException($"Explicit operation generation for intent '{context.Intent.GetType().Name}' is not supported in {nameof(LseqStrategy)}.");
         }
     }
 

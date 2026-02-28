@@ -3,7 +3,10 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
@@ -72,6 +75,73 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         var op = patch.Operations.First();
         op.Type.ShouldBe(OperationType.Upsert);
         op.JsonPath.ShouldBe("$.tags");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithInsertIntent_ShouldGenerateUpsertWithCorrectPosition()
+    {
+        // Arrange
+        var doc = new TestModel { Tags = new List<string> { "A", "C" } };
+        var meta = metadataManagerA.Initialize(doc);
+        var propertyInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags));
+        var timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
+
+        var intent = new InsertIntent(1, "B");
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo!, intent, timestampProvider.Now(), "ReplicaA");
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Upsert);
+        operation.JsonPath.ShouldBe("$.tags");
+        var item = operation.Value.ShouldBeOfType<PositionalItem>();
+        item.Value.ShouldBe("B");
+        item.Position.ShouldBe("1.5");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithRemoveIntent_ShouldGenerateRemoveWithCorrectIdentifier()
+    {
+        // Arrange
+        var doc = new TestModel { Tags = new List<string> { "A", "B", "C" } };
+        var meta = metadataManagerA.Initialize(doc);
+        var propertyInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags));
+        var timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
+
+        var intent = new RemoveIntent(1); // Intent to remove "B"
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo!, intent, timestampProvider.Now(), "ReplicaA");
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Remove);
+        operation.JsonPath.ShouldBe("$.tags");
+        var identifier = operation.Value.ShouldBeOfType<PositionalIdentifier>();
+        identifier.Position.ShouldBe("2");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithInvalidIntent_ShouldThrowNotSupportedException()
+    {
+        // Arrange
+        var doc = new TestModel { Tags = new List<string> { "A" } };
+        var meta = metadataManagerA.Initialize(doc);
+        var propertyInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags));
+        var timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
+
+        var intent = new InvalidIntent();
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo!, intent, timestampProvider.Now(), "ReplicaA");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
     }
     
     [Fact]
@@ -245,4 +315,6 @@ public sealed class ArrayLcsStrategyTests : IDisposable
             .SelectMany(t => enumerable.Where(e => !t.Contains(e)),
                 (t1, t2) => t1.Concat(new T[] { t2 }));
     }
+
+    private readonly record struct InvalidIntent : IOperationIntent;
 }

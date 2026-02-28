@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -106,6 +107,58 @@ public sealed class StateMachineStrategyTests : IDisposable
         operations.ShouldBeEmpty();
     }
     
+    [Fact]
+    public void GenerateOperation_WithValidSetIntent_ShouldReturnUpsertOperation()
+    {
+        // Arrange
+        var model = new TestModel { Status = "PENDING" };
+        var metadata = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Status))!;
+        var timestamp = timestampProvider.Create(200);
+        var intent = new SetIntent("PROCESSING");
+        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, "r1");
+
+        // Act
+        var operation = strategyA.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Upsert);
+        operation.JsonPath.ShouldBe("$.status");
+        operation.Value.ShouldBe("PROCESSING");
+        operation.Timestamp.ShouldBe(timestamp);
+        operation.ReplicaId.ShouldBe("r1");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithInvalidStateTransition_ShouldThrowInvalidOperationException()
+    {
+        // Arrange
+        var model = new TestModel { Status = "PENDING" };
+        var metadata = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Status))!;
+        var timestamp = timestampProvider.Create(200);
+        var intent = new SetIntent("SHIPPED"); // Invalid transition directly from PENDING
+        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, "r1");
+
+        // Act & Assert
+        Should.Throw<InvalidOperationException>(() => strategyA.GenerateOperation(context));
+    }
+
+    [Fact]
+    public void GenerateOperation_WithUnsupportedIntent_ShouldThrowNotSupportedException()
+    {
+        // Arrange
+        var model = new TestModel { Status = "PENDING" };
+        var metadata = new CrdtMetadata();
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Status))!;
+        var timestamp = timestampProvider.Create(200);
+        var intent = new IncrementIntent(1); // Not supported intent type
+        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, "r1");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
+    }
+
     [Fact]
     public void ApplyOperation_WithValidTransitionAndNewerTimestamp_ShouldUpdateModel()
     {

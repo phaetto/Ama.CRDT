@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
 using System;
@@ -13,6 +14,8 @@ using System.Reflection;
 
 /// <inheritdoc/>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedIntent(typeof(AddIntent))]
+[CrdtSupportedIntent(typeof(RemoveValueIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -90,6 +93,21 @@ public sealed class PriorityQueueStrategy(
                 operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedItem, changeTimestamp));
             }
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        var (_, _, jsonPath, property, intent, timestamp, replicaId) = context;
+
+        var elementType = PocoPathHelper.GetCollectionElementType(property);
+
+        return intent switch
+        {
+            AddIntent addIntent => new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Upsert, PocoPathHelper.ConvertValue(addIntent.Value, elementType), timestamp),
+            RemoveValueIntent removeIntent => new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Remove, PocoPathHelper.ConvertValue(removeIntent.Value, elementType), timestamp),
+            _ => throw new NotSupportedException($"Intent {intent.GetType().Name} is not supported for {nameof(PriorityQueueStrategy)}.")
+        };
     }
 
     /// <inheritdoc/>

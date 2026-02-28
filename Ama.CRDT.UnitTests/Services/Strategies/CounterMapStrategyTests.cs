@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -43,6 +44,44 @@ public sealed class CounterMapStrategyTests
         var model = new TestModel { Map = map };
         var metadata = metadataManager.Initialize(model);
         return new CrdtDocument<TestModel>(model, metadata);
+    }
+
+    [Fact]
+    public void GenerateOperation_ShouldCreateIncrementOperation_WhenUsingMapIncrementIntent()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var metadata = new CrdtMetadata();
+        var intent = new MapIncrementIntent("a", 5);
+        var context = new GenerateOperationContext(new TestModel(), metadata, "$.map", propInfo, intent, timestampProvider.Now(), "A");
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Increment);
+        operation.JsonPath.ShouldBe("$.map");
+        operation.ReplicaId.ShouldBe("A");
+        var payload = (KeyValuePair<object, object?>)operation.Value!;
+        payload.Key.ShouldBe("a");
+        payload.Value.ShouldBe(5);
+    }
+
+    [Fact]
+    public void GenerateOperation_ShouldThrowNotSupportedException_ForOtherIntents()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var metadata = new CrdtMetadata();
+        var intent = new SetIntent(5);
+        var context = new GenerateOperationContext(new TestModel(), metadata, "$.map", propInfo, intent, timestampProvider.Now(), "A");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
     }
 
     [Fact]

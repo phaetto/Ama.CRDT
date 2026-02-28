@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -75,6 +76,95 @@ public sealed class OrSetStrategyTests : IDisposable
         var addOp = patch.Operations.Single(op => op.Type == OperationType.Upsert);
         addOp.Value.ShouldBeOfType<OrSetAddItem>();
         ((OrSetAddItem)addOp.Value).Value.ToString().ShouldBe("C");
+    }
+
+    [Fact]
+    public void GenerateOperation_AddIntent_ShouldCreateUpsertOp()
+    {
+        // Arrange
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var ts = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        var doc = new TestModel();
+        var meta = metadataManagerA.Initialize(doc);
+
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("E"), ts.Now(), "r1");
+        
+        // Act
+        var op = strategyA.GenerateOperation(context);
+
+        // Assert
+        op.Type.ShouldBe(OperationType.Upsert);
+        op.Value.ShouldBeOfType<OrSetAddItem>();
+        ((OrSetAddItem)op.Value).Value.ShouldBe("E");
+        ((OrSetAddItem)op.Value).Tag.ShouldNotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public void GenerateOperation_RemoveValueIntent_ShouldCreateRemoveOp()
+    {
+        // Arrange
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var ts = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        var doc = new TestModel { Tags = { "A" } };
+        var meta = metadataManagerA.Initialize(doc);
+        
+        // Add item normally first to populate tags
+        var addContext = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("A"), ts.Now(), "r1");
+        var addOp = strategyA.GenerateOperation(addContext);
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, addOp));
+
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new RemoveValueIntent("A"), ts.Now(), "r1");
+        
+        // Act
+        var op = strategyA.GenerateOperation(context);
+
+        // Assert
+        op.Type.ShouldBe(OperationType.Remove);
+        op.Value.ShouldBeOfType<OrSetRemoveItem>();
+        var payload = (OrSetRemoveItem)op.Value!;
+        payload.Value.ShouldBe("A");
+        payload.Tags.ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void GenerateOperation_RemoveIntent_ShouldCreateRemoveOp()
+    {
+        // Arrange
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var ts = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        var doc = new TestModel();
+        var meta = metadataManagerA.Initialize(doc);
+        
+        var addContext = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("B"), ts.Now(), "r1");
+        var addOp = strategyA.GenerateOperation(addContext);
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, addOp));
+
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new RemoveIntent(0), ts.Now(), "r1");
+        
+        // Act
+        var op = strategyA.GenerateOperation(context);
+
+        // Assert
+        op.Type.ShouldBe(OperationType.Remove);
+        op.Value.ShouldBeOfType<OrSetRemoveItem>();
+        var payload = (OrSetRemoveItem)op.Value!;
+        payload.Value.ShouldBe("B");
+        payload.Tags.ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void GenerateOperation_UnsupportedIntent_ShouldThrowNotSupportedException()
+    {
+        // Arrange
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var ts = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        var doc = new TestModel();
+        var meta = metadataManagerA.Initialize(doc);
+
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new IncrementIntent(1), ts.Now(), "r1");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
     }
     
     [Fact]

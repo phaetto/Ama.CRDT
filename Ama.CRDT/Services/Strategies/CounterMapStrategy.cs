@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -20,6 +21,7 @@ using Ama.CRDT.Services;
 /// This strategy is partitionable, allowing large counter maps to be split and merged.
 /// </summary>
 [CrdtSupportedType(typeof(IDictionary))]
+[CrdtSupportedIntent(typeof(MapIncrementIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -64,6 +66,30 @@ public sealed class CounterMapStrategy(
                 operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, payload, changeTimestamp));
             }
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        if (context.Intent is MapIncrementIntent mapIncrementIntent)
+        {
+            if (mapIncrementIntent.Key is null)
+            {
+                throw new ArgumentException("Key cannot be null for MapIncrementIntent.", nameof(context));
+            }
+
+            var payload = new KeyValuePair<object, object?>(mapIncrementIntent.Key, mapIncrementIntent.Value);
+            return new CrdtOperation(
+                Guid.NewGuid(),
+                context.ReplicaId,
+                context.JsonPath,
+                OperationType.Increment,
+                payload,
+                context.Timestamp
+            );
+        }
+
+        throw new NotSupportedException($"Intent {context.Intent?.GetType().Name} is not supported for {nameof(CounterMapStrategy)}.");
     }
 
     /// <inheritdoc/>

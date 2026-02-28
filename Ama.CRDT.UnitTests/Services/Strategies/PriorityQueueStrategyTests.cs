@@ -3,8 +3,10 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
@@ -277,6 +279,85 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         // Assert
         model.Items.ShouldHaveSingleItem();
         model.Items[0].Priority.ShouldBe(5);
+    }
+
+    [Fact]
+    public void GenerateOperation_WithAddIntent_ShouldGenerateUpsertOperation()
+    {
+        // Arrange
+        var model = new TestModel { Items = [] };
+        var meta = metadataManagerA.Initialize(model);
+        var itemToAdd = new Item("A", 10);
+        
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<PriorityQueueStrategy>().Single();
+        var timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        
+        var context = new GenerateOperationContext(
+            model,
+            meta,
+            nameof(TestModel.Items),
+            typeof(TestModel).GetProperty(nameof(TestModel.Items))!,
+            new AddIntent(itemToAdd),
+            timestampProvider.Now(),
+            "A");
+
+        // Act
+        var op = strategy.GenerateOperation(context);
+
+        // Assert
+        op.Type.ShouldBe(OperationType.Upsert);
+        op.Value.ShouldBeOfType<Item>().Id.ShouldBe("A");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithRemoveValueIntent_ShouldGenerateRemoveOperation()
+    {
+        // Arrange
+        var itemToRemove = new Item("A", 10);
+        var model = new TestModel { Items = [itemToRemove] };
+        var meta = metadataManagerA.Initialize(model);
+        
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<PriorityQueueStrategy>().Single();
+        var timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        
+        var context = new GenerateOperationContext(
+            model,
+            meta,
+            nameof(TestModel.Items),
+            typeof(TestModel).GetProperty(nameof(TestModel.Items))!,
+            new RemoveValueIntent(itemToRemove),
+            timestampProvider.Now(),
+            "A");
+
+        // Act
+        var op = strategy.GenerateOperation(context);
+
+        // Assert
+        op.Type.ShouldBe(OperationType.Remove);
+        op.Value.ShouldBeOfType<Item>().Id.ShouldBe("A");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithUnsupportedIntent_ShouldThrowNotSupportedException()
+    {
+        // Arrange
+        var model = new TestModel { Items = [] };
+        var meta = metadataManagerA.Initialize(model);
+        
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<PriorityQueueStrategy>().Single();
+        var timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        
+        var context = new GenerateOperationContext(
+            model,
+            meta,
+            nameof(TestModel.Items),
+            typeof(TestModel).GetProperty(nameof(TestModel.Items))!,
+            new IncrementIntent(1),
+            timestampProvider.Now(),
+            "A");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

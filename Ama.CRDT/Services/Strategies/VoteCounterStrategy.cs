@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -14,6 +15,7 @@ using System.Reflection;
 using Ama.CRDT.Services;
 
 [CrdtSupportedType(typeof(IDictionary))]
+[CrdtSupportedIntent(typeof(VoteIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -52,6 +54,28 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
             var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp);
             operations.Add(operation);
         }
+    }
+
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        if (context.Intent is VoteIntent voteIntent)
+        {
+            if (voteIntent.Voter is null || voteIntent.Option is null)
+            {
+                throw new ArgumentException("Voter and Option must not be null for VoteIntent.");
+            }
+
+            var payload = new VotePayload(voteIntent.Voter, voteIntent.Option);
+            return new CrdtOperation(
+                Guid.NewGuid(), 
+                context.ReplicaId, 
+                context.JsonPath, 
+                OperationType.Upsert, 
+                payload, 
+                context.Timestamp);
+        }
+
+        throw new NotSupportedException($"Explicit operation generation for intent '{context.Intent?.GetType().Name}' is not supported for {this.GetType().Name}.");
     }
 
     public void ApplyOperation(ApplyOperationContext context)

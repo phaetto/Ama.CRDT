@@ -1,7 +1,10 @@
 namespace Ama.CRDT.Services.Strategies;
+
+using System;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services;
 
@@ -9,6 +12,7 @@ using Ama.CRDT.Services;
 /// Implements the Max-Wins Register strategy. Conflicts are resolved by choosing the highest value.
 /// </summary>
 [CrdtSupportedType(typeof(IComparable))]
+[CrdtSupportedIntent(typeof(SetIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -38,6 +42,23 @@ public sealed class MaxWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
             var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
             operations.Add(operation);
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        if (context.Intent is SetIntent setIntent)
+        {
+            return new CrdtOperation(
+                Guid.NewGuid(),
+                replicaId,
+                context.JsonPath,
+                OperationType.Upsert,
+                setIntent.Value,
+                context.Timestamp);
+        }
+
+        throw new NotSupportedException($"Explicit operation generation for intent '{context.Intent.GetType().Name}' is not supported for {this.GetType().Name}.");
     }
 
     /// <inheritdoc/>

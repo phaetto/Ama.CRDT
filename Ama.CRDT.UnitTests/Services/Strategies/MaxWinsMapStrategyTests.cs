@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -230,6 +231,46 @@ public sealed class MaxWinsMapStrategyTests
         mergedDoc.Map["a"].ShouldBe(10);
         mergedDoc.Map["b"].ShouldBe(50); // Max won
         mergedDoc.Map["c"].ShouldBe(30);
+    }
+
+    [Fact]
+    public void GenerateOperation_MapSetIntent_ShouldReturnUpsertOperation()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
+        var doc = CreateDocument(new Dictionary<string, int>());
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var intent = new MapSetIntent("a", 15);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", propInfo, intent, timestampProvider.Now(), "A");
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Upsert);
+        operation.JsonPath.ShouldBe("$.map");
+        
+        var payload = (KeyValuePair<object, object?>)operation.Value!;
+        payload.Key.ShouldBe("a");
+        payload.Value.ShouldBe(15);
+        
+        operation.ReplicaId.ShouldBe("A");
+    }
+
+    [Fact]
+    public void GenerateOperation_UnsupportedIntent_ShouldThrowNotSupportedException()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
+        var doc = CreateDocument(new Dictionary<string, int>());
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var intent = new SetIntent(15); // Unsupported intent
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", propInfo, intent, timestampProvider.Now(), "A");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
     }
 
     private sealed class TestModel
