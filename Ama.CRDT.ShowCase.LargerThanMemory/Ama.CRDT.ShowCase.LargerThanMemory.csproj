@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -15,7 +15,10 @@
   </ItemGroup>
   
   <ItemGroup>
-    <ProjectReference Include="..\Ama.CRDT.Analyzers\Ama.CRDT.Analyzers.csproj" />
+    <ProjectReference Include="..\Ama.CRDT.Analyzers\Ama.CRDT.Analyzers.csproj"
+					  PrivateAssets="all"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Analyzer"/>
     <ProjectReference Include="..\Ama.CRDT.Partitioning.Streams\Ama.CRDT.Partitioning.Streams.csproj" />
     <ProjectReference Include="..\Ama.CRDT\Ama.CRDT.csproj" />
   </ItemGroup>
