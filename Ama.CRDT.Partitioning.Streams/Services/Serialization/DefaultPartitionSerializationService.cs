@@ -33,7 +33,7 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         // CrdtJsonContext.DefaultOptions uses a resolver, which may not apply to types
         // outside its source-generated graph. By adding the converter directly, we ensure
         // it's used for BPlusTreeNode's 'Keys' property.
-        serializerOptions = new JsonSerializerOptions(CrdtJsonContext.DefaultOptions);
+        serializerOptions = new JsonSerializerOptions(CrdtJsonContext.MetadataCompactOptions);
         if (!serializerOptions.Converters.Any(c => c is PolymorphicObjectJsonConverter))
         {
             serializerOptions.Converters.Add(PolymorphicObjectJsonConverter.Instance);
