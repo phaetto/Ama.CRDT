@@ -422,14 +422,14 @@ Ama.CRDT.Models.RgaItem.RgaItem() -> void
 Ama.CRDT.Models.RgaItem.RgaItem(Ama.CRDT.Models.RgaIdentifier Identifier, Ama.CRDT.Models.RgaIdentifier? LeftIdentifier, object? Value, bool IsDeleted) -> void
 Ama.CRDT.Models.RgaItem.Value.get -> object?
 Ama.CRDT.Models.RgaItem.Value.init -> void
-Ama.CRDT.Models.SequentialTimestamp
-Ama.CRDT.Models.SequentialTimestamp.CompareTo(Ama.CRDT.Models.ICrdtTimestamp? other) -> int
-Ama.CRDT.Models.SequentialTimestamp.Deconstruct(out long Value) -> void
-Ama.CRDT.Models.SequentialTimestamp.Equals(Ama.CRDT.Models.SequentialTimestamp other) -> bool
-Ama.CRDT.Models.SequentialTimestamp.SequentialTimestamp() -> void
-Ama.CRDT.Models.SequentialTimestamp.SequentialTimestamp(long Value) -> void
-Ama.CRDT.Models.SequentialTimestamp.Value.get -> long
-Ama.CRDT.Models.SequentialTimestamp.Value.init -> void
+Ama.CRDT.Models.EpochTimestamp
+Ama.CRDT.Models.EpochTimestamp.CompareTo(Ama.CRDT.Models.ICrdtTimestamp? other) -> int
+Ama.CRDT.Models.EpochTimestamp.Deconstruct(out long Value) -> void
+Ama.CRDT.Models.EpochTimestamp.Equals(Ama.CRDT.Models.EpochTimestamp other) -> bool
+Ama.CRDT.Models.EpochTimestamp.EpochTimestamp() -> void
+Ama.CRDT.Models.EpochTimestamp.EpochTimestamp(long Value) -> void
+Ama.CRDT.Models.EpochTimestamp.Value.get -> long
+Ama.CRDT.Models.EpochTimestamp.Value.init -> void
 Ama.CRDT.Models.Serialization.Converters.CrdtTimestampJsonConverter
 Ama.CRDT.Models.Serialization.Converters.CrdtTimestampJsonConverter.CrdtTimestampJsonConverter() -> void
 Ama.CRDT.Models.Serialization.Converters.ObjectKeyDictionaryJsonConverter
@@ -950,7 +950,7 @@ override Ama.CRDT.Models.PositionalIdentifier.GetHashCode() -> int
 override Ama.CRDT.Models.PositionalItem.GetHashCode() -> int
 override Ama.CRDT.Models.RgaIdentifier.GetHashCode() -> int
 override Ama.CRDT.Models.RgaItem.GetHashCode() -> int
-override Ama.CRDT.Models.SequentialTimestamp.GetHashCode() -> int
+override Ama.CRDT.Models.EpochTimestamp.GetHashCode() -> int
 override Ama.CRDT.Models.Serialization.Converters.CrdtTimestampJsonConverter.Read(ref System.Text.Json.Utf8JsonReader reader, System.Type! typeToConvert, System.Text.Json.JsonSerializerOptions! options) -> Ama.CRDT.Models.ICrdtTimestamp?
 override Ama.CRDT.Models.Serialization.Converters.CrdtTimestampJsonConverter.Write(System.Text.Json.Utf8JsonWriter! writer, Ama.CRDT.Models.ICrdtTimestamp! value, System.Text.Json.JsonSerializerOptions! options) -> void
 override Ama.CRDT.Models.Serialization.Converters.ObjectKeyDictionaryJsonConverter.CanConvert(System.Type! typeToConvert) -> bool
@@ -1049,8 +1049,8 @@ static Ama.CRDT.Models.RgaIdentifier.operator !=(Ama.CRDT.Models.RgaIdentifier l
 static Ama.CRDT.Models.RgaIdentifier.operator ==(Ama.CRDT.Models.RgaIdentifier left, Ama.CRDT.Models.RgaIdentifier right) -> bool
 static Ama.CRDT.Models.RgaItem.operator !=(Ama.CRDT.Models.RgaItem left, Ama.CRDT.Models.RgaItem right) -> bool
 static Ama.CRDT.Models.RgaItem.operator ==(Ama.CRDT.Models.RgaItem left, Ama.CRDT.Models.RgaItem right) -> bool
-static Ama.CRDT.Models.SequentialTimestamp.operator !=(Ama.CRDT.Models.SequentialTimestamp left, Ama.CRDT.Models.SequentialTimestamp right) -> bool
-static Ama.CRDT.Models.SequentialTimestamp.operator ==(Ama.CRDT.Models.SequentialTimestamp left, Ama.CRDT.Models.SequentialTimestamp right) -> bool
+static Ama.CRDT.Models.EpochTimestamp.operator !=(Ama.CRDT.Models.EpochTimestamp left, Ama.CRDT.Models.EpochTimestamp right) -> bool
+static Ama.CRDT.Models.EpochTimestamp.operator ==(Ama.CRDT.Models.EpochTimestamp left, Ama.CRDT.Models.EpochTimestamp right) -> bool
 static Ama.CRDT.Models.Serialization.Converters.CrdtTimestampJsonConverter.Register(string! discriminator, System.Type! type) -> void
 static Ama.CRDT.Models.Serialization.Converters.PolymorphicComparableJsonConverter.Instance.get -> Ama.CRDT.Models.Serialization.Converters.PolymorphicComparableJsonConverter!
 static Ama.CRDT.Models.Serialization.Converters.PolymorphicObjectJsonConverter.Instance.get -> Ama.CRDT.Models.Serialization.Converters.PolymorphicObjectJsonConverter!
@@ -1087,7 +1087,7 @@ static Ama.CRDT.Services.Strategies.GeneratePatchContext.operator ==(Ama.CRDT.Se
 static Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.operator !=(Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry left, Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry right) -> bool
 static Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry.operator ==(Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry left, Ama.CRDT.Services.Strategies.SortedSetStrategy.LcsDiffEntry right) -> bool
 static readonly Ama.CRDT.Models.EpochTimestamp.MinValue -> Ama.CRDT.Models.EpochTimestamp
-static readonly Ama.CRDT.Models.SequentialTimestamp.MinValue -> Ama.CRDT.Models.SequentialTimestamp
+static readonly Ama.CRDT.Models.EpochTimestamp.MinValue -> Ama.CRDT.Models.EpochTimestamp
 ~Ama.CRDT.Models.CrdtDocument<T>.Equals(Ama.CRDT.Models.CrdtDocument<T> other) -> bool
 ~override Ama.CRDT.Models.AverageRegisterValue.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.AverageRegisterValue.ToString() -> string
@@ -1135,8 +1135,8 @@ static readonly Ama.CRDT.Models.SequentialTimestamp.MinValue -> Ama.CRDT.Models.
 ~override Ama.CRDT.Models.RgaIdentifier.ToString() -> string
 ~override Ama.CRDT.Models.RgaItem.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.RgaItem.ToString() -> string
-~override Ama.CRDT.Models.SequentialTimestamp.Equals(object obj) -> bool
-~override Ama.CRDT.Models.SequentialTimestamp.ToString() -> string
+~override Ama.CRDT.Models.EpochTimestamp.Equals(object obj) -> bool
+~override Ama.CRDT.Models.EpochTimestamp.ToString() -> string
 ~override Ama.CRDT.Models.TreeAddNodePayload.Equals(object obj) -> bool
 ~override Ama.CRDT.Models.TreeAddNodePayload.ToString() -> string
 ~override Ama.CRDT.Models.TreeMoveNodePayload.Equals(object obj) -> bool

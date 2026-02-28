@@ -396,7 +396,7 @@ public sealed class OrSetStrategyTests : IDisposable
 
         public bool IsContinuous => false;
 
-        public ICrdtTimestamp Create(long value) => new SequentialTimestamp(value);
+        public ICrdtTimestamp Create(long value) => new EpochTimestamp(value);
 
         public ICrdtTimestamp Init()
         {
@@ -408,7 +408,7 @@ public sealed class OrSetStrategyTests : IDisposable
             throw new NotImplementedException();
         }
 
-        public ICrdtTimestamp Now() => new SequentialTimestamp(currentTime++);
+        public ICrdtTimestamp Now() => new EpochTimestamp(currentTime++);
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

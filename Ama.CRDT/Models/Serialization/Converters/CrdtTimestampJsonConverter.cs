@@ -19,7 +19,6 @@ public sealed class CrdtTimestampJsonConverter : JsonConverter<ICrdtTimestamp>
     static CrdtTimestampJsonConverter()
     {
         Register("epoch", typeof(EpochTimestamp));
-        Register("sequential", typeof(SequentialTimestamp));
     }
 
     /// <summary>

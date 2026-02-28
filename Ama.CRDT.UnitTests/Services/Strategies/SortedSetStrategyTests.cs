@@ -109,7 +109,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         mockComparerProvider
             .Setup(p => p.GetComparer(typeof(NestedModel)))
             .Returns(new NestedModelIdComparer());
-        mockTimestampProvider.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(val => new SequentialTimestamp(val));
+        mockTimestampProvider.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(val => new EpochTimestamp(val));
 
         var operations = new List<CrdtOperation>();
         var path = "$.items";
