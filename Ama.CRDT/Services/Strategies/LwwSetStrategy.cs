@@ -13,7 +13,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Ama.CRDT.Services;
 
 /// <summary>
 /// Implements the LWW-Set (Last-Writer-Wins Set) CRDT strategy.
@@ -38,23 +37,44 @@ public sealed class LwwSetStrategy(
     {
         var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
 
-        var originalSet = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
-        var modifiedSet = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
+        var originalSet = originalValue as IEnumerable;
+        var modifiedSet = modifiedValue as IEnumerable;
         
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        var added = modifiedSet.Except(originalSet, comparer);
-        var removed = originalSet.Except(modifiedSet, comparer);
-
-        foreach (var item in added)
+        var originalHashSet = new HashSet<object>(comparer);
+        if (originalSet != null)
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, item, changeTimestamp));
+            foreach (var item in originalSet)
+            {
+                originalHashSet.Add(item);
+            }
         }
 
-        foreach (var item in removed)
+        var modifiedHashSet = new HashSet<object>(comparer);
+        if (modifiedSet != null)
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item, changeTimestamp));
+            foreach (var item in modifiedSet)
+            {
+                modifiedHashSet.Add(item);
+            }
+        }
+
+        foreach (var item in modifiedHashSet)
+        {
+            if (!originalHashSet.Contains(item))
+            {
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, item, changeTimestamp));
+            }
+        }
+
+        foreach (var item in originalHashSet)
+        {
+            if (!modifiedHashSet.Contains(item))
+            {
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item, changeTimestamp));
+            }
         }
     }
 
@@ -75,7 +95,7 @@ public sealed class LwwSetStrategy(
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list) return;
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
@@ -83,9 +103,9 @@ public sealed class LwwSetStrategy(
         if (!metadata.LwwSets.TryGetValue(operation.JsonPath, out var state))
         {
             var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
-            foreach (var item in list)
+            for (int i = 0; i < list.Count; i++)
             {
-                adds[item] = timestampProvider.Create(0);
+                adds[list[i]] = timestampProvider.Create(0);
             }
             state = new LwwSetState(adds, new Dictionary<object, ICrdtTimestamp>(comparer));
             metadata.LwwSets[operation.JsonPath] = state;
@@ -139,16 +159,25 @@ public sealed class LwwSetStrategy(
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var list = partitionableProperty.GetValue(data) as IList;
+        var list = PocoPathHelper.GetValue<IList>(data, partitionableProperty.Name);
         if (list == null || list.Count == 0) return null;
 
-        var items = new List<IComparable>();
-        foreach (var item in list)
+        IComparable? minKey = null;
+        for (int i = 0; i < list.Count; i++)
         {
-            if (item is IComparable c) items.Add(c);
-            else if (item != null) items.Add(item.ToString()!);
+            var item = list[i];
+            var comp = item as IComparable ?? item?.ToString();
+            
+            if (comp != null)
+            {
+                if (minKey == null || comp.CompareTo(minKey) < 0)
+                {
+                    minKey = comp;
+                }
+            }
         }
-        return items.OrderBy(k => k).FirstOrDefault();
+
+        return minKey;
     }
 
     /// <inheritdoc/>
@@ -177,12 +206,21 @@ public sealed class LwwSetStrategy(
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
         }
 
-        var allKeys = state.Adds.Keys.Union(state.Removes.Keys).Cast<IComparable>().OrderBy(k => k).ToList();
+        var allKeysSet = new HashSet<IComparable>();
+        foreach (var key in state.Adds.Keys) allKeysSet.Add((IComparable)key);
+        foreach (var key in state.Removes.Keys) allKeysSet.Add((IComparable)key);
+
+        var allKeys = new List<IComparable>(allKeysSet);
+        allKeys.Sort();
+
         var splitIndex = allKeys.Count / 2;
         var splitKey = allKeys[splitIndex];
 
-        var keys1 = allKeys.Take(splitIndex).ToHashSet();
-        var keys2 = allKeys.Skip(splitIndex).ToHashSet();
+        var keys1 = new HashSet<IComparable>();
+        for (int i = 0; i < splitIndex; i++)
+        {
+            keys1.Add(allKeys[i]);
+        }
 
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
@@ -262,15 +300,12 @@ public sealed class LwwSetStrategy(
 
     private static void ReconstructListForSplitMerge(object root, string path, LwwSetState state, Type elementType)
     {
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
-        if (parent is null || property is null) return;
-
-        var list = property.GetValue(parent) as IList;
+        var list = PocoPathHelper.GetValue<IList>(root, path);
         if (list is null)
         {
             var listType = typeof(List<>).MakeGenericType(elementType);
             list = (IList)Activator.CreateInstance(listType)!;
-            property.SetValue(parent, list);
+            PocoPathHelper.SetValue(root, path, list);
         }
 
         list.Clear();
@@ -298,14 +333,29 @@ public sealed class LwwSetStrategy(
             if (comparer.Equals(list[i], item)) return; // Already exists
         }
 
-        var itemStr = item.ToString() ?? string.Empty;
+        var itemComp = item as IComparable;
+        var itemStr = itemComp == null ? item.ToString() ?? string.Empty : null;
+
         for (int i = 0; i < list.Count; i++)
         {
-            var currentStr = list[i]?.ToString() ?? string.Empty;
-            if (string.CompareOrdinal(itemStr, currentStr) < 0)
+            var current = list[i];
+
+            if (itemComp != null && current is IComparable currentComp)
             {
-                list.Insert(i, item);
-                return;
+                if (itemComp.CompareTo(currentComp) < 0)
+                {
+                    list.Insert(i, item);
+                    return;
+                }
+            }
+            else
+            {
+                var currentStr = current?.ToString() ?? string.Empty;
+                if (string.CompareOrdinal(itemStr, currentStr) < 0)
+                {
+                    list.Insert(i, item);
+                    return;
+                }
             }
         }
         list.Add(item);

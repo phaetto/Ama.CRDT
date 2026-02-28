@@ -97,7 +97,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
         
         if (property is null || parentNode is null) return;
         
-        if (property.GetValue(parentNode) is not IDictionary dictionary) return;
+        if (PocoPathHelper.GetAccessor(property).Getter(parentNode) is not IDictionary dictionary) return;
 
         var dictKeyType = PocoPathHelper.GetDictionaryKeyType(property);
         var dictValueType = PocoPathHelper.GetDictionaryValueType(property);
@@ -117,7 +117,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var dict = partitionableProperty.GetValue(data) as IDictionary;
+        var dict = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IDictionary;
         if (dict == null) return null;
 
         var voters = new HashSet<IComparable>();
@@ -162,7 +162,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
         var documentType = partitionableProperty.DeclaringType!;
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var dict = partitionableProperty.GetValue(originalData) as IDictionary;
+        var dict = PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData) as IDictionary;
         var allVoters = new HashSet<IComparable>();
         
         if (dict != null)
@@ -234,8 +234,8 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
         var mergedDoc = Activator.CreateInstance(documentType)!;
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var dict1 = partitionableProperty.GetValue(data1) as IDictionary;
-        var dict2 = partitionableProperty.GetValue(data2) as IDictionary;
+        var dict1 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1) as IDictionary;
+        var dict2 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2) as IDictionary;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(mergedDoc, path);
         if (parent is not null && property is not null)
@@ -271,7 +271,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
                     }
                 }
             }
-            property.SetValue(parent, mergedDict);
+            PocoPathHelper.GetAccessor(property).Setter(parent, mergedDict);
         }
 
         return new PartitionContent(mergedDoc, mergedMeta);
@@ -307,7 +307,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
                 }
             }
         }
-        property.SetValue(parent, dict);
+        PocoPathHelper.GetAccessor(property).Setter(parent, dict);
     }
 
     private static void RemoveVoterFromAllOptions(IDictionary dictionary, object voter)
@@ -359,7 +359,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
                 var count = -1;
                 if (countProperty?.CanRead == true && countProperty.PropertyType == typeof(int))
                 {
-                    count = (int)(countProperty.GetValue(voterCollection) ?? -1);
+                    count = (int)(PocoPathHelper.GetAccessor(countProperty).Getter(voterCollection) ?? -1);
                 }
 
                 if (count == 0 || (count == -1 && !voterCollection.Cast<object>().Any()))

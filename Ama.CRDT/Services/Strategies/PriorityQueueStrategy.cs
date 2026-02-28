@@ -37,8 +37,6 @@ public sealed class PriorityQueueStrategy(
         var elementType = PocoPathHelper.GetCollectionElementType(property);
 
         if (property.GetCustomAttribute<CrdtPriorityQueueStrategyAttribute>() is not { } attr) return;
-        var priorityPropertyInfo = elementType.GetProperty(attr.PriorityPropertyName);
-        if (priorityPropertyInfo is null) return;
 
         var comparer = comparerProvider.GetComparer(elementType);
 
@@ -66,11 +64,11 @@ public sealed class PriorityQueueStrategy(
             var hasChanged = false;
             if (!isNew && originalItem is not null)
             {
-                // Use reflection to compare the priority property's value.
+                // Use reflection accessor to compare the priority property's value.
                 // This detects changes in priority for an existing item, which is necessary
                 // when the equality comparer for the item type only considers identity.
-                var originalPriority = priorityPropertyInfo.GetValue(originalItem);
-                var modifiedPriority = priorityPropertyInfo.GetValue(modifiedItem);
+                var originalPriority = PocoPathHelper.GetValue(originalItem, attr.PriorityPropertyName);
+                var modifiedPriority = PocoPathHelper.GetValue(modifiedItem, attr.PriorityPropertyName);
 
                 if (!Equals(originalPriority, modifiedPriority))
                 {
@@ -116,7 +114,7 @@ public sealed class PriorityQueueStrategy(
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list) return;
         
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         
@@ -194,7 +192,7 @@ public sealed class PriorityQueueStrategy(
         if (property.GetCustomAttribute<CrdtPriorityQueueStrategyAttribute>() is not { } attr) return;
 
         var sortedItems = list.Cast<object>()
-            .OrderByDescending(i => i?.GetType().GetProperty(attr.PriorityPropertyName)?.GetValue(i))
+            .OrderByDescending(i => PocoPathHelper.GetValue(i!, attr.PriorityPropertyName))
             .ToList();
 
         list.Clear();

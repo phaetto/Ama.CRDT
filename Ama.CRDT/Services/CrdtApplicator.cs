@@ -4,6 +4,7 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// Applies a CRDT patch to a document, handling conflict resolution and idempotency.
@@ -24,9 +25,21 @@ public sealed class CrdtApplicator(
             return document.Data;
         }
 
-        foreach (var operation in patch.Operations)
+        // Avoiding IEnumerator allocations by casting to IReadOnlyList when possible.
+        if (patch.Operations is IReadOnlyList<CrdtOperation> operationsList)
         {
-            ApplyOperation(document.Data, operation, document.Metadata);
+            int count = operationsList.Count;
+            for (int i = 0; i < count; i++)
+            {
+                ApplyOperation(document.Data, operationsList[i], document.Metadata);
+            }
+        }
+        else
+        {
+            foreach (var operation in patch.Operations)
+            {
+                ApplyOperation(document.Data, operation, document.Metadata);
+            }
         }
 
         return document.Data;

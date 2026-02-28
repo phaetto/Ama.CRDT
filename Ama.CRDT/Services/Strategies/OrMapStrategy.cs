@@ -122,7 +122,7 @@ public sealed class OrMapStrategy(
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || property.GetValue(parent) is not IDictionary dict) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict) return;
 
         var keyType = PocoPathHelper.GetDictionaryKeyType(property);
         var valueType = PocoPathHelper.GetDictionaryValueType(property);
@@ -184,7 +184,7 @@ public sealed class OrMapStrategy(
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var dict = (IDictionary?)partitionableProperty.GetValue(data);
+        var dict = (IDictionary?)PocoPathHelper.GetAccessor(partitionableProperty).Getter(data);
         var key = dict is not null && dict.Count > 0 ? dict.Keys.Cast<object>().Min() : null;
         if (key is null) return null;
         if (key is IComparable comparableKey) return comparableKey;
@@ -228,7 +228,7 @@ public sealed class OrMapStrategy(
         var documentType = partitionableProperty.DeclaringType!;
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var dict = (IDictionary)partitionableProperty.GetValue(originalData)!;
+        var dict = (IDictionary)PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData)!;
         if (dict.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
@@ -252,12 +252,12 @@ public sealed class OrMapStrategy(
         var doc1 = Activator.CreateInstance(documentType)!;
         var dict1 = (IDictionary)Activator.CreateInstance(dict.GetType())!;
         foreach (var key in keys1) dict1.Add(key, dict[key]);
-        partitionableProperty.SetValue(doc1, dict1);
+        PocoPathHelper.GetAccessor(partitionableProperty).Setter(doc1, dict1);
 
         var doc2 = Activator.CreateInstance(documentType)!;
         var dict2 = (IDictionary)Activator.CreateInstance(dict.GetType())!;
         foreach (var key in keys2) dict2.Add(key, dict[key]);
-        partitionableProperty.SetValue(doc2, dict2);
+        PocoPathHelper.GetAccessor(partitionableProperty).Setter(doc2, dict2);
 
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
@@ -308,8 +308,8 @@ public sealed class OrMapStrategy(
         var keyType = PocoPathHelper.GetDictionaryKeyType(partitionableProperty);
         var comparer = comparerProvider.GetComparer(keyType);
 
-        var dict1 = (IDictionary)partitionableProperty.GetValue(data1)!;
-        var dict2 = (IDictionary)partitionableProperty.GetValue(data2)!;
+        var dict1 = (IDictionary)PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1)!;
+        var dict2 = (IDictionary)PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2)!;
 
         var mergedDoc = Activator.CreateInstance(partitionableProperty.DeclaringType!)!;
         var mergedDict = (IDictionary)Activator.CreateInstance(dict1.GetType())!;
@@ -401,7 +401,7 @@ public sealed class OrMapStrategy(
             }
         }
     
-        partitionableProperty.SetValue(mergedDoc, mergedDict);
+        PocoPathHelper.GetAccessor(partitionableProperty).Setter(mergedDoc, mergedDict);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
