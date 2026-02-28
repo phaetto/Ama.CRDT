@@ -13,7 +13,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Ama.CRDT.Services;
 
 /// <summary>
 /// Implements the OR-Set (Observed-Remove Set) CRDT strategy.
@@ -94,8 +93,8 @@ public sealed class OrSetStrategy(
 
         if (context.Intent is RemoveIntent removeIntent)
         {
-            var (parent, property, _) = PocoPathHelper.ResolvePath(context.DocumentRoot, context.JsonPath);
-            if (parent != null && property != null && property.GetValue(parent) is IList list)
+            var list = PocoPathHelper.GetValue<IList>(context.DocumentRoot, context.JsonPath);
+            if (list != null)
             {
                 if (removeIntent.Index >= 0 && removeIntent.Index < list.Count)
                 {
@@ -116,7 +115,7 @@ public sealed class OrSetStrategy(
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list) return;
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
@@ -163,7 +162,7 @@ public sealed class OrSetStrategy(
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var list = partitionableProperty.GetValue(data) as IList;
+        var list = PocoPathHelper.GetValue<IList>(data, partitionableProperty.Name);
         if (list == null || list.Count == 0) return null;
 
         var items = new List<IComparable>();
@@ -297,15 +296,12 @@ public sealed class OrSetStrategy(
 
     private static void ReconstructListForSplitMerge(object root, string path, OrSetState state, Type elementType, IEqualityComparer<object> comparer)
     {
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
-        if (parent is null || property is null) return;
-
-        var list = property.GetValue(parent) as IList;
+        var list = PocoPathHelper.GetValue<IList>(root, path);
         if (list is null)
         {
             var listType = typeof(List<>).MakeGenericType(elementType);
             list = (IList)Activator.CreateInstance(listType)!;
-            property.SetValue(parent, list);
+            PocoPathHelper.SetValue(root, path, list);
         }
 
         list.Clear();

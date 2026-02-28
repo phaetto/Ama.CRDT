@@ -93,7 +93,7 @@ public sealed class ArrayLcsStrategy(
         var opReplicaId = context.ReplicaId;
 
         var (parent, resolvedProperty, _) = PocoPathHelper.ResolvePath(root, path);
-        var list = (parent != null && resolvedProperty != null ? resolvedProperty.GetValue(parent) as IList : null) ?? new List<object>();
+        var list = (parent != null && resolvedProperty != null ? PocoPathHelper.GetAccessor(resolvedProperty).Getter(parent) as IList : null) ?? new List<object>();
 
         var positions = GetOrInitializePositions(list, metadata, path);
 
@@ -142,7 +142,7 @@ public sealed class ArrayLcsStrategy(
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list) return;
 
         if (!metadata.PositionalTrackers.TryGetValue(operation.JsonPath, out var positions))
         {
@@ -172,7 +172,7 @@ public sealed class ArrayLcsStrategy(
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var list = (IList?)partitionableProperty.GetValue(data);
+        var list = (IList?)PocoPathHelper.GetAccessor(partitionableProperty).Getter(data);
         if (list is null || list.Count == 0) return null;
         
         return new PositionalIdentifier("1", Guid.Empty);
@@ -216,7 +216,7 @@ public sealed class ArrayLcsStrategy(
         var documentType = partitionableProperty.DeclaringType!;
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var list = (IList)partitionableProperty.GetValue(originalData)!;
+        var list = (IList)PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData)!;
         if (list.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
@@ -233,7 +233,7 @@ public sealed class ArrayLcsStrategy(
         var doc1 = Activator.CreateInstance(documentType)!;
         var list1 = (IList)Activator.CreateInstance(list.GetType())!;
         for (int i = 0; i < splitIndex; i++) list1.Add(list[i]);
-        partitionableProperty.SetValue(doc1, list1);
+        PocoPathHelper.GetAccessor(partitionableProperty).Setter(doc1, list1);
         
         var meta1 = originalMetadata.DeepClone();
         meta1.PositionalTrackers[path] = positions.Take(splitIndex).ToList();
@@ -241,7 +241,7 @@ public sealed class ArrayLcsStrategy(
         var doc2 = Activator.CreateInstance(documentType)!;
         var list2 = (IList)Activator.CreateInstance(list.GetType())!;
         for (int i = splitIndex; i < list.Count; i++) list2.Add(list[i]);
-        partitionableProperty.SetValue(doc2, list2);
+        PocoPathHelper.GetAccessor(partitionableProperty).Setter(doc2, list2);
         
         var meta2 = originalMetadata.DeepClone();
         meta2.PositionalTrackers[path] = positions.Skip(splitIndex).ToList();
@@ -255,8 +255,8 @@ public sealed class ArrayLcsStrategy(
         var documentType = partitionableProperty.DeclaringType!;
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var list1 = (IList)partitionableProperty.GetValue(data1)!;
-        var list2 = (IList)partitionableProperty.GetValue(data2)!;
+        var list1 = (IList)PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1)!;
+        var list2 = (IList)PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2)!;
 
         var mergedDoc = Activator.CreateInstance(documentType)!;
         var mergedList = (IList)Activator.CreateInstance(list1.GetType())!;
@@ -264,7 +264,7 @@ public sealed class ArrayLcsStrategy(
         foreach (var item in list1) mergedList.Add(item);
         foreach (var item in list2) mergedList.Add(item);
         
-        partitionableProperty.SetValue(mergedDoc, mergedList);
+        PocoPathHelper.GetAccessor(partitionableProperty).Setter(mergedDoc, mergedList);
         
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
         

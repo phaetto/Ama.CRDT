@@ -87,7 +87,7 @@ public sealed class FixedSizeArrayStrategy(
 
         var (parent, property, index) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
 
-        if (parent is null || property is null || index is null || property.GetValue(parent) is not IList list)
+        if (parent is null || property is null || index is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
         {
             return;
         }

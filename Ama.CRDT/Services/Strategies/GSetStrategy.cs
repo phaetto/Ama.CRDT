@@ -82,7 +82,7 @@ public sealed class GSetStrategy(
         }
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list) return;
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType);
@@ -110,7 +110,7 @@ public sealed class GSetStrategy(
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var list = partitionableProperty.GetValue(data) as IList;
+        var list = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IList;
         if (list == null || list.Count == 0) return null;
 
         var items = new List<IComparable>();
@@ -143,7 +143,7 @@ public sealed class GSetStrategy(
         var documentType = partitionableProperty.DeclaringType!;
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var list = partitionableProperty.GetValue(originalData) as IList;
+        var list = PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData) as IList;
         if (list == null || list.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
@@ -176,8 +176,8 @@ public sealed class GSetStrategy(
         var mergedDoc = Activator.CreateInstance(documentType)!;
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var list1 = partitionableProperty.GetValue(data1) as IList;
-        var list2 = partitionableProperty.GetValue(data2) as IList;
+        var list1 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1) as IList;
+        var list2 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2) as IList;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(mergedDoc, path);
         if (parent is not null && property is not null)
@@ -193,7 +193,7 @@ public sealed class GSetStrategy(
             var sortedItems = allItems.OrderBy(i => i.ToString(), StringComparer.Ordinal).ToList();
             foreach (var item in sortedItems) mergedList.Add(item);
 
-            property.SetValue(parent, mergedList);
+            PocoPathHelper.GetAccessor(property).Setter(parent, mergedList);
         }
 
         return new PartitionContent(mergedDoc, mergedMeta);
@@ -204,12 +204,12 @@ public sealed class GSetStrategy(
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
         if (parent is null || property is null) return;
 
-        var list = property.GetValue(parent) as IList;
+        var list = PocoPathHelper.GetAccessor(property).Getter(parent) as IList;
         if (list is null)
         {
             var listType = typeof(List<>).MakeGenericType(elementType);
             list = (IList)Activator.CreateInstance(listType)!;
-            property.SetValue(parent, list);
+            PocoPathHelper.GetAccessor(property).Setter(parent, list);
         }
 
         list.Clear();

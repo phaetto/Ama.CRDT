@@ -5,7 +5,6 @@ using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
 using System;
-using System.Globalization;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 
@@ -34,12 +33,12 @@ public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrate
     {
         var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
 
-        var originalNumeric = Convert.ToDecimal(originalValue ?? 0);
-        var modifiedNumeric = Convert.ToDecimal(modifiedValue ?? 0);
+        var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue);
+        var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue);
 
         var delta = modifiedNumeric - originalNumeric;
 
-        if (delta == 0)
+        if (delta == 0m)
         {
             return;
         }
@@ -60,7 +59,7 @@ public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrate
                 replicaId,
                 path,
                 OperationType.Increment,
-                Convert.ToDecimal(incrementIntent.Value ?? 0, CultureInfo.InvariantCulture),
+                PocoPathHelper.ConvertTo<decimal>(incrementIntent.Value),
                 timestamp),
 
             SetIntent setIntent => GenerateSetOperation(root, path, setIntent, timestamp),
@@ -79,19 +78,17 @@ public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrate
             throw new InvalidOperationException($"{nameof(CounterStrategy)} only supports increment operations.");
         }
 
-        var incrementValue = Convert.ToDecimal(operation.Value ?? 0, CultureInfo.InvariantCulture);
-        var existingValue = PocoPathHelper.GetValue(root, operation.JsonPath) ?? 0;
-        var existingNumeric = Convert.ToDecimal(existingValue, CultureInfo.InvariantCulture);
-        var newValue = existingNumeric + incrementValue;
+        var incrementValue = PocoPathHelper.ConvertTo<decimal>(operation.Value);
+        var existingValue = PocoPathHelper.GetValue<decimal>(root, operation.JsonPath);
+        var newValue = existingValue + incrementValue;
         
         PocoPathHelper.SetValue(root, operation.JsonPath, newValue);
     }
 
     private CrdtOperation GenerateSetOperation(object root, string path, SetIntent intent, ICrdtTimestamp timestamp)
     {
-        var targetValue = Convert.ToDecimal(intent.Value ?? 0, CultureInfo.InvariantCulture);
-        var existingValue = PocoPathHelper.GetValue(root, path) ?? 0;
-        var currentValue = Convert.ToDecimal(existingValue, CultureInfo.InvariantCulture);
+        var targetValue = PocoPathHelper.ConvertTo<decimal>(intent.Value);
+        var currentValue = PocoPathHelper.GetValue<decimal>(root, path);
         var delta = targetValue - currentValue;
 
         return new CrdtOperation(

@@ -130,8 +130,8 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
 
         try
         {
-            var fromState = from is null ? GetDefault(stateType) : Convert.ChangeType(from, stateType);
-            var toState = to is null ? GetDefault(stateType) : Convert.ChangeType(to, stateType);
+            var fromState = from is null ? GetDefault(stateType) : PocoPathHelper.ConvertValue(from, stateType);
+            var toState = to is null ? GetDefault(stateType) : PocoPathHelper.ConvertValue(to, stateType);
             
             return method.Invoke(validator, [fromState, toState]) is true;
         }

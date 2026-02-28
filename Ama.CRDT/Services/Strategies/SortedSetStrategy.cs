@@ -141,7 +141,7 @@ public sealed class SortedSetStrategy(
             return;
         }
 
-        if (property.GetValue(parent) is not IList list)
+        if (PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
         {
             return;
         }
@@ -201,7 +201,7 @@ public sealed class SortedSetStrategy(
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var list = partitionableProperty.GetValue(data) as IList;
+        var list = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IList;
         if (list == null || list.Count == 0) return null;
 
         var attr = partitionableProperty.GetCustomAttribute<CrdtSortedSetStrategyAttribute>();
@@ -250,7 +250,7 @@ public sealed class SortedSetStrategy(
         var documentType = partitionableProperty.DeclaringType!;
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var list = partitionableProperty.GetValue(originalData) as IList;
+        var list = PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData) as IList;
         if (list == null || list.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
@@ -288,8 +288,8 @@ public sealed class SortedSetStrategy(
         var mergedDoc = Activator.CreateInstance(documentType)!;
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var list1 = partitionableProperty.GetValue(data1) as IList;
-        var list2 = partitionableProperty.GetValue(data2) as IList;
+        var list1 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1) as IList;
+        var list2 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2) as IList;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(mergedDoc, path);
         if (parent is not null && property is not null)
@@ -300,7 +300,7 @@ public sealed class SortedSetStrategy(
             if (list1 != null) foreach (var item in list1) mergedList.Add(item);
             if (list2 != null) foreach (var item in list2) mergedList.Add(item);
 
-            property.SetValue(parent, mergedList);
+            PocoPathHelper.GetAccessor(property).Setter(parent, mergedList);
             SortList(mergedList, partitionableProperty);
         }
 
@@ -391,12 +391,12 @@ public sealed class SortedSetStrategy(
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
         if (parent is null || property is null) return;
 
-        var list = property.GetValue(parent) as IList;
+        var list = PocoPathHelper.GetAccessor(property).Getter(parent) as IList;
         if (list is null)
         {
             var listType = typeof(List<>).MakeGenericType(elementType);
             list = (IList)Activator.CreateInstance(listType)!;
-            property.SetValue(parent, list);
+            PocoPathHelper.GetAccessor(property).Setter(parent, list);
         }
 
         list.Clear();
@@ -432,7 +432,7 @@ public sealed class SortedSetStrategy(
         
         if (prop is not null)
         {
-            return prop.GetValue(obj);
+            return PocoPathHelper.GetAccessor(prop).Getter(obj);
         }
 
         if (obj is IComparable)
@@ -449,7 +449,7 @@ public sealed class SortedSetStrategy(
             var keyBuilder = new StringBuilder();
             foreach (var p in properties)
             {
-                keyBuilder.Append(p.GetValue(obj)?.ToString() ?? "null");
+                keyBuilder.Append(PocoPathHelper.GetAccessor(p).Getter(obj)?.ToString() ?? "null");
                 keyBuilder.Append('|');
             }
             return keyBuilder.ToString();

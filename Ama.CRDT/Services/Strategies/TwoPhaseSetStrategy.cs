@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -12,13 +13,14 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Ama.CRDT.Services;
 
 /// <summary>
 /// Implements the 2P-Set (Two-Phase Set) CRDT strategy.
 /// In a 2P-Set, an element can be added and removed, but once removed, it cannot be re-added.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedIntent(typeof(AddIntent))]
+[CrdtSupportedIntent(typeof(RemoveValueIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -55,12 +57,25 @@ public sealed class TwoPhaseSetStrategy(
     }
 
     /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        var (_, _, path, _, intent, timestamp, replicaId) = context;
+
+        return intent switch
+        {
+            AddIntent add => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, add.Value, timestamp),
+            RemoveValueIntent remove => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, remove.Value, timestamp),
+            _ => throw new NotSupportedException($"Intent '{intent.GetType().Name}' is not supported by {nameof(TwoPhaseSetStrategy)}.")
+        };
+    }
+
+    /// <inheritdoc/>
     public void ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || property.GetValue(parent) is not IList list) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list) return;
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
@@ -102,7 +117,7 @@ public sealed class TwoPhaseSetStrategy(
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var list = partitionableProperty.GetValue(data) as IList;
+        var list = PocoPathHelper.GetValue<IList>(data, partitionableProperty.Name);
         if (list == null || list.Count == 0) return null;
 
         var items = new List<IComparable>();
@@ -217,15 +232,12 @@ public sealed class TwoPhaseSetStrategy(
 
     private static void ReconstructListForSplitMerge(object root, string path, TwoPhaseSetState state, Type elementType)
     {
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
-        if (parent is null || property is null) return;
-
-        var list = property.GetValue(parent) as IList;
+        var list = PocoPathHelper.GetValue<IList>(root, path);
         if (list is null)
         {
             var listType = typeof(List<>).MakeGenericType(elementType);
             list = (IList)Activator.CreateInstance(listType)!;
-            property.SetValue(parent, list);
+            PocoPathHelper.SetValue(root, path, list);
         }
 
         list.Clear();

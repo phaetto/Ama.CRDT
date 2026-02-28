@@ -30,8 +30,8 @@ public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrat
     {
         var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
 
-        var originalNumeric = originalValue is not null ? Convert.ToDecimal(originalValue) : 0;
-        var modifiedNumeric = modifiedValue is not null ? Convert.ToDecimal(modifiedValue) : 0;
+        var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue);
+        var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue);
 
         var delta = modifiedNumeric - originalNumeric;
 
@@ -50,7 +50,7 @@ public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrat
             throw new NotSupportedException($"Intent '{context.Intent.GetType().Name}' is not supported by {nameof(GCounterStrategy)}.");
         }
 
-        var increment = incrementIntent.Value is not null ? Convert.ToDecimal(incrementIntent.Value) : 0;
+        var increment = PocoPathHelper.ConvertTo<decimal>(incrementIntent.Value);
 
         if (increment <= 0)
         {
@@ -76,25 +76,16 @@ public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrat
             throw new InvalidOperationException($"G-Counter strategy can only apply 'Increment' operations. Received '{operation.Type}'.");
         }
 
-        var increment = operation.Value is not null ? Convert.ToDecimal(operation.Value) : 0;
+        var increment = PocoPathHelper.ConvertTo<decimal>(operation.Value);
         if (increment <= 0)
         {
             // G-Counters only grow. Silently ignore non-positive increments.
             return;
         }
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null)
-        {
-            return;
-        }
-
-        var currentValue = property.GetValue(parent);
-        var currentNumeric = currentValue is not null ? Convert.ToDecimal(currentValue) : 0;
-
+        var currentNumeric = PocoPathHelper.GetValue<decimal>(root, operation.JsonPath);
         var newValue = currentNumeric + increment;
-        var convertedValue = Convert.ChangeType(newValue, property.PropertyType);
 
-        property.SetValue(parent, convertedValue);
+        PocoPathHelper.SetValue(root, operation.JsonPath, newValue);
     }
 }

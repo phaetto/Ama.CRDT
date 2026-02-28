@@ -235,13 +235,13 @@ public sealed class LseqStrategy(
         if (parent is null || property is null) return;
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
-        var list = property.GetValue(parent) as IList;
+        var list = PocoPathHelper.GetAccessor(property).Getter(parent) as IList;
 
         if (list is null)
         {
             var listType = typeof(List<>).MakeGenericType(elementType);
             list = (IList)Activator.CreateInstance(listType)!;
-            property.SetValue(parent, list);
+            PocoPathHelper.GetAccessor(property).Setter(parent, list);
         }
 
         switch (operation.Type)
@@ -409,13 +409,13 @@ public sealed class LseqStrategy(
         if (parent is null || property is null) return;
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
-        var list = property.GetValue(parent) as IList;
+        var list = PocoPathHelper.GetAccessor(property).Getter(parent) as IList;
         
         if (list is null)
         {
             var listType = typeof(List<>).MakeGenericType(elementType);
             list = (IList)Activator.CreateInstance(listType)!;
-            property.SetValue(parent, list);
+            PocoPathHelper.GetAccessor(property).Setter(parent, list);
         }
 
         list.Clear();

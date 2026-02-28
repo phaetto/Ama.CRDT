@@ -92,7 +92,7 @@ public sealed class MaxWinsMapStrategy(
         if (operation.Type != OperationType.Upsert) return;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || property.GetValue(parent) is not IDictionary dict) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict) return;
         
         var keyType = PocoPathHelper.GetDictionaryKeyType(property);
         var valueType = PocoPathHelper.GetDictionaryValueType(property);
@@ -125,7 +125,7 @@ public sealed class MaxWinsMapStrategy(
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var dict = partitionableProperty.GetValue(data) as IDictionary;
+        var dict = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IDictionary;
         if (dict == null || dict.Count == 0) return null;
 
         return dict.Keys.Cast<IComparable>().OrderBy(k => k).FirstOrDefault();
@@ -158,7 +158,7 @@ public sealed class MaxWinsMapStrategy(
         var documentType = partitionableProperty.DeclaringType!;
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var dict = partitionableProperty.GetValue(originalData) as IDictionary;
+        var dict = PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData) as IDictionary;
         if (dict == null || dict.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
@@ -189,8 +189,8 @@ public sealed class MaxWinsMapStrategy(
         var mergedDoc = Activator.CreateInstance(documentType)!;
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var dict1 = partitionableProperty.GetValue(data1) as IDictionary;
-        var dict2 = partitionableProperty.GetValue(data2) as IDictionary;
+        var dict1 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1) as IDictionary;
+        var dict2 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2) as IDictionary;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(mergedDoc, path);
         if (parent is not null && property is not null)
@@ -221,7 +221,7 @@ public sealed class MaxWinsMapStrategy(
                     }
                 }
             }
-            property.SetValue(parent, mergedDict);
+            PocoPathHelper.GetAccessor(property).Setter(parent, mergedDict);
         }
 
         return new PartitionContent(mergedDoc, mergedMeta);
@@ -243,7 +243,7 @@ public sealed class MaxWinsMapStrategy(
             }
         }
 
-        property.SetValue(parent, dict);
+        PocoPathHelper.GetAccessor(property).Setter(parent, dict);
     }
 
     private static IComparable GetMinimumKeyForType(Type keyType)
