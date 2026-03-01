@@ -5,6 +5,7 @@ using System.Reflection;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services;
 
@@ -16,6 +17,7 @@ using Ama.CRDT.Services;
 [CrdtSupportedType(typeof(float))]
 [CrdtSupportedType(typeof(int))]
 [CrdtSupportedType(typeof(long))]
+[CrdtSupportedIntent(typeof(IncrementIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -52,6 +54,23 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
             var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, delta, changeTimestamp);
             operations.Add(operation);
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        if (context.Intent is IncrementIntent incrementIntent)
+        {
+            return new CrdtOperation(
+                Guid.NewGuid(),
+                context.ReplicaId,
+                context.JsonPath,
+                OperationType.Increment,
+                incrementIntent.Value,
+                context.Timestamp);
+        }
+
+        throw new NotSupportedException($"Intent '{context.Intent.GetType().Name}' is not supported by {nameof(BoundedCounterStrategy)}.");
     }
 
     /// <inheritdoc/>

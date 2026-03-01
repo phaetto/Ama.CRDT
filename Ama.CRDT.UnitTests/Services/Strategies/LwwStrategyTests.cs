@@ -2,6 +2,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -71,6 +72,62 @@ public sealed class LwwStrategyTests : IDisposable
         op.JsonPath.ShouldBe("$.value");
         op.Value.ShouldBe(20);
         op.Timestamp.ShouldBe(changeTimestamp);
+    }
+    
+    [Fact]
+    public void GenerateOperation_WithSetIntent_ShouldGenerateUpsert()
+    {
+        // Arrange
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
+        var changeTimestamp = timestampProvider.Create(200L);
+        var intent = new SetIntent(42);
+        var context = new GenerateOperationContext(
+            new TestModel(), new CrdtMetadata(), "$.Value", property, intent, changeTimestamp, "r1");
+
+        // Act
+        var operation = strategyA.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Upsert);
+        operation.JsonPath.ShouldBe("$.Value");
+        operation.Value.ShouldBe(42);
+        operation.Timestamp.ShouldBe(changeTimestamp);
+        operation.ReplicaId.ShouldBe("r1");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithNullSetIntent_ShouldGenerateRemove()
+    {
+        // Arrange
+        var property = typeof(NullableTestModel).GetProperty(nameof(NullableTestModel.Value))!;
+        var changeTimestamp = timestampProvider.Create(200L);
+        var intent = new SetIntent(null);
+        var context = new GenerateOperationContext(
+            new NullableTestModel(), new CrdtMetadata(), "$.Value", property, intent, changeTimestamp, "r1");
+
+        // Act
+        var operation = strategyA.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Remove);
+        operation.JsonPath.ShouldBe("$.Value");
+        operation.Value.ShouldBeNull();
+        operation.Timestamp.ShouldBe(changeTimestamp);
+        operation.ReplicaId.ShouldBe("r1");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithUnsupportedIntent_ShouldThrowNotSupportedException()
+    {
+        // Arrange
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
+        var changeTimestamp = timestampProvider.Create(200L);
+        var intent = new IncrementIntent(1);
+        var context = new GenerateOperationContext(
+            new TestModel(), new CrdtMetadata(), "$.Value", property, intent, changeTimestamp, "r1");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
     }
 
     [Fact]

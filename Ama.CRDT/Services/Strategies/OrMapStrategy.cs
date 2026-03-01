@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -18,6 +19,8 @@ using System.Reflection;
 /// Key presence is managed using OR-Set logic, and value updates are handled with LWW logic.
 /// </summary>
 [CrdtSupportedType(typeof(IDictionary))]
+[CrdtSupportedIntent(typeof(MapSetIntent))]
+[CrdtSupportedIntent(typeof(MapRemoveIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -79,6 +82,38 @@ public sealed class OrMapStrategy(
                 Operations: operations,
                 ChangeTimestamp: changeTimestamp));
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        var (root, metadata, path, property, intent, timestamp, operationReplicaId) = context;
+
+        if (intent is MapSetIntent setIntent)
+        {
+            var keyType = PocoPathHelper.GetDictionaryKeyType(property);
+            var valueType = PocoPathHelper.GetDictionaryValueType(property);
+            var itemKey = PocoPathHelper.ConvertValue(setIntent.Key, keyType) ?? throw new ArgumentException($"Key cannot be null or incompatible for type {keyType.Name}.");
+            var itemValue = PocoPathHelper.ConvertValue(setIntent.Value, valueType);
+
+            return new CrdtOperation(Guid.NewGuid(), operationReplicaId, path, OperationType.Upsert, new OrMapAddItem(itemKey, itemValue, Guid.NewGuid()), timestamp);
+        }
+
+        if (intent is MapRemoveIntent removeIntent)
+        {
+            var keyType = PocoPathHelper.GetDictionaryKeyType(property);
+            var itemKey = PocoPathHelper.ConvertValue(removeIntent.Key, keyType) ?? throw new ArgumentException($"Key cannot be null or incompatible for type {keyType.Name}.");
+
+            ISet<Guid> tags = new HashSet<Guid>();
+            if (metadata.OrMaps.TryGetValue(path, out var state) && state.Adds.TryGetValue(itemKey, out var existingTags))
+            {
+                tags = new HashSet<Guid>(existingTags);
+            }
+
+            return new CrdtOperation(Guid.NewGuid(), operationReplicaId, path, OperationType.Remove, new OrMapRemoveItem(itemKey, tags), timestamp);
+        }
+
+        throw new NotSupportedException($"Explicit operation generation for intent '{intent.GetType().Name}' is not supported by {nameof(OrMapStrategy)}.");
     }
 
     /// <inheritdoc/>

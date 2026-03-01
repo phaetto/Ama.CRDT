@@ -3,9 +3,14 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 public sealed class GraphStrategyTests : IDisposable
@@ -164,5 +169,54 @@ public sealed class GraphStrategyTests : IDisposable
         var expectedVertices = new HashSet<object> { "A", "B", "C" };
         model1.Graph.Vertices.ShouldBe(expectedVertices, ignoreOrder: true);
         model2.Graph.Vertices.ShouldBe(expectedVertices, ignoreOrder: true);
+    }
+
+    [Fact]
+    public void GenerateOperation_WithAddVertexIntent_CreatesUpsertOperation()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
+        var intent = new AddVertexIntent("C");
+        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", null!, intent, new EpochTimestamp(123), "A");
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Upsert);
+        operation.Value.ShouldBeOfType<GraphVertexPayload>();
+        ((GraphVertexPayload)operation.Value!).Vertex.ShouldBe("C");
+        operation.JsonPath.ShouldBe("$.Graph");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithAddEdgeIntent_CreatesUpsertOperation()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
+        var edge = new Edge("C", "D", "connects");
+        var intent = new AddEdgeIntent(edge);
+        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", null!, intent, new EpochTimestamp(123), "A");
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Upsert);
+        operation.Value.ShouldBeOfType<GraphEdgePayload>();
+        ((GraphEdgePayload)operation.Value!).Edge.ShouldBe(edge);
+        operation.JsonPath.ShouldBe("$.Graph");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithUnsupportedIntent_ThrowsNotSupportedException()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
+        var intent = new SetIntent("Invalid");
+        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", null!, intent, new EpochTimestamp(123), "A");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
     }
 }

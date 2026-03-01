@@ -3,9 +3,11 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
@@ -325,6 +327,102 @@ public sealed class LseqStrategyTests : IDisposable
         // Act & Assert
         Should.Throw<InvalidOperationException>(() => 
             lseqStrategy.Split(crdtDoc.Data, crdtDoc.Metadata, itemsProperty));
+    }
+
+    [Fact]
+    public void GenerateOperation_WithAddIntent_ShouldGenerateUpsertOperation()
+    {
+        // Arrange
+        var doc = new LseqTestModel { Items = new List<string>() };
+        var meta = metadataManagerA.Initialize(doc);
+        var context = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new AddIntent("NewItem"), new EpochTimestamp(1), "ReplicaA");
+
+        // Act
+        var operation = lseqStrategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Upsert);
+        operation.JsonPath.ShouldBe("$.items");
+        var item = operation.Value.ShouldBeOfType<LseqItem>();
+        item.Value.ShouldBe("NewItem");
+        item.Identifier.Path.ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void GenerateOperation_WithInsertIntent_ShouldGenerateUpsertOperation()
+    {
+        // Arrange
+        var emptyDoc = new CrdtDocument<LseqTestModel>(new LseqTestModel(), metadataManagerA.Initialize(new LseqTestModel()));
+        var populatedModel = new LseqTestModel { Items = new List<string> { "A", "C" } };
+        var initialPatch = patcherA.GeneratePatch(emptyDoc, populatedModel);
+        
+        var crdtDoc = new CrdtDocument<LseqTestModel>(new LseqTestModel(), metadataManagerA.Initialize(new LseqTestModel()));
+        applicatorA.ApplyPatch(crdtDoc, initialPatch);
+        
+        var context = new GenerateOperationContext(crdtDoc.Data, crdtDoc.Metadata, "$.items", itemsProperty, new InsertIntent(1, "B"), new EpochTimestamp(2), "ReplicaA");
+
+        // Act
+        var operation = lseqStrategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Upsert);
+        var item = operation.Value.ShouldBeOfType<LseqItem>();
+        item.Value.ShouldBe("B");
+        
+        // Verify application
+        lseqStrategy.ApplyOperation(new ApplyOperationContext(crdtDoc.Data, crdtDoc.Metadata, operation));
+        crdtDoc.Data.Items.ShouldBe(new List<string> { "A", "B", "C" });
+    }
+
+    [Fact]
+    public void GenerateOperation_WithRemoveIntent_ShouldGenerateRemoveOperation()
+    {
+        // Arrange
+        var emptyDoc = new CrdtDocument<LseqTestModel>(new LseqTestModel(), metadataManagerA.Initialize(new LseqTestModel()));
+        var populatedModel = new LseqTestModel { Items = new List<string> { "A", "B", "C" } };
+        var initialPatch = patcherA.GeneratePatch(emptyDoc, populatedModel);
+        
+        var crdtDoc = new CrdtDocument<LseqTestModel>(new LseqTestModel(), metadataManagerA.Initialize(new LseqTestModel()));
+        applicatorA.ApplyPatch(crdtDoc, initialPatch);
+        
+        var context = new GenerateOperationContext(crdtDoc.Data, crdtDoc.Metadata, "$.items", itemsProperty, new RemoveIntent(1), new EpochTimestamp(2), "ReplicaA");
+
+        // Act
+        var operation = lseqStrategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Remove);
+        operation.Value.ShouldBeOfType<LseqIdentifier>();
+        
+        // Verify application
+        lseqStrategy.ApplyOperation(new ApplyOperationContext(crdtDoc.Data, crdtDoc.Metadata, operation));
+        crdtDoc.Data.Items.ShouldBe(new List<string> { "A", "C" });
+    }
+
+    [Fact]
+    public void GenerateOperation_WithOutOfBoundsIntent_ShouldThrowArgumentOutOfRangeException()
+    {
+        // Arrange
+        var doc = new LseqTestModel();
+        var meta = metadataManagerA.Initialize(doc);
+        var insertContext = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new InsertIntent(5, "X"), new EpochTimestamp(1), "ReplicaA");
+        var removeContext = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new RemoveIntent(5), new EpochTimestamp(1), "ReplicaA");
+
+        // Act & Assert
+        Should.Throw<ArgumentOutOfRangeException>(() => lseqStrategy.GenerateOperation(insertContext));
+        Should.Throw<ArgumentOutOfRangeException>(() => lseqStrategy.GenerateOperation(removeContext));
+    }
+
+    [Fact]
+    public void GenerateOperation_WithUnsupportedIntent_ShouldThrowNotSupportedException()
+    {
+        // Arrange
+        var doc = new LseqTestModel();
+        var meta = metadataManagerA.Initialize(doc);
+        var context = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new SetIntent("Invalid"), new EpochTimestamp(1), "ReplicaA");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => lseqStrategy.GenerateOperation(context));
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

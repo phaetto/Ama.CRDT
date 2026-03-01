@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using System;
 using System.Collections;
@@ -12,6 +13,7 @@ using Ama.CRDT.Services;
 
 /// <inheritdoc/>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedIntent(typeof(SetIndexIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -54,6 +56,28 @@ public sealed class FixedSizeArrayStrategy(
                 operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, elementPath, OperationType.Upsert, modifiedElement, changeTimestamp));
             }
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        if (context.Property.GetCustomAttribute<CrdtFixedSizeArrayStrategyAttribute>() is not { } attr)
+        {
+            throw new InvalidOperationException($"Property {context.Property.Name} is missing CrdtFixedSizeArrayStrategyAttribute.");
+        }
+
+        if (context.Intent is SetIndexIntent setIndexIntent)
+        {
+            if (setIndexIntent.Index < 0 || setIndexIntent.Index >= attr.Size)
+            {
+                throw new ArgumentOutOfRangeException(nameof(setIndexIntent.Index), $"Index must be between 0 and {attr.Size - 1}.");
+            }
+
+            var elementPath = $"{context.JsonPath}[{setIndexIntent.Index}]";
+            return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, elementPath, OperationType.Upsert, setIndexIntent.Value, context.Timestamp);
+        }
+
+        throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported for {this.GetType().Name}.");
     }
 
     /// <inheritdoc/>

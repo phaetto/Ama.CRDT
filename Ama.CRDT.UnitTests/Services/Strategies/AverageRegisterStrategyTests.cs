@@ -2,6 +2,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -75,7 +76,55 @@ public sealed class AverageRegisterStrategyTests : IDisposable
         op.Type.ShouldBe(OperationType.Upsert);
         op.Value.ShouldBe(4.0m);
     }
-    
+
+    [Fact]
+    public void GenerateOperation_ShouldCreateUpsert_WhenIntentIsSetIntent()
+    {
+        // Arrange
+        var intent = new SetIntent(5.5m);
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Rating))!;
+        var metadata = new CrdtMetadata();
+        var context = new GenerateOperationContext(
+            new TestModel(),
+            metadata,
+            Path,
+            property,
+            intent,
+            timestampProvider.Create(1L),
+            "r1"
+        );
+
+        // Act
+        var operation = strategyA.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Upsert);
+        operation.Value.ShouldBe(5.5m);
+        operation.JsonPath.ShouldBe(Path);
+        operation.ReplicaId.ShouldBe("r1");
+    }
+
+    [Fact]
+    public void GenerateOperation_ShouldThrowNotSupportedException_ForUnsupportedIntent()
+    {
+        // Arrange
+        var intent = new RemoveIntent(0);
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Rating))!;
+        var metadata = new CrdtMetadata();
+        var context = new GenerateOperationContext(
+            new TestModel(),
+            metadata,
+            Path,
+            property,
+            intent,
+            timestampProvider.Create(1L),
+            "r1"
+        );
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
+    }
+
     [Fact]
     public void ApplyOperation_ShouldCalculateCorrectAverage()
     {

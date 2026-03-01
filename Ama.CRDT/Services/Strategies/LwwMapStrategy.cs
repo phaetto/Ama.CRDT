@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -20,6 +21,8 @@ using Ama.CRDT.Services;
 /// Supports partitioning allowing the dictionary to scale larger than memory.
 /// </summary>
 [CrdtSupportedType(typeof(IDictionary))]
+[CrdtSupportedIntent(typeof(MapSetIntent))]
+[CrdtSupportedIntent(typeof(MapRemoveIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -70,6 +73,19 @@ public sealed class LwwMapStrategy(
                 operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new KeyValuePair<object, object?>(key, modifiedItemValue), changeTimestamp));
             }
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        var (_, _, path, _, intent, timestamp, intentReplicaId) = context;
+
+        return intent switch
+        {
+            MapSetIntent mapSet => new CrdtOperation(Guid.NewGuid(), intentReplicaId, path, OperationType.Upsert, new KeyValuePair<object, object?>(mapSet.Key, mapSet.Value), timestamp),
+            MapRemoveIntent mapRemove => new CrdtOperation(Guid.NewGuid(), intentReplicaId, path, OperationType.Remove, new KeyValuePair<object, object?>(mapRemove.Key, null), timestamp),
+            _ => throw new NotSupportedException($"Explicit operation generation for intent '{intent.GetType().Name}' is not supported for {this.GetType().Name}.")
+        };
     }
 
     /// <inheritdoc/>

@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -127,7 +128,7 @@ public sealed class GSetStrategyTests : IDisposable
         var doc = new TestModel { Tags = { "A", "B" } };
         var meta = metadataManagerA.Initialize(doc);
         var document = new CrdtDocument<TestModel>(doc, meta);
-        var removeOp = new CrdtOperation(System.Guid.NewGuid(), "A", "$.tags", OperationType.Remove, "A", timestampProvider.Create(1));
+        var removeOp = new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Remove, "A", timestampProvider.Create(1));
         var patch = new CrdtPatch(new List<CrdtOperation> { removeOp });
 
         // Act
@@ -288,6 +289,52 @@ public sealed class GSetStrategyTests : IDisposable
 
         var mergedDoc = (TestModel)result.Data;
         mergedDoc.Tags.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
+    }
+
+    [Fact]
+    public void GenerateOperation_WithAddIntent_ShouldReturnUpsertOperation()
+    {
+        // Arrange
+        var doc = new TestModel { Tags = { "A" } };
+        var meta = metadataManagerA.Initialize(doc);
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var context = new GenerateOperationContext(
+            doc,
+            meta,
+            "$.tags",
+            propInfo,
+            new AddIntent("B"),
+            timestampProvider.Now(),
+            "r1");
+
+        // Act
+        var operation = strategyA.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Upsert);
+        operation.JsonPath.ShouldBe("$.tags");
+        operation.Value.ShouldBe("B");
+        operation.ReplicaId.ShouldBe("r1");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithUnsupportedIntent_ShouldThrowNotSupportedException()
+    {
+        // Arrange
+        var doc = new TestModel();
+        var meta = metadataManagerA.Initialize(doc);
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var context = new GenerateOperationContext(
+            doc,
+            meta,
+            "$.tags",
+            propInfo,
+            new RemoveIntent(0),
+            timestampProvider.Now(),
+            "r1");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

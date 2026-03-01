@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -19,6 +20,9 @@ using Ama.CRDT.Services;
 /// This set allows re-addition of elements by assigning a unique tag to each added instance.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedIntent(typeof(AddIntent))]
+[CrdtSupportedIntent(typeof(RemoveValueIntent))]
+[CrdtSupportedIntent(typeof(RemoveIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -60,6 +64,50 @@ public sealed class OrSetStrategy(
                 }
             }
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        if (context.DocumentRoot is null) throw new ArgumentException("Document root cannot be null.", nameof(context));
+        if (context.Metadata is null) throw new ArgumentException("Metadata cannot be null.", nameof(context));
+        if (context.Property is null) throw new ArgumentException("Property cannot be null.", nameof(context));
+        if (context.Intent is null) throw new ArgumentException("Intent cannot be null.", nameof(context));
+        if (string.IsNullOrEmpty(context.JsonPath)) throw new ArgumentException("JsonPath cannot be null or empty.", nameof(context));
+        if (context.Timestamp is null) throw new ArgumentException("Timestamp cannot be null.", nameof(context));
+        if (string.IsNullOrEmpty(context.ReplicaId)) throw new ArgumentException("ReplicaId cannot be null or empty.", nameof(context));
+
+        var elementType = PocoPathHelper.GetCollectionElementType(context.Property);
+
+        if (context.Intent is AddIntent addIntent)
+        {
+            var value = PocoPathHelper.ConvertValue(addIntent.Value, elementType);
+            var payload = new OrSetAddItem(value, Guid.NewGuid());
+            return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, payload, context.Timestamp);
+        }
+
+        if (context.Intent is RemoveValueIntent removeValueIntent)
+        {
+            var value = PocoPathHelper.ConvertValue(removeValueIntent.Value, elementType);
+            return GenerateRemoveOperation(context, value);
+        }
+
+        if (context.Intent is RemoveIntent removeIntent)
+        {
+            var (parent, property, _) = PocoPathHelper.ResolvePath(context.DocumentRoot, context.JsonPath);
+            if (parent != null && property != null && property.GetValue(parent) is IList list)
+            {
+                if (removeIntent.Index >= 0 && removeIntent.Index < list.Count)
+                {
+                    var value = list[removeIntent.Index];
+                    return GenerateRemoveOperation(context, value);
+                }
+                throw new ArgumentOutOfRangeException(nameof(removeIntent.Index), $"Index {removeIntent.Index} is out of range.");
+            }
+            throw new InvalidOperationException($"Could not resolve list at path {context.JsonPath} for RemoveIntent.");
+        }
+
+        throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported by {nameof(OrSetStrategy)}.");
     }
 
     /// <inheritdoc/>
@@ -368,5 +416,21 @@ public sealed class OrSetStrategy(
         }
 
         throw new InvalidOperationException($"Cannot determine minimum key for type {keyType}.");
+    }
+
+    private CrdtOperation GenerateRemoveOperation(GenerateOperationContext context, object? value)
+    {
+        var tags = new HashSet<Guid>();
+
+        if (value != null && context.Metadata.OrSets.TryGetValue(context.JsonPath, out var state))
+        {
+            if (state.Adds.TryGetValue(value, out var existingTags))
+            {
+                tags = new HashSet<Guid>(existingTags);
+            }
+        }
+
+        var payload = new OrSetRemoveItem(value, tags);
+        return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Remove, payload, context.Timestamp);
     }
 }

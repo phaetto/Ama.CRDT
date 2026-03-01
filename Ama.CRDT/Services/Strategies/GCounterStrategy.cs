@@ -1,7 +1,10 @@
 namespace Ama.CRDT.Services.Strategies;
+
+using System;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services;
 
@@ -13,6 +16,7 @@ using Ama.CRDT.Services;
 [CrdtSupportedType(typeof(float))]
 [CrdtSupportedType(typeof(int))]
 [CrdtSupportedType(typeof(long))]
+[CrdtSupportedIntent(typeof(IncrementIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -36,6 +40,30 @@ public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrat
             var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, delta, changeTimestamp);
             operations.Add(operation);
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        if (context.Intent is not IncrementIntent incrementIntent)
+        {
+            throw new NotSupportedException($"Intent '{context.Intent.GetType().Name}' is not supported by {nameof(GCounterStrategy)}.");
+        }
+
+        var increment = incrementIntent.Value is not null ? Convert.ToDecimal(incrementIntent.Value) : 0;
+
+        if (increment <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(context), "G-Counters only support positive increments.");
+        }
+
+        return new CrdtOperation(
+            Guid.NewGuid(),
+            replicaId,
+            context.JsonPath,
+            OperationType.Increment,
+            increment,
+            context.Timestamp);
     }
 
     /// <inheritdoc/>

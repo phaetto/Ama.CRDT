@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
@@ -241,6 +242,50 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         
         // Assert
         model.Values[1].ShouldBe(winningValue);
+    }
+
+    [Fact]
+    public void GenerateOperation_SetIndexIntent_ShouldGenerateUpsertForSpecificIndex()
+    {
+        // Arrange
+        var doc1 = new TestModel { Values = [1, 2, 3] };
+        var meta1 = metadataManagerA.Initialize(doc1);
+        var crdtDoc1 = new CrdtDocument<TestModel>(doc1, meta1);
+        var intent = new SetIndexIntent(1, 99);
+
+        // Act
+        var op = patcherA.GenerateOperation(crdtDoc1, m => m.Values, intent);
+        
+        // Assert
+        op.Type.ShouldBe(OperationType.Upsert);
+        op.JsonPath.ShouldBe("$.values[1]");
+        op.Value.ShouldBe(99);
+    }
+
+    [Fact]
+    public void GenerateOperation_SetIndexIntent_OutOfBounds_ShouldThrow()
+    {
+        // Arrange
+        var doc1 = new TestModel { Values = [1, 2, 3] };
+        var meta1 = metadataManagerA.Initialize(doc1);
+        var crdtDoc1 = new CrdtDocument<TestModel>(doc1, meta1);
+        var intent = new SetIndexIntent(5, 99); // Array size is fixed at 3
+
+        // Act & Assert
+        Should.Throw<ArgumentOutOfRangeException>(() => patcherA.GenerateOperation(crdtDoc1, m => m.Values, intent));
+    }
+
+    [Fact]
+    public void GenerateOperation_UnsupportedIntent_ShouldThrow()
+    {
+        // Arrange
+        var doc1 = new TestModel { Values = [1, 2, 3] };
+        var meta1 = metadataManagerA.Initialize(doc1);
+        var crdtDoc1 = new CrdtDocument<TestModel>(doc1, meta1);
+        var intent = new RemoveIntent(1);
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => patcherA.GenerateOperation(crdtDoc1, m => m.Values, intent));
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

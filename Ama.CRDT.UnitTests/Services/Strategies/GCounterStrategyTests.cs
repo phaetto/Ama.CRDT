@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -76,6 +77,52 @@ public sealed class GCounterStrategyTests : IDisposable
 
         // Assert
         operations.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void GenerateOperation_ShouldCreateIncrementOperation_WhenIntentIsPositive()
+    {
+        // Arrange
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
+        var intent = new IncrementIntent(5m);
+        var timestamp = timestampProvider.Now();
+        var context = new GenerateOperationContext(
+            new TestModel(), new CrdtMetadata(), "$.count", property, intent, timestamp, "r1");
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Increment);
+        operation.Value.ShouldBe(5m);
+        operation.JsonPath.ShouldBe("$.count");
+        operation.Timestamp.ShouldBe(timestamp);
+    }
+
+    [Fact]
+    public void GenerateOperation_ShouldThrowArgumentOutOfRangeException_WhenIntentIsNegativeOrZero()
+    {
+        // Arrange
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
+        var intent = new IncrementIntent(-5m);
+        var context = new GenerateOperationContext(
+            new TestModel(), new CrdtMetadata(), "$.count", property, intent, timestampProvider.Now(), "r1");
+
+        // Act & Assert
+        Should.Throw<ArgumentOutOfRangeException>(() => strategy.GenerateOperation(context));
+    }
+
+    [Fact]
+    public void GenerateOperation_ShouldThrowNotSupportedException_ForInvalidIntent()
+    {
+        // Arrange
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
+        var intent = new SetIntent(5);
+        var context = new GenerateOperationContext(
+            new TestModel(), new CrdtMetadata(), "$.count", property, intent, timestampProvider.Now(), "r1");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
     }
 
     [Fact]

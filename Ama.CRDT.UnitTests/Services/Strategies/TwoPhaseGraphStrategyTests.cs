@@ -3,9 +3,11 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
+using System;
 using System.Collections.Generic;
 using Xunit;
 
@@ -125,5 +127,77 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
         var expectedVertices = new HashSet<object> { "B" };
         model1.Graph.Vertices.ShouldBe(expectedVertices, ignoreOrder: true);
         model2.Graph.Vertices.ShouldBe(expectedVertices, ignoreOrder: true);
+    }
+
+    [Fact]
+    public void GenerateOperation_AddVertexIntent_GeneratesAndAppliesCorrectly()
+    {
+        // Arrange
+        var model = new TestModel();
+        var document = new CrdtDocument<TestModel>(model, metadataManager.Initialize(model));
+        var intent = new AddVertexIntent("A");
+
+        // Act
+        var operation = patcherA.GenerateOperation(document, x => x.Graph, intent);
+        applicator.ApplyPatch(document, new CrdtPatch([operation]));
+
+        // Assert
+        document.Data.Graph.Vertices.ShouldContain("A");
+    }
+
+    [Fact]
+    public void GenerateOperation_RemoveVertexIntent_GeneratesAndAppliesCorrectly()
+    {
+        // Arrange
+        var model = new TestModel();
+        model.Graph.Vertices.Add("A");
+        var document = new CrdtDocument<TestModel>(model, metadataManager.Initialize(model));
+        var intent = new RemoveVertexIntent("A");
+
+        // Act
+        var operation = patcherA.GenerateOperation(document, x => x.Graph, intent);
+        applicator.ApplyPatch(document, new CrdtPatch([operation]));
+
+        // Assert
+        document.Data.Graph.Vertices.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void GenerateOperation_AddEdgeIntent_GeneratesAndAppliesCorrectly()
+    {
+        // Arrange
+        var model = new TestModel();
+        model.Graph.Vertices.Add("A");
+        model.Graph.Vertices.Add("B");
+        var document = new CrdtDocument<TestModel>(model, metadataManager.Initialize(model));
+        var edge = new Edge("A", "B", null);
+        var intent = new AddEdgeIntent(edge);
+
+        // Act
+        var operation = patcherA.GenerateOperation(document, x => x.Graph, intent);
+        applicator.ApplyPatch(document, new CrdtPatch([operation]));
+
+        // Assert
+        document.Data.Graph.Edges.ShouldContain(edge);
+    }
+
+    [Fact]
+    public void GenerateOperation_RemoveEdgeIntent_GeneratesAndAppliesCorrectly()
+    {
+        // Arrange
+        var edge = new Edge("A", "B", null);
+        var model = new TestModel();
+        model.Graph.Vertices.Add("A");
+        model.Graph.Vertices.Add("B");
+        model.Graph.Edges.Add(edge);
+        var document = new CrdtDocument<TestModel>(model, metadataManager.Initialize(model));
+        var intent = new RemoveEdgeIntent(edge);
+
+        // Act
+        var operation = patcherA.GenerateOperation(document, x => x.Graph, intent);
+        applicator.ApplyPatch(document, new CrdtPatch([operation]));
+
+        // Assert
+        document.Data.Graph.Edges.ShouldBeEmpty();
     }
 }

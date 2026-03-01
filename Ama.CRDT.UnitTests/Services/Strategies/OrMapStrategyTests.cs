@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -213,6 +214,76 @@ public sealed class OrMapStrategyTests
 
         mergedMeta.OrMaps["$.map"].Adds.Count.ShouldBe(3);
         mergedMeta.Lww["$.map['b']"].ShouldBe(timestampProvider.Create(10));
+    }
+
+    [Fact]
+    public void GenerateOperation_MapSetIntent_ShouldReturnUpsertOperation()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
+        var doc = CreateDocument(new Dictionary<string, int>());
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var intent = new MapSetIntent("a", 42);
+        var timestamp = timestampProvider.Create(1);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestamp, "A");
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Upsert);
+        operation.JsonPath.ShouldBe("$.map");
+        operation.ReplicaId.ShouldBe("A");
+        operation.Timestamp.ShouldBe(timestamp);
+
+        var payload = operation.Value.ShouldBeOfType<OrMapAddItem>();
+        payload.Key.ShouldBe("a");
+        payload.Value.ShouldBe(42);
+        payload.Tag.ShouldNotBe(Guid.Empty);
+    }
+
+    [Fact]
+    public void GenerateOperation_MapRemoveIntent_ShouldReturnRemoveOperationWithTags()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
+        var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var intent = new MapRemoveIntent("a");
+        var timestamp = timestampProvider.Create(2);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestamp, "A");
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Remove);
+        operation.JsonPath.ShouldBe("$.map");
+        operation.ReplicaId.ShouldBe("A");
+        operation.Timestamp.ShouldBe(timestamp);
+
+        var payload = operation.Value.ShouldBeOfType<OrMapRemoveItem>();
+        payload.Key.ShouldBe("a");
+        var expectedTags = doc.Metadata.OrMaps["$.map"].Adds["a"];
+        payload.Tags.ShouldBeSubsetOf(expectedTags);
+        payload.Tags.Count.ShouldBe(expectedTags.Count);
+    }
+
+    [Fact]
+    public void GenerateOperation_UnsupportedIntent_ShouldThrowNotSupportedException()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
+        var doc = CreateDocument(new Dictionary<string, int>());
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var intent = new SetIntent("test");
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestampProvider.Create(1), "A");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
     }
 
     private sealed class TestModel

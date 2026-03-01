@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
@@ -20,6 +21,8 @@ using Ama.CRDT.Services.Providers;
 /// This strategy assumes elements can be uniquely identified and compared. Sorting can be configured via the <see cref="CrdtSortedSetStrategyAttribute.SortPropertyName"/>.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedIntent(typeof(AddIntent))]
+[CrdtSupportedIntent(typeof(RemoveValueIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -102,6 +105,21 @@ public sealed class SortedSetStrategy(
 
         operations.AddRange(removeOps);
         operations.AddRange(addOps);
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        var (_, _, jsonPath, _, intent, timestamp, opReplicaId) = context;
+
+        // A dummy index like `[-1]` is used since ApplyOperation solely extracts the path up to `[` 
+        // and manages elements based on the value mapping in the set.
+        return intent switch
+        {
+            AddIntent add => new CrdtOperation(Guid.NewGuid(), opReplicaId, $"{jsonPath}[-1]", OperationType.Upsert, add.Value, timestamp),
+            RemoveValueIntent remove => new CrdtOperation(Guid.NewGuid(), opReplicaId, $"{jsonPath}[-1]", OperationType.Remove, remove.Value, timestamp),
+            _ => throw new NotSupportedException($"Intent {intent.GetType().Name} is not supported by {nameof(SortedSetStrategy)}.")
+        };
     }
     
     /// <inheritdoc/>

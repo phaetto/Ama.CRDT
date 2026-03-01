@@ -1,7 +1,10 @@
 namespace Ama.CRDT.Services.Strategies;
+
+using System;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services;
 
@@ -9,6 +12,7 @@ using Ama.CRDT.Services;
 /// Implements the Min-Wins Register strategy. Conflicts are resolved by choosing the lowest value.
 /// </summary>
 [CrdtSupportedType(typeof(IComparable))]
+[CrdtSupportedIntent(typeof(SetIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -38,6 +42,29 @@ public sealed class MinWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
             var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
             operations.Add(operation);
         }
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        if (context.Intent is SetIntent setIntent)
+        {
+            if (setIntent.Value is not null && setIntent.Value is not IComparable)
+            {
+                throw new ArgumentException($"Value must implement {nameof(IComparable)} for {nameof(MinWinsStrategy)}.", nameof(context));
+            }
+
+            return new CrdtOperation(
+                Id: Guid.NewGuid(),
+                ReplicaId: context.ReplicaId,
+                JsonPath: context.JsonPath,
+                Type: OperationType.Upsert,
+                Value: setIntent.Value,
+                Timestamp: context.Timestamp
+            );
+        }
+
+        throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported by {nameof(MinWinsStrategy)}.");
     }
 
     /// <inheritdoc/>

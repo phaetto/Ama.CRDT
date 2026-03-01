@@ -148,9 +148,25 @@
 | `$/Ama.CRDT/Models/GraphEdgePayload.cs` | A data structure for the payload of a graph edge operation. |
 | `$/Ama.CRDT/Models/GraphVertexPayload.cs` | A data structure for the payload of a graph vertex operation. |
 | `$/Ama.CRDT/Models/ICrdtTimestamp.cs` | Represents a logical point in time for a CRDT operation, allowing for different timestamping mechanisms. |
+| `$/Ama.CRDT/Models/Intents/AddEdgeIntent.cs` | Represents the intent to explicitly add an edge to a graph. |
+| `$/Ama.CRDT/Models/Intents/AddIntent.cs` | Represents the intent to explicitly add an item to an unordered collection or set. |
+| `$/Ama.CRDT/Models/Intents/AddNodeIntent.cs` | Represents the intent to explicitly add a node to a replicated tree. |
+| `$/Ama.CRDT/Models/Intents/AddVertexIntent.cs` | Represents the intent to explicitly add a vertex to a graph. |
+| `$/Ama.CRDT/Models/Intents/IncrementIntent.cs` | Represents the intent to explicitly increment or decrement a numeric value or counter. |
 | `$/Ama.CRDT/Models/Intents/InsertIntent.cs` | Defines an explicit intention to insert a value into an ordered sequence at a specific index. |
 | `$/Ama.CRDT/Models/Intents/IOperationIntent.cs` | A marker interface for defining explicit CRDT operations intent directly triggered by user actions, bypassing diff generation. |
+| `$/Ama.CRDT/Models/Intents/MapIncrementIntent.cs` | Represents the intent to explicitly increment or decrement a numeric value for a specific key within a dictionary or map. |
+| `$/Ama.CRDT/Models/Intents/MapRemoveIntent.cs` | Represents the intent to explicitly remove a key and its associated value from a dictionary or map. |
+| `$/Ama.CRDT/Models/Intents/MapSetIntent.cs` | Represents the intent to explicitly set a value for a specific key within a dictionary or map. |
+| `$/Ama.CRDT/Models/Intents/MoveNodeIntent.cs` | Represents the intent to explicitly move a node in a replicated tree to a new parent. |
+| `$/Ama.CRDT/Models/Intents/RemoveEdgeIntent.cs` | Represents the intent to explicitly remove an edge from a graph. |
 | `$/Ama.CRDT/Models/Intents/RemoveIntent.cs` | Defines an explicit intention to remove an item from a collection or sequence, specified either by index or key. |
+| `$/Ama.CRDT/Models/Intents/RemoveNodeIntent.cs` | Represents the intent to explicitly remove a node from a replicated tree by its identifier. |
+| `$/Ama.CRDT/Models/Intents/RemoveValueIntent.cs` | Represents the intent to explicitly remove a specific value from a collection or set. |
+| `$/Ama.CRDT/Models/Intents/RemoveVertexIntent.cs` | Represents the intent to explicitly remove a vertex from a graph. |
+| `$/Ama.CRDT/Models/Intents/SetIndexIntent.cs` | Represents the intent to explicitly set a value at a specific index within a collection or sequence. |
+| `$/Ama.CRDT/Models/Intents/SetIntent.cs` | Represents the intent to explicitly set a value for a property or register. |
+| `$/Ama.CRDT/Models/Intents/VoteIntent.cs` | Represents the intent to explicitly cast a vote for a specific option. |
 | `$/Ama.CRDT/Models/LseqIdentifier.cs` | A record struct for the dense, ordered identifier used in LSEQ, composed of a path of `LseqPathSegment` instances. |
 | `$/Ama.CRDT/Models/LseqItem.cs` | A record struct that pairs an LseqIdentifier with its corresponding value in the LSEQ metadata. |
 | `$/Ama.CRDT/Models/LseqPathSegment.cs` | Represents a single, serializable segment in an LSEQ identifier's path, containing a position and a replica ID. |

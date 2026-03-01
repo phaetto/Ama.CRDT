@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -81,6 +82,57 @@ public sealed class LwwSetStrategyTests : IDisposable
         patch.Operations.ShouldContain(op => op.Type == OperationType.Upsert && op.Value.ToString() == "C");
     }
     
+    [Fact]
+    public void GenerateOperation_WithAddIntent_ShouldReturnUpsertOperation()
+    {
+        // Arrange
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var doc = new TestModel();
+        var meta = metadataManagerA.Initialize(doc);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("NewTag"), timestampProvider.Now(), "r1");
+
+        // Act
+        var op = strategyA.GenerateOperation(context);
+
+        // Assert
+        op.Type.ShouldBe(OperationType.Upsert);
+        op.Value.ShouldBe("NewTag");
+        op.JsonPath.ShouldBe("$.tags");
+        op.ReplicaId.ShouldBe("r1");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithRemoveValueIntent_ShouldReturnRemoveOperation()
+    {
+        // Arrange
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var doc = new TestModel();
+        var meta = metadataManagerA.Initialize(doc);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new RemoveValueIntent("OldTag"), timestampProvider.Now(), "r1");
+
+        // Act
+        var op = strategyA.GenerateOperation(context);
+
+        // Assert
+        op.Type.ShouldBe(OperationType.Remove);
+        op.Value.ShouldBe("OldTag");
+        op.JsonPath.ShouldBe("$.tags");
+        op.ReplicaId.ShouldBe("r1");
+    }
+    
+    [Fact]
+    public void GenerateOperation_WithUnsupportedIntent_ShouldThrow()
+    {
+        // Arrange
+        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var doc = new TestModel();
+        var meta = metadataManagerA.Initialize(doc);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new IncrementIntent(1), timestampProvider.Now(), "r1");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
+    }
+
     [Fact]
     public void ApplyPatch_IsTrulyIdempotent()
     {

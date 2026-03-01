@@ -2,6 +2,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -73,6 +74,69 @@ public sealed class MinWinsStrategyTests : IDisposable
         op.Value.ShouldBe(100);
     }
     
+    [Fact]
+    public void GenerateOperation_ShouldCreateUpsert_WhenIntentIsSetIntent()
+    {
+        // Arrange
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.BestTime))!;
+        var context = new GenerateOperationContext(
+            new TestModel(),
+            new CrdtMetadata(),
+            "$.bestTime",
+            property,
+            new SetIntent(100),
+            timestampProvider.Now(),
+            "r1"
+        );
+
+        // Act
+        var result = strategyA.GenerateOperation(context);
+
+        // Assert
+        result.Type.ShouldBe(OperationType.Upsert);
+        result.Value.ShouldBe(100);
+        result.JsonPath.ShouldBe("$.bestTime");
+        result.ReplicaId.ShouldBe("r1");
+    }
+
+    [Fact]
+    public void GenerateOperation_ShouldThrowArgumentException_WhenValueIsNotComparable()
+    {
+        // Arrange
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.BestTime))!;
+        var context = new GenerateOperationContext(
+            new TestModel(),
+            new CrdtMetadata(),
+            "$.bestTime",
+            property,
+            new SetIntent(new object()), // object is not IComparable
+            timestampProvider.Now(),
+            "r1"
+        );
+
+        // Act & Assert
+        Should.Throw<ArgumentException>(() => strategyA.GenerateOperation(context));
+    }
+
+    [Fact]
+    public void GenerateOperation_ShouldThrowNotSupportedException_WhenIntentIsInvalid()
+    {
+        // Arrange
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.BestTime))!;
+        var context = new GenerateOperationContext(
+            new TestModel(),
+            new CrdtMetadata(),
+            "$.bestTime",
+            property,
+            new RemoveIntent(0),
+            timestampProvider.Now(),
+            "r1"
+        );
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
+    }
+
     [Fact]
     public void ApplyOperation_ShouldUpdate_WhenIncomingIsLower()
     {

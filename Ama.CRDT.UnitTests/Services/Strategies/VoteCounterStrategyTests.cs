@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -22,7 +23,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
         private long current = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         private readonly EpochTimestampProvider defaultProvider = new();
         
-        public ICrdtTimestamp Now() => defaultProvider.Create(System.Threading.Interlocked.Increment(ref current));
+        public ICrdtTimestamp Now() => defaultProvider.Create(Interlocked.Increment(ref current));
         public ICrdtTimestamp Create(long value) => defaultProvider.Create(value);
     }
 
@@ -108,6 +109,53 @@ public sealed class VoteCounterStrategyTests : IDisposable
         var payload = op.Value.ShouldBeOfType<VotePayload>();
         payload.Voter.ShouldBe("Voter1");
         payload.Option.ShouldBe("OptionB");
+    }
+    
+    [Fact]
+    public void GenerateOperation_ShouldCreateUpsertForVoteIntent()
+    {
+        var original = new Poll();
+        var originalMeta = metadataManagerA.Initialize(original);
+        var intent = new VoteIntent("Voter1", "OptionA");
+        var propertyInfo = typeof(Poll).GetProperty(nameof(Poll.Votes))!;
+        
+        var context = new GenerateOperationContext(
+            original, 
+            originalMeta, 
+            "$.votes", 
+            propertyInfo, 
+            intent, 
+            timestampProvider.Now(), 
+            "r1");
+            
+        var operation = strategyA.GenerateOperation(context);
+
+        operation.Type.ShouldBe(OperationType.Upsert);
+        operation.JsonPath.ShouldBe("$.votes");
+        operation.ReplicaId.ShouldBe("r1");
+        var payload = operation.Value.ShouldBeOfType<VotePayload>();
+        payload.Voter.ShouldBe("Voter1");
+        payload.Option.ShouldBe("OptionA");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithUnsupportedIntent_ShouldThrowNotSupportedException()
+    {
+        var original = new Poll();
+        var originalMeta = metadataManagerA.Initialize(original);
+        var intent = new AddIntent("Voter1");
+        var propertyInfo = typeof(Poll).GetProperty(nameof(Poll.Votes))!;
+        
+        var context = new GenerateOperationContext(
+            original, 
+            originalMeta, 
+            "$.votes", 
+            propertyInfo, 
+            intent, 
+            timestampProvider.Now(), 
+            "r1");
+            
+        Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
     }
 
     [Fact]

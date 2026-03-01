@@ -1,11 +1,12 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
 using System;
-using Ama.CRDT.Attributes;
-using Ama.CRDT.Attributes.Strategies;
 
 /// <summary>
 /// Implements the Last-Writer-Wins (LWW) strategy for conflict resolution. When a conflict occurs (i.e., multiple replicas modify the same property concurrently),
@@ -13,6 +14,7 @@ using Ama.CRDT.Attributes.Strategies;
 /// For complex objects, this strategy recursively delegates the differentiation process.
 /// </summary>
 [CrdtSupportedType(typeof(object))]
+[CrdtSupportedIntent(typeof(SetIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -54,6 +56,24 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
         }
         
         operations.Add(operation);
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        if (context.Intent is SetIntent setIntent)
+        {
+            var operationType = setIntent.Value is null ? OperationType.Remove : OperationType.Upsert;
+            return new CrdtOperation(
+                Guid.NewGuid(),
+                context.ReplicaId,
+                context.JsonPath,
+                operationType,
+                setIntent.Value,
+                context.Timestamp);
+        }
+
+        throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported by {nameof(LwwStrategy)}.");
     }
 
     /// <inheritdoc/>

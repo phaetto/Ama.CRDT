@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
@@ -193,5 +194,68 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
 
         doc2.Data.Tree.Nodes.Count.ShouldBe(1);
         doc2.Data.Tree.Nodes.Keys.ShouldContain(nodeId);
+    }
+
+    [Fact]
+    public void GenerateOperation_AddNodeIntent_GeneratesAndAppliesCorrectly()
+    {
+        // Arrange
+        var model = new TestModel();
+        var doc = new CrdtDocument<TestModel>(model, metadataManager.Initialize(model));
+        var nodeId = Guid.NewGuid();
+        var node = new TreeNode { Id = nodeId, Value = "NewNode", ParentId = null };
+        var intent = new AddNodeIntent(node);
+
+        // Act
+        var operation = patcherA.GenerateOperation(doc, m => m.Tree, intent);
+        var patch = new CrdtPatch(new List<CrdtOperation> { operation });
+        applicator.ApplyPatch(doc, patch);
+
+        // Assert
+        model.Tree.Nodes.ShouldContainKey(nodeId);
+        model.Tree.Nodes[nodeId].Value.ShouldBe("NewNode");
+    }
+
+    [Fact]
+    public void GenerateOperation_RemoveNodeIntent_GeneratesAndAppliesCorrectly()
+    {
+        // Arrange
+        var model = new TestModel();
+        var doc = new CrdtDocument<TestModel>(model, metadataManager.Initialize(model));
+        var nodeId = Guid.NewGuid();
+        var node = new TreeNode { Id = nodeId, Value = "To Remove", ParentId = null };
+        
+        var addOp = patcherA.GenerateOperation(doc, m => m.Tree, new AddNodeIntent(node));
+        applicator.ApplyPatch(doc, new CrdtPatch(new List<CrdtOperation> { addOp }));
+        
+        // Act
+        var intent = new RemoveNodeIntent(nodeId);
+        var removeOp = patcherA.GenerateOperation(doc, m => m.Tree, intent);
+        applicator.ApplyPatch(doc, new CrdtPatch(new List<CrdtOperation> { removeOp }));
+
+        // Assert
+        model.Tree.Nodes.ShouldNotContainKey(nodeId);
+    }
+
+    [Fact]
+    public void GenerateOperation_MoveNodeIntent_GeneratesAndAppliesCorrectly()
+    {
+        // Arrange
+        var model = new TestModel();
+        var doc = new CrdtDocument<TestModel>(model, metadataManager.Initialize(model));
+        var nodeId = Guid.NewGuid();
+        var parentId = Guid.NewGuid();
+        var node = new TreeNode { Id = nodeId, Value = "To Move", ParentId = null };
+        
+        var addOp = patcherA.GenerateOperation(doc, m => m.Tree, new AddNodeIntent(node));
+        applicator.ApplyPatch(doc, new CrdtPatch(new List<CrdtOperation> { addOp }));
+        
+        // Act
+        var intent = new MoveNodeIntent(nodeId, parentId);
+        var moveOp = patcherA.GenerateOperation(doc, m => m.Tree, intent);
+        applicator.ApplyPatch(doc, new CrdtPatch(new List<CrdtOperation> { moveOp }));
+
+        // Assert
+        model.Tree.Nodes[nodeId].ParentId.ShouldBe(parentId);
     }
 }

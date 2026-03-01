@@ -1,6 +1,7 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
@@ -151,6 +152,110 @@ public sealed class SortedSetStrategyTests : IDisposable
         operations.ShouldHaveSingleItem();
         operations.Single().JsonPath.ShouldBe("$.items[1].value");
     }
+
+    #region Intents Generation Tests
+
+    [Fact]
+    public void GenerateOperation_AddIntent_ShouldReturnUpsertOperation()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
+        var doc = new ConvergenceTestModel();
+        var meta = metadataManagerA.Initialize(doc);
+        var property = typeof(ConvergenceTestModel).GetProperty(nameof(ConvergenceTestModel.Users))!;
+        var timestamp = timestampProvider.Now();
+        var intent = new AddIntent(new TestUser("Eve", "Eve"));
+        
+        var context = new GenerateOperationContext(doc, meta, "$.users", property, intent, timestamp, "r1");
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Upsert);
+        operation.JsonPath.ShouldBe("$.users[-1]");
+        operation.Timestamp.ShouldBe(timestamp);
+        operation.ReplicaId.ShouldBe("r1");
+        
+        var user = operation.Value.ShouldBeOfType<TestUser>();
+        user.Name.ShouldBe("Eve");
+    }
+
+    [Fact]
+    public void GenerateOperation_RemoveValueIntent_ShouldReturnRemoveOperation()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
+        var doc = new ConvergenceTestModel();
+        var meta = metadataManagerA.Initialize(doc);
+        var property = typeof(ConvergenceTestModel).GetProperty(nameof(ConvergenceTestModel.Users))!;
+        var timestamp = timestampProvider.Now();
+        var intent = new RemoveValueIntent(new TestUser("Bob", "Bob"));
+        
+        var context = new GenerateOperationContext(doc, meta, "$.users", property, intent, timestamp, "r1");
+
+        // Act
+        var operation = strategy.GenerateOperation(context);
+
+        // Assert
+        operation.Type.ShouldBe(OperationType.Remove);
+        operation.JsonPath.ShouldBe("$.users[-1]");
+        operation.Timestamp.ShouldBe(timestamp);
+        operation.ReplicaId.ShouldBe("r1");
+        
+        var user = operation.Value.ShouldBeOfType<TestUser>();
+        user.Id.ShouldBe("Bob");
+    }
+
+    [Fact]
+    public void GenerateOperation_UnsupportedIntent_ShouldThrowNotSupportedException()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
+        var doc = new ConvergenceTestModel();
+        var meta = metadataManagerA.Initialize(doc);
+        var property = typeof(ConvergenceTestModel).GetProperty(nameof(ConvergenceTestModel.Users))!;
+        var timestamp = timestampProvider.Now();
+        var intent = new SetIntent("Unsupported");
+        
+        var context = new GenerateOperationContext(doc, meta, "$.users", property, intent, timestamp, "r1");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
+    }
+    
+    [Fact]
+    public void ApplyOperation_FromGeneratedIntent_ShouldModifyCollection()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
+        var doc = new ConvergenceTestModel();
+        var meta = metadataManagerA.Initialize(doc);
+        var property = typeof(ConvergenceTestModel).GetProperty(nameof(ConvergenceTestModel.Users))!;
+        
+        // Generate an add operation using explicit intent
+        var addContext = new GenerateOperationContext(doc, meta, "$.users", property, new AddIntent(new TestUser("Frank", "Frank")), timestampProvider.Now(), "r1");
+        var addOperation = strategy.GenerateOperation(addContext);
+        
+        // Apply the operation
+        var applyContext = new ApplyOperationContext(doc, meta, addOperation);
+        strategy.ApplyOperation(applyContext);
+
+        doc.Users.Count.ShouldBe(1);
+        doc.Users[0].Name.ShouldBe("Frank");
+        
+        // Generate a remove operation using explicit intent
+        var removeContext = new GenerateOperationContext(doc, meta, "$.users", property, new RemoveValueIntent(new TestUser("Frank", "Frank")), timestampProvider.Now(), "r1");
+        var removeOperation = strategy.GenerateOperation(removeContext);
+        
+        // Apply the remove operation
+        var removeApplyContext = new ApplyOperationContext(doc, meta, removeOperation);
+        strategy.ApplyOperation(removeApplyContext);
+
+        doc.Users.ShouldBeEmpty();
+    }
+
+    #endregion
     
     [Fact]
     public void ApplyOperation_Upsert_ShouldInsertItemIntoArrayAndSort()
