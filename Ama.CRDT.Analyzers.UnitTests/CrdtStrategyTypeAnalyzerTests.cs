@@ -79,6 +79,24 @@ public class MyPoco
     }
 
     [Fact]
+    public async Task WhenArrayStrategyAppliedToGenericIListInterface_ShouldNotReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes;
+using System.Collections.Generic;
+
+public class MyPoco
+{
+    [CrdtArrayLcsStrategy]
+    public IList<string> MyList { get; set; }
+}
+";
+        var test = CreateTest();
+        test.TestCode = source;
+        await test.RunAsync();
+    }
+
+    [Fact]
     public async Task WhenArrayStrategyAppliedToInvalidType_ShouldReportDiagnostic()
     {
         var source = @"
@@ -97,6 +115,24 @@ public class MyPoco
         var test = CreateTest();
         test.TestCode = source;
         test.ExpectedDiagnostics.Add(expected);
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenMapStrategyAppliedToGenericIDictionaryInterface_ShouldNotReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes;
+using System.Collections.Generic;
+
+public class MyPoco
+{
+    [CrdtLwwMapStrategy]
+    public IDictionary<string, int> MyMap { get; set; }
+}
+";
+        var test = CreateTest();
+        test.TestCode = source;
         await test.RunAsync();
     }
 

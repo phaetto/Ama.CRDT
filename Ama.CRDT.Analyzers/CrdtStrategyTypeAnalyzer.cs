@@ -113,6 +113,61 @@ public sealed class CrdtStrategyTypeAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        return compilation.HasImplicitConversion(propertyType, supportedType);
+        if (compilation.HasImplicitConversion(propertyType, supportedType))
+        {
+            return true;
+        }
+
+        // Check for generic interface equivalents (e.g., IList<T> for IList)
+        return IsGenericInterfaceEquivalent(propertyType, supportedType);
+    }
+
+    private static bool IsGenericInterfaceEquivalent(ITypeSymbol propertyType, ITypeSymbol supportedType)
+    {
+        var supportedName = GetFullMetadataName(supportedType);
+        var genericEquivalentName = supportedName switch
+        {
+            "System.Collections.IList" => "System.Collections.Generic.IList`1",
+            "System.Collections.IDictionary" => "System.Collections.Generic.IDictionary`2",
+            "System.Collections.ICollection" => "System.Collections.Generic.ICollection`1",
+            "System.Collections.IEnumerable" => "System.Collections.Generic.IEnumerable`1",
+            _ => null
+        };
+
+        if (genericEquivalentName is null)
+        {
+            return false;
+        }
+
+        if (GetFullMetadataName(propertyType.OriginalDefinition) == genericEquivalentName)
+        {
+            return true;
+        }
+
+        foreach (var interfaceSymbol in propertyType.AllInterfaces)
+        {
+            if (GetFullMetadataName(interfaceSymbol.OriginalDefinition) == genericEquivalentName)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string GetFullMetadataName(ITypeSymbol symbol)
+    {
+        if (symbol is null)
+        {
+            return string.Empty;
+        }
+
+        var namespaceName = symbol.ContainingNamespace?.ToDisplayString();
+        if (string.IsNullOrEmpty(namespaceName) || symbol.ContainingNamespace!.IsGlobalNamespace)
+        {
+            return symbol.MetadataName;
+        }
+
+        return $"{namespaceName}.{symbol.MetadataName}";
     }
 }
