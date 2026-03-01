@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
@@ -54,6 +55,8 @@ public sealed class RgaStrategyTests : IDisposable
         [CrdtRgaStrategy]
         public List<string> Items { get; set; } = new();
     }
+
+    private class DummyIntent : IOperationIntent { }
 
     [Fact]
     public void ApplyPatch_WithConcurrentInserts_ShouldConverge()
@@ -120,6 +123,90 @@ public sealed class RgaStrategyTests : IDisposable
         // Ensure tombstones exist
         document.Metadata.RgaTrackers["$.items"].Count.ShouldBe(4); // A, B(Deleted), C, D
         document.Metadata.RgaTrackers["$.items"].Count(i => i.IsDeleted).ShouldBe(1);
+    }
+
+    [Fact]
+    public void GenerateOperation_WithInsertIntent_ShouldInsertCorrectly()
+    {
+        // Arrange
+        var doc = new RgaTestModel { Items = ["A", "C"] };
+        var crdtDoc = new CrdtDocument<RgaTestModel>(doc, metadataManagerA.Initialize(doc));
+
+        // Act - Insert at index 1 (between A and C)
+        var intent = new InsertIntent(1, "B");
+        var operation = patcherA.GenerateOperation(crdtDoc, x => x.Items, intent);
+        
+        // Wrap the single operation in a patch to apply it
+        var patch = new CrdtPatch([operation]);
+        applicatorA.ApplyPatch(crdtDoc, patch);
+
+        // Assert
+        crdtDoc.Data.Items.ShouldBe(new List<string> { "A", "B", "C" });
+        
+        // Verify RgaItem structure
+        var trackers = crdtDoc.Metadata.RgaTrackers["$.items"];
+        trackers.Count.ShouldBe(3);
+        var itemB = trackers.First(x => (string)x.Value! == "B");
+        var itemA = trackers.First(x => (string)x.Value! == "A");
+        itemB.LeftIdentifier.ShouldBe(itemA.Identifier);
+    }
+
+    [Fact]
+    public void GenerateOperation_WithRemoveIntent_ShouldRemoveCorrectly()
+    {
+        // Arrange
+        var doc = new RgaTestModel { Items = ["A", "B", "C"] };
+        var crdtDoc = new CrdtDocument<RgaTestModel>(doc, metadataManagerA.Initialize(doc));
+
+        // Act - Remove index 1 ("B")
+        var intent = new RemoveIntent(1);
+        var operation = patcherA.GenerateOperation(crdtDoc, x => x.Items, intent);
+        
+        // Wrap the single operation in a patch to apply it
+        var patch = new CrdtPatch([operation]);
+        applicatorA.ApplyPatch(crdtDoc, patch);
+
+        // Assert
+        crdtDoc.Data.Items.ShouldBe(new List<string> { "A", "C" });
+        
+        // Verify RgaItem structure (tombstone should be true for B)
+        var trackers = crdtDoc.Metadata.RgaTrackers["$.items"];
+        trackers.Count.ShouldBe(3);
+        var itemB = trackers.First(x => (string)x.Value! == "B");
+        itemB.IsDeleted.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void GenerateOperation_WithInvalidIndex_ShouldThrowArgumentOutOfRangeException()
+    {
+        // Arrange
+        var doc = new RgaTestModel { Items = ["A", "B"] };
+        var crdtDoc = new CrdtDocument<RgaTestModel>(doc, metadataManagerA.Initialize(doc));
+
+        // Act & Assert
+        Should.Throw<ArgumentOutOfRangeException>(() => 
+            patcherA.GenerateOperation(crdtDoc, x => x.Items, new InsertIntent(5, "X")));
+            
+        Should.Throw<ArgumentOutOfRangeException>(() => 
+            patcherA.GenerateOperation(crdtDoc, x => x.Items, new InsertIntent(-1, "X")));
+
+        Should.Throw<ArgumentOutOfRangeException>(() => 
+            patcherA.GenerateOperation(crdtDoc, x => x.Items, new RemoveIntent(2))); // Count is 2, valid indices are 0, 1
+            
+        Should.Throw<ArgumentOutOfRangeException>(() => 
+            patcherA.GenerateOperation(crdtDoc, x => x.Items, new RemoveIntent(-1)));
+    }
+
+    [Fact]
+    public void GenerateOperation_WithUnsupportedIntent_ShouldThrowNotSupportedException()
+    {
+        // Arrange
+        var doc = new RgaTestModel { Items = ["A", "B"] };
+        var crdtDoc = new CrdtDocument<RgaTestModel>(doc, metadataManagerA.Initialize(doc));
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => 
+            patcherA.GenerateOperation(crdtDoc, x => x.Items, new DummyIntent()));
     }
 
     [Fact]

@@ -5,7 +5,9 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Linq.Expressions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using System;
@@ -28,6 +30,7 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
     /// <inheritdoc/>
     public CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, T changed, ICrdtTimestamp changeTimestamp) where T : class
     {
+        ArgumentNullException.ThrowIfNull(from);
         ArgumentNullException.ThrowIfNull(from.Metadata);
         ArgumentNullException.ThrowIfNull(changed);
         ArgumentNullException.ThrowIfNull(changeTimestamp);
@@ -61,6 +64,37 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
         // to properly update both the VersionVector AND the strategy-specific metadata states.
 
         return new CrdtPatch(operations);
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(document.Metadata);
+        ArgumentNullException.ThrowIfNull(document.Data);
+        ArgumentNullException.ThrowIfNull(propertyExpression);
+        ArgumentNullException.ThrowIfNull(intent);
+
+        var parseResult = ParseExpression(propertyExpression);
+        var strategy = strategyProvider.GetStrategy(parseResult.Property);
+
+        var context = new GenerateOperationContext(
+            DocumentRoot: document.Data,
+            Metadata: document.Metadata,
+            JsonPath: parseResult.JsonPath,
+            Property: parseResult.Property,
+            Intent: intent,
+            Timestamp: timestampProvider.Now(),
+            ReplicaId: replicaContext.ReplicaId
+        );
+
+        var operation = strategy.GenerateOperation(context);
+
+        var replicaId = replicaContext.ReplicaId;
+        var localClock = document.Metadata.VersionVector.TryGetValue(replicaId, out var currentClock) ? currentClock : 0L;
+        localClock++;
+
+        return operation with { ReplicaId = replicaId, Clock = localClock };
     }
 
     /// <inheritdoc/>
@@ -104,4 +138,36 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
     {
         return type != typeof(string) && typeof(IEnumerable).IsAssignableFrom(type);
     }
+
+    private static ParseResult ParseExpression<T, TProp>(Expression<Func<T, TProp>> expression)
+    {
+        var body = expression.Body;
+        if (body is UnaryExpression unary)
+        {
+            body = unary.Operand;
+        }
+
+        if (body is not MemberExpression memberExpr || memberExpr.Member is not PropertyInfo propInfo)
+        {
+            throw new ArgumentException("Expression must be a simple property access.", nameof(expression));
+        }
+
+        var parts = new List<string>();
+        var current = body;
+
+        while (current is MemberExpression me)
+        {
+            var propName = me.Member.Name;
+            var jsonName = SerializerOptions.PropertyNamingPolicy?.ConvertName(propName) ?? propName;
+            parts.Add(jsonName);
+            current = me.Expression;
+        }
+
+        parts.Reverse();
+        var jsonPath = "$" + (parts.Count > 0 ? "." + string.Join(".", parts) : "");
+
+        return new ParseResult(jsonPath, propInfo);
+    }
+
+    private readonly record struct ParseResult(string JsonPath, PropertyInfo Property);
 }
