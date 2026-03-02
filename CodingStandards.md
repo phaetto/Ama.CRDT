@@ -1,7 +1,7 @@
 # Coding standards
 
 You are using the following coding standards always:
-Code for .NET 9.
+Code for .NET 10.
 You should only use DI.
 All field names should not be prefixed by underscore.
 You should use interfaces for IEnumerable, IList, IDictionary when possible.
