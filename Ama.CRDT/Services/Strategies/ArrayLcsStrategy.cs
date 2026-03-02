@@ -14,6 +14,7 @@ using System.Reflection;
 
 /// <inheritdoc/>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedIntent(typeof(AddIntent))]
 [CrdtSupportedIntent(typeof(InsertIntent))]
 [CrdtSupportedIntent(typeof(RemoveIntent))]
 [Commutative]
@@ -95,6 +96,15 @@ public sealed class ArrayLcsStrategy(
         var list = (parent != null && resolvedProperty != null ? resolvedProperty.GetValue(parent) as IList : null) ?? new List<object>();
 
         var positions = GetOrInitializePositions(list, metadata, path);
+
+        if (intent is AddIntent addIntent)
+        {
+            PositionalIdentifier? beforePos = positions.Count > 0 ? positions[^1] : null;
+            var newPos = GeneratePositionBetween(beforePos?.Position, null);
+            var newItem = new PositionalItem(newPos, addIntent.Value);
+
+            return new CrdtOperation(Guid.NewGuid(), opReplicaId, path, OperationType.Upsert, newItem, timestamp);
+        }
 
         if (intent is InsertIntent insertIntent)
         {

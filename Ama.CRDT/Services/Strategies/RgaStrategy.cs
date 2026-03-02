@@ -19,6 +19,7 @@ using System.Reflection;
 /// RGA maintains order by linking elements to their predecessors (causal trees) and uses tombstones for deletions.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedIntent(typeof(AddIntent))]
 [CrdtSupportedIntent(typeof(InsertIntent))]
 [CrdtSupportedIntent(typeof(RemoveIntent))]
 [Commutative]
@@ -252,6 +253,15 @@ public sealed class RgaStrategy(
         }
 
         var visibleItems = items.Where(x => !x.IsDeleted).ToList();
+
+        if (intent is AddIntent addIntent)
+        {
+            RgaIdentifier? leftId = visibleItems.Count > 0 ? visibleItems[^1].Identifier : null;
+            var newId = new RgaIdentifier(DateTime.UtcNow.Ticks, replicaId);
+            var newItem = new RgaItem(newId, leftId, addIntent.Value, false);
+
+            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestamp);
+        }
 
         if (intent is InsertIntent insertIntent)
         {

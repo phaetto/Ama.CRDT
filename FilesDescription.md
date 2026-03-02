@@ -107,6 +107,7 @@
 | `$/Ama.CRDT/Attributes/CrdtGCounterStrategyAttribute.cs` | An attribute to mark a numeric property as a G-Counter (Grow-Only Counter), which only permits positive increments. |
 | `$/Ama.CRDT/Attributes/CrdtGraphStrategyAttribute.cs` | An attribute to mark a `CrdtGraph` property to be managed by the Graph strategy. |
 | `$/Ama.CRDT/Attributes/CrdtGSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the G-Set (Grow-Only Set) strategy. |
+| `$/Ama.CRDT/Attributes/CrdtIntentMappingAttribute.cs` | An attribute to map intent builder extension methods to the specific explicit intent types they generate, enabling compile-time validation via Roslyn analyzers without hardcoded mappings. |
 | `$/Ama.CRDT/Attributes/CrdtLseqStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the LSEQ strategy for managing ordered sequences with dense identifiers. |
 | `$/Ama.CRDT/Attributes/CrdtLwwMapStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the LWW-Map (Last-Writer-Wins Map) strategy, where each key-value pair is an independent LWW-Register. |
 | `$/Ama.CRDT/Attributes/CrdtLwwSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the LWW-Set (Last-Writer-Wins Set) strategy. |
