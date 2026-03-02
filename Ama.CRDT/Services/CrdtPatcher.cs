@@ -67,6 +67,14 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
     }
 
     /// <inheritdoc/>
+    public IIntentBuilder<TProp> BuildOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(propertyExpression);
+
+        return new IntentBuilder<T, TProp>(this, document, propertyExpression);
+    }
+
+    /// <inheritdoc/>
     public CrdtOperation GenerateOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent) where T : class
     {
         ArgumentNullException.ThrowIfNull(document.Metadata);
@@ -169,4 +177,16 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
     }
 
     private readonly record struct ParseResult(string JsonPath, PropertyInfo Property);
+
+    private sealed class IntentBuilder<TModel, TProp>(
+        ICrdtPatcher patcher,
+        CrdtDocument<TModel> document,
+        Expression<Func<TModel, TProp>> propertyExpression) : IIntentBuilder<TProp>
+        where TModel : class
+    {
+        public CrdtOperation Build(IOperationIntent intent)
+        {
+            return patcher.GenerateOperation(document, propertyExpression, intent);
+        }
+    }
 }
