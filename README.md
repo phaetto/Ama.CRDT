@@ -479,14 +479,14 @@ public sealed class LogicalClockProvider : ICrdtTimestampProvider
     private long counter = 0;
     public bool IsContinuous => true;
 
-    public ICrdtTimestamp Now() => new SequentialTimestamp(Interlocked.Increment(ref counter));
-    public ICrdtTimestamp Init() => new SequentialTimestamp(0);
-    public ICrdtTimestamp Create(long value) => new SequentialTimestamp(value);
+    public ICrdtTimestamp Now() => new EpochTimestamp(Interlocked.Increment(ref counter));
+    public ICrdtTimestamp Init() => new EpochTimestamp(0);
+    public ICrdtTimestamp Create(long value) => new EpochTimestamp(value);
 
     public IEnumerable<ICrdtTimestamp> IterateBetween(ICrdtTimestamp start, ICrdtTimestamp end)
     {
-        if (start is not SequentialTimestamp s || end is not SequentialTimestamp e) yield break;
-        for (var i = s.Value + 1; i < e.Value; i++) yield return new SequentialTimestamp(i);
+        if (start is not EpochTimestamp s || end is not EpochTimestamp e) yield break;
+        for (var i = s.Value + 1; i < e.Value; i++) yield return new EpochTimestamp(i);
     }
 }
 ```

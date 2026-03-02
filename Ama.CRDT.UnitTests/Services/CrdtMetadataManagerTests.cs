@@ -23,7 +23,7 @@ public sealed class CrdtMetadataManagerTests
         timestampProviderMock = new Mock<ICrdtTimestampProvider>();
         elementComparerProviderMock = new Mock<IElementComparerProvider>();
         manager = new CrdtMetadataManager(strategyProviderMock.Object, timestampProviderMock.Object, elementComparerProviderMock.Object,new ReplicaContext { ReplicaId = "replica" });
-        timestampProviderMock.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(v => new SequentialTimestamp(v));
+        timestampProviderMock.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(v => new EpochTimestamp(v));
     }
     
     [Theory]
