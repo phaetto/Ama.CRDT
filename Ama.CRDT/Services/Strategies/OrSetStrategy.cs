@@ -82,7 +82,7 @@ public sealed class OrSetStrategy(
         if (context.Intent is AddIntent addIntent)
         {
             var value = PocoPathHelper.ConvertValue(addIntent.Value, elementType);
-            var payload = new OrSetAddItem(value, Guid.NewGuid());
+            var payload = new OrSetAddItem(value!, Guid.NewGuid());
             return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, payload, context.Timestamp);
         }
 
@@ -430,7 +430,7 @@ public sealed class OrSetStrategy(
             }
         }
 
-        var payload = new OrSetRemoveItem(value, tags);
+        var payload = new OrSetRemoveItem(value!, tags);
         return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Remove, payload, context.Timestamp);
     }
 }
