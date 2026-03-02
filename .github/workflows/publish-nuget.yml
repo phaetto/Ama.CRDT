@@ -1,4 +1,4 @@
-name: Publish Ama.CRDT to NuGet
+name: Publish Preview to NuGet
 
 on:
   push:
