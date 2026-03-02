@@ -1,4 +1,6 @@
 namespace Ama.CRDT.Services.Providers;
+
+using Ama.CRDT.Services.Helpers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -86,8 +88,8 @@ internal sealed class ElementComparerProvider : IElementComparerProvider
                 
                 foreach (var property in properties)
                 {
-                    var valueX = property.GetValue(x);
-                    var valueY = property.GetValue(y);
+                    var valueX = PocoPathHelper.GetAccessor(property).Getter(x);
+                    var valueY = PocoPathHelper.GetAccessor(property).Getter(y);
 
                     if (!DeepEquals(valueX, valueY, comparedPairs))
                     {
@@ -138,7 +140,7 @@ internal sealed class ElementComparerProvider : IElementComparerProvider
                 var combinedHashCode = new HashCode();
                 foreach (var property in properties)
                 {
-                    var value = property.GetValue(obj);
+                    var value = PocoPathHelper.GetAccessor(property).Getter(obj);
                     combinedHashCode.Add(value is not null ? DeepGetHashCode(value, visited) : 0);
                 }
 

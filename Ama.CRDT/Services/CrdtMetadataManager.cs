@@ -13,6 +13,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Services.Helpers;
 
 /// <inheritdoc/>
 public sealed class CrdtMetadataManager(
@@ -242,7 +243,7 @@ public sealed class CrdtMetadataManager(
                 continue;
             }
 
-            var propertyValue = propertyInfo.GetValue(obj);
+            var propertyValue = PocoPathHelper.GetAccessor(propertyInfo).Getter(obj);
             if (propertyValue is null)
             {
                 continue;
@@ -461,8 +462,8 @@ public sealed class CrdtMetadataManager(
 
         if (verticesProperty is null || edgesProperty is null) return;
 
-        var vertices = verticesProperty.GetValue(propertyValue) as IEnumerable;
-        var edges = edgesProperty.GetValue(propertyValue) as IEnumerable;
+        var vertices = PocoPathHelper.GetAccessor(verticesProperty).Getter(propertyValue) as IEnumerable;
+        var edges = PocoPathHelper.GetAccessor(edgesProperty).Getter(propertyValue) as IEnumerable;
 
         if (vertices is null || edges is null) return;
         
@@ -483,7 +484,7 @@ public sealed class CrdtMetadataManager(
         var nodesProperty = treeType.GetProperty("Nodes");
         if (nodesProperty is null) return;
 
-        if (nodesProperty.GetValue(propertyValue) is not IDictionary nodesDictionary) return;
+        if (PocoPathHelper.GetAccessor(nodesProperty).Getter(propertyValue) is not IDictionary nodesDictionary) return;
 
         var idComparer = elementComparerProvider.GetComparer(typeof(object));
 

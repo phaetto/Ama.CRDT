@@ -10,6 +10,7 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
+using Ama.CRDT.Services.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,7 +19,23 @@ using System.Linq;
 public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTimestampProvider timestampProvider, ReplicaContext replicaContext) : ICrdtPatcher
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropertyCache = new();
+    private static readonly ConcurrentDictionary<Type, CachedPropertyMetadata[]> PropertyCache = new();
+
+    internal sealed class CachedPropertyMetadata
+    {
+        public PropertyInfo Property { get; }
+        public string PathSuffix { get; }
+        public string RootedPath { get; }
+        public PocoPathHelper.PropertyAccessor Accessor { get; }
+
+        public CachedPropertyMetadata(PropertyInfo property, string jsonPropertyName)
+        {
+            Property = property;
+            PathSuffix = $".{jsonPropertyName}";
+            RootedPath = $"$.{jsonPropertyName}";
+            Accessor = PocoPathHelper.GetAccessor(property);
+        }
+    }
 
     /// <inheritdoc/>
     public CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, T changed) where T : class
@@ -120,21 +137,29 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
             return;
         }
 
-        var properties = PropertyCache.GetOrAdd(type, t =>
+        var properties = PropertyCache.GetOrAdd(type, static t =>
             t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .Where(p => p.CanRead && p.GetIndexParameters().Length == 0 && p.GetCustomAttribute<JsonIgnoreAttribute>() == null)
+                .Select(p => 
+                {
+                    var jsonPropertyName = SerializerOptions.PropertyNamingPolicy?.ConvertName(p.Name) ?? p.Name;
+                    return new CachedPropertyMetadata(p, jsonPropertyName);
+                })
                 .ToArray());
 
-        foreach (var property in properties)
+        var isRoot = path == "$";
+
+        foreach (var cached in properties)
         {
-            var jsonPropertyName = SerializerOptions.PropertyNamingPolicy?.ConvertName(property.Name) ?? property.Name;
-            var currentPath = path == "$" ? $"$.{jsonPropertyName}" : $"{path}.{jsonPropertyName}";
+            // Use precalculated paths and prefixes to eliminate string interpolations
+            var currentPath = isRoot ? cached.RootedPath : path + cached.PathSuffix;
 
-            var fromValue = fromObj is not null ? property.GetValue(fromObj) : null;
-            var toValue = toObj is not null ? property.GetValue(toObj) : null;
+            // Use the centralized fast-getter to eliminate slow reflection
+            var fromValue = fromObj is not null ? cached.Accessor.Getter(fromObj) : null;
+            var toValue = toObj is not null ? cached.Accessor.Getter(toObj) : null;
 
-            var strategy = strategyProvider.GetStrategy(property);
-            var strategyContext = new GeneratePatchContext(this, operations, currentPath, property, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp);
+            var strategy = strategyProvider.GetStrategy(cached.Property);
+            var strategyContext = new GeneratePatchContext(this, operations, currentPath, cached.Property, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp);
             
             strategy.GeneratePatch(strategyContext);
         }

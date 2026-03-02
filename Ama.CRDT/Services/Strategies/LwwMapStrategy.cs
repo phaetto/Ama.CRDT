@@ -94,7 +94,7 @@ public sealed class LwwMapStrategy(
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || property.GetValue(parent) is not IDictionary dict) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict) return;
 
         var keyType = PocoPathHelper.GetDictionaryKeyType(property);
         var valueType = PocoPathHelper.GetDictionaryValueType(property);
@@ -141,7 +141,7 @@ public sealed class LwwMapStrategy(
     {
         if (data is null || partitionableProperty is null) return null;
 
-        if (partitionableProperty.GetValue(data) is IDictionary dict && dict.Count > 0)
+        if (PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) is IDictionary dict && dict.Count > 0)
         {
             var keys = dict.Keys.Cast<object>().ToList();
             if (keys.FirstOrDefault() is not IComparable)
@@ -305,13 +305,13 @@ public sealed class LwwMapStrategy(
         
         if (parent is null || property is null || origParent is null || origProperty is null) return;
 
-        var origDict = origProperty.GetValue(origParent) as IDictionary;
+        var origDict = PocoPathHelper.GetAccessor(origProperty).Getter(origParent) as IDictionary;
 
         var keyType = PocoPathHelper.GetDictionaryKeyType(property);
         var valueType = PocoPathHelper.GetDictionaryValueType(property);
         var dictType = typeof(Dictionary<,>).MakeGenericType(keyType, valueType);
         var dict = (IDictionary)Activator.CreateInstance(dictType)!;
-        property.SetValue(parent, dict);
+        PocoPathHelper.GetAccessor(property).Setter(parent, dict);
 
         if (origDict is null) return;
 
@@ -333,14 +333,14 @@ public sealed class LwwMapStrategy(
 
         if (parent is null || property is null) return;
 
-        var dict1 = property1?.GetValue(parent1) as IDictionary;
-        var dict2 = property2?.GetValue(parent2) as IDictionary;
+        var dict1 = property1 != null ? PocoPathHelper.GetAccessor(property1).Getter(parent1) as IDictionary : null;
+        var dict2 = property2 != null ? PocoPathHelper.GetAccessor(property2).Getter(parent2) as IDictionary : null;
 
         var keyType = PocoPathHelper.GetDictionaryKeyType(property);
         var valueType = PocoPathHelper.GetDictionaryValueType(property);
         var dictType = typeof(Dictionary<,>).MakeGenericType(keyType, valueType);
         var dict = (IDictionary)Activator.CreateInstance(dictType)!;
-        property.SetValue(parent, dict);
+        PocoPathHelper.GetAccessor(property).Setter(parent, dict);
 
         meta1.LwwMaps.TryGetValue(path, out var items1);
         meta2.LwwMaps.TryGetValue(path, out var items2);

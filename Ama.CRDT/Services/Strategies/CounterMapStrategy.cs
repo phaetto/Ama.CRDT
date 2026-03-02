@@ -55,8 +55,8 @@ public sealed class CounterMapStrategy(
             var originalExists = originalKeys.Contains(key);
             var modifiedExists = modifiedKeys.Contains(key);
 
-            var originalNumeric = originalExists ? Convert.ToDecimal(originalDict![key] ?? 0) : 0;
-            var modifiedNumeric = modifiedExists ? Convert.ToDecimal(modifiedDict![key] ?? 0) : 0;
+            var originalNumeric = originalExists ? PocoPathHelper.ConvertTo<decimal>(originalDict![key] ?? 0m) : 0m;
+            var modifiedNumeric = modifiedExists ? PocoPathHelper.ConvertTo<decimal>(modifiedDict![key] ?? 0m) : 0m;
 
             var delta = modifiedNumeric - originalNumeric;
 
@@ -103,7 +103,7 @@ public sealed class CounterMapStrategy(
         }
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || property.GetValue(parent) is not IDictionary dict) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict) return;
 
         var keyType = PocoPathHelper.GetDictionaryKeyType(property);
         var valueType = PocoPathHelper.GetDictionaryValueType(property);
@@ -128,7 +128,7 @@ public sealed class CounterMapStrategy(
             counter = new PnCounterState(0, 0);
         }
         
-        var delta = Convert.ToDecimal(payload.Value ?? 0, CultureInfo.InvariantCulture);
+        var delta = PocoPathHelper.ConvertTo<decimal>(payload.Value ?? 0m);
 
         if (delta > 0)
         {
@@ -148,7 +148,7 @@ public sealed class CounterMapStrategy(
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var dict = partitionableProperty.GetValue(data) as IDictionary;
+        var dict = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IDictionary;
         if (dict == null || dict.Count == 0) return null;
 
         var sortedKeys = dict.Keys.Cast<IComparable>().OrderBy(k => k).ToList();
@@ -292,13 +292,13 @@ public sealed class CounterMapStrategy(
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
         if (parent is null || property is null) return;
 
-        var dict = property.GetValue(parent) as IDictionary;
+        var dict = PocoPathHelper.GetAccessor(property).Getter(parent) as IDictionary;
         
         if (dict is null)
         {
             var dictType = typeof(Dictionary<,>).MakeGenericType(keyType, valueType);
             dict = (IDictionary)Activator.CreateInstance(dictType)!;
-            property.SetValue(parent, dict);
+            PocoPathHelper.GetAccessor(property).Setter(parent, dict);
         }
 
         dict.Clear();

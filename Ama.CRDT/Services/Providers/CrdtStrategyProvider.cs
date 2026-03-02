@@ -38,7 +38,7 @@ internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
         defaultArrayStrategy = this.strategies.Values.OfType<ArrayLcsStrategy>().FirstOrDefault() 
             ?? defaultStrategy;
         
-        defaultDictionaryStrategy = this.strategies.Values.OfType<OrMapStrategy>().FirstOrDefault()
+        defaultDictionaryStrategy = this.strategies.Values.OfType<LwwMapStrategy>().FirstOrDefault()
             ?? defaultStrategy;
     }
 

@@ -44,8 +44,8 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
     {
         var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
 
-        var originalNumeric = originalValue is not null ? Convert.ToDecimal(originalValue) : 0;
-        var modifiedNumeric = modifiedValue is not null ? Convert.ToDecimal(modifiedValue) : 0;
+        var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue);
+        var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue);
 
         var delta = modifiedNumeric - originalNumeric;
 
@@ -102,11 +102,10 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
         }
         else
         {
-            var currentValue = PocoPathHelper.GetValue(root, operation.JsonPath);
-            unboundedValue = currentValue is not null ? Convert.ToDecimal(currentValue) : 0;
+            unboundedValue = PocoPathHelper.GetValue<decimal>(root, operation.JsonPath);
         }
 
-        var increment = operation.Value is not null ? Convert.ToDecimal(operation.Value) : 0;
+        var increment = PocoPathHelper.ConvertTo<decimal>(operation.Value);
         var newUnboundedValue = unboundedValue + increment;
 
         metadata.Lww[operation.JsonPath] = new UnboundedCounterValue(newUnboundedValue);

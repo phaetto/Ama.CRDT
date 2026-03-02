@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -288,6 +289,72 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         result.Metadata.TwoPhaseSets["$.tags"].Adds.Count.ShouldBeGreaterThanOrEqualTo(4);
     }
     
+    [Fact]
+    public void GenerateOperation_WithAddIntent_ShouldReturnUpsertOperation()
+    {
+        // Arrange
+        var intent = new AddIntent("X");
+        var context = new GenerateOperationContext(null!, null!, "$.tags", null!, intent, timestampProvider.Now(), "r1");
+
+        // Act
+        var op = strategyA.GenerateOperation(context);
+
+        // Assert
+        op.Type.ShouldBe(OperationType.Upsert);
+        op.Value.ShouldBe("X");
+        op.JsonPath.ShouldBe("$.tags");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithRemoveValueIntent_ShouldReturnRemoveOperation()
+    {
+        // Arrange
+        var intent = new RemoveValueIntent("Y");
+        var context = new GenerateOperationContext(null!, null!, "$.tags", null!, intent, timestampProvider.Now(), "r1");
+
+        // Act
+        var op = strategyA.GenerateOperation(context);
+
+        // Assert
+        op.Type.ShouldBe(OperationType.Remove);
+        op.Value.ShouldBe("Y");
+        op.JsonPath.ShouldBe("$.tags");
+    }
+
+    [Fact]
+    public void GenerateOperation_WithUnsupportedIntent_ShouldThrow()
+    {
+        // Arrange
+        var intent = new SetIntent("Z");
+        var context = new GenerateOperationContext(null!, null!, "$.tags", null!, intent, timestampProvider.Now(), "r1");
+
+        // Act & Assert
+        Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
+    }
+
+    [Fact]
+    public void IntentBuilder_ShouldGenerateAndApplyOperationsCorrectly()
+    {
+        // Arrange
+        var doc1 = new TestModel { Tags = { "A" } };
+        var meta1 = metadataManagerA.Initialize(doc1);
+        var document = new CrdtDocument<TestModel>(doc1, meta1);
+
+        // Act
+        // Create and apply the first operation to increment the local clock
+        var addOp = patcherA.BuildOperation(document, x => x.Tags).Add("B");
+        applicatorA.ApplyPatch(document, new CrdtPatch([addOp]));
+        
+        // Create and apply the second operation with the updated metadata clock state
+        var removeOp = patcherA.BuildOperation(document, x => x.Tags).Remove("A");
+        applicatorA.ApplyPatch(document, new CrdtPatch([removeOp]));
+
+        // Assert
+        doc1.Tags.ShouldBe(["B"], ignoreOrder: true);
+        meta1.TwoPhaseSets["$.tags"].Adds.ShouldContain("B");
+        meta1.TwoPhaseSets["$.tags"].Tomstones.ShouldContain("A");
+    }
+
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {
         if (length == 1) return list.Select(t => new T[] { t });

@@ -8,14 +8,18 @@
 | `$/Ama.CRDT.Analyzers.UnitTests/Ama.CRDT.Analyzers.UnitTests.csproj` | The project file for the unit tests of the Roslyn analyzers. |
 | `$/Ama.CRDT.Analyzers.UnitTests/CrdtIntentUsageAnalyzerTests.cs` | Contains unit tests for the `CrdtIntentUsageAnalyzer`, verifying that it correctly identifies valid and invalid usages of explicit operation intents. |
 | `$/Ama.CRDT.Analyzers.UnitTests/CrdtStrategyTypeAnalyzerTests.cs` | Contains unit tests for the `CrdtStrategyTypeAnalyzer`, verifying that it correctly identifies valid and invalid applications of CRDT strategy attributes. |
+| `$/Ama.CRDT.Analyzers.UnitTests/PropertyInfoUsageAnalyzerTests.cs` | Contains unit tests for `PropertyInfoUsageAnalyzer`, verifying that it catches reflection usage and ignores similar method names on other types. |
 | `$/Ama.CRDT.Analyzers/Ama.CRDT.Analyzers.csproj` | The project file for the Roslyn analyzers that validate CRDT strategy usage. It is configured to be bundled with the main `Ama.CRDT` NuGet package and not as a standalone package. |
 | `$/Ama.CRDT.Analyzers/CrdtIntentUsageAnalyzer.cs` | Roslyn analyzer to validate that explicit operation intents are supported by the corresponding property's CRDT strategy. |
 | `$/Ama.CRDT.Analyzers/CrdtStrategyTypeAnalyzer.cs` | No description provided. |
+| `$/Ama.CRDT.Analyzers/PropertyInfoUsageAnalyzer.cs` | Roslyn analyzer to flag uses of `PropertyInfo.GetValue` and `PropertyInfo.SetValue` as errors to discourage reflection. |
 | `$/Ama.CRDT.Benchmarks/Ama.CRDT.Benchmarks.csproj` | The project file for the benchmarks application. |
 | `$/Ama.CRDT.Benchmarks/AntiVirusFriendlyConfig.cs` | No description provided. |
 | `$/Ama.CRDT.Benchmarks/Benchmarks/ApplicatorBenchmarks.cs` | Contains benchmarks for the `JsonCrdtApplicator` service. |
 | `$/Ama.CRDT.Benchmarks/Benchmarks/PatcherBenchmarks.cs` | Contains benchmarks for the `JsonCrdtPatcher` service. |
-| `$/Ama.CRDT.Benchmarks/Benchmarks/StrategyBenchmarks.cs` | Contains benchmarks for `GeneratePatch` and `ApplyPatch` operations for every individual CRDT strategy. |
+| `$/Ama.CRDT.Benchmarks/Benchmarks/StrategyApplyBenchmarks.cs` | Contains benchmarks for `ApplyOperation` for every individual CRDT strategy in isolation. |
+| `$/Ama.CRDT.Benchmarks/Benchmarks/StrategyGenerateBenchmarks.cs` | Contains benchmarks for `GeneratePatch` for every individual CRDT strategy in isolation. |
+| `$/Ama.CRDT.Benchmarks/Benchmarks/StrategyGenerateOperationBenchmarks.cs` | Contains benchmarks for `GenerateOperation` for every individual CRDT strategy in isolation using explicit operation intents. |
 | `$/Ama.CRDT.Benchmarks/Models/ComplexPoco.cs` | A complex data model with nested objects and arrays for benchmarking recursive and collection-based scenarios. |
 | `$/Ama.CRDT.Benchmarks/Models/SimplePoco.cs` | A simple data model for benchmarking basic scenarios. |
 | `$/Ama.CRDT.Benchmarks/Models/StrategyPoco.cs` | A data model containing properties decorated with attributes for each supported CRDT strategy, used for isolated strategy benchmarking. |

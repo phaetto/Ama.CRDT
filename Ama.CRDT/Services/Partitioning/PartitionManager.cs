@@ -177,7 +177,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
 
         foreach (var (_, (prop, _)) in partitionableProperties)
         {
-            var collection = prop.GetValue(fullObject);
+            var collection = PocoPathHelper.GetAccessor(prop).Getter(fullObject);
             if (collection is IList list)
             {
                 list.Clear();
@@ -191,7 +191,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
             {
                 var partitionDoc = await storageService.LoadPartitionContentAsync<T>(logicalKey, prop.Name, partition, cancellationToken);
 
-                var partitionCollection = prop.GetValue(partitionDoc.Data!);
+                var partitionCollection = PocoPathHelper.GetAccessor(prop).Getter(partitionDoc.Data!);
                 
                 if (collection is IList partitionList && partitionCollection is IEnumerable penum)
                 {
@@ -270,8 +270,8 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         var (prop, _) = partitionableProperties[propertyPath];
 
         // Attach the partition's data collection to the header document
-        var collection = prop.GetValue(dataDoc.Data);
-        prop.SetValue(headerDoc.Value.Data, collection);
+        var collection = PocoPathHelper.GetAccessor(prop).Getter(dataDoc.Data!);
+        PocoPathHelper.GetAccessor(prop).Setter(headerDoc.Value.Data!, collection);
 
         var mergedMeta = CrdtMetadata.Merge(headerDoc.Value.Metadata!, dataDoc.Metadata!);
         return new CrdtDocument<T>(headerDoc.Value.Data, mergedMeta);
@@ -337,19 +337,19 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         // Shallow copy all properties to the header
         foreach (var property in properties)
         {
-            property.SetValue(headerObject, property.GetValue(initialObject));
+            PocoPathHelper.GetAccessor(property).Setter(headerObject, PocoPathHelper.GetAccessor(property).Getter(initialObject));
         }
 
         // Isolate the header by providing empty instances of partitionable collections
         foreach (var kvp in partitionableProperties.Values)
         {
             var prop = kvp.Property;
-            var originalCollection = prop.GetValue(initialObject);
+            var originalCollection = PocoPathHelper.GetAccessor(prop).Getter(initialObject);
 
             if (prop.CanWrite && originalCollection is not null)
             {
                 var emptyCollection = Activator.CreateInstance(originalCollection.GetType());
-                prop.SetValue(headerObject, emptyCollection);
+                PocoPathHelper.GetAccessor(prop).Setter(headerObject, emptyCollection);
             }
         }
 
@@ -371,10 +371,10 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
             await storageService.InitializePropertyIndexAsync(prop.Name, cancellationToken);
             await storageService.ClearPropertyDataAsync(logicalKey, prop.Name, cancellationToken);
 
-            var initialCollection = prop.GetValue(initialObject);
+            var initialCollection = PocoPathHelper.GetAccessor(prop).Getter(initialObject);
             var dataObject = new T();
-            partitionKeyProperty.SetValue(dataObject, logicalKey);
-            prop.SetValue(dataObject, initialCollection);
+            PocoPathHelper.GetAccessor(partitionKeyProperty).Setter(dataObject, logicalKey);
+            PocoPathHelper.GetAccessor(prop).Setter(dataObject, initialCollection);
 
             var dataMetadata = metadataManager.Initialize(dataObject);
             var startRangeKey = strategy.GetStartKey(initialObject, prop) ?? strategy.GetMinimumKey(prop);
@@ -558,7 +558,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
 
     private IComparable GetLogicalKey(T obj)
     {
-        var logicalKeyObj = partitionKeyProperty.GetValue(obj) ?? throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' cannot be null.");
+        var logicalKeyObj = PocoPathHelper.GetAccessor(partitionKeyProperty).Getter(obj) ?? throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' cannot be null.");
         if (logicalKeyObj is not IComparable logicalKey)
         {
             throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' must implement IComparable.");

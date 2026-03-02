@@ -20,14 +20,10 @@ public interface ICrdtStrategy
 
     /// <summary>
     /// Explicitly generates a single CRDT operation based on a specified user intent, bypassing state-based diffing.
-    /// By default, throws <see cref="NotSupportedException"/>. Strategies that support explicit commands should override this.
     /// </summary>
     /// <param name="context">The context for the intent generation, containing metadata, paths, and the requested intent.</param>
     /// <returns>An explicitly generated <see cref="CrdtOperation"/>.</returns>
-    CrdtOperation GenerateOperation(GenerateOperationContext context)
-    {
-        throw new NotSupportedException($"Explicit operation generation is not supported for {this.GetType().Name}.");
-    }
+    CrdtOperation GenerateOperation(GenerateOperationContext context);
 
     /// <summary>
     /// Applies a single CRDT operation to a POCO document.

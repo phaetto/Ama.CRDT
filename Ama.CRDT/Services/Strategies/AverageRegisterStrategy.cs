@@ -8,7 +8,6 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
-using Ama.CRDT.Services;
 
 /// <summary>
 /// Implements an Average Register strategy. Each replica contributes a value, and the property converges to the average of all contributions.
@@ -81,7 +80,7 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
             return;
         }
         
-        var incomingValue = operation.Value is not null ? Convert.ToDecimal(operation.Value) : 0;
+        var incomingValue = PocoPathHelper.ConvertTo<decimal>(operation.Value);
         contributions[operation.ReplicaId] = new AverageRegisterValue(incomingValue, operation.Timestamp);
 
         RecalculateAndApplyAverage(root, operation.JsonPath, contributions);
@@ -97,6 +96,6 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
         var sum = contributions.Values.Sum(c => c.Value);
         var average = sum / contributions.Count;
 
-        PocoPathHelper.SetValue(root, jsonPath, average);
+        PocoPathHelper.SetValue<decimal>(root, jsonPath, average);
     }
 }
