@@ -12,7 +12,7 @@ public sealed class PropertyInfoUsageAnalyzerTests
     {
         var test = new CSharpAnalyzerTest<PropertyInfoUsageAnalyzer, DefaultVerifier>
         {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net100
         };
 
         return test;

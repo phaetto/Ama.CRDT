@@ -13,7 +13,7 @@ public sealed class CrdtStrategyTypeAnalyzerTests
     {
         var test = new CSharpAnalyzerTest<CrdtStrategyTypeAnalyzer, DefaultVerifier>
         {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net100
         };
 
         test.TestState.AdditionalReferences.Add(MetadataReference.CreateFromFile(typeof(CrdtStrategyAttribute).Assembly.Location));
