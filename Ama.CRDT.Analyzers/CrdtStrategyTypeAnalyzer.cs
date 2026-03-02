@@ -2,6 +2,7 @@ namespace Ama.CRDT.Analyzers;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -62,27 +63,55 @@ public sealed class CrdtStrategyTypeAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var crdtSupportedTypeAttributeType = context.Compilation.GetTypeByMetadataName("Ama.CRDT.Attributes.CrdtSupportedTypeAttribute");
-        if (crdtSupportedTypeAttributeType is null)
+        var supportedTypes = new List<ITypeSymbol>();
+
+        if (strategyName == "StateMachineStrategy")
         {
-            return;
+            var validatorTypeArg = strategyAttributeData.ConstructorArguments.FirstOrDefault();
+            if (validatorTypeArg.Value is ITypeSymbol validatorType)
+            {
+                var stateMachineInterfaceType = context.Compilation.GetTypeByMetadataName("Ama.CRDT.Extensions.IStateMachine`1");
+                
+                if (stateMachineInterfaceType is not null)
+                {
+                    var stateMachineInterfaces = validatorType.AllInterfaces.Where(i =>
+                        SymbolEqualityComparer.Default.Equals(i.OriginalDefinition, stateMachineInterfaceType));
+
+                    foreach (var smInterface in stateMachineInterfaces)
+                    {
+                        supportedTypes.Add(smInterface.TypeArguments[0]);
+                    }
+
+                    if (validatorType is INamedTypeSymbol namedValidatorType && namedValidatorType.IsGenericType && SymbolEqualityComparer.Default.Equals(namedValidatorType.OriginalDefinition, stateMachineInterfaceType))
+                    {
+                        supportedTypes.Add(namedValidatorType.TypeArguments[0]);
+                    }
+                }
+            }
         }
+        else
+        {
+            var crdtSupportedTypeAttributeType = context.Compilation.GetTypeByMetadataName("Ama.CRDT.Attributes.CrdtSupportedTypeAttribute");
+            if (crdtSupportedTypeAttributeType is not null)
+            {
+                var supportedTypeAttributes = strategyTypeSymbol.GetAttributes()
+                    .Where(ad => ad.AttributeClass?.Equals(crdtSupportedTypeAttributeType, SymbolEqualityComparer.Default) ?? false);
 
-        var supportedTypeAttributes = strategyTypeSymbol.GetAttributes()
-            .Where(ad => ad.AttributeClass?.Equals(crdtSupportedTypeAttributeType, SymbolEqualityComparer.Default) ?? false);
-
-        var supportedTypes = supportedTypeAttributes
-            .Select(ad => ad.ConstructorArguments.FirstOrDefault().Value as ITypeSymbol)
-            .Where(t => t is not null)
-            .ToList();
+                var extractedTypes = supportedTypeAttributes
+                    .Select(ad => ad.ConstructorArguments.FirstOrDefault().Value as ITypeSymbol)
+                    .Where(t => t is not null);
+                    
+                supportedTypes.AddRange(extractedTypes!);
+            }
+        }
 
         if (supportedTypes.Count == 0)
         {
-            // If a strategy has no CrdtSupportedTypeAttribute, we cannot validate it.
+            // If a strategy has no CrdtSupportedTypeAttribute (and is not StateMachine resolving properly), we cannot validate it.
             return;
         }
 
-        var isSupported = supportedTypes.Any(supportedType => IsTypeCompatible(propertyTypeSymbol, supportedType!, context.Compilation));
+        var isSupported = supportedTypes.Any(supportedType => IsTypeCompatible(propertyTypeSymbol, supportedType, context.Compilation));
 
         if (!isSupported)
         {

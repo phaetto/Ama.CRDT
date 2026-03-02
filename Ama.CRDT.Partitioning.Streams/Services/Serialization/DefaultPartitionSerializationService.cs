@@ -44,7 +44,6 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
     public async Task WriteHeaderAsync(Stream stream, BTreeHeader header, int headerSize, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        ArgumentNullException.ThrowIfNull(header);
 
         stream.Seek(0, SeekOrigin.Begin);
         var buffer = new byte[headerSize];

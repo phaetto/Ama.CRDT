@@ -30,7 +30,6 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
     /// <inheritdoc/>
     public CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, T changed, ICrdtTimestamp changeTimestamp) where T : class
     {
-        ArgumentNullException.ThrowIfNull(from);
         ArgumentNullException.ThrowIfNull(from.Metadata);
         ArgumentNullException.ThrowIfNull(changed);
         ArgumentNullException.ThrowIfNull(changeTimestamp);
