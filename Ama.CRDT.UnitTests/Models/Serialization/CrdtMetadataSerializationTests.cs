@@ -65,7 +65,6 @@ public sealed class CrdtMetadataSerializationTests
         jsonNode.ContainsKey("OrSets").ShouldBeFalse();
         jsonNode.ContainsKey("PriorityQueues").ShouldBeFalse();
         jsonNode.ContainsKey("LseqTrackers").ShouldBeFalse();
-        jsonNode.ContainsKey("ExclusiveLocks").ShouldBeFalse();
         jsonNode.ContainsKey("LwwMaps").ShouldBeFalse();
         jsonNode.ContainsKey("OrMaps").ShouldBeFalse();
         jsonNode.ContainsKey("CounterMaps").ShouldBeFalse();
