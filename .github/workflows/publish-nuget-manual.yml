@@ -10,7 +10,7 @@ on:
       minor_version:
         description: 'Minor Version'
         required: true
-        default: '0'
+        default: '1'
       patch_version:
         description: 'Patch Version'
         required: true
@@ -44,7 +44,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Set Version
         id: versioning
