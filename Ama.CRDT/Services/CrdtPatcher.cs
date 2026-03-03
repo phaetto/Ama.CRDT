@@ -151,17 +151,34 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
 
         foreach (var cached in properties)
         {
-            // Use precalculated paths and prefixes to eliminate string interpolations
             var currentPath = isRoot ? cached.RootedPath : path + cached.PathSuffix;
-
-            // Use the centralized fast-getter to eliminate slow reflection
             var fromValue = fromObj is not null ? cached.Accessor.Getter(fromObj) : null;
             var toValue = toObj is not null ? cached.Accessor.Getter(toObj) : null;
 
+            var propertyType = cached.Property.PropertyType;
             var strategy = strategyProvider.GetStrategy(cached.Property);
-            var strategyContext = new GeneratePatchContext(this, operations, currentPath, cached.Property, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp);
-            
-            strategy.GeneratePatch(strategyContext);
+
+            if (strategy is LwwStrategy && propertyType.IsClass && propertyType != typeof(string) && !IsCollection(propertyType))
+            {
+                if (fromValue != null && toValue == null)
+                {
+                    // Optimization: When an entire POCO is removed, emit a single parent Remove operation instead of thousands of nested leaf removes.
+                    var strategyContext = new GeneratePatchContext(this, operations, currentPath, cached.Property, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp);
+                    strategy.GeneratePatch(strategyContext);
+                }
+                else 
+                {
+                    // Natively recurse into POCO properties
+                    var diffContext = new DifferentiateObjectContext(
+                        currentPath, propertyType, fromValue, toValue, fromRoot, toRoot, fromMeta, operations, changeTimestamp);
+                    DifferentiateObject(diffContext);
+                }
+            }
+            else
+            {
+                var strategyContext = new GeneratePatchContext(this, operations, currentPath, cached.Property, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp);
+                strategy.GeneratePatch(strategyContext);
+            }
         }
     }
     
