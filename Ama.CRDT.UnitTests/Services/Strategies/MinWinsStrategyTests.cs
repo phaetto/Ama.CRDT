@@ -53,8 +53,8 @@ public sealed class MinWinsStrategyTests : IDisposable
         var operations = new List<CrdtOperation>();
         var property = typeof(TestModel).GetProperty(nameof(TestModel.BestTime))!;
         var context = new GeneratePatchContext(
-            new Mock<ICrdtPatcher>().Object,
             operations,
+            new List<DifferentiateObjectContext>(),
             "$.bestTime",
             property,
             200,

@@ -53,7 +53,16 @@ public sealed class GCounterStrategyTests : IDisposable
         // Arrange
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
         var context = new GeneratePatchContext(
-            mockPatcher.Object, operations, "$.count", property, 10, 15, new TestModel { Count = 10 }, new TestModel { Count = 15 }, new CrdtMetadata(), timestampProvider.Now());
+            operations,
+            new List<DifferentiateObjectContext>(),
+            "$.count",
+            property,
+            10,
+            15,
+            new TestModel { Count = 10 },
+            new TestModel { Count = 15 },
+            new CrdtMetadata(),
+            timestampProvider.Now());
 
         // Act
         strategy.GeneratePatch(context);
@@ -70,7 +79,16 @@ public sealed class GCounterStrategyTests : IDisposable
         // Arrange
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
         var context = new GeneratePatchContext(
-            mockPatcher.Object, operations, "$.count", property, 10, 5, new TestModel { Count = 10 }, new TestModel { Count = 5 }, new CrdtMetadata(), timestampProvider.Now());
+            operations,
+            new List<DifferentiateObjectContext>(),
+            "$.count",
+            property,
+            10,
+            5,
+            new TestModel { Count = 10 },
+            new TestModel { Count = 5 },
+            new CrdtMetadata(),
+            timestampProvider.Now());
         
         // Act
         strategy.GeneratePatch(context);

@@ -27,7 +27,7 @@ public sealed class TwoPhaseGraphStrategy(
 
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (_, operations, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
 
         if (originalValue is not CrdtGraph originalGraph || modifiedValue is not CrdtGraph modifiedGraph) return;
 

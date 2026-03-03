@@ -78,7 +78,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
 
         var operations = new List<CrdtOperation>();
         var context = new GeneratePatchContext(
-            mockPatcher.Object, operations, "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now());
+            operations, new List<DifferentiateObjectContext>(), "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now());
         
         strategyA.GeneratePatch(context);
 
@@ -99,7 +99,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
 
         var operations = new List<CrdtOperation>();
         var context = new GeneratePatchContext(
-            mockPatcher.Object, operations, "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now());
+            operations, new List<DifferentiateObjectContext>(), "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now());
         
         strategyA.GeneratePatch(context);
 

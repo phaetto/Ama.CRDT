@@ -62,7 +62,7 @@ public sealed class SortedSetStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+        var (operations, nestedDiffs, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
 
         var fromArray = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var toArray = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
@@ -86,7 +86,7 @@ public sealed class SortedSetStrategy(
                 {
                     var itemPath = $"{path}[{entry.OldIndex}]";
                     var diffContext = new DifferentiateObjectContext(itemPath, elementType, fromItem, toItem, originalRoot, modifiedRoot, originalMeta, operations, changeTimestamp);
-                    patcher.DifferentiateObject(diffContext);
+                    nestedDiffs.Add(diffContext);
                 }
             }
             else if (entry.Type == LcsDiffEntryType.Add)
