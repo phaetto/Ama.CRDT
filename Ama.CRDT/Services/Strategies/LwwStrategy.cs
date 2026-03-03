@@ -28,14 +28,6 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
     {
         var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
 
-        var propertyType = property.PropertyType;
-        if (propertyType.IsClass && propertyType != typeof(string) && !CrdtPatcher.IsCollection(propertyType))
-        {
-            var diffContext = new DifferentiateObjectContext(path, property.PropertyType, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, operations, changeTimestamp);
-            patcher.DifferentiateObject(diffContext);
-            return;
-        }
-
         if (Equals(originalValue, modifiedValue))
         {
             return;

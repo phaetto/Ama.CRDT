@@ -287,7 +287,7 @@ internal static class PocoPathHelper
         return [.. segments];
     }
     
-    public static (object? parent, PropertyInfo? property, object? finalSegment) ResolvePath(object root, string jsonPath)
+    public static (object? parent, PropertyInfo? property, object? finalSegment) ResolvePath(object root, string jsonPath, bool createMissing = false)
     {
         if (root is null || string.IsNullOrEmpty(jsonPath))
         {
@@ -345,7 +345,19 @@ internal static class PocoPathHelper
 #endif
                 {
                     lastProperty = propertyInfo;
-                    currentObject = GetAccessor(propertyInfo).Getter(currentObject);
+                    var nextObject = GetAccessor(propertyInfo).Getter(currentObject);
+                    if (nextObject is null && createMissing && propertyInfo.CanWrite)
+                    {
+                        // Instantiate missing intermediate POCOs automatically
+                        var propType = propertyInfo.PropertyType;
+                        if (propType.IsClass && propType != typeof(string) && !typeof(IEnumerable).IsAssignableFrom(propType))
+                        {
+                            var factory = ConstructorCache.GetOrAdd(propType, CreateConstructor);
+                            nextObject = factory();
+                            GetAccessor(propertyInfo).Setter(currentObject, nextObject);
+                        }
+                    }
+                    currentObject = nextObject;
                 }
                 else { return (null, null, null); } // Property not found
             }

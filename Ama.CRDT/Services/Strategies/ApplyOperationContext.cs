@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using System.Reflection;
 using Ama.CRDT.Models;
 
 /// <summary>
@@ -12,4 +13,23 @@ public sealed record ApplyOperationContext(
     object Root,
     CrdtMetadata Metadata,
     CrdtOperation Operation
-);
+)
+{
+    /// <summary>
+    /// The resolved target object that owns the property to be modified.
+    /// Resolved automatically by the CrdtApplicator.
+    /// </summary>
+    public object? Target { get; init; }
+
+    /// <summary>
+    /// The resolved property to be modified.
+    /// Resolved automatically by the CrdtApplicator.
+    /// </summary>
+    public PropertyInfo? Property { get; init; }
+
+    /// <summary>
+    /// The final segment of the path (e.g., an integer index for an array, or a string key for a dictionary).
+    /// Resolved automatically by the CrdtApplicator.
+    /// </summary>
+    public object? FinalSegment { get; init; }
+}

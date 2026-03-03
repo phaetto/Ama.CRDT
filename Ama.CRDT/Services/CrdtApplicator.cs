@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
+using Ama.CRDT.Services.Helpers;
 using System;
 using System.Collections.Generic;
 
@@ -67,7 +68,16 @@ public sealed class CrdtApplicator(
             }
         }
 
-        var context = new ApplyOperationContext(document, metadata, operation);
+        // The Applicator is responsible for resolving the path and instantiating missing intermediate POCOs.
+        var (target, property, finalSegment) = PocoPathHelper.ResolvePath(document, operation.JsonPath, createMissing: true);
+
+        var context = new ApplyOperationContext(document, metadata, operation)
+        {
+            Target = target,
+            Property = property,
+            FinalSegment = finalSegment
+        };
+
         strategy.ApplyOperation(context);
 
         if (operation.Clock > 0)
