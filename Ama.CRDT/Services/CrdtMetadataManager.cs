@@ -181,8 +181,11 @@ public sealed class CrdtMetadataManager(
 
         if (metadata.SeenExceptions.Count > 0)
         {
+            // We clear exceptions strictly less than (<) advancedClock so that operations belonging
+            // to the current clock remain in SeenExceptions. This ensures they can be properly
+            // deduplicated if a patch with the exact same clock is replayed.
             var exceptionsToRemove = metadata.SeenExceptions
-                .Where(op => op.ReplicaId == replicaId && op.Clock <= advancedClock)
+                .Where(op => op.ReplicaId == replicaId && op.Clock < advancedClock)
                 .ToList();
 
             foreach (var exception in exceptionsToRemove)

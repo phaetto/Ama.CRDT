@@ -53,19 +53,17 @@ public sealed class CrdtApplicator(
 
         var strategy = strategyProvider.GetStrategy(operation, document);
 
-        // Causal ordering using Clock. A clock of 0 indicates a legacy operation without causal tracking.
-        if (operation.Clock > 0)
+        // We use strictly less than (<) instead of (<=) because a single patch can contain multiple operations
+        // with the same version/clock. Replayed duplicate operations for the current clock are caught by SeenExceptions.
+        if (metadata.VersionVector.TryGetValue(operation.ReplicaId, out var lastSeenClock) &&
+                operation.Clock < lastSeenClock)
         {
-            if (metadata.VersionVector.TryGetValue(operation.ReplicaId, out var lastSeenClock) &&
-                operation.Clock <= lastSeenClock)
-            {
-                return;
-            }
+            return;
+        }
 
-            if (!metadata.SeenExceptions.Add(operation))
-            {
-                return;
-            }
+        if (!metadata.SeenExceptions.Add(operation))
+        {
+            return;
         }
 
         // The Applicator is responsible for resolving the path and instantiating missing intermediate POCOs.
@@ -80,9 +78,6 @@ public sealed class CrdtApplicator(
 
         strategy.ApplyOperation(context);
 
-        if (operation.Clock > 0)
-        {
-            metadataManager.AdvanceVersionVector(metadata, operation);
-        }
+        metadataManager.AdvanceVersionVector(metadata, operation);
     }
 }
