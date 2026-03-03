@@ -289,7 +289,7 @@ public class StrategyApplyBenchmarks
         var toValue = prop.GetValue(toPoco);
 
         var ops = new List<CrdtOperation>();
-        var ctx = new GeneratePatchContext(patcher, ops, path, prop, fromValue, toValue, basePoco, toPoco, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(ops, new List<DifferentiateObjectContext>(), path, prop, fromValue, toValue, basePoco, toPoco, fromDoc.Metadata, timestamp);
         strategy.GeneratePatch(ctx);
         return ops;
     }

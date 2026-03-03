@@ -24,7 +24,7 @@ public sealed class MaxWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
 
         if (modifiedValue is null || originalValue is null)
         {

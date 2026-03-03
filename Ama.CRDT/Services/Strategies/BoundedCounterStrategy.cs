@@ -42,7 +42,7 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
 
         var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue);
         var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue);

@@ -58,8 +58,8 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         var originalRoot = new TestModel { Level = 50 };
         var modifiedRoot = new TestModel { Level = 60 };
         var context = new GeneratePatchContext(
-            new Mock<ICrdtPatcher>().Object,
             operations,
+            new List<DifferentiateObjectContext>(),
             "$.level",
             property,
             50,

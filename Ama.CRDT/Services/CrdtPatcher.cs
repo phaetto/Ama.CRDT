@@ -163,8 +163,10 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
                 if (fromValue != null && toValue == null)
                 {
                     // Optimization: When an entire POCO is removed, emit a single parent Remove operation instead of thousands of nested leaf removes.
-                    var strategyContext = new GeneratePatchContext(this, operations, currentPath, cached.Property, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp);
+                    var nestedDiffs = new List<DifferentiateObjectContext>();
+                    var strategyContext = new GeneratePatchContext(operations, nestedDiffs, currentPath, cached.Property, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp);
                     strategy.GeneratePatch(strategyContext);
+                    foreach (var nestedDiff in nestedDiffs) DifferentiateObject(nestedDiff);
                 }
                 else 
                 {
@@ -176,8 +178,10 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
             }
             else
             {
-                var strategyContext = new GeneratePatchContext(this, operations, currentPath, cached.Property, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp);
+                var nestedDiffs = new List<DifferentiateObjectContext>();
+                var strategyContext = new GeneratePatchContext(operations, nestedDiffs, currentPath, cached.Property, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp);
                 strategy.GeneratePatch(strategyContext);
+                foreach (var nestedDiff in nestedDiffs) DifferentiateObject(nestedDiff);
             }
         }
     }

@@ -53,8 +53,8 @@ public sealed class MaxWinsStrategyTests : IDisposable
         var operations = new List<CrdtOperation>();
         var property = typeof(TestModel).GetProperty(nameof(TestModel.HighScore))!;
         var context = new GeneratePatchContext(
-            new Mock<ICrdtPatcher>().Object,
             operations,
+            new List<DifferentiateObjectContext>(),
             "$.highScore",
             property,
             100,

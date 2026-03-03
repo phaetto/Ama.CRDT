@@ -35,7 +35,7 @@ public sealed class LwwSetStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
 
         var originalSet = originalValue as IEnumerable;
         var modifiedSet = modifiedValue as IEnumerable;

@@ -29,7 +29,7 @@ public sealed class PriorityQueueStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp) = context;
 
         var originalList = originalValue as IEnumerable;
         var modifiedList = modifiedValue as IEnumerable;

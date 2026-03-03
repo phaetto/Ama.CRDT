@@ -34,7 +34,7 @@ public sealed class OrMapStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+        var (operations, nestedDiffs, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
 
         var originalDict = originalValue as IDictionary;
         var modifiedDict = modifiedValue as IDictionary;
@@ -71,7 +71,7 @@ public sealed class OrMapStrategy(
             var originalItem = originalDict![key];
             var modifiedItem = modifiedDict![key];
             var itemPath = $"{path}['{key.ToString()?.Replace("'", "\\'")}']";
-            patcher.DifferentiateObject(new DifferentiateObjectContext(
+            nestedDiffs.Add(new DifferentiateObjectContext(
                 Path: itemPath,
                 Type: PocoPathHelper.GetDictionaryValueType(property),
                 FromObj: originalItem,

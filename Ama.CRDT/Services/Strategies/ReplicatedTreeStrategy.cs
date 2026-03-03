@@ -26,7 +26,7 @@ public sealed class ReplicatedTreeStrategy(
 
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (_, operations, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp) = context;
 
         if (originalValue is not CrdtTree originalTree || modifiedValue is not CrdtTree modifiedTree) return;
 
