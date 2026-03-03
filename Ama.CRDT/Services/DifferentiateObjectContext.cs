@@ -6,7 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using Ama.CRDT.Models;
 
 /// <summary>
-/// Defines the context for a <see cref="ICrdtPatcher.DifferentiateObject"/> operation.
+/// Defines the context for differentiating objects during CRDT patch generation.
 /// </summary>
 /// <param name="Path">The current JSON path being compared (e.g., "$.user.name").</param>
 /// <param name="Type">The type of the objects being compared.</param>

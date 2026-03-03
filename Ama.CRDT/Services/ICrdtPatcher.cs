@@ -78,17 +78,4 @@ public interface ICrdtPatcher
     /// <param name="intent">An object representing the intent to perform (e.g., <see cref="InsertIntent"/>).</param>
     /// <returns>A <see cref="CrdtOperation"/> representing the explicit operation.</returns>
     CrdtOperation GenerateOperation<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent) where T : class;
-
-    /// <summary>
-    /// Recursively differentiates two objects, populating a list of CRDT operations.
-    /// This method is the core of the patch generation logic and is designed for extensibility, allowing custom strategies to invoke it for nested objects.
-    /// </summary>
-    /// <param name="context">The context for the differentiation operation, containing all necessary parameters.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if the <paramref name="context"/> or any of its required properties are null.</exception>
-    /// <exception cref="System.ArgumentException">Thrown if the path within the context is null or whitespace.</exception>
-    /// <remarks>
-    /// This method is typically not called directly by application code. It is used internally by the patcher implementation
-    /// and by strategies that need to handle complex or nested data structures.
-    /// </remarks>
-    void DifferentiateObject([DisallowNull] DifferentiateObjectContext context);
 }
