@@ -26,7 +26,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
 
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp) = context;
 
         if (Equals(originalValue, modifiedValue))
         {

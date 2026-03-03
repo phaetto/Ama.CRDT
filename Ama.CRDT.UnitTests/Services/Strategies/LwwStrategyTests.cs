@@ -60,7 +60,7 @@ public sealed class LwwStrategyTests : IDisposable
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
         var changeTimestamp = timestampProvider.Create(200L);
         var context = new GeneratePatchContext(
-            mockPatcher.Object, operations, "$.value", property, originalValue, modifiedValue, null, null, originalMeta, changeTimestamp);
+            operations, new List<DifferentiateObjectContext>(), "$.value", property, originalValue, modifiedValue, null, null, originalMeta, changeTimestamp);
 
         // Act
         strategyA.GeneratePatch(context);

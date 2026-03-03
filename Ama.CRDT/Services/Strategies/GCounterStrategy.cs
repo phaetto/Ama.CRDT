@@ -28,7 +28,7 @@ public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrat
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (patcher, operations, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
 
         var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue);
         var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue);

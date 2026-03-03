@@ -56,8 +56,8 @@ public sealed class AverageRegisterStrategyTests : IDisposable
         var originalRoot = new TestModel { Rating = 3.5m };
         var modifiedRoot = new TestModel { Rating = 4.0m };
         var context = new GeneratePatchContext(
-            new Mock<ICrdtPatcher>().Object,
             operations,
+            new List<DifferentiateObjectContext>(),
             Path,
             property,
             3.5m,

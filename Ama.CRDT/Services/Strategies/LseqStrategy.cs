@@ -39,7 +39,7 @@ public sealed class LseqStrategy(
     /// <inheritdoc />
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (_, operations, path, property, originalValue, modifiedValue, _, _, originalMeta, _) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, _) = context;
 
         if (originalValue is not IList originalList || modifiedValue is not IList modifiedList) return;
 

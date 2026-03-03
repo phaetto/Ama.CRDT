@@ -77,7 +77,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
         var changeTimestamp = timestampProvider.Create(200);
         var context = new GeneratePatchContext(
-            mockPatcher.Object, operations, "$.status", property, "PENDING", "PROCESSING", new TestModel { Status = "PENDING" }, new TestModel { Status = "PROCESSING" }, originalMeta, changeTimestamp);
+            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "PROCESSING", new TestModel { Status = "PENDING" }, new TestModel { Status = "PROCESSING" }, originalMeta, changeTimestamp);
 
         // Act
         strategyA.GeneratePatch(context);
@@ -98,7 +98,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var originalMeta = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
         var context = new GeneratePatchContext(
-            mockPatcher.Object, operations, "$.status", property, "PENDING", "SHIPPED", new TestModel { Status = "PENDING" }, new TestModel { Status = "SHIPPED" }, originalMeta, timestampProvider.Create(200));
+            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "SHIPPED", new TestModel { Status = "PENDING" }, new TestModel { Status = "SHIPPED" }, originalMeta, timestampProvider.Create(200));
 
         // Act
         strategyA.GeneratePatch(context);

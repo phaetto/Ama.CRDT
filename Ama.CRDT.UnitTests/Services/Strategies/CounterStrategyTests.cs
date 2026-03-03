@@ -62,8 +62,8 @@ public sealed class CounterStrategyTests : IDisposable
         mockTimestampProvider.Setup(p => p.Now()).Returns(expectedTimestamp);
         var localStrategy = new CounterStrategy(new ReplicaContext { ReplicaId = "replica-A" });
         var context = new GeneratePatchContext(
-            mockPatcher.Object, 
-            operations, 
+            operations,
+            new List<DifferentiateObjectContext>(),
             path, 
             property, 
             original, 

@@ -98,10 +98,9 @@ public sealed class SortedSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void GeneratePatch_WithCustomIdComparer_WhenObjectInArrayIsModified_ShouldCallPatcherDifferentiateObject()
+    public void GeneratePatch_WithCustomIdComparer_WhenObjectInArrayIsModified_ShouldAddNestedDiff()
     {
         // Arrange
-        var mockPatcher = new Mock<ICrdtPatcher>();
         var mockComparerProvider = new Mock<IElementComparerProvider>();
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
         var strategy = new SortedSetStrategy(mockComparerProvider.Object, new ReplicaContext { ReplicaId = "replica-A" });
@@ -112,6 +111,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         mockTimestampProvider.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(val => new EpochTimestamp(val));
 
         var operations = new List<CrdtOperation>();
+        var nestedDiffs = new List<DifferentiateObjectContext>();
         var path = "$.items";
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Items))!;
         
@@ -126,31 +126,19 @@ public sealed class SortedSetStrategyTests : IDisposable
             new() { Id = 2, Value = "two-updated" }
         };
 
-        mockPatcher
-            .Setup(p => p.DifferentiateObject(It.IsAny<DifferentiateObjectContext>()))
-            .Callback<DifferentiateObjectContext>(ctx =>
-            {
-                var (itemPath, _, _, to, _, _, _, ops, _) = ctx;
-                var toNested = (NestedModel)to!;
-                ops.Add(new CrdtOperation(Guid.NewGuid(), "mock-replica", $"{itemPath}.value", OperationType.Upsert, toNested.Value, mockTimestampProvider.Object.Create(0)));
-            });
-        
         var context = new GeneratePatchContext(
-            mockPatcher.Object, operations, path, property, originalValue, modifiedValue, new object(), new object(), new CrdtMetadata(), mockTimestampProvider.Object.Create(0));
+            operations, nestedDiffs, path, property, originalValue, modifiedValue, new object(), new object(), new CrdtMetadata(), mockTimestampProvider.Object.Create(0));
         
         // Act
         strategy.GeneratePatch(context);
 
         // Assert
-        mockPatcher.Verify(p => p.DifferentiateObject(
-            It.Is<DifferentiateObjectContext>(ctx => 
-                ctx.Path == "$.items[1]" &&
-                ctx.Type == typeof(NestedModel)
-            )
-        ), Times.Once);
+        nestedDiffs.ShouldHaveSingleItem();
+        var diffCtx = nestedDiffs[0];
+        diffCtx.Path.ShouldBe("$.items[1]");
+        diffCtx.Type.ShouldBe(typeof(NestedModel));
         
-        operations.ShouldHaveSingleItem();
-        operations.Single().JsonPath.ShouldBe("$.items[1].value");
+        operations.ShouldBeEmpty();
     }
 
     #region Intents Generation Tests
