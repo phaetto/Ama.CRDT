@@ -35,7 +35,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     private readonly StreamsCrdtMetrics treeMetrics;
 
     // Concurrency controls
-    private readonly ConcurrentDictionary<string, AsyncReaderWriterLock> locks = new();
+    private readonly ConcurrentDictionary<string, AsyncLock> locks = new();
     private readonly object cacheLock = new();
 
     // Cache for B+ Tree nodes, keyed by a distinct structure to support multiple index streams.
@@ -73,10 +73,10 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
         ArgumentNullException.ThrowIfNull(partition);
 
-        var rwLock = GetLock(GetDataLockKey(logicalKey, propertyName));
-        using var _releaser = await rwLock.LockReadAsync(cancellationToken);
+        var streamLock = GetLock(GetDataLockKey(logicalKey, propertyName));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
-        using var _ = new MetricTimer(metrics.StreamReadDuration);
+        using var timer = new MetricTimer(metrics.StreamReadDuration);
         var dataStream = await streamProvider.GetPropertyDataStreamAsync(logicalKey, propertyName, cancellationToken);
         return await LoadContentInternalAsync<TData>(partition, dataStream, cancellationToken);
     }
@@ -86,10 +86,10 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
 
-        var rwLock = GetLock(GetDataLockKey(logicalKey, HeaderIdentifier));
-        using var _releaser = await rwLock.LockReadAsync(cancellationToken);
+        var streamLock = GetLock(GetDataLockKey(logicalKey, HeaderIdentifier));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
-        using var _ = new MetricTimer(metrics.StreamReadDuration);
+        using var timer = new MetricTimer(metrics.StreamReadDuration);
         var dataStream = await streamProvider.GetHeaderDataStreamAsync(logicalKey, cancellationToken);
         return await LoadContentInternalAsync<TData>(partition, dataStream, cancellationToken);
     }
@@ -120,10 +120,10 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(metadata);
 
-        var rwLock = GetLock(GetDataLockKey(logicalKey, propertyName));
-        using var _releaser = await rwLock.LockWriteAsync(cancellationToken);
+        var streamLock = GetLock(GetDataLockKey(logicalKey, propertyName));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
-        using var _ = new MetricTimer(metrics.StreamWriteDuration);
+        using var timer = new MetricTimer(metrics.StreamWriteDuration);
         var dataStream = await streamProvider.GetPropertyDataStreamAsync(logicalKey, propertyName, cancellationToken);
         var header = await ReadOrCreateDataHeaderAsync(dataStream, cancellationToken);
         
@@ -154,10 +154,10 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(metadata);
 
-        var rwLock = GetLock(GetDataLockKey(logicalKey, HeaderIdentifier));
-        using var _releaser = await rwLock.LockWriteAsync(cancellationToken);
+        var streamLock = GetLock(GetDataLockKey(logicalKey, HeaderIdentifier));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
-        using var _ = new MetricTimer(metrics.StreamWriteDuration);
+        using var timer = new MetricTimer(metrics.StreamWriteDuration);
         var dataStream = await streamProvider.GetHeaderDataStreamAsync(logicalKey, cancellationToken);
         var header = await ReadOrCreateDataHeaderAsync(dataStream, cancellationToken);
         
@@ -252,8 +252,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(logicalKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
 
-        var rwLock = GetLock(GetDataLockKey(logicalKey, propertyName));
-        using var _releaser = await rwLock.LockWriteAsync(cancellationToken);
+        var streamLock = GetLock(GetDataLockKey(logicalKey, propertyName));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
         var stream = await streamProvider.GetPropertyDataStreamAsync(logicalKey, propertyName, cancellationToken);
         stream.SetLength(0);
@@ -265,8 +265,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
 
-        var rwLock = GetLock(GetDataLockKey(logicalKey, HeaderIdentifier));
-        using var _releaser = await rwLock.LockWriteAsync(cancellationToken);
+        var streamLock = GetLock(GetDataLockKey(logicalKey, HeaderIdentifier));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
         var stream = await streamProvider.GetHeaderDataStreamAsync(logicalKey, cancellationToken);
         stream.SetLength(0);
@@ -281,8 +281,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     public async Task InitializePropertyIndexAsync(string propertyName, CancellationToken cancellationToken = default) 
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
-        var rwLock = GetLock(GetIndexLockKey(propertyName));
-        using var _releaser = await rwLock.LockWriteAsync(cancellationToken);
+        var streamLock = GetLock(GetIndexLockKey(propertyName));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
         await InitializeInternalAsync(propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken);
     }
@@ -290,8 +290,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     /// <inheritdoc/>
     public async Task InitializeHeaderIndexAsync(CancellationToken cancellationToken = default)
     {
-        var rwLock = GetLock(GetIndexLockKey(HeaderIdentifier));
-        using var _releaser = await rwLock.LockWriteAsync(cancellationToken);
+        var streamLock = GetLock(GetIndexLockKey(HeaderIdentifier));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
         await InitializeInternalAsync(HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken);
     }
@@ -302,8 +302,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
         ArgumentNullException.ThrowIfNull(partition);
 
-        var rwLock = GetLock(GetIndexLockKey(propertyName));
-        using var _releaser = await rwLock.LockWriteAsync(cancellationToken);
+        var streamLock = GetLock(GetIndexLockKey(propertyName));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
         await InsertPartitionInternalAsync(partition, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken);
     }
@@ -313,8 +313,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
 
-        var rwLock = GetLock(GetIndexLockKey(HeaderIdentifier));
-        using var _releaser = await rwLock.LockWriteAsync(cancellationToken);
+        var streamLock = GetLock(GetIndexLockKey(HeaderIdentifier));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
         await InsertPartitionInternalAsync(headerPartition, HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken);
     }
@@ -325,8 +325,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
         ArgumentNullException.ThrowIfNull(partition);
 
-        var rwLock = GetLock(GetIndexLockKey(propertyName));
-        using var _releaser = await rwLock.LockWriteAsync(cancellationToken);
+        var streamLock = GetLock(GetIndexLockKey(propertyName));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
         await UpdatePartitionInternalAsync(partition, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken);
     }
@@ -336,8 +336,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
 
-        var rwLock = GetLock(GetIndexLockKey(HeaderIdentifier));
-        using var _releaser = await rwLock.LockWriteAsync(cancellationToken);
+        var streamLock = GetLock(GetIndexLockKey(HeaderIdentifier));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
         await UpdatePartitionInternalAsync(headerPartition, HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken);
     }
@@ -348,8 +348,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
         ArgumentNullException.ThrowIfNull(partition);
 
-        var rwLock = GetLock(GetIndexLockKey(propertyName));
-        using var _releaser = await rwLock.LockWriteAsync(cancellationToken);
+        var streamLock = GetLock(GetIndexLockKey(propertyName));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
         await DeletePartitionInternalAsync(partition, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken);
     }
@@ -367,8 +367,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
 
-        var rwLock = GetLock(GetIndexLockKey(propertyName));
-        using var _releaser = await rwLock.LockReadAsync(cancellationToken);
+        var streamLock = GetLock(GetIndexLockKey(propertyName));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
         return await FindPartitionInternalAsync(key, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken);
     }
@@ -379,8 +379,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(logicalKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
 
-        var rwLock = GetLock(GetIndexLockKey(propertyName));
-        using var _releaser = await rwLock.LockReadAsync(cancellationToken);
+        var streamLock = GetLock(GetIndexLockKey(propertyName));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
         return await GetPartitionCountInternalAsync(propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), logicalKey, cancellationToken);
     }
@@ -391,8 +391,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(logicalKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
 
-        var rwLock = GetLock(GetIndexLockKey(propertyName));
-        using var _releaser = await rwLock.LockReadAsync(cancellationToken);
+        var streamLock = GetLock(GetIndexLockKey(propertyName));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
         return await GetDataPartitionByIndexInternalAsync(logicalKey, index, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken);
     }
@@ -402,8 +402,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
 
-        var rwLock = GetLock(GetIndexLockKey(HeaderIdentifier));
-        using var _releaser = await rwLock.LockReadAsync(cancellationToken);
+        var streamLock = GetLock(GetIndexLockKey(HeaderIdentifier));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
         var result = await FindPartitionInternalAsync(new CompositePartitionKey(logicalKey, null), HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken);
         return result is HeaderPartition hp ? hp : null;
@@ -419,7 +419,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
     private async Task InitializeInternalAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
-        using var _ = new MetricTimer(treeMetrics.InitializationDuration);
+        using var timer = new MetricTimer(treeMetrics.InitializationDuration);
         var indexStream = await getIndexStream(cancellationToken);
         
         if (indexStream.Length > 0)
@@ -441,7 +441,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     
     private async Task<IPartition?> FindPartitionInternalAsync(CompositePartitionKey key, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
-        using var _ = new MetricTimer(treeMetrics.FindDuration);
+        using var timer = new MetricTimer(treeMetrics.FindDuration);
         var indexStream = await getIndexStream(cancellationToken);
         
         if (indexStream.Length <= HeaderSize) return null;
@@ -454,7 +454,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
     private async Task InsertPartitionInternalAsync(IPartition partition, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
-        using var _ = new MetricTimer(treeMetrics.InsertDuration);
+        using var timer = new MetricTimer(treeMetrics.InsertDuration);
         var indexStream = await getIndexStream(cancellationToken);
         
         var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken);
@@ -486,7 +486,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
     private async Task UpdatePartitionInternalAsync(IPartition partition, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
-        using var _ = new MetricTimer(treeMetrics.UpdateDuration);
+        using var timer = new MetricTimer(treeMetrics.UpdateDuration);
         var indexStream = await getIndexStream(cancellationToken);
         
         var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken);
@@ -499,7 +499,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
     private async Task DeletePartitionInternalAsync(IPartition partition, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
-        using var _ = new MetricTimer(treeMetrics.DeleteDuration);
+        using var timer = new MetricTimer(treeMetrics.DeleteDuration);
         var indexStream = await getIndexStream(cancellationToken);
 
         var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken);
@@ -526,10 +526,18 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     
     private async IAsyncEnumerable<IPartition> GetAllPartitionsInternalAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, IComparable? logicalKey = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var rwLock = GetLock(GetIndexLockKey(propertyName));
-        using var _releaser = await rwLock.LockReadAsync(cancellationToken);
+        var streamLock = GetLock(GetIndexLockKey(propertyName));
+        using var releaser = await streamLock.LockAsync(cancellationToken);
 
-        using var _ = new MetricTimer(treeMetrics.GetAllDuration);
+        await foreach (var partition in GetAllPartitionsNoLockAsync(propertyName, getIndexStream, logicalKey, cancellationToken).WithCancellation(cancellationToken))
+        {
+            yield return partition;
+        }
+    }
+
+    private async IAsyncEnumerable<IPartition> GetAllPartitionsNoLockAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, IComparable? logicalKey = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        using var timer = new MetricTimer(treeMetrics.GetAllDuration);
         var indexStream = await getIndexStream(cancellationToken);
 
         if (indexStream.Length <= HeaderSize) yield break;
@@ -545,7 +553,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
     private async Task<long> GetPartitionCountInternalAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, IComparable? logicalKey = null, CancellationToken cancellationToken = default)
     {
-        using var _ = new MetricTimer(treeMetrics.GetPartitionCountDuration);
+        using var timer = new MetricTimer(treeMetrics.GetPartitionCountDuration);
         var indexStream = await getIndexStream(cancellationToken);
         if (indexStream.Length == 0) return 0;
 
@@ -553,17 +561,17 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         if (logicalKey is null) return header.PartitionCount;
 
         long count = 0;
-        await foreach (var partition in GetAllPartitionsInternalAsync(propertyName, getIndexStream, logicalKey, cancellationToken).WithCancellation(cancellationToken)) count++;
+        await foreach (var partition in GetAllPartitionsNoLockAsync(propertyName, getIndexStream, logicalKey, cancellationToken).WithCancellation(cancellationToken)) count++;
         return count;
     }
 
     private async Task<IPartition?> GetDataPartitionByIndexInternalAsync(IComparable logicalKey, long index, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
-        using var _ = new MetricTimer(treeMetrics.GetDataPartitionByIndexDuration);
+        using var timer = new MetricTimer(treeMetrics.GetDataPartitionByIndexDuration);
         if (index < 0) return null;
 
         long currentIndex = -1;
-        await foreach (var partition in GetAllPartitionsInternalAsync(propertyName, getIndexStream, logicalKey, cancellationToken).WithCancellation(cancellationToken))
+        await foreach (var partition in GetAllPartitionsNoLockAsync(propertyName, getIndexStream, logicalKey, cancellationToken).WithCancellation(cancellationToken))
         {
             if (partition is DataPartition)
             {
@@ -1152,7 +1160,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
     #region Concurrency Helpers
 
-    private AsyncReaderWriterLock GetLock(string key) => locks.GetOrAdd(key, _ => new AsyncReaderWriterLock());
+    private AsyncLock GetLock(string key) => locks.GetOrAdd(key, _ => new AsyncLock());
 
     private static string GetIndexLockKey(string propertyName) => $"Index_{propertyName}";
     
@@ -1164,73 +1172,33 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     private readonly record struct BorrowResult(BTreeHeader Header, long SiblingOffset, long ChildOffset);
     private readonly record struct MergeResult(BTreeHeader Header, long MergedOffset, BPlusTreeNode MergedNode);
 
-    private sealed class AsyncReaderWriterLock
+    private sealed class AsyncLock
     {
-        private int activeReaders = 0;
-        private readonly SemaphoreSlim writeLock = new(1, 1);
-        private readonly SemaphoreSlim readCountLock = new(1, 1);
+        private readonly SemaphoreSlim semaphore = new(1, 1);
 
-        public async Task<IDisposable> LockReadAsync(CancellationToken ct)
+        public async Task<IDisposable> LockAsync(CancellationToken ct)
         {
-            await readCountLock.WaitAsync(ct);
-            try
-            {
-                if (activeReaders == 0)
-                {
-                    await writeLock.WaitAsync(ct);
-                }
-                activeReaders++;
-            }
-            finally
-            {
-                readCountLock.Release();
-            }
-            return new Releaser(this, isWrite: false);
+            await semaphore.WaitAsync(ct);
+            return new Releaser(this);
         }
 
-        public async Task<IDisposable> LockWriteAsync(CancellationToken ct)
+        private void Release()
         {
-            await writeLock.WaitAsync(ct);
-            return new Releaser(this, isWrite: true);
-        }
-
-        private void ReleaseRead()
-        {
-            readCountLock.Wait();
-            try
-            {
-                activeReaders--;
-                if (activeReaders == 0)
-                {
-                    writeLock.Release();
-                }
-            }
-            finally
-            {
-                readCountLock.Release();
-            }
-        }
-
-        private void ReleaseWrite()
-        {
-            writeLock.Release();
+            semaphore.Release();
         }
 
         private readonly struct Releaser : IDisposable
         {
-            private readonly AsyncReaderWriterLock parent;
-            private readonly bool isWrite;
+            private readonly AsyncLock parent;
 
-            public Releaser(AsyncReaderWriterLock parent, bool isWrite)
+            public Releaser(AsyncLock parent)
             {
                 this.parent = parent;
-                this.isWrite = isWrite;
             }
 
             public void Dispose()
             {
-                if (isWrite) parent.ReleaseWrite();
-                else parent.ReleaseRead();
+                parent.Release();
             }
         }
     }
