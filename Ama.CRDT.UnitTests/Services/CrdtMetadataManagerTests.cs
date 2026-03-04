@@ -129,6 +129,168 @@ public sealed class CrdtMetadataManagerTests
         metadata.Lww.Count.ShouldBe(1);
     }
 
+    [Fact]
+    public void PruneLwwSetTombstones_WithNullArguments_ShouldThrowArgumentNullException()
+    {
+        var metadata = new CrdtMetadata();
+        var threshold = timestampProviderMock.Object.Create(1);
+        Should.Throw<ArgumentNullException>(() => manager.PruneLwwSetTombstones(null!, threshold));
+        Should.Throw<ArgumentNullException>(() => manager.PruneLwwSetTombstones(metadata, null!));
+    }
+
+    [Fact]
+    public void PruneLwwSetTombstones_ShouldRemoveFullyResolvedOlderTombstones()
+    {
+        // Arrange
+        var metadata = new CrdtMetadata();
+        var threshold = timestampProviderMock.Object.Create(200);
+        
+        var lwwSetState = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, ICrdtTimestamp>());
+        
+        // Case 1: Removed, remove TS < threshold, add TS < remove TS (Fully resolved & old -> Prune)
+        lwwSetState.Adds["prune-me"] = timestampProviderMock.Object.Create(100);
+        lwwSetState.Removes["prune-me"] = timestampProviderMock.Object.Create(150);
+        
+        // Case 2: Removed, remove TS < threshold, but add TS > remove TS (Item was re-added -> DO NOT Prune Removes)
+        lwwSetState.Adds["keep-me-readded"] = timestampProviderMock.Object.Create(180);
+        lwwSetState.Removes["keep-me-readded"] = timestampProviderMock.Object.Create(150);
+        
+        // Case 3: Removed, remove TS >= threshold (Too new -> DO NOT Prune)
+        lwwSetState.Adds["keep-me-new"] = timestampProviderMock.Object.Create(210);
+        lwwSetState.Removes["keep-me-new"] = timestampProviderMock.Object.Create(250);
+
+        // Case 4: Only removed (no add), remove TS < threshold -> Prune
+        lwwSetState.Removes["prune-me-no-add"] = timestampProviderMock.Object.Create(150);
+
+        metadata.LwwSets["$.set"] = lwwSetState;
+        
+        // Setup similar state for PriorityQueue to test it cascades correctly
+        var priorityQueueState = new LwwSetState(
+            new Dictionary<object, ICrdtTimestamp> { { "prune-me-pq", timestampProviderMock.Object.Create(100) } },
+            new Dictionary<object, ICrdtTimestamp> { { "prune-me-pq", timestampProviderMock.Object.Create(150) } }
+        );
+        metadata.PriorityQueues["$.pq"] = priorityQueueState;
+
+        // Act
+        manager.PruneLwwSetTombstones(metadata, threshold);
+
+        // Assert LWW-Sets
+        lwwSetState.Adds.ShouldNotContainKey("prune-me");
+        lwwSetState.Removes.ShouldNotContainKey("prune-me");
+        
+        lwwSetState.Removes.ShouldNotContainKey("prune-me-no-add");
+        
+        lwwSetState.Adds.ShouldContainKey("keep-me-readded");
+        lwwSetState.Removes.ShouldContainKey("keep-me-readded");
+        
+        lwwSetState.Adds.ShouldContainKey("keep-me-new");
+        lwwSetState.Removes.ShouldContainKey("keep-me-new");
+
+        // Assert PriorityQueues
+        priorityQueueState.Adds.ShouldNotContainKey("prune-me-pq");
+        priorityQueueState.Removes.ShouldNotContainKey("prune-me-pq");
+    }
+
+    [Fact]
+    public void PruneOrSetTombstones_WithNullArguments_ShouldThrowArgumentNullException()
+    {
+        Should.Throw<ArgumentNullException>(() => manager.PruneOrSetTombstones(null!));
+    }
+
+    [Fact]
+    public void PruneOrSetTombstones_ShouldRemoveFullyCoveredElements()
+    {
+        // Arrange
+        var metadata = new CrdtMetadata();
+        
+        var orSetState = new OrSetState(new Dictionary<object, ISet<Guid>>(), new Dictionary<object, ISet<Guid>>());
+        
+        var tag1 = Guid.NewGuid();
+        var tag2 = Guid.NewGuid();
+        var tag3 = Guid.NewGuid();
+
+        // Case 1: Fully covered (Adds subset of Removes) -> Prune
+        orSetState.Adds["prune-me"] = new HashSet<Guid> { tag1 };
+        orSetState.Removes["prune-me"] = new HashSet<Guid> { tag1, tag2 };
+        
+        // Case 2: Not fully covered (Adds has tag not in Removes) -> Do Not Prune
+        orSetState.Adds["keep-me"] = new HashSet<Guid> { tag1, tag3 };
+        orSetState.Removes["keep-me"] = new HashSet<Guid> { tag1 };
+
+        // Case 3: No removes at all -> Do Not Prune
+        orSetState.Adds["keep-me-new"] = new HashSet<Guid> { tag1 };
+        
+        metadata.OrSets["$.orset"] = orSetState;
+        
+        // Setup for OrMaps
+        var orMapState = new OrSetState(
+            new Dictionary<object, ISet<Guid>> { { "prune-map", new HashSet<Guid> { tag1 } } }, 
+            new Dictionary<object, ISet<Guid>> { { "prune-map", new HashSet<Guid> { tag1 } } }
+        );
+        metadata.OrMaps["$.ormap"] = orMapState;
+
+        // Setup for ReplicatedTrees
+        var replicatedTreeState = new OrSetState(
+            new Dictionary<object, ISet<Guid>> { { "prune-tree", new HashSet<Guid> { tag1 } } }, 
+            new Dictionary<object, ISet<Guid>> { { "prune-tree", new HashSet<Guid> { tag1 } } }
+        );
+        metadata.ReplicatedTrees["$.tree"] = replicatedTreeState;
+
+        // Act
+        manager.PruneOrSetTombstones(metadata);
+
+        // Assert OR-Sets
+        orSetState.Adds.ShouldNotContainKey("prune-me");
+        orSetState.Removes.ShouldNotContainKey("prune-me");
+
+        orSetState.Adds.ShouldContainKey("keep-me");
+        orSetState.Removes.ShouldContainKey("keep-me");
+        
+        orSetState.Adds.ShouldContainKey("keep-me-new");
+
+        // Assert OR-Maps
+        orMapState.Adds.ShouldNotContainKey("prune-map");
+        orMapState.Removes.ShouldNotContainKey("prune-map");
+
+        // Assert ReplicatedTrees
+        replicatedTreeState.Adds.ShouldNotContainKey("prune-tree");
+        replicatedTreeState.Removes.ShouldNotContainKey("prune-tree");
+    }
+
+    [Fact]
+    public void PruneSeenExceptions_WithNullArguments_ShouldThrowArgumentNullException()
+    {
+        var metadata = new CrdtMetadata();
+        var threshold = timestampProviderMock.Object.Create(1);
+        Should.Throw<ArgumentNullException>(() => manager.PruneSeenExceptions(null!, threshold));
+        Should.Throw<ArgumentNullException>(() => manager.PruneSeenExceptions(metadata, null!));
+    }
+
+    [Fact]
+    public void PruneSeenExceptions_ShouldRemoveExceptionsOlderThanThreshold()
+    {
+        // Arrange
+        var metadata = new CrdtMetadata();
+        var threshold = timestampProviderMock.Object.Create(200);
+
+        var op1 = new CrdtOperation(Guid.NewGuid(), "rep1", "$.path", OperationType.Upsert, null, timestampProviderMock.Object.Create(100), 1); // Older -> Prune
+        var op2 = new CrdtOperation(Guid.NewGuid(), "rep1", "$.path", OperationType.Upsert, null, timestampProviderMock.Object.Create(200), 2); // Exact threshold -> Keep
+        var op3 = new CrdtOperation(Guid.NewGuid(), "rep1", "$.path", OperationType.Upsert, null, timestampProviderMock.Object.Create(300), 3); // Newer -> Keep
+
+        metadata.SeenExceptions.Add(op1);
+        metadata.SeenExceptions.Add(op2);
+        metadata.SeenExceptions.Add(op3);
+
+        // Act
+        manager.PruneSeenExceptions(metadata, threshold);
+
+        // Assert
+        metadata.SeenExceptions.Count.ShouldBe(2);
+        metadata.SeenExceptions.ShouldNotContain(op1);
+        metadata.SeenExceptions.ShouldContain(op2);
+        metadata.SeenExceptions.ShouldContain(op3);
+    }
+
     [Theory]
     [InlineData(100, 50)]
     [InlineData(100, 100)]
