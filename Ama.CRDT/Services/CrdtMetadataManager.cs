@@ -135,6 +135,42 @@ public sealed class CrdtMetadataManager(
     }
 
     /// <inheritdoc/>
+    public void PruneLwwSetTombstones([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(threshold);
+
+        PruneLwwSetStateMap(metadata.LwwSets, threshold);
+        PruneLwwSetStateMap(metadata.PriorityQueues, threshold);
+    }
+
+    /// <inheritdoc/>
+    public void PruneOrSetTombstones([DisallowNull] CrdtMetadata metadata)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+
+        PruneOrSetStateMap(metadata.OrSets);
+        PruneOrSetStateMap(metadata.OrMaps);
+        PruneOrSetStateMap(metadata.ReplicatedTrees);
+    }
+
+    /// <inheritdoc/>
+    public void PruneSeenExceptions([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(threshold);
+
+        var exceptionsToRemove = metadata.SeenExceptions
+            .Where(op => op.Timestamp.CompareTo(threshold) < 0)
+            .ToList();
+
+        foreach (var ex in exceptionsToRemove)
+        {
+            metadata.SeenExceptions.Remove(ex);
+        }
+    }
+
+    /// <inheritdoc/>
     public void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, CrdtOperation operation)
     {
         ArgumentNullException.ThrowIfNull(metadata);
@@ -507,6 +543,46 @@ public sealed class CrdtMetadataManager(
             Adds: adds,
             Removes: new Dictionary<object, ISet<Guid>>(idComparer)
         );
+    }
+
+    private static void PruneLwwSetStateMap(IDictionary<string, LwwSetState> map, ICrdtTimestamp threshold)
+    {
+        foreach (var state in map.Values)
+        {
+            var keysToPrune = state.Removes
+                .Where(kvp => kvp.Value.CompareTo(threshold) < 0 && 
+                              (!state.Adds.TryGetValue(kvp.Key, out var addTs) || kvp.Value.CompareTo(addTs) >= 0))
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            foreach (var key in keysToPrune)
+            {
+                state.Removes.Remove(key);
+                state.Adds.Remove(key);
+            }
+        }
+    }
+
+    private static void PruneOrSetStateMap(IDictionary<string, OrSetState> map)
+    {
+        foreach (var state in map.Values)
+        {
+            var keysToPrune = new List<object>();
+
+            foreach (var (key, removedTags) in state.Removes)
+            {
+                if (state.Adds.TryGetValue(key, out var addedTags) && addedTags.IsSubsetOf(removedTags))
+                {
+                    keysToPrune.Add(key);
+                }
+            }
+
+            foreach (var key in keysToPrune)
+            {
+                state.Adds.Remove(key);
+                state.Removes.Remove(key);
+            }
+        }
     }
 
     private static string GetVoterKey(object voter)

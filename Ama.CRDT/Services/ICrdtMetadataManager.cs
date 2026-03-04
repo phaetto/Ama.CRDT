@@ -92,6 +92,33 @@ public interface ICrdtMetadataManager
     /// <param name="threshold">The timestamp threshold. Any LWW entry older than this will be removed.</param>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="threshold"/> is null.</exception>
     void PruneLwwTombstones([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold);
+
+    /// <summary>
+    /// Removes LWW-Set and Priority Queue tombstones from the metadata that are older than the specified threshold.
+    /// An element is permanently removed (pruned from both adds and removes) if its remove timestamp is older than the threshold and it definitively wins over the add timestamp.
+    /// </summary>
+    /// <param name="metadata">The metadata object to prune.</param>
+    /// <param name="threshold">The timestamp threshold. Any resolved LWW-Set tombstone older than this will be removed.</param>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="threshold"/> is null.</exception>
+    void PruneLwwSetTombstones([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold);
+
+    /// <summary>
+    /// Prunes resolved Observed-Remove (OR) Set, Map, and Replicated Tree tombstones.
+    /// An element is fully pruned if its recorded 'Removes' tags completely cover its 'Adds' tags. 
+    /// This safely garbage collects data for elements that are fully deleted without needing a time threshold.
+    /// </summary>
+    /// <param name="metadata">The metadata object to prune.</param>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
+    void PruneOrSetTombstones([DisallowNull] CrdtMetadata metadata);
+
+    /// <summary>
+    /// Removes out-of-order seen operations from the metadata that are older than the specified threshold.
+    /// This prevents unbounded growth of the exceptions set if a replica permanently drops out.
+    /// </summary>
+    /// <param name="metadata">The metadata object to prune.</param>
+    /// <param name="threshold">The timestamp threshold. Any exception older than this will be removed.</param>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="threshold"/> is null.</exception>
+    void PruneSeenExceptions([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold);
     
     /// <summary>
     /// Advances the version vector for the replica that generated the operation, pruning any covered exceptions.

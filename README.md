@@ -305,9 +305,11 @@ CrdtPatch receivedPatch = JsonSerializer.Deserialize<CrdtPatch>(jsonPayload, Crd
 
 The `CrdtMetadata` object stores the necessary state to resolve conflicts and ensure eventual consistency. Over time, this metadata can grow. The library provides tools to help you keep it compact.
 
-### Pruning LWW Tombstones
+### Pruning Tombstones and Exceptions
 
-When you remove a property, its timestamp in the `Lww` metadata is kept as a "tombstone" to prevent old versions from re-introducing the deleted value. You can periodically prune old tombstones using `ICrdtMetadataManager`.
+When you remove properties, overwrite values, or remove elements from sets/maps, their timestamps or unique tags are kept as "tombstones" to prevent older updates from incorrectly re-introducing them. Similarly, network partitions may cause replicas to buffer out-of-order logs (`SeenExceptions`).
+
+You can periodically prune these safely using the `ICrdtMetadataManager`:
 
 ```csharp
 using Ama.CRDT.Services;
@@ -328,16 +330,23 @@ long thirtyDaysInMillis = 30L * 24 * 60 * 60 * 1000;
 var nowTimestamp = (EpochTimestamp)timestampProvider.Now();
 var thresholdTimestamp = new EpochTimestamp(nowTimestamp.Value - thirtyDaysInMillis);
 
-// 4. Prune the metadata
+// 4. Prune basic LWW property tombstones
 metadataManager.PruneLwwTombstones(myMetadata, thresholdTimestamp);
 
-// 5. Save the compacted metadata
-// ...
+// 5. Prune LWW-Set and Priority Queue tombstones
+metadataManager.PruneLwwSetTombstones(myMetadata, thresholdTimestamp);
+
+// 6. Prune OR-Set, OR-Map, and Replicated Tree tombstones
+// (No threshold needed; safely removes elements where removes fully cover adds)
+metadataManager.PruneOrSetTombstones(myMetadata);
+
+// 7. Prune old out-of-order operations to prevent unbounded growth
+metadataManager.PruneSeenExceptions(myMetadata, thresholdTimestamp);
 ```
 
 ### Version Vector Compaction
 
-The library uses a version vector (`CrdtMetadata.VersionVector`) and a set of seen exceptions (`SeenExceptions`) to provide idempotency. This process is managed automatically by the `CrdtApplicator` for all strategies, keeping metadata size under control without manual intervention.
+The library uses a version vector (`CrdtMetadata.VersionVector`) and a set of seen exceptions (`SeenExceptions`) to provide idempotency. This tracking is managed automatically by the `CrdtApplicator` for all strategies, advancing correctly when causal order is established.
 
 ### Serializing Metadata Efficiently
 
