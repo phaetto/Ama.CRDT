@@ -8,7 +8,7 @@ using System.Collections.Immutable;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class PropertyInfoUsageAnalyzer : DiagnosticAnalyzer
 {
-    public const string DiagnosticId = "CRDT0003";
+    public const string DiagnosticId = "CRDTPROJ0001";
 
     private static readonly LocalizableString Title = "Avoid reflection via PropertyInfo";
     private static readonly LocalizableString MessageFormat = "Do not use PropertyInfo.{0}. Use PocoPathHelper.GetAccessor(PropertyInfo).Getter/Setter instead.";
@@ -17,7 +17,7 @@ public sealed class PropertyInfoUsageAnalyzer : DiagnosticAnalyzer
 
     private static readonly DiagnosticDescriptor Rule = new(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Error, isEnabledByDefault: true, description: Description);
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
 
     public override void Initialize(AnalysisContext context)
     {

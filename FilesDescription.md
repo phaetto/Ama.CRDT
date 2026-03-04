@@ -9,10 +9,12 @@
 | `$/Ama.CRDT.Analyzers.UnitTests/CrdtIntentUsageAnalyzerTests.cs` | Contains unit tests for the `CrdtIntentUsageAnalyzer`, verifying that it correctly identifies valid and invalid usages of explicit operation intents. |
 | `$/Ama.CRDT.Analyzers.UnitTests/CrdtStrategyTypeAnalyzerTests.cs` | Contains unit tests for the `CrdtStrategyTypeAnalyzer`, verifying that it correctly identifies valid and invalid applications of CRDT strategy attributes. |
 | `$/Ama.CRDT.Analyzers.UnitTests/PropertyInfoUsageAnalyzerTests.cs` | Contains unit tests for `PropertyInfoUsageAnalyzer`, verifying that it catches reflection usage and ignores similar method names on other types. |
+| `$/Ama.CRDT.Analyzers.UnitTests/SystemConvertUsageAnalyzerTests.cs` | Contains unit tests for `SystemConvertUsageAnalyzer`, verifying that it catches `System.Convert` method invocations and ignores similar class names or valid type-specific parsing. |
 | `$/Ama.CRDT.Analyzers/Ama.CRDT.Analyzers.csproj` | The project file for the Roslyn analyzers that validate CRDT strategy usage. It is configured to be bundled with the main `Ama.CRDT` NuGet package and not as a standalone package. |
 | `$/Ama.CRDT.Analyzers/CrdtIntentUsageAnalyzer.cs` | Roslyn analyzer to validate that explicit operation intents are supported by the corresponding property's CRDT strategy. |
 | `$/Ama.CRDT.Analyzers/CrdtStrategyTypeAnalyzer.cs` | No description provided. |
 | `$/Ama.CRDT.Analyzers/PropertyInfoUsageAnalyzer.cs` | Roslyn analyzer to flag uses of `PropertyInfo.GetValue` and `PropertyInfo.SetValue` as errors to discourage reflection. |
+| `$/Ama.CRDT.Analyzers/SystemConvertUsageAnalyzer.cs` | Roslyn analyzer to flag uses of `System.Convert` utility methods as errors, encouraging explicit casting and parsing. |
 | `$/Ama.CRDT.Benchmarks/Ama.CRDT.Benchmarks.csproj` | The project file for the benchmarks application. |
 | `$/Ama.CRDT.Benchmarks/AntiVirusFriendlyConfig.cs` | No description provided. |
 | `$/Ama.CRDT.Benchmarks/Benchmarks/ApplicatorBenchmarks.cs` | Contains benchmarks for the `JsonCrdtApplicator` service. |
