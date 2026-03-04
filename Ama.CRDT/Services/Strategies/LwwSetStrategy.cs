@@ -35,7 +35,7 @@ public sealed class LwwSetStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
         var originalSet = originalValue as IEnumerable;
         var modifiedSet = modifiedValue as IEnumerable;
@@ -65,7 +65,7 @@ public sealed class LwwSetStrategy(
         {
             if (!originalHashSet.Contains(item))
             {
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, item, changeTimestamp));
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, item, changeTimestamp, clock));
             }
         }
 
@@ -73,7 +73,7 @@ public sealed class LwwSetStrategy(
         {
             if (!modifiedHashSet.Contains(item))
             {
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item, changeTimestamp));
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item, changeTimestamp, clock));
             }
         }
     }
@@ -83,8 +83,8 @@ public sealed class LwwSetStrategy(
     {
         return context.Intent switch
         {
-            AddIntent addIntent => new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, addIntent.Value, context.Timestamp),
-            RemoveValueIntent removeIntent => new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Remove, removeIntent.Value, context.Timestamp),
+            AddIntent addIntent => new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Upsert, addIntent.Value, context.Timestamp, context.Clock),
+            RemoveValueIntent removeIntent => new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Remove, removeIntent.Value, context.Timestamp, context.Clock),
             _ => throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported by {nameof(LwwSetStrategy)}.")
         };
     }

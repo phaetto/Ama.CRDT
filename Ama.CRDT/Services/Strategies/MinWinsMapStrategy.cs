@@ -34,7 +34,7 @@ public sealed class MinWinsMapStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
         var originalDict = originalValue as IDictionary;
         var modifiedDict = modifiedValue as IDictionary;
@@ -61,7 +61,7 @@ public sealed class MinWinsMapStrategy(
             if (modifiedExists && (originalItemValue is null || (originalItemValue is IComparable o && o.CompareTo(modifiedItemValue) > 0)))
             {
                 var payload = new KeyValuePair<object, object?>(key, modifiedItemValue);
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp));
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp, clock));
             }
         }
     }
@@ -72,7 +72,7 @@ public sealed class MinWinsMapStrategy(
         if (context.Intent is MapSetIntent mapSetIntent)
         {
             var payload = new KeyValuePair<object, object?>(mapSetIntent.Key, mapSetIntent.Value);
-            return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, payload, context.Timestamp);
+            return new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Upsert, payload, context.Timestamp, context.Clock);
         }
 
         throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported by {nameof(MinWinsMapStrategy)}.");

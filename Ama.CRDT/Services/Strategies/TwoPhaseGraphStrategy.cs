@@ -27,41 +27,41 @@ public sealed class TwoPhaseGraphStrategy(
 
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
         if (originalValue is not CrdtGraph originalGraph || modifiedValue is not CrdtGraph modifiedGraph) return;
 
         foreach (var vertex in modifiedGraph.Vertices.Except(originalGraph.Vertices))
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new GraphVertexPayload(vertex), changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new GraphVertexPayload(vertex), changeTimestamp, clock));
         }
 
         foreach (var vertex in originalGraph.Vertices.Except(modifiedGraph.Vertices))
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new GraphVertexPayload(vertex), changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new GraphVertexPayload(vertex), changeTimestamp, clock));
         }
 
         foreach (var edge in modifiedGraph.Edges.Except(originalGraph.Edges))
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new GraphEdgePayload(edge), changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new GraphEdgePayload(edge), changeTimestamp, clock));
         }
 
         foreach (var edge in originalGraph.Edges.Except(modifiedGraph.Edges))
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new GraphEdgePayload(edge), changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new GraphEdgePayload(edge), changeTimestamp, clock));
         }
     }
 
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (_, _, path, _, intent, changeTimestamp, replicaId) = context;
+        var (_, _, path, _, intent, changeTimestamp, clock) = context;
 
         return intent switch
         {
-            AddVertexIntent addVertex => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new GraphVertexPayload(addVertex.Vertex), changeTimestamp),
-            RemoveVertexIntent removeVertex => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new GraphVertexPayload(removeVertex.Vertex), changeTimestamp),
-            AddEdgeIntent addEdge => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new GraphEdgePayload(addEdge.Edge), changeTimestamp),
-            RemoveEdgeIntent removeEdge => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new GraphEdgePayload(removeEdge.Edge), changeTimestamp),
+            AddVertexIntent addVertex => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new GraphVertexPayload(addVertex.Vertex), changeTimestamp, clock),
+            RemoveVertexIntent removeVertex => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new GraphVertexPayload(removeVertex.Vertex), changeTimestamp, clock),
+            AddEdgeIntent addEdge => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new GraphEdgePayload(addEdge.Edge), changeTimestamp, clock),
+            RemoveEdgeIntent removeEdge => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new GraphEdgePayload(removeEdge.Edge), changeTimestamp, clock),
             _ => throw new NotSupportedException($"Intent {intent.GetType().Name} is not supported by {nameof(TwoPhaseGraphStrategy)}.")
         };
     }

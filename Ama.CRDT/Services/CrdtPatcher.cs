@@ -31,7 +31,6 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
     /// <inheritdoc/>
     public CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, T changed, ICrdtTimestamp changeTimestamp) where T : class
     {
-        ArgumentNullException.ThrowIfNull(from);
         ArgumentNullException.ThrowIfNull(from.Metadata);
         ArgumentNullException.ThrowIfNull(changed);
         ArgumentNullException.ThrowIfNull(changeTimestamp);
@@ -49,17 +48,14 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
             changeTimestamp
         );
         
-        ProcessDifferentiations(initialContext);
-
         var replicaId = replicaContext.ReplicaId;
         var localClock = from.Metadata.VersionVector.TryGetValue(replicaId, out var currentClock) ? currentClock : 0L;
+        
+        // A single patch is an atomic event, so we increment the logical clock exactly once
+        // and assign this single clock value to all generated operations.
+        localClock++;
 
-        for (int i = 0; i < operations.Count; i++)
-        {
-            localClock++;
-            var op = operations[i];
-            operations[i] = op with { ReplicaId = replicaId, Clock = localClock };
-        }
+        ProcessDifferentiations(initialContext, localClock);
 
         // We DO NOT mutate from.Metadata.VersionVector here.
         // It is the responsibility of the caller to apply the generated patch locally 
@@ -71,7 +67,6 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
     /// <inheritdoc/>
     public IIntentBuilder<TProp> BuildOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression) where T : class
     {
-        ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(propertyExpression);
 
         return new IntentBuilder<T, TProp>(this, document, propertyExpression);
@@ -80,7 +75,6 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent) where T : class
     {
-        ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(document.Metadata);
         ArgumentNullException.ThrowIfNull(document.Data);
         ArgumentNullException.ThrowIfNull(propertyExpression);
@@ -89,6 +83,10 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
         var parseResult = ParseExpression(propertyExpression);
         var strategy = strategyProvider.GetStrategy(parseResult.Property);
 
+        var replicaId = replicaContext.ReplicaId;
+        var localClock = document.Metadata.VersionVector.TryGetValue(replicaId, out var currentClock) ? currentClock : 0L;
+        localClock++;
+
         var context = new GenerateOperationContext(
             DocumentRoot: document.Data,
             Metadata: document.Metadata,
@@ -96,19 +94,13 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
             Property: parseResult.Property,
             Intent: intent,
             Timestamp: timestampProvider.Now(),
-            ReplicaId: replicaContext.ReplicaId
+            Clock: localClock
         );
 
-        var operation = strategy.GenerateOperation(context);
-
-        var replicaId = replicaContext.ReplicaId;
-        var localClock = document.Metadata.VersionVector.TryGetValue(replicaId, out var currentClock) ? currentClock : 0L;
-        localClock++;
-
-        return operation with { ReplicaId = replicaId, Clock = localClock };
+        return strategy.GenerateOperation(context);
     }
 
-    private void ProcessDifferentiations(DifferentiateObjectContext initialContext)
+    private void ProcessDifferentiations(DifferentiateObjectContext initialContext, long clock)
     {
         var queue = new Queue<DifferentiateObjectContext>();
         queue.Enqueue(initialContext);
@@ -151,7 +143,7 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
                     // Delegating to strategy, which could either be a terminal operation or an optimization (like emitting a parent Remove)
                     var nestedDiffs = new List<DifferentiateObjectContext>();
                     var strategyContext = new GeneratePatchContext(
-                        operations, nestedDiffs, currentPath, cached.Property, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp);
+                        operations, nestedDiffs, currentPath, cached.Property, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp, clock);
                     
                     strategy.GeneratePatch(strategyContext);
                     

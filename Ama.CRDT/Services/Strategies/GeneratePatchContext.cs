@@ -17,6 +17,7 @@ using Ama.CRDT.Models;
 /// <param name="ModifiedRoot">The root object of the modified document.</param>
 /// <param name="OriginalMeta">The CRDT metadata associated with the original document.</param>
 /// <param name="ChangeTimestamp">The timestamp to be assigned to any new CRDT operations.</param>
+/// <param name="Clock">The monotonically increasing causal sequence number for the originating replica. All operations generated within a single atomic patch share this same clock value.</param>
 public sealed record GeneratePatchContext(
     List<CrdtOperation> Operations,
     List<DifferentiateObjectContext> NestedDiffs,
@@ -27,5 +28,6 @@ public sealed record GeneratePatchContext(
     object? OriginalRoot,
     object? ModifiedRoot,
     CrdtMetadata OriginalMeta,
-    ICrdtTimestamp ChangeTimestamp
+    ICrdtTimestamp ChangeTimestamp,
+    long Clock
 );

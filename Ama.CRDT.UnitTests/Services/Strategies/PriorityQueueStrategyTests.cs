@@ -299,7 +299,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
             typeof(TestModel).GetProperty(nameof(TestModel.Items))!,
             new AddIntent(itemToAdd),
             timestampProvider.Now(),
-            "A");
+            0);
 
         // Act
         var op = strategy.GenerateOperation(context);
@@ -327,7 +327,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
             typeof(TestModel).GetProperty(nameof(TestModel.Items))!,
             new RemoveValueIntent(itemToRemove),
             timestampProvider.Now(),
-            "A");
+            0);
 
         // Act
         var op = strategy.GenerateOperation(context);
@@ -354,7 +354,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
             typeof(TestModel).GetProperty(nameof(TestModel.Items))!,
             new IncrementIntent(1),
             timestampProvider.Now(),
-            "A");
+            0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));

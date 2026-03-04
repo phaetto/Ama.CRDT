@@ -39,7 +39,7 @@ public sealed class LseqStrategy(
     /// <inheritdoc />
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, _) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
 
         var originalList = originalValue as IList ?? Array.Empty<object>();
         var modifiedList = modifiedValue as IList ?? Array.Empty<object>();
@@ -125,7 +125,7 @@ public sealed class LseqStrategy(
         {
             if (!matchedOriginal[i])
             {
-                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, slicedOrig[i].Identifier, timestampProvider.Create(0));
+                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, slicedOrig[i].Identifier, changeTimestamp, clock);
                 operations.Add(op);
             }
         }
@@ -161,7 +161,7 @@ public sealed class LseqStrategy(
                 var newId = GenerateIdentifierBetween(prevId, nextId, replicaId);
                 var newItem = new LseqItem(newId, slicedMod[i]);
                 
-                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestampProvider.Create(0));
+                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, changeTimestamp, clock);
                 operations.Add(op);
                 
                 prevId = newId; // The newly inserted item becomes the predecessor for the next insertion
@@ -192,9 +192,9 @@ public sealed class LseqStrategy(
             case AddIntent add:
             {
                 var lastId = lseqItems.Count > 0 ? lseqItems[^1].Identifier : (LseqIdentifier?)null;
-                var newId = GenerateIdentifierBetween(lastId, null, context.ReplicaId);
+                var newId = GenerateIdentifierBetween(lastId, null, replicaId);
                 
-                return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, new LseqItem(newId, add.Value), context.Timestamp);
+                return new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Upsert, new LseqItem(newId, add.Value), context.Timestamp, context.Clock);
             }
             case InsertIntent insert:
             {
@@ -205,9 +205,9 @@ public sealed class LseqStrategy(
 
                 var prevId = insert.Index > 0 ? lseqItems[insert.Index - 1].Identifier : (LseqIdentifier?)null;
                 var nextId = insert.Index < lseqItems.Count ? lseqItems[insert.Index].Identifier : (LseqIdentifier?)null;
-                var newId = GenerateIdentifierBetween(prevId, nextId, context.ReplicaId);
+                var newId = GenerateIdentifierBetween(prevId, nextId, replicaId);
                 
-                return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, new LseqItem(newId, insert.Value), context.Timestamp);
+                return new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Upsert, new LseqItem(newId, insert.Value), context.Timestamp, context.Clock);
             }
             case RemoveIntent remove:
             {
@@ -216,7 +216,7 @@ public sealed class LseqStrategy(
                     throw new ArgumentOutOfRangeException(nameof(remove.Index), "Index is out of range.");
                 }
 
-                return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Remove, lseqItems[remove.Index].Identifier, context.Timestamp);
+                return new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Remove, lseqItems[remove.Index].Identifier, context.Timestamp, context.Clock);
             }
             default:
                 throw new NotSupportedException($"Explicit operation generation for intent '{context.Intent.GetType().Name}' is not supported in {nameof(LseqStrategy)}.");

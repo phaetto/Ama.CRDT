@@ -35,7 +35,7 @@ public sealed class OrSetStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
 
         var originalSet = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedSet = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
@@ -49,7 +49,7 @@ public sealed class OrSetStrategy(
         foreach (var item in added)
         {
             var payload = new OrSetAddItem(item, Guid.NewGuid());
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp, clock));
         }
 
         if (originalMeta.OrSets.TryGetValue(path, out var metaState))
@@ -59,7 +59,7 @@ public sealed class OrSetStrategy(
                 if (metaState.Adds.TryGetValue(item, out var tags) && tags.Count > 0)
                 {
                     var payload = new OrSetRemoveItem(item, new HashSet<Guid>(tags));
-                    operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, payload, changeTimestamp));
+                    operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, payload, changeTimestamp, clock));
                 }
             }
         }
@@ -74,7 +74,6 @@ public sealed class OrSetStrategy(
         if (context.Intent is null) throw new ArgumentException("Intent cannot be null.", nameof(context));
         if (string.IsNullOrEmpty(context.JsonPath)) throw new ArgumentException("JsonPath cannot be null or empty.", nameof(context));
         if (context.Timestamp is null) throw new ArgumentException("Timestamp cannot be null.", nameof(context));
-        if (string.IsNullOrEmpty(context.ReplicaId)) throw new ArgumentException("ReplicaId cannot be null or empty.", nameof(context));
 
         var elementType = PocoPathHelper.GetCollectionElementType(context.Property);
 
@@ -82,7 +81,7 @@ public sealed class OrSetStrategy(
         {
             var value = PocoPathHelper.ConvertValue(addIntent.Value, elementType);
             var payload = new OrSetAddItem(value!, Guid.NewGuid());
-            return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, payload, context.Timestamp);
+            return new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Upsert, payload, context.Timestamp, context.Clock);
         }
 
         if (context.Intent is RemoveValueIntent removeValueIntent)
@@ -427,6 +426,6 @@ public sealed class OrSetStrategy(
         }
 
         var payload = new OrSetRemoveItem(value!, tags);
-        return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Remove, payload, context.Timestamp);
+        return new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Remove, payload, context.Timestamp, context.Clock);
     }
 }

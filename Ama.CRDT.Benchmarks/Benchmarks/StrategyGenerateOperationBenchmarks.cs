@@ -177,7 +177,7 @@ public class StrategyGenerateOperationBenchmarks
             prop, 
             intent, 
             timestamp, 
-            replicaId
+            0
         );
     }
 

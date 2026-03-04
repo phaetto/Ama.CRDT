@@ -24,13 +24,13 @@ public sealed class MinWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
         if (modifiedValue is null || originalValue is null)
         {
             if (modifiedValue != originalValue)
             {
-                var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
+                var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp, clock);
                 operations.Add(operation);
             }
             return;
@@ -39,7 +39,7 @@ public sealed class MinWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
         var originalComparable = (IComparable)originalValue;
         if (originalComparable.CompareTo(modifiedValue) > 0)
         {
-            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
+            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp, clock);
             operations.Add(operation);
         }
     }
@@ -56,11 +56,12 @@ public sealed class MinWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
 
             return new CrdtOperation(
                 Id: Guid.NewGuid(),
-                ReplicaId: context.ReplicaId,
+                ReplicaId: replicaId,
                 JsonPath: context.JsonPath,
                 Type: OperationType.Upsert,
                 Value: setIntent.Value,
-                Timestamp: context.Timestamp
+                Timestamp: context.Timestamp,
+                Clock: context.Clock
             );
         }
 

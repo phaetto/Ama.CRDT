@@ -202,7 +202,7 @@ public sealed class LseqStrategyTests : IDisposable
         var path = ImmutableList.Create(new LseqPathSegment(5, "ReplicaA"));
         var id = new LseqIdentifier(path);
         var item = new LseqItem(id, "TestValue");
-        var operation = new CrdtOperation(Guid.NewGuid(), "ReplicaA", "$.items", OperationType.Upsert, item, new EpochTimestamp(1));
+        var operation = new CrdtOperation(Guid.NewGuid(), "ReplicaA", "$.items", OperationType.Upsert, item, new EpochTimestamp(1), 0);
 
         // Act
         var key = lseqStrategy.GetKeyFromOperation(operation, "$.items");
@@ -218,7 +218,7 @@ public sealed class LseqStrategyTests : IDisposable
         // Arrange
         var path = ImmutableList.Create(new LseqPathSegment(10, "ReplicaB"));
         var id = new LseqIdentifier(path);
-        var operation = new CrdtOperation(Guid.NewGuid(), "ReplicaB", "$.items", OperationType.Remove, id, new EpochTimestamp(2));
+        var operation = new CrdtOperation(Guid.NewGuid(), "ReplicaB", "$.items", OperationType.Remove, id, new EpochTimestamp(2), 0);
 
         // Act
         var key = lseqStrategy.GetKeyFromOperation(operation, "$.items");
@@ -235,7 +235,7 @@ public sealed class LseqStrategyTests : IDisposable
         var path = ImmutableList.Create(new LseqPathSegment(5, "ReplicaA"));
         var id = new LseqIdentifier(path);
         var item = new LseqItem(id, "TestValue");
-        var operation = new CrdtOperation(Guid.NewGuid(), "ReplicaA", "$.otherItems", OperationType.Upsert, item, new EpochTimestamp(1));
+        var operation = new CrdtOperation(Guid.NewGuid(), "ReplicaA", "$.otherItems", OperationType.Upsert, item, new EpochTimestamp(1), 0);
 
         // Act
         var key = lseqStrategy.GetKeyFromOperation(operation, "$.items");
@@ -335,7 +335,7 @@ public sealed class LseqStrategyTests : IDisposable
         // Arrange
         var doc = new LseqTestModel { Items = new List<string>() };
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new AddIntent("NewItem"), new EpochTimestamp(1), "ReplicaA");
+        var context = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new AddIntent("NewItem"), new EpochTimestamp(1), 0);
 
         // Act
         var operation = lseqStrategy.GenerateOperation(context);
@@ -359,7 +359,7 @@ public sealed class LseqStrategyTests : IDisposable
         var crdtDoc = new CrdtDocument<LseqTestModel>(new LseqTestModel(), metadataManagerA.Initialize(new LseqTestModel()));
         applicatorA.ApplyPatch(crdtDoc, initialPatch);
         
-        var context = new GenerateOperationContext(crdtDoc.Data, crdtDoc.Metadata, "$.items", itemsProperty, new InsertIntent(1, "B"), new EpochTimestamp(2), "ReplicaA");
+        var context = new GenerateOperationContext(crdtDoc.Data, crdtDoc.Metadata, "$.items", itemsProperty, new InsertIntent(1, "B"), new EpochTimestamp(2), 0);
 
         // Act
         var operation = lseqStrategy.GenerateOperation(context);
@@ -385,7 +385,7 @@ public sealed class LseqStrategyTests : IDisposable
         var crdtDoc = new CrdtDocument<LseqTestModel>(new LseqTestModel(), metadataManagerA.Initialize(new LseqTestModel()));
         applicatorA.ApplyPatch(crdtDoc, initialPatch);
         
-        var context = new GenerateOperationContext(crdtDoc.Data, crdtDoc.Metadata, "$.items", itemsProperty, new RemoveIntent(1), new EpochTimestamp(2), "ReplicaA");
+        var context = new GenerateOperationContext(crdtDoc.Data, crdtDoc.Metadata, "$.items", itemsProperty, new RemoveIntent(1), new EpochTimestamp(2), 0);
 
         // Act
         var operation = lseqStrategy.GenerateOperation(context);
@@ -405,8 +405,8 @@ public sealed class LseqStrategyTests : IDisposable
         // Arrange
         var doc = new LseqTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var insertContext = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new InsertIntent(5, "X"), new EpochTimestamp(1), "ReplicaA");
-        var removeContext = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new RemoveIntent(5), new EpochTimestamp(1), "ReplicaA");
+        var insertContext = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new InsertIntent(5, "X"), new EpochTimestamp(1), 0);
+        var removeContext = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new RemoveIntent(5), new EpochTimestamp(1), 0);
 
         // Act & Assert
         Should.Throw<ArgumentOutOfRangeException>(() => lseqStrategy.GenerateOperation(insertContext));
@@ -419,7 +419,7 @@ public sealed class LseqStrategyTests : IDisposable
         // Arrange
         var doc = new LseqTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new SetIntent("Invalid"), new EpochTimestamp(1), "ReplicaA");
+        var context = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new SetIntent("Invalid"), new EpochTimestamp(1), 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => lseqStrategy.GenerateOperation(context));

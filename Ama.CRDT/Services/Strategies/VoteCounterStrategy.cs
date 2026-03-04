@@ -26,7 +26,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
 
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
 
         if (Equals(originalValue, modifiedValue))
         {
@@ -51,7 +51,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
             }
 
             var payload = new VotePayload(voter, newOption);
-            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp);
+            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp, clock);
             operations.Add(operation);
         }
     }
@@ -68,11 +68,12 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
             var payload = new VotePayload(voteIntent.Voter, voteIntent.Option);
             return new CrdtOperation(
                 Guid.NewGuid(), 
-                context.ReplicaId, 
+                replicaId, 
                 context.JsonPath, 
                 OperationType.Upsert, 
                 payload, 
-                context.Timestamp);
+                context.Timestamp,
+                context.Clock);
         }
 
         throw new NotSupportedException($"Explicit operation generation for intent '{context.Intent?.GetType().Name}' is not supported for {this.GetType().Name}.");

@@ -26,7 +26,7 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
 
         if (Equals(originalValue, modifiedValue))
         {
@@ -40,7 +40,7 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
             return;
         }
 
-        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
+        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp, clock);
         
         if (modifiedValue is null)
         {
@@ -58,11 +58,12 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
             var operationType = setIntent.Value is null ? OperationType.Remove : OperationType.Upsert;
             return new CrdtOperation(
                 Guid.NewGuid(),
-                context.ReplicaId,
+                replicaId,
                 context.JsonPath,
                 operationType,
                 setIntent.Value,
-                context.Timestamp);
+                context.Timestamp,
+                context.Clock);
         }
 
         throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported by {nameof(LwwStrategy)}.");
