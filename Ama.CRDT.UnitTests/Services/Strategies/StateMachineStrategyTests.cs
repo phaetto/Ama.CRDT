@@ -77,7 +77,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
         var changeTimestamp = timestampProvider.Create(200);
         var context = new GeneratePatchContext(
-            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "PROCESSING", new TestModel { Status = "PENDING" }, new TestModel { Status = "PROCESSING" }, originalMeta, changeTimestamp);
+            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "PROCESSING", new TestModel { Status = "PENDING" }, new TestModel { Status = "PROCESSING" }, originalMeta, changeTimestamp, 0);
 
         // Act
         strategyA.GeneratePatch(context);
@@ -98,7 +98,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var originalMeta = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
         var context = new GeneratePatchContext(
-            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "SHIPPED", new TestModel { Status = "PENDING" }, new TestModel { Status = "SHIPPED" }, originalMeta, timestampProvider.Create(200));
+            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "SHIPPED", new TestModel { Status = "PENDING" }, new TestModel { Status = "SHIPPED" }, originalMeta, timestampProvider.Create(200), 0);
 
         // Act
         strategyA.GeneratePatch(context);
@@ -116,7 +116,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status))!;
         var timestamp = timestampProvider.Create(200);
         var intent = new SetIntent("PROCESSING");
-        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, "r1");
+        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, 0);
 
         // Act
         var operation = strategyA.GenerateOperation(context);
@@ -126,7 +126,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         operation.JsonPath.ShouldBe("$.status");
         operation.Value.ShouldBe("PROCESSING");
         operation.Timestamp.ShouldBe(timestamp);
-        operation.ReplicaId.ShouldBe("r1");
+        operation.ReplicaId.ShouldBe("A");
     }
 
     [Fact]
@@ -138,7 +138,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status))!;
         var timestamp = timestampProvider.Create(200);
         var intent = new SetIntent("SHIPPED"); // Invalid transition directly from PENDING
-        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, "r1");
+        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, 0);
 
         // Act & Assert
         Should.Throw<InvalidOperationException>(() => strategyA.GenerateOperation(context));
@@ -153,7 +153,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status))!;
         var timestamp = timestampProvider.Create(200);
         var intent = new IncrementIntent(1); // Not supported intent type
-        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, "r1");
+        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
@@ -165,7 +165,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200), 0);
         var context = new ApplyOperationContext(model, metadata, operation);
 
         // Act
@@ -182,7 +182,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(200));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(200), 0);
         var context = new ApplyOperationContext(model, metadata, operation);
 
         // Act
@@ -199,7 +199,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { Status = "PROCESSING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(300) } };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(200));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(200), 0);
         var context = new ApplyOperationContext(model, metadata, operation);
 
         // Act
@@ -216,7 +216,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata();
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200), 0);
         var context = new ApplyOperationContext(model, metadata, operation);
 
         // Act
@@ -234,8 +234,8 @@ public sealed class StateMachineStrategyTests : IDisposable
     public void ApplyOperation_ConflictResolutionIsCommutative()
     {
         // Arrange
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(300));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200), 0);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(300), 0);
 
         var model1 = new TestModel { Status = "PROCESSING" };
         var meta1 = new CrdtMetadata();

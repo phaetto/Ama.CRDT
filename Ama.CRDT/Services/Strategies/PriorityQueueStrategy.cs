@@ -29,7 +29,7 @@ public sealed class PriorityQueueStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
 
         var originalList = originalValue as IEnumerable;
         var modifiedList = modifiedValue as IEnumerable;
@@ -53,7 +53,7 @@ public sealed class PriorityQueueStrategy(
         // Find removals
         foreach (var item in originalDict.Values.Where(o => !modifiedDict.ContainsKey(o)))
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item, changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item, changeTimestamp, clock));
         }
 
         // Find additions and updates
@@ -88,7 +88,7 @@ public sealed class PriorityQueueStrategy(
                     continue;
                 }
 
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedItem, changeTimestamp));
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedItem, changeTimestamp, clock));
             }
         }
     }
@@ -96,14 +96,14 @@ public sealed class PriorityQueueStrategy(
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (_, _, jsonPath, property, intent, timestamp, replicaId) = context;
+        var (_, _, jsonPath, property, intent, timestamp, clock) = context;
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
 
         return intent switch
         {
-            AddIntent addIntent => new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Upsert, PocoPathHelper.ConvertValue(addIntent.Value, elementType), timestamp),
-            RemoveValueIntent removeIntent => new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Remove, PocoPathHelper.ConvertValue(removeIntent.Value, elementType), timestamp),
+            AddIntent addIntent => new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Upsert, PocoPathHelper.ConvertValue(addIntent.Value, elementType), timestamp, clock),
+            RemoveValueIntent removeIntent => new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Remove, PocoPathHelper.ConvertValue(removeIntent.Value, elementType), timestamp, clock),
             _ => throw new NotSupportedException($"Intent {intent.GetType().Name} is not supported for {nameof(PriorityQueueStrategy)}.")
         };
     }

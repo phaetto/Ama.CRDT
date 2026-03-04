@@ -58,9 +58,9 @@ public sealed class LwwMapStrategyTests
         var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
 
         Thread.Sleep(5);
-        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 2), timestampProvider.Now());
+        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 2), timestampProvider.Now(), 0);
         Thread.Sleep(5);
-        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new KeyValuePair<object, object?>("a", null), timestampProvider.Now());
+        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new KeyValuePair<object, object?>("a", null), timestampProvider.Now(), 0);
 
         // Act: Apply op1 then op2
         strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op1));
@@ -86,7 +86,7 @@ public sealed class LwwMapStrategyTests
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         Thread.Sleep(5);
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), timestampProvider.Now());
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), timestampProvider.Now(), 0);
         
         var expectedMap = new Dictionary<string, int> { { "a", 2 } };
 
@@ -112,8 +112,8 @@ public sealed class LwwMapStrategyTests
         var newerTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(50).ToUnixTimeMilliseconds());
         var olderTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(-50).ToUnixTimeMilliseconds());
 
-        var olderOp = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 0), olderTimestamp);
-        var newerOp = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), newerTimestamp);
+        var olderOp = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 0), olderTimestamp, 0);
+        var newerOp = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), newerTimestamp, 0);
         
         // Act
         strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, olderOp));
@@ -136,7 +136,7 @@ public sealed class LwwMapStrategyTests
         var intent = new MapSetIntent("myKey", 42);
         var timestamp = timestampProvider.Now();
         
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, "A");
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -163,7 +163,7 @@ public sealed class LwwMapStrategyTests
         var intent = new MapRemoveIntent("myKey");
         var timestamp = timestampProvider.Now();
         
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, "A");
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -190,7 +190,7 @@ public sealed class LwwMapStrategyTests
         var intent = new AddIntent(42);
         var timestamp = timestampProvider.Now();
         
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, "A");
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
@@ -234,7 +234,7 @@ public sealed class LwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("myKey", 42), timestampProvider.Now());
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("myKey", 42), timestampProvider.Now(), 0);
 
         // Act
         var key = strategy.GetKeyFromOperation(op, "$.map");
@@ -249,7 +249,7 @@ public sealed class LwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.otherMap", OperationType.Upsert, new KeyValuePair<object, object?>("myKey", 42), timestampProvider.Now());
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.otherMap", OperationType.Upsert, new KeyValuePair<object, object?>("myKey", 42), timestampProvider.Now(), 0);
 
         // Act
         var key = strategy.GetKeyFromOperation(op, "$.map");

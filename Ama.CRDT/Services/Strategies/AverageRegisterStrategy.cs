@@ -29,13 +29,13 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
         if (Equals(originalValue, modifiedValue))
         {
             return;
         }
 
-        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
+        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp, clock);
         operations.Add(operation);
     }
 
@@ -46,11 +46,12 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
         {
             return new CrdtOperation(
                 Guid.NewGuid(),
-                context.ReplicaId,
+                replicaId,
                 context.JsonPath,
                 OperationType.Upsert,
                 setIntent.Value,
-                context.Timestamp);
+                context.Timestamp,
+                context.Clock);
         }
 
         throw new NotSupportedException($"Intent '{context.Intent.GetType().Name}' is not supported by {nameof(AverageRegisterStrategy)}.");

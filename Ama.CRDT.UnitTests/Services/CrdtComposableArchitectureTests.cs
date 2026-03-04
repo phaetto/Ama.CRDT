@@ -156,8 +156,8 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
 
         var operations = new List<CrdtOperation>
         {
-            new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.level1.level2.message", OperationType.Upsert, "Instantiated dynamically", _timestampProvider.Now()),
-            new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.level1.level2.count", OperationType.Upsert, 99, _timestampProvider.Now())
+            new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.level1.level2.message", OperationType.Upsert, "Instantiated dynamically", _timestampProvider.Now(), 0),
+            new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.level1.level2.count", OperationType.Upsert, 99, _timestampProvider.Now(), 0)
         };
         var patch = new CrdtPatch(operations);
 

@@ -36,7 +36,7 @@ public sealed class LwwMapStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
         var originalDict = originalValue as IDictionary;
         var modifiedDict = modifiedValue as IDictionary;
@@ -55,12 +55,12 @@ public sealed class LwwMapStrategy(
 
         foreach (var key in addedKeys)
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new KeyValuePair<object, object?>(key, modifiedDict![key]), changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new KeyValuePair<object, object?>(key, modifiedDict![key]), changeTimestamp, clock));
         }
 
         foreach (var key in removedKeys)
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new KeyValuePair<object, object?>(key, null), changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new KeyValuePair<object, object?>(key, null), changeTimestamp, clock));
         }
 
         foreach (var key in commonKeys)
@@ -70,7 +70,7 @@ public sealed class LwwMapStrategy(
 
             if (!Equals(originalItemValue, modifiedItemValue))
             {
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new KeyValuePair<object, object?>(key, modifiedItemValue), changeTimestamp));
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new KeyValuePair<object, object?>(key, modifiedItemValue), changeTimestamp, clock));
             }
         }
     }
@@ -78,12 +78,12 @@ public sealed class LwwMapStrategy(
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (_, _, path, _, intent, timestamp, intentReplicaId) = context;
+        var (_, _, path, _, intent, timestamp, clock) = context;
 
         return intent switch
         {
-            MapSetIntent mapSet => new CrdtOperation(Guid.NewGuid(), intentReplicaId, path, OperationType.Upsert, new KeyValuePair<object, object?>(mapSet.Key, mapSet.Value), timestamp),
-            MapRemoveIntent mapRemove => new CrdtOperation(Guid.NewGuid(), intentReplicaId, path, OperationType.Remove, new KeyValuePair<object, object?>(mapRemove.Key, null), timestamp),
+            MapSetIntent mapSet => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new KeyValuePair<object, object?>(mapSet.Key, mapSet.Value), timestamp, clock),
+            MapRemoveIntent mapRemove => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new KeyValuePair<object, object?>(mapRemove.Key, null), timestamp, clock),
             _ => throw new NotSupportedException($"Explicit operation generation for intent '{intent.GetType().Name}' is not supported for {this.GetType().Name}.")
         };
     }

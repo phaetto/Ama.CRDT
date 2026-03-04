@@ -42,7 +42,7 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
         var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue);
         var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue);
@@ -51,7 +51,7 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
 
         if (delta != 0)
         {
-            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, delta, changeTimestamp);
+            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, delta, changeTimestamp, clock);
             operations.Add(operation);
         }
     }
@@ -63,11 +63,12 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
         {
             return new CrdtOperation(
                 Guid.NewGuid(),
-                context.ReplicaId,
+                replicaId,
                 context.JsonPath,
                 OperationType.Increment,
                 incrementIntent.Value,
-                context.Timestamp);
+                context.Timestamp,
+                context.Clock);
         }
 
         throw new NotSupportedException($"Intent '{context.Intent.GetType().Name}' is not supported by {nameof(BoundedCounterStrategy)}.");

@@ -26,7 +26,7 @@ public sealed class ReplicatedTreeStrategy(
 
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
 
         if (originalValue is not CrdtTree originalTree || modifiedValue is not CrdtTree modifiedTree) return;
 
@@ -41,7 +41,7 @@ public sealed class ReplicatedTreeStrategy(
         {
             var node = modifiedNodes[id];
             var payload = new TreeAddNodePayload(node.Id, node.Value, node.ParentId, Guid.NewGuid());
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp, clock));
         }
 
         if (originalMeta.ReplicatedTrees.TryGetValue(path, out var metaState))
@@ -51,7 +51,7 @@ public sealed class ReplicatedTreeStrategy(
                 if (metaState.Adds.TryGetValue(id, out var tags) && tags.Count > 0)
                 {
                     var payload = new TreeRemoveNodePayload(id, new HashSet<Guid>(tags));
-                    operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, payload, changeTimestamp));
+                    operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, payload, changeTimestamp, clock));
                 }
             }
         }
@@ -64,7 +64,7 @@ public sealed class ReplicatedTreeStrategy(
             if (!Equals(originalNode.ParentId, modifiedNode.ParentId))
             {
                 var payload = new TreeMoveNodePayload(modifiedNode.Id, modifiedNode.ParentId);
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp));
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp, clock));
             }
         }
     }
@@ -75,27 +75,29 @@ public sealed class ReplicatedTreeStrategy(
         {
             AddNodeIntent addIntent => new CrdtOperation(
                 Guid.NewGuid(),
-                context.ReplicaId,
+                replicaId,
                 context.JsonPath,
                 OperationType.Upsert,
                 new TreeAddNodePayload(addIntent.Node.Id, addIntent.Node.Value, addIntent.Node.ParentId, Guid.NewGuid()),
-                context.Timestamp),
+                context.Timestamp,
+                context.Clock),
 
             RemoveNodeIntent removeIntent => GenerateRemoveOperation(context, removeIntent),
 
             MoveNodeIntent moveIntent => new CrdtOperation(
                 Guid.NewGuid(),
-                context.ReplicaId,
+                replicaId,
                 context.JsonPath,
                 OperationType.Upsert,
                 new TreeMoveNodePayload(moveIntent.NodeId, moveIntent.NewParentId),
-                context.Timestamp),
+                context.Timestamp,
+                context.Clock),
 
             _ => throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported by {nameof(ReplicatedTreeStrategy)}.")
         };
     }
 
-    private static CrdtOperation GenerateRemoveOperation(GenerateOperationContext context, RemoveNodeIntent intent)
+    private CrdtOperation GenerateRemoveOperation(GenerateOperationContext context, RemoveNodeIntent intent)
     {
         var tags = new HashSet<Guid>();
         if (context.Metadata.ReplicatedTrees.TryGetValue(context.JsonPath, out var state) &&
@@ -106,11 +108,12 @@ public sealed class ReplicatedTreeStrategy(
 
         return new CrdtOperation(
             Guid.NewGuid(),
-            context.ReplicaId,
+            replicaId,
             context.JsonPath,
             OperationType.Remove,
             new TreeRemoveNodePayload(intent.NodeId, tags),
-            context.Timestamp);
+            context.Timestamp,
+            context.Clock);
     }
 
     public void ApplyOperation(ApplyOperationContext context)

@@ -28,7 +28,7 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
 
         if (Equals(originalValue, modifiedValue))
         {
@@ -50,14 +50,14 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
             return;
         }
 
-        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
+        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp, clock);
         operations.Add(operation);
     }
 
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (root, _, path, property, intent, timestamp, contextReplicaId) = context;
+        var (root, _, path, property, intent, timestamp, clock) = context;
 
         if (intent is not SetIntent setIntent)
         {
@@ -78,7 +78,7 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
             throw new InvalidOperationException($"Invalid state transition from '{currentValue}' to '{incomingValue}'.");
         }
 
-        return new CrdtOperation(Guid.NewGuid(), contextReplicaId, path, OperationType.Upsert, incomingValue, timestamp);
+        return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, incomingValue, timestamp, clock);
     }
 
     /// <inheritdoc/>

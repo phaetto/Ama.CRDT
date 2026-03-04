@@ -319,7 +319,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_Lww()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), lwwPath, lwwProp, basePoco.LwwValue, toPocoForLww.LwwValue, basePoco, toPocoForLww, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), lwwPath, lwwProp, basePoco.LwwValue, toPocoForLww.LwwValue, basePoco, toPocoForLww, fromDoc.Metadata, timestamp, 0);
         lwwStrategy.GeneratePatch(ctx);
     }
 
@@ -327,7 +327,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_Counter()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), counterPath, counterProp, basePoco.Counter, toPocoForCounter.Counter, basePoco, toPocoForCounter, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), counterPath, counterProp, basePoco.Counter, toPocoForCounter.Counter, basePoco, toPocoForCounter, fromDoc.Metadata, timestamp, 0);
         counterStrategy.GeneratePatch(ctx);
     }
 
@@ -335,7 +335,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_GCounter()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), gCounterPath, gCounterProp, basePoco.GCounter, toPocoForGCounter.GCounter, basePoco, toPocoForGCounter, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), gCounterPath, gCounterProp, basePoco.GCounter, toPocoForGCounter.GCounter, basePoco, toPocoForGCounter, fromDoc.Metadata, timestamp, 0);
         gCounterStrategy.GeneratePatch(ctx);
     }
 
@@ -343,7 +343,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_BoundedCounter()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), boundedCounterPath, boundedCounterProp, basePoco.BoundedCounter, toPocoForBoundedCounter.BoundedCounter, basePoco, toPocoForBoundedCounter, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), boundedCounterPath, boundedCounterProp, basePoco.BoundedCounter, toPocoForBoundedCounter.BoundedCounter, basePoco, toPocoForBoundedCounter, fromDoc.Metadata, timestamp, 0);
         boundedCounterStrategy.GeneratePatch(ctx);
     }
 
@@ -351,7 +351,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_MaxWins()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), maxWinsPath, maxWinsProp, basePoco.MaxWins, toPocoForMaxWins.MaxWins, basePoco, toPocoForMaxWins, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), maxWinsPath, maxWinsProp, basePoco.MaxWins, toPocoForMaxWins.MaxWins, basePoco, toPocoForMaxWins, fromDoc.Metadata, timestamp, 0);
         maxWinsStrategy.GeneratePatch(ctx);
     }
 
@@ -359,7 +359,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_MinWins()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), minWinsPath, minWinsProp, basePoco.MinWins, toPocoForMinWins.MinWins, basePoco, toPocoForMinWins, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), minWinsPath, minWinsProp, basePoco.MinWins, toPocoForMinWins.MinWins, basePoco, toPocoForMinWins, fromDoc.Metadata, timestamp, 0);
         minWinsStrategy.GeneratePatch(ctx);
     }
 
@@ -367,7 +367,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_AverageRegister()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), averagePath, averageProp, basePoco.Average, toPocoForAverageRegister.Average, basePoco, toPocoForAverageRegister, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), averagePath, averageProp, basePoco.Average, toPocoForAverageRegister.Average, basePoco, toPocoForAverageRegister, fromDoc.Metadata, timestamp, 0);
         averageStrategy.GeneratePatch(ctx);
     }
 
@@ -375,7 +375,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_GSet()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), gSetPath, gSetProp, basePoco.GSet, toPocoForGSet.GSet, basePoco, toPocoForGSet, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), gSetPath, gSetProp, basePoco.GSet, toPocoForGSet.GSet, basePoco, toPocoForGSet, fromDoc.Metadata, timestamp, 0);
         gSetStrategy.GeneratePatch(ctx);
     }
 
@@ -383,7 +383,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_TwoPhaseSet()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), twoPhaseSetPath, twoPhaseSetProp, basePoco.TwoPhaseSet, toPocoForTwoPhaseSet.TwoPhaseSet, basePoco, toPocoForTwoPhaseSet, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), twoPhaseSetPath, twoPhaseSetProp, basePoco.TwoPhaseSet, toPocoForTwoPhaseSet.TwoPhaseSet, basePoco, toPocoForTwoPhaseSet, fromDoc.Metadata, timestamp, 0);
         twoPhaseSetStrategy.GeneratePatch(ctx);
     }
 
@@ -391,7 +391,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_LwwSet()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), lwwSetPath, lwwSetProp, basePoco.LwwSet, toPocoForLwwSet.LwwSet, basePoco, toPocoForLwwSet, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), lwwSetPath, lwwSetProp, basePoco.LwwSet, toPocoForLwwSet.LwwSet, basePoco, toPocoForLwwSet, fromDoc.Metadata, timestamp, 0);
         lwwSetStrategy.GeneratePatch(ctx);
     }
 
@@ -399,7 +399,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_OrSet()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), orSetPath, orSetProp, basePoco.OrSet, toPocoForOrSet.OrSet, basePoco, toPocoForOrSet, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), orSetPath, orSetProp, basePoco.OrSet, toPocoForOrSet.OrSet, basePoco, toPocoForOrSet, fromDoc.Metadata, timestamp, 0);
         orSetStrategy.GeneratePatch(ctx);
     }
 
@@ -407,7 +407,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_ArrayLcs()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), arrayLcsPath, arrayLcsProp, basePoco.LcsList, toPocoForArrayLcs.LcsList, basePoco, toPocoForArrayLcs, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), arrayLcsPath, arrayLcsProp, basePoco.LcsList, toPocoForArrayLcs.LcsList, basePoco, toPocoForArrayLcs, fromDoc.Metadata, timestamp, 0);
         arrayLcsStrategy.GeneratePatch(ctx);
     }
 
@@ -415,7 +415,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_FixedSizeArray()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), fixedSizeArrayPath, fixedSizeArrayProp, basePoco.FixedArray, toPocoForFixedSizeArray.FixedArray, basePoco, toPocoForFixedSizeArray, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), fixedSizeArrayPath, fixedSizeArrayProp, basePoco.FixedArray, toPocoForFixedSizeArray.FixedArray, basePoco, toPocoForFixedSizeArray, fromDoc.Metadata, timestamp, 0);
         fixedSizeArrayStrategy.GeneratePatch(ctx);
     }
 
@@ -423,7 +423,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_Lseq()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), lseqPath, lseqProp, basePoco.LseqList, toPocoForLseq.LseqList, basePoco, toPocoForLseq, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), lseqPath, lseqProp, basePoco.LseqList, toPocoForLseq.LseqList, basePoco, toPocoForLseq, fromDoc.Metadata, timestamp, 0);
         lseqStrategy.GeneratePatch(ctx);
     }
 
@@ -431,7 +431,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_VoteCounter()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), voteCounterPath, voteCounterProp, basePoco.Votes, toPocoForVoteCounter.Votes, basePoco, toPocoForVoteCounter, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), voteCounterPath, voteCounterProp, basePoco.Votes, toPocoForVoteCounter.Votes, basePoco, toPocoForVoteCounter, fromDoc.Metadata, timestamp, 0);
         voteCounterStrategy.GeneratePatch(ctx);
     }
 
@@ -439,7 +439,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_StateMachine()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), stateMachinePath, stateMachineProp, basePoco.State, toPocoForStateMachine.State, basePoco, toPocoForStateMachine, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), stateMachinePath, stateMachineProp, basePoco.State, toPocoForStateMachine.State, basePoco, toPocoForStateMachine, fromDoc.Metadata, timestamp, 0);
         stateMachineStrategy.GeneratePatch(ctx);
     }
 
@@ -447,7 +447,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_PriorityQueue()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), priorityQueuePath, priorityQueueProp, basePoco.PrioQueue, toPocoForPriorityQueue.PrioQueue, basePoco, toPocoForPriorityQueue, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), priorityQueuePath, priorityQueueProp, basePoco.PrioQueue, toPocoForPriorityQueue.PrioQueue, basePoco, toPocoForPriorityQueue, fromDoc.Metadata, timestamp, 0);
         priorityQueueStrategy.GeneratePatch(ctx);
     }
 
@@ -455,7 +455,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_SortedSet()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), sortedSetPath, sortedSetProp, basePoco.SortedSet, toPocoForSortedSet.SortedSet, basePoco, toPocoForSortedSet, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), sortedSetPath, sortedSetProp, basePoco.SortedSet, toPocoForSortedSet.SortedSet, basePoco, toPocoForSortedSet, fromDoc.Metadata, timestamp, 0);
         sortedSetStrategy.GeneratePatch(ctx);
     }
 
@@ -463,7 +463,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_Rga()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), rgaPath, rgaProp, basePoco.RgaList, toPocoForRga.RgaList, basePoco, toPocoForRga, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), rgaPath, rgaProp, basePoco.RgaList, toPocoForRga.RgaList, basePoco, toPocoForRga, fromDoc.Metadata, timestamp, 0);
         rgaStrategy.GeneratePatch(ctx);
     }
 
@@ -471,7 +471,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_CounterMap()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), counterMapPath, counterMapProp, basePoco.CounterMap, toPocoForCounterMap.CounterMap, basePoco, toPocoForCounterMap, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), counterMapPath, counterMapProp, basePoco.CounterMap, toPocoForCounterMap.CounterMap, basePoco, toPocoForCounterMap, fromDoc.Metadata, timestamp, 0);
         counterMapStrategy.GeneratePatch(ctx);
     }
 
@@ -479,7 +479,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_LwwMap()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), lwwMapPath, lwwMapProp, basePoco.LwwMap, toPocoForLwwMap.LwwMap, basePoco, toPocoForLwwMap, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), lwwMapPath, lwwMapProp, basePoco.LwwMap, toPocoForLwwMap.LwwMap, basePoco, toPocoForLwwMap, fromDoc.Metadata, timestamp, 0);
         lwwMapStrategy.GeneratePatch(ctx);
     }
 
@@ -487,7 +487,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_MaxWinsMap()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), maxWinsMapPath, maxWinsMapProp, basePoco.MaxWinsMap, toPocoForMaxWinsMap.MaxWinsMap, basePoco, toPocoForMaxWinsMap, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), maxWinsMapPath, maxWinsMapProp, basePoco.MaxWinsMap, toPocoForMaxWinsMap.MaxWinsMap, basePoco, toPocoForMaxWinsMap, fromDoc.Metadata, timestamp, 0);
         maxWinsMapStrategy.GeneratePatch(ctx);
     }
 
@@ -495,7 +495,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_MinWinsMap()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), minWinsMapPath, minWinsMapProp, basePoco.MinWinsMap, toPocoForMinWinsMap.MinWinsMap, basePoco, toPocoForMinWinsMap, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), minWinsMapPath, minWinsMapProp, basePoco.MinWinsMap, toPocoForMinWinsMap.MinWinsMap, basePoco, toPocoForMinWinsMap, fromDoc.Metadata, timestamp, 0);
         minWinsMapStrategy.GeneratePatch(ctx);
     }
 
@@ -503,7 +503,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_OrMap()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), orMapPath, orMapProp, basePoco.OrMap, toPocoForOrMap.OrMap, basePoco, toPocoForOrMap, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), orMapPath, orMapProp, basePoco.OrMap, toPocoForOrMap.OrMap, basePoco, toPocoForOrMap, fromDoc.Metadata, timestamp, 0);
         orMapStrategy.GeneratePatch(ctx);
     }
 
@@ -511,7 +511,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_Graph()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), graphPath, graphProp, basePoco.Graph, toPocoForGraph.Graph, basePoco, toPocoForGraph, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), graphPath, graphProp, basePoco.Graph, toPocoForGraph.Graph, basePoco, toPocoForGraph, fromDoc.Metadata, timestamp, 0);
         graphStrategy.GeneratePatch(ctx);
     }
 
@@ -519,7 +519,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_TwoPhaseGraph()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), twoPhaseGraphPath, twoPhaseGraphProp, basePoco.TwoPhaseGraph, toPocoForTwoPhaseGraph.TwoPhaseGraph, basePoco, toPocoForTwoPhaseGraph, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), twoPhaseGraphPath, twoPhaseGraphProp, basePoco.TwoPhaseGraph, toPocoForTwoPhaseGraph.TwoPhaseGraph, basePoco, toPocoForTwoPhaseGraph, fromDoc.Metadata, timestamp, 0);
         twoPhaseGraphStrategy.GeneratePatch(ctx);
     }
 
@@ -527,7 +527,7 @@ public class StrategyGenerateBenchmarks
     public void Generate_ReplicatedTree()
     {
         opsBuffer.Clear();
-        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), replicatedTreePath, replicatedTreeProp, basePoco.Tree, toPocoForReplicatedTree.Tree, basePoco, toPocoForReplicatedTree, fromDoc.Metadata, timestamp);
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), replicatedTreePath, replicatedTreeProp, basePoco.Tree, toPocoForReplicatedTree.Tree, basePoco, toPocoForReplicatedTree, fromDoc.Metadata, timestamp, 0);
         replicatedTreeStrategy.GeneratePatch(ctx);
     }
     #endregion

@@ -34,7 +34,7 @@ public sealed class OrMapStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, nestedDiffs, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+        var (operations, nestedDiffs, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp, clock) = context;
 
         var originalDict = originalValue as IDictionary;
         var modifiedDict = modifiedValue as IDictionary;
@@ -52,7 +52,7 @@ public sealed class OrMapStrategy(
 
         foreach (var key in addedKeys)
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new OrMapAddItem(key, modifiedDict![key], Guid.NewGuid()), changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new OrMapAddItem(key, modifiedDict![key], Guid.NewGuid()), changeTimestamp, clock));
         }
 
         if (originalMeta.OrMaps.TryGetValue(path, out var metaState))
@@ -61,7 +61,7 @@ public sealed class OrMapStrategy(
             {
                 if (metaState.Adds.TryGetValue(key, out var tags) && tags.Any())
                 {
-                    operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new OrMapRemoveItem(key, new HashSet<Guid>(tags)), changeTimestamp));
+                    operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new OrMapRemoveItem(key, new HashSet<Guid>(tags)), changeTimestamp, clock));
                 }
             }
         }
@@ -87,7 +87,7 @@ public sealed class OrMapStrategy(
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (root, metadata, path, property, intent, timestamp, operationReplicaId) = context;
+        var (root, metadata, path, property, intent, timestamp, clock) = context;
 
         if (intent is MapSetIntent setIntent)
         {
@@ -96,7 +96,7 @@ public sealed class OrMapStrategy(
             var itemKey = PocoPathHelper.ConvertValue(setIntent.Key, keyType) ?? throw new ArgumentException($"Key cannot be null or incompatible for type {keyType.Name}.");
             var itemValue = PocoPathHelper.ConvertValue(setIntent.Value, valueType);
 
-            return new CrdtOperation(Guid.NewGuid(), operationReplicaId, path, OperationType.Upsert, new OrMapAddItem(itemKey, itemValue, Guid.NewGuid()), timestamp);
+            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new OrMapAddItem(itemKey, itemValue, Guid.NewGuid()), timestamp, clock);
         }
 
         if (intent is MapRemoveIntent removeIntent)
@@ -110,7 +110,7 @@ public sealed class OrMapStrategy(
                 tags = new HashSet<Guid>(existingTags);
             }
 
-            return new CrdtOperation(Guid.NewGuid(), operationReplicaId, path, OperationType.Remove, new OrMapRemoveItem(itemKey, tags), timestamp);
+            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new OrMapRemoveItem(itemKey, tags), timestamp, clock);
         }
 
         throw new NotSupportedException($"Explicit operation generation for intent '{intent.GetType().Name}' is not supported by {nameof(OrMapStrategy)}.");

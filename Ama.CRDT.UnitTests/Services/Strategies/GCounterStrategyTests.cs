@@ -62,7 +62,8 @@ public sealed class GCounterStrategyTests : IDisposable
             new TestModel { Count = 10 },
             new TestModel { Count = 15 },
             new CrdtMetadata(),
-            timestampProvider.Now());
+            timestampProvider.Now(),
+            0);
 
         // Act
         strategy.GeneratePatch(context);
@@ -88,7 +89,7 @@ public sealed class GCounterStrategyTests : IDisposable
             new TestModel { Count = 10 },
             new TestModel { Count = 5 },
             new CrdtMetadata(),
-            timestampProvider.Now());
+            timestampProvider.Now(), 0);
         
         // Act
         strategy.GeneratePatch(context);
@@ -105,7 +106,7 @@ public sealed class GCounterStrategyTests : IDisposable
         var intent = new IncrementIntent(5m);
         var timestamp = timestampProvider.Now();
         var context = new GenerateOperationContext(
-            new TestModel(), new CrdtMetadata(), "$.count", property, intent, timestamp, "r1");
+            new TestModel(), new CrdtMetadata(), "$.count", property, intent, timestamp, 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -124,7 +125,7 @@ public sealed class GCounterStrategyTests : IDisposable
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
         var intent = new IncrementIntent(-5m);
         var context = new GenerateOperationContext(
-            new TestModel(), new CrdtMetadata(), "$.count", property, intent, timestampProvider.Now(), "r1");
+            new TestModel(), new CrdtMetadata(), "$.count", property, intent, timestampProvider.Now(), 0);
 
         // Act & Assert
         Should.Throw<ArgumentOutOfRangeException>(() => strategy.GenerateOperation(context));
@@ -137,7 +138,7 @@ public sealed class GCounterStrategyTests : IDisposable
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
         var intent = new SetIntent(5);
         var context = new GenerateOperationContext(
-            new TestModel(), new CrdtMetadata(), "$.count", property, intent, timestampProvider.Now(), "r1");
+            new TestModel(), new CrdtMetadata(), "$.count", property, intent, timestampProvider.Now(), 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));

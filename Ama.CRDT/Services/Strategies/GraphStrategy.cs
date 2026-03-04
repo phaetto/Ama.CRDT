@@ -21,7 +21,7 @@ public sealed class GraphStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
         var originalGraph = originalValue as CrdtGraph ?? new CrdtGraph();
         var modifiedGraph = modifiedValue as CrdtGraph ?? new CrdtGraph();
@@ -29,30 +29,30 @@ public sealed class GraphStrategy(ReplicaContext replicaContext) : ICrdtStrategy
         foreach (var vertex in modifiedGraph.Vertices.Except(originalGraph.Vertices))
         {
             var payload = new GraphVertexPayload(vertex);
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp, clock));
         }
 
         foreach (var edge in modifiedGraph.Edges.Except(originalGraph.Edges))
         {
             var payload = new GraphEdgePayload(edge);
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp, clock));
         }
     }
 
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (_, _, jsonPath, _, intent, timestamp, _) = context;
+        var (_, _, jsonPath, _, intent, timestamp, clock) = context;
 
         if (intent is AddVertexIntent addVertexIntent)
         {
             var payload = new GraphVertexPayload(addVertexIntent.Vertex);
-            return new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Upsert, payload, timestamp);
+            return new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Upsert, payload, timestamp, clock);
         }
 
         if (intent is AddEdgeIntent addEdgeIntent)
         {
             var payload = new GraphEdgePayload(addEdgeIntent.Edge);
-            return new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Upsert, payload, timestamp);
+            return new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Upsert, payload, timestamp, clock);
         }
 
         throw new NotSupportedException($"The intent '{intent.GetType().Name}' is not supported by {nameof(GraphStrategy)}.");

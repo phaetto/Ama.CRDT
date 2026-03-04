@@ -71,7 +71,8 @@ public sealed class CounterStrategyTests : IDisposable
             new TestModel { Score = original }, 
             new TestModel { Score = modified }, 
             new CrdtMetadata(),
-            expectedTimestamp);
+            expectedTimestamp,
+            0);
 
         // Act
         localStrategy.GeneratePatch(context);
@@ -97,7 +98,7 @@ public sealed class CounterStrategyTests : IDisposable
             typeof(TestModel).GetProperty(nameof(TestModel.Score))!,
             new IncrementIntent(5m),
             timestampProvider.Create(123),
-            "replica-A");
+            0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -120,7 +121,7 @@ public sealed class CounterStrategyTests : IDisposable
             typeof(TestModel).GetProperty(nameof(TestModel.Score))!,
             new SetIntent(15m), // Target is 15, Current is 10 => Expected delta is 5
             timestampProvider.Create(123),
-            "replica-A");
+            0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -143,7 +144,7 @@ public sealed class CounterStrategyTests : IDisposable
             typeof(TestModel).GetProperty(nameof(TestModel.Score))!,
             new RemoveIntent(0),
             timestampProvider.Create(123),
-            "replica-A");
+            0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));

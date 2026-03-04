@@ -24,13 +24,13 @@ public sealed class MaxWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
         if (modifiedValue is null || originalValue is null)
         {
             if (modifiedValue != originalValue)
             {
-                var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
+                var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp, clock);
                 operations.Add(operation);
             }
             return;
@@ -39,7 +39,7 @@ public sealed class MaxWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
         var originalComparable = (IComparable)originalValue;
         if (originalComparable.CompareTo(modifiedValue) < 0)
         {
-            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp);
+            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp, clock);
             operations.Add(operation);
         }
     }
@@ -55,7 +55,8 @@ public sealed class MaxWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
                 context.JsonPath,
                 OperationType.Upsert,
                 setIntent.Value,
-                context.Timestamp);
+                context.Timestamp,
+                context.Clock);
         }
 
         throw new NotSupportedException($"Explicit operation generation for intent '{context.Intent.GetType().Name}' is not supported for {this.GetType().Name}.");

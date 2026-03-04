@@ -34,7 +34,7 @@ public sealed class GSetStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
         var originalList = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedList = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
@@ -47,7 +47,7 @@ public sealed class GSetStrategy(
 
         foreach (var item in addedItems)
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, item, changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, item, changeTimestamp, clock));
         }
     }
 
@@ -61,11 +61,12 @@ public sealed class GSetStrategy(
 
             return new CrdtOperation(
                 Guid.NewGuid(),
-                context.ReplicaId,
+                replicaId,
                 context.JsonPath,
                 OperationType.Upsert,
                 itemValue,
-                context.Timestamp);
+                context.Timestamp,
+                context.Clock);
         }
 
         throw new NotSupportedException($"The intent {context.Intent.GetType().Name} is not supported by {nameof(GSetStrategy)}.");

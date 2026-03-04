@@ -57,9 +57,9 @@ public sealed class MaxWinsMapStrategyTests
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 10 } });
         var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 10 } });
 
-        var op_lower = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 5), timestampProvider.Now());
-        var op_higher = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 15), timestampProvider.Now());
-        var op_newkey = new CrdtOperation(Guid.NewGuid(), "C", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 100), timestampProvider.Now());
+        var op_lower = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 5), timestampProvider.Now(), 0);
+        var op_higher = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 15), timestampProvider.Now(), 0);
+        var op_newkey = new CrdtOperation(Guid.NewGuid(), "C", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 100), timestampProvider.Now(), 0);
 
         // Act: Apply lower, higher, newkey
         strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op_lower));
@@ -87,9 +87,9 @@ public sealed class MaxWinsMapStrategyTests
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 10 } });
         var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 10 } });
 
-        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 50), timestampProvider.Now());
-        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 25), timestampProvider.Now());
-        var op3 = new CrdtOperation(Guid.NewGuid(), "C", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 100), timestampProvider.Now());
+        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 50), timestampProvider.Now(), 0);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 25), timestampProvider.Now(), 0);
+        var op3 = new CrdtOperation(Guid.NewGuid(), "C", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 100), timestampProvider.Now(), 0);
 
         // Act: Apply (op1 + op2) + op3
         strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op1));
@@ -115,7 +115,7 @@ public sealed class MaxWinsMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 10 } });
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 20), timestampProvider.Now());
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 20), timestampProvider.Now(), 0);
         
         // Act
         strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op));
@@ -192,10 +192,10 @@ public sealed class MaxWinsMapStrategyTests
 
         var doc = CreateDocument(new Dictionary<string, int>());
         
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now())));
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now())));
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now())));
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now(), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now(), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now(), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now(), 0)));
 
         var result = strategy.Split(doc.Data, doc.Metadata, propInfo);
 
@@ -218,11 +218,11 @@ public sealed class MaxWinsMapStrategyTests
         var doc1 = CreateDocument(new Dictionary<string, int>());
         var doc2 = CreateDocument(new Dictionary<string, int>());
 
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now())));
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now(), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now(), 0)));
 
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 50), timestampProvider.Now()))); // higher value
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now())));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 50), timestampProvider.Now(), 0))); // higher value
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now(), 0)));
 
         var merged = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo);
 
@@ -242,7 +242,7 @@ public sealed class MaxWinsMapStrategyTests
         var doc = CreateDocument(new Dictionary<string, int>());
         var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
         var intent = new MapSetIntent("a", 15);
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", propInfo, intent, timestampProvider.Now(), "A");
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", propInfo, intent, timestampProvider.Now(), 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -267,7 +267,7 @@ public sealed class MaxWinsMapStrategyTests
         var doc = CreateDocument(new Dictionary<string, int>());
         var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
         var intent = new SetIntent(15); // Unsupported intent
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", propInfo, intent, timestampProvider.Now(), "A");
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", propInfo, intent, timestampProvider.Now(), 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));

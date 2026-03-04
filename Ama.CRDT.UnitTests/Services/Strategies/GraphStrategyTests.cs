@@ -177,7 +177,7 @@ public sealed class GraphStrategyTests : IDisposable
         // Arrange
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
         var intent = new AddVertexIntent("C");
-        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", null!, intent, new EpochTimestamp(123), "A");
+        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", null!, intent, new EpochTimestamp(123), 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -196,7 +196,7 @@ public sealed class GraphStrategyTests : IDisposable
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
         var edge = new Edge("C", "D", "connects");
         var intent = new AddEdgeIntent(edge);
-        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", null!, intent, new EpochTimestamp(123), "A");
+        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", null!, intent, new EpochTimestamp(123), 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -214,7 +214,7 @@ public sealed class GraphStrategyTests : IDisposable
         // Arrange
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
         var intent = new SetIntent("Invalid");
-        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", null!, intent, new EpochTimestamp(123), "A");
+        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", null!, intent, new EpochTimestamp(123), 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));

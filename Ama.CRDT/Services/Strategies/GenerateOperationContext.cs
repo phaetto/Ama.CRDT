@@ -13,7 +13,7 @@ using System.Reflection;
 /// <param name="Property">The reflection property info representing the target.</param>
 /// <param name="Intent">The user intent specifying the change to perform (e.g., insert, remove).</param>
 /// <param name="Timestamp">The timestamp assigned to the generated operation.</param>
-/// <param name="ReplicaId">The identifier of the replica originating the operation.</param>
+/// <param name="Clock">The monotonically increasing causal sequence number for the originating replica.</param>
 public readonly record struct GenerateOperationContext(
     object DocumentRoot,
     CrdtMetadata Metadata,
@@ -21,4 +21,4 @@ public readonly record struct GenerateOperationContext(
     PropertyInfo Property,
     IOperationIntent Intent,
     ICrdtTimestamp Timestamp,
-    string ReplicaId);
+    long Clock);

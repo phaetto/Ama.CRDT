@@ -62,7 +62,8 @@ public sealed class MinWinsStrategyTests : IDisposable
             new TestModel { BestTime = 200 },
             new TestModel { BestTime = 100 },
             new CrdtMetadata(),
-            timestampProvider.Now()
+            timestampProvider.Now(),
+            0
         );
         
         // Act
@@ -86,7 +87,7 @@ public sealed class MinWinsStrategyTests : IDisposable
             property,
             new SetIntent(100),
             timestampProvider.Now(),
-            "r1"
+            0
         );
 
         // Act
@@ -96,7 +97,7 @@ public sealed class MinWinsStrategyTests : IDisposable
         result.Type.ShouldBe(OperationType.Upsert);
         result.Value.ShouldBe(100);
         result.JsonPath.ShouldBe("$.bestTime");
-        result.ReplicaId.ShouldBe("r1");
+        result.ReplicaId.ShouldBe("A");
     }
 
     [Fact]
@@ -111,7 +112,7 @@ public sealed class MinWinsStrategyTests : IDisposable
             property,
             new SetIntent(new object()), // object is not IComparable
             timestampProvider.Now(),
-            "r1"
+            0
         );
 
         // Act & Assert
@@ -130,7 +131,7 @@ public sealed class MinWinsStrategyTests : IDisposable
             property,
             new RemoveIntent(0),
             timestampProvider.Now(),
-            "r1"
+            0
         );
 
         // Act & Assert
@@ -142,7 +143,7 @@ public sealed class MinWinsStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { BestTime = 150 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 100, timestampProvider.Create(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 100, timestampProvider.Create(2L), 0);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act
@@ -157,7 +158,7 @@ public sealed class MinWinsStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { BestTime = 150 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 200, timestampProvider.Create(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 200, timestampProvider.Create(2L), 0);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act
@@ -172,7 +173,7 @@ public sealed class MinWinsStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { BestTime = 150 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 100, timestampProvider.Create(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 100, timestampProvider.Create(2L), 0);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
     
         // Act
@@ -191,8 +192,8 @@ public sealed class MinWinsStrategyTests : IDisposable
         // Arrange
         var model1 = new TestModel { BestTime = 300 };
         var model2 = new TestModel { BestTime = 300 };
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.bestTime", OperationType.Upsert, 200, timestampProvider.Create(2L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.bestTime", OperationType.Upsert, 250, timestampProvider.Create(3L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.bestTime", OperationType.Upsert, 200, timestampProvider.Create(2L), 0);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.bestTime", OperationType.Upsert, 250, timestampProvider.Create(3L), 0);
 
         // Act
         // op1 then op2
@@ -213,9 +214,9 @@ public sealed class MinWinsStrategyTests : IDisposable
     public void ApplyOperation_IsAssociative()
     {
         // Arrange
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.bestTime", OperationType.Upsert, 200, timestampProvider.Create(2L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.bestTime", OperationType.Upsert, 250, timestampProvider.Create(3L));
-        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.bestTime", OperationType.Upsert, 150, timestampProvider.Create(4L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.bestTime", OperationType.Upsert, 200, timestampProvider.Create(2L), 0);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.bestTime", OperationType.Upsert, 250, timestampProvider.Create(3L), 0);
+        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.bestTime", OperationType.Upsert, 150, timestampProvider.Create(4L), 0);
 
         var ops = new[] { op1, op2, op3 };
         var permutations = GetPermutations(ops, ops.Length);

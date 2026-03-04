@@ -28,7 +28,7 @@ public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrat
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
         var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue);
         var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue);
@@ -37,7 +37,7 @@ public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrat
 
         if (delta > 0)
         {
-            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, delta, changeTimestamp);
+            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, delta, changeTimestamp, clock);
             operations.Add(operation);
         }
     }
@@ -63,7 +63,8 @@ public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrat
             context.JsonPath,
             OperationType.Increment,
             increment,
-            context.Timestamp);
+            context.Timestamp,
+            context.Clock);
     }
 
     /// <inheritdoc/>

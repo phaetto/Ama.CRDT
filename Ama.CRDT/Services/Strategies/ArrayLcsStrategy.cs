@@ -30,7 +30,7 @@ public sealed class ArrayLcsStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
 
         var originalList = (originalValue as IList)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedList = (modifiedValue as IList)?.Cast<object>().ToList() ?? new List<object>();
@@ -54,7 +54,7 @@ public sealed class ArrayLcsStrategy(
             if (!lcsOriginalIndices.Contains(i))
             {
                 var removedIdentifier = originalPositions[i];
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, removedIdentifier, changeTimestamp));
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, removedIdentifier, changeTimestamp, clock));
             }
         }
 
@@ -76,7 +76,7 @@ public sealed class ArrayLcsStrategy(
             {
                 var newPos = GeneratePositionBetween(lastGeneratedPos, afterPos?.Position);
                 var newItem = new PositionalItem(newPos, modifiedList[modIdx]);
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, changeTimestamp));
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, changeTimestamp, clock));
                 lastGeneratedPos = newPos;
             }
         }
@@ -90,7 +90,6 @@ public sealed class ArrayLcsStrategy(
         var path = context.JsonPath;
         var intent = context.Intent;
         var timestamp = context.Timestamp;
-        var opReplicaId = context.ReplicaId;
 
         var (parent, resolvedProperty, _) = PocoPathHelper.ResolvePath(root, path);
         var list = (parent != null && resolvedProperty != null ? PocoPathHelper.GetAccessor(resolvedProperty).Getter(parent) as IList : null) ?? new List<object>();
@@ -103,7 +102,7 @@ public sealed class ArrayLcsStrategy(
             var newPos = GeneratePositionBetween(beforePos?.Position, null);
             var newItem = new PositionalItem(newPos, addIntent.Value);
 
-            return new CrdtOperation(Guid.NewGuid(), opReplicaId, path, OperationType.Upsert, newItem, timestamp);
+            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestamp, context.Clock);
         }
 
         if (intent is InsertIntent insertIntent)
@@ -119,7 +118,7 @@ public sealed class ArrayLcsStrategy(
             var newPos = GeneratePositionBetween(beforePos?.Position, afterPos?.Position);
             var newItem = new PositionalItem(newPos, insertIntent.Value);
 
-            return new CrdtOperation(Guid.NewGuid(), opReplicaId, path, OperationType.Upsert, newItem, timestamp);
+            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestamp, context.Clock);
         }
 
         if (intent is RemoveIntent removeIntent)
@@ -130,7 +129,7 @@ public sealed class ArrayLcsStrategy(
             }
 
             var removedIdentifier = positions[removeIntent.Index];
-            return new CrdtOperation(Guid.NewGuid(), opReplicaId, path, OperationType.Remove, removedIdentifier, timestamp);
+            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, removedIdentifier, timestamp, context.Clock);
         }
 
         throw new NotSupportedException($"Intent {intent.GetType().Name} is not supported by {nameof(ArrayLcsStrategy)}.");

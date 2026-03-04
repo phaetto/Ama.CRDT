@@ -256,8 +256,8 @@ public sealed class RgaStrategyTests : IDisposable
 
         var id = new RgaIdentifier(12345, "replica1");
         var item = new RgaItem(id, null, "Test", false);
-        var upsertOp = new CrdtOperation(Guid.NewGuid(), "replica1", "$.items", OperationType.Upsert, item, new EpochTimestamp(0));
-        var removeOp = new CrdtOperation(Guid.NewGuid(), "replica1", "$.items", OperationType.Remove, id, new EpochTimestamp(0));
+        var upsertOp = new CrdtOperation(Guid.NewGuid(), "replica1", "$.items", OperationType.Upsert, item, new EpochTimestamp(0), 0);
+        var removeOp = new CrdtOperation(Guid.NewGuid(), "replica1", "$.items", OperationType.Remove, id, new EpochTimestamp(0), 0);
 
         // Act & Assert
         strategy.GetKeyFromOperation(upsertOp, "$.items").ShouldBe(id);

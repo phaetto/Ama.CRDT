@@ -35,7 +35,7 @@ public sealed class CounterMapStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
         var originalDict = originalValue as IDictionary;
         var modifiedDict = modifiedValue as IDictionary;
@@ -63,7 +63,7 @@ public sealed class CounterMapStrategy(
             if (delta != 0)
             {
                 var payload = new KeyValuePair<object, object?>(key, delta);
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, payload, changeTimestamp));
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, payload, changeTimestamp, clock));
             }
         }
     }
@@ -81,11 +81,12 @@ public sealed class CounterMapStrategy(
             var payload = new KeyValuePair<object, object?>(mapIncrementIntent.Key, mapIncrementIntent.Value);
             return new CrdtOperation(
                 Guid.NewGuid(),
-                context.ReplicaId,
+                replicaId,
                 context.JsonPath,
                 OperationType.Increment,
                 payload,
-                context.Timestamp
+                context.Timestamp,
+                context.Clock
             );
         }
 

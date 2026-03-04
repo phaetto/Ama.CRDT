@@ -127,7 +127,7 @@ public sealed class RgaStrategy(
     /// <inheritdoc />
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, _) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
 
         if (originalValue is not IList originalList || modifiedValue is not IList modifiedList) return;
 
@@ -212,7 +212,7 @@ public sealed class RgaStrategy(
         {
             if (!matchedOriginal[i])
             {
-                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, slicedOrig[i].Identifier, timestampProvider.Create(0));
+                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, slicedOrig[i].Identifier, changeTimestamp, clock);
                 operations.Add(op);
             }
         }
@@ -235,7 +235,7 @@ public sealed class RgaStrategy(
             {
                 var newId = new RgaIdentifier(ticksBase + i, replicaId);
                 var newItem = new RgaItem(newId, lastId, slicedMod[i], false);
-                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestampProvider.Create(0));
+                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, changeTimestamp, clock);
                 operations.Add(op);
                 lastId = newId;
             }
@@ -245,7 +245,7 @@ public sealed class RgaStrategy(
     /// <inheritdoc />
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (_, metadata, path, _, intent, timestamp, _) = context;
+        var (_, metadata, path, _, intent, timestamp, clock) = context;
 
         if (!metadata.RgaTrackers.TryGetValue(path, out var items))
         {
@@ -260,7 +260,7 @@ public sealed class RgaStrategy(
             var newId = new RgaIdentifier(DateTime.UtcNow.Ticks, replicaId);
             var newItem = new RgaItem(newId, leftId, addIntent.Value, false);
 
-            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestamp);
+            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestamp, clock);
         }
 
         if (intent is InsertIntent insertIntent)
@@ -274,7 +274,7 @@ public sealed class RgaStrategy(
             var newId = new RgaIdentifier(DateTime.UtcNow.Ticks, replicaId);
             var newItem = new RgaItem(newId, leftId, insertIntent.Value, false);
 
-            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestamp);
+            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestamp, clock);
         }
         
         if (intent is RemoveIntent removeIntent)
@@ -285,7 +285,7 @@ public sealed class RgaStrategy(
             }
 
             var idToRemove = visibleItems[removeIntent.Index].Identifier;
-            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, idToRemove, timestamp);
+            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, idToRemove, timestamp, clock);
         }
         
         throw new NotSupportedException($"Intent type '{intent.GetType().Name}' is not supported by {nameof(RgaStrategy)}.");
