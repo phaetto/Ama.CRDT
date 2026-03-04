@@ -69,16 +69,33 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
     {
         ArgumentNullException.ThrowIfNull(propertyExpression);
 
-        return new IntentBuilder<T, TProp>(this, document, propertyExpression);
+        return new IntentBuilder<T, TProp>(this, document, propertyExpression, null);
+    }
+
+    /// <inheritdoc/>
+    public IIntentBuilder<TProp> BuildOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, ICrdtTimestamp timestamp) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(propertyExpression);
+        ArgumentNullException.ThrowIfNull(timestamp);
+
+        return new IntentBuilder<T, TProp>(this, document, propertyExpression, timestamp);
     }
 
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent) where T : class
     {
+        var changeTimestamp = timestampProvider.Now();
+        return GenerateOperation(document, propertyExpression, intent, changeTimestamp);
+    }
+
+    /// <inheritdoc/>
+    public CrdtOperation GenerateOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, ICrdtTimestamp timestamp) where T : class
+    {
         ArgumentNullException.ThrowIfNull(document.Metadata);
         ArgumentNullException.ThrowIfNull(document.Data);
         ArgumentNullException.ThrowIfNull(propertyExpression);
         ArgumentNullException.ThrowIfNull(intent);
+        ArgumentNullException.ThrowIfNull(timestamp);
 
         var parseResult = ParseExpression(propertyExpression);
         var strategy = strategyProvider.GetStrategy(parseResult.Property);
@@ -93,7 +110,7 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
             JsonPath: parseResult.JsonPath,
             Property: parseResult.Property,
             Intent: intent,
-            Timestamp: timestampProvider.Now(),
+            Timestamp: timestamp,
             Clock: localClock
         );
 
@@ -276,11 +293,17 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
     private sealed class IntentBuilder<TModel, TProp>(
         ICrdtPatcher patcher,
         CrdtDocument<TModel> document,
-        Expression<Func<TModel, TProp>> propertyExpression) : IIntentBuilder<TProp>
+        Expression<Func<TModel, TProp>> propertyExpression,
+        ICrdtTimestamp? timestamp) : IIntentBuilder<TProp>
         where TModel : class
     {
         public CrdtOperation Build(IOperationIntent intent)
         {
+            if (timestamp is not null)
+            {
+                return patcher.GenerateOperation(document, propertyExpression, intent, timestamp);
+            }
+
             return patcher.GenerateOperation(document, propertyExpression, intent);
         }
     }
