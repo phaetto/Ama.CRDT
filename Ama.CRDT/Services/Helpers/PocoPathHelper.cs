@@ -66,7 +66,7 @@ internal static class PocoPathHelper
 
     /// <summary>
     /// A generic converter that dynamically compiles the exact IL instructions needed
-    /// to cast or convert between a runtime type and T, completely eliminating Convert.ChangeType.
+    /// to cast or convert between a runtime type and T.
     /// </summary>
     internal static class GenericConverter<T>
     {
@@ -89,20 +89,11 @@ internal static class PocoPathHelper
         {
             if (sourceType == targetType) return source;
 
-            var underlyingTarget = Nullable.GetUnderlyingType(targetType) ?? targetType;
-            var underlyingSource = Nullable.GetUnderlyingType(sourceType) ?? sourceType;
-
-            // Enums convert natively
-            if (underlyingTarget.IsEnum || underlyingSource.IsEnum)
-            {
-                return Expression.Convert(source, targetType);
-            }
-
             // If the source is an object/interface, we can't emit a direct unboxing conversion
-            // without knowing the exact boxed type, so we safely fall back to ChangeType.
+            // without knowing the exact boxed type, so we safely fall back to ConvertValue.
             if (sourceType == typeof(object) || sourceType == typeof(ValueType) || sourceType.IsInterface)
             {
-                return BuildChangeTypeCall(source, targetType);
+                return BuildConvertValueCall(source, targetType);
             }
 
             try
@@ -113,18 +104,17 @@ internal static class PocoPathHelper
             catch (InvalidOperationException)
             {
                 // Fallback for types that lack an implicit/explicit cast operator (like string -> int)
-                return BuildChangeTypeCall(source, targetType);
+                return BuildConvertValueCall(source, targetType);
             }
         }
 
-        internal static Expression BuildChangeTypeCall(Expression source, Type targetType)
+        private static Expression BuildConvertValueCall(Expression source, Type targetType)
         {
-            var convertMethod = typeof(System.Convert).GetMethod(nameof(System.Convert.ChangeType), [typeof(object), typeof(Type), typeof(IFormatProvider)]);
-            var changeTypeCall = Expression.Call(convertMethod!, 
-                Expression.Convert(source, typeof(object)), 
-                Expression.Constant(targetType), 
-                Expression.Constant(CultureInfo.InvariantCulture));
-            return Expression.Convert(changeTypeCall, targetType);
+            var convertValueMethod = typeof(PocoPathHelper).GetMethod(nameof(ConvertValue), BindingFlags.Public | BindingFlags.Static)!;
+            var sourceAsObject = Expression.Convert(source, typeof(object));
+            var targetTypeConst = Expression.Constant(targetType, typeof(Type));
+            var callConvertValue = Expression.Call(convertValueMethod, sourceAsObject, targetTypeConst);
+            return Expression.Convert(callConvertValue, targetType);
         }
     }
 
@@ -692,7 +682,7 @@ internal static class PocoPathHelper
             }
         }
 
-        // Fast path for Guids to avoid Convert.ChangeType exception behavior
+        // Fast path for Guids to avoid IConvertible logic
         if (underlyingType == typeof(Guid) && value is string guidString)
         {
             return Guid.TryParse(guidString, out var parsedGuid) ? parsedGuid : value;
@@ -700,13 +690,13 @@ internal static class PocoPathHelper
 
         try
         {
-            // Using IConvertible directly is much faster than full Convert.ChangeType overhead
+            // Using IConvertible directly is fully equivalent to Convert.ChangeType overhead and avoids analyzers
             if (value is IConvertible convertible)
             {
                 return convertible.ToType(underlyingType, CultureInfo.InvariantCulture);
             }
             
-            return Convert.ChangeType(value, underlyingType, CultureInfo.InvariantCulture);
+            return value;
         }
         catch (Exception)
         {

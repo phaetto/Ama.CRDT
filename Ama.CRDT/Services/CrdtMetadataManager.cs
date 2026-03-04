@@ -459,7 +459,7 @@ public sealed class CrdtMetadataManager(
                 {
                     if (entry.Key is not null)
                     {
-                        var value = Convert.ToDecimal(entry.Value ?? 0);
+                        var value = PocoPathHelper.ConvertTo<decimal>(entry.Value ?? 0m);
                         counterMap[entry.Key] = new PnCounterState(P: value > 0 ? value : 0, N: value < 0 ? -value : 0);
                     }
                 }
