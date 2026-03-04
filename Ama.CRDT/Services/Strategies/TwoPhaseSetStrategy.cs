@@ -34,7 +34,7 @@ public sealed class TwoPhaseSetStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
         var originalSet = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedSet = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
@@ -47,24 +47,24 @@ public sealed class TwoPhaseSetStrategy(
 
         foreach (var item in added)
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, item, changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, item, changeTimestamp, clock));
         }
 
         foreach (var item in removed)
         {
-            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item, changeTimestamp));
+            operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, item, changeTimestamp, clock));
         }
     }
 
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (_, _, path, _, intent, timestamp, replicaId) = context;
+        var (_, _, path, _, intent, timestamp, clock) = context;
 
         return intent switch
         {
-            AddIntent add => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, add.Value, timestamp),
-            RemoveValueIntent remove => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, remove.Value, timestamp),
+            AddIntent add => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, add.Value, timestamp, clock),
+            RemoveValueIntent remove => new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, remove.Value, timestamp, clock),
             _ => throw new NotSupportedException($"Intent '{intent.GetType().Name}' is not supported by {nameof(TwoPhaseSetStrategy)}.")
         };
     }

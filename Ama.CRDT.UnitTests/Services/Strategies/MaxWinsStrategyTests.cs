@@ -62,7 +62,8 @@ public sealed class MaxWinsStrategyTests : IDisposable
             new TestModel { HighScore = 100 },
             new TestModel { HighScore = 200 },
             new CrdtMetadata(),
-            timestampProvider.Now()
+            timestampProvider.Now(),
+            0
         );
         
         // Act
@@ -88,7 +89,7 @@ public sealed class MaxWinsStrategyTests : IDisposable
             property,
             intent,
             timestamp,
-            "A"
+            0
         );
 
         // Act
@@ -114,7 +115,7 @@ public sealed class MaxWinsStrategyTests : IDisposable
             property,
             intent,
             timestampProvider.Now(),
-            "A"
+            0
         );
 
         // Act
@@ -132,7 +133,7 @@ public sealed class MaxWinsStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { HighScore = 150 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L), 0);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act
@@ -147,7 +148,7 @@ public sealed class MaxWinsStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { HighScore = 150 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 100, timestampProvider.Create(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 100, timestampProvider.Create(2L), 0);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
         
         // Act
@@ -162,7 +163,7 @@ public sealed class MaxWinsStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { HighScore = 150 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L), 0);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
     
         // Act
@@ -181,8 +182,8 @@ public sealed class MaxWinsStrategyTests : IDisposable
         // Arrange
         var model1 = new TestModel { HighScore = 100 };
         var model2 = new TestModel { HighScore = 100 };
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.highScore", OperationType.Upsert, 150, timestampProvider.Create(3L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L), 0);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.highScore", OperationType.Upsert, 150, timestampProvider.Create(3L), 0);
 
         // Act
         // op1 then op2
@@ -203,9 +204,9 @@ public sealed class MaxWinsStrategyTests : IDisposable
     public void ApplyOperation_IsAssociative()
     {
         // Arrange
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.highScore", OperationType.Upsert, 150, timestampProvider.Create(3L));
-        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.highScore", OperationType.Upsert, 250, timestampProvider.Create(4L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L), 0);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.highScore", OperationType.Upsert, 150, timestampProvider.Create(3L), 0);
+        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.highScore", OperationType.Upsert, 250, timestampProvider.Create(4L), 0);
 
         var ops = new[] { op1, op2, op3 };
         var permutations = GetPermutations(ops, ops.Length);

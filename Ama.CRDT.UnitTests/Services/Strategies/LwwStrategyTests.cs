@@ -60,7 +60,7 @@ public sealed class LwwStrategyTests : IDisposable
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
         var changeTimestamp = timestampProvider.Create(200L);
         var context = new GeneratePatchContext(
-            operations, new List<DifferentiateObjectContext>(), "$.value", property, originalValue, modifiedValue, null, null, originalMeta, changeTimestamp);
+            operations, new List<DifferentiateObjectContext>(), "$.value", property, originalValue, modifiedValue, null, null, originalMeta, changeTimestamp, 0);
 
         // Act
         strategyA.GeneratePatch(context);
@@ -82,7 +82,7 @@ public sealed class LwwStrategyTests : IDisposable
         var changeTimestamp = timestampProvider.Create(200L);
         var intent = new SetIntent(42);
         var context = new GenerateOperationContext(
-            new TestModel(), new CrdtMetadata(), "$.Value", property, intent, changeTimestamp, "r1");
+            new TestModel(), new CrdtMetadata(), "$.Value", property, intent, changeTimestamp, 0);
 
         // Act
         var operation = strategyA.GenerateOperation(context);
@@ -92,7 +92,7 @@ public sealed class LwwStrategyTests : IDisposable
         operation.JsonPath.ShouldBe("$.Value");
         operation.Value.ShouldBe(42);
         operation.Timestamp.ShouldBe(changeTimestamp);
-        operation.ReplicaId.ShouldBe("r1");
+        operation.ReplicaId.ShouldBe("A");
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public sealed class LwwStrategyTests : IDisposable
         var changeTimestamp = timestampProvider.Create(200L);
         var intent = new SetIntent(null);
         var context = new GenerateOperationContext(
-            new NullableTestModel(), new CrdtMetadata(), "$.Value", property, intent, changeTimestamp, "r1");
+            new NullableTestModel(), new CrdtMetadata(), "$.Value", property, intent, changeTimestamp, 0);
 
         // Act
         var operation = strategyA.GenerateOperation(context);
@@ -113,7 +113,7 @@ public sealed class LwwStrategyTests : IDisposable
         operation.JsonPath.ShouldBe("$.Value");
         operation.Value.ShouldBeNull();
         operation.Timestamp.ShouldBe(changeTimestamp);
-        operation.ReplicaId.ShouldBe("r1");
+        operation.ReplicaId.ShouldBe("A");
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public sealed class LwwStrategyTests : IDisposable
         var changeTimestamp = timestampProvider.Create(200L);
         var intent = new IncrementIntent(1);
         var context = new GenerateOperationContext(
-            new TestModel(), new CrdtMetadata(), "$.Value", property, intent, changeTimestamp, "r1");
+            new TestModel(), new CrdtMetadata(), "$.Value", property, intent, changeTimestamp, 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
@@ -135,7 +135,7 @@ public sealed class LwwStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Value = 10 };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L), 0);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
 
         // Act
@@ -149,7 +149,7 @@ public sealed class LwwStrategyTests : IDisposable
     public void ApplyOperation_Remove_ShouldSetValueToNull()
     {
         // Arrange
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Remove, null, timestampProvider.Create(200L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Remove, null, timestampProvider.Create(200L), 0);
         
         // This test is for when the property is nullable. For non-nullable value types, it will set to default.
         // Let's test a nullable property.
@@ -169,7 +169,7 @@ public sealed class LwwStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { Value = 10 };
         var metadata = new CrdtMetadata();
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L), 0);
         var context = new ApplyOperationContext(model, metadata, operation);
 
         // Act
@@ -187,8 +187,8 @@ public sealed class LwwStrategyTests : IDisposable
     public void ApplyOperation_IsCommutative()
     {
         // Arrange
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.Value", OperationType.Upsert, 30, timestampProvider.Create(300L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L), 0);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.Value", OperationType.Upsert, 30, timestampProvider.Create(300L), 0);
 
         // Scenario 1: op1 then op2
         var model1 = new TestModel { Value = 10 };
@@ -211,9 +211,9 @@ public sealed class LwwStrategyTests : IDisposable
     public void ApplyOperation_IsAssociative()
     {
         // Arrange
-        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.Value", OperationType.Upsert, 30, timestampProvider.Create(300L));
-        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.Value", OperationType.Upsert, 15, timestampProvider.Create(150L));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.Value", OperationType.Upsert, 20, timestampProvider.Create(200L), 0);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.Value", OperationType.Upsert, 30, timestampProvider.Create(300L), 0);
+        var op3 = new CrdtOperation(Guid.NewGuid(), "r3", "$.Value", OperationType.Upsert, 15, timestampProvider.Create(150L), 0);
 
         var ops = new[] { op1, op2, op3 };
         var permutations = GetPermutations(ops, ops.Length);

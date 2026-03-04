@@ -150,7 +150,8 @@ public sealed class CrdtTimestampJsonConverterTests
             "/path",
             OperationType.Upsert,
             "value",
-            new CustomTimestamp(1337)
+            new CustomTimestamp(1337),
+            0
         );
 
         var json = JsonSerializer.Serialize(operation, serializerOptions);

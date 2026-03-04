@@ -67,7 +67,8 @@ public sealed class BoundedCounterStrategyTests : IDisposable
             originalRoot,
             modifiedRoot,
             new CrdtMetadata(),
-            timestampProvider.Create(1L)
+            timestampProvider.Create(1L),
+            0
         );
         
         // Act
@@ -93,7 +94,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
             property,
             intent,
             timestampProvider.Create(1L),
-            "r1"
+            0
         );
 
         // Act
@@ -103,7 +104,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         operation.Type.ShouldBe(OperationType.Increment);
         operation.Value.ShouldBe(15m);
         operation.JsonPath.ShouldBe("$.Level");
-        operation.ReplicaId.ShouldBe("r1");
+        operation.ReplicaId.ShouldBe("A");
     }
 
     [Fact]
@@ -120,7 +121,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
             property,
             intent,
             timestampProvider.Create(1L),
-            "r1"
+            0
         );
 
         // Act & Assert

@@ -62,7 +62,7 @@ public sealed class SortedSetStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, nestedDiffs, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp) = context;
+        var (operations, nestedDiffs, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp, clock) = context;
 
         var fromArray = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var toArray = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
@@ -93,13 +93,13 @@ public sealed class SortedSetStrategy(
             {
                 var addPath = $"{path}[{entry.NewIndex}]";
                 var addedItem = toArray[entry.NewIndex];
-                addOps.Add(new CrdtOperation(Guid.NewGuid(), replicaId, addPath, OperationType.Upsert, addedItem, changeTimestamp));
+                addOps.Add(new CrdtOperation(Guid.NewGuid(), replicaId, addPath, OperationType.Upsert, addedItem, changeTimestamp, clock));
             }
             else if (entry.Type == LcsDiffEntryType.Remove)
             {
                 var removePath = $"{path}[{entry.OldIndex}]";
                 var removedItem = fromArray[entry.OldIndex];
-                removeOps.Add(new CrdtOperation(Guid.NewGuid(), replicaId, removePath, OperationType.Remove, removedItem, changeTimestamp));
+                removeOps.Add(new CrdtOperation(Guid.NewGuid(), replicaId, removePath, OperationType.Remove, removedItem, changeTimestamp, clock));
             }
         }
 
@@ -110,14 +110,14 @@ public sealed class SortedSetStrategy(
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (_, _, jsonPath, _, intent, timestamp, opReplicaId) = context;
+        var (_, _, jsonPath, _, intent, timestamp, clock) = context;
 
         // A dummy index like `[-1]` is used since ApplyOperation solely extracts the path up to `[` 
         // and manages elements based on the value mapping in the set.
         return intent switch
         {
-            AddIntent add => new CrdtOperation(Guid.NewGuid(), opReplicaId, $"{jsonPath}[-1]", OperationType.Upsert, add.Value, timestamp),
-            RemoveValueIntent remove => new CrdtOperation(Guid.NewGuid(), opReplicaId, $"{jsonPath}[-1]", OperationType.Remove, remove.Value, timestamp),
+            AddIntent add => new CrdtOperation(Guid.NewGuid(), replicaId, $"{jsonPath}[-1]", OperationType.Upsert, add.Value, timestamp, clock),
+            RemoveValueIntent remove => new CrdtOperation(Guid.NewGuid(), replicaId, $"{jsonPath}[-1]", OperationType.Remove, remove.Value, timestamp, clock),
             _ => throw new NotSupportedException($"Intent {intent.GetType().Name} is not supported by {nameof(SortedSetStrategy)}.")
         };
     }

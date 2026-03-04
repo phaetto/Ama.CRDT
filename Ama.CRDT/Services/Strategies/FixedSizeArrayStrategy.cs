@@ -26,7 +26,7 @@ public sealed class FixedSizeArrayStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
 
         ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(property);
@@ -53,7 +53,7 @@ public sealed class FixedSizeArrayStrategy(
 
             if (!originalMeta.Lww.TryGetValue(elementPath, out var originalTimestamp) || changeTimestamp.CompareTo(originalTimestamp) >= 0)
             {
-                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, elementPath, OperationType.Upsert, modifiedElement, changeTimestamp));
+                operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, elementPath, OperationType.Upsert, modifiedElement, changeTimestamp, clock));
             }
         }
     }
@@ -74,7 +74,7 @@ public sealed class FixedSizeArrayStrategy(
             }
 
             var elementPath = $"{context.JsonPath}[{setIndexIntent.Index}]";
-            return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, elementPath, OperationType.Upsert, setIndexIntent.Value, context.Timestamp);
+            return new CrdtOperation(Guid.NewGuid(), replicaId, elementPath, OperationType.Upsert, setIndexIntent.Value, context.Timestamp, context.Clock);
         }
 
         throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported for {this.GetType().Name}.");
