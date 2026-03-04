@@ -60,13 +60,13 @@
 | `$/Ama.CRDT.ShowCase/Services/IInMemoryDatabaseService.cs` | Defines the contract for a simple in-memory key-value store to simulate persistence for each replica's state (document and metadata). |
 | `$/Ama.CRDT.ShowCase/Services/InMemoryDatabaseService.cs` | An implementation of `IInMemoryDatabaseService` using `ConcurrentDictionary` to simulate a database for CRDT documents and metadata. |
 | `$/Ama.CRDT.ShowCase/SimulationRunner.cs` | Orchestrates the distributed map-reduce simulation using concurrent producers, mappers, and convergers communicating via channels to demonstrate CRDT convergence. |
-| `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |
 | `$/Ama.CRDT.UnitTests/Ama.CRDT.UnitTests.csproj` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/EpochTimestampTests.cs` | Contains unit tests for the `EpochTimestamp` implementation of `ICrdtTimestamp`. |
 | `$/Ama.CRDT.UnitTests/Models/Partitioning/CompositePartitionKeyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtMetadataSerializationTests.cs` | Contains unit tests for the serialization and deserialization of the `CrdtMetadata` class, verifying both default and compact serialization options and ensuring polymorphic and complex data (e.g., non-string dictionary keys, nested collections) is handled correctly. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtTimestampJsonConverterTests.cs` | Contains unit tests for the `CrdtTimestampJsonConverter`, verifying polymorphic serialization and deserialization of `ICrdtTimestamp` implementations. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtApplicatorTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/CrdtComposableArchitectureTests.cs` | Contains integration tests for the CRDT composable architecture, verifying that the Patcher and Applicator correctly handle deep nesting, complex model traversal, intent-based operation generation, and resolution across multiple nested CRDT strategies (LSEQ, Min-Wins Map, State Machine, Graph, etc.). |
 | `$/Ama.CRDT.UnitTests/Services/CrdtMetadataManagerTests.cs` | Contains unit tests for the `CrdtMetadataManager`, verifying LWW pruning and version vector advancement logic. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtPatcherTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/Models.cs` | Contains simple data models for unit testing path conversion and resolution helpers. |
@@ -80,8 +80,8 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/CounterStrategyTests.cs` | Contains unit tests for the `CounterStrategy` implementation, verifying both patch generation and its simplified, unconditional data application logic. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/FixedSizeArrayStrategyTests.cs` | Contains unit tests for the `FixedSizeArrayStrategy`, verifying convergence and idempotence for concurrent updates. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GCounterStrategyTests.cs` | Contains unit tests for the `GCounterStrategy`, ensuring it only generates and applies positive increments. |
-| `$/Ama.CRDT.UnitTests/Services/Strategies/GraphStrategyTests.cs` | Contains unit tests for `GraphStrategy`, verifying convergence and correct patch generation for concurrent additions of vertices and edges. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GSetStrategyTests.cs` | Contains unit tests for the `GSetStrategy`, verifying its add-only behavior, idempotence, and commutativity. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/GraphStrategyTests.cs` | Contains unit tests for `GraphStrategy`, verifying convergence and correct patch generation for concurrent additions of vertices and edges. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LseqStrategyTests.cs` | Contains unit tests for the `LseqStrategy`, verifying convergence, idempotence, and the new partitioning interface methods (`Split`, `Merge`, `GetMinimumKey`, etc.). |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LwwMapStrategyTests.cs` | Contains unit tests for the `LwwMapStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent dictionary operations. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LwwSetStrategyTests.cs` | Contains unit tests for the `LwwSetStrategy`, verifying that conflicts are resolved based on the last-write-wins rule, allowing elements to be re-added after removal. |
@@ -101,6 +101,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseGraphStrategyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseSetStrategyTests.cs` | Contains unit tests for the `TwoPhaseSetStrategy`, verifying that elements can be added and removed, but not re-added after removal. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTests.cs` | Contains unit tests for the `VoteCounterStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent voting scenarios. |
+| `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |
 | `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging and to automatically include its associated Roslyn analyzers. |
 | `$/Ama.CRDT/Attributes/CrdtArrayLcsStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Array LCS strategy, which leverages positional identifiers for stable, causally-correct ordering of elements. |
 | `$/Ama.CRDT/Attributes/CrdtAverageRegisterStrategyAttribute.cs` | An attribute to mark a property as an Average Register, where its value converges to the average of all replica contributions. |
@@ -109,8 +110,8 @@
 | `$/Ama.CRDT/Attributes/CrdtCounterStrategyAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/CrdtFixedSizeArrayStrategyAttribute.cs` | An attribute to mark a collection property as a fixed-size array, where each index is an LWW-Register. |
 | `$/Ama.CRDT/Attributes/CrdtGCounterStrategyAttribute.cs` | An attribute to mark a numeric property as a G-Counter (Grow-Only Counter), which only permits positive increments. |
-| `$/Ama.CRDT/Attributes/CrdtGraphStrategyAttribute.cs` | An attribute to mark a `CrdtGraph` property to be managed by the Graph strategy. |
 | `$/Ama.CRDT/Attributes/CrdtGSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the G-Set (Grow-Only Set) strategy. |
+| `$/Ama.CRDT/Attributes/CrdtGraphStrategyAttribute.cs` | An attribute to mark a `CrdtGraph` property to be managed by the Graph strategy. |
 | `$/Ama.CRDT/Attributes/CrdtIntentMappingAttribute.cs` | An attribute to map intent builder extension methods to the specific explicit intent types they generate, enabling compile-time validation via Roslyn analyzers without hardcoded mappings. |
 | `$/Ama.CRDT/Attributes/CrdtLseqStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the LSEQ strategy for managing ordered sequences with dense identifiers. |
 | `$/Ama.CRDT/Attributes/CrdtLwwMapStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the LWW-Map (Last-Writer-Wins Map) strategy, where each key-value pair is an independent LWW-Register. |
@@ -139,8 +140,8 @@
 | `$/Ama.CRDT/Attributes/Strategies/IdempotentAttribute.cs` | Marks a CRDT strategy as having the idempotent property, meaning applying the same operation multiple times has the same effect as applying it once. |
 | `$/Ama.CRDT/Attributes/Strategies/OperationBasedAttribute.cs` | Marks a CRDT strategy as Operation-based (CmRDT), relying on causal delivery and exactly-once operation application. |
 | `$/Ama.CRDT/Attributes/Strategies/StateBasedAttribute.cs` | Marks a CRDT strategy as State-based (CvRDT), allowing its entire state and metadata to be deterministically merged. |
-| `$/Ama.CRDT/Extensions/IntentBuilderExtensions.cs` | Provides strongly-typed extension methods for `IIntentBuilder<TProperty>` to fluent build CRDT operations without boxing. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
+| `$/Ama.CRDT/Extensions/IntentBuilderExtensions.cs` | Provides strongly-typed extension methods for `IIntentBuilder<TProperty>` to fluent build CRDT operations without boxing. |
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup. Removes stream-specific registration logic to support decoupling into its own package. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
 | `$/Ama.CRDT/Models/CrdtDocumentOfT.cs` | A generic version of `CrdtDocument` that holds a POCO and its associated `CrdtMetadata`, unifying the API for patch generation and application. |
@@ -158,9 +159,9 @@
 | `$/Ama.CRDT/Models/Intents/AddIntent.cs` | Represents the intent to explicitly add an item to an unordered collection or set. |
 | `$/Ama.CRDT/Models/Intents/AddNodeIntent.cs` | Represents the intent to explicitly add a node to a replicated tree. |
 | `$/Ama.CRDT/Models/Intents/AddVertexIntent.cs` | Represents the intent to explicitly add a vertex to a graph. |
+| `$/Ama.CRDT/Models/Intents/IOperationIntent.cs` | A marker interface for defining explicit CRDT operations intent directly triggered by user actions, bypassing diff generation. |
 | `$/Ama.CRDT/Models/Intents/IncrementIntent.cs` | Represents the intent to explicitly increment or decrement a numeric value or counter. |
 | `$/Ama.CRDT/Models/Intents/InsertIntent.cs` | Defines an explicit intention to insert a value into an ordered sequence at a specific index. |
-| `$/Ama.CRDT/Models/Intents/IOperationIntent.cs` | A marker interface for defining explicit CRDT operations intent directly triggered by user actions, bypassing diff generation. |
 | `$/Ama.CRDT/Models/Intents/MapIncrementIntent.cs` | Represents the intent to explicitly increment or decrement a numeric value for a specific key within a dictionary or map. |
 | `$/Ama.CRDT/Models/Intents/MapRemoveIntent.cs` | Represents the intent to explicitly remove a key and its associated value from a dictionary or map. |
 | `$/Ama.CRDT/Models/Intents/MapSetIntent.cs` | Represents the intent to explicitly set a value for a specific key within a dictionary or map. |
@@ -224,9 +225,9 @@
 | `$/Ama.CRDT/Services/IIntentBuilder.cs` | Defines a builder interface for generating explicit CRDT operations in a strongly-typed manner. |
 | `$/Ama.CRDT/Services/Metrics/MetricTimer.cs` | A helper `IDisposable` struct that uses a `Stopwatch` to measure the duration of a code block and records it to a `Histogram` upon disposal. |
 | `$/Ama.CRDT/Services/Metrics/PartitionManagerCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `PartitionManager`. |
-| `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning. It defines methods for splitting and merging partition data and metadata, and for extracting partition keys from operations and data models. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` | Defines the contract for managing a partitioned CRDT document, now supporting asynchronous streaming of partitions via `IAsyncEnumerable` and efficient counting of data partitions for a given logical key. It provides a user-friendly API using property names (`nameof`) and specific methods for header partitions. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionStorageService.cs` | Defines a high-level abstraction for saving and loading partitioned CRDT data and metadata, hiding underlying stream operations. |
+| `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning. It defines methods for splitting and merging partition data and metadata, and for extracting partition keys from operations and data models. |
 | `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a partitioned CRDT document, allowing it to scale beyond memory. It now explicitly separates logic for header and property partitions, using dedicated stream providers and strategy methods to avoid ambiguity. |
 | `$/Ama.CRDT/Services/Providers/CrdtStrategyProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/ElementComparerProvider.cs` | No description provided. |
@@ -245,10 +246,10 @@
 | `$/Ama.CRDT/Services/Strategies/CounterStrategy.cs` | Implements the CRDT Counter strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get the current value and apply the increment. |
 | `$/Ama.CRDT/Services/Strategies/FixedSizeArrayStrategy.cs` | Implements a strategy for fixed-size arrays where each index is an LWW-Register. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/GCounterStrategy.cs` | Implements the G-Counter (Grow-Only Counter) strategy, which only allows for positive increments. |
+| `$/Ama.CRDT/Services/Strategies/GSetStrategy.cs` | Implements the G-Set (Grow-Only Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get collection element types. |
 | `$/Ama.CRDT/Services/Strategies/GenerateOperationContext.cs` | Defines the context for explicitly generating intent-based operations in strategies. |
 | `$/Ama.CRDT/Services/Strategies/GeneratePatchContext.cs` | Defines the context object for the `ICrdtStrategy.GeneratePatch` method, encapsulating all necessary parameters. |
 | `$/Ama.CRDT/Services/Strategies/GraphStrategy.cs` | Implements a CRDT strategy for graph data structures, treating vertices and edges as a grow-only set, suitable for modeling relationships and networks. |
-| `$/Ama.CRDT/Services/Strategies/GSetStrategy.cs` | Implements the G-Set (Grow-Only Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get collection element types. |
 | `$/Ama.CRDT/Services/Strategies/ICrdtStrategy.cs` | Defines the contract for a strategy, including `GeneratePatch` for creating operations, explicit intent operations generation, and `ApplyOperation` for data manipulation, using context objects for parameters. |
 | `$/Ama.CRDT/Services/Strategies/LseqStrategy.cs` | Implements the LSEQ strategy for ordered sequences. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/LwwMapStrategy.cs` | Implements the LWW-Map (Last-Writer-Wins Map) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get dictionary key/value types. |

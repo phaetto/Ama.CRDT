@@ -183,42 +183,92 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
 
     private static ParseResult ParseExpression<T, TProp>(Expression<Func<T, TProp>> expression)
     {
-        var memberExpr = GetMemberExpression(expression.Body);
+        var current = expression.Body;
         
-        if (memberExpr?.Member is not PropertyInfo propInfo)
+        // Unwrap potential boxing
+        if (current is UnaryExpression unary)
         {
-            throw new ArgumentException("Expression must be a simple property access.", nameof(expression));
+            current = unary.Operand;
         }
 
-        var jsonPath = BuildJsonPath(memberExpr);
-        return new ParseResult(jsonPath, propInfo);
-    }
-
-    private static MemberExpression? GetMemberExpression(Expression expression)
-    {
-        if (expression is UnaryExpression unary)
+        PropertyInfo? targetProperty = null;
+        if (current is MemberExpression initialMe && initialMe.Member is PropertyInfo pi)
         {
-            return unary.Operand as MemberExpression;
+            targetProperty = pi;
         }
 
-        return expression as MemberExpression;
+        if (targetProperty is null)
+        {
+            throw new ArgumentException(
+                "Expression must end in a property access. " +
+                "If you are trying to replace an entire collection element, target the collection property instead " +
+                "and use a collection-specific intent (e.g., SetIndexIntent or MapSetIntent).", nameof(expression));
+        }
+
+        var jsonPath = BuildJsonPath(current);
+        return new ParseResult(jsonPath, targetProperty);
     }
 
-    private static string BuildJsonPath(MemberExpression memberExpression)
+    private static string BuildJsonPath(Expression expression)
     {
         var parts = new List<string>();
-        var current = (Expression)memberExpression;
+        var current = expression;
 
-        while (current is MemberExpression me)
+        while (current != null)
         {
-            var propName = me.Member.Name;
-            var jsonName = SerializerOptions.PropertyNamingPolicy?.ConvertName(propName) ?? propName;
-            parts.Add(jsonName);
-            current = me.Expression;
+            if (current is MemberExpression me)
+            {
+                var propName = me.Member.Name;
+                var jsonName = SerializerOptions.PropertyNamingPolicy?.ConvertName(propName) ?? propName;
+                parts.Add("." + jsonName);
+                current = me.Expression;
+            }
+            else if (current is MethodCallExpression mce && mce.Method.Name == "get_Item" && mce.Arguments.Count == 1)
+            {
+                var argValue = GetConstantValue(mce.Arguments[0]);
+                parts.Add($"[{FormatIndex(argValue)}]");
+                current = mce.Object;
+            }
+            else if (current is BinaryExpression be && be.NodeType == ExpressionType.ArrayIndex)
+            {
+                var argValue = GetConstantValue(be.Right);
+                parts.Add($"[{FormatIndex(argValue)}]");
+                current = be.Left;
+            }
+            else if (current is ParameterExpression)
+            {
+                break;
+            }
+            else
+            {
+                throw new ArgumentException($"Unsupported expression node type: {current.NodeType}. Ensure you only use property accesses and indexers.", nameof(expression));
+            }
         }
 
         parts.Reverse();
-        return "$" + (parts.Count > 0 ? "." + string.Join(".", parts) : string.Empty);
+        return "$" + string.Join(string.Empty, parts);
+    }
+
+    private static object? GetConstantValue(Expression expr)
+    {
+        if (expr is ConstantExpression ce)
+        {
+            return ce.Value;
+        }
+
+        // Compile and invoke the expression to get the value for captured variables/fields
+        var objectMember = Expression.Convert(expr, typeof(object));
+        var getterLambda = Expression.Lambda<Func<object>>(objectMember);
+        return getterLambda.Compile()();
+    }
+
+    private static string FormatIndex(object? index)
+    {
+        if (index is string s)
+        {
+            return $"'{s}'";
+        }
+        return index?.ToString() ?? string.Empty;
     }
 
     internal sealed class CachedPropertyMetadata(PropertyInfo property, string jsonPropertyName)
