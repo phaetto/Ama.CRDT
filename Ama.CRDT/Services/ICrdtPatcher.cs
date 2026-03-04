@@ -53,6 +53,17 @@ public interface ICrdtPatcher
     /// <param name="changeTimestamp">The specific timestamp to assign to all operations in the generated patch.</param>
     /// <returns>A <see cref="CrdtPatch"/> containing the operations required to transform the "from" state to the "changed" state.</returns>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="from"/>.Metadata, <paramref name="changed"/>, or <paramref name="changeTimestamp"/> is null.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var crdtDoc = new CrdtDocument<MyDataObject>(docV1, metaV1);
+    /// var docV2 = new MyDataObject { Value = "World" };
+    /// var customTs = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// 
+    /// var patch = patcher.GeneratePatch(crdtDoc, docV2, customTs);
+    /// ]]>
+    /// </code>
+    /// </example>
     CrdtPatch GeneratePatch<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, [DisallowNull] ICrdtTimestamp changeTimestamp) where T : class;
 
     /// <summary>
@@ -65,6 +76,16 @@ public interface ICrdtPatcher
     /// <param name="document">The original document state, including its data and metadata.</param>
     /// <param name="propertyExpression">An expression pinpointing the target property for the explicit intent.</param>
     /// <returns>An <see cref="IIntentBuilder{TProperty}"/> that can be used to fluently build the operation.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var doc = new CrdtDocument<MyDataObject>(new MyDataObject(), metadata);
+    /// 
+    /// // Uses extension methods from Ama.CRDT.Extensions (e.g., .Set())
+    /// var operation = patcher.BuildOperation(doc, x => x.Name).Set("Alice");
+    /// ]]>
+    /// </code>
+    /// </example>
     IIntentBuilder<TProp> BuildOperation<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression) where T : class;
 
     /// <summary>
@@ -78,6 +99,16 @@ public interface ICrdtPatcher
     /// <param name="propertyExpression">An expression pinpointing the target property for the explicit intent.</param>
     /// <param name="timestamp">The specific timestamp to assign to the generated operation.</param>
     /// <returns>An <see cref="IIntentBuilder{TProperty}"/> that can be used to fluently build the operation.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var doc = new CrdtDocument<MyDataObject>(new MyDataObject(), metadata);
+    /// var customTs = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// 
+    /// var operation = patcher.BuildOperation(doc, x => x.Name, customTs).Set("Alice");
+    /// ]]>
+    /// </code>
+    /// </example>
     IIntentBuilder<TProp> BuildOperation<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
 
     /// <summary>
@@ -90,6 +121,16 @@ public interface ICrdtPatcher
     /// <param name="propertyExpression">An expression pinpointing the target property for the explicit intent.</param>
     /// <param name="intent">An object representing the intent to perform (e.g., <see cref="InsertIntent"/>).</param>
     /// <returns>A <see cref="CrdtOperation"/> representing the explicit operation.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var doc = new CrdtDocument<MyDataObject>(new MyDataObject(), metadata);
+    /// var intent = new SetIntent("Alice");
+    /// 
+    /// var operation = patcher.GenerateOperation(doc, x => x.Name, intent);
+    /// ]]>
+    /// </code>
+    /// </example>
     CrdtOperation GenerateOperation<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent) where T : class;
 
     /// <summary>
@@ -103,5 +144,16 @@ public interface ICrdtPatcher
     /// <param name="intent">An object representing the intent to perform (e.g., <see cref="InsertIntent"/>).</param>
     /// <param name="timestamp">The specific timestamp to assign to the generated operation.</param>
     /// <returns>A <see cref="CrdtOperation"/> representing the explicit operation.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var doc = new CrdtDocument<MyDataObject>(new MyDataObject(), metadata);
+    /// var intent = new SetIntent("Alice");
+    /// var customTs = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// 
+    /// var operation = patcher.GenerateOperation(doc, x => x.Name, intent, customTs);
+    /// ]]>
+    /// </code>
+    /// </example>
     CrdtOperation GenerateOperation<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
 }
