@@ -68,6 +68,19 @@ public interface ICrdtPatcher
     IIntentBuilder<TProp> BuildOperation<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression) where T : class;
 
     /// <summary>
+    /// Creates a strongly-typed intent builder for a specific property with a specified timestamp, allowing you to generate operations
+    /// using fluent extension methods like <c>.Add()</c>, <c>.Remove()</c>, or <c>.Increment()</c> 
+    /// without manually boxing values into intent structs.
+    /// </summary>
+    /// <typeparam name="T">The type of the document.</typeparam>
+    /// <typeparam name="TProp">The type of the property being targeted.</typeparam>
+    /// <param name="document">The original document state, including its data and metadata.</param>
+    /// <param name="propertyExpression">An expression pinpointing the target property for the explicit intent.</param>
+    /// <param name="timestamp">The specific timestamp to assign to the generated operation.</param>
+    /// <returns>An <see cref="IIntentBuilder{TProperty}"/> that can be used to fluently build the operation.</returns>
+    IIntentBuilder<TProp> BuildOperation<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
+
+    /// <summary>
     /// Generates a single CRDT operation explicitly based on a provided operation intent, bypassing the state diffing process.
     /// Uses an expression tree to strongly type and identify the targeted property.
     /// </summary>
@@ -78,4 +91,17 @@ public interface ICrdtPatcher
     /// <param name="intent">An object representing the intent to perform (e.g., <see cref="InsertIntent"/>).</param>
     /// <returns>A <see cref="CrdtOperation"/> representing the explicit operation.</returns>
     CrdtOperation GenerateOperation<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent) where T : class;
+
+    /// <summary>
+    /// Generates a single CRDT operation explicitly based on a provided operation intent and a specific timestamp, bypassing the state diffing process.
+    /// Uses an expression tree to strongly type and identify the targeted property.
+    /// </summary>
+    /// <typeparam name="T">The type of the document.</typeparam>
+    /// <typeparam name="TProp">The type of the property being targeted.</typeparam>
+    /// <param name="document">The original document state, including its data and metadata.</param>
+    /// <param name="propertyExpression">An expression pinpointing the target property for the explicit intent.</param>
+    /// <param name="intent">An object representing the intent to perform (e.g., <see cref="InsertIntent"/>).</param>
+    /// <param name="timestamp">The specific timestamp to assign to the generated operation.</param>
+    /// <returns>A <see cref="CrdtOperation"/> representing the explicit operation.</returns>
+    CrdtOperation GenerateOperation<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
 }
