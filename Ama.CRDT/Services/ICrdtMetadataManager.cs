@@ -42,6 +42,15 @@ public interface ICrdtMetadataManager
     /// <param name="timestamp">The timestamp to use for initialization.</param>
     /// <returns>A new, initialized <see cref="CrdtMetadata"/> object.</returns>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/> or <paramref name="timestamp"/> is null.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var user = new User { Name = "Alice", Age = 30 };
+    /// var ts = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// var metadata = metadataManager.Initialize(user, ts);
+    /// ]]>
+    /// </code>
+    /// </example>
     CrdtMetadata Initialize<T>([DisallowNull] T document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
 
     /// <summary>
@@ -52,6 +61,14 @@ public interface ICrdtMetadataManager
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="document">The CRDT document containing the data to derive metadata from and the metadata object to populate.</param>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata or <paramref name="document"/>.Data is null.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var myDoc = new CrdtDocument<User>(new User { Name = "Bob" }, new CrdtMetadata());
+    /// metadataManager.Initialize(myDoc); // Populates myDoc.Metadata
+    /// ]]>
+    /// </code>
+    /// </example>
     void Initialize<T>([DisallowNull] CrdtDocument<T> document) where T : class;
 
     /// <summary>
@@ -62,6 +79,15 @@ public interface ICrdtMetadataManager
     /// <param name="document">The CRDT document containing the data to derive metadata from and the metadata object to populate.</param>
     /// <param name="timestamp">The timestamp to use for initialization.</param>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata, <paramref name="document"/>.Data, or <paramref name="timestamp"/> is null.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var myDoc = new CrdtDocument<User>(new User { Name = "Bob" }, new CrdtMetadata());
+    /// var ts = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// metadataManager.Initialize(myDoc, ts);
+    /// ]]>
+    /// </code>
+    /// </example>
     void Initialize<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
 
     /// <summary>
@@ -72,6 +98,14 @@ public interface ICrdtMetadataManager
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="document">The CRDT document containing the data to derive metadata from and the metadata object to reset.</param>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata or <paramref name="document"/>.Data is null.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var snapshotDoc = GetDocumentFromStorage();
+    /// metadataManager.Reset(snapshotDoc); // Clears and rebuilds snapshotDoc.Metadata from scratch
+    /// ]]>
+    /// </code>
+    /// </example>
     void Reset<T>([DisallowNull] CrdtDocument<T> document) where T : class;
 
     /// <summary>
@@ -82,6 +116,15 @@ public interface ICrdtMetadataManager
     /// <param name="document">The CRDT document containing the data to derive metadata from and the metadata object to reset.</param>
     /// <param name="timestamp">The timestamp to use for initialization.</param>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata, <paramref name="document"/>.Data, or <paramref name="timestamp"/> is null.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var snapshotDoc = GetDocumentFromStorage();
+    /// var ts = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// metadataManager.Reset(snapshotDoc, ts);
+    /// ]]>
+    /// </code>
+    /// </example>
     void Reset<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
 
     /// <summary>
@@ -91,6 +134,14 @@ public interface ICrdtMetadataManager
     /// <param name="metadata">The metadata object to prune.</param>
     /// <param name="threshold">The timestamp threshold. Any LWW entry older than this will be removed.</param>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="threshold"/> is null.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var threshold = new EpochTimestamp(DateTimeOffset.UtcNow.AddDays(-7).ToUnixTimeMilliseconds());
+    /// metadataManager.PruneLwwTombstones(metadata, threshold);
+    /// ]]>
+    /// </code>
+    /// </example>
     void PruneLwwTombstones([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold);
 
     /// <summary>
@@ -100,6 +151,14 @@ public interface ICrdtMetadataManager
     /// <param name="metadata">The metadata object to prune.</param>
     /// <param name="threshold">The timestamp threshold. Any resolved LWW-Set tombstone older than this will be removed.</param>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="threshold"/> is null.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var threshold = new EpochTimestamp(DateTimeOffset.UtcNow.AddDays(-30).ToUnixTimeMilliseconds());
+    /// metadataManager.PruneLwwSetTombstones(metadata, threshold);
+    /// ]]>
+    /// </code>
+    /// </example>
     void PruneLwwSetTombstones([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold);
 
     /// <summary>
@@ -109,6 +168,14 @@ public interface ICrdtMetadataManager
     /// </summary>
     /// <param name="metadata">The metadata object to prune.</param>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// // Automatically cleans up OR-Set elements that have been fully removed.
+    /// metadataManager.PruneOrSetTombstones(metadata);
+    /// ]]>
+    /// </code>
+    /// </example>
     void PruneOrSetTombstones([DisallowNull] CrdtMetadata metadata);
 
     /// <summary>
@@ -118,6 +185,14 @@ public interface ICrdtMetadataManager
     /// <param name="metadata">The metadata object to prune.</param>
     /// <param name="threshold">The timestamp threshold. Any exception older than this will be removed.</param>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="threshold"/> is null.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var threshold = new EpochTimestamp(DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeMilliseconds());
+    /// metadataManager.PruneSeenExceptions(metadata, threshold);
+    /// ]]>
+    /// </code>
+    /// </example>
     void PruneSeenExceptions([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold);
     
     /// <summary>
@@ -129,6 +204,16 @@ public interface ICrdtMetadataManager
     /// <param name="metadata">The metadata object to update.</param>
     /// <param name="operation">The operation whose replica and clock sequence will be used to advance the vector.</param>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var ts = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// var operation = new CrdtOperation(OperationType.Upsert, "$.name", "Alice", ts, "replica-A", 5);
+    /// metadataManager.AdvanceVersionVector(metadata, operation);
+    /// // metadata.VersionVector["replica-A"] is now updated to 5 (or higher if exceptions are pruned)
+    /// ]]>
+    /// </code>
+    /// </example>
     void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, CrdtOperation operation);
 
     /// <summary>
@@ -141,5 +226,12 @@ public interface ICrdtMetadataManager
     /// <param name="clock">The new causal clock sequence for the replica's version vector.</param>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
     /// <exception cref="System.ArgumentException">Thrown if <paramref name="replicaId"/> is null or whitespace.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// metadataManager.AdvanceVersionVector(metadata, "replica-A", 6);
+    /// ]]>
+    /// </code>
+    /// </example>
     void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, [DisallowNull] string replicaId, long clock);
 }

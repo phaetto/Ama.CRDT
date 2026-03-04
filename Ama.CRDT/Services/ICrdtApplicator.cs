@@ -32,7 +32,7 @@ public interface ICrdtApplicator
     /// // A patch from another replica that increments the counter.
     /// var patch = new CrdtPatch(new List<CrdtOperation>
     /// {
-    ///     new CrdtOperation(OperationType.Increment, "$.counter", 2, timestampProvider.Now(), "replica-B")
+    ///     new CrdtOperation(OperationType.Increment, "$.counter", 2, timestampProvider.Now(), "replica-B", 1)
     /// });
     /// 
     /// // Apply the patch to the local document.
