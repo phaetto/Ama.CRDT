@@ -23,10 +23,8 @@ public sealed class GraphStrategy(ReplicaContext replicaContext) : ICrdtStrategy
     {
         var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp) = context;
 
-        if (originalValue is not CrdtGraph originalGraph || modifiedValue is not CrdtGraph modifiedGraph)
-        {
-            return;
-        }
+        var originalGraph = originalValue as CrdtGraph ?? new CrdtGraph();
+        var modifiedGraph = modifiedValue as CrdtGraph ?? new CrdtGraph();
         
         foreach (var vertex in modifiedGraph.Vertices.Except(originalGraph.Vertices))
         {

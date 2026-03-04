@@ -41,7 +41,10 @@ public sealed class LseqStrategy(
     {
         var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, _) = context;
 
-        if (originalValue is not IList originalList || modifiedValue is not IList modifiedList) return;
+        var originalList = originalValue as IList ?? Array.Empty<object>();
+        var modifiedList = modifiedValue as IList ?? Array.Empty<object>();
+
+        if (originalList.Count == 0 && modifiedList.Count == 0) return;
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = elementComparerProvider.GetComparer(elementType);
