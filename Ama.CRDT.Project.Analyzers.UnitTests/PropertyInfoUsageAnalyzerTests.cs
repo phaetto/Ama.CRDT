@@ -32,7 +32,7 @@ public class TestClass
     }
 }
 ";
-        var expected = new DiagnosticResult("CRDT0003", DiagnosticSeverity.Error)
+        var expected = new DiagnosticResult("CRDTPROJ0001", DiagnosticSeverity.Error)
             .WithLocation(8, 9)
             .WithArguments("GetValue");
 
@@ -56,7 +56,7 @@ public class TestClass
     }
 }
 ";
-        var expected = new DiagnosticResult("CRDT0003", DiagnosticSeverity.Error)
+        var expected = new DiagnosticResult("CRDTPROJ0001", DiagnosticSeverity.Error)
             .WithLocation(8, 9)
             .WithArguments("SetValue");
 

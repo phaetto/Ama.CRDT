@@ -49,6 +49,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\Ama.CRDT.Project.Analyzers\Ama.CRDT.Project.Analyzers.csproj" />
 		<ProjectReference Include="..\Ama.CRDT\Ama.CRDT.csproj" />
 	</ItemGroup>
 
