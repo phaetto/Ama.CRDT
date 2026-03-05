@@ -2,7 +2,6 @@ namespace Ama.CRDT.UnitTests.Services;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Attributes;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -10,6 +9,7 @@ using Xunit;
 using Microsoft.Extensions.DependencyInjection;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Attributes.Strategies;
 
 public sealed class CrdtApplicatorTests : IDisposable
 {

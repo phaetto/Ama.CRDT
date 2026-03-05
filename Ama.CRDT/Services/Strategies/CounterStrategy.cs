@@ -6,7 +6,7 @@ using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
 using System;
 using Ama.CRDT.Attributes;
-using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Attributes.Strategies.Semantic;
 
 /// <summary>
 /// A CRDT strategy for handling numeric properties as counters.

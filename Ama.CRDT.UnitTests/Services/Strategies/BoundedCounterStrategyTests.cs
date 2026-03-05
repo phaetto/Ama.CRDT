@@ -1,12 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using System.Collections.Generic;
-using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
-using Moq;
 using Shouldly;
 using Xunit;
 using System.Linq;
@@ -14,6 +12,7 @@ using Ama.CRDT.Services.Providers;
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Ama.CRDT.Extensions;
+using Ama.CRDT.Attributes.Strategies;
 
 public sealed class BoundedCounterStrategyTests : IDisposable
 {

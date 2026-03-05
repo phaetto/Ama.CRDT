@@ -10,6 +10,7 @@ using System.Collections;
 using System.Linq;
 using System.Reflection;
 using Ama.CRDT.Services;
+using Ama.CRDT.Attributes.Strategies.Semantic;
 
 /// <inheritdoc/>
 [CrdtSupportedType(typeof(IList))]

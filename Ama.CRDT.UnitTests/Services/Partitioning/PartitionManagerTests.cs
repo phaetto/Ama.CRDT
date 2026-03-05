@@ -1,6 +1,7 @@
 namespace Ama.CRDT.UnitTests.Services.Partitioning;
 
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;

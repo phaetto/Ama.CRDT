@@ -1,7 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
 using Ama.CRDT.Attributes;
-using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
@@ -11,10 +10,10 @@ using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Ama.CRDT.Services;
+using Ama.CRDT.Attributes.Strategies.Semantic;
 
 /// <summary>
 /// Implements the Counter-Map strategy, where each key in a dictionary is an independent PN-Counter.
