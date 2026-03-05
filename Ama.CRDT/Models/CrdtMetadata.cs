@@ -17,6 +17,12 @@ using System.Linq;
 public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
 {
     /// <summary>
+    /// Gets or sets a dictionary that stores the epoch generation for properties managed by the Epoch Bound strategy.
+    /// The key is the JSON Path to the property.
+    /// </summary>
+    public IDictionary<string, int> Epochs { get; set; } = new Dictionary<string, int>();
+
+    /// <summary>
     /// Gets or sets a dictionary that stores the last-seen timestamp for properties managed by the Last-Writer-Wins (LWW) strategy.
     /// The key is the JSON Path to the property.
     /// </summary>
@@ -141,6 +147,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     {
         var newMetadata = new CrdtMetadata();
 
+        foreach (var kvp in Epochs) { newMetadata.Epochs.Add(kvp.Key, kvp.Value); }
         foreach (var kvp in Lww) { newMetadata.Lww.Add(kvp.Key, kvp.Value); }
         foreach (var kvp in Fww) { newMetadata.Fww.Add(kvp.Key, kvp.Value); }
         foreach (var kvp in PositionalTrackers) { newMetadata.PositionalTrackers.Add(kvp.Key, new List<PositionalIdentifier>(kvp.Value)); }
@@ -285,6 +292,14 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
 
         foreach (var metadata in metadatas.Where(m => m is not null))
         {
+            foreach (var kvp in metadata.Epochs) 
+            {
+                if (!merged.Epochs.TryGetValue(kvp.Key, out var existingEpoch) || kvp.Value > existingEpoch)
+                {
+                    merged.Epochs[kvp.Key] = kvp.Value;
+                }
+            }
+            
             foreach (var kvp in metadata.Lww) 
             {
                 if (!merged.Lww.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
@@ -360,7 +375,8 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         if (other is null) return false;
         if (ReferenceEquals(this, other)) return true;
 
-        return DictionaryEquals(Lww, other.Lww)
+        return DictionaryEquals(Epochs, other.Epochs)
+            && DictionaryEquals(Lww, other.Lww)
             && DictionaryEquals(Fww, other.Fww)
             && DictionaryEquals(VersionVector, other.VersionVector)
             && SeenExceptions.SetEquals(other.SeenExceptions)
@@ -385,6 +401,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     public override int GetHashCode()
     {
         var hash = new HashCode();
+        hash.Add(GetDictionaryHashCode(Epochs));
         hash.Add(GetDictionaryHashCode(Lww));
         hash.Add(GetDictionaryHashCode(Fww));
         hash.Add(GetDictionaryHashCode(VersionVector));

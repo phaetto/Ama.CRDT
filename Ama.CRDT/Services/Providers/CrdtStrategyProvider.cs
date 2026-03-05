@@ -47,6 +47,22 @@ internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
     {
         ArgumentNullException.ThrowIfNull(propertyInfo);
 
+        // First check for decorator attributes (like [CrdtEpochBound])
+        var decoratorAttribute = propertyInfo.GetCustomAttribute<CrdtStrategyDecoratorAttribute>();
+        if (decoratorAttribute is not null && strategies.TryGetValue(decoratorAttribute.StrategyType, out var decoratorStrategy))
+        {
+            return decoratorStrategy;
+        }
+
+        // If no decorator, return the base strategy
+        return GetBaseStrategy(propertyInfo);
+    }
+    
+    /// <inheritdoc/>
+    public ICrdtStrategy GetBaseStrategy([DisallowNull] PropertyInfo propertyInfo)
+    {
+        ArgumentNullException.ThrowIfNull(propertyInfo);
+
         var attribute = propertyInfo.GetCustomAttribute<CrdtStrategyAttribute>();
         if (attribute is not null && strategies.TryGetValue(attribute.StrategyType, out var strategy))
         {
