@@ -9,7 +9,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System;
 using System.Collections.Generic;
 using Ama.CRDT.Services.Helpers;
@@ -92,6 +91,7 @@ public sealed class CrdtMetadataManager(
         ArgumentNullException.ThrowIfNull(timestamp);
 
         document.Metadata.Epochs.Clear();
+        document.Metadata.QuorumApprovals.Clear();
         document.Metadata.Lww.Clear();
         document.Metadata.PositionalTrackers.Clear();
         document.Metadata.AverageRegisters.Clear();
@@ -275,22 +275,17 @@ public sealed class CrdtMetadataManager(
             return;
         }
 
-        var type = obj.GetType();
-        foreach (var propertyInfo in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        var properties = PocoPathHelper.GetCachedProperties(obj.GetType());
+        foreach (var cached in properties)
         {
-            if (!propertyInfo.CanRead || propertyInfo.GetIndexParameters().Length > 0 || propertyInfo.GetCustomAttribute<JsonIgnoreAttribute>() is not null)
-            {
-                continue;
-            }
-
-            var propertyValue = PocoPathHelper.GetAccessor(propertyInfo).Getter(obj);
+            var propertyInfo = cached.Property;
+            var propertyValue = cached.Accessor.Getter(obj);
             if (propertyValue is null)
             {
                 continue;
             }
 
-            var jsonPropertyName = DefaultJsonSerializerOptions.PropertyNamingPolicy?.ConvertName(propertyInfo.Name) ?? propertyInfo.Name;
-            var propertyPath = path == "$" ? $"$.{jsonPropertyName}" : $"{path}.{jsonPropertyName}";
+            var propertyPath = path == "$" ? cached.RootedPath : path + cached.PathSuffix;
 
             var strategy = strategyProvider.GetStrategy(propertyInfo);
 
@@ -374,10 +369,10 @@ public sealed class CrdtMetadataManager(
                 InitializeMapMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
                 break;
             case TwoPhaseGraphStrategy:
-                InitializeTwoPhaseGraphMetadata(metadata, propertyInfo, propertyPath, propertyValue);
+                InitializeTwoPhaseGraphMetadata(metadata, propertyPath, propertyValue);
                 break;
             case ReplicatedTreeStrategy:
-                InitializeReplicatedTreeMetadata(metadata, propertyInfo, propertyPath, propertyValue, timestamp);
+                InitializeReplicatedTreeMetadata(metadata, propertyPath, propertyValue, timestamp);
                 break;
         }
     }
@@ -494,16 +489,16 @@ public sealed class CrdtMetadataManager(
         }
     }
     
-    private void InitializeTwoPhaseGraphMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, string propertyPath, object propertyValue)
+    private void InitializeTwoPhaseGraphMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue)
     {
-        var graphType = propertyValue.GetType();
-        var verticesProperty = graphType.GetProperty("Vertices");
-        var edgesProperty = graphType.GetProperty("Edges");
+        var cachedProps = PocoPathHelper.GetCachedProperties(propertyValue.GetType());
+        var verticesProp = cachedProps.FirstOrDefault(p => p.Property.Name == "Vertices");
+        var edgesProp = cachedProps.FirstOrDefault(p => p.Property.Name == "Edges");
 
-        if (verticesProperty is null || edgesProperty is null) return;
+        if (verticesProp is null || edgesProp is null) return;
 
-        var vertices = PocoPathHelper.GetAccessor(verticesProperty).Getter(propertyValue) as IEnumerable;
-        var edges = PocoPathHelper.GetAccessor(edgesProperty).Getter(propertyValue) as IEnumerable;
+        var vertices = verticesProp.Accessor.Getter(propertyValue) as IEnumerable;
+        var edges = edgesProp.Accessor.Getter(propertyValue) as IEnumerable;
 
         if (vertices is null || edges is null) return;
         
@@ -518,13 +513,13 @@ public sealed class CrdtMetadataManager(
         );
     }
     
-    private void InitializeReplicatedTreeMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)
+    private void InitializeReplicatedTreeMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)
     {
-        var treeType = propertyValue.GetType();
-        var nodesProperty = treeType.GetProperty("Nodes");
-        if (nodesProperty is null) return;
+        var cachedProps = PocoPathHelper.GetCachedProperties(propertyValue.GetType());
+        var nodesProp = cachedProps.FirstOrDefault(p => p.Property.Name == "Nodes");
+        if (nodesProp is null) return;
 
-        if (PocoPathHelper.GetAccessor(nodesProperty).Getter(propertyValue) is not IDictionary nodesDictionary) return;
+        if (nodesProp.Accessor.Getter(propertyValue) is not IDictionary nodesDictionary) return;
 
         var idComparer = elementComparerProvider.GetComparer(typeof(object));
 

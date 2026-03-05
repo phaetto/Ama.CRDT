@@ -84,6 +84,8 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/BoundedCounterStrategyTests.cs` | Contains unit tests for the `BoundedCounterStrategy`, verifying that values are correctly clamped within their defined bounds. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/CounterMapStrategyTests.cs` | Contains unit tests for `CounterMapStrategy`, verifying convergence and correct patch generation for concurrent increments and decrements on dictionary keys. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/CounterStrategyTests.cs` | Contains unit tests for the `CounterStrategy` implementation, verifying both patch generation and its simplified, unconditional data application logic. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/Decorators/ApprovalQuorumStrategyTests.cs` | Contains unit tests for the `ApprovalQuorumStrategy` and `CrdtApprovalQuorumAttribute`, verifying the correct tracking of proposals, replica quorum resolution, payload wrapping, and clean up. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/Decorators/ChainedDecoratorsTests.cs` | Integration tests verifying the correct behavioral chaining and nesting of multiple decorator attributes (`EpochBound` and `ApprovalQuorum`) on a single model property. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/EpochBoundStrategyTests.cs` | Contains unit tests for the `EpochBoundStrategy` and `CrdtStrategyProvider`, verifying correct resolution of decorators vs. base strategies, as well as testing generation and application of epoch-bound operations including `ClearIntent` behaviors. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/FixedSizeArrayStrategyTests.cs` | Contains unit tests for the `FixedSizeArrayStrategy`, verifying convergence and idempotence for concurrent updates. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/FwwMapStrategyTests.cs` | Contains unit tests for `FwwMapStrategy`, verifying FWW-based convergence, patch generation for map changes, and correct partitioning logic (split/merge). |
@@ -118,6 +120,7 @@
 | `$/Ama.CRDT/Attributes/CrdtStrategyDecoratorAttribute.cs` | A base attribute for specifying a CRDT decorator strategy for a property, allowing multiple stacked decorators like `[CrdtEpochBound]` alongside core strategy attributes. |
 | `$/Ama.CRDT/Attributes/CrdtSupportedIntentAttribute.cs` | An attribute to explicitly mark which explicit `IOperationIntent` types a given CRDT strategy supports. Used by Roslyn analyzers for validation. |
 | `$/Ama.CRDT/Attributes/CrdtSupportedTypeAttribute.cs` | An attribute used to decorate a CRDT strategy class, specifying a property type (e.g., `int`, `IEnumerable`) that it supports. This enables compile-time validation via Roslyn analyzers. |
+| `$/Ama.CRDT/Attributes/Decorators/CrdtApprovalQuorumAttribute.cs` | A decorator attribute that requires a specified number of approvals from different replicas before applying the underlying CRDT operation. |
 | `$/Ama.CRDT/Attributes/Decorators/CrdtEpochBoundAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/PartitionKeyAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/Strategies/CrdtArrayLcsStrategyAttribute.cs` | No description provided. |
@@ -166,6 +169,7 @@
 | `$/Ama.CRDT/Models/CrdtPatch.cs` | Encapsulates a list of CRDT operations, now with a logical key of type `IComparable?` to support strongly-typed, sortable partition keys. |
 | `$/Ama.CRDT/Models/CrdtTree.cs` | A data model for a tree data structure with nodes that can be added, removed, and moved, suitable for CRDT management. |
 | `$/Ama.CRDT/Models/Decorators/EpochPayload.cs` | No description provided. |
+| `$/Ama.CRDT/Models/Decorators/QuorumPayload.cs` | A data structure for the payload of a quorum-bound operation. |
 | `$/Ama.CRDT/Models/Edge.cs` | No description provided. |
 | `$/Ama.CRDT/Models/EpochTimestamp.cs` | A default, backward-compatible implementation of `ICrdtTimestamp` that wraps a `long` value representing Unix milliseconds. |
 | `$/Ama.CRDT/Models/GraphEdgePayload.cs` | A data structure for the payload of a graph edge operation. |
@@ -176,6 +180,7 @@
 | `$/Ama.CRDT/Models/Intents/AddNodeIntent.cs` | Represents the intent to explicitly add a node to a replicated tree. |
 | `$/Ama.CRDT/Models/Intents/AddVertexIntent.cs` | Represents the intent to explicitly add a vertex to a graph. |
 | `$/Ama.CRDT/Models/Intents/ClearIntent.cs` | Represents the intent to explicitly clear a property, collection, or state, effectively resetting it for FWW and other strategies. |
+| `$/Ama.CRDT/Models/Intents/Decorators/EpochClearIntent.cs` | Represents the intent to explicitly clear the state within an Epoch-bound decorator, incrementing the epoch and effectively clearing all local data for that path without clashing with base strategy intents. |
 | `$/Ama.CRDT/Models/Intents/IOperationIntent.cs` | A marker interface for defining explicit CRDT operations intent directly triggered by user actions, bypassing diff generation. |
 | `$/Ama.CRDT/Models/Intents/IncrementIntent.cs` | Represents the intent to explicitly increment or decrement a numeric value or counter. |
 | `$/Ama.CRDT/Models/Intents/InsertIntent.cs` | Defines an explicit intention to insert a value into an ordered sequence at a specific index. |
@@ -259,6 +264,7 @@
 | `$/Ama.CRDT/Services/Strategies/BoundedCounterStrategy.cs` | Implements a counter that is clamped within a specified minimum and maximum value. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/CounterMapStrategy.cs` | Implements the Counter-Map strategy, where each key in a dictionary is treated as an independent PN-Counter. |
 | `$/Ama.CRDT/Services/Strategies/CounterStrategy.cs` | Implements the CRDT Counter strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get the current value and apply the increment. |
+| `$/Ama.CRDT/Services/Strategies/Decorators/ApprovalQuorumStrategy.cs` | A decorator strategy that tracks pending proposals and requires a quorum of replicas to propose the exact same operation before it is applied. |
 | `$/Ama.CRDT/Services/Strategies/Decorators/EpochBoundStrategy.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Strategies/FixedSizeArrayStrategy.cs` | Implements a strategy for fixed-size arrays where each index is an LWW-Register. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/FwwMapStrategy.cs` | Implements the FWW-Map strategy, a partitioned dictionary where each key-value pair resolves conflicts by picking the value with the lowest timestamp. |

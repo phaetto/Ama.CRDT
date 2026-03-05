@@ -2,6 +2,7 @@ namespace Ama.CRDT.Services.Providers;
 
 using Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Models;
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
@@ -17,6 +18,16 @@ public interface ICrdtStrategyProvider
     /// <returns>The resolved <see cref="ICrdtStrategy"/>. Returns a default strategy if no specific attribute is found.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertyInfo"/> is null.</exception>
     ICrdtStrategy GetStrategy([DisallowNull] PropertyInfo propertyInfo);
+
+    /// <summary>
+    /// Gets the inner <see cref="ICrdtStrategy"/> in the decorator chain for a property. 
+    /// If no further decorators exist, returns the base strategy.
+    /// </summary>
+    /// <param name="propertyInfo">The <see cref="PropertyInfo"/> of the property to analyze.</param>
+    /// <param name="currentDecoratorType">The <see cref="Type"/> of the current decorator calling this method.</param>
+    /// <returns>The resolved next <see cref="ICrdtStrategy"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertyInfo"/> or <paramref name="currentDecoratorType"/> is null.</exception>
+    ICrdtStrategy GetInnerStrategy([DisallowNull] PropertyInfo propertyInfo, [DisallowNull] Type currentDecoratorType);
 
     /// <summary>
     /// Gets the base <see cref="ICrdtStrategy"/> for a property, bypassing any decorators.
