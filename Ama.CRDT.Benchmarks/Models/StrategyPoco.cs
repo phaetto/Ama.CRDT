@@ -10,6 +10,9 @@ public class StrategyPoco
 {
     [CrdtLwwStrategy]
     public string LwwValue { get; set; } = "initial";
+
+    [CrdtFwwStrategy]
+    public string FwwValue { get; set; } = "initial";
     
     [CrdtCounterStrategy]
     public int Counter { get; set; }
@@ -37,6 +40,9 @@ public class StrategyPoco
 
     [CrdtLwwSetStrategy]
     public List<string> LwwSet { get; set; } = new() { "A", "B" };
+
+    [CrdtFwwSetStrategy]
+    public List<string> FwwSet { get; set; } = new() { "A", "B" };
 
     [CrdtOrSetStrategy]
     public List<string> OrSet { get; set; } = new() { "A", "B" };
@@ -83,6 +89,9 @@ public class StrategyPoco
     [CrdtLwwMapStrategy]
     public Dictionary<string, string> LwwMap { get; set; } = new() { { "A", "val1" }, { "B", "val2" } };
 
+    [CrdtFwwMapStrategy]
+    public Dictionary<string, string> FwwMap { get; set; } = new() { { "A", "val1" }, { "B", "val2" } };
+
     [CrdtMaxWinsMapStrategy]
     public Dictionary<string, int> MaxWinsMap { get; set; } = new() { { "A", 10 }, { "B", 20 } };
 
@@ -107,6 +116,7 @@ public class StrategyPoco
         clone.GSet = new List<string>(GSet);
         clone.TwoPhaseSet = new List<string>(TwoPhaseSet);
         clone.LwwSet = new List<string>(LwwSet);
+        clone.FwwSet = new List<string>(FwwSet);
         clone.OrSet = new List<string>(OrSet);
         clone.LcsList = new List<string>(LcsList);
         clone.FixedArray = (string?[])FixedArray.Clone();
@@ -118,6 +128,7 @@ public class StrategyPoco
         
         clone.CounterMap = CounterMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         clone.LwwMap = LwwMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        clone.FwwMap = FwwMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         clone.MaxWinsMap = MaxWinsMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         clone.MinWinsMap = MinWinsMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         clone.OrMap = OrMap.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);

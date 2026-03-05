@@ -23,6 +23,12 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     public IDictionary<string, ICrdtTimestamp> Lww { get; set; } = new Dictionary<string, ICrdtTimestamp>();
 
     /// <summary>
+    /// Gets or sets a dictionary that stores the earliest-seen timestamp for properties managed by the First-Writer-Wins (FWW) strategy.
+    /// The key is the JSON Path to the property.
+    /// </summary>
+    public IDictionary<string, ICrdtTimestamp> Fww { get; set; } = new Dictionary<string, ICrdtTimestamp>();
+
+    /// <summary>
     /// Gets or sets a version vector mapping a ReplicaId to the latest contiguous causal sequence clock received from that replica.
     /// Operations with clocks less than or equal to this value are considered seen and are ignored.
     /// </summary>
@@ -59,6 +65,12 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     public IDictionary<string, LwwSetState> LwwSets { get; set; } = new Dictionary<string, LwwSetState>();
 
     /// <summary>
+    /// Gets or sets a dictionary that stores the state for properties managed by the First-Writer-Wins Set (FWW-Set) strategy.
+    /// The key is the JSON Path to the property. Uses LwwSetState as the state structure is identical.
+    /// </summary>
+    public IDictionary<string, LwwSetState> FwwSets { get; set; } = new Dictionary<string, LwwSetState>();
+
+    /// <summary>
     /// Gets or sets a dictionary that stores the state for properties managed by the Observed-Remove Set (OR-Set) strategy.
     /// The key is the JSON Path to the property.
     /// </summary>
@@ -88,6 +100,12 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     /// The outer key is the JSON Path to the property. The inner dictionary maps each key from the user's dictionary to its LWW timestamp.
     /// </summary>
     public IDictionary<string, IDictionary<object, ICrdtTimestamp>> LwwMaps { get; set; } = new Dictionary<string, IDictionary<object, ICrdtTimestamp>>();
+
+    /// <summary>
+    /// Gets or sets a dictionary that stores the state for properties managed by the First-Writer-Wins Map (FWW-Map) strategy.
+    /// The outer key is the JSON Path to the property. The inner dictionary maps each key from the user's dictionary to its earliest-seen timestamp.
+    /// </summary>
+    public IDictionary<string, IDictionary<object, ICrdtTimestamp>> FwwMaps { get; set; } = new Dictionary<string, IDictionary<object, ICrdtTimestamp>>();
 
     /// <summary>
     /// Gets or sets a dictionary that stores the state for properties managed by the Observed-Remove Map (OR-Map) strategy.
@@ -124,6 +142,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         var newMetadata = new CrdtMetadata();
 
         foreach (var kvp in Lww) { newMetadata.Lww.Add(kvp.Key, kvp.Value); }
+        foreach (var kvp in Fww) { newMetadata.Fww.Add(kvp.Key, kvp.Value); }
         foreach (var kvp in PositionalTrackers) { newMetadata.PositionalTrackers.Add(kvp.Key, new List<PositionalIdentifier>(kvp.Value)); }
         foreach (var kvp in AverageRegisters) { newMetadata.AverageRegisters.Add(kvp.Key, new Dictionary<string, AverageRegisterValue>(kvp.Value)); }
 
@@ -138,6 +157,14 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         foreach (var kvp in LwwSets)
         {
             newMetadata.LwwSets.Add(kvp.Key, new LwwSetState(
+                Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
+                Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
+            ));
+        }
+
+        foreach (var kvp in FwwSets)
+        {
+            newMetadata.FwwSets.Add(kvp.Key, new LwwSetState(
                 Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
                 Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
             ));
@@ -176,6 +203,11 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         foreach (var kvp in LwwMaps)
         {
             newMetadata.LwwMaps.Add(kvp.Key, new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer));
+        }
+
+        foreach (var kvp in FwwMaps)
+        {
+            newMetadata.FwwMaps.Add(kvp.Key, new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer));
         }
 
         foreach (var kvp in OrMaps)
@@ -261,8 +293,17 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
                 }
             }
             
+            foreach (var kvp in metadata.Fww) 
+            {
+                if (!merged.Fww.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) < 0)
+                {
+                    merged.Fww[kvp.Key] = kvp.Value;
+                }
+            }
+            
             foreach (var kvp in metadata.TwoPhaseSets) merged.TwoPhaseSets[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.LwwSets) merged.LwwSets[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.FwwSets) merged.FwwSets[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.OrSets) merged.OrSets[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.PriorityQueues) merged.PriorityQueues[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.OrMaps) merged.OrMaps[kvp.Key] = kvp.Value;
@@ -276,6 +317,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
             
             foreach (var kvp in metadata.AverageRegisters) merged.AverageRegisters[kvp.Key] = new Dictionary<string, AverageRegisterValue>(kvp.Value);
             foreach (var kvp in metadata.LwwMaps) merged.LwwMaps[kvp.Key] = new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer);
+            foreach (var kvp in metadata.FwwMaps) merged.FwwMaps[kvp.Key] = new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer);
             foreach (var kvp in metadata.CounterMaps) merged.CounterMaps[kvp.Key] = new Dictionary<object, PnCounterState>(kvp.Value, (kvp.Value as Dictionary<object, PnCounterState>)?.Comparer);
             
             foreach (var kvp in metadata.RgaTrackers)
@@ -319,17 +361,20 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         if (ReferenceEquals(this, other)) return true;
 
         return DictionaryEquals(Lww, other.Lww)
+            && DictionaryEquals(Fww, other.Fww)
             && DictionaryEquals(VersionVector, other.VersionVector)
             && SeenExceptions.SetEquals(other.SeenExceptions)
             && DictionaryOfListsEquals(PositionalTrackers, other.PositionalTrackers)
             && DictionaryOfDictionariesEquals(AverageRegisters, other.AverageRegisters)
             && DictionaryEquals(TwoPhaseSets, other.TwoPhaseSets)
             && DictionaryEquals(LwwSets, other.LwwSets)
+            && DictionaryEquals(FwwSets, other.FwwSets)
             && DictionaryEquals(OrSets, other.OrSets)
             && DictionaryEquals(PriorityQueues, other.PriorityQueues)
             && DictionaryOfListsEquals(LseqTrackers, other.LseqTrackers)
             && DictionaryOfListsEquals(RgaTrackers, other.RgaTrackers)
             && DictionaryOfDictionariesEquals(LwwMaps, other.LwwMaps)
+            && DictionaryOfDictionariesEquals(FwwMaps, other.FwwMaps)
             && DictionaryEquals(OrMaps, other.OrMaps)
             && DictionaryOfDictionariesEquals(CounterMaps, other.CounterMaps)
             && DictionaryEquals(TwoPhaseGraphs, other.TwoPhaseGraphs)
@@ -341,17 +386,20 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     {
         var hash = new HashCode();
         hash.Add(GetDictionaryHashCode(Lww));
+        hash.Add(GetDictionaryHashCode(Fww));
         hash.Add(GetDictionaryHashCode(VersionVector));
         hash.Add(GetSetHashCode(SeenExceptions));
         hash.Add(GetDictionaryOfListsHashCode(PositionalTrackers));
         hash.Add(GetDictionaryOfDictionariesHashCode(AverageRegisters));
         hash.Add(GetDictionaryHashCode(TwoPhaseSets));
         hash.Add(GetDictionaryHashCode(LwwSets));
+        hash.Add(GetDictionaryHashCode(FwwSets));
         hash.Add(GetDictionaryHashCode(OrSets));
         hash.Add(GetDictionaryHashCode(PriorityQueues));
         hash.Add(GetDictionaryOfListsHashCode(LseqTrackers));
         hash.Add(GetDictionaryOfListsHashCode(RgaTrackers));
         hash.Add(GetDictionaryOfDictionariesHashCode(LwwMaps));
+        hash.Add(GetDictionaryOfDictionariesHashCode(FwwMaps));
         hash.Add(GetDictionaryHashCode(OrMaps));
         hash.Add(GetDictionaryOfDictionariesHashCode(CounterMaps));
         hash.Add(GetDictionaryHashCode(TwoPhaseGraphs));
