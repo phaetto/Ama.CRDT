@@ -5,6 +5,7 @@ using System.Numerics;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Models.Intents.Decorators;
 using Ama.CRDT.Services;
 
 /// <summary>
@@ -187,5 +188,14 @@ public static class IntentBuilderExtensions
         where TKey : notnull
     {
         return builder.Build(new VoteIntent(voter, option!));
+    }
+
+    /// <summary>
+    /// Explicitly clears the state within an Epoch-bound decorator, bumping its epoch to invalidate older operations.
+    /// </summary>
+    [CrdtIntentMapping(typeof(EpochClearIntent))]
+    public static CrdtOperation ClearEpoch<TProperty>(this IIntentBuilder<TProperty> builder)
+    {
+        return builder.Build(new EpochClearIntent());
     }
 }

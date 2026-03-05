@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Serialization.Converters;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Metrics;
@@ -117,6 +116,7 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped(CreateValidatedInstance<ReplicatedTreeStrategy>);
         services.TryAddScoped(CreateValidatedInstance<RgaStrategy>);
         services.TryAddScoped(CreateValidatedInstance<EpochBoundStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<ApprovalQuorumStrategy>);
 
         // Register all concrete strategies as ICrdtStrategy.
         // This will resolve the concrete type, which in turn triggers our validating factory.
@@ -151,14 +151,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICrdtStrategy, ReplicatedTreeStrategy>(sp => sp.GetRequiredService<ReplicatedTreeStrategy>());
         services.AddScoped<ICrdtStrategy, RgaStrategy>(sp => sp.GetRequiredService<RgaStrategy>());
         services.AddScoped<ICrdtStrategy, EpochBoundStrategy>(sp => sp.GetRequiredService<EpochBoundStrategy>());
-
-        // Register partitionable strategies.
-        services.AddScoped<IPartitionableCrdtStrategy, OrMapStrategy>(sp => sp.GetRequiredService<OrMapStrategy>());
-        services.AddScoped<IPartitionableCrdtStrategy, FwwSetStrategy>(sp => sp.GetRequiredService<FwwSetStrategy>());
-        services.AddScoped<IPartitionableCrdtStrategy, FwwMapStrategy>(sp => sp.GetRequiredService<FwwMapStrategy>());
-
-        // Register core serializers for Epoch payload
-        PolymorphicObjectJsonConverter.Register("epoch-payload", typeof(EpochPayload));
+        services.AddScoped<ICrdtStrategy, ApprovalQuorumStrategy>(sp => sp.GetRequiredService<ApprovalQuorumStrategy>());
 
         return services;
     }

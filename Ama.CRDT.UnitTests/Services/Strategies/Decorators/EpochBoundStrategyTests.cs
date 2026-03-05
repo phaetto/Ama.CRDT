@@ -6,6 +6,7 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Models.Intents.Decorators;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -87,12 +88,12 @@ public sealed class EpochBoundStrategyTests : IDisposable
     }
 
     [Fact]
-    public void GenerateOperation_ClearIntent_ShouldBumpEpoch_AndEmitNullValue()
+    public void GenerateOperation_EpochClearIntent_ShouldBumpEpoch_AndEmitNullValue()
     {
         var doc = new CrdtDocument<ShoppingCart>(new ShoppingCart(), new CrdtMetadata());
         doc.Metadata.Epochs["$.items"] = 5; // Start at epoch 5
 
-        var op = patcher.BuildOperation(doc, x => x.Items).Build(new ClearIntent());
+        var op = patcher.BuildOperation(doc, x => x.Items).ClearEpoch();
 
         op.Type.ShouldBe(OperationType.Remove);
         op.JsonPath.ShouldBe("$.items");
@@ -152,7 +153,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
     }
 
     [Fact]
-    public void ApplyOperation_ClearIntent_ShouldClearStateAndBumpLocalEpoch()
+    public void ApplyOperation_EpochClearIntent_ShouldClearStateAndBumpLocalEpoch()
     {
         var doc = new CrdtDocument<ShoppingCart>(new ShoppingCart
         {
@@ -166,7 +167,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
             Guid.NewGuid().ToString(),
             "$.items",
             OperationType.Remove,
-            new EpochPayload(2, null), // Emitted by ClearIntent
+            new EpochPayload(2, null), // Emitted by EpochClearIntent
             timestampProvider.Now(),
             1);
 

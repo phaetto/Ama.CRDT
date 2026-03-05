@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -77,8 +78,8 @@ public sealed class CrdtIntentUsageAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var strategyTypeSymbol = GetStrategyTypeSymbol(propertySymbol, context.Compilation);
-        if (strategyTypeSymbol is null)
+        var strategyTypeSymbols = GetStrategyTypeSymbols(propertySymbol, context.Compilation).ToList();
+        if (strategyTypeSymbols.Count == 0)
         {
             return;
         }
@@ -89,17 +90,24 @@ public sealed class CrdtIntentUsageAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var supportedIntentAttributes = strategyTypeSymbol.GetAttributes()
-            .Where(ad => ad.AttributeClass?.Equals(supportedIntentAttributeType, SymbolEqualityComparer.Default) ?? false);
+        var supportedIntentTypes = new List<ITypeSymbol>();
+        
+        foreach (var strategyType in strategyTypeSymbols)
+        {
+            var supportedIntentAttributes = strategyType.GetAttributes()
+                .Where(ad => ad.AttributeClass?.Equals(supportedIntentAttributeType, SymbolEqualityComparer.Default) ?? false);
 
-        var supportedIntentTypes = supportedIntentAttributes
-            .Select(ad => ad.ConstructorArguments.FirstOrDefault().Value as ITypeSymbol)
-            .Where(t => t is not null)
-            .ToList();
+            var types = supportedIntentAttributes
+                .Select(ad => ad.ConstructorArguments.FirstOrDefault().Value as ITypeSymbol)
+                .Where(t => t is not null);
+                
+            supportedIntentTypes.AddRange(types!);
+        }
 
         if (supportedIntentTypes.Count == 0)
         {
-            ReportDiagnostic(context, invocation, strategyTypeSymbol, intentType, propertySymbol);
+            var baseStrategy = GetBaseStrategy(strategyTypeSymbols);
+            ReportDiagnostic(context, invocation, baseStrategy, intentType, propertySymbol);
             return;
         }
 
@@ -108,7 +116,46 @@ public sealed class CrdtIntentUsageAnalyzer : DiagnosticAnalyzer
 
         if (!isSupported)
         {
-            ReportDiagnostic(context, invocation, strategyTypeSymbol, intentType, propertySymbol);
+            var baseStrategy = GetBaseStrategy(strategyTypeSymbols);
+            ReportDiagnostic(context, invocation, baseStrategy, intentType, propertySymbol);
+        }
+    }
+
+    private static INamedTypeSymbol GetBaseStrategy(List<INamedTypeSymbol> strategyTypeSymbols)
+    {
+        return strategyTypeSymbols.FirstOrDefault(s => s.ContainingNamespace.Name != "Decorators") 
+               ?? strategyTypeSymbols[0];
+    }
+
+    private static IEnumerable<INamedTypeSymbol> GetStrategyTypeSymbols(IPropertySymbol propertySymbol, Compilation compilation)
+    {
+        // Simplifying the discovery logic to rely on the `Crdt*Attribute` naming convention
+        // instead of strict base class comparisons which can fail in disconnected test compilation contexts.
+        var strategyAttributes = propertySymbol.GetAttributes()
+            .Where(ad => ad.AttributeClass != null && ad.AttributeClass.Name.StartsWith("Crdt"));
+
+        foreach (var attr in strategyAttributes)
+        {
+            var attributeName = attr.AttributeClass!.Name;
+            var coreName = attributeName;
+            
+            if (coreName.StartsWith("Crdt")) coreName = coreName.Substring(4);
+            if (coreName.EndsWith("Attribute")) coreName = coreName.Substring(0, coreName.Length - 9);
+            if (coreName.EndsWith("Strategy")) coreName = coreName.Substring(0, coreName.Length - 8);
+            
+            var strategyFullName = $"Ama.CRDT.Services.Strategies.{coreName}Strategy";
+            var type = compilation.GetTypeByMetadataName(strategyFullName);
+            
+            if (type == null)
+            {
+                strategyFullName = $"Ama.CRDT.Services.Strategies.Decorators.{coreName}Strategy";
+                type = compilation.GetTypeByMetadataName(strategyFullName);
+            }
+
+            if (type != null)
+            {
+                yield return type;
+            }
         }
     }
 
@@ -217,37 +264,6 @@ public sealed class CrdtIntentUsageAnalyzer : DiagnosticAnalyzer
         }
 
         return attributeData.ConstructorArguments[0].Value as ITypeSymbol;
-    }
-
-    private static INamedTypeSymbol? GetStrategyTypeSymbol(IPropertySymbol propertySymbol, Compilation compilation)
-    {
-        var crdtStrategyAttributeType = compilation.GetTypeByMetadataName("Ama.CRDT.Attributes.CrdtStrategyAttribute");
-        if (crdtStrategyAttributeType is null)
-        {
-            return null;
-        }
-
-        var strategyAttributeData = propertySymbol.GetAttributes()
-            .FirstOrDefault(ad => ad.AttributeClass?.BaseType?.Equals(crdtStrategyAttributeType, SymbolEqualityComparer.Default) ?? false);
-
-        if (strategyAttributeData?.AttributeClass is null)
-        {
-            return null;
-        }
-
-        var attributeName = strategyAttributeData.AttributeClass.Name;
-        const string prefix = "Crdt";
-        const string suffix = "StrategyAttribute";
-        
-        if (!attributeName.StartsWith(prefix) || !attributeName.EndsWith(suffix))
-        {
-            return null;
-        }
-
-        var coreName = attributeName.Substring(prefix.Length, attributeName.Length - prefix.Length - suffix.Length);
-        var strategyFullName = $"Ama.CRDT.Services.Strategies.{coreName}Strategy";
-        
-        return compilation.GetTypeByMetadataName(strategyFullName);
     }
 
     private static void ReportDiagnostic(OperationAnalysisContext context, IInvocationOperation invocation, INamedTypeSymbol strategy, ITypeSymbol intent, IPropertySymbol property)

@@ -1,0 +1,215 @@
+namespace Ama.CRDT.UnitTests.Services.Strategies.Decorators;
+
+using Ama.CRDT.Attributes.Decorators;
+using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Extensions;
+using Ama.CRDT.Models;
+using Ama.CRDT.Models.Decorators;
+using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Services.Strategies;
+using Ama.CRDT.Services.Strategies.Decorators;
+using Microsoft.Extensions.DependencyInjection;
+using Shouldly;
+using System;
+using Xunit;
+
+public sealed class ApprovalQuorumStrategyTests : IDisposable
+{
+    private readonly IServiceScope scope;
+    private readonly ICrdtStrategyProvider strategyProvider;
+    private readonly ICrdtPatcher patcher;
+    private readonly ICrdtApplicator applicator;
+    private readonly ICrdtTimestampProvider timestampProvider;
+
+    public ApprovalQuorumStrategyTests()
+    {
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .BuildServiceProvider();
+
+        scope = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("TestReplica");
+
+        strategyProvider = scope.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
+        patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        applicator = scope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+    }
+
+    public void Dispose()
+    {
+        scope.Dispose();
+    }
+
+    public sealed class ProposalDocument
+    {
+        [CrdtApprovalQuorum(2)]
+        [CrdtLwwStrategy]
+        public string ConfigValue { get; set; } = string.Empty;
+    }
+
+    [Fact]
+    public void Provider_ShouldResolve_DecoratorAndBaseStrategy()
+    {
+        var property = typeof(ProposalDocument).GetProperty(nameof(ProposalDocument.ConfigValue));
+        property.ShouldNotBeNull();
+
+        var strategy = strategyProvider.GetStrategy(property);
+        strategy.ShouldBeOfType<ApprovalQuorumStrategy>();
+
+        var baseStrategy = strategyProvider.GetBaseStrategy(property);
+        baseStrategy.ShouldBeOfType<LwwStrategy>();
+    }
+
+    [Fact]
+    public void GeneratePatch_ShouldWrapOperations_InQuorumPayload()
+    {
+        var fromDoc = new CrdtDocument<ProposalDocument>(new ProposalDocument { ConfigValue = "Old" }, new CrdtMetadata());
+        var toState = new ProposalDocument { ConfigValue = "New" };
+
+        var patch = patcher.GeneratePatch(fromDoc, toState);
+
+        patch.Operations.Count.ShouldBe(1);
+        var op = patch.Operations[0];
+        
+        op.JsonPath.ShouldBe("$.configValue");
+        op.Value.ShouldBeOfType<QuorumPayload>();
+
+        var payload = (QuorumPayload)op.Value;
+        payload.ProposedValue.ShouldBe("New");
+    }
+
+    [Fact]
+    public void GenerateOperation_Intent_ShouldWrapInQuorumPayload()
+    {
+        var doc = new CrdtDocument<ProposalDocument>(new ProposalDocument(), new CrdtMetadata());
+
+        var op = patcher.BuildOperation(doc, x => x.ConfigValue).Build(new SetIntent("Proposed"));
+
+        op.Type.ShouldBe(OperationType.Upsert);
+        op.JsonPath.ShouldBe("$.configValue");
+        op.Value.ShouldBeOfType<QuorumPayload>();
+
+        var payload = (QuorumPayload)op.Value;
+        payload.ProposedValue.ShouldBe("Proposed");
+    }
+
+    [Fact]
+    public void ApplyOperation_WithoutQuorum_ShouldNotApply_ButTrackApproval()
+    {
+        var doc = new CrdtDocument<ProposalDocument>(new ProposalDocument { ConfigValue = "Current" }, new CrdtMetadata());
+
+        var op = new CrdtOperation(
+            Guid.NewGuid(),
+            "ReplicaA",
+            "$.configValue",
+            OperationType.Upsert,
+            new QuorumPayload("ProposedNew"),
+            timestampProvider.Now(),
+            1);
+
+        applicator.ApplyPatch(doc, new CrdtPatch([op]));
+
+        // Value shouldn't change because Quorum=2, and we only have 1 approval
+        doc.Data.ConfigValue.ShouldBe("Current");
+
+        // Metadata should track the approval
+        doc.Metadata.QuorumApprovals.ShouldContainKey("$.configValue");
+        var approvals = doc.Metadata.QuorumApprovals["$.configValue"];
+        approvals.ShouldContainKey("ProposedNew");
+        approvals["ProposedNew"].ShouldContain("ReplicaA");
+        approvals["ProposedNew"].Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void ApplyOperation_WithSameReplicaVotingTwice_ShouldNotReachQuorum()
+    {
+        var doc = new CrdtDocument<ProposalDocument>(new ProposalDocument { ConfigValue = "Current" }, new CrdtMetadata());
+
+        var op1 = new CrdtOperation(
+            Guid.NewGuid(),
+            "ReplicaA",
+            "$.configValue",
+            OperationType.Upsert,
+            new QuorumPayload("ProposedNew"),
+            timestampProvider.Now(),
+            1);
+
+        var op2 = new CrdtOperation(
+            Guid.NewGuid(),
+            "ReplicaA", // Same replica voting again
+            "$.configValue",
+            OperationType.Upsert,
+            new QuorumPayload("ProposedNew"),
+            timestampProvider.Now(),
+            2);
+
+        applicator.ApplyPatch(doc, new CrdtPatch([op1, op2]));
+
+        // Value shouldn't change, we still only have 1 distinct replica approval
+        doc.Data.ConfigValue.ShouldBe("Current");
+        
+        var approvals = doc.Metadata.QuorumApprovals["$.configValue"];
+        approvals["ProposedNew"].Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void ApplyOperation_WithMetQuorum_ShouldApplyAndCleanUp()
+    {
+        var doc = new CrdtDocument<ProposalDocument>(new ProposalDocument { ConfigValue = "Current" }, new CrdtMetadata());
+
+        var op1 = new CrdtOperation(
+            Guid.NewGuid(),
+            "ReplicaA",
+            "$.configValue",
+            OperationType.Upsert,
+            new QuorumPayload("ProposedNew"),
+            timestampProvider.Now(),
+            1);
+
+        var op2 = new CrdtOperation(
+            Guid.NewGuid(),
+            "ReplicaB",
+            "$.configValue",
+            OperationType.Upsert,
+            new QuorumPayload("ProposedNew"),
+            timestampProvider.Now(),
+            1);
+
+        applicator.ApplyPatch(doc, new CrdtPatch([op1]));
+        
+        // Quorum not yet met
+        doc.Data.ConfigValue.ShouldBe("Current");
+        doc.Metadata.QuorumApprovals.ShouldContainKey("$.configValue");
+
+        applicator.ApplyPatch(doc, new CrdtPatch([op2]));
+
+        // Quorum is 2, so it should be met now
+        doc.Data.ConfigValue.ShouldBe("ProposedNew");
+        
+        // Trackers should be cleaned up
+        doc.Metadata.QuorumApprovals.ShouldNotContainKey("$.configValue");
+    }
+
+    [Fact]
+    public void ApplyOperation_WithoutQuorumPayload_ShouldDelegateToInnerStrategy()
+    {
+        var doc = new CrdtDocument<ProposalDocument>(new ProposalDocument { ConfigValue = "Current" }, new CrdtMetadata());
+
+        // An operation lacking the wrapper payload (perhaps generated previously or by a misconfigured node)
+        var unconstrainedOp = new CrdtOperation(
+            Guid.NewGuid(),
+            "ReplicaA",
+            "$.configValue",
+            OperationType.Upsert,
+            "ForcedValue", // Unwrapped value!
+            timestampProvider.Now(),
+            1);
+
+        applicator.ApplyPatch(doc, new CrdtPatch([unconstrainedOp]));
+
+        // Should apply immediately bypassing the Quorum logic
+        doc.Data.ConfigValue.ShouldBe("ForcedValue");
+    }
+}

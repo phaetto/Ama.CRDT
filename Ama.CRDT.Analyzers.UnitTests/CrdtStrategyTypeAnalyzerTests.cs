@@ -218,4 +218,49 @@ public class MyPoco
         test.ExpectedDiagnostics.Add(expected);
         await test.RunAsync();
     }
+
+    [Fact]
+    public async Task WhenValidTypeUsedWithMultipleDecorators_ShouldNotReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Attributes.Decorators;
+
+public class MyPoco
+{
+    [CrdtEpochBound]
+    [CrdtApprovalQuorum(2)]
+    [CrdtCounterStrategy]
+    public int MyCounter { get; set; }
+}
+";
+        var test = CreateTest();
+        test.TestCode = source;
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenInvalidTypeUsedWithMultipleDecorators_ShouldReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Attributes.Decorators;
+
+public class MyPoco
+{
+    [CrdtEpochBound]
+    [CrdtApprovalQuorum(2)]
+    [CrdtCounterStrategy]
+    public string MyCounter { get; set; }
+}
+";
+        var expected = new DiagnosticResult("CRDT0001", DiagnosticSeverity.Error)
+            .WithLocation(10, 19)
+            .WithArguments("CounterStrategy", "string");
+
+        var test = CreateTest();
+        test.TestCode = source;
+        test.ExpectedDiagnostics.Add(expected);
+        await test.RunAsync();
+    }
 }

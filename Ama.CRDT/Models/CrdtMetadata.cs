@@ -23,6 +23,12 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     public IDictionary<string, int> Epochs { get; set; } = new Dictionary<string, int>();
 
     /// <summary>
+    /// Gets or sets a dictionary that stores the state for properties managed by the Approval Quorum strategy.
+    /// The outer key is the JSON Path. The inner dictionary maps the proposed value to a set of Replica IDs that approved it.
+    /// </summary>
+    public IDictionary<string, IDictionary<object, ISet<string>>> QuorumApprovals { get; set; } = new Dictionary<string, IDictionary<object, ISet<string>>>();
+
+    /// <summary>
     /// Gets or sets a dictionary that stores the last-seen timestamp for properties managed by the Last-Writer-Wins (LWW) strategy.
     /// The key is the JSON Path to the property.
     /// </summary>
@@ -152,6 +158,16 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         foreach (var kvp in Fww) { newMetadata.Fww.Add(kvp.Key, kvp.Value); }
         foreach (var kvp in PositionalTrackers) { newMetadata.PositionalTrackers.Add(kvp.Key, new List<PositionalIdentifier>(kvp.Value)); }
         foreach (var kvp in AverageRegisters) { newMetadata.AverageRegisters.Add(kvp.Key, new Dictionary<string, AverageRegisterValue>(kvp.Value)); }
+
+        foreach (var kvp in QuorumApprovals)
+        {
+            var dict = new Dictionary<object, ISet<string>>((kvp.Value as Dictionary<object, ISet<string>>)?.Comparer);
+            foreach (var innerKvp in kvp.Value)
+            {
+                dict.Add(innerKvp.Key, new HashSet<string>(innerKvp.Value));
+            }
+            newMetadata.QuorumApprovals.Add(kvp.Key, dict);
+        }
 
         foreach (var kvp in TwoPhaseSets)
         {
@@ -300,6 +316,28 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
                 }
             }
             
+            foreach (var kvp in metadata.QuorumApprovals)
+            {
+                if (!merged.QuorumApprovals.TryGetValue(kvp.Key, out var existingDict))
+                {
+                    var comparer = (kvp.Value as Dictionary<object, ISet<string>>)?.Comparer;
+                    existingDict = new Dictionary<object, ISet<string>>(comparer);
+                    merged.QuorumApprovals[kvp.Key] = existingDict;
+                }
+                foreach (var innerKvp in kvp.Value)
+                {
+                    if (!existingDict.TryGetValue(innerKvp.Key, out var existingSet))
+                    {
+                        existingSet = new HashSet<string>();
+                        existingDict[innerKvp.Key] = existingSet;
+                    }
+                    foreach (var voter in innerKvp.Value)
+                    {
+                        existingSet.Add(voter);
+                    }
+                }
+            }
+
             foreach (var kvp in metadata.Lww) 
             {
                 if (!merged.Lww.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
@@ -376,6 +414,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         if (ReferenceEquals(this, other)) return true;
 
         return DictionaryEquals(Epochs, other.Epochs)
+            && DictionaryOfDictionariesOfSetsEquals(QuorumApprovals, other.QuorumApprovals)
             && DictionaryEquals(Lww, other.Lww)
             && DictionaryEquals(Fww, other.Fww)
             && DictionaryEquals(VersionVector, other.VersionVector)
@@ -402,6 +441,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     {
         var hash = new HashCode();
         hash.Add(GetDictionaryHashCode(Epochs));
+        hash.Add(GetDictionaryOfDictionariesOfSetsHashCode(QuorumApprovals));
         hash.Add(GetDictionaryHashCode(Lww));
         hash.Add(GetDictionaryHashCode(Fww));
         hash.Add(GetDictionaryHashCode(VersionVector));
@@ -450,6 +490,25 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         return true;
     }
 
+    private static bool DictionaryOfDictionariesOfSetsEquals<TKey1, TKey2, TItem>(IDictionary<TKey1, IDictionary<TKey2, ISet<TItem>>> left, IDictionary<TKey1, IDictionary<TKey2, ISet<TItem>>> right) where TKey1 : notnull where TKey2 : notnull
+    {
+        if (ReferenceEquals(left, right)) return true;
+        if (left is null || right is null) return false;
+        if (left.Count != right.Count) return false;
+        foreach (var (key, value) in left)
+        {
+            if (!right.TryGetValue(key, out var rightValue) || value is null || rightValue is null || value.Count != rightValue.Count)
+                return false;
+
+            foreach (var (innerKey, innerValue) in value)
+            {
+                if (!rightValue.TryGetValue(innerKey, out var rightInnerValue) || innerValue is null || rightInnerValue is null || !innerValue.SetEquals(rightInnerValue))
+                    return false;
+            }
+        }
+        return true;
+    }
+
     private static bool DictionaryOfListsEquals<TKey, TValue>(IDictionary<TKey, List<TValue>> left, IDictionary<TKey, List<TValue>> right) where TKey : notnull
     {
         if (ReferenceEquals(left, right)) return true;
@@ -481,6 +540,25 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         foreach (var (key, value) in dict)
         {
             hash ^= (key?.GetHashCode() ?? 0) ^ GetDictionaryHashCode(value);
+        }
+        return hash;
+    }
+
+    private static int GetDictionaryOfDictionariesOfSetsHashCode<TKey1, TKey2, TItem>(IDictionary<TKey1, IDictionary<TKey2, ISet<TItem>>> dict) where TKey1 : notnull where TKey2 : notnull
+    {
+        if (dict is null) return 0;
+        int hash = 0;
+        foreach (var (key, value) in dict)
+        {
+            int innerHash = 0;
+            if (value is not null)
+            {
+                foreach (var (innerKey, innerValue) in value)
+                {
+                    innerHash ^= (innerKey?.GetHashCode() ?? 0) ^ GetSetHashCode(innerValue);
+                }
+            }
+            hash ^= (key?.GetHashCode() ?? 0) ^ innerHash;
         }
         return hash;
     }

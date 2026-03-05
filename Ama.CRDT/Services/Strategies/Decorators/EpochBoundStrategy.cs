@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Models.Intents.Decorators;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
@@ -20,7 +21,7 @@ using System.Reflection;
 /// "Clear-Wins" or "Reset" semantics for structures like Shopping Carts.
 /// </summary>
 [CrdtSupportedType(typeof(object))]
-[CrdtSupportedIntent(typeof(ClearIntent))]
+[CrdtSupportedIntent(typeof(EpochClearIntent))]
 [Commutative]
 [Associative]
 [Idempotent]
@@ -33,7 +34,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         // where EpochBoundStrategy requires ICrdtStrategyProvider, but ICrdtStrategyProvider 
         // constructs a dictionary of all registered ICrdtStrategy implementations.
         var provider = serviceProvider.GetRequiredService<ICrdtStrategyProvider>();
-        return provider.GetBaseStrategy(property);
+        return provider.GetInnerStrategy(property, typeof(EpochBoundStrategy));
     }
 
     /// <inheritdoc/>
@@ -62,7 +63,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
 
         var localEpoch = context.Metadata.Epochs.TryGetValue(context.JsonPath, out var ep) ? ep : 0;
         
-        if (context.Intent is ClearIntent)
+        if (context.Intent is EpochClearIntent)
         {
             return new CrdtOperation(
                 Guid.NewGuid(),
@@ -123,7 +124,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
             ClearMetadataForPath(context.Metadata, basePath);
         }
 
-        // If it was just a ClearIntent, we already bumped the epoch and cleared the state.
+        // If it was just an EpochClearIntent, we already bumped the epoch and cleared the state.
         if (context.Operation.Type == OperationType.Remove && payload.Value is null)
         {
             return;

@@ -1,10 +1,12 @@
 namespace Ama.CRDT.Services.Providers;
+
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Strategies;
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -17,6 +19,10 @@ internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
     private readonly ICrdtStrategy defaultStrategy;
     private readonly ICrdtStrategy defaultArrayStrategy;
     private readonly ICrdtStrategy defaultDictionaryStrategy;
+
+    private readonly ConcurrentDictionary<PropertyInfo, ICrdtStrategy> strategyCache = new();
+    private readonly ConcurrentDictionary<PropertyInfo, ICrdtStrategy> baseStrategyCache = new();
+    private readonly ConcurrentDictionary<PropertyInfo, IReadOnlyList<Type>> decoratorChainCache = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CrdtStrategyProvider"/> class.
@@ -47,14 +53,38 @@ internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
     {
         ArgumentNullException.ThrowIfNull(propertyInfo);
 
-        // First check for decorator attributes (like [CrdtEpochBound])
-        var decoratorAttribute = propertyInfo.GetCustomAttribute<CrdtStrategyDecoratorAttribute>();
-        if (decoratorAttribute is not null && strategies.TryGetValue(decoratorAttribute.StrategyType, out var decoratorStrategy))
+        return strategyCache.GetOrAdd(propertyInfo, pi =>
         {
-            return decoratorStrategy;
+            var decorators = GetDecorators(pi);
+            if (decorators.Count > 0 && strategies.TryGetValue(decorators[0], out var decoratorStrategy))
+            {
+                return decoratorStrategy;
+            }
+
+            return GetBaseStrategy(pi);
+        });
+    }
+
+    /// <inheritdoc/>
+    public ICrdtStrategy GetInnerStrategy([DisallowNull] PropertyInfo propertyInfo, [DisallowNull] Type currentDecoratorType)
+    {
+        ArgumentNullException.ThrowIfNull(propertyInfo);
+        ArgumentNullException.ThrowIfNull(currentDecoratorType);
+
+        var decorators = GetDecorators(propertyInfo);
+        
+        for (var i = 0; i < decorators.Count; i++)
+        {
+            if (decorators[i] == currentDecoratorType)
+            {
+                if (i + 1 < decorators.Count && strategies.TryGetValue(decorators[i + 1], out var nextStrategy))
+                {
+                    return nextStrategy;
+                }
+                break;
+            }
         }
 
-        // If no decorator, return the base strategy
         return GetBaseStrategy(propertyInfo);
     }
     
@@ -63,24 +93,27 @@ internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
     {
         ArgumentNullException.ThrowIfNull(propertyInfo);
 
-        var attribute = propertyInfo.GetCustomAttribute<CrdtStrategyAttribute>();
-        if (attribute is not null && strategies.TryGetValue(attribute.StrategyType, out var strategy))
+        return baseStrategyCache.GetOrAdd(propertyInfo, pi =>
         {
-            return strategy;
-        }
-        
-        var propertyType = propertyInfo.PropertyType;
-        if (propertyType != typeof(string) && typeof(IDictionary).IsAssignableFrom(propertyType))
-        {
-            return defaultDictionaryStrategy;
-        }
+            var attribute = pi.GetCustomAttribute<CrdtStrategyAttribute>();
+            if (attribute is not null && strategies.TryGetValue(attribute.StrategyType, out var strategy))
+            {
+                return strategy;
+            }
+            
+            var propertyType = pi.PropertyType;
+            if (propertyType != typeof(string) && typeof(IDictionary).IsAssignableFrom(propertyType))
+            {
+                return defaultDictionaryStrategy;
+            }
 
-        if (propertyType != typeof(string) && typeof(IEnumerable).IsAssignableFrom(propertyType))
-        {
-            return defaultArrayStrategy;
-        }
+            if (propertyType != typeof(string) && typeof(IEnumerable).IsAssignableFrom(propertyType))
+            {
+                return defaultArrayStrategy;
+            }
 
-        return defaultStrategy;
+            return defaultStrategy;
+        });
     }
     
     /// <inheritdoc/>
@@ -96,5 +129,13 @@ internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
         }
 
         return GetStrategy(property);
+    }
+
+    private IReadOnlyList<Type> GetDecorators(PropertyInfo propertyInfo)
+    {
+        return decoratorChainCache.GetOrAdd(propertyInfo, pi => 
+            pi.GetCustomAttributes<CrdtStrategyDecoratorAttribute>()
+              .Select(a => a.StrategyType)
+              .ToList());
     }
 }
