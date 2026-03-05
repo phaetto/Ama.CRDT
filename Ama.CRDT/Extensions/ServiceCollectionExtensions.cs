@@ -114,6 +114,7 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped(CreateValidatedInstance<TwoPhaseGraphStrategy>);
         services.TryAddScoped(CreateValidatedInstance<ReplicatedTreeStrategy>);
         services.TryAddScoped(CreateValidatedInstance<RgaStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<EpochBoundStrategy>);
 
         // Register all concrete strategies as ICrdtStrategy.
         // This will resolve the concrete type, which in turn triggers our validating factory.
@@ -147,11 +148,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICrdtStrategy, TwoPhaseGraphStrategy>(sp => sp.GetRequiredService<TwoPhaseGraphStrategy>());
         services.AddScoped<ICrdtStrategy, ReplicatedTreeStrategy>(sp => sp.GetRequiredService<ReplicatedTreeStrategy>());
         services.AddScoped<ICrdtStrategy, RgaStrategy>(sp => sp.GetRequiredService<RgaStrategy>());
+        services.AddScoped<ICrdtStrategy, EpochBoundStrategy>(sp => sp.GetRequiredService<EpochBoundStrategy>());
 
         // Register partitionable strategies.
         services.AddScoped<IPartitionableCrdtStrategy, OrMapStrategy>(sp => sp.GetRequiredService<OrMapStrategy>());
         services.AddScoped<IPartitionableCrdtStrategy, FwwSetStrategy>(sp => sp.GetRequiredService<FwwSetStrategy>());
         services.AddScoped<IPartitionableCrdtStrategy, FwwMapStrategy>(sp => sp.GetRequiredService<FwwMapStrategy>());
+
+        // Register core serializers for Epoch payload
+        PolymorphicObjectJsonConverter.Register("epoch-payload", typeof(EpochPayload));
 
         return services;
     }

@@ -11,12 +11,20 @@ using System.Reflection;
 public interface ICrdtStrategyProvider
 {
     /// <summary>
-    /// Gets the appropriate <see cref="ICrdtStrategy"/> for a property based on its attributes or type.
+    /// Gets the appropriate <see cref="ICrdtStrategy"/> for a property based on its attributes or type, including decorators.
     /// </summary>
     /// <param name="propertyInfo">The <see cref="PropertyInfo"/> of the property to analyze.</param>
     /// <returns>The resolved <see cref="ICrdtStrategy"/>. Returns a default strategy if no specific attribute is found.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertyInfo"/> is null.</exception>
     ICrdtStrategy GetStrategy([DisallowNull] PropertyInfo propertyInfo);
+
+    /// <summary>
+    /// Gets the base <see cref="ICrdtStrategy"/> for a property, bypassing any decorators.
+    /// </summary>
+    /// <param name="propertyInfo">The <see cref="PropertyInfo"/> of the property to analyze.</param>
+    /// <returns>The resolved base <see cref="ICrdtStrategy"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="propertyInfo"/> is null.</exception>
+    ICrdtStrategy GetBaseStrategy([DisallowNull] PropertyInfo propertyInfo);
 
     /// <summary>
     /// Gets the appropriate <see cref="ICrdtStrategy"/> for applying a given operation to a document.
