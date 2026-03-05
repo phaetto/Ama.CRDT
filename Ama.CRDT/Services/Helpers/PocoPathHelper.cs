@@ -8,13 +8,18 @@ using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 /// <summary>
 /// A utility class containing helper methods for parsing JSON paths and resolving them against POCOs using reflection.
 /// </summary>
 internal static class PocoPathHelper
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+
     private static readonly ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> PropertyCache = new();
+    private static readonly ConcurrentDictionary<Type, CachedPropertyMetadata[]> MetadataPropertyCache = new();
     private static readonly ConcurrentDictionary<PropertyInfo, PropertyAccessor> AccessorCache = new();
     
     // Type resolution caches to avoid repetitive LINQ and reflection overhead
@@ -25,6 +30,16 @@ internal static class PocoPathHelper
     // Expression compilation caches to replace Activator.CreateInstance
     private static readonly ConcurrentDictionary<Type, Func<object>> ConstructorCache = new();
     private static readonly ConcurrentDictionary<Type, Func<object?, object?, object>> KvpConstructorCache = new();
+
+    internal readonly record struct ParseResult(string JsonPath, PropertyInfo Property);
+
+    internal sealed class CachedPropertyMetadata(PropertyInfo property, string jsonPropertyName)
+    {
+        public PropertyInfo Property { get; } = property;
+        public string PathSuffix { get; } = $".{jsonPropertyName}";
+        public string RootedPath { get; } = $"$.{jsonPropertyName}";
+        public PropertyAccessor Accessor { get; } = GetAccessor(property);
+    }
 
     /// <summary>
     /// Represents a heavily optimized, pre-compiled accessor for a PropertyInfo 
@@ -704,6 +719,112 @@ internal static class PocoPathHelper
         }
     }
     
+    internal static CachedPropertyMetadata[] GetCachedProperties(Type type)
+    {
+        return MetadataPropertyCache.GetOrAdd(type, static t =>
+            [.. t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.CanRead && p.GetIndexParameters().Length == 0 && p.GetCustomAttribute<JsonIgnoreAttribute>() == null)
+                .Select(p => 
+                {
+                    var jsonPropertyName = SerializerOptions.PropertyNamingPolicy?.ConvertName(p.Name) ?? p.Name;
+                    return new CachedPropertyMetadata(p, jsonPropertyName);
+                })]);
+    }
+
+    internal static bool IsCollection(Type type)
+    {
+        return type != typeof(string) && typeof(IEnumerable).IsAssignableFrom(type);
+    }
+
+    internal static ParseResult ParseExpression<T, TProp>(Expression<Func<T, TProp>> expression)
+    {
+        var current = expression.Body;
+        
+        // Unwrap potential boxing
+        if (current is UnaryExpression unary)
+        {
+            current = unary.Operand;
+        }
+
+        PropertyInfo? targetProperty = null;
+        if (current is MemberExpression initialMe && initialMe.Member is PropertyInfo pi)
+        {
+            targetProperty = pi;
+        }
+
+        if (targetProperty is null)
+        {
+            throw new ArgumentException(
+                "Expression must end in a property access. " +
+                "If you are trying to replace an entire collection element, target the collection property instead " +
+                "and use a collection-specific intent (e.g., SetIndexIntent or MapSetIntent).", nameof(expression));
+        }
+
+        var jsonPath = BuildJsonPath(current);
+        return new ParseResult(jsonPath, targetProperty);
+    }
+
+    private static string BuildJsonPath(Expression expression)
+    {
+        var parts = new List<string>();
+        var current = expression;
+
+        while (current != null)
+        {
+            if (current is MemberExpression me)
+            {
+                var propName = me.Member.Name;
+                var jsonName = SerializerOptions.PropertyNamingPolicy?.ConvertName(propName) ?? propName;
+                parts.Add("." + jsonName);
+                current = me.Expression;
+            }
+            else if (current is MethodCallExpression mce && mce.Method.Name == "get_Item" && mce.Arguments.Count == 1)
+            {
+                var argValue = GetConstantValue(mce.Arguments[0]);
+                parts.Add($"[{FormatIndex(argValue)}]");
+                current = mce.Object;
+            }
+            else if (current is BinaryExpression be && be.NodeType == ExpressionType.ArrayIndex)
+            {
+                var argValue = GetConstantValue(be.Right);
+                parts.Add($"[{FormatIndex(argValue)}]");
+                current = be.Left;
+            }
+            else if (current is ParameterExpression)
+            {
+                break;
+            }
+            else
+            {
+                throw new ArgumentException($"Unsupported expression node type: {current.NodeType}. Ensure you only use property accesses and indexers.", nameof(expression));
+            }
+        }
+
+        parts.Reverse();
+        return "$" + string.Join(string.Empty, parts);
+    }
+
+    private static object? GetConstantValue(Expression expr)
+    {
+        if (expr is ConstantExpression ce)
+        {
+            return ce.Value;
+        }
+
+        var objectMember = Expression.Convert(expr, typeof(object));
+        var getterLambda = Expression.Lambda<Func<object>>(objectMember);
+        return getterLambda.Compile()();
+    }
+
+    private static string FormatIndex(object? index)
+    {
+        if (index is string s)
+        {
+            return $"'{s}'";
+        }
+        return index?.ToString() ?? string.Empty;
+    }
+
     private static Dictionary<string, PropertyInfo> GetPropertiesForType(Type type)
     {
         return PropertyCache.GetOrAdd(type, t =>
