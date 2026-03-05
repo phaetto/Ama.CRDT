@@ -2,11 +2,11 @@ namespace Ama.CRDT.Services.Strategies;
 
 using System;
 using Ama.CRDT.Attributes;
-using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services;
+using Ama.CRDT.Attributes.Strategies.Semantic;
 
 /// <summary>
 /// Implements the G-Counter (Grow-Only Counter) strategy. This counter only supports positive increments.

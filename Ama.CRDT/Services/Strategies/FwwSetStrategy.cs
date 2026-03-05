@@ -1,7 +1,7 @@
 namespace Ama.CRDT.Services.Strategies;
 
 using Ama.CRDT.Attributes;
-using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
@@ -11,7 +11,6 @@ using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 
 /// <summary>

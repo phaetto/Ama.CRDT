@@ -1,11 +1,13 @@
 using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Serialization.Converters;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
+using Ama.CRDT.Services.Strategies.Decorators;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 

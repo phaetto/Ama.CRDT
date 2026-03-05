@@ -4,7 +4,6 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
-using Ama.CRDT.Attributes;
 using Moq;
 using Shouldly;
 using System;
@@ -16,6 +15,7 @@ using static Ama.CRDT.Services.Strategies.SortedSetStrategy;
 using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Ama.CRDT.Extensions;
+using Ama.CRDT.Attributes.Strategies;
 
 public sealed class SortedSetStrategyTests : IDisposable
 {

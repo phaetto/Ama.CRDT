@@ -1,6 +1,5 @@
 namespace Ama.CRDT.Benchmarks.Benchmarks;
 
-using System.Collections.Generic;
 using Ama.CRDT.Benchmarks.Models;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;

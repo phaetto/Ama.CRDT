@@ -113,49 +113,48 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTests.cs` | Contains unit tests for the `VoteCounterStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent voting scenarios. |
 | `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |
 | `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging and to automatically include its associated Roslyn analyzers. |
-| `$/Ama.CRDT/Attributes/CrdtArrayLcsStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Array LCS strategy, which leverages positional identifiers for stable, causally-correct ordering of elements. |
-| `$/Ama.CRDT/Attributes/CrdtAverageRegisterStrategyAttribute.cs` | An attribute to mark a property as an Average Register, where its value converges to the average of all replica contributions. |
-| `$/Ama.CRDT/Attributes/CrdtBoundedCounterStrategyAttribute.cs` | An attribute to mark a numeric property as a Bounded Counter, which clamps its value within a specified min/max range. |
-| `$/Ama.CRDT/Attributes/CrdtCounterMapStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the Counter-Map strategy, where each key is treated as an independent PN-Counter. |
-| `$/Ama.CRDT/Attributes/CrdtCounterStrategyAttribute.cs` | No description provided. |
-| `$/Ama.CRDT/Attributes/CrdtEpochBoundAttribute.cs` | A decorator attribute that wraps a base CRDT strategy with an epoch generation counter, replacing the older `CrdtEpochBoundStrategyAttribute` to allow stacking. |
-| `$/Ama.CRDT/Attributes/CrdtEpochBoundStrategyAttribute.cs` | A decorator attribute that wraps another CRDT strategy with an epoch generation counter, enabling Clear-Wins/Reset semantics. |
-| `$/Ama.CRDT/Attributes/CrdtFixedSizeArrayStrategyAttribute.cs` | An attribute to mark a collection property as a fixed-size array, where each index is an LWW-Register. |
-| `$/Ama.CRDT/Attributes/CrdtFwwMapStrategyAttribute.cs` | Specifies that a dictionary property should use the First-Writer-Wins (FWW) Map merge strategy, maintaining the value with the earliest timestamp per key. |
-| `$/Ama.CRDT/Attributes/CrdtFwwSetStrategyAttribute.cs` | Specifies that a collection property should use the First-Writer-Wins (FWW) Set merge strategy, determining membership by the earliest timestamp of addition or removal. |
-| `$/Ama.CRDT/Attributes/CrdtFwwStrategyAttribute.cs` | Specifies that a property should use the First-Writer-Wins (FWW) merge strategy, where the value with the lowest timestamp wins. |
-| `$/Ama.CRDT/Attributes/CrdtGCounterStrategyAttribute.cs` | An attribute to mark a numeric property as a G-Counter (Grow-Only Counter), which only permits positive increments. |
-| `$/Ama.CRDT/Attributes/CrdtGSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the G-Set (Grow-Only Set) strategy. |
-| `$/Ama.CRDT/Attributes/CrdtGraphStrategyAttribute.cs` | An attribute to mark a `CrdtGraph` property to be managed by the Graph strategy. |
 | `$/Ama.CRDT/Attributes/CrdtIntentMappingAttribute.cs` | An attribute to map intent builder extension methods to the specific explicit intent types they generate, enabling compile-time validation via Roslyn analyzers without hardcoded mappings. |
-| `$/Ama.CRDT/Attributes/CrdtLseqStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the LSEQ strategy for managing ordered sequences with dense identifiers. |
-| `$/Ama.CRDT/Attributes/CrdtLwwMapStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the LWW-Map (Last-Writer-Wins Map) strategy, where each key-value pair is an independent LWW-Register. |
-| `$/Ama.CRDT/Attributes/CrdtLwwSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the LWW-Set (Last-Writer-Wins Set) strategy. |
-| `$/Ama.CRDT/Attributes/CrdtLwwStrategyAttribute.cs` | No description provided. |
-| `$/Ama.CRDT/Attributes/CrdtMaxWinsMapStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the Max-Wins Map strategy. For each key, conflicts are resolved by choosing the highest value, making the map's keys grow-only. |
-| `$/Ama.CRDT/Attributes/CrdtMaxWinsStrategyAttribute.cs` | An attribute to mark a property as a Max-Wins Register, where conflicts are resolved by choosing the highest value. |
-| `$/Ama.CRDT/Attributes/CrdtMinWinsMapStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the Min-Wins Map strategy. For each key, conflicts are resolved by choosing the lowest value, making the map's keys grow-only. |
-| `$/Ama.CRDT/Attributes/CrdtMinWinsStrategyAttribute.cs` | An attribute to mark a property as a Min-Wins Register, where conflicts are resolved by choosing the lowest value. |
-| `$/Ama.CRDT/Attributes/CrdtOrMapStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the OR-Map (Observed-Remove Map) strategy, where key presence is managed by OR-Set logic and values by LWW. |
-| `$/Ama.CRDT/Attributes/CrdtOrSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the OR-Set (Observed-Remove Set) strategy. |
-| `$/Ama.CRDT/Attributes/CrdtPriorityQueueStrategyAttribute.cs` | An attribute to mark a collection as a priority queue, which is managed as an LWW-Set and kept sorted by a specified property. |
-| `$/Ama.CRDT/Attributes/CrdtReplicatedTreeStrategyAttribute.cs` | No description provided. |
-| `$/Ama.CRDT/Attributes/CrdtRgaStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the RGA strategy for tracking sequence items based on preceding linkages and tombstones. |
-| `$/Ama.CRDT/Attributes/CrdtSortedSetStrategyAttribute.cs` | An attribute to explicitly mark a collection property to use the Sorted Set strategy. It uses LCS for diffing and maintains a sorted order. |
-| `$/Ama.CRDT/Attributes/CrdtStateMachineStrategyAttribute.cs` | An attribute to mark a property to be managed by the State Machine strategy, which enforces valid state transitions. |
 | `$/Ama.CRDT/Attributes/CrdtStrategyAttribute.cs` | The base abstract attribute for marking properties with a specific CRDT merge strategy. Contains the strategy type. |
 | `$/Ama.CRDT/Attributes/CrdtStrategyDecoratorAttribute.cs` | A base attribute for specifying a CRDT decorator strategy for a property, allowing multiple stacked decorators like `[CrdtEpochBound]` alongside core strategy attributes. |
 | `$/Ama.CRDT/Attributes/CrdtSupportedIntentAttribute.cs` | An attribute to explicitly mark which explicit `IOperationIntent` types a given CRDT strategy supports. Used by Roslyn analyzers for validation. |
 | `$/Ama.CRDT/Attributes/CrdtSupportedTypeAttribute.cs` | An attribute used to decorate a CRDT strategy class, specifying a property type (e.g., `int`, `IEnumerable`) that it supports. This enables compile-time validation via Roslyn analyzers. |
-| `$/Ama.CRDT/Attributes/CrdtTwoPhaseGraphStrategyAttribute.cs` | No description provided. |
-| `$/Ama.CRDT/Attributes/CrdtTwoPhaseSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the 2P-Set (Two-Phase Set) strategy. |
-| `$/Ama.CRDT/Attributes/CrdtVoteCounterStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the Vote Counter strategy. This strategy ensures each voter has only one active vote, with changes resolved by Last-Writer-Wins. |
+| `$/Ama.CRDT/Attributes/Decorators/CrdtEpochBoundAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/PartitionKeyAttribute.cs` | No description provided. |
-| `$/Ama.CRDT/Attributes/Strategies/AssociativeAttribute.cs` | Marks a CRDT strategy as having the associative property, meaning the order of operation grouping does not affect the outcome. |
-| `$/Ama.CRDT/Attributes/Strategies/CommutativeAttribute.cs` | Marks a CRDT strategy as having the commutative property, meaning the order of operations does not affect the outcome. |
-| `$/Ama.CRDT/Attributes/Strategies/IdempotentAttribute.cs` | Marks a CRDT strategy as having the idempotent property, meaning applying the same operation multiple times has the same effect as applying it once. |
-| `$/Ama.CRDT/Attributes/Strategies/OperationBasedAttribute.cs` | Marks a CRDT strategy as Operation-based (CmRDT), relying on causal delivery and exactly-once operation application. |
-| `$/Ama.CRDT/Attributes/Strategies/StateBasedAttribute.cs` | Marks a CRDT strategy as State-based (CvRDT), allowing its entire state and metadata to be deterministically merged. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtArrayLcsStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtAverageRegisterStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtBoundedCounterStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtCounterMapStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtCounterStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtFixedSizeArrayStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtFwwMapStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtFwwSetStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtFwwStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtGCounterStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtGSetStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtGraphStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtLseqStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtLwwMapStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtLwwSetStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtLwwStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtMaxWinsMapStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtMaxWinsStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtMinWinsMapStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtMinWinsStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtOrMapStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtOrSetStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtPriorityQueueStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtReplicatedTreeStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtRgaStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtSortedSetStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtStateMachineStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtTwoPhaseGraphStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtTwoPhaseSetStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/CrdtVoteCounterStrategyAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/Semantic/AssociativeAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/Semantic/CommutativeAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/Semantic/IdempotentAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/Semantic/OperationBasedAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Attributes/Strategies/Semantic/StateBasedAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/IntentBuilderExtensions.cs` | Provides strongly-typed extension methods for `IIntentBuilder<TProperty>` to fluent build CRDT operations without boxing. |
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup. Removes stream-specific registration logic to support decoupling into its own package. |
@@ -166,8 +165,8 @@
 | `$/Ama.CRDT/Models/CrdtOperation.cs` | Represents a single CRDT operation. For serialization, use the recommended options from `CrdtJsonContext`. |
 | `$/Ama.CRDT/Models/CrdtPatch.cs` | Encapsulates a list of CRDT operations, now with a logical key of type `IComparable?` to support strongly-typed, sortable partition keys. |
 | `$/Ama.CRDT/Models/CrdtTree.cs` | A data model for a tree data structure with nodes that can be added, removed, and moved, suitable for CRDT management. |
+| `$/Ama.CRDT/Models/Decorators/EpochPayload.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Edge.cs` | No description provided. |
-| `$/Ama.CRDT/Models/EpochPayload.cs` | A payload structure used by the Epoch Bound strategy to wrap underlying operations with a generation counter. |
 | `$/Ama.CRDT/Models/EpochTimestamp.cs` | A default, backward-compatible implementation of `ICrdtTimestamp` that wraps a `long` value representing Unix milliseconds. |
 | `$/Ama.CRDT/Models/GraphEdgePayload.cs` | A data structure for the payload of a graph edge operation. |
 | `$/Ama.CRDT/Models/GraphVertexPayload.cs` | A data structure for the payload of a graph vertex operation. |
@@ -260,7 +259,7 @@
 | `$/Ama.CRDT/Services/Strategies/BoundedCounterStrategy.cs` | Implements a counter that is clamped within a specified minimum and maximum value. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/CounterMapStrategy.cs` | Implements the Counter-Map strategy, where each key in a dictionary is treated as an independent PN-Counter. |
 | `$/Ama.CRDT/Services/Strategies/CounterStrategy.cs` | Implements the CRDT Counter strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get the current value and apply the increment. |
-| `$/Ama.CRDT/Services/Strategies/EpochBoundStrategy.cs` | Implements the Epoch Bound decorator strategy. It intercepts operations, bumps the epoch on clear, and discards operations from older epochs. |
+| `$/Ama.CRDT/Services/Strategies/Decorators/EpochBoundStrategy.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Strategies/FixedSizeArrayStrategy.cs` | Implements a strategy for fixed-size arrays where each index is an LWW-Register. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/FwwMapStrategy.cs` | Implements the FWW-Map strategy, a partitioned dictionary where each key-value pair resolves conflicts by picking the value with the lowest timestamp. |
 | `$/Ama.CRDT/Services/Strategies/FwwSetStrategy.cs` | Implements the FWW-Set strategy, a partitioned collection where conflicts are resolved by retaining the state of the earliest operation. |

@@ -25,7 +25,7 @@ public sealed class CrdtStrategyTypeAnalyzerTests
     public async Task WhenCounterStrategyAppliedToValidType_ShouldNotReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 
 public class MyPoco
 {
@@ -42,7 +42,7 @@ public class MyPoco
     public async Task WhenCounterStrategyAppliedToInvalidType_ShouldReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 
 public class MyPoco
 {
@@ -64,7 +64,7 @@ public class MyPoco
     public async Task WhenArrayStrategyAppliedToValidType_ShouldNotReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using System.Collections.Generic;
 
 public class MyPoco
@@ -82,7 +82,7 @@ public class MyPoco
     public async Task WhenArrayStrategyAppliedToGenericIListInterface_ShouldNotReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using System.Collections.Generic;
 
 public class MyPoco
@@ -100,7 +100,7 @@ public class MyPoco
     public async Task WhenArrayStrategyAppliedToInvalidType_ShouldReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 
 public class MyPoco
 {
@@ -122,7 +122,7 @@ public class MyPoco
     public async Task WhenMapStrategyAppliedToGenericIDictionaryInterface_ShouldNotReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using System.Collections.Generic;
 
 public class MyPoco
@@ -140,7 +140,7 @@ public class MyPoco
     public async Task WhenInterfaceBasedStrategyAppliedToValidType_ShouldNotReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using System;
 
 public class MyPoco
@@ -172,7 +172,7 @@ public class MyPoco
     public async Task WhenStateMachineStrategyAppliedToValidType_ShouldNotReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 
 public class ValidStateValidator : IStateMachine<int>
@@ -195,7 +195,7 @@ public class MyPoco
     public async Task WhenStateMachineStrategyAppliedToInvalidType_ShouldReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 
 public class InvalidStateValidator : IStateMachine<int>

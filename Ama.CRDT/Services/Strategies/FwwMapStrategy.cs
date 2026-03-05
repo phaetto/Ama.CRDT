@@ -1,7 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
 using Ama.CRDT.Attributes;
-using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
@@ -14,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Ama.CRDT.Services;
+using Ama.CRDT.Attributes.Strategies.Semantic;
 
 /// <summary>
 /// Implements the FWW-Map (First-Writer-Wins Map) CRDT strategy.

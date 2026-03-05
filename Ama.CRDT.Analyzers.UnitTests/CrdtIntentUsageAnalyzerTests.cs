@@ -27,7 +27,7 @@ public sealed class CrdtIntentUsageAnalyzerTests
     public async Task WhenValidIntentUsed_ShouldNotReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
@@ -57,7 +57,7 @@ public class TestClass
     public async Task WhenInvalidIntentUsedOnSupportedStrategy_ShouldReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
@@ -94,7 +94,7 @@ public class TestClass
     public async Task WhenStrategyDoesNotSupportIntents_ShouldReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
@@ -147,7 +147,7 @@ public class TestClass
     public async Task WhenGeneratePatchCalled_ShouldNotReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
 
@@ -174,7 +174,7 @@ public class TestClass
     public async Task WhenValidIntentUsedViaBuilder_ShouldNotReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
@@ -203,7 +203,7 @@ public class TestClass
     public async Task WhenInvalidIntentUsedViaBuilder_ShouldReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
@@ -237,7 +237,7 @@ public class TestClass
     public async Task WhenInvalidIntentUsedViaBuilderVariable_ShouldReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
@@ -272,7 +272,7 @@ public class TestClass
     public async Task WhenInvalidIntentUsedViaBuildExplicit_ShouldReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
@@ -306,7 +306,7 @@ public class TestClass
     public async Task WhenValidIntentUsedOnDeepPath_ShouldNotReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
@@ -340,7 +340,7 @@ public class TestClass
     public async Task WhenInvalidIntentUsedOnDeepPath_ShouldReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
@@ -378,7 +378,7 @@ public class TestClass
     public async Task WhenInvalidIntentUsedOnDeepPathViaBuilder_ShouldReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
@@ -417,7 +417,7 @@ public class TestClass
     public async Task WhenValidIntentUsedOnListIndexerPath_ShouldNotReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
@@ -451,7 +451,7 @@ public class TestClass
     public async Task WhenInvalidIntentUsedOnListIndexerPath_ShouldReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
@@ -490,7 +490,7 @@ public class TestClass
     public async Task WhenValidIntentUsedOnDictionaryIndexerPath_ShouldNotReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
@@ -524,7 +524,7 @@ public class TestClass
     public async Task WhenInvalidIntentUsedOnDictionaryIndexerPath_ShouldReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
@@ -563,7 +563,7 @@ public class TestClass
     public async Task WhenInvalidIntentUsedOnListIndexerPathViaBuilder_ShouldReportDiagnostic()
     {
         var source = @"
-using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;

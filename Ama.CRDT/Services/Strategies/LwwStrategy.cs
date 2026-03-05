@@ -1,7 +1,7 @@
 namespace Ama.CRDT.Services.Strategies;
 
 using Ama.CRDT.Attributes;
-using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
