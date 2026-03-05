@@ -50,7 +50,6 @@ public sealed class ApprovalQuorumStrategy(IServiceProvider serviceProvider, IEl
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(context.Property);
 
         var innerStrategy = GetInnerStrategy(context.Property);
