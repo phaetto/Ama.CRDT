@@ -31,6 +31,9 @@ public class StrategyGenerateOperationBenchmarks
     #region Per-strategy operations and components
     private ICrdtStrategy lwwStrategy = null!;
     private GenerateOperationContext lwwContext = default!;
+    
+    private ICrdtStrategy fwwStrategy = null!;
+    private GenerateOperationContext fwwContext = default!;
 
     private ICrdtStrategy counterStrategy = null!;
     private GenerateOperationContext counterContext = default!;
@@ -58,6 +61,9 @@ public class StrategyGenerateOperationBenchmarks
 
     private ICrdtStrategy lwwSetStrategy = null!;
     private GenerateOperationContext lwwSetContext = default!;
+    
+    private ICrdtStrategy fwwSetStrategy = null!;
+    private GenerateOperationContext fwwSetContext = default!;
 
     private ICrdtStrategy orSetStrategy = null!;
     private GenerateOperationContext orSetContext = default!;
@@ -91,6 +97,9 @@ public class StrategyGenerateOperationBenchmarks
 
     private ICrdtStrategy lwwMapStrategy = null!;
     private GenerateOperationContext lwwMapContext = default!;
+    
+    private ICrdtStrategy fwwMapStrategy = null!;
+    private GenerateOperationContext fwwMapContext = default!;
 
     private ICrdtStrategy maxWinsMapStrategy = null!;
     private GenerateOperationContext maxWinsMapContext = default!;
@@ -131,6 +140,7 @@ public class StrategyGenerateOperationBenchmarks
 
         #region Setup per strategy contexts
         SetupStrategyAndContext(nameof(StrategyPoco.LwwValue), new SetIntent("updated"), out lwwStrategy, out lwwContext);
+        SetupStrategyAndContext(nameof(StrategyPoco.FwwValue), new SetIntent("updated"), out fwwStrategy, out fwwContext);
         SetupStrategyAndContext(nameof(StrategyPoco.Counter), new IncrementIntent(10), out counterStrategy, out counterContext);
         SetupStrategyAndContext(nameof(StrategyPoco.GCounter), new IncrementIntent(10u), out gCounterStrategy, out gCounterContext);
         SetupStrategyAndContext(nameof(StrategyPoco.BoundedCounter), new IncrementIntent(10), out boundedCounterStrategy, out boundedCounterContext);
@@ -140,6 +150,7 @@ public class StrategyGenerateOperationBenchmarks
         SetupStrategyAndContext(nameof(StrategyPoco.GSet), new AddIntent("C"), out gSetStrategy, out gSetContext);
         SetupStrategyAndContext(nameof(StrategyPoco.TwoPhaseSet), new AddIntent("C"), out twoPhaseSetStrategy, out twoPhaseSetContext);
         SetupStrategyAndContext(nameof(StrategyPoco.LwwSet), new AddIntent("C"), out lwwSetStrategy, out lwwSetContext);
+        SetupStrategyAndContext(nameof(StrategyPoco.FwwSet), new AddIntent("C"), out fwwSetStrategy, out fwwSetContext);
         SetupStrategyAndContext(nameof(StrategyPoco.OrSet), new AddIntent("C"), out orSetStrategy, out orSetContext);
         SetupStrategyAndContext(nameof(StrategyPoco.LcsList), new InsertIntent(1, "D"), out arrayLcsStrategy, out arrayLcsContext);
         SetupStrategyAndContext(nameof(StrategyPoco.FixedArray), new SetIndexIntent(1, "Z"), out fixedSizeArrayStrategy, out fixedSizeArrayContext);
@@ -151,6 +162,7 @@ public class StrategyGenerateOperationBenchmarks
         SetupStrategyAndContext(nameof(StrategyPoco.RgaList), new InsertIntent(1, "D"), out rgaStrategy, out rgaContext);
         SetupStrategyAndContext(nameof(StrategyPoco.CounterMap), new MapIncrementIntent("A", 5), out counterMapStrategy, out counterMapContext);
         SetupStrategyAndContext(nameof(StrategyPoco.LwwMap), new MapSetIntent("A", "updated"), out lwwMapStrategy, out lwwMapContext);
+        SetupStrategyAndContext(nameof(StrategyPoco.FwwMap), new MapSetIntent("A", "updated"), out fwwMapStrategy, out fwwMapContext);
         SetupStrategyAndContext(nameof(StrategyPoco.MaxWinsMap), new MapSetIntent("A", 50), out maxWinsMapStrategy, out maxWinsMapContext);
         SetupStrategyAndContext(nameof(StrategyPoco.MinWinsMap), new MapSetIntent("A", 1), out minWinsMapStrategy, out minWinsMapContext);
         SetupStrategyAndContext(nameof(StrategyPoco.OrMap), new MapSetIntent("A", "new"), out orMapStrategy, out orMapContext);
@@ -187,6 +199,13 @@ public class StrategyGenerateOperationBenchmarks
     {
         for (int i = 0; i < BatchSize; i++)
             lwwStrategy.GenerateOperation(lwwContext);
+    }
+    
+    [Benchmark(Description = "Strategy.GenerateOp: FWW", OperationsPerInvoke = BatchSize)]
+    public void GenerateOp_Fww()
+    {
+        for (int i = 0; i < BatchSize; i++)
+            fwwStrategy.GenerateOperation(fwwContext);
     }
 
     [Benchmark(Description = "Strategy.GenerateOp: Counter", OperationsPerInvoke = BatchSize)]
@@ -250,6 +269,13 @@ public class StrategyGenerateOperationBenchmarks
     {
         for (int i = 0; i < BatchSize; i++)
             lwwSetStrategy.GenerateOperation(lwwSetContext);
+    }
+    
+    [Benchmark(Description = "Strategy.GenerateOp: FwwSet", OperationsPerInvoke = BatchSize)]
+    public void GenerateOp_FwwSet()
+    {
+        for (int i = 0; i < BatchSize; i++)
+            fwwSetStrategy.GenerateOperation(fwwSetContext);
     }
 
     [Benchmark(Description = "Strategy.GenerateOp: OrSet", OperationsPerInvoke = BatchSize)]
@@ -327,6 +353,13 @@ public class StrategyGenerateOperationBenchmarks
     {
         for (int i = 0; i < BatchSize; i++)
             lwwMapStrategy.GenerateOperation(lwwMapContext);
+    }
+    
+    [Benchmark(Description = "Strategy.GenerateOp: FwwMap", OperationsPerInvoke = BatchSize)]
+    public void GenerateOp_FwwMap()
+    {
+        for (int i = 0; i < BatchSize; i++)
+            fwwMapStrategy.GenerateOperation(fwwMapContext);
     }
 
     [Benchmark(Description = "Strategy.GenerateOp: MaxWinsMap", OperationsPerInvoke = BatchSize)]
