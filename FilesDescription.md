@@ -85,6 +85,9 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/CounterMapStrategyTests.cs` | Contains unit tests for `CounterMapStrategy`, verifying convergence and correct patch generation for concurrent increments and decrements on dictionary keys. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/CounterStrategyTests.cs` | Contains unit tests for the `CounterStrategy` implementation, verifying both patch generation and its simplified, unconditional data application logic. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/FixedSizeArrayStrategyTests.cs` | Contains unit tests for the `FixedSizeArrayStrategy`, verifying convergence and idempotence for concurrent updates. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/FwwMapStrategyTests.cs` | Contains unit tests for `FwwMapStrategy`, verifying FWW-based convergence, patch generation for map changes, and correct partitioning logic (split/merge). |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/FwwSetStrategyTests.cs` | Contains unit tests for the `FwwSetStrategy`, validating FWW-based convergence on collection items, explicit intents, and associative operation properties. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/FwwStrategyTests.cs` | Contains unit tests for the `FwwStrategy`, verifying correct First-Writer-Wins precedence, commutativity, and idempotence for scalar values. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GCounterStrategyTests.cs` | Contains unit tests for the `GCounterStrategy`, ensuring it only generates and applies positive increments. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GSetStrategyTests.cs` | Contains unit tests for the `GSetStrategy`, verifying its add-only behavior, idempotence, and commutativity. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GraphStrategyTests.cs` | Contains unit tests for `GraphStrategy`, verifying convergence and correct patch generation for concurrent additions of vertices and edges. |
@@ -115,6 +118,9 @@
 | `$/Ama.CRDT/Attributes/CrdtCounterMapStrategyAttribute.cs` | An attribute to mark a dictionary property to be managed by the Counter-Map strategy, where each key is treated as an independent PN-Counter. |
 | `$/Ama.CRDT/Attributes/CrdtCounterStrategyAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/CrdtFixedSizeArrayStrategyAttribute.cs` | An attribute to mark a collection property as a fixed-size array, where each index is an LWW-Register. |
+| `$/Ama.CRDT/Attributes/CrdtFwwMapStrategyAttribute.cs` | Specifies that a dictionary property should use the First-Writer-Wins (FWW) Map merge strategy, maintaining the value with the earliest timestamp per key. |
+| `$/Ama.CRDT/Attributes/CrdtFwwSetStrategyAttribute.cs` | Specifies that a collection property should use the First-Writer-Wins (FWW) Set merge strategy, determining membership by the earliest timestamp of addition or removal. |
+| `$/Ama.CRDT/Attributes/CrdtFwwStrategyAttribute.cs` | Specifies that a property should use the First-Writer-Wins (FWW) merge strategy, where the value with the lowest timestamp wins. |
 | `$/Ama.CRDT/Attributes/CrdtGCounterStrategyAttribute.cs` | An attribute to mark a numeric property as a G-Counter (Grow-Only Counter), which only permits positive increments. |
 | `$/Ama.CRDT/Attributes/CrdtGSetStrategyAttribute.cs` | An attribute to mark a collection property to be managed by the G-Set (Grow-Only Set) strategy. |
 | `$/Ama.CRDT/Attributes/CrdtGraphStrategyAttribute.cs` | An attribute to mark a `CrdtGraph` property to be managed by the Graph strategy. |
@@ -165,6 +171,7 @@
 | `$/Ama.CRDT/Models/Intents/AddIntent.cs` | Represents the intent to explicitly add an item to an unordered collection or set. |
 | `$/Ama.CRDT/Models/Intents/AddNodeIntent.cs` | Represents the intent to explicitly add a node to a replicated tree. |
 | `$/Ama.CRDT/Models/Intents/AddVertexIntent.cs` | Represents the intent to explicitly add a vertex to a graph. |
+| `$/Ama.CRDT/Models/Intents/ClearIntent.cs` | Represents the intent to explicitly clear a property, collection, or state, effectively resetting it for FWW and other strategies. |
 | `$/Ama.CRDT/Models/Intents/IOperationIntent.cs` | A marker interface for defining explicit CRDT operations intent directly triggered by user actions, bypassing diff generation. |
 | `$/Ama.CRDT/Models/Intents/IncrementIntent.cs` | Represents the intent to explicitly increment or decrement a numeric value or counter. |
 | `$/Ama.CRDT/Models/Intents/InsertIntent.cs` | Defines an explicit intention to insert a value into an ordered sequence at a specific index. |
@@ -249,6 +256,9 @@
 | `$/Ama.CRDT/Services/Strategies/CounterMapStrategy.cs` | Implements the Counter-Map strategy, where each key in a dictionary is treated as an independent PN-Counter. |
 | `$/Ama.CRDT/Services/Strategies/CounterStrategy.cs` | Implements the CRDT Counter strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get the current value and apply the increment. |
 | `$/Ama.CRDT/Services/Strategies/FixedSizeArrayStrategy.cs` | Implements a strategy for fixed-size arrays where each index is an LWW-Register. It now uses centralized reflection helpers from `PocoPathHelper`. |
+| `$/Ama.CRDT/Services/Strategies/FwwMapStrategy.cs` | Implements the FWW-Map strategy, a partitioned dictionary where each key-value pair resolves conflicts by picking the value with the lowest timestamp. |
+| `$/Ama.CRDT/Services/Strategies/FwwSetStrategy.cs` | Implements the FWW-Set strategy, a partitioned collection where conflicts are resolved by retaining the state of the earliest operation. |
+| `$/Ama.CRDT/Services/Strategies/FwwStrategy.cs` | Implements the First-Writer-Wins (FWW) strategy for conflict resolution, resolving concurrent modifications by selecting the value with the lowest timestamp. |
 | `$/Ama.CRDT/Services/Strategies/GCounterStrategy.cs` | Implements the G-Counter (Grow-Only Counter) strategy, which only allows for positive increments. |
 | `$/Ama.CRDT/Services/Strategies/GSetStrategy.cs` | Implements the G-Set (Grow-Only Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get collection element types. |
 | `$/Ama.CRDT/Services/Strategies/GenerateOperationContext.cs` | Defines the context for explicitly generating intent-based operations in strategies. |

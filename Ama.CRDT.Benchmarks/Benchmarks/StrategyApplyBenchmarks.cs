@@ -31,6 +31,9 @@ public class StrategyApplyBenchmarks
     #region Per-strategy operations and components
     private ICrdtStrategy lwwStrategy = null!;
     private IReadOnlyList<CrdtOperation> lwwOps = null!;
+    
+    private ICrdtStrategy fwwStrategy = null!;
+    private IReadOnlyList<CrdtOperation> fwwOps = null!;
 
     private ICrdtStrategy counterStrategy = null!;
     private IReadOnlyList<CrdtOperation> counterOps = null!;
@@ -58,6 +61,9 @@ public class StrategyApplyBenchmarks
 
     private ICrdtStrategy lwwSetStrategy = null!;
     private IReadOnlyList<CrdtOperation> lwwSetOps = null!;
+    
+    private ICrdtStrategy fwwSetStrategy = null!;
+    private IReadOnlyList<CrdtOperation> fwwSetOps = null!;
 
     private ICrdtStrategy orSetStrategy = null!;
     private IReadOnlyList<CrdtOperation> orSetOps = null!;
@@ -92,6 +98,9 @@ public class StrategyApplyBenchmarks
 
     private ICrdtStrategy lwwMapStrategy = null!;
     private IReadOnlyList<CrdtOperation> lwwMapOps = null!;
+    
+    private ICrdtStrategy fwwMapStrategy = null!;
+    private IReadOnlyList<CrdtOperation> fwwMapOps = null!;
 
     private ICrdtStrategy maxWinsMapStrategy = null!;
     private IReadOnlyList<CrdtOperation> maxWinsMapOps = null!;
@@ -135,6 +144,10 @@ public class StrategyApplyBenchmarks
         var toPocoForLww = basePoco.Clone();
         toPocoForLww.LwwValue = "updated";
         lwwOps = SetupStrategyAndOps(nameof(StrategyPoco.LwwValue), toPocoForLww, out lwwStrategy);
+        
+        var toPocoForFww = basePoco.Clone();
+        toPocoForFww.FwwValue = "updated";
+        fwwOps = SetupStrategyAndOps(nameof(StrategyPoco.FwwValue), toPocoForFww, out fwwStrategy);
 
         var toPocoForCounter = basePoco.Clone();
         toPocoForCounter.Counter = 10;
@@ -172,6 +185,11 @@ public class StrategyApplyBenchmarks
         toPocoForLwwSet.LwwSet.Remove("A");
         toPocoForLwwSet.LwwSet.Add("C");
         lwwSetOps = SetupStrategyAndOps(nameof(StrategyPoco.LwwSet), toPocoForLwwSet, out lwwSetStrategy);
+        
+        var toPocoForFwwSet = basePoco.Clone();
+        toPocoForFwwSet.FwwSet.Remove("A");
+        toPocoForFwwSet.FwwSet.Add("C");
+        fwwSetOps = SetupStrategyAndOps(nameof(StrategyPoco.FwwSet), toPocoForFwwSet, out fwwSetStrategy);
 
         var toPocoForOrSet = basePoco.Clone();
         toPocoForOrSet.OrSet.Remove("A");
@@ -224,6 +242,11 @@ public class StrategyApplyBenchmarks
         toPocoForLwwMap.LwwMap["A"] = "updated";
         toPocoForLwwMap.LwwMap.Add("C", "new");
         lwwMapOps = SetupStrategyAndOps(nameof(StrategyPoco.LwwMap), toPocoForLwwMap, out lwwMapStrategy);
+        
+        var toPocoForFwwMap = basePoco.Clone();
+        toPocoForFwwMap.FwwMap["A"] = "updated";
+        toPocoForFwwMap.FwwMap.Add("C", "new");
+        fwwMapOps = SetupStrategyAndOps(nameof(StrategyPoco.FwwMap), toPocoForFwwMap, out fwwMapStrategy);
 
         var toPocoForMaxWinsMap = basePoco.Clone();
         toPocoForMaxWinsMap.MaxWinsMap["A"] = 50;
@@ -255,13 +278,13 @@ public class StrategyApplyBenchmarks
     }
 
     [IterationSetup(Targets = [
-        nameof(Apply_Lww), nameof(Apply_Counter), nameof(Apply_GCounter),
+        nameof(Apply_Lww), nameof(Apply_Fww), nameof(Apply_Counter), nameof(Apply_GCounter),
         nameof(Apply_BoundedCounter), nameof(Apply_MaxWins), nameof(Apply_MinWins),
         nameof(Apply_AverageRegister), nameof(Apply_GSet), nameof(Apply_TwoPhaseSet),
-        nameof(Apply_LwwSet), nameof(Apply_OrSet), nameof(Apply_ArrayLcs),
+        nameof(Apply_LwwSet), nameof(Apply_FwwSet), nameof(Apply_OrSet), nameof(Apply_ArrayLcs),
         nameof(Apply_FixedSizeArray), nameof(Apply_Lseq), nameof(Apply_VoteCounter),
         nameof(Apply_StateMachine), nameof(Apply_PriorityQueue), nameof(Apply_SortedSet),
-        nameof(Apply_Rga), nameof(Apply_CounterMap), nameof(Apply_LwwMap), 
+        nameof(Apply_Rga), nameof(Apply_CounterMap), nameof(Apply_LwwMap), nameof(Apply_FwwMap), 
         nameof(Apply_MaxWinsMap), nameof(Apply_MinWinsMap), nameof(Apply_OrMap), 
         nameof(Apply_Graph), nameof(Apply_TwoPhaseGraph), nameof(Apply_ReplicatedTree)
     ])]
@@ -303,6 +326,17 @@ public class StrategyApplyBenchmarks
             var doc = applyBatch[i];
             for (int j = 0; j < lwwOps.Count; j++)
                 lwwStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, lwwOps[j]));
+        }
+    }
+    
+    [Benchmark(Description = "Strategy.Apply: FWW", OperationsPerInvoke = BatchSize)]
+    public void Apply_Fww()
+    {
+        for (int i = 0; i < BatchSize; i++)
+        {
+            var doc = applyBatch[i];
+            for (int j = 0; j < fwwOps.Count; j++)
+                fwwStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, fwwOps[j]));
         }
     }
 
@@ -402,6 +436,17 @@ public class StrategyApplyBenchmarks
             var doc = applyBatch[i];
             for (int j = 0; j < lwwSetOps.Count; j++)
                 lwwSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, lwwSetOps[j]));
+        }
+    }
+    
+    [Benchmark(Description = "Strategy.Apply: FwwSet", OperationsPerInvoke = BatchSize)]
+    public void Apply_FwwSet()
+    {
+        for (int i = 0; i < BatchSize; i++)
+        {
+            var doc = applyBatch[i];
+            for (int j = 0; j < fwwSetOps.Count; j++)
+                fwwSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, fwwSetOps[j]));
         }
     }
 
@@ -523,6 +568,17 @@ public class StrategyApplyBenchmarks
             var doc = applyBatch[i];
             for (int j = 0; j < lwwMapOps.Count; j++)
                 lwwMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, lwwMapOps[j]));
+        }
+    }
+    
+    [Benchmark(Description = "Strategy.Apply: FwwMap", OperationsPerInvoke = BatchSize)]
+    public void Apply_FwwMap()
+    {
+        for (int i = 0; i < BatchSize; i++)
+        {
+            var doc = applyBatch[i];
+            for (int j = 0; j < fwwMapOps.Count; j++)
+                fwwMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, fwwMapOps[j]));
         }
     }
 

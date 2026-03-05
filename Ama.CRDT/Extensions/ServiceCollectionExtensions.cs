@@ -85,6 +85,7 @@ public static class ServiceCollectionExtensions
 
         // Register all strategies with validation.
         services.TryAddScoped(CreateValidatedInstance<LwwStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<FwwStrategy>);
         services.TryAddScoped(CreateValidatedInstance<CounterStrategy>);
         services.TryAddScoped(CreateValidatedInstance<SortedSetStrategy>);
         services.TryAddScoped(CreateValidatedInstance<ArrayLcsStrategy>);
@@ -96,6 +97,7 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped(CreateValidatedInstance<GSetStrategy>);
         services.TryAddScoped(CreateValidatedInstance<TwoPhaseSetStrategy>);
         services.TryAddScoped(CreateValidatedInstance<LwwSetStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<FwwSetStrategy>);
         services.TryAddScoped(CreateValidatedInstance<OrSetStrategy>);
         services.TryAddScoped(CreateValidatedInstance<PriorityQueueStrategy>);
         services.TryAddScoped(CreateValidatedInstance<FixedSizeArrayStrategy>);
@@ -103,6 +105,7 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped(CreateValidatedInstance<VoteCounterStrategy>);
         services.TryAddScoped(CreateValidatedInstance<StateMachineStrategy>);
         services.TryAddScoped(CreateValidatedInstance<LwwMapStrategy>);
+        services.TryAddScoped(CreateValidatedInstance<FwwMapStrategy>);
         services.TryAddScoped(CreateValidatedInstance<OrMapStrategy>);
         services.TryAddScoped(CreateValidatedInstance<CounterMapStrategy>);
         services.TryAddScoped(CreateValidatedInstance<MaxWinsMapStrategy>);
@@ -115,6 +118,7 @@ public static class ServiceCollectionExtensions
         // Register all concrete strategies as ICrdtStrategy.
         // This will resolve the concrete type, which in turn triggers our validating factory.
         services.AddScoped<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
+        services.AddScoped<ICrdtStrategy, FwwStrategy>(sp => sp.GetRequiredService<FwwStrategy>());
         services.AddScoped<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
         services.AddScoped<ICrdtStrategy, SortedSetStrategy>(sp => sp.GetRequiredService<SortedSetStrategy>());
         services.AddScoped<ICrdtStrategy, ArrayLcsStrategy>(sp => sp.GetRequiredService<ArrayLcsStrategy>());
@@ -126,6 +130,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICrdtStrategy, GSetStrategy>(sp => sp.GetRequiredService<GSetStrategy>());
         services.AddScoped<ICrdtStrategy, TwoPhaseSetStrategy>(sp => sp.GetRequiredService<TwoPhaseSetStrategy>());
         services.AddScoped<ICrdtStrategy, LwwSetStrategy>(sp => sp.GetRequiredService<LwwSetStrategy>());
+        services.AddScoped<ICrdtStrategy, FwwSetStrategy>(sp => sp.GetRequiredService<FwwSetStrategy>());
         services.AddScoped<ICrdtStrategy, OrSetStrategy>(sp => sp.GetRequiredService<OrSetStrategy>());
         services.AddScoped<ICrdtStrategy, PriorityQueueStrategy>(sp => sp.GetRequiredService<PriorityQueueStrategy>());
         services.AddScoped<ICrdtStrategy, FixedSizeArrayStrategy>(sp => sp.GetRequiredService<FixedSizeArrayStrategy>());
@@ -133,6 +138,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICrdtStrategy, VoteCounterStrategy>(sp => sp.GetRequiredService<VoteCounterStrategy>());
         services.AddScoped<ICrdtStrategy, StateMachineStrategy>(sp => sp.GetRequiredService<StateMachineStrategy>());
         services.AddScoped<ICrdtStrategy, LwwMapStrategy>(sp => sp.GetRequiredService<LwwMapStrategy>());
+        services.AddScoped<ICrdtStrategy, FwwMapStrategy>(sp => sp.GetRequiredService<FwwMapStrategy>());
         services.AddScoped<ICrdtStrategy, OrMapStrategy>(sp => sp.GetRequiredService<OrMapStrategy>());
         services.AddScoped<ICrdtStrategy, CounterMapStrategy>(sp => sp.GetRequiredService<CounterMapStrategy>());
         services.AddScoped<ICrdtStrategy, MaxWinsMapStrategy>(sp => sp.GetRequiredService<MaxWinsMapStrategy>());
@@ -144,6 +150,8 @@ public static class ServiceCollectionExtensions
 
         // Register partitionable strategies.
         services.AddScoped<IPartitionableCrdtStrategy, OrMapStrategy>(sp => sp.GetRequiredService<OrMapStrategy>());
+        services.AddScoped<IPartitionableCrdtStrategy, FwwSetStrategy>(sp => sp.GetRequiredService<FwwSetStrategy>());
+        services.AddScoped<IPartitionableCrdtStrategy, FwwMapStrategy>(sp => sp.GetRequiredService<FwwMapStrategy>());
 
         return services;
     }

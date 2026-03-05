@@ -22,6 +22,15 @@ public static class IntentBuilderExtensions
     }
 
     /// <summary>
+    /// Explicitly clears a property, collection, or state, resetting it.
+    /// </summary>
+    [CrdtIntentMapping(typeof(ClearIntent))]
+    public static CrdtOperation Clear<TProperty>(this IIntentBuilder<TProperty> builder)
+    {
+        return builder.Build(new ClearIntent());
+    }
+
+    /// <summary>
     /// Explicitly increments or decrements a numeric value or counter.
     /// </summary>
     [CrdtIntentMapping(typeof(IncrementIntent))]

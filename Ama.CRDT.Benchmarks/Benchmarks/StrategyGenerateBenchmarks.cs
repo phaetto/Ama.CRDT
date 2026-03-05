@@ -33,6 +33,11 @@ public class StrategyGenerateBenchmarks
     private ICrdtStrategy lwwStrategy = null!;
     private string lwwPath = null!;
 
+    private StrategyPoco toPocoForFww = default!;
+    private PropertyInfo fwwProp = null!;
+    private ICrdtStrategy fwwStrategy = null!;
+    private string fwwPath = null!;
+
     private StrategyPoco toPocoForCounter = default!;
     private PropertyInfo counterProp = null!;
     private ICrdtStrategy counterStrategy = null!;
@@ -77,6 +82,11 @@ public class StrategyGenerateBenchmarks
     private PropertyInfo lwwSetProp = null!;
     private ICrdtStrategy lwwSetStrategy = null!;
     private string lwwSetPath = null!;
+
+    private StrategyPoco toPocoForFwwSet = default!;
+    private PropertyInfo fwwSetProp = null!;
+    private ICrdtStrategy fwwSetStrategy = null!;
+    private string fwwSetPath = null!;
 
     private StrategyPoco toPocoForOrSet = default!;
     private PropertyInfo orSetProp = null!;
@@ -134,6 +144,11 @@ public class StrategyGenerateBenchmarks
     private ICrdtStrategy lwwMapStrategy = null!;
     private string lwwMapPath = null!;
 
+    private StrategyPoco toPocoForFwwMap = default!;
+    private PropertyInfo fwwMapProp = null!;
+    private ICrdtStrategy fwwMapStrategy = null!;
+    private string fwwMapPath = null!;
+
     private StrategyPoco toPocoForMaxWinsMap = default!;
     private PropertyInfo maxWinsMapProp = null!;
     private ICrdtStrategy maxWinsMapStrategy = null!;
@@ -189,6 +204,10 @@ public class StrategyGenerateBenchmarks
         toPocoForLww.LwwValue = "updated";
         SetupStrategyContext(nameof(StrategyPoco.LwwValue), out lwwProp, out lwwStrategy, out lwwPath);
 
+        toPocoForFww = basePoco.Clone();
+        toPocoForFww.FwwValue = "updated";
+        SetupStrategyContext(nameof(StrategyPoco.FwwValue), out fwwProp, out fwwStrategy, out fwwPath);
+
         toPocoForCounter = basePoco.Clone();
         toPocoForCounter.Counter = 10;
         SetupStrategyContext(nameof(StrategyPoco.Counter), out counterProp, out counterStrategy, out counterPath);
@@ -225,6 +244,11 @@ public class StrategyGenerateBenchmarks
         toPocoForLwwSet.LwwSet.Remove("A");
         toPocoForLwwSet.LwwSet.Add("C");
         SetupStrategyContext(nameof(StrategyPoco.LwwSet), out lwwSetProp, out lwwSetStrategy, out lwwSetPath);
+
+        toPocoForFwwSet = basePoco.Clone();
+        toPocoForFwwSet.FwwSet.Remove("A");
+        toPocoForFwwSet.FwwSet.Add("C");
+        SetupStrategyContext(nameof(StrategyPoco.FwwSet), out fwwSetProp, out fwwSetStrategy, out fwwSetPath);
 
         toPocoForOrSet = basePoco.Clone();
         toPocoForOrSet.OrSet.Remove("A");
@@ -276,6 +300,10 @@ public class StrategyGenerateBenchmarks
         toPocoForLwwMap.LwwMap["key1"] = "newVal";
         SetupStrategyContext(nameof(StrategyPoco.LwwMap), out lwwMapProp, out lwwMapStrategy, out lwwMapPath);
 
+        toPocoForFwwMap = basePoco.Clone();
+        toPocoForFwwMap.FwwMap["A"] = "newVal";
+        SetupStrategyContext(nameof(StrategyPoco.FwwMap), out fwwMapProp, out fwwMapStrategy, out fwwMapPath);
+
         toPocoForMaxWinsMap = basePoco.Clone();
         toPocoForMaxWinsMap.MaxWinsMap["key1"] = 100;
         SetupStrategyContext(nameof(StrategyPoco.MaxWinsMap), out maxWinsMapProp, out maxWinsMapStrategy, out maxWinsMapPath);
@@ -321,6 +349,14 @@ public class StrategyGenerateBenchmarks
         opsBuffer.Clear();
         var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), lwwPath, lwwProp, basePoco.LwwValue, toPocoForLww.LwwValue, basePoco, toPocoForLww, fromDoc.Metadata, timestamp, 0);
         lwwStrategy.GeneratePatch(ctx);
+    }
+    
+    [Benchmark(Description = "Strategy.Generate: FWW")]
+    public void Generate_Fww()
+    {
+        opsBuffer.Clear();
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), fwwPath, fwwProp, basePoco.FwwValue, toPocoForFww.FwwValue, basePoco, toPocoForFww, fromDoc.Metadata, timestamp, 0);
+        fwwStrategy.GeneratePatch(ctx);
     }
 
     [Benchmark(Description = "Strategy.Generate: Counter")]
@@ -393,6 +429,14 @@ public class StrategyGenerateBenchmarks
         opsBuffer.Clear();
         var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), lwwSetPath, lwwSetProp, basePoco.LwwSet, toPocoForLwwSet.LwwSet, basePoco, toPocoForLwwSet, fromDoc.Metadata, timestamp, 0);
         lwwSetStrategy.GeneratePatch(ctx);
+    }
+
+    [Benchmark(Description = "Strategy.Generate: FwwSet")]
+    public void Generate_FwwSet()
+    {
+        opsBuffer.Clear();
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), fwwSetPath, fwwSetProp, basePoco.FwwSet, toPocoForFwwSet.FwwSet, basePoco, toPocoForFwwSet, fromDoc.Metadata, timestamp, 0);
+        fwwSetStrategy.GeneratePatch(ctx);
     }
 
     [Benchmark(Description = "Strategy.Generate: OrSet")]
@@ -481,6 +525,14 @@ public class StrategyGenerateBenchmarks
         opsBuffer.Clear();
         var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), lwwMapPath, lwwMapProp, basePoco.LwwMap, toPocoForLwwMap.LwwMap, basePoco, toPocoForLwwMap, fromDoc.Metadata, timestamp, 0);
         lwwMapStrategy.GeneratePatch(ctx);
+    }
+
+    [Benchmark(Description = "Strategy.Generate: FwwMap")]
+    public void Generate_FwwMap()
+    {
+        opsBuffer.Clear();
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), fwwMapPath, fwwMapProp, basePoco.FwwMap, toPocoForFwwMap.FwwMap, basePoco, toPocoForFwwMap, fromDoc.Metadata, timestamp, 0);
+        fwwMapStrategy.GeneratePatch(ctx);
     }
 
     [Benchmark(Description = "Strategy.Generate: MaxWinsMap")]
