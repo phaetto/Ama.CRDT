@@ -4,7 +4,6 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
-using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Intents.Decorators;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
@@ -43,7 +42,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         ArgumentNullException.ThrowIfNull(context.Property);
 
         var innerStrategy = GetInnerStrategy(context.Property);
-        var localEpoch = context.OriginalMeta.Epochs.TryGetValue(context.Path, out var ep) ? ep : 0;
+        var localEpoch = GetEpochForPath(context.OriginalMeta, context.Path, out _);
         
         var innerOps = new List<CrdtOperation>();
         var innerContext = context with { Operations = innerOps };
@@ -61,7 +60,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
     {
         ArgumentNullException.ThrowIfNull(context.Property);
 
-        var localEpoch = context.Metadata.Epochs.TryGetValue(context.JsonPath, out var ep) ? ep : 0;
+        var localEpoch = GetEpochForPath(context.Metadata, context.JsonPath, out _);
         
         if (context.Intent is EpochClearIntent)
         {
@@ -104,11 +103,13 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
 
         if (payload.Epoch > localEpoch)
         {
-            // We entered a new epoch. Update metadata and clear local state.
+            // We entered a new epoch. Clear all metadata and local state.
+            // MUST clear metadata before setting the new epoch so we don't clear the new value.
+            ClearMetadataForPath(context.Metadata, basePath);
             context.Metadata.Epochs[basePath] = payload.Epoch;
 
             var propVal = PocoPathHelper.GetValue(context.Root, basePath);
-            if (propVal is System.Collections.IList list)
+            if (propVal is System.Collections.IList list && !list.IsFixedSize)
             {
                 list.Clear();
             }
@@ -116,12 +117,14 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
             {
                 dict.Clear();
             }
-            else if (context.Property?.CanWrite == true)
+            else
             {
-                PocoPathHelper.SetValue(context.Root, basePath, null);
+                var (_, bProperty, _) = PocoPathHelper.ResolvePath(context.Root, basePath, createMissing: false);
+                if (bProperty?.CanWrite == true)
+                {
+                    PocoPathHelper.SetValue(context.Root, basePath, null);
+                }
             }
-
-            ClearMetadataForPath(context.Metadata, basePath);
         }
 
         // If it was just an EpochClearIntent, we already bumped the epoch and cleared the state.
@@ -133,19 +136,20 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         // We must re-resolve the target property because we might have cleared it and it needs recreation
         var (target, property, finalSegment) = PocoPathHelper.ResolvePath(context.Root, context.Operation.JsonPath, createMissing: true);
         
-        if (property is null)
+        // Use context.Property, as `property` will be null if we resolved an element of a collection
+        if (context.Property is null)
         {
             return;
         }
 
-        var innerStrategy = GetInnerStrategy(property);
+        var innerStrategy = GetInnerStrategy(context.Property);
         var innerOp = context.Operation with { Value = payload.Value };
         
         var innerContext = context with 
         { 
             Operation = innerOp,
             Target = target,
-            Property = property,
+            Property = context.Property, // Retain the correct property info to resolve base strategy
             FinalSegment = finalSegment
         };
         
@@ -178,6 +182,9 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         var prefix2 = path + "[";
         var isMatch = (string k) => k == path || k.StartsWith(prefix1) || k.StartsWith(prefix2);
 
+        // Crucial: We must clear epochs for child paths as well, otherwise a lingering child 
+        // will override the parent's new higher epoch during future operations!
+        RemoveKeys(metadata.Epochs, isMatch);
         RemoveKeys(metadata.Lww, isMatch);
         RemoveKeys(metadata.Fww, isMatch);
         RemoveKeys(metadata.PositionalTrackers, isMatch);

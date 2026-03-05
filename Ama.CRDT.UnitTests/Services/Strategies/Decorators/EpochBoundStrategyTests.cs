@@ -5,8 +5,6 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
-using Ama.CRDT.Models.Intents;
-using Ama.CRDT.Models.Intents.Decorators;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -85,6 +83,42 @@ public sealed class EpochBoundStrategyTests : IDisposable
         var payload = (EpochPayload)op.Value;
         payload.Epoch.ShouldBe(0); // Default epoch
         payload.Value.ShouldBe("Closed");
+    }
+
+    [Fact]
+    public void GeneratePatch_ChildProperty_ShouldInheritParentEpoch()
+    {
+        var fromDoc = new CrdtDocument<ShoppingCart>(new ShoppingCart { Items = new Dictionary<string, string> { { "Key1", "Val1" } } }, new CrdtMetadata());
+        fromDoc.Metadata.Epochs["$.items"] = 4; // Parent at epoch 4
+
+        var toState = new ShoppingCart { Items = new Dictionary<string, string> { { "Key1", "Val2" } } };
+
+        var patch = patcher.GeneratePatch(fromDoc, toState);
+
+        patch.Operations.Count.ShouldBe(1);
+        var op = patch.Operations[0];
+        
+        op.JsonPath.ShouldStartWith("$.items"); // Inner strategy may or may not append key based on its own logic
+        op.Value.ShouldBeOfType<EpochPayload>();
+
+        var payload = (EpochPayload)op.Value;
+        payload.Epoch.ShouldBe(4); // Inherits 4 from parent
+    }
+
+    [Fact]
+    public void GenerateOperation_ChildPath_ShouldInheritParentEpoch()
+    {
+        var doc = new CrdtDocument<ShoppingCart>(new ShoppingCart(), new CrdtMetadata());
+        doc.Metadata.Epochs["$.items"] = 3; // Parent is at epoch 3
+
+        // Use IntentBuilder on a child path with Set extension method
+        var op = patcher.BuildOperation(doc, x => x.Items).Set("Key1", "Val1");
+
+        op.JsonPath.ShouldStartWith("$.items"); // Inner strategy defines the final generated path layout
+        op.Value.ShouldBeOfType<EpochPayload>();
+
+        var payload = (EpochPayload)op.Value;
+        payload.Epoch.ShouldBe(3); // Should inherit 3 from parent, not default to 0
     }
 
     [Fact]
@@ -175,5 +209,37 @@ public sealed class EpochBoundStrategyTests : IDisposable
 
         doc.Metadata.Epochs["$.items"].ShouldBe(2);
         doc.Data.Items.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void ApplyOperation_ParentClear_ShouldRemoveLingeringChildEpochs()
+    {
+        var doc = new CrdtDocument<ShoppingCart>(new ShoppingCart
+        {
+            Items = new Dictionary<string, string> { { "Key1", "Val1" } }
+        }, new CrdtMetadata());
+        
+        // Simulate child op arriving out-of-order before parent clear
+        doc.Metadata.Epochs["$.items['Key1']"] = 1;
+        doc.Metadata.Epochs["$.items"] = 1;
+
+        // Now parent clear arrives with Epoch 2
+        var clearOp = patcher.BuildOperation(doc, x => x.Items).ClearEpoch();
+
+        applicator.ApplyPatch(doc, new CrdtPatch([clearOp]));
+
+        // Parent should be bumped
+        doc.Metadata.Epochs["$.items"].ShouldBe(2);
+        
+        // Lingering child epoch must be gone, otherwise future operations will evaluate against it!
+        doc.Metadata.Epochs.ContainsKey("$.items['Key1']").ShouldBeFalse();
+
+        // Future operation on child with epoch 2 should succeed and NOT trigger a clear
+        var childOp = patcher.BuildOperation(doc, x => x.Items).Set("Key2", "Val2");
+
+        applicator.ApplyPatch(doc, new CrdtPatch([childOp]));
+        
+        doc.Data.Items.ContainsKey("Key2").ShouldBeTrue();
+        doc.Data.Items["Key2"].ShouldBe("Val2");
     }
 }
