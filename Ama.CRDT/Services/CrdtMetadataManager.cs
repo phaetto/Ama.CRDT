@@ -91,6 +91,7 @@ public sealed class CrdtMetadataManager(
         ArgumentNullException.ThrowIfNull(document.Data);
         ArgumentNullException.ThrowIfNull(timestamp);
 
+        document.Metadata.Epochs.Clear();
         document.Metadata.Lww.Clear();
         document.Metadata.PositionalTrackers.Clear();
         document.Metadata.AverageRegisters.Clear();
