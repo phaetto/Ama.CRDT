@@ -1,6 +1,7 @@
 namespace Ama.CRDT.Models.Serialization.Converters;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Partitioning;
 using System.Collections.Concurrent;
 using System.Text.Json;
@@ -63,7 +64,9 @@ public sealed class PolymorphicObjectJsonConverter : JsonConverter<object>
         Register("tree-remove", typeof(TreeRemoveNodePayload));
         Register("tree-move", typeof(TreeMoveNodePayload));
         Register("vote-payload", typeof(VotePayload));
-        
+        Register("epoch-payload", typeof(EpochPayload));
+        Register("quorum-payload", typeof(QuorumPayload));
+
         // Register core partitioning types
         Register("comp-key", typeof(CompositePartitionKey));
         Register("header-partition", typeof(HeaderPartition));

@@ -597,4 +597,105 @@ public class TestClass
         test.ExpectedDiagnostics.Add(expected);
         await test.RunAsync();
     }
+
+    [Fact]
+    public async Task WhenValidDecoratorIntentUsed_ShouldNotReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Attributes.Decorators;
+using Ama.CRDT.Services;
+using Ama.CRDT.Extensions;
+using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents.Decorators;
+using System.Collections.Generic;
+
+public class MyPoco
+{
+    [CrdtEpochBound]
+    [CrdtLwwStrategy]
+    public string MyString { get; set; }
+}
+
+public class TestClass
+{
+    public void DoWork(ICrdtPatcher patcher, CrdtDocument<MyPoco> doc)
+    {
+        patcher.BuildOperation(doc, x => x.MyString).ClearEpoch();
+    }
+}
+";
+        var test = CreateTest();
+        test.TestCode = source;
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenValidBaseIntentUsedWithDecorator_ShouldNotReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Attributes.Decorators;
+using Ama.CRDT.Services;
+using Ama.CRDT.Extensions;
+using Ama.CRDT.Models;
+using System.Collections.Generic;
+
+public class MyPoco
+{
+    [CrdtEpochBound]
+    [CrdtRgaStrategy]
+    public List<string> MyList { get; set; }
+}
+
+public class TestClass
+{
+    public void DoWork(ICrdtPatcher patcher, CrdtDocument<MyPoco> doc)
+    {
+        patcher.BuildOperation(doc, x => x.MyList).Insert(0, ""val"");
+    }
+}
+";
+        var test = CreateTest();
+        test.TestCode = source;
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenInvalidIntentUsedWithDecorator_ShouldReportDiagnostic()
+    {
+        // Avoid using an intent method with `INumber<T>` constraint (like Increment) on a property type 
+        // that doesn't satisfy it to prevent `CS0411` hiding the analyzer diagnostic in tests.
+        var source = @"
+using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Attributes.Decorators;
+using Ama.CRDT.Services;
+using Ama.CRDT.Extensions;
+using Ama.CRDT.Models;
+using System.Collections.Generic;
+
+public class MyPoco
+{
+    [CrdtEpochBound]
+    [CrdtLwwStrategy]
+    public List<string> MyList { get; set; }
+}
+
+public class TestClass
+{
+    public void DoWork(ICrdtPatcher patcher, CrdtDocument<MyPoco> doc)
+    {
+        patcher.BuildOperation(doc, x => x.MyList).Insert(0, ""val"");
+    }
+}
+";
+        var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
+            .WithLocation(20, 9)
+            .WithArguments("LwwStrategy", "MyList", "InsertIntent");
+
+        var test = CreateTest();
+        test.TestCode = source;
+        test.ExpectedDiagnostics.Add(expected);
+        await test.RunAsync();
+    }
 }
