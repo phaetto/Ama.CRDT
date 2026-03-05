@@ -1,14 +1,8 @@
 namespace Ama.CRDT.Services;
 
 using System;
-using System.Collections;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
@@ -18,9 +12,6 @@ using Ama.CRDT.Services.Strategies;
 /// <inheritdoc/>
 public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTimestampProvider timestampProvider, ReplicaContext replicaContext) : ICrdtPatcher
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
-    private static readonly ConcurrentDictionary<Type, CachedPropertyMetadata[]> PropertyCache = new();
-
     /// <inheritdoc/>
     public CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, T changed) where T : class
     {
@@ -97,7 +88,7 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
         ArgumentNullException.ThrowIfNull(intent);
         ArgumentNullException.ThrowIfNull(timestamp);
 
-        var parseResult = ParseExpression(propertyExpression);
+        var parseResult = PocoPathHelper.ParseExpression(propertyExpression);
         var strategy = strategyProvider.GetStrategy(parseResult.Property);
 
         var replicaId = replicaContext.ReplicaId;
@@ -132,7 +123,7 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
                 continue;
             }
 
-            var properties = GetCachedProperties(type);
+            var properties = PocoPathHelper.GetCachedProperties(type);
             var isRoot = path == "$";
 
             foreach (var cached in properties)
@@ -147,7 +138,7 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
                 var isComplexLww = strategy is LwwStrategy 
                                    && propertyType.IsClass 
                                    && propertyType != typeof(string) 
-                                   && !IsCollection(propertyType);
+                                   && !PocoPathHelper.IsCollection(propertyType);
 
                 if (isComplexLww && (fromValue is null || toValue is not null))
                 {
@@ -172,123 +163,6 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
             }
         }
     }
-
-    private static CachedPropertyMetadata[] GetCachedProperties(Type type)
-    {
-        return PropertyCache.GetOrAdd(type, static t =>
-            [.. t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .Where(p => p.CanRead && p.GetIndexParameters().Length == 0 && p.GetCustomAttribute<JsonIgnoreAttribute>() == null)
-                .Select(p => 
-                {
-                    var jsonPropertyName = SerializerOptions.PropertyNamingPolicy?.ConvertName(p.Name) ?? p.Name;
-                    return new CachedPropertyMetadata(p, jsonPropertyName);
-                })]);
-    }
-
-    private static bool IsCollection(Type type)
-    {
-        return type != typeof(string) && typeof(IEnumerable).IsAssignableFrom(type);
-    }
-
-    private static ParseResult ParseExpression<T, TProp>(Expression<Func<T, TProp>> expression)
-    {
-        var current = expression.Body;
-        
-        // Unwrap potential boxing
-        if (current is UnaryExpression unary)
-        {
-            current = unary.Operand;
-        }
-
-        PropertyInfo? targetProperty = null;
-        if (current is MemberExpression initialMe && initialMe.Member is PropertyInfo pi)
-        {
-            targetProperty = pi;
-        }
-
-        if (targetProperty is null)
-        {
-            throw new ArgumentException(
-                "Expression must end in a property access. " +
-                "If you are trying to replace an entire collection element, target the collection property instead " +
-                "and use a collection-specific intent (e.g., SetIndexIntent or MapSetIntent).", nameof(expression));
-        }
-
-        var jsonPath = BuildJsonPath(current);
-        return new ParseResult(jsonPath, targetProperty);
-    }
-
-    private static string BuildJsonPath(Expression expression)
-    {
-        var parts = new List<string>();
-        var current = expression;
-
-        while (current != null)
-        {
-            if (current is MemberExpression me)
-            {
-                var propName = me.Member.Name;
-                var jsonName = SerializerOptions.PropertyNamingPolicy?.ConvertName(propName) ?? propName;
-                parts.Add("." + jsonName);
-                current = me.Expression;
-            }
-            else if (current is MethodCallExpression mce && mce.Method.Name == "get_Item" && mce.Arguments.Count == 1)
-            {
-                var argValue = GetConstantValue(mce.Arguments[0]);
-                parts.Add($"[{FormatIndex(argValue)}]");
-                current = mce.Object;
-            }
-            else if (current is BinaryExpression be && be.NodeType == ExpressionType.ArrayIndex)
-            {
-                var argValue = GetConstantValue(be.Right);
-                parts.Add($"[{FormatIndex(argValue)}]");
-                current = be.Left;
-            }
-            else if (current is ParameterExpression)
-            {
-                break;
-            }
-            else
-            {
-                throw new ArgumentException($"Unsupported expression node type: {current.NodeType}. Ensure you only use property accesses and indexers.", nameof(expression));
-            }
-        }
-
-        parts.Reverse();
-        return "$" + string.Join(string.Empty, parts);
-    }
-
-    private static object? GetConstantValue(Expression expr)
-    {
-        if (expr is ConstantExpression ce)
-        {
-            return ce.Value;
-        }
-
-        // Compile and invoke the expression to get the value for captured variables/fields
-        var objectMember = Expression.Convert(expr, typeof(object));
-        var getterLambda = Expression.Lambda<Func<object>>(objectMember);
-        return getterLambda.Compile()();
-    }
-
-    private static string FormatIndex(object? index)
-    {
-        if (index is string s)
-        {
-            return $"'{s}'";
-        }
-        return index?.ToString() ?? string.Empty;
-    }
-
-    internal sealed class CachedPropertyMetadata(PropertyInfo property, string jsonPropertyName)
-    {
-        public PropertyInfo Property { get; } = property;
-        public string PathSuffix { get; } = $".{jsonPropertyName}";
-        public string RootedPath { get; } = $"$.{jsonPropertyName}";
-        public PocoPathHelper.PropertyAccessor Accessor { get; } = PocoPathHelper.GetAccessor(property);
-    }
-
-    private readonly record struct ParseResult(string JsonPath, PropertyInfo Property);
 
     private sealed class IntentBuilder<TModel, TProp>(
         ICrdtPatcher patcher,
