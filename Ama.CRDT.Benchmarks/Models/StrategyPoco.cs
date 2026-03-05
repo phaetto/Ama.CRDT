@@ -3,6 +3,7 @@ namespace Ama.CRDT.Benchmarks.Models;
 using System.Collections.Generic;
 using System.Linq;
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 

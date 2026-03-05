@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Benchmarks.Models;
-using Ama.CRDT.Attributes;
+
+using Ama.CRDT.Attributes.Strategies;
 
 public sealed class SimplePoco
 {

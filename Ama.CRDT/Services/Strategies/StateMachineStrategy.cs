@@ -10,6 +10,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using Ama.CRDT.Services;
+using Ama.CRDT.Attributes.Strategies.Semantic;
 
 /// <summary>
 /// Implements a State Machine strategy. This strategy enforces valid state transitions

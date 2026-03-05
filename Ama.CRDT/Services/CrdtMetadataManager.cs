@@ -1,6 +1,5 @@
 namespace Ama.CRDT.Services;
 
-using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -14,6 +13,7 @@ using System.Text.Json.Serialization;
 using System;
 using System.Collections.Generic;
 using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Attributes.Strategies;
 
 /// <inheritdoc/>
 public sealed class CrdtMetadataManager(

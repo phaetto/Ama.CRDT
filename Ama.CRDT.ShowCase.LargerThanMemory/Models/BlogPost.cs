@@ -1,6 +1,7 @@
 namespace Ama.CRDT.ShowCase.LargerThanMemory.Models;
 
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
 using System.Collections.Generic;
 
 [PartitionKey(nameof(Id))]
