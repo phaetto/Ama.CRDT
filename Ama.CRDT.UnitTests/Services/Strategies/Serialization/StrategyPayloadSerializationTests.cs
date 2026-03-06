@@ -1,6 +1,7 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies.Serialization;
 
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
@@ -31,6 +32,9 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
 
     // LwwStrategy
     private sealed class LwwModel { [CrdtLwwStrategy] public int Value { get; set; } }
+
+    // FwwStrategy
+    private sealed class FwwModel { [CrdtFwwStrategy] public int Value { get; set; } }
 
     // CounterStrategy
     private sealed class CounterModel { [CrdtCounterStrategy] public int Value { get; set; } }
@@ -65,11 +69,17 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     // LwwSetStrategy
     private sealed class LwwSetModel { [CrdtLwwSetStrategy] public List<string> Items { get; set; } = new(); }
 
+    // FwwSetStrategy
+    private sealed class FwwSetModel { [CrdtFwwSetStrategy] public List<string> Items { get; set; } = new(); }
+
     // OrSetStrategy
     private sealed class OrSetModel { [CrdtOrSetStrategy] public List<string> Items { get; set; } = new(); }
 
     // LseqStrategy
     private sealed class LseqModel { [CrdtLseqStrategy] public List<string> Items { get; set; } = new(); }
+
+    // RgaStrategy
+    private sealed class RgaModel { [CrdtRgaStrategy] public List<string> Items { get; set; } = new(); }
 
     // SortedSetStrategy
     private sealed record User(Guid Id, string Name) : IComparable<User>
@@ -87,6 +97,9 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
 
     // LwwMapStrategy
     private sealed class LwwMapModel { [CrdtLwwMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
+
+    // FwwMapStrategy
+    private sealed class FwwMapModel { [CrdtFwwMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
 
     // OrMapStrategy
     private sealed class OrMapModel { [CrdtOrMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
@@ -134,6 +147,12 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     // ReplicatedTreeStrategy
     private sealed class ReplicatedTreeModel { [CrdtReplicatedTreeStrategy] public CrdtTree Tree { get; set; } = new(); }
 
+    // EpochBoundStrategy
+    private sealed class EpochBoundModel { [CrdtEpochBound] [CrdtLwwStrategy] public int Value { get; set; } }
+
+    // ApprovalQuorumStrategy
+    private sealed class ApprovalQuorumModel { [CrdtApprovalQuorum(2)] [CrdtLwwStrategy] public int Value { get; set; } }
+
     #endregion
 
     private readonly IServiceScope scope;
@@ -165,6 +184,7 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     public void Dispose() => scope.Dispose();
 
     [Fact] public void LwwStrategy_Payload_ShouldBeSerializable() => TestStrategy(new LwwModel { Value = 10 }, new LwwModel { Value = 20 });
+    [Fact] public void FwwStrategy_Payload_ShouldBeSerializable() => TestStrategy(new FwwModel { Value = 10 }, new FwwModel { Value = 20 });
     [Fact] public void CounterStrategy_Payload_ShouldBeSerializable() => TestStrategy(new CounterModel { Value = 10 }, new CounterModel { Value = 15 });
     [Fact] public void GCounterStrategy_Payload_ShouldBeSerializable() => TestStrategy(new GCounterModel { Value = 10 }, new GCounterModel { Value = 15 });
     [Fact] public void BoundedCounterStrategy_Payload_ShouldBeSerializable() => TestStrategy(new BoundedCounterModel { Value = 50 }, new BoundedCounterModel { Value = 60 });
@@ -176,16 +196,20 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     [Fact] public void GSetStrategy_Payload_ShouldBeSerializable() => TestStrategy(new GSetModel { Items = { "A" } }, new GSetModel { Items = { "A", "B" } });
     [Fact] public void TwoPhaseSetStrategy_Payload_ShouldBeSerializable() => TestStrategy(new TwoPhaseSetModel { Items = { "A", "B" } }, new TwoPhaseSetModel { Items = { "A" } });
     [Fact] public void LwwSetStrategy_Payload_ShouldBeSerializable() => TestStrategy(new LwwSetModel { Items = { "A" } }, new LwwSetModel { Items = { "A", "B" } });
+    [Fact] public void FwwSetStrategy_Payload_ShouldBeSerializable() => TestStrategy(new FwwSetModel { Items = { "A" } }, new FwwSetModel { Items = { "A", "B" } });
     [Fact] public void OrSetStrategy_Payload_ShouldBeSerializable() => TestStrategy(new OrSetModel { Items = { "A" } }, new OrSetModel { Items = { "A", "B" } });
     [Fact] public void LseqStrategy_Payload_ShouldBeSerializable() => TestStrategy(new LseqModel { Items = { "A", "C" } }, new LseqModel { Items = { "A", "B", "C" } });
+    [Fact] public void RgaStrategy_Payload_ShouldBeSerializable() => TestStrategy(new RgaModel { Items = { "A", "C" } }, new RgaModel { Items = { "A", "B", "C" } });
     [Fact] public void SortedSetStrategy_Payload_ShouldBeSerializable() => TestStrategy(new SortedSetModel { Users = { new User(Guid.NewGuid(), "A") } }, new SortedSetModel { Users = { new User(Guid.NewGuid(), "A"), new User(Guid.NewGuid(), "B") } });
     [Fact] public void LwwMapStrategy_Payload_ShouldBeSerializable() => TestStrategy(new LwwMapModel { Map = { { "A", 1 } } }, new LwwMapModel { Map = { { "A", 2 } } });
+    [Fact] public void FwwMapStrategy_Payload_ShouldBeSerializable() => TestStrategy(new FwwMapModel { Map = { { "A", 1 } } }, new FwwMapModel { Map = { { "A", 2 } } });
     [Fact] public void OrMapStrategy_Payload_ShouldBeSerializable() => TestStrategy(new OrMapModel { Map = { { "A", 1 } } }, new OrMapModel { Map = { { "A", 1 }, { "B", 2 } } });
     [Fact] public void CounterMapStrategy_Payload_ShouldBeSerializable() => TestStrategy(new CounterMapModel { Map = { { "A", 10 } } }, new CounterMapModel { Map = { { "A", 15 } } });
     [Fact] public void MaxWinsMapStrategy_Payload_ShouldBeSerializable() => TestStrategy(new MaxWinsMapModel { Map = { { "A", 10 } } }, new MaxWinsMapModel { Map = { { "A", 20 } } });
     [Fact] public void MinWinsMapStrategy_Payload_ShouldBeSerializable() => TestStrategy(new MinWinsMapModel { Map = { { "A", 20 } } }, new MinWinsMapModel { Map = { { "A", 10 } } });
     [Fact] public void PriorityQueueStrategy_Payload_ShouldBeSerializable() => TestStrategy(new PriorityQueueModel { Items = { new Item("A", 10) } }, new PriorityQueueModel { Items = { new Item("A", 10), new Item("B", 5) } });
     [Fact] public void StateMachineStrategy_Payload_ShouldBeSerializable() => TestStrategy(new StateMachineModel { Status = "PENDING" }, new StateMachineModel { Status = "PROCESSING" });
+    [Fact] public void EpochBoundStrategy_Payload_ShouldBeSerializable() => TestStrategy(new EpochBoundModel { Value = 10 }, new EpochBoundModel { Value = 20 });
     
     [Fact]
     public void GraphStrategy_Payload_ShouldBeSerializable()
@@ -232,8 +256,9 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
         var initialJson = JsonSerializer.Serialize(initial, jsonSerializerOptions);
         var initialForTarget = JsonSerializer.Deserialize<VoteCounterModel>(initialJson, jsonSerializerOptions)!;
 
-        var doc = new CrdtDocument<VoteCounterModel>(initial, metadataManager.Initialize(initial));
-        var targetDoc = new CrdtDocument<VoteCounterModel>(initialForTarget, metadataManager.Initialize(initialForTarget));
+        var metadata = metadataManager.Initialize(initial);
+        var doc = new CrdtDocument<VoteCounterModel>(initial, metadata);
+        var targetDoc = new CrdtDocument<VoteCounterModel>(initialForTarget, metadata.DeepClone());
 
         var patch = patcher.GeneratePatch(doc, modified);
         patch.Operations.ShouldNotBeEmpty();
@@ -242,9 +267,34 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
 
         applicator.ApplyPatch(targetDoc, deserializedPatch);
 
-        targetDoc.Data.Votes.Count.ShouldBe(1);
+        targetDoc.Data!.Votes.Count.ShouldBe(1);
         targetDoc.Data.Votes.ShouldContainKey("OptionB");
         targetDoc.Data.Votes["OptionB"].ShouldHaveSingleItem().ShouldBe("Voter1");
+    }
+
+    [Fact]
+    public void ApprovalQuorumStrategy_Payload_ShouldBeSerializable()
+    {
+        var initial = new ApprovalQuorumModel { Value = 10 };
+        var modified = new ApprovalQuorumModel { Value = 20 };
+
+        var initialJson = JsonSerializer.Serialize(initial, jsonSerializerOptions);
+        var initialForTarget = JsonSerializer.Deserialize<ApprovalQuorumModel>(initialJson, jsonSerializerOptions)!;
+
+        var metadata = metadataManager.Initialize(initial);
+        var doc = new CrdtDocument<ApprovalQuorumModel>(initial, metadata);
+        var targetDoc = new CrdtDocument<ApprovalQuorumModel>(initialForTarget, metadata.DeepClone());
+
+        var patch = patcher.GeneratePatch(doc, modified);
+        patch.Operations.ShouldNotBeEmpty();
+
+        var deserializedPatch = SerializeAndDeserialize(patch);
+
+        applicator.ApplyPatch(targetDoc, deserializedPatch);
+
+        // The value shouldn't change yet because quorum is 2, but metadata should have the proposal
+        targetDoc.Data!.Value.ShouldBe(10);
+        targetDoc.Metadata!.QuorumApprovals.ShouldNotBeEmpty();
     }
 
     private CrdtPatch SerializeAndDeserialize(CrdtPatch patch)
@@ -258,8 +308,9 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
         var initialJson = JsonSerializer.Serialize(initial, jsonSerializerOptions);
         var initialForTarget = JsonSerializer.Deserialize<TModel>(initialJson, jsonSerializerOptions)!;
 
-        var doc = new CrdtDocument<TModel>(initial, metadataManager.Initialize(initial));
-        var targetDoc = new CrdtDocument<TModel>(initialForTarget, metadataManager.Initialize(initialForTarget));
+        var metadata = metadataManager.Initialize(initial);
+        var doc = new CrdtDocument<TModel>(initial, metadata);
+        var targetDoc = new CrdtDocument<TModel>(initialForTarget, metadata.DeepClone());
 
         var patch = patcher.GeneratePatch(doc, modified);
         patch.Operations.ShouldNotBeEmpty($"Patch should have operations for model {typeof(TModel).Name}");
