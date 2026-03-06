@@ -301,7 +301,9 @@
 | `$/Specs/add-approval-quorum-strategy.md` | No description provided. |
 | `$/Specs/add-leader-election-strategy.md` | No description provided. |
 | `$/Specs/add-more-text-specific-strategies.md` | No description provided. |
+| `$/Specs/add-replica-level-sync-and-journaling.md` | Specification document detailing the architecture and required interfaces for adding global operation journaling and replica-level state tracking. |
 | `$/Specs/create-larger-than-memory-showcase.md` | No description provided. |
+| `$/Specs/distributed-map-reduce-with-crdts.md` | Documentation and conceptual example explaining how to use `Ama.CRDT` as a naturally convergent Map-Reduce engine and Distributed SQL-like aggregator. |
 | `$/Specs/done/add-composite-partition-keys.md` | No description provided. |
 | `$/Specs/done/add-counter-map-strategy.md` | No description provided. |
 | `$/Specs/done/add-exclusive-lock-strategy.md` | No description provided. |
@@ -323,6 +325,7 @@
 | `$/Specs/done/publish-as-a-nuget-package.md` | No description provided. |
 | `$/Specs/done/readme-update-2025-08-24.md` | No description provided. |
 | `$/Specs/done/support-multiple-properties-for-partition-manager.md` | No description provided. |
+| `$/Specs/mapping-sql-and-distributed-joins.md` | Documentation detailing the paradigm shift from SQL Relational mapping to CRDT POCOs, including 3 distinct strategies for executing distributed JOINs (Denormalization, App-Side joins, and using the built-in Graph strategy). |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/01-crdt-strategy-attribute-and-interface.md` | No description provided. |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/02-lww-strategy-implementation.md` | No description provided. |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/03-counter-strategy-implementation.md` | No description provided. |
