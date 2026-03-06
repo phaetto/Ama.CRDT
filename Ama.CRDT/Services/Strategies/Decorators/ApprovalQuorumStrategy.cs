@@ -63,17 +63,13 @@ public sealed class ApprovalQuorumStrategy(IServiceProvider serviceProvider, IEl
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (context.Operation.Value is not QuorumPayload payload)
+        if (context.Property is null)
         {
-            if (context.Property is not null)
-            {
-                var inner = GetInnerStrategy(context.Property);
-                inner.ApplyOperation(context);
-            }
             return;
         }
 
-        if (context.Property is null)
+        // Strict enforcement: Reject operations that are not explicitly wrapped in a QuorumPayload.
+        if (context.Operation.Value is not QuorumPayload payload)
         {
             return;
         }
