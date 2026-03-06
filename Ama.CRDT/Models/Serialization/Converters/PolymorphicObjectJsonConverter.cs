@@ -60,6 +60,8 @@ public sealed class PolymorphicObjectJsonConverter : JsonConverter<object>
         Register("orset-remove", typeof(OrSetRemoveItem));
         Register("pos-id", typeof(PositionalIdentifier));
         Register("pos-item", typeof(PositionalItem));
+        Register("rga-id", typeof(RgaIdentifier));
+        Register("rga-item", typeof(RgaItem));
         Register("tree-add", typeof(TreeAddNodePayload));
         Register("tree-remove", typeof(TreeRemoveNodePayload));
         Register("tree-move", typeof(TreeMoveNodePayload));
