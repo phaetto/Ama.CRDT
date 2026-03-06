@@ -59,22 +59,11 @@ public sealed class ChainedDecoratorsTests : IDisposable
         patch.Operations.Count.ShouldBe(1);
         var op = patch.Operations[0];
         
-        // Ensure both decorators correctly chained their payload wrapping.
-        // The nesting order depends on the runtime reflection order of the attributes, so we check both paths.
-        if (op.Value is EpochPayload epochPayload)
-        {
-            epochPayload.Value.ShouldBeOfType<QuorumPayload>();
-            ((QuorumPayload)epochPayload.Value).ProposedValue.ShouldBe("New");
-        }
-        else if (op.Value is QuorumPayload quorumPayload)
-        {
-            quorumPayload.ProposedValue.ShouldBeOfType<EpochPayload>();
-            ((EpochPayload)quorumPayload.ProposedValue).Value.ShouldBe("New");
-        }
-        else
-        {
-            Assert.Fail($"Expected nested decorator payloads, but got {op.Value?.GetType().Name}");
-        }
+        // Ensure both decorators correctly chained their payload wrapping in a deterministic order.
+        // Attributes are ordered by their type name. 'CrdtApprovalQuorumAttribute' comes before 'CrdtEpochBoundAttribute'.
+        var quorumPayload = op.Value.ShouldBeOfType<QuorumPayload>();
+        var epochPayload = quorumPayload.ProposedValue.ShouldBeOfType<EpochPayload>();
+        epochPayload.Value.ShouldBe("New");
     }
 
     [Fact]

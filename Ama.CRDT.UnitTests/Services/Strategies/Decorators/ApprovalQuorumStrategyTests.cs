@@ -193,11 +193,11 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
     }
 
     [Fact]
-    public void ApplyOperation_WithoutQuorumPayload_ShouldDelegateToInnerStrategy()
+    public void ApplyOperation_WithoutQuorumPayload_ShouldBeIgnored()
     {
         var doc = new CrdtDocument<ProposalDocument>(new ProposalDocument { ConfigValue = "Current" }, new CrdtMetadata());
 
-        // An operation lacking the wrapper payload (perhaps generated previously or by a misconfigured node)
+        // An operation lacking the wrapper payload
         var unconstrainedOp = new CrdtOperation(
             Guid.NewGuid(),
             "ReplicaA",
@@ -209,7 +209,10 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
 
         applicator.ApplyPatch(doc, new CrdtPatch([unconstrainedOp]));
 
-        // Should apply immediately bypassing the Quorum logic
-        doc.Data.ConfigValue.ShouldBe("ForcedValue");
+        // Should NOT apply the value bypassing the Quorum logic
+        doc.Data.ConfigValue.ShouldBe("Current");
+        
+        // Should NOT track any approvals because the operation is invalid for this strategy
+        doc.Metadata.QuorumApprovals.ShouldNotContainKey("$.configValue");
     }
 }
