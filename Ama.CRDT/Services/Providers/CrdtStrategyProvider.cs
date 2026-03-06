@@ -135,6 +135,7 @@ internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
     {
         return decoratorChainCache.GetOrAdd(propertyInfo, pi => 
             pi.GetCustomAttributes<CrdtStrategyDecoratorAttribute>()
+              .OrderBy(a => a.GetType().Name, StringComparer.Ordinal)
               .Select(a => a.StrategyType)
               .ToList());
     }
