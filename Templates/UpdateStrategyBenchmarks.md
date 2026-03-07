@@ -6,6 +6,6 @@ $\Ama.CRDT.Benchmarks\Benchmarks\StrategyGenerateBenchmarks.cs
 $\Ama.CRDT.Benchmarks\Benchmarks\StrategyGenerateOperationBenchmarks.cs
 $\Ama.CRDT.Benchmarks\Models\StrategyPoco.cs
 
-Add them to benchmarks
+Add or update the strategy to benchmarks
 
 Tell me if you need any more files.

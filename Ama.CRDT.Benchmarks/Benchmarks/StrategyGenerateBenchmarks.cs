@@ -178,6 +178,16 @@ public class StrategyGenerateBenchmarks
     private PropertyInfo replicatedTreeProp = null!;
     private ICrdtStrategy replicatedTreeStrategy = null!;
     private string replicatedTreePath = null!;
+
+    private StrategyPoco toPocoForEpochBound = default!;
+    private PropertyInfo epochBoundProp = null!;
+    private ICrdtStrategy epochBoundStrategy = null!;
+    private string epochBoundPath = null!;
+
+    private StrategyPoco toPocoForApprovalQuorum = default!;
+    private PropertyInfo approvalQuorumProp = null!;
+    private ICrdtStrategy approvalQuorumStrategy = null!;
+    private string approvalQuorumPath = null!;
     #endregion
 
     [GlobalSetup]
@@ -328,6 +338,14 @@ public class StrategyGenerateBenchmarks
         toPocoForReplicatedTree = basePoco.Clone();
         toPocoForReplicatedTree.Tree.Nodes.Add("Node3", new TreeNode { Id = "Node1"});
         SetupStrategyContext(nameof(StrategyPoco.Tree), out replicatedTreeProp, out replicatedTreeStrategy, out replicatedTreePath);
+
+        toPocoForEpochBound = basePoco.Clone();
+        toPocoForEpochBound.EpochBoundValue = "updated";
+        SetupStrategyContext(nameof(StrategyPoco.EpochBoundValue), out epochBoundProp, out epochBoundStrategy, out epochBoundPath);
+
+        toPocoForApprovalQuorum = basePoco.Clone();
+        toPocoForApprovalQuorum.QuorumBoundValue = "updated";
+        SetupStrategyContext(nameof(StrategyPoco.QuorumBoundValue), out approvalQuorumProp, out approvalQuorumStrategy, out approvalQuorumPath);
         #endregion
     }
 
@@ -581,6 +599,22 @@ public class StrategyGenerateBenchmarks
         opsBuffer.Clear();
         var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), replicatedTreePath, replicatedTreeProp, basePoco.Tree, toPocoForReplicatedTree.Tree, basePoco, toPocoForReplicatedTree, fromDoc.Metadata, timestamp, 0);
         replicatedTreeStrategy.GeneratePatch(ctx);
+    }
+
+    [Benchmark(Description = "Strategy.Generate: EpochBound")]
+    public void Generate_EpochBound()
+    {
+        opsBuffer.Clear();
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), epochBoundPath, epochBoundProp, basePoco.EpochBoundValue, toPocoForEpochBound.EpochBoundValue, basePoco, toPocoForEpochBound, fromDoc.Metadata, timestamp, 0);
+        epochBoundStrategy.GeneratePatch(ctx);
+    }
+
+    [Benchmark(Description = "Strategy.Generate: ApprovalQuorum")]
+    public void Generate_ApprovalQuorum()
+    {
+        opsBuffer.Clear();
+        var ctx = new GeneratePatchContext(opsBuffer, new List<DifferentiateObjectContext>(), approvalQuorumPath, approvalQuorumProp, basePoco.QuorumBoundValue, toPocoForApprovalQuorum.QuorumBoundValue, basePoco, toPocoForApprovalQuorum, fromDoc.Metadata, timestamp, 0);
+        approvalQuorumStrategy.GeneratePatch(ctx);
     }
     #endregion
 }
