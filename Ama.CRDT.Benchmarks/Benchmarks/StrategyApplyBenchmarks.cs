@@ -119,6 +119,12 @@ public class StrategyApplyBenchmarks
 
     private ICrdtStrategy replicatedTreeStrategy = null!;
     private IReadOnlyList<CrdtOperation> replicatedTreeOps = null!;
+
+    private ICrdtStrategy epochBoundStrategy = null!;
+    private IReadOnlyList<CrdtOperation> epochBoundOps = null!;
+
+    private ICrdtStrategy approvalQuorumStrategy = null!;
+    private IReadOnlyList<CrdtOperation> approvalQuorumOps = null!;
     #endregion
 
     [GlobalSetup]
@@ -274,6 +280,14 @@ public class StrategyApplyBenchmarks
         var toPocoForReplicatedTree = basePoco.Clone();
         toPocoForReplicatedTree.Tree.Nodes.Add("Node1", new TreeNode { Id = 1 });
         replicatedTreeOps = SetupStrategyAndOps(nameof(StrategyPoco.Tree), toPocoForReplicatedTree, out replicatedTreeStrategy);
+
+        var toPocoForEpochBound = basePoco.Clone();
+        toPocoForEpochBound.EpochBoundValue = "updated";
+        epochBoundOps = SetupStrategyAndOps(nameof(StrategyPoco.EpochBoundValue), toPocoForEpochBound, out epochBoundStrategy);
+
+        var toPocoForApprovalQuorum = basePoco.Clone();
+        toPocoForApprovalQuorum.QuorumBoundValue = "updated";
+        approvalQuorumOps = SetupStrategyAndOps(nameof(StrategyPoco.QuorumBoundValue), toPocoForApprovalQuorum, out approvalQuorumStrategy);
         #endregion
     }
 
@@ -286,7 +300,8 @@ public class StrategyApplyBenchmarks
         nameof(Apply_StateMachine), nameof(Apply_PriorityQueue), nameof(Apply_SortedSet),
         nameof(Apply_Rga), nameof(Apply_CounterMap), nameof(Apply_LwwMap), nameof(Apply_FwwMap), 
         nameof(Apply_MaxWinsMap), nameof(Apply_MinWinsMap), nameof(Apply_OrMap), 
-        nameof(Apply_Graph), nameof(Apply_TwoPhaseGraph), nameof(Apply_ReplicatedTree)
+        nameof(Apply_Graph), nameof(Apply_TwoPhaseGraph), nameof(Apply_ReplicatedTree),
+        nameof(Apply_EpochBound), nameof(Apply_ApprovalQuorum)
     ])]
     public void IterationSetup()
     {
@@ -645,6 +660,28 @@ public class StrategyApplyBenchmarks
             var doc = applyBatch[i];
             for (int j = 0; j < replicatedTreeOps.Count; j++)
                 replicatedTreeStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, replicatedTreeOps[j]));
+        }
+    }
+
+    [Benchmark(Description = "Strategy.Apply: EpochBound", OperationsPerInvoke = BatchSize)]
+    public void Apply_EpochBound()
+    {
+        for (int i = 0; i < BatchSize; i++)
+        {
+            var doc = applyBatch[i];
+            for (int j = 0; j < epochBoundOps.Count; j++)
+                epochBoundStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, epochBoundOps[j]));
+        }
+    }
+
+    [Benchmark(Description = "Strategy.Apply: ApprovalQuorum", OperationsPerInvoke = BatchSize)]
+    public void Apply_ApprovalQuorum()
+    {
+        for (int i = 0; i < BatchSize; i++)
+        {
+            var doc = applyBatch[i];
+            for (int j = 0; j < approvalQuorumOps.Count; j++)
+                approvalQuorumStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, approvalQuorumOps[j]));
         }
     }
     #endregion

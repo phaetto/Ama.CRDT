@@ -3,6 +3,7 @@ namespace Ama.CRDT.Benchmarks.Models;
 using System.Collections.Generic;
 using System.Linq;
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
@@ -110,6 +111,14 @@ public class StrategyPoco
 
     [CrdtReplicatedTreeStrategy]
     public CrdtTree Tree { get; set; } = new();
+
+    [CrdtEpochBound]
+    [CrdtLwwStrategy]
+    public string EpochBoundValue { get; set; } = "initial";
+
+    [CrdtApprovalQuorum(3)]
+    [CrdtLwwStrategy]
+    public string QuorumBoundValue { get; set; } = "initial";
 
     public StrategyPoco Clone()
     {
