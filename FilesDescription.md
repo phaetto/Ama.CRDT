@@ -86,7 +86,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/CounterStrategyTests.cs` | Contains unit tests for the `CounterStrategy` implementation, verifying both patch generation and its simplified, unconditional data application logic. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/Decorators/ApprovalQuorumStrategyTests.cs` | Contains unit tests for the `ApprovalQuorumStrategy` and `CrdtApprovalQuorumAttribute`, verifying the correct tracking of proposals, replica quorum resolution, payload wrapping, and clean up. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/Decorators/ChainedDecoratorsTests.cs` | Integration tests verifying the correct behavioral chaining and nesting of multiple decorator attributes (`EpochBound` and `ApprovalQuorum`) on a single model property. |
-| `$/Ama.CRDT.UnitTests/Services/Strategies/EpochBoundStrategyTests.cs` | Contains unit tests for the `EpochBoundStrategy` and `CrdtStrategyProvider`, verifying correct resolution of decorators vs. base strategies, as well as testing generation and application of epoch-bound operations including `ClearIntent` behaviors. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/Decorators/EpochBoundStrategyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/FixedSizeArrayStrategyTests.cs` | Contains unit tests for the `FixedSizeArrayStrategy`, verifying convergence and idempotence for concurrent updates. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/FwwMapStrategyTests.cs` | Contains unit tests for `FwwMapStrategy`, verifying FWW-based convergence, patch generation for map changes, and correct partitioning logic (split/merge). |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/FwwSetStrategyTests.cs` | Contains unit tests for the `FwwSetStrategy`, validating FWW-based convergence on collection items, explicit intents, and associative operation properties. |
@@ -113,6 +113,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseGraphStrategyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseSetStrategyTests.cs` | Contains unit tests for the `TwoPhaseSetStrategy`, verifying that elements can be added and removed, but not re-added after removal. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTests.cs` | Contains unit tests for the `VoteCounterStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent voting scenarios. |
+| `$/Ama.CRDT.UnitTests/stryker-config.json` | Configuration file for Stryker.NET mutation testing. Targets the main CRDT project, setting thresholds, reporters, and ignoring metrics and standard null checks to focus on core algorithmic logic. |
 | `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |
 | `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging and to automatically include its associated Roslyn analyzers. |
 | `$/Ama.CRDT/Attributes/CrdtIntentMappingAttribute.cs` | An attribute to map intent builder extension methods to the specific explicit intent types they generate, enabling compile-time validation via Roslyn analyzers without hardcoded mappings. |
@@ -328,7 +329,11 @@
 | `$/Specs/done/publish-as-a-nuget-package.md` | No description provided. |
 | `$/Specs/done/readme-update-2025-08-24.md` | No description provided. |
 | `$/Specs/done/support-multiple-properties-for-partition-manager.md` | No description provided. |
-| `$/Specs/mapping-sql-and-distributed-joins.md` | Documentation detailing the paradigm shift from SQL Relational mapping to CRDT POCOs, including 3 distinct strategies for executing distributed JOINs (Denormalization, App-Side joins, and using the built-in Graph strategy). |
+| `$/Templates/CreateDecoratorStrategy.md` | No description provided. |
+| `$/Templates/CreateStrategy.md` | No description provided. |
+| `$/Templates/CreateStrategyUnitTests.md` | No description provided. |
+| `$/Templates/UpdateSerializationTests.md` | No description provided. |
+| `$/Templates/UpdateStrategyBenchmarks.md` | No description provided. |
 | `$/docs/architecture.md` | Contains a high-level overview of the library's internal abstractions such as ICrdtPatcher and ICrdtApplicator. |
 | `$/docs/explicit-intents.md` | Documents the fluent builder API for generating exact, strongly-typed CRDT intent operations. |
 | `$/docs/extensibility.md` | Provides examples and guides for extending Ama.CRDT, including custom strategies, IElementComparer, and ICrdtTimestampProvider. |
@@ -336,6 +341,7 @@
 | `$/docs/multi-replica-and-serialization.md` | Explains advanced synchronization mechanics for multi-node setups and demonstrates configuring `CrdtPatch` JSON serialization correctly. |
 | `$/docs/partitioning.md` | Documents the setup and usage of the library's Larger-Than-Memory partitioning features and how to use the IPartitionManager. |
 | `$/docs/strategies-reference.md` | Provides a comprehensive table detailing all available CRDT strategies (e.g., LWW, Counters, Sets, Maps) and their ideal use cases. |
+| `$/dotnet-tools.json` | No description provided. |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/01-crdt-strategy-attribute-and-interface.md` | No description provided. |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/02-lww-strategy-implementation.md` | No description provided. |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/03-counter-strategy-implementation.md` | No description provided. |
