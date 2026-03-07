@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
@@ -12,6 +13,9 @@ using Ama.CRDT.Services.Strategies;
 /// <inheritdoc/>
 public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTimestampProvider timestampProvider, ReplicaContext replicaContext) : ICrdtPatcher
 {
+    private sealed class ClockState { public long Clock; }
+    private readonly ConditionalWeakTable<CrdtMetadata, ClockState> issuedClocks = new();
+
     /// <inheritdoc/>
     public CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, T changed) where T : class
     {
@@ -39,14 +43,26 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
             changeTimestamp
         );
         
-        var replicaId = replicaContext.ReplicaId;
-        var localClock = from.Metadata.VersionVector.TryGetValue(replicaId, out var currentClock) ? currentClock : 0L;
-        
-        // A single patch is an atomic event, so we increment the logical clock exactly once
-        // and assign this single clock value to all generated operations.
-        localClock++;
+        // Process differentiations first. We pass a dummy clock (0) to the context 
+        // because we will assign unique sequential clocks to each operation below.
+        ProcessDifferentiations(initialContext, 0L);
 
-        ProcessDifferentiations(initialContext, localClock);
+        var replicaId = replicaContext.ReplicaId;
+        var currentVectorClock = from.Metadata.VersionVector.TryGetValue(replicaId, out var currentClock) ? currentClock : 0L;
+        
+        var clockState = issuedClocks.GetOrCreateValue(from.Metadata);
+        var localClock = Math.Max(currentVectorClock, clockState.Clock);
+
+        // Assign a unique, monotonically increasing logical clock to EACH operation.
+        // This prevents memory bloat in CrdtMetadata.SeenExceptions, as the version vector 
+        // expects distinct events to advance properly and prune older exceptions.
+        for (var i = 0; i < operations.Count; i++)
+        {
+            localClock++;
+            operations[i] = operations[i] with { Clock = localClock };
+        }
+
+        clockState.Clock = localClock;
 
         // We DO NOT mutate from.Metadata.VersionVector here.
         // It is the responsibility of the caller to apply the generated patch locally 
@@ -92,8 +108,13 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
         var strategy = strategyProvider.GetStrategy(parseResult.Property);
 
         var replicaId = replicaContext.ReplicaId;
-        var localClock = document.Metadata.VersionVector.TryGetValue(replicaId, out var currentClock) ? currentClock : 0L;
+        var currentVectorClock = document.Metadata.VersionVector.TryGetValue(replicaId, out var currentClock) ? currentClock : 0L;
+        
+        var clockState = issuedClocks.GetOrCreateValue(document.Metadata);
+        var localClock = Math.Max(currentVectorClock, clockState.Clock);
+        
         localClock++;
+        clockState.Clock = localClock;
 
         var context = new GenerateOperationContext(
             DocumentRoot: document.Data,

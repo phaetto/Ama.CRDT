@@ -131,9 +131,9 @@ public sealed class CrdtApplicatorTests : IDisposable
         var model = new TestModel { Name = "Initial", Likes = 10 };
         var metadata = new CrdtMetadata();
         var document = new CrdtDocument<TestModel>(model, metadata);
-        // We use the same clock for both operations to simulate a real patch where all operations share the same causality clock
+        // We use sequentially increasing clocks for operations within the same patch
         var lwwOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Updated", timestampProvider.Create(100), 1);
-        var counterOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(100), 1);
+        var counterOperation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(100), 2);
         var patch = new CrdtPatch(new List<CrdtOperation> { lwwOperation, counterOperation });
 
         // Act
@@ -144,13 +144,13 @@ public sealed class CrdtApplicatorTests : IDisposable
         result1.Document.Name.ShouldBe("Updated");
         result1.Document.Likes.ShouldBe(15);
         metadata.Lww["$.name"].ShouldBe(lwwOperation.Timestamp);
-        // Operations matching the current clock are retained to deduplicate re-applied operations
-        metadata.SeenExceptions.Count.ShouldBe(2);
+        // With the updated logic, SeenExceptions should be completely pruned for contiguous operations
+        metadata.SeenExceptions.Count.ShouldBe(0);
 
         result2.Document.Name.ShouldBe("Updated");
         result2.Document.Likes.ShouldBe(15);
         metadata.Lww["$.name"].ShouldBe(lwwOperation.Timestamp);
-        metadata.SeenExceptions.Count.ShouldBe(2);
+        metadata.SeenExceptions.Count.ShouldBe(0);
     }
     
     [Fact]
