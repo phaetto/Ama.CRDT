@@ -83,32 +83,45 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
+        if (operation.Type != OperationType.Upsert)
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
+
         var (_, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (property is null || !property.CanWrite) return;
+        if (property is null || !property.CanWrite)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
         
         var attribute = property.GetCustomAttribute<CrdtStateMachineStrategyAttribute>();
-        if (attribute is null) return;
+        if (attribute is null)
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
 
         var currentValue = PocoPathHelper.GetValue(root, operation.JsonPath);
         var incomingValue = PocoPathHelper.ConvertValue(operation.Value, property.PropertyType);
 
         if (!IsValidTransition(attribute.ValidatorType, currentValue, incomingValue))
         {
-            return;
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         metadata.Lww.TryGetValue(operation.JsonPath, out var lwwTs);
         if (lwwTs is not null && operation.Timestamp.CompareTo(lwwTs) <= 0)
         {
-            return;
+            return CrdtOperationStatus.Obsolete;
         }
         
         PocoPathHelper.SetValue(root, operation.JsonPath, incomingValue);
         metadata.Lww[operation.JsonPath] = operation.Timestamp;
+
+        return CrdtOperationStatus.Success;
     }
 
     private bool IsValidTransition(Type validatorType, object? from, object? to)

@@ -84,7 +84,7 @@ public sealed class CrdtApplicatorTests : IDisposable
         var result = applicator.ApplyPatch(document, patch);
 
         // Assert
-        result.Name.ShouldBe("Initial");
+        result.Document.Name.ShouldBe("Initial");
         metadata.Lww["$.name"].ShouldBe(existingTimestamp);
     }
     
@@ -103,7 +103,7 @@ public sealed class CrdtApplicatorTests : IDisposable
         var result = applicator.ApplyPatch(document, patch);
         
         // Assert
-        result.Likes.ShouldBe(10);
+        result.Document.Likes.ShouldBe(10);
         metadata.SeenExceptions.Count.ShouldBe(1);
     }
     
@@ -121,7 +121,7 @@ public sealed class CrdtApplicatorTests : IDisposable
         var result = applicator.ApplyPatch(document, patch);
 
         // Assert
-        result.Likes.ShouldBe(15);
+        result.Document.Likes.ShouldBe(15);
     }
 
     [Fact]
@@ -141,14 +141,14 @@ public sealed class CrdtApplicatorTests : IDisposable
         var result2 = applicator.ApplyPatch(document, patch);
 
         // Assert
-        result1.Name.ShouldBe("Updated");
-        result1.Likes.ShouldBe(15);
+        result1.Document.Name.ShouldBe("Updated");
+        result1.Document.Likes.ShouldBe(15);
         metadata.Lww["$.name"].ShouldBe(lwwOperation.Timestamp);
         // Operations matching the current clock are retained to deduplicate re-applied operations
         metadata.SeenExceptions.Count.ShouldBe(2);
 
-        result2.Name.ShouldBe("Updated");
-        result2.Likes.ShouldBe(15);
+        result2.Document.Name.ShouldBe("Updated");
+        result2.Document.Likes.ShouldBe(15);
         metadata.Lww["$.name"].ShouldBe(lwwOperation.Timestamp);
         metadata.SeenExceptions.Count.ShouldBe(2);
     }
@@ -180,10 +180,10 @@ public sealed class CrdtApplicatorTests : IDisposable
         var result_BA = applicator.ApplyPatch(doc_BA, patchA);
         
         // Assert
-        result_AB.Name.ShouldBe("Name B");
-        result_AB.Likes.ShouldBe(18);
+        result_AB.Document.Name.ShouldBe("Name B");
+        result_AB.Document.Likes.ShouldBe(18);
         
-        result_BA.Name.ShouldBe("Name B");
-        result_BA.Likes.ShouldBe(18);
+        result_BA.Document.Name.ShouldBe("Name B");
+        result_BA.Document.Likes.ShouldBe(18);
     }
 }

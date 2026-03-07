@@ -16,15 +16,17 @@ public sealed class CrdtApplicator(
     ICrdtMetadataManager metadataManager) : ICrdtApplicator
 {
     /// <inheritdoc/>
-    public T ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class
+    public ApplyPatchResult<T> ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class
     {
         ArgumentNullException.ThrowIfNull(document.Data);
         ArgumentNullException.ThrowIfNull(document.Metadata);
 
         if (patch.Operations is null || patch.Operations.Count == 0)
         {
-            return document.Data;
+            return new ApplyPatchResult<T>(document.Data, Array.Empty<UnappliedOperation>());
         }
+
+        List<UnappliedOperation>? unappliedOperations = null;
 
         // Avoiding IEnumerator allocations by casting to IReadOnlyList when possible.
         if (patch.Operations is IReadOnlyList<CrdtOperation> operationsList)
@@ -32,21 +34,31 @@ public sealed class CrdtApplicator(
             int count = operationsList.Count;
             for (int i = 0; i < count; i++)
             {
-                ApplyOperation(document.Data, operationsList[i], document.Metadata);
+                var status = ApplyOperation(document.Data, operationsList[i], document.Metadata);
+                if (status != CrdtOperationStatus.Success)
+                {
+                    unappliedOperations ??= new List<UnappliedOperation>();
+                    unappliedOperations.Add(new UnappliedOperation(operationsList[i], status));
+                }
             }
         }
         else
         {
             foreach (var operation in patch.Operations)
             {
-                ApplyOperation(document.Data, operation, document.Metadata);
+                var status = ApplyOperation(document.Data, operation, document.Metadata);
+                if (status != CrdtOperationStatus.Success)
+                {
+                    unappliedOperations ??= new List<UnappliedOperation>();
+                    unappliedOperations.Add(new UnappliedOperation(operation, status));
+                }
             }
         }
 
-        return document.Data;
+        return new ApplyPatchResult<T>(document.Data, unappliedOperations ?? (IReadOnlyList<UnappliedOperation>)Array.Empty<UnappliedOperation>());
     }
 
-    private void ApplyOperation(object document, CrdtOperation operation, CrdtMetadata metadata)
+    private CrdtOperationStatus ApplyOperation(object document, CrdtOperation operation, CrdtMetadata metadata)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(metadata);
@@ -58,16 +70,27 @@ public sealed class CrdtApplicator(
         if (metadata.VersionVector.TryGetValue(operation.ReplicaId, out var lastSeenClock) &&
                 operation.Clock < lastSeenClock)
         {
-            return;
+            return CrdtOperationStatus.Obsolete;
         }
 
         if (!metadata.SeenExceptions.Add(operation))
         {
-            return;
+            return CrdtOperationStatus.Duplicate;
         }
 
-        // The Applicator is responsible for resolving the path and instantiating missing intermediate POCOs.
-        var (target, property, finalSegment) = PocoPathHelper.ResolvePath(document, operation.JsonPath, createMissing: true);
+        object? target;
+        System.Reflection.PropertyInfo? property;
+        object? finalSegment;
+
+        try
+        {
+            // The Applicator is responsible for resolving the path and instantiating missing intermediate POCOs.
+            (target, property, finalSegment) = PocoPathHelper.ResolvePath(document, operation.JsonPath, createMissing: true);
+        }
+        catch
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         var context = new ApplyOperationContext(document, metadata, operation)
         {
@@ -76,8 +99,20 @@ public sealed class CrdtApplicator(
             FinalSegment = finalSegment
         };
 
-        strategy.ApplyOperation(context);
+        try
+        {
+            var strategyStatus = strategy.ApplyOperation(context);
+            if (strategyStatus != CrdtOperationStatus.Success)
+            {
+                return strategyStatus;
+            }
+        }
+        catch
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
 
         metadataManager.AdvanceVersionVector(metadata, operation);
+        return CrdtOperationStatus.Success;
     }
 }

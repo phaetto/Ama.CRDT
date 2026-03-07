@@ -124,14 +124,14 @@ public sealed class SortedSetStrategy(
     }
     
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         var lastBracket = operation.JsonPath.LastIndexOf('[');
         if (lastBracket <= 0 || !operation.JsonPath.EndsWith("]"))
         {
-            return;
+            return CrdtOperationStatus.PathResolutionFailed;
         }
 
         var collectionPath = operation.JsonPath[..lastBracket];
@@ -139,12 +139,12 @@ public sealed class SortedSetStrategy(
 
         if (parent is null || property is null)
         {
-            return;
+            return CrdtOperationStatus.PathResolutionFailed;
         }
 
         if (PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
         {
-            return;
+            return CrdtOperationStatus.PathResolutionFailed;
         }
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
@@ -153,7 +153,7 @@ public sealed class SortedSetStrategy(
         if (operation.Type == OperationType.Upsert)
         {
             var newValue = PocoPathHelper.ConvertValue(operation.Value, elementType);
-            if (newValue is null) return;
+            if (newValue is null) return CrdtOperationStatus.StrategyApplicationFailed;
 
             var existingIndex = -1;
             for (var i = 0; i < list.Count; i++)
@@ -178,9 +178,9 @@ public sealed class SortedSetStrategy(
         }
         else if (operation.Type == OperationType.Remove)
         {
-            if (operation.Value is null) return;
+            if (operation.Value is null) return CrdtOperationStatus.StrategyApplicationFailed;
             var valueToRemove = PocoPathHelper.ConvertValue(operation.Value, elementType);
-            if (valueToRemove is null) return;
+            if (valueToRemove is null) return CrdtOperationStatus.StrategyApplicationFailed;
 
             var indexToRemove = -1;
             for (var i = 0; i < list.Count; i++)
@@ -197,6 +197,12 @@ public sealed class SortedSetStrategy(
                 list.RemoveAt(indexToRemove);
             }
         }
+        else
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
+
+        return CrdtOperationStatus.Success;
     }
 
     /// <inheritdoc/>

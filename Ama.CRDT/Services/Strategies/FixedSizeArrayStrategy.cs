@@ -82,7 +82,7 @@ public sealed class FixedSizeArrayStrategy(
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
@@ -90,19 +90,19 @@ public sealed class FixedSizeArrayStrategy(
 
         if (parent is null || property is null || index is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
         {
-            return;
+            return CrdtOperationStatus.PathResolutionFailed;
         }
 
         if (metadata.Lww.TryGetValue(operation.JsonPath, out var currentTimestamp) &&
             operation.Timestamp.CompareTo(currentTimestamp) < 0)
         {
-            return;
+            return CrdtOperationStatus.Obsolete;
         }
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         if (elementType is null)
         {
-            return;
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         metadata.Lww[operation.JsonPath] = operation.Timestamp;
@@ -116,5 +116,7 @@ public sealed class FixedSizeArrayStrategy(
         }
 
         list[elementIndex] = value;
+
+        return CrdtOperationStatus.Success;
     }
 }

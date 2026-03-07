@@ -297,3 +297,4 @@ workbench-packages/
 CustomSolutions/# Secrets / Local settings
 # Ignore all appsettings.local.json files in any directory
 **/appsettings.local.json
+Scripts/

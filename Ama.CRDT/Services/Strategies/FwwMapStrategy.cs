@@ -91,19 +91,22 @@ public sealed class FwwMapStrategy(
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         bool isReset = operation.Type == OperationType.Remove && operation.Value is null;
         if (isReset)
         {
             dict.Clear();
             metadata.FwwMaps.Remove(operation.JsonPath);
-            return;
+            return CrdtOperationStatus.Success;
         }
 
         var keyType = PocoPathHelper.GetDictionaryKeyType(property);
@@ -118,18 +121,18 @@ public sealed class FwwMapStrategy(
 
         if (PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>)) is not KeyValuePair<object, object?> payload)
         {
-            return;
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
         if (itemKey is null)
         {
-            return;
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
         
         if (timestamps.TryGetValue(itemKey, out var currentTimestamp) && operation.Timestamp.CompareTo(currentTimestamp) >= 0)
         {
-            return;
+            return CrdtOperationStatus.Obsolete;
         }
 
         timestamps[itemKey] = operation.Timestamp;
@@ -143,7 +146,11 @@ public sealed class FwwMapStrategy(
             case OperationType.Remove:
                 dict.Remove(itemKey);
                 break;
+            default:
+                return CrdtOperationStatus.StrategyApplicationFailed;
         }
+
+        return CrdtOperationStatus.Success;
     }
 
     /// <inheritdoc/>

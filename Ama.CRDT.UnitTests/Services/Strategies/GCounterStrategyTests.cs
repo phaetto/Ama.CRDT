@@ -149,8 +149,14 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Count = 10 };
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, 5m, timestampProvider.Create(2L), 1);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = property,
+            FinalSegment = "count"
+        };
 
         // Act
         strategy.ApplyOperation(context);
@@ -164,8 +170,14 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Count = 10 };
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, -5m, timestampProvider.Create(2L), 1);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = property,
+            FinalSegment = "count"
+        };
 
         // Act
         strategy.ApplyOperation(context);
@@ -175,15 +187,24 @@ public sealed class GCounterStrategyTests : IDisposable
     }
     
     [Fact]
-    public void ApplyOperation_ShouldThrow_ForNonIncrementOperation()
+    public void ApplyOperation_ShouldReturnFailure_ForNonIncrementOperation()
     {
         // Arrange
         var model = new TestModel { Count = 10 };
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Upsert, 15, timestampProvider.Create(2L), 1);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = property,
+            FinalSegment = "count"
+        };
 
-        // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(context));
+        // Act
+        var result = strategy.ApplyOperation(context);
+
+        // Assert
+        result.ShouldBe(CrdtOperationStatus.StrategyApplicationFailed);
     }
     
     [Fact]

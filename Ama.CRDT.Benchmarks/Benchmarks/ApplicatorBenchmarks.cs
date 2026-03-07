@@ -98,13 +98,13 @@ public class ApplicatorBenchmarks
     public SimplePoco ApplyPatchSimple()
     {
         // Applicator now modifies in place, so we need to clone for a fair benchmark.
-        return applicator.ApplyPatch(new CrdtDocument<SimplePoco>(CreateSimplePocoClone(), simpleMetadata), simplePocoPatch);
+        return applicator.ApplyPatch(new CrdtDocument<SimplePoco>(CreateSimplePocoClone(), simpleMetadata), simplePocoPatch).Document;
     }
 
     [Benchmark]
     public ComplexPoco ApplyPatchComplex()
     {
-        return applicator.ApplyPatch(new CrdtDocument<ComplexPoco>(CreateComplexPocoClone(), complexMetadata), complexPocoPatch);
+        return applicator.ApplyPatch(new CrdtDocument<ComplexPoco>(CreateComplexPocoClone(), complexMetadata), complexPocoPatch).Document;
     }
     
     private CrdtMetadata CloneMetadata(CrdtMetadata original)

@@ -70,12 +70,15 @@ public sealed class TwoPhaseSetStrategy(
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
@@ -87,7 +90,10 @@ public sealed class TwoPhaseSetStrategy(
         }
 
         var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType);
-        if (itemValue is null) return;
+        if (itemValue is null)
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
 
         switch (operation.Type)
         {
@@ -100,6 +106,8 @@ public sealed class TwoPhaseSetStrategy(
             case OperationType.Remove:
                 state.Tomstones.Add(itemValue);
                 break;
+            default:
+                return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         bool isLiveNow = state.Adds.Contains(itemValue) && !state.Tomstones.Contains(itemValue);
@@ -112,6 +120,8 @@ public sealed class TwoPhaseSetStrategy(
         {
             RemoveFromList(list, itemValue, comparer);
         }
+
+        return CrdtOperationStatus.Success;
     }
 
     /// <inheritdoc/>

@@ -69,13 +69,13 @@ public sealed class MinWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         if (operation.Type != OperationType.Upsert)
         {
-            return;
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         var currentValue = PocoPathHelper.GetValue(root, operation.JsonPath);
@@ -83,12 +83,18 @@ public sealed class MinWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
 
         if (incomingValue is null)
         {
-            return;
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         if (currentValue is null || ((IComparable)currentValue).CompareTo(incomingValue) > 0)
         {
             PocoPathHelper.SetValue(root, operation.JsonPath, incomingValue);
         }
+        else
+        {
+            return CrdtOperationStatus.Obsolete;
+        }
+
+        return CrdtOperationStatus.Success;
     }
 }

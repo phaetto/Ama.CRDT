@@ -70,14 +70,14 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         metadata.Lww.TryGetValue(operation.JsonPath, out var lwwTs);
         if (lwwTs is not null && operation.Timestamp.CompareTo(lwwTs) <= 0)
         {
-            return;
+            return CrdtOperationStatus.Obsolete;
         }
         
         if (operation.Type == OperationType.Remove)
@@ -90,5 +90,11 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
             PocoPathHelper.SetValue(root, operation.JsonPath, operation.Value);
             metadata.Lww[operation.JsonPath] = operation.Timestamp;
         }
+        else
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
+
+        return CrdtOperationStatus.Success;
     }
 }
