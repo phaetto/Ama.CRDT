@@ -81,16 +81,16 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         if (context.Operation.Value is not EpochPayload payload)
         {
             if (context.Property is not null)
             {
                 var inner = GetInnerStrategy(context.Property);
-                inner.ApplyOperation(context);
+                return inner.ApplyOperation(context);
             }
-            return;
+            return CrdtOperationStatus.PathResolutionFailed;
         }
 
         var localEpoch = GetEpochForPath(context.Metadata, context.Operation.JsonPath, out var basePath);
@@ -98,7 +98,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         if (payload.Epoch < localEpoch)
         {
             // Ghost operation from an obsolete generation. Discard.
-            return;
+            return CrdtOperationStatus.Obsolete;
         }
 
         if (payload.Epoch > localEpoch)
@@ -130,7 +130,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         // If it was just an EpochClearIntent, we already bumped the epoch and cleared the state.
         if (context.Operation.Type == OperationType.Remove && payload.Value is null)
         {
-            return;
+            return CrdtOperationStatus.Success;
         }
 
         // We must re-resolve the target property because we might have cleared it and it needs recreation
@@ -139,7 +139,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         // Use context.Property, as `property` will be null if we resolved an element of a collection
         if (context.Property is null)
         {
-            return;
+            return CrdtOperationStatus.PathResolutionFailed;
         }
 
         var innerStrategy = GetInnerStrategy(context.Property);
@@ -153,7 +153,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
             FinalSegment = finalSegment
         };
         
-        innerStrategy.ApplyOperation(innerContext);
+        return innerStrategy.ApplyOperation(innerContext);
     }
 
     private static int GetEpochForPath(CrdtMetadata metadata, string fullPath, out string matchingPath)

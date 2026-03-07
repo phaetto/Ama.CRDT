@@ -73,22 +73,28 @@ public sealed class GSetStrategy(
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         if (operation.Type == OperationType.Remove)
         {
-            return;
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType);
 
-        if (itemValue is null) return;
+        if (itemValue is null)
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
 
         var comparer = comparerProvider.GetComparer(elementType);
         var currentItems = list.Cast<object>().ToList();
@@ -106,6 +112,8 @@ public sealed class GSetStrategy(
                 list.Add(item);
             }
         }
+
+        return CrdtOperationStatus.Success;
     }
 
     /// <inheritdoc/>

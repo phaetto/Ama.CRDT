@@ -91,19 +91,22 @@ public sealed class FwwSetStrategy(
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         bool isReset = operation.Type == OperationType.Remove && operation.Value is null;
         if (isReset)
         {
             list.Clear();
             metadata.FwwSets.Remove(operation.JsonPath);
-            return;
+            return CrdtOperationStatus.Success;
         }
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
@@ -121,7 +124,10 @@ public sealed class FwwSetStrategy(
         }
 
         var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType);
-        if (itemValue is null) return;
+        if (itemValue is null)
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
 
         switch (operation.Type)
         {
@@ -137,6 +143,8 @@ public sealed class FwwSetStrategy(
                     state.Removes[itemValue] = operation.Timestamp;
                 }
                 break;
+            default:
+                return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         bool isLiveNow = false;
@@ -156,6 +164,8 @@ public sealed class FwwSetStrategy(
         {
             RemoveFromList(list, itemValue, comparer);
         }
+
+        return CrdtOperationStatus.Success;
     }
 
     /// <inheritdoc/>

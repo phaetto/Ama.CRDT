@@ -136,12 +136,15 @@ public sealed class ArrayLcsStrategy(
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         if (!metadata.PositionalTrackers.TryGetValue(operation.JsonPath, out var positions))
         {
@@ -165,7 +168,11 @@ public sealed class ArrayLcsStrategy(
             case OperationType.Remove:
                 ApplyRemove(list, positions, operation);
                 break;
+            default:
+                return CrdtOperationStatus.StrategyApplicationFailed;
         }
+
+        return CrdtOperationStatus.Success;
     }
 
     /// <inheritdoc/>

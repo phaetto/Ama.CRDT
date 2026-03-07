@@ -18,9 +18,8 @@ public interface ICrdtApplicator
     /// <typeparam name="T">The type of the POCO model representing the document structure.</typeparam>
     /// <param name="document">The <see cref="CrdtDocument{T}"/> containing the data and metadata to which the patch will be applied.</param>
     /// <param name="patch">A <see cref="CrdtPatch"/> containing the list of operations to apply. If the patch is null or contains no operations, the method returns without making changes.</param>
-    /// <returns>The original document data instance with the patch applied.</returns>
+    /// <returns>An <see cref="ApplyPatchResult{T}"/> containing the document and a list of operations that could not be applied.</returns>
     /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Data, or <paramref name="document"/>.Metadata is null.</exception>
-    /// <exception cref="System.InvalidOperationException">Thrown if an operation targets an invalid path or a strategy fails to apply a change.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -36,11 +35,11 @@ public interface ICrdtApplicator
     /// });
     /// 
     /// // Apply the patch to the local document.
-    /// applicator.ApplyPatch(crdtDoc, patch);
+    /// var result = applicator.ApplyPatch(crdtDoc, patch);
     /// 
-    /// // After application, myDoc.Counter will be 7.
+    /// // After application, myDoc.Counter will be 7 and result.UnappliedOperations will be empty.
     /// ]]>
     /// </code>
     /// </example>
-    T ApplyPatch<T>([DisallowNull] CrdtDocument<T> document, CrdtPatch patch) where T : class;
+    ApplyPatchResult<T> ApplyPatch<T>([DisallowNull] CrdtDocument<T> document, CrdtPatch patch) where T : class;
 }

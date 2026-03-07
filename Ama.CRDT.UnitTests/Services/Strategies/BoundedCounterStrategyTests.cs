@@ -138,25 +138,41 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Level = initial };
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Level))!;
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.level", OperationType.Increment, (decimal)delta, timestampProvider.Create(2L), 1);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = property,
+            FinalSegment = "level"
+        };
         
         // Act
-        strategy.ApplyOperation(new ApplyOperationContext(model, new CrdtMetadata(), operation));
+        strategy.ApplyOperation(context);
         
         // Assert
         model.Level.ShouldBe(expected);
     }
 
     [Fact]
-    public void ApplyOperation_ShouldThrow_WhenAttributeIsMissing()
+    public void ApplyOperation_ShouldReturnFailure_WhenAttributeIsMissing()
     {
         // Arrange
         var model = new NoAttributeModel { Value = 50 };
+        var property = typeof(NoAttributeModel).GetProperty(nameof(NoAttributeModel.Value))!;
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.value", OperationType.Increment, 10m, timestampProvider.Create(2L), 1);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = property,
+            FinalSegment = "value"
+        };
         
-        // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(context));
+        // Act
+        var result = strategy.ApplyOperation(context);
+
+        // Assert
+        result.ShouldBe(CrdtOperationStatus.StrategyApplicationFailed);
     }
     
     [Fact]

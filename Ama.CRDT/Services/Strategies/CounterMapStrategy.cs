@@ -93,17 +93,20 @@ public sealed class CounterMapStrategy(
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         if (operation.Type != OperationType.Increment)
         {
-            throw new InvalidOperationException($"{nameof(CounterMapStrategy)} only supports increment operations.");
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         var keyType = PocoPathHelper.GetDictionaryKeyType(property);
         var valueType = PocoPathHelper.GetDictionaryValueType(property);
@@ -117,11 +120,11 @@ public sealed class CounterMapStrategy(
 
         if (PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>)) is not KeyValuePair<object, object?> payload)
         {
-            return;
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
         
         var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
-        if (itemKey is null) return;
+        if (itemKey is null) return CrdtOperationStatus.StrategyApplicationFailed;
 
         if (!counters.TryGetValue(itemKey, out var counter))
         {
@@ -143,6 +146,8 @@ public sealed class CounterMapStrategy(
         
         var newValue = counter.P - counter.N;
         dict[itemKey] = PocoPathHelper.ConvertValue(newValue, valueType);
+
+        return CrdtOperationStatus.Success;
     }
 
     /// <inheritdoc/>

@@ -58,7 +58,7 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
@@ -66,7 +66,7 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
         
         if (operation.Type != OperationType.Upsert)
         {
-            return;
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         if (!metadata.AverageRegisters.TryGetValue(operation.JsonPath, out var contributions))
@@ -78,13 +78,15 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
         if (contributions.TryGetValue(operation.ReplicaId, out var existing) && operation.Timestamp.CompareTo(existing.Timestamp) <= 0)
         {
             // Incoming operation is older or same, ignore.
-            return;
+            return CrdtOperationStatus.Obsolete;
         }
         
         var incomingValue = PocoPathHelper.ConvertTo<decimal>(operation.Value);
         contributions[operation.ReplicaId] = new AverageRegisterValue(incomingValue, operation.Timestamp);
 
         RecalculateAndApplyAverage(root, operation.JsonPath, contributions);
+
+        return CrdtOperationStatus.Success;
     }
 
     private static void RecalculateAndApplyAverage(object root, string jsonPath, IDictionary<string, AverageRegisterValue> contributions)
