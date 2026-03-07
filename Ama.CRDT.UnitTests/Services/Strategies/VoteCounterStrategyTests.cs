@@ -13,6 +13,7 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Xunit;
 
 public sealed class VoteCounterStrategyTests : IDisposable
@@ -21,7 +22,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
     private sealed class TestTimestampProvider : ICrdtTimestampProvider
     {
         private long current = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        private readonly EpochTimestampProvider defaultProvider = new();
+        private readonly EpochTimestampProvider defaultProvider = new(new ReplicaContext { ReplicaId = "test" });
         
         public ICrdtTimestamp Now() => defaultProvider.Create(Interlocked.Increment(ref current));
         public ICrdtTimestamp Create(long value) => defaultProvider.Create(value);

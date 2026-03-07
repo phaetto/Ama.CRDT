@@ -65,10 +65,11 @@ public sealed class CrdtApplicator(
 
         var strategy = strategyProvider.GetStrategy(operation, document);
 
-        // We use strictly less than (<) instead of (<=) because a single patch can contain multiple operations
-        // with the same version/clock. Replayed duplicate operations for the current clock are caught by SeenExceptions.
+        // Every operation now has a unique, monotonically increasing logical clock for its replica.
+        // Therefore, if the operation's clock is less than OR EQUAL to the contiguous lastSeenClock,
+        // it has already been applied and safely recorded.
         if (metadata.VersionVector.TryGetValue(operation.ReplicaId, out var lastSeenClock) &&
-                operation.Clock < lastSeenClock)
+                operation.Clock <= lastSeenClock)
         {
             return CrdtOperationStatus.Obsolete;
         }
