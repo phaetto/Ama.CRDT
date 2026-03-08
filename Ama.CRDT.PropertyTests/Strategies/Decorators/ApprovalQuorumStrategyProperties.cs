@@ -3,6 +3,7 @@ namespace Ama.CRDT.PropertyTests.Strategies.Decorators;
 using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -36,7 +37,7 @@ public sealed class ApprovalQuorumTestPoco : IEquatable<ApprovalQuorumTestPoco>
 
 public sealed class ApprovalQuorumStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, int, string>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0) return;

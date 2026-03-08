@@ -1,6 +1,7 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using FsCheck;
@@ -36,7 +37,7 @@ public sealed class GCounterTestPoco : IEquatable<GCounterTestPoco>
 
 public sealed class GCounterStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(int rawInc1, int rawInc2)
     {
         var inc1 = (decimal)Math.Abs(rawInc1) + 1m; // G-Counter only allows positive increments
@@ -71,7 +72,7 @@ public sealed class GCounterStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<int> rawIncrements)
     {
         if (rawIncrements is null || rawIncrements.Count == 0)

@@ -1,6 +1,7 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -47,10 +48,10 @@ public sealed class CounterMapTestPoco : IEquatable<CounterMapTestPoco>
 
 public sealed class CounterMapStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
-        string key1, decimal inc1, 
-        string key2, decimal inc2)
+        string key1, int inc1, 
+        string key2, int inc2)
     {
         if (key1 is null || key2 is null) return;
 
@@ -59,7 +60,7 @@ public sealed class CounterMapStrategyProperties
             "replica-1",
             nameof(CounterMapTestPoco.Counters),
             OperationType.Increment,
-            new KeyValuePair<object, object?>(key1, inc1),
+            new KeyValuePair<object, object?>(key1, (decimal)inc1),
             new EpochTimestamp(1),
             0);
 
@@ -68,7 +69,7 @@ public sealed class CounterMapStrategyProperties
             "replica-2",
             nameof(CounterMapTestPoco.Counters),
             OperationType.Increment,
-            new KeyValuePair<object, object?>(key2, inc2),
+            new KeyValuePair<object, object?>(key2, (decimal)inc2),
             new EpochTimestamp(2),
             0);
 
@@ -83,8 +84,8 @@ public sealed class CounterMapStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
-    public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<string, decimal>> rawOps)
+    [CrdtProperty]
+    public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<string, int>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0) return;
 
@@ -96,7 +97,7 @@ public sealed class CounterMapStrategyProperties
             $"replica-{i}",
             nameof(CounterMapTestPoco.Counters),
             OperationType.Increment,
-            new KeyValuePair<object, object?>(x.Item1, x.Item2),
+            new KeyValuePair<object, object?>(x.Item1, (decimal)x.Item2),
             new EpochTimestamp(i),
             0)).ToList();
 

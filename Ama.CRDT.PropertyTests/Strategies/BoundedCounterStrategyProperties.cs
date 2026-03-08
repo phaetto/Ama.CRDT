@@ -2,6 +2,7 @@ namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using FsCheck;
@@ -39,7 +40,7 @@ public sealed class BoundedCounterTestPoco : IEquatable<BoundedCounterTestPoco>
 
 public sealed class BoundedCounterStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(int inc1, int inc2)
     {
         var op1 = new CrdtOperation(
@@ -71,7 +72,7 @@ public sealed class BoundedCounterStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<int> increments)
     {
         if (increments is null || increments.Count == 0)

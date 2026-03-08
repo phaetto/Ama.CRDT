@@ -2,6 +2,7 @@ namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using FsCheck;
@@ -38,7 +39,7 @@ public sealed class FixedSizeArrayTestPoco : IEquatable<FixedSizeArrayTestPoco>
 
 public sealed class FixedSizeArrayStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(long timestamp, int rawIndex, string? value)
     {
         var index = Math.Abs(rawIndex) % 5;
@@ -62,7 +63,7 @@ public sealed class FixedSizeArrayStrategyProperties
         state1.ShouldBe(state2);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
         long timestamp1, int rawIndex1, string? value1, 
         long timestamp2, int rawIndex2, string? value2)
@@ -101,7 +102,7 @@ public sealed class FixedSizeArrayStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, int, string?>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0) return;

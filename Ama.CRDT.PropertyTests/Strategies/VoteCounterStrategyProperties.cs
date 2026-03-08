@@ -1,6 +1,7 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using FsCheck;
@@ -39,7 +40,7 @@ public sealed class VoteCounterTestPoco : IEquatable<VoteCounterTestPoco>
 
 public sealed class VoteCounterStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(long timestamp, string voter, string option)
     {
         if (voter is null || option is null) return;
@@ -64,7 +65,7 @@ public sealed class VoteCounterStrategyProperties
         state1.ShouldBe(state2);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
         long timestamp1, string voter1, string option1,
         long timestamp2, string voter2, string option2)
@@ -101,7 +102,7 @@ public sealed class VoteCounterStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, string, string>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0) return;
