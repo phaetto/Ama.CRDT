@@ -99,6 +99,7 @@ public sealed class CrdtMetadataManager(
         document.Metadata.LwwSets.Clear();
         document.Metadata.OrSets.Clear();
         document.Metadata.PriorityQueues.Clear();
+        document.Metadata.SortedSets.Clear();
         document.Metadata.LseqTrackers.Clear();
         document.Metadata.RgaTrackers.Clear();
         document.Metadata.LwwMaps.Clear();
@@ -143,6 +144,7 @@ public sealed class CrdtMetadataManager(
 
         PruneLwwSetStateMap(metadata.LwwSets, threshold);
         PruneLwwSetStateMap(metadata.PriorityQueues, threshold);
+        PruneLwwSetStateMap(metadata.SortedSets, threshold);
     }
 
     /// <inheritdoc/>
@@ -359,6 +361,7 @@ public sealed class CrdtMetadataManager(
             case LwwSetStrategy:
             case OrSetStrategy:
             case PriorityQueueStrategy:
+            case SortedSetStrategy:
                 InitializeSetMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
                 break;
             case LwwMapStrategy:
@@ -406,6 +409,11 @@ public sealed class CrdtMetadataManager(
                 break;
             case PriorityQueueStrategy:
                 metadata.PriorityQueues[propertyPath] = new LwwSetState(
+                    Adds: collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
+                    Removes: new Dictionary<object, ICrdtTimestamp>(comparer));
+                break;
+            case SortedSetStrategy:
+                metadata.SortedSets[propertyPath] = new LwwSetState(
                     Adds: collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
                     Removes: new Dictionary<object, ICrdtTimestamp>(comparer));
                 break;

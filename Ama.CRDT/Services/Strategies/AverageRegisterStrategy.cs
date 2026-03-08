@@ -96,7 +96,8 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
             return;
         }
         
-        var sum = contributions.Values.Sum(c => c.Value);
+        // Order by ReplicaId (Key) to ensure deterministic summation order across all replicas
+        var sum = contributions.OrderBy(c => c.Key, StringComparer.Ordinal).Sum(c => c.Value.Value);
         var average = sum / contributions.Count;
 
         PocoPathHelper.SetValue<decimal>(root, jsonPath, average);

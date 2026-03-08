@@ -103,7 +103,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         // Arrange
         var mockComparerProvider = new Mock<IElementComparerProvider>();
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
-        var strategy = new SortedSetStrategy(mockComparerProvider.Object, new ReplicaContext { ReplicaId = "replica-A" });
+        var strategy = new SortedSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, new ReplicaContext { ReplicaId = "replica-A" });
 
         mockComparerProvider
             .Setup(p => p.GetComparer(typeof(NestedModel)))
