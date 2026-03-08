@@ -22,6 +22,7 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 /// This strategy assumes elements can be uniquely identified and compared. Sorting can be configured via the <see cref="CrdtSortedSetStrategyAttribute.SortPropertyName"/>.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedType(typeof(ISet<>))]
 [CrdtSupportedIntent(typeof(AddIntent))]
 [CrdtSupportedIntent(typeof(RemoveValueIntent))]
 [Commutative]
@@ -142,39 +143,50 @@ public sealed class SortedSetStrategy(
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        if (PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        var rawCollection = PocoPathHelper.GetAccessor(property).Getter(parent);
+        if (rawCollection is not IEnumerable collection)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
+        var list = rawCollection as IList;
 
         if (operation.Type == OperationType.Upsert)
         {
             var newValue = PocoPathHelper.ConvertValue(operation.Value, elementType);
             if (newValue is null) return CrdtOperationStatus.StrategyApplicationFailed;
 
-            var existingIndex = -1;
-            for (var i = 0; i < list.Count; i++)
+            if (list != null)
             {
-                if (comparer.Equals(list[i], newValue))
+                var existingIndex = -1;
+                for (var i = 0; i < list.Count; i++)
                 {
-                    existingIndex = i;
-                    break;
+                    if (comparer.Equals(list[i], newValue))
+                    {
+                        existingIndex = i;
+                        break;
+                    }
                 }
-            }
 
-            if (existingIndex != -1)
-            {
-                list[existingIndex] = newValue;
+                if (existingIndex != -1)
+                {
+                    list[existingIndex] = newValue;
+                }
+                else
+                {
+                    list.Add(newValue);
+                }
             }
             else
             {
-                list.Add(newValue);
+                var existing = collection.Cast<object>().FirstOrDefault(x => comparer.Equals(x, newValue));
+                if (existing != null) PocoPathHelper.RemoveFromCollection(rawCollection, existing);
+                PocoPathHelper.AddToCollection(rawCollection, newValue);
             }
 
-            SortList(list, property);
+            SortCollection(rawCollection, property);
         }
         else if (operation.Type == OperationType.Remove)
         {
@@ -182,19 +194,27 @@ public sealed class SortedSetStrategy(
             var valueToRemove = PocoPathHelper.ConvertValue(operation.Value, elementType);
             if (valueToRemove is null) return CrdtOperationStatus.StrategyApplicationFailed;
 
-            var indexToRemove = -1;
-            for (var i = 0; i < list.Count; i++)
+            if (list != null)
             {
-                if (comparer.Equals(list[i], valueToRemove))
+                var indexToRemove = -1;
+                for (var i = 0; i < list.Count; i++)
                 {
-                    indexToRemove = i;
-                    break;
+                    if (comparer.Equals(list[i], valueToRemove))
+                    {
+                        indexToRemove = i;
+                        break;
+                    }
+                }
+
+                if (indexToRemove != -1)
+                {
+                    list.RemoveAt(indexToRemove);
                 }
             }
-
-            if (indexToRemove != -1)
+            else
             {
-                list.RemoveAt(indexToRemove);
+                var existing = collection.Cast<object>().FirstOrDefault(x => comparer.Equals(x, valueToRemove));
+                if (existing != null) PocoPathHelper.RemoveFromCollection(rawCollection, existing);
             }
         }
         else
@@ -208,20 +228,21 @@ public sealed class SortedSetStrategy(
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var list = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IList;
-        if (list == null || list.Count == 0) return null;
+        var collection = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IEnumerable;
+        if (collection == null) return null;
 
         var attr = partitionableProperty.GetCustomAttribute<CrdtSortedSetStrategyAttribute>();
         var sortPropName = attr?.SortPropertyName;
 
         var keys = new List<IComparable>();
-        foreach (var item in list)
+        foreach (var item in collection)
         {
             var key = GetSortKey(item, sortPropName);
             if (key is IComparable c) keys.Add(c);
             else if (key != null) keys.Add(key.ToString()!);
         }
 
+        if (keys.Count == 0) return null;
         return keys.OrderBy(k => k).FirstOrDefault();
     }
 
@@ -257,8 +278,14 @@ public sealed class SortedSetStrategy(
         var documentType = partitionableProperty.DeclaringType!;
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var list = PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData) as IList;
-        if (list == null || list.Count < 2)
+        var collection = PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData) as IEnumerable;
+        if (collection == null)
+        {
+            throw new InvalidOperationException("Cannot split a null partition.");
+        }
+
+        var list = collection.Cast<object>().ToList();
+        if (list.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
         }
@@ -266,7 +293,7 @@ public sealed class SortedSetStrategy(
         var attr = partitionableProperty.GetCustomAttribute<CrdtSortedSetStrategyAttribute>();
         var sortPropName = attr?.SortPropertyName;
 
-        var items = list.Cast<object>().Select(x => new { Item = x, SortKey = GetSortKey(x, sortPropName) as IComparable ?? GetSortKey(x, sortPropName)?.ToString() as IComparable })
+        var items = list.Select(x => new { Item = x, SortKey = GetSortKey(x, sortPropName) as IComparable ?? GetSortKey(x, sortPropName)?.ToString() as IComparable })
             .Where(x => x.SortKey != null).OrderBy(x => x.SortKey).ToList();
 
         var splitIndex = items.Count / 2;
@@ -280,8 +307,8 @@ public sealed class SortedSetStrategy(
 
         var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
 
-        ReconstructListForSplitMerge(doc1, path, list, keys1, sortPropName, elementType);
-        ReconstructListForSplitMerge(doc2, path, list, keys2, sortPropName, elementType);
+        ReconstructListForSplitMerge(doc1, path, list, keys1, sortPropName, elementType, partitionableProperty.PropertyType);
+        ReconstructListForSplitMerge(doc2, path, list, keys2, sortPropName, elementType, partitionableProperty.PropertyType);
 
         return new SplitResult(new PartitionContent(doc1, originalMetadata.DeepClone()), new PartitionContent(doc2, originalMetadata.DeepClone()), splitKey!);
     }
@@ -295,20 +322,20 @@ public sealed class SortedSetStrategy(
         var mergedDoc = Activator.CreateInstance(documentType)!;
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var list1 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1) as IList;
-        var list2 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2) as IList;
+        var list1 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1) as IEnumerable;
+        var list2 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2) as IEnumerable;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(mergedDoc, path);
         if (parent is not null && property is not null)
         {
             var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
-            var mergedList = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(elementType))!;
+            var mergedList = PocoPathHelper.InstantiateCollection(partitionableProperty.PropertyType);
 
-            if (list1 != null) foreach (var item in list1) mergedList.Add(item);
-            if (list2 != null) foreach (var item in list2) mergedList.Add(item);
+            if (list1 != null) foreach (var item in list1) PocoPathHelper.AddToCollection(mergedList, item);
+            if (list2 != null) foreach (var item in list2) PocoPathHelper.AddToCollection(mergedList, item);
 
             PocoPathHelper.GetAccessor(property).Setter(parent, mergedList);
-            SortList(mergedList, partitionableProperty);
+            SortCollection(mergedList, partitionableProperty);
         }
 
         return new PartitionContent(mergedDoc, mergedMeta);
@@ -362,12 +389,12 @@ public sealed class SortedSetStrategy(
         return diff;
     }
     
-    private static void SortList(IList list, PropertyInfo property)
+    private static void SortCollection(object collection, PropertyInfo property)
     {
         var attr = property.GetCustomAttribute<CrdtSortedSetStrategyAttribute>();
         var sortPropertyName = attr?.SortPropertyName;
 
-        var items = list.Cast<object>().ToList();
+        var items = ((IEnumerable)collection).Cast<object>().ToList();
 
         items.Sort((x, y) =>
         {
@@ -386,34 +413,33 @@ public sealed class SortedSetStrategy(
             return string.Compare(keyX.ToString(), keyY.ToString(), StringComparison.Ordinal);
         });
         
-        list.Clear();
+        PocoPathHelper.ClearCollection(collection);
         foreach (var item in items)
         {
-            list.Add(item);
+            PocoPathHelper.AddToCollection(collection, item);
         }
     }
 
-    private static void ReconstructListForSplitMerge(object root, string path, IList sourceList, HashSet<IComparable?> keysToKeep, string? sortPropName, Type elementType)
+    private static void ReconstructListForSplitMerge(object root, string path, IEnumerable sourceList, HashSet<IComparable?> keysToKeep, string? sortPropName, Type elementType, Type propertyType)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
         if (parent is null || property is null) return;
 
-        var list = PocoPathHelper.GetAccessor(property).Getter(parent) as IList;
-        if (list is null)
+        var collection = PocoPathHelper.GetAccessor(property).Getter(parent);
+        if (collection is null)
         {
-            var listType = typeof(List<>).MakeGenericType(elementType);
-            list = (IList)Activator.CreateInstance(listType)!;
-            PocoPathHelper.GetAccessor(property).Setter(parent, list);
+            collection = PocoPathHelper.InstantiateCollection(propertyType);
+            PocoPathHelper.GetAccessor(property).Setter(parent, collection);
         }
 
-        list.Clear();
+        PocoPathHelper.ClearCollection(collection);
         foreach (var item in sourceList)
         {
             var sortKey = GetSortKey(item, sortPropName) as IComparable ?? GetSortKey(item, sortPropName)?.ToString() as IComparable;
             if (keysToKeep.Contains(sortKey))
             {
                 var converted = PocoPathHelper.ConvertValue(item, elementType);
-                if (converted != null) list.Add(converted);
+                if (converted != null) PocoPathHelper.AddToCollection(collection, converted);
             }
         }
     }

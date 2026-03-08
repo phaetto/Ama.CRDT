@@ -20,6 +20,7 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 /// In a G-Set, elements can only be added. Remove operations are ignored.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedType(typeof(ISet<>))]
 [CrdtSupportedIntent(typeof(AddIntent))]
 [Commutative]
 [Associative]
@@ -83,7 +84,7 @@ public sealed class GSetStrategy(
         }
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IEnumerable collection)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
@@ -97,19 +98,19 @@ public sealed class GSetStrategy(
         }
 
         var comparer = comparerProvider.GetComparer(elementType);
-        var currentItems = list.Cast<object>().ToList();
+        var currentItems = collection.Cast<object>().ToList();
         
         if (!currentItems.Contains(itemValue, comparer))
         {
-            currentItems.Add(itemValue);
+            PocoPathHelper.AddToCollection(collection, itemValue);
             
             // Sort the items to ensure a deterministic order across all replicas.
-            var sortedItems = currentItems.OrderBy(i => i.ToString(), StringComparer.Ordinal).ToList();
+            var sortedItems = ((IEnumerable)collection).Cast<object>().OrderBy(i => i.ToString(), StringComparer.Ordinal).ToList();
             
-            list.Clear();
+            PocoPathHelper.ClearCollection(collection);
             foreach (var item in sortedItems)
             {
-                list.Add(item);
+                PocoPathHelper.AddToCollection(collection, item);
             }
         }
 
@@ -119,11 +120,11 @@ public sealed class GSetStrategy(
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var list = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IList;
-        if (list == null || list.Count == 0) return null;
+        var collection = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IEnumerable;
+        if (collection == null) return null;
 
         var items = new List<IComparable>();
-        foreach (var item in list)
+        foreach (var item in collection)
         {
             if (item is IComparable c) items.Add(c);
             else if (item != null) items.Add(item.ToString()!);
@@ -152,13 +153,19 @@ public sealed class GSetStrategy(
         var documentType = partitionableProperty.DeclaringType!;
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var list = PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData) as IList;
-        if (list == null || list.Count < 2)
+        var collection = PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData) as IEnumerable;
+        if (collection == null)
+        {
+            throw new InvalidOperationException("Cannot split a null partition.");
+        }
+
+        var list = collection.Cast<object>().ToList();
+        if (list.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
         }
 
-        var sortedItems = list.Cast<object>().Select(x => x as IComparable ?? x?.ToString() as IComparable).Where(x => x != null).OrderBy(x => x).ToList();
+        var sortedItems = list.Select(x => x as IComparable ?? x?.ToString() as IComparable).Where(x => x != null).OrderBy(x => x).ToList();
         var splitIndex = sortedItems.Count / 2;
         var splitKey = sortedItems[splitIndex];
 
@@ -170,8 +177,8 @@ public sealed class GSetStrategy(
 
         var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
 
-        ReconstructListForSplitMerge(doc1, path, list, keys1, elementType);
-        ReconstructListForSplitMerge(doc2, path, list, keys2, elementType);
+        ReconstructListForSplitMerge(doc1, path, list, keys1, elementType, partitionableProperty.PropertyType);
+        ReconstructListForSplitMerge(doc2, path, list, keys2, elementType, partitionableProperty.PropertyType);
 
         return new SplitResult(new PartitionContent(doc1, originalMetadata.DeepClone()), new PartitionContent(doc2, originalMetadata.DeepClone()), splitKey!);
     }
@@ -185,22 +192,22 @@ public sealed class GSetStrategy(
         var mergedDoc = Activator.CreateInstance(documentType)!;
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var list1 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1) as IList;
-        var list2 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2) as IList;
+        var list1 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1) as IEnumerable;
+        var list2 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2) as IEnumerable;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(mergedDoc, path);
         if (parent is not null && property is not null)
         {
             var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
             var comparer = comparerProvider.GetComparer(elementType);
-            var mergedList = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(elementType))!;
+            var mergedList = PocoPathHelper.InstantiateCollection(partitionableProperty.PropertyType);
 
             var allItems = new HashSet<object>(comparer);
             if (list1 != null) foreach (var item in list1) allItems.Add(item);
             if (list2 != null) foreach (var item in list2) allItems.Add(item);
 
             var sortedItems = allItems.OrderBy(i => i.ToString(), StringComparer.Ordinal).ToList();
-            foreach (var item in sortedItems) mergedList.Add(item);
+            foreach (var item in sortedItems) PocoPathHelper.AddToCollection(mergedList, item);
 
             PocoPathHelper.GetAccessor(property).Setter(parent, mergedList);
         }
@@ -208,27 +215,26 @@ public sealed class GSetStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructListForSplitMerge(object root, string path, IList sourceList, HashSet<IComparable?> keysToKeep, Type elementType)
+    private static void ReconstructListForSplitMerge(object root, string path, IEnumerable sourceList, HashSet<IComparable?> keysToKeep, Type elementType, Type propertyType)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
         if (parent is null || property is null) return;
 
-        var list = PocoPathHelper.GetAccessor(property).Getter(parent) as IList;
-        if (list is null)
+        var collection = PocoPathHelper.GetAccessor(property).Getter(parent);
+        if (collection is null)
         {
-            var listType = typeof(List<>).MakeGenericType(elementType);
-            list = (IList)Activator.CreateInstance(listType)!;
-            PocoPathHelper.GetAccessor(property).Setter(parent, list);
+            collection = PocoPathHelper.InstantiateCollection(propertyType);
+            PocoPathHelper.GetAccessor(property).Setter(parent, collection);
         }
 
-        list.Clear();
+        PocoPathHelper.ClearCollection(collection);
         foreach (var item in sourceList)
         {
             var comp = item as IComparable ?? item?.ToString() as IComparable;
             if (keysToKeep.Contains(comp))
             {
                 var converted = PocoPathHelper.ConvertValue(item, elementType);
-                if (converted != null) list.Add(converted);
+                if (converted != null) PocoPathHelper.AddToCollection(collection, converted);
             }
         }
     }
