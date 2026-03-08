@@ -89,12 +89,15 @@ public sealed class LwwSetStrategy(
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
@@ -111,7 +114,10 @@ public sealed class LwwSetStrategy(
         }
 
         var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType);
-        if (itemValue is null) return;
+        if (itemValue is null)
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
 
         switch (operation.Type)
         {
@@ -133,6 +139,8 @@ public sealed class LwwSetStrategy(
                     }
                 }
                 break;
+            default:
+                return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         // Incrementally update list instead of reconstructing it
@@ -153,6 +161,8 @@ public sealed class LwwSetStrategy(
         {
             RemoveFromList(list, itemValue, comparer);
         }
+
+        return CrdtOperationStatus.Success;
     }
 
     /// <inheritdoc/>

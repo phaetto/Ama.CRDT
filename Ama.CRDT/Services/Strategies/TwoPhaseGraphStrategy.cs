@@ -66,12 +66,15 @@ public sealed class TwoPhaseGraphStrategy(
         };
     }
 
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         var graphObj = PocoPathHelper.GetValue(root, operation.JsonPath);
-        if (graphObj is not CrdtGraph graph) return;
+        if (graphObj is not CrdtGraph graph)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         if (!metadata.TwoPhaseGraphs.TryGetValue(operation.JsonPath, out var state))
         {
@@ -93,12 +96,16 @@ public sealed class TwoPhaseGraphStrategy(
                     graph.Vertices.Add(vertexPayload.Vertex);
                 }
             }
-            else 
+            else if (operation.Type == OperationType.Remove)
             {
                 if (state.VertexTombstones.Add(vertexPayload.Vertex))
                 {
                     graph.Vertices.Remove(vertexPayload.Vertex);
                 }
+            }
+            else
+            {
+                return CrdtOperationStatus.StrategyApplicationFailed;
             }
         }
         else if (payload is GraphEdgePayload edgePayload && edgePayload.Edge is Edge edge)
@@ -110,13 +117,23 @@ public sealed class TwoPhaseGraphStrategy(
                     graph.Edges.Add(edge);
                 }
             }
-            else 
+            else if (operation.Type == OperationType.Remove)
             {
                 if (state.EdgeTombstones.Add(edgePayload.Edge))
                 {
                     graph.Edges.Remove(edge);
                 }
             }
+            else
+            {
+                return CrdtOperationStatus.StrategyApplicationFailed;
+            }
         }
+        else
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
+
+        return CrdtOperationStatus.Success;
     }
 }

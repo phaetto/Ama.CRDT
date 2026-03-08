@@ -58,12 +58,15 @@ public sealed class GraphStrategy(ReplicaContext replicaContext) : ICrdtStrategy
         throw new NotSupportedException($"The intent '{intent.GetType().Name}' is not supported by {nameof(GraphStrategy)}.");
     }
 
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, _, operation) = context;
         
         var graphObj = PocoPathHelper.GetValue(root, operation.JsonPath);
-        if (graphObj is not CrdtGraph graph) return;
+        if (graphObj is not CrdtGraph graph)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         if (operation.Value is GraphVertexPayload vertexPayload)
         {
@@ -73,5 +76,11 @@ public sealed class GraphStrategy(ReplicaContext replicaContext) : ICrdtStrategy
         {
             graph.Edges.Add(edgePayload.Edge);
         }
+        else
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
+
+        return CrdtOperationStatus.Success;
     }
 }

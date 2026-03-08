@@ -158,10 +158,17 @@ public sealed class CounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Score = initial };
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Increment, (decimal)increment, timestampProvider.Create(2L), 1);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = property,
+            FinalSegment = "score"
+        };
 
         // Act
-        strategy.ApplyOperation(new ApplyOperationContext(model, new CrdtMetadata(), operation));
+        strategy.ApplyOperation(context);
 
         // Assert
         model.Score.ShouldBe(expected);
@@ -173,7 +180,12 @@ public sealed class CounterStrategyTests : IDisposable
         // Arrange
         var model = new TestModelWithNoScore();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Score", OperationType.Increment, 5m, timestampProvider.Create(1L), 1);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = null,
+            FinalSegment = "Score"
+        };
 
         // Act & Assert: This should not throw because the property doesn't exist.
         // The helper will return nulls and the strategy will exit gracefully.
@@ -183,15 +195,24 @@ public sealed class CounterStrategyTests : IDisposable
     private sealed class TestModelWithNoScore { public string? Name { get; set; } }
 
     [Fact]
-    public void ApplyOperation_ShouldThrow_WhenOperationTypeIsNotIncrement()
+    public void ApplyOperation_ShouldReturnFailure_WhenOperationTypeIsNotIncrement()
     {
         // Arrange
         var model = new TestModel();
+        var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Upsert, 5m, timestampProvider.Create(1L), 1);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = property,
+            FinalSegment = "score"
+        };
 
-        // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.ApplyOperation(context));
+        // Act
+        var result = strategy.ApplyOperation(context);
+
+        // Assert
+        result.ShouldBe(CrdtOperationStatus.StrategyApplicationFailed);
     }
     
     [Fact]

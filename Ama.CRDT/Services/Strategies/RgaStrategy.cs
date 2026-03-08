@@ -292,7 +292,7 @@ public sealed class RgaStrategy(
     }
 
     /// <inheritdoc />
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
@@ -303,7 +303,10 @@ public sealed class RgaStrategy(
         }
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null) return;
+        if (parent is null || property is null)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var list = PocoPathHelper.GetAccessor(property).Getter(parent) as IList;
@@ -321,7 +324,7 @@ public sealed class RgaStrategy(
             {
                 if (items.Any(x => x.Identifier.Equals(newItem.Identifier)))
                 {
-                    return; // Idempotency check
+                    return CrdtOperationStatus.Success; // Idempotency check
                 }
 
                 // O(1) Fast path: Appending to the very end of the list (e.g., standard typing)
@@ -346,6 +349,10 @@ public sealed class RgaStrategy(
                     list.Insert(visibleIdx, PocoPathHelper.ConvertValue(newItem.Value, elementType));
                 }
             }
+            else
+            {
+                return CrdtOperationStatus.StrategyApplicationFailed;
+            }
         }
         else if (operation.Type == OperationType.Remove)
         {
@@ -369,9 +376,19 @@ public sealed class RgaStrategy(
                     if (!items[i].IsDeleted) visibleIdx++;
                 }
             }
+            else
+            {
+                return CrdtOperationStatus.StrategyApplicationFailed;
+            }
+        }
+        else
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         metadata.RgaTrackers[operation.JsonPath] = items;
+
+        return CrdtOperationStatus.Success;
     }
 
     private static List<RgaItem> RebuildRgaOrder(List<RgaItem> items)

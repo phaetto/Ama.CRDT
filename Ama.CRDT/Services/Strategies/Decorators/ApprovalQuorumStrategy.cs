@@ -59,19 +59,19 @@ public sealed class ApprovalQuorumStrategy(IServiceProvider serviceProvider, IEl
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
         if (context.Property is null)
         {
-            return;
+            return CrdtOperationStatus.PathResolutionFailed;
         }
 
         // Strict enforcement: Reject operations that are not explicitly wrapped in a QuorumPayload.
         if (context.Operation.Value is not QuorumPayload payload)
         {
-            return;
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         var quorumAttr = context.Property.GetCustomAttribute<CrdtApprovalQuorumAttribute>();
@@ -103,7 +103,7 @@ public sealed class ApprovalQuorumStrategy(IServiceProvider serviceProvider, IEl
             var innerOp = context.Operation with { Value = payload.ProposedValue };
             var innerContext = context with { Operation = innerOp };
             
-            innerStrategy.ApplyOperation(innerContext);
+            var status = innerStrategy.ApplyOperation(innerContext);
 
             // Clean up approvals for this value once met to keep metadata compact
             pathApprovals.Remove(keyObject);
@@ -111,6 +111,10 @@ public sealed class ApprovalQuorumStrategy(IServiceProvider serviceProvider, IEl
             {
                 context.Metadata.QuorumApprovals.Remove(path);
             }
+
+            return status;
         }
+
+        return CrdtOperationStatus.Success;
     }
 }

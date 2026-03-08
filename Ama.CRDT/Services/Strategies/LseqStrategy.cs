@@ -224,7 +224,7 @@ public sealed class LseqStrategy(
     }
 
     /// <inheritdoc />
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
@@ -235,7 +235,10 @@ public sealed class LseqStrategy(
         }
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null) return;
+        if (parent is null || property is null)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var list = PocoPathHelper.GetAccessor(property).Getter(parent) as IList;
@@ -254,7 +257,7 @@ public sealed class LseqStrategy(
                 {
                     // O(1) Check for existing to ensure idempotency
                     var existingIdx = lseqItems.FindIndex(i => i.Identifier.Equals(newItem.Identifier));
-                    if (existingIdx >= 0) return;
+                    if (existingIdx >= 0) return CrdtOperationStatus.Success;
 
                     // O(N) Find insertion position to maintain sorted order
                     int insertPos = 0;
@@ -266,6 +269,10 @@ public sealed class LseqStrategy(
                     // Incrementally update both tracker and list without full reconstruction
                     lseqItems.Insert(insertPos, newItem);
                     list.Insert(insertPos, PocoPathHelper.ConvertValue(newItem.Value, elementType));
+                }
+                else
+                {
+                    return CrdtOperationStatus.StrategyApplicationFailed;
                 }
                 break;
             case OperationType.Remove:
@@ -281,10 +288,18 @@ public sealed class LseqStrategy(
                         }
                     }
                 }
+                else
+                {
+                    return CrdtOperationStatus.StrategyApplicationFailed;
+                }
                 break;
+            default:
+                return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         metadata.LseqTrackers[operation.JsonPath] = lseqItems;
+
+        return CrdtOperationStatus.Success;
     }
 
     /// <inheritdoc/>

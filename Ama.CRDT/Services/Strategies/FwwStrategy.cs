@@ -82,7 +82,7 @@ public sealed class FwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
@@ -91,7 +91,7 @@ public sealed class FwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
         metadata.Fww.TryGetValue(operation.JsonPath, out var fwwTs);
         if (!isReset && fwwTs is not null && operation.Timestamp.CompareTo(fwwTs) >= 0)
         {
-            return;
+            return CrdtOperationStatus.Obsolete;
         }
         
         if (isReset)
@@ -109,5 +109,11 @@ public sealed class FwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
             PocoPathHelper.SetValue(root, operation.JsonPath, operation.Value);
             metadata.Fww[operation.JsonPath] = operation.Timestamp;
         }
+        else
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
+
+        return CrdtOperationStatus.Success;
     }
 }

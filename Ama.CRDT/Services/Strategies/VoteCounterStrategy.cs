@@ -79,26 +79,32 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
         throw new NotSupportedException($"Explicit operation generation for intent '{context.Intent?.GetType().Name}' is not supported for {this.GetType().Name}.");
     }
 
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         if (PocoPathHelper.ConvertValue(operation.Value, typeof(VotePayload)) is not VotePayload payload)
         {
-            return;
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
         var voterMetaPath = $"{operation.JsonPath}.['{GetVoterKey(payload.Voter)}']";
 
         if (metadata.Lww.TryGetValue(voterMetaPath, out var currentTimestamp) && operation.Timestamp.CompareTo(currentTimestamp) <= 0)
         {
-            return;
+            return CrdtOperationStatus.Obsolete;
         }
 
         var (parentNode, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
         
-        if (property is null || parentNode is null) return;
+        if (property is null || parentNode is null)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
         
-        if (PocoPathHelper.GetAccessor(property).Getter(parentNode) is not IDictionary dictionary) return;
+        if (PocoPathHelper.GetAccessor(property).Getter(parentNode) is not IDictionary dictionary)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         var dictKeyType = PocoPathHelper.GetDictionaryKeyType(property);
         var dictValueType = PocoPathHelper.GetDictionaryValueType(property);
@@ -107,12 +113,17 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
         var voter = PocoPathHelper.ConvertValue(payload.Voter, voterType);
         var newOption = PocoPathHelper.ConvertValue(payload.Option, dictKeyType);
 
-        if (voter is null || newOption is null) return;
+        if (voter is null || newOption is null)
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
 
         RemoveVoterFromAllOptions(dictionary, voter);
         AddVoterToOption(dictionary, voter, newOption, dictValueType);
         
         metadata.Lww[voterMetaPath] = operation.Timestamp;
+
+        return CrdtOperationStatus.Success;
     }
 
     /// <inheritdoc/>

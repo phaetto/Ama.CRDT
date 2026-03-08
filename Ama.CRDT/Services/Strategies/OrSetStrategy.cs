@@ -109,12 +109,15 @@ public sealed class OrSetStrategy(
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
@@ -135,9 +138,14 @@ public sealed class OrSetStrategy(
             case OperationType.Remove:
                 modifiedItemValue = ApplyRemove(state, operation.Value, elementType);
                 break;
+            default:
+                return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        if (modifiedItemValue is null) return;
+        if (modifiedItemValue is null)
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
 
         bool isLiveNow = false;
         if (state.Adds.TryGetValue(modifiedItemValue, out var addTags))
@@ -156,6 +164,8 @@ public sealed class OrSetStrategy(
         {
             RemoveFromList(list, modifiedItemValue, comparer);
         }
+
+        return CrdtOperationStatus.Success;
     }
 
     /// <inheritdoc/>

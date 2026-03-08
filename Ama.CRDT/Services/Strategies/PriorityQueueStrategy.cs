@@ -110,12 +110,15 @@ public sealed class PriorityQueueStrategy(
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
         
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         
@@ -130,31 +133,44 @@ public sealed class PriorityQueueStrategy(
         var removes = meta.Removes;
 
         var value = PocoPathHelper.ConvertValue(operation.Value, elementType);
-        if (value is null) return;
+        if (value is null)
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
         
+        bool wasApplied = false;
+
         switch (operation.Type)
         {
             case OperationType.Upsert:
-                ApplyUpsert(list, adds, removes, value, operation.Timestamp, comparer);
+                wasApplied = ApplyUpsert(list, adds, removes, value, operation.Timestamp, comparer);
                 break;
             case OperationType.Remove:
-                ApplyRemove(list, adds, removes, value, operation.Timestamp, comparer);
+                wasApplied = ApplyRemove(list, adds, removes, value, operation.Timestamp, comparer);
                 break;
+            default:
+                return CrdtOperationStatus.StrategyApplicationFailed;
         }
         
-        SortList(list, property);
+        if (wasApplied)
+        {
+            SortList(list, property);
+            return CrdtOperationStatus.Success;
+        }
+
+        return CrdtOperationStatus.Obsolete;
     }
     
-    private void ApplyUpsert(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, ICrdtTimestamp> removes, object value, ICrdtTimestamp timestamp, IEqualityComparer<object> comparer)
+    private bool ApplyUpsert(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, ICrdtTimestamp> removes, object value, ICrdtTimestamp timestamp, IEqualityComparer<object> comparer)
     {
         if (removes.TryGetValue(value, out var removeTimestamp) && timestamp.CompareTo(removeTimestamp) < 0)
         {
-            return;
+            return false;
         }
 
         if (adds.TryGetValue(value, out var addTimestamp) && timestamp.CompareTo(addTimestamp) < 0)
         {
-            return;
+            return false;
         }
         
         var existing = list.Cast<object>().FirstOrDefault(i => comparer.Equals(i, value));
@@ -165,20 +181,21 @@ public sealed class PriorityQueueStrategy(
 
         list.Add(value);
         adds[value] = timestamp;
+        return true;
     }
     
-    private void ApplyRemove(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, ICrdtTimestamp> removes, object value, ICrdtTimestamp timestamp, IEqualityComparer<object> comparer)
+    private bool ApplyRemove(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, ICrdtTimestamp> removes, object value, ICrdtTimestamp timestamp, IEqualityComparer<object> comparer)
     {
         if (removes.TryGetValue(value, out var removeTimestamp) && timestamp.CompareTo(removeTimestamp) <= 0)
         {
-            return;
+            return false;
         }
 
         removes[value] = timestamp;
 
         if (adds.TryGetValue(value, out var addTimestamp) && timestamp.CompareTo(addTimestamp) < 0)
         {
-            return;
+            return false; // Still returning false for the obsolete indicator even if removal logic might conceptually progress, aligned with lww metadata checks.
         }
         
         var existing = list.Cast<object>().FirstOrDefault(i => comparer.Equals(i, value));
@@ -186,6 +203,7 @@ public sealed class PriorityQueueStrategy(
         {
             list.Remove(existing);
         }
+        return true;
     }
     
     private void SortList(IList list, PropertyInfo property)

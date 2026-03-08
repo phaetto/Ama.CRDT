@@ -86,28 +86,31 @@ public sealed class MaxWinsMapStrategy(
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
-        if (operation.Type != OperationType.Upsert) return;
+        if (operation.Type != OperationType.Upsert) return CrdtOperationStatus.StrategyApplicationFailed;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
         
         var keyType = PocoPathHelper.GetDictionaryKeyType(property);
         var valueType = PocoPathHelper.GetDictionaryValueType(property);
 
         if (PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>)) is not KeyValuePair<object, object?> payload)
         {
-            return;
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
         
         var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
-        if (itemKey is null) return;
+        if (itemKey is null) return CrdtOperationStatus.StrategyApplicationFailed;
 
         var incomingValue = PocoPathHelper.ConvertValue(payload.Value, valueType);
-        if (incomingValue is not IComparable) return;
+        if (incomingValue is not IComparable) return CrdtOperationStatus.StrategyApplicationFailed;
         
         if (dict.Contains(itemKey))
         {
@@ -116,11 +119,17 @@ public sealed class MaxWinsMapStrategy(
             {
                 dict[itemKey] = incomingValue;
             }
+            else
+            {
+                return CrdtOperationStatus.Obsolete;
+            }
         }
         else
         {
             dict[itemKey] = incomingValue;
         }
+
+        return CrdtOperationStatus.Success;
     }
 
     /// <inheritdoc/>

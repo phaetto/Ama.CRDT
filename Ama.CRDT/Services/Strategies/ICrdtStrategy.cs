@@ -28,5 +28,6 @@ public interface ICrdtStrategy
     /// This method performs the direct data manipulation on the target object and can also modify the associated CRDT metadata.
     /// </summary>
     /// <param name="context">The context for the apply operation, containing the target document, metadata, and the operation to apply.</param>
-    void ApplyOperation(ApplyOperationContext context);
+    /// <returns>The status of the operation application.</returns>
+    CrdtOperationStatus ApplyOperation(ApplyOperationContext context);
 }

@@ -63,14 +63,14 @@ public sealed class MaxWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         if (operation.Type != OperationType.Upsert)
         {
             // This strategy only handles value assignments.
-            return;
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
         
         var currentValue = PocoPathHelper.GetValue(root, operation.JsonPath);
@@ -78,12 +78,15 @@ public sealed class MaxWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
 
         if (incomingValue is null)
         {
-            return; // Max-wins doesn't typically handle nulls; we ignore them.
+            // Max-wins doesn't typically handle nulls; we ignore them but it is not a failure of the strategy.
+            return CrdtOperationStatus.Success; 
         }
 
         if (currentValue is null || ((IComparable)currentValue).CompareTo(incomingValue) < 0)
         {
             PocoPathHelper.SetValue(root, operation.JsonPath, incomingValue);
         }
+
+        return CrdtOperationStatus.Success;
     }
 }

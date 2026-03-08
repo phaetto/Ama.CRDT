@@ -76,25 +76,25 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         if (operation.Type != OperationType.Increment)
         {
-            throw new InvalidOperationException($"Bounded Counter strategy can only apply 'Increment' operations. Received '{operation.Type}'.");
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        var (_, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        var property = context.Property;
         if (property is null)
         {
-            return;
+            return CrdtOperationStatus.PathResolutionFailed;
         }
 
         var attribute = property.GetCustomAttribute<CrdtBoundedCounterStrategyAttribute>();
         if (attribute is null)
         {
-            throw new InvalidOperationException($"Property at path '{operation.JsonPath}' is missing the CrdtBoundedCounterStrategyAttribute.");
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         decimal unboundedValue;
@@ -115,5 +115,7 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
         var clampedValue = Math.Max(attribute.Min, Math.Min(attribute.Max, newUnboundedValue));
 
         PocoPathHelper.SetValue(root, operation.JsonPath, clampedValue);
+
+        return CrdtOperationStatus.Success;
     }
 }

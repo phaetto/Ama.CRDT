@@ -116,12 +116,15 @@ public sealed class ReplicatedTreeStrategy(
             context.Clock);
     }
 
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
         
         var treeObj = PocoPathHelper.GetValue(root, operation.JsonPath);
-        if (treeObj is not CrdtTree tree) return;
+        if (treeObj is not CrdtTree tree)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
         
         var idType = tree.Nodes.Keys.FirstOrDefault()?.GetType() ?? typeof(object);
         var idComparer = comparerProvider.GetComparer(idType);
@@ -134,7 +137,10 @@ public sealed class ReplicatedTreeStrategy(
         
         object? payload = operation.Value;
 
-        if (payload is null) return;
+        if (payload is null)
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
 
         if (payload is IDictionary<string, object> dict)
         {
@@ -188,7 +194,7 @@ public sealed class ReplicatedTreeStrategy(
 
             if (metadata.Lww.TryGetValue(nodePath, out var existingTimestamp) && operation.Timestamp.CompareTo(existingTimestamp) <= 0)
             {
-                return;
+                return CrdtOperationStatus.Obsolete;
             }
 
             if (tree.Nodes.TryGetValue(nodeId, out var nodeToMove))
@@ -197,6 +203,12 @@ public sealed class ReplicatedTreeStrategy(
                 metadata.Lww[nodePath] = operation.Timestamp;
             }
         }
+        else
+        {
+            return CrdtOperationStatus.StrategyApplicationFailed;
+        }
+
+        return CrdtOperationStatus.Success;
     }
     
     private static void ApplyAdd(OrSetState state, object nodeId, Guid tag)

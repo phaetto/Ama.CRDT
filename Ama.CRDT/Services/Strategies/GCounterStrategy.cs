@@ -68,25 +68,27 @@ public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrat
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         if (operation.Type != OperationType.Increment)
         {
-            throw new InvalidOperationException($"G-Counter strategy can only apply 'Increment' operations. Received '{operation.Type}'.");
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         var increment = PocoPathHelper.ConvertTo<decimal>(operation.Value);
         if (increment <= 0)
         {
-            // G-Counters only grow. Silently ignore non-positive increments.
-            return;
+            // G-Counters only grow. Invalid non-positive increments are failed.
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         var currentNumeric = PocoPathHelper.GetValue<decimal>(root, operation.JsonPath);
         var newValue = currentNumeric + increment;
 
         PocoPathHelper.SetValue(root, operation.JsonPath, newValue);
+
+        return CrdtOperationStatus.Success;
     }
 }

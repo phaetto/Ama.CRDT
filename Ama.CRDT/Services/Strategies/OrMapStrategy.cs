@@ -117,12 +117,15 @@ public sealed class OrMapStrategy(
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict) return;
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
 
         var keyType = PocoPathHelper.GetDictionaryKeyType(property);
         var valueType = PocoPathHelper.GetDictionaryValueType(property);
@@ -137,7 +140,10 @@ public sealed class OrMapStrategy(
         switch (operation.Type)
         {
             case OperationType.Upsert:
-                ApplyUpsert(dict, metadata, state, operation, keyType, valueType);
+                if (!ApplyUpsert(dict, metadata, state, operation, keyType, valueType))
+                {
+                    return CrdtOperationStatus.StrategyApplicationFailed;
+                }
                 break;
             case OperationType.Remove:
                 var removedKey = ApplyRemove(state, operation.Value, keyType);
@@ -149,8 +155,16 @@ public sealed class OrMapStrategy(
                         dict.Remove(removedKey);
                     }
                 }
+                else
+                {
+                    return CrdtOperationStatus.StrategyApplicationFailed;
+                }
                 break;
+            default:
+                return CrdtOperationStatus.StrategyApplicationFailed;
         }
+
+        return CrdtOperationStatus.Success;
     }
     
     /// <inheritdoc/>
@@ -406,12 +420,12 @@ public sealed class OrMapStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
     
-    private void ApplyUpsert(IDictionary dict, CrdtMetadata metadata, OrSetState state, CrdtOperation operation, Type keyType, Type valueType)
+    private bool ApplyUpsert(IDictionary dict, CrdtMetadata metadata, OrSetState state, CrdtOperation operation, Type keyType, Type valueType)
     {
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapAddItem)) is not OrMapAddItem payload) return;
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapAddItem)) is not OrMapAddItem payload) return false;
 
         var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
-        if (itemKey is null) return;
+        if (itemKey is null) return false;
 
         if (!state.Adds.TryGetValue(itemKey, out var addTags))
         {
@@ -427,6 +441,8 @@ public sealed class OrMapStrategy(
             var itemValue = PocoPathHelper.ConvertValue(payload.Value, valueType);
             dict[itemKey] = itemValue;
         }
+
+        return true;
     }
 
     private static object? ApplyRemove(OrSetState state, object? opValue, Type keyType)

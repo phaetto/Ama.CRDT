@@ -70,13 +70,13 @@ public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrate
     }
 
     /// <inheritdoc/>
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         var (root, metadata, operation) = context;
 
         if (operation.Type != OperationType.Increment)
         {
-            throw new InvalidOperationException($"{nameof(CounterStrategy)} only supports increment operations.");
+            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         var incrementValue = PocoPathHelper.ConvertTo<decimal>(operation.Value);
@@ -84,6 +84,8 @@ public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrate
         var newValue = existingValue + incrementValue;
         
         PocoPathHelper.SetValue(root, operation.JsonPath, newValue);
+
+        return CrdtOperationStatus.Success;
     }
 
     private CrdtOperation GenerateSetOperation(object root, string path, SetIntent intent, ICrdtTimestamp timestamp, long clock)
