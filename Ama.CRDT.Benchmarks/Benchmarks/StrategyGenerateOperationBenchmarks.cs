@@ -4,6 +4,7 @@ using Ama.CRDT.Benchmarks.Models;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Models.Intents.Decorators;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -117,6 +118,13 @@ public class StrategyGenerateOperationBenchmarks
 
     private ICrdtStrategy replicatedTreeStrategy = null!;
     private GenerateOperationContext replicatedTreeContext = default!;
+
+    private ICrdtStrategy epochBoundStrategy = null!;
+    private GenerateOperationContext epochBoundContext = default!;
+    private GenerateOperationContext epochClearContext = default!;
+
+    private ICrdtStrategy approvalQuorumStrategy = null!;
+    private GenerateOperationContext approvalQuorumContext = default!;
     #endregion
 
     [GlobalSetup]
@@ -168,6 +176,10 @@ public class StrategyGenerateOperationBenchmarks
         SetupStrategyAndContext(nameof(StrategyPoco.Graph), new AddVertexIntent("Vertex2"), out graphStrategy, out graphContext);
         SetupStrategyAndContext(nameof(StrategyPoco.TwoPhaseGraph), new AddVertexIntent("Vertex3"), out twoPhaseGraphStrategy, out twoPhaseGraphContext);
         SetupStrategyAndContext(nameof(StrategyPoco.Tree), new AddNodeIntent(new TreeNode { Id = 2, Value = "Node2" }), out replicatedTreeStrategy, out replicatedTreeContext);
+        
+        SetupStrategyAndContext(nameof(StrategyPoco.EpochBoundValue), new SetIntent("updated"), out epochBoundStrategy, out epochBoundContext);
+        SetupStrategyAndContext(nameof(StrategyPoco.EpochBoundValue), new EpochClearIntent(), out _, out epochClearContext);
+        SetupStrategyAndContext(nameof(StrategyPoco.QuorumBoundValue), new SetIntent("updated"), out approvalQuorumStrategy, out approvalQuorumContext);
         #endregion
     }
 
@@ -401,6 +413,27 @@ public class StrategyGenerateOperationBenchmarks
     {
         for (int i = 0; i < BatchSize; i++)
             replicatedTreeStrategy.GenerateOperation(replicatedTreeContext);
+    }
+
+    [Benchmark(Description = "Strategy.GenerateOp: EpochBound", OperationsPerInvoke = BatchSize)]
+    public void GenerateOp_EpochBound()
+    {
+        for (int i = 0; i < BatchSize; i++)
+            epochBoundStrategy.GenerateOperation(epochBoundContext);
+    }
+
+    [Benchmark(Description = "Strategy.GenerateOp: EpochClear", OperationsPerInvoke = BatchSize)]
+    public void GenerateOp_EpochClear()
+    {
+        for (int i = 0; i < BatchSize; i++)
+            epochBoundStrategy.GenerateOperation(epochClearContext);
+    }
+
+    [Benchmark(Description = "Strategy.GenerateOp: ApprovalQuorum", OperationsPerInvoke = BatchSize)]
+    public void GenerateOp_ApprovalQuorum()
+    {
+        for (int i = 0; i < BatchSize; i++)
+            approvalQuorumStrategy.GenerateOperation(approvalQuorumContext);
     }
     #endregion
 }
