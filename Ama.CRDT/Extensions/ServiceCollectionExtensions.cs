@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization.Converters;
@@ -26,13 +27,18 @@ public static class ServiceCollectionExtensions
     /// the <see cref="ICrdtApplicator"/> for applying patches, and other essential supporting services.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection"/> to add services to.</param>
+    /// <param name="configure">An optional action to configure CRDT strategies and decorators via the Fluent API without using attributes.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
     /// <example>
     /// <code>
     /// <![CDATA[
     /// var builder = WebApplication.CreateBuilder(args);
     /// 
-    /// builder.Services.AddCrdt();
+    /// builder.Services.AddCrdt(options => 
+    /// {
+    ///     options.Entity<MyDocument>()
+    ///         .Property(x => x.Metrics).HasStrategy<MinWinsMapStrategy>();
+    /// });
     ///
     /// var app = builder.Build();
     ///
@@ -46,8 +52,13 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdt(this IServiceCollection services)
+    public static IServiceCollection AddCrdt(this IServiceCollection services, Action<CrdtModelBuilder>? configure = null)
     {
+        // Build the configuration registry
+        var builder = new CrdtModelBuilder();
+        configure?.Invoke(builder);
+        services.TryAddSingleton<ICrdtModelRegistry>(builder.Build());
+
         // Add metrics
         services.TryAddSingleton<PartitionManagerCrdtMetrics>();
 

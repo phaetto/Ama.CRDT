@@ -1,9 +1,11 @@
 namespace Ama.CRDT.UnitTests.Services;
 
+using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Models.Intents.Decorators;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
@@ -106,6 +108,13 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         
         [CrdtLseqStrategy]
         public List<string> SubLog { get; set; } = new();
+    }
+
+    private sealed class DecoratedDocument
+    {
+        [CrdtEpochBound]
+        [CrdtApprovalQuorum(2)]
+        public string? ProtectedSecret { get; set; }
     }
 
     #endregion
@@ -347,5 +356,70 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         // Assert - Both replicas converge to the mathematically lowest value dynamically
         model1.Metrics["latency"].ShouldBe(20);
         model2.Metrics["latency"].ShouldBe(20);
+    }
+
+    [Fact]
+    public void ComplexComposition_Decorators_ShouldWrapOperationsAndExecuteCorrectly()
+    {
+        using var scope2 = _scope.ServiceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test-replica-2");
+        var patcher2 = scope2.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var applicator2 = scope2.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        var metadataManager2 = scope2.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+
+        // Arrange - Setup replica 1
+        var model1 = new DecoratedDocument();
+        var meta1 = _metadataManager.Initialize(model1);
+        var doc1 = new CrdtDocument<DecoratedDocument>(model1, meta1);
+
+        // Arrange - Setup replica 2
+        var model2 = new DecoratedDocument();
+        var meta2 = metadataManager2.Initialize(model2);
+        var doc2 = new CrdtDocument<DecoratedDocument>(model2, meta2);
+
+        // Act - Replica 1 proposes a change
+        var modified1 = new DecoratedDocument { ProtectedSecret = "ApprovedSecret" };
+        var patch1 = _patcher.GeneratePatch(doc1, modified1);
+        
+        // Replica 1 applies its own proposal - Value should remain null because quorum is 2
+        _applicator.ApplyPatch(doc1, patch1);
+        model1.ProtectedSecret.ShouldBeNull();
+
+        // Replica 2 generates identical proposal
+        var modified2 = new DecoratedDocument { ProtectedSecret = "ApprovedSecret" };
+        var patch2 = patcher2.GeneratePatch(doc2, modified2);
+
+        // Replica 2 applies its own proposal - Value should remain null because quorum is 2
+        applicator2.ApplyPatch(doc2, patch2);
+        model2.ProtectedSecret.ShouldBeNull();
+
+        // Exchange proposals
+        _applicator.ApplyPatch(doc1, patch2); // Replica 1 gets Replica 2's vote
+        applicator2.ApplyPatch(doc2, patch1); // Replica 2 gets Replica 1's vote
+
+        // Assert - Both replicas reached quorum (2 proposals), unwrapped the payload, and applied the inner LWW strategy
+        model1.ProtectedSecret.ShouldBe("ApprovedSecret");
+        model2.ProtectedSecret.ShouldBe("ApprovedSecret");
+
+        // Act - Explicit EpochClear intent to bump epoch and reset state
+        var clearOp = _patcher.GenerateOperation(doc1, d => d.ProtectedSecret, new EpochClearIntent());
+        
+        // Even the EpochClear requires a quorum because it is wrapped by the outer ApprovalQuorum!
+        _applicator.ApplyPatch(doc1, new CrdtPatch([clearOp]));
+        model1.ProtectedSecret.ShouldBe("ApprovedSecret"); // Not cleared yet
+        
+        // Replica 2 sends the same clear intent
+        var clearOp2 = patcher2.GenerateOperation(doc2, d => d.ProtectedSecret, new EpochClearIntent());
+        
+        // Replica 2 applies its own clear intent
+        applicator2.ApplyPatch(doc2, new CrdtPatch([clearOp2]));
+        model2.ProtectedSecret.ShouldBe("ApprovedSecret"); // Not cleared yet
+
+        // Exchange clear intents
+        _applicator.ApplyPatch(doc1, new CrdtPatch([clearOp2]));
+        applicator2.ApplyPatch(doc2, new CrdtPatch([clearOp]));
+
+        // Assert - Quorum met for clear intent, Epoch bumps, and state clears
+        model1.ProtectedSecret.ShouldBeNull();
+        model2.ProtectedSecret.ShouldBeNull();
     }
 }
