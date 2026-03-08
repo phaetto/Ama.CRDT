@@ -25,12 +25,16 @@ public sealed class UiService
     private IPartitionManager<BlogPost> partitionManager;
     private string currentReplicaId;
 
+    // Track simulated Global Version Vectors to show causality gaps
+    private readonly Dictionary<string, DottedVersionVector> replicaDvvs = new();
+
     private Window topPane;
     private FrameView rightPane;
     private ListView postListView;
     private TextView postContentView;
     private ListView tagsListView;
     private ListView commentListView;
+    private Label syncStatusLabel;
 
     private readonly List<string> displayedComments = new();
     private readonly List<string> displayedTags = new();
@@ -49,6 +53,11 @@ public sealed class UiService
         this.serviceProvider = serviceProvider;
         this.replicaIds = replicaIds;
         this.blogPostIds = blogPostIds;
+
+        foreach (var rId in replicaIds)
+        {
+            replicaDvvs[rId] = new DottedVersionVector();
+        }
     }
 
     public void Run()
@@ -76,7 +85,8 @@ public sealed class UiService
                 new MenuItem("_New Post", "", ShowNewPostDialog),
                 new MenuItem("Add _Comment", "", ShowAddCommentDialog),
                 new MenuItem("Add _Tag", "", ShowAddTagDialog),
-                new MenuItem("_Sync Replicas", "", SyncReplicas)
+                new MenuItem("_Sync Replicas", "", SyncReplicas),
+                new MenuItem("Sync _Status", "", ShowSyncStatusDialog)
             }),
             new MenuBarItem("_Replica", CreateReplicaMenuItems())
         });
@@ -94,10 +104,18 @@ public sealed class UiService
             X = 0,
             Y = 0,
             Width = Dim.Fill(),
-            Height = Dim.Fill()
+            Height = Dim.Fill(2)
         };
         postListView.SelectedItemChanged += OnPostSelected;
-        leftPane.Add(postListView);
+
+        syncStatusLabel = new Label("Sync: Up to date")
+        {
+            X = 0,
+            Y = Pos.Bottom(postListView),
+            Width = Dim.Fill()
+        };
+
+        leftPane.Add(postListView, syncStatusLabel);
 
         rightPane = new FrameView("Selected Post")
         {
@@ -171,9 +189,92 @@ public sealed class UiService
             topPane.Title = $"CRDT Showcase - Viewing: {replicaId}";
         }
         
+        UpdateSyncStatusUI();
         LoadBlogPostHeadersAsync();
     }
     
+    private void IncrementLocalDvv()
+    {
+        var dvv = replicaDvvs[currentReplicaId];
+        long currentVersion = dvv.Versions.TryGetValue(currentReplicaId, out var v) ? v : 0;
+        dvv.Add(currentReplicaId, currentVersion + 1);
+    }
+
+    private void UpdateSyncStatusUI()
+    {
+        Application.MainLoop.Invoke(() => 
+        {
+            var vvSyncService = serviceProvider.GetRequiredService<IVersionVectorSyncService>();
+            var targetCtx = new ReplicaContext { ReplicaId = currentReplicaId, GlobalVersionVector = replicaDvvs[currentReplicaId] };
+            
+            int totalMissing = 0;
+            foreach (var source in replicaIds.Where(r => r != currentReplicaId))
+            {
+                var sourceCtx = new ReplicaContext { ReplicaId = source, GlobalVersionVector = replicaDvvs[source] };
+                var req = vvSyncService.CalculateRequirement(targetCtx, sourceCtx);
+                if (req.IsBehind)
+                {
+                    totalMissing += (int)req.RequirementsByOrigin.Values.Sum(r => Math.Max(0, r.SourceContiguousVersion - r.TargetContiguousVersion) + (r.SourceMissingDots?.Count ?? 0));
+                }
+            }
+            
+            if (totalMissing > 0)
+            {
+                syncStatusLabel.Text = $"⚠ Behind by {totalMissing} operations";
+            }
+            else
+            {
+                syncStatusLabel.Text = $"✔ Up to date";
+            }
+        });
+    }
+
+    private void ShowSyncStatusDialog()
+    {
+        var vvSyncService = serviceProvider.GetRequiredService<IVersionVectorSyncService>();
+        
+        var dialog = new Dialog("Global Sync Status", 70, 20);
+        var listView = new ListView()
+        {
+            X = 1, Y = 1, Width = Dim.Fill(1), Height = Dim.Fill(2)
+        };
+        
+        var statusLines = new List<string>();
+        
+        foreach (var target in replicaIds)
+        {
+            var targetCtx = new ReplicaContext { ReplicaId = target, GlobalVersionVector = replicaDvvs[target] };
+            
+            foreach (var source in replicaIds)
+            {
+                if (target == source) continue;
+                
+                var sourceCtx = new ReplicaContext { ReplicaId = source, GlobalVersionVector = replicaDvvs[source] };
+                var req = vvSyncService.CalculateRequirement(targetCtx, sourceCtx);
+                
+                if (req.IsBehind)
+                {
+                    var missingCount = req.RequirementsByOrigin.Values.Sum(r => Math.Max(0, r.SourceContiguousVersion - r.TargetContiguousVersion) + (r.SourceMissingDots?.Count ?? 0));
+                    statusLines.Add($"{target} is BEHIND {source} by {missingCount} ops");
+                }
+            }
+        }
+        
+        if (statusLines.Count == 0)
+        {
+            statusLines.Add("All replicas are fully synchronized!");
+        }
+        
+        listView.SetSource(statusLines);
+        
+        var btnOk = new Button("Close", is_default: true);
+        btnOk.Clicked += () => Application.RequestStop();
+        
+        dialog.Add(listView);
+        dialog.AddButton(btnOk);
+        Application.Run(dialog);
+    }
+
     private async void LoadBlogPostHeadersAsync()
     {
         if (partitionManager is null || blogPostIds is null) return;
@@ -369,10 +470,13 @@ public sealed class UiService
             var syncService = serviceProvider.GetRequiredService<SyncService>();
             syncService.QueuePatch(currentReplicaId, patch, replicaIds);
 
+            IncrementLocalDvv();
+
             Application.MainLoop.Invoke(() => {
                 if (!blogPostIds.Contains(id)) {
                     blogPostIds.Add(id);
                 }
+                UpdateSyncStatusUI();
                 LoadBlogPostHeadersAsync();
             });
         };
@@ -423,11 +527,14 @@ public sealed class UiService
             var syncService = serviceProvider.GetRequiredService<SyncService>();
             syncService.QueuePatch(currentReplicaId, patch, replicaIds);
 
+            IncrementLocalDvv();
+
             totalCommentPartitionCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
             currentCommentPartitionIndex = (int)totalCommentPartitionCount;
             
             Application.MainLoop.Invoke(() => {
                 displayedComments.Clear();
+                UpdateSyncStatusUI();
                 LoadNextCommentPartition();
             });
         };
@@ -472,7 +579,10 @@ public sealed class UiService
             var syncService = serviceProvider.GetRequiredService<SyncService>();
             syncService.QueuePatch(currentReplicaId, patch, replicaIds);
 
+            IncrementLocalDvv();
+
             Application.MainLoop.Invoke(() => {
+                UpdateSyncStatusUI();
                 var index = blogPostHeaders.FindIndex(h => h.Id == selectedBlogPostId);
                 if (index >= 0) {
                     OnPostSelected(new ListViewItemEventArgs(index, null));
@@ -508,10 +618,14 @@ public sealed class UiService
                 await targetPartitionManager.ApplyPatchAsync(patch);
                 syncCount++;
             }
+
+            // After emptying the queue targeting this replica, it has fully absorbed the current replica's causal history.
+            replicaDvvs[replica].Merge(replicaDvvs[currentReplicaId]);
         }
 
         Application.MainLoop.Invoke(() => {
             MessageBox.Query("Sync Complete", $"Successfully synced {syncCount} patches to other replicas.", "Ok");
+            UpdateSyncStatusUI();
             LoadBlogPostHeadersAsync();
         });
     }

@@ -1,0 +1,92 @@
+namespace Ama.CRDT.Services;
+
+using System;
+using System.Collections.Generic;
+using Ama.CRDT.Models;
+
+/// <summary>
+/// Implements <see cref="IVersionVectorSyncService"/> to calculate synchronization requirements between replicas based on their Dotted Version Vectors.
+/// </summary>
+public sealed class VersionVectorSyncService : IVersionVectorSyncService
+{
+    /// <inheritdoc/>
+    public ReplicaSyncRequirement CalculateRequirement(ReplicaContext target, ReplicaContext source)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentException.ThrowIfNullOrWhiteSpace(target.ReplicaId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(source.ReplicaId);
+
+        var requirements = new Dictionary<string, OriginSyncRequirement>();
+        var targetDvv = target.GlobalVersionVector ?? new DottedVersionVector();
+        var sourceDvv = source.GlobalVersionVector ?? new DottedVersionVector();
+
+        var allSourceOrigins = new HashSet<string>(sourceDvv.Versions.Keys);
+        allSourceOrigins.UnionWith(sourceDvv.Dots.Keys);
+
+        foreach (var origin in allSourceOrigins)
+        {
+            sourceDvv.Versions.TryGetValue(origin, out var sourceMax);
+            targetDvv.Versions.TryGetValue(origin, out var targetMax);
+
+            targetDvv.Dots.TryGetValue(origin, out var targetDots);
+            sourceDvv.Dots.TryGetValue(origin, out var sourceDots);
+
+            var targetKnownDots = new HashSet<long>();
+            var sourceMissingDots = new HashSet<long>();
+
+            if (sourceMax > targetMax && targetDots != null)
+            {
+                foreach (var dot in targetDots)
+                {
+                    if (dot > targetMax && dot <= sourceMax)
+                    {
+                        targetKnownDots.Add(dot);
+                    }
+                }
+            }
+
+            if (sourceDots != null)
+            {
+                foreach (var dot in sourceDots)
+                {
+                    if (!targetDvv.Includes(origin, dot))
+                    {
+                        sourceMissingDots.Add(dot);
+                    }
+                }
+            }
+
+            if (sourceMax > targetMax || sourceMissingDots.Count > 0)
+            {
+                requirements[origin] = new OriginSyncRequirement
+                {
+                    TargetContiguousVersion = targetMax,
+                    SourceContiguousVersion = sourceMax,
+                    TargetKnownDots = targetKnownDots,
+                    SourceMissingDots = sourceMissingDots
+                };
+            }
+        }
+
+        return new ReplicaSyncRequirement
+        {
+            TargetReplicaId = target.ReplicaId,
+            SourceReplicaId = source.ReplicaId,
+            RequirementsByOrigin = requirements
+        };
+    }
+
+    /// <inheritdoc/>
+    public BidirectionalSyncRequirements CalculateBidirectionalRequirements(ReplicaContext replicaA, ReplicaContext replicaB)
+    {
+        ArgumentNullException.ThrowIfNull(replicaA);
+        ArgumentNullException.ThrowIfNull(replicaB);
+
+        return new BidirectionalSyncRequirements
+        {
+            ReplicaANeedsFromB = CalculateRequirement(replicaA, replicaB),
+            ReplicaBNeedsFromA = CalculateRequirement(replicaB, replicaA)
+        };
+    }
+}
