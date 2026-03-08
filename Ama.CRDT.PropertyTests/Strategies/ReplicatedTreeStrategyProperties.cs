@@ -1,6 +1,7 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -20,7 +21,7 @@ public sealed class ReplicatedTreeTestPoco
 
 public sealed class ReplicatedTreeStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(long timestamp, string nodeId, string parentId, string value, Guid tag)
     {
         if (nodeId is null) return;
@@ -47,7 +48,7 @@ public sealed class ReplicatedTreeStrategyProperties
         Serialize(state1).ShouldBe(Serialize(state2));
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
         long timestamp1, string nodeId1, string parentId1,
         long timestamp2, string nodeId2, string parentId2)
@@ -89,7 +90,7 @@ public sealed class ReplicatedTreeStrategyProperties
         Serialize(stateAB).ShouldBe(Serialize(stateBA));
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, string, string>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0) return;

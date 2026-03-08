@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -40,7 +41,7 @@ public sealed class ArrayLcsTestPoco : IEquatable<ArrayLcsTestPoco>
 
 public sealed class ArrayLcsStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
         int pos1, string? val1,
         int pos2, string? val2)
@@ -77,7 +78,7 @@ public sealed class ArrayLcsStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<bool, int, string?>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0)

@@ -2,6 +2,7 @@ namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -64,7 +65,7 @@ public sealed class PriorityQueueTestPoco : IEquatable<PriorityQueueTestPoco>
 
 public sealed class PriorityQueueStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(long timestamp, string id, int priority, bool isRemove)
     {
         if (id is null) return;
@@ -90,7 +91,7 @@ public sealed class PriorityQueueStrategyProperties
         state1.ShouldBe(state2);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
         long timestamp1, string id1, int priority1, bool isRemove1,
         long timestamp2, string id2, int priority2, bool isRemove2)
@@ -129,7 +130,7 @@ public sealed class PriorityQueueStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, string, int, bool>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0) return;

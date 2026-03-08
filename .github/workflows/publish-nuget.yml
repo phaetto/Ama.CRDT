@@ -12,6 +12,8 @@ env:
   PROJECT_PATH_MAIN: 'Ama.CRDT/Ama.CRDT.csproj'
   PROJECT_PATH_STREAMS: 'Ama.CRDT.Partitioning.Streams/Ama.CRDT.Partitioning.Streams.csproj'
   PACKAGE_OUTPUT_DIRECTORY: '${{ github.workspace }}/nuget'
+  # Fast execution for standard preview pushes
+  FSCHECK_MAX_TESTS: 100
 
 jobs:
   build-test-and-publish:

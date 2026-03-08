@@ -1,6 +1,7 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -30,7 +31,7 @@ public sealed class RgaTestPoco : IEquatable<RgaTestPoco>
 
 public sealed class RgaStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(long timestamp, string item, bool isRemove)
     {
         if (item is null) return;
@@ -57,7 +58,7 @@ public sealed class RgaStrategyProperties
         state1.ShouldBe(state2);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
         long timestamp1, string item1, bool isRemove1, 
         long timestamp2, string item2, bool isRemove2)
@@ -97,7 +98,7 @@ public sealed class RgaStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, string, bool>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0) return;

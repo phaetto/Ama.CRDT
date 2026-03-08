@@ -52,6 +52,7 @@
 | `$/Ama.CRDT.Project.Analyzers/PropertyInfoUsageAnalyzer.cs` | No description provided. |
 | `$/Ama.CRDT.Project.Analyzers/SystemConvertUsageAnalyzer.cs` | No description provided. |
 | `$/Ama.CRDT.PropertyTests/Ama.CRDT.PropertyTests.csproj` | Contains the project definition for the property tests, incorporating FsCheck for automated generative testing validation. |
+| `$/Ama.CRDT.PropertyTests/Attributes/CrdtPropertyAttribute.cs` | Custom FsCheck property attribute (`[CrdtProperty]`) that centrally configures the default number of test permutations (`MaxTest`) and supports environment-variable overrides for CI/CD environments. |
 | `$/Ama.CRDT.PropertyTests/Strategies/ArrayLcsStrategyProperties.cs` | Contains property-based tests for `ArrayLcsStrategy` validating convergence and commutativity using `FsCheck`. |
 | `$/Ama.CRDT.PropertyTests/Strategies/AverageRegisterStrategyProperties.cs` | Contains property-based tests for `AverageRegisterStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
 | `$/Ama.CRDT.PropertyTests/Strategies/BoundedCounterStrategyProperties.cs` | Contains property-based tests for `BoundedCounterStrategy` validating convergence and commutativity using `FsCheck`. |
@@ -102,6 +103,7 @@
 | `$/Ama.CRDT.ShowCase/Services/InMemoryDatabaseService.cs` | An implementation of `IInMemoryDatabaseService` using `ConcurrentDictionary` to simulate a database for CRDT documents and metadata. |
 | `$/Ama.CRDT.ShowCase/SimulationRunner.cs` | Orchestrates the distributed map-reduce simulation using concurrent producers, mappers, and convergers communicating via channels to demonstrate CRDT convergence. |
 | `$/Ama.CRDT.UnitTests/Ama.CRDT.UnitTests.csproj` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Architecture/StrategyConventionTests.cs` | An architecture convention unit test that reflects over all strategies to enforce the presence of unit tests, property tests, benchmarks, and documentation. |
 | `$/Ama.CRDT.UnitTests/Models/EpochTimestampTests.cs` | Contains unit tests for the `EpochTimestamp` implementation of `ICrdtTimestamp`. |
 | `$/Ama.CRDT.UnitTests/Models/Partitioning/CompositePartitionKeyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtMetadataSerializationTests.cs` | Contains unit tests for the serialization and deserialization of the `CrdtMetadata` class, verifying both default and compact serialization options and ensuring polymorphic and complex data (e.g., non-string dictionary keys, nested collections) is handled correctly. |
