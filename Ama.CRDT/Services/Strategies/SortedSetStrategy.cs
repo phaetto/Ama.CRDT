@@ -18,7 +18,7 @@ using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 
 /// <summary>
-/// Implements a CRDT strategy for collections that are treated as sorted sets. It uses the Longest Common Subsequence (LCS) algorithm to find differences and ensures the collection remains sorted after operations.
+/// Implements a CRDT strategy for collections that are treated as sorted sets. It utilizes Last-Writer-Wins (LWW) conflict resolution logic under the hood and ensures the collection remains sorted after operations.
 /// This strategy assumes elements can be uniquely identified and compared. Sorting can be configured via the <see cref="CrdtSortedSetStrategyAttribute.SortPropertyName"/>.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
@@ -28,9 +28,10 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 [Commutative]
 [Associative]
 [Idempotent]
-[OperationBased]
+[StateBased]
 public sealed class SortedSetStrategy(
     IElementComparerProvider comparerProvider, 
+    ICrdtTimestampProvider timestampProvider,
     ReplicaContext replicaContext) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
@@ -151,19 +152,59 @@ public sealed class SortedSetStrategy(
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
+        var listRepresentation = collection.Cast<object>().ToList();
+
+        if (!metadata.SortedSets.TryGetValue(collectionPath, out var state))
+        {
+            var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
+            foreach (var item in listRepresentation)
+            {
+                adds[item] = timestampProvider.Create(0);
+            }
+            state = new LwwSetState(adds, new Dictionary<object, ICrdtTimestamp>(comparer));
+            metadata.SortedSets[collectionPath] = state;
+        }
+
+        var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType);
+        if (itemValue is null) return CrdtOperationStatus.StrategyApplicationFailed;
+
+        switch (operation.Type)
+        {
+            case OperationType.Upsert:
+                if (!state.Adds.TryGetValue(itemValue, out var addTimestamp) || operation.Timestamp.CompareTo(addTimestamp) > 0)
+                {
+                    state.Adds[itemValue] = operation.Timestamp;
+                }
+                break;
+            case OperationType.Remove:
+                if (!state.Removes.TryGetValue(itemValue, out var removeTimestamp) || operation.Timestamp.CompareTo(removeTimestamp) > 0)
+                {
+                    state.Removes[itemValue] = operation.Timestamp;
+                }
+                break;
+            default:
+                return CrdtOperationStatus.StrategyApplicationFailed;
+        }
+
+        bool isLiveNow = false;
+        if (state.Adds.TryGetValue(itemValue, out var finalAddTs))
+        {
+            if (!state.Removes.TryGetValue(itemValue, out var finalRemoveTs) || finalAddTs.CompareTo(finalRemoveTs) > 0)
+            {
+                isLiveNow = true;
+            }
+        }
+
         var list = rawCollection as IList;
 
-        if (operation.Type == OperationType.Upsert)
+        if (isLiveNow)
         {
-            var newValue = PocoPathHelper.ConvertValue(operation.Value, elementType);
-            if (newValue is null) return CrdtOperationStatus.StrategyApplicationFailed;
-
             if (list != null)
             {
                 var existingIndex = -1;
                 for (var i = 0; i < list.Count; i++)
                 {
-                    if (comparer.Equals(list[i], newValue))
+                    if (comparer.Equals(list[i], itemValue))
                     {
                         existingIndex = i;
                         break;
@@ -172,34 +213,30 @@ public sealed class SortedSetStrategy(
 
                 if (existingIndex != -1)
                 {
-                    list[existingIndex] = newValue;
+                    list[existingIndex] = itemValue;
                 }
                 else
                 {
-                    list.Add(newValue);
+                    list.Add(itemValue);
                 }
             }
             else
             {
-                var existing = collection.Cast<object>().FirstOrDefault(x => comparer.Equals(x, newValue));
+                var existing = collection.Cast<object>().FirstOrDefault(x => comparer.Equals(x, itemValue));
                 if (existing != null) PocoPathHelper.RemoveFromCollection(rawCollection, existing);
-                PocoPathHelper.AddToCollection(rawCollection, newValue);
+                PocoPathHelper.AddToCollection(rawCollection, itemValue);
             }
 
             SortCollection(rawCollection, property);
         }
-        else if (operation.Type == OperationType.Remove)
+        else
         {
-            if (operation.Value is null) return CrdtOperationStatus.StrategyApplicationFailed;
-            var valueToRemove = PocoPathHelper.ConvertValue(operation.Value, elementType);
-            if (valueToRemove is null) return CrdtOperationStatus.StrategyApplicationFailed;
-
             if (list != null)
             {
                 var indexToRemove = -1;
                 for (var i = 0; i < list.Count; i++)
                 {
-                    if (comparer.Equals(list[i], valueToRemove))
+                    if (comparer.Equals(list[i], itemValue))
                     {
                         indexToRemove = i;
                         break;
@@ -213,13 +250,9 @@ public sealed class SortedSetStrategy(
             }
             else
             {
-                var existing = collection.Cast<object>().FirstOrDefault(x => comparer.Equals(x, valueToRemove));
+                var existing = collection.Cast<object>().FirstOrDefault(x => comparer.Equals(x, itemValue));
                 if (existing != null) PocoPathHelper.RemoveFromCollection(rawCollection, existing);
             }
-        }
-        else
-        {
-            return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
         return CrdtOperationStatus.Success;
@@ -279,38 +312,73 @@ public sealed class SortedSetStrategy(
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
         var collection = PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData) as IEnumerable;
-        if (collection == null)
+        var list = collection?.Cast<object>().ToList() ?? new List<object>();
+
+        if (!originalMetadata.SortedSets.TryGetValue(path, out var state))
         {
-            throw new InvalidOperationException("Cannot split a null partition.");
+            var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+            var comparer = comparerProvider.GetComparer(elementType);
+            var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
+            foreach (var item in list) adds[item] = timestampProvider.Create(0);
+            state = new LwwSetState(adds, new Dictionary<object, ICrdtTimestamp>(comparer));
+            originalMetadata.SortedSets[path] = state;
         }
 
-        var list = collection.Cast<object>().ToList();
-        if (list.Count < 2)
+        if (state.Adds.Count + state.Removes.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
         }
 
+        var elementTypeProp = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        var comparerProp = comparerProvider.GetComparer(elementTypeProp);
         var attr = partitionableProperty.GetCustomAttribute<CrdtSortedSetStrategyAttribute>();
         var sortPropName = attr?.SortPropertyName;
 
-        var items = list.Select(x => new { Item = x, SortKey = GetSortKey(x, sortPropName) as IComparable ?? GetSortKey(x, sortPropName)?.ToString() as IComparable })
+        var allItems = state.Adds.Keys.Concat(state.Removes.Keys).Distinct(comparerProp);
+        var itemsWithKeys = allItems.Select(x => new { Item = x, SortKey = GetSortKey(x, sortPropName) as IComparable ?? GetSortKey(x, sortPropName)?.ToString() as IComparable })
             .Where(x => x.SortKey != null).OrderBy(x => x.SortKey).ToList();
 
-        var splitIndex = items.Count / 2;
-        var splitKey = items[splitIndex].SortKey;
+        if (itemsWithKeys.Count < 2)
+        {
+            throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
+        }
 
-        var keys1 = items.Take(splitIndex).Select(x => x.SortKey).ToHashSet();
-        var keys2 = items.Skip(splitIndex).Select(x => x.SortKey).ToHashSet();
+        var splitIndex = itemsWithKeys.Count / 2;
+        var splitKey = itemsWithKeys[splitIndex].SortKey;
+
+        var keys1 = itemsWithKeys.Take(splitIndex).Select(x => x.SortKey).ToHashSet();
+        
+        var adds1 = new Dictionary<object, ICrdtTimestamp>(comparerProp);
+        var adds2 = new Dictionary<object, ICrdtTimestamp>(comparerProp);
+        foreach (var kvp in state.Adds)
+        {
+            var k = GetSortKey(kvp.Key, sortPropName) as IComparable ?? GetSortKey(kvp.Key, sortPropName)?.ToString() as IComparable;
+            if (keys1.Contains(k)) adds1[kvp.Key] = kvp.Value;
+            else adds2[kvp.Key] = kvp.Value;
+        }
+
+        var rems1 = new Dictionary<object, ICrdtTimestamp>(comparerProp);
+        var rems2 = new Dictionary<object, ICrdtTimestamp>(comparerProp);
+        foreach (var kvp in state.Removes)
+        {
+            var k = GetSortKey(kvp.Key, sortPropName) as IComparable ?? GetSortKey(kvp.Key, sortPropName)?.ToString() as IComparable;
+            if (keys1.Contains(k)) rems1[kvp.Key] = kvp.Value;
+            else rems2[kvp.Key] = kvp.Value;
+        }
+
+        var meta1 = originalMetadata.DeepClone();
+        var meta2 = originalMetadata.DeepClone();
+
+        meta1.SortedSets[path] = new LwwSetState(adds1, rems1);
+        meta2.SortedSets[path] = new LwwSetState(adds2, rems2);
 
         var doc1 = Activator.CreateInstance(documentType)!;
         var doc2 = Activator.CreateInstance(documentType)!;
 
-        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        ReconstructListForSplitMerge(doc1, path, meta1.SortedSets[path], elementTypeProp, partitionableProperty.PropertyType);
+        ReconstructListForSplitMerge(doc2, path, meta2.SortedSets[path], elementTypeProp, partitionableProperty.PropertyType);
 
-        ReconstructListForSplitMerge(doc1, path, list, keys1, sortPropName, elementType, partitionableProperty.PropertyType);
-        ReconstructListForSplitMerge(doc2, path, list, keys2, sortPropName, elementType, partitionableProperty.PropertyType);
-
-        return new SplitResult(new PartitionContent(doc1, originalMetadata.DeepClone()), new PartitionContent(doc2, originalMetadata.DeepClone()), splitKey!);
+        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey!);
     }
 
     /// <inheritdoc/>
@@ -322,21 +390,35 @@ public sealed class SortedSetStrategy(
         var mergedDoc = Activator.CreateInstance(documentType)!;
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var list1 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1) as IEnumerable;
-        var list2 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2) as IEnumerable;
+        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        var comparer = comparerProvider.GetComparer(elementType);
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(mergedDoc, path);
-        if (parent is not null && property is not null)
+        var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
+        var rems = new Dictionary<object, ICrdtTimestamp>(comparer);
+
+        if (meta1.SortedSets.TryGetValue(path, out var state1))
         {
-            var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
-            var mergedList = PocoPathHelper.InstantiateCollection(partitionableProperty.PropertyType);
-
-            if (list1 != null) foreach (var item in list1) PocoPathHelper.AddToCollection(mergedList, item);
-            if (list2 != null) foreach (var item in list2) PocoPathHelper.AddToCollection(mergedList, item);
-
-            PocoPathHelper.GetAccessor(property).Setter(parent, mergedList);
-            SortCollection(mergedList, partitionableProperty);
+            foreach (var kvp in state1.Adds) adds[kvp.Key] = kvp.Value;
+            foreach (var kvp in state1.Removes) rems[kvp.Key] = kvp.Value;
         }
+        if (meta2.SortedSets.TryGetValue(path, out var state2))
+        {
+            foreach (var kvp in state2.Adds)
+            {
+                if (!adds.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
+                    adds[kvp.Key] = kvp.Value;
+            }
+            foreach (var kvp in state2.Removes)
+            {
+                if (!rems.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
+                    rems[kvp.Key] = kvp.Value;
+            }
+        }
+
+        var mergedState = new LwwSetState(adds, rems);
+        mergedMeta.SortedSets[path] = mergedState;
+
+        ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType, partitionableProperty.PropertyType);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
@@ -401,16 +483,33 @@ public sealed class SortedSetStrategy(
             var keyX = GetSortKey(x, sortPropertyName);
             var keyY = GetSortKey(y, sortPropertyName);
             
-            if (keyX is null && keyY is null) return 0;
-            if (keyX is null) return -1;
-            if (keyY is null) return 1;
-
-            if (keyX is IComparable comparableX)
+            int cmp;
+            if (keyX is null && keyY is null) cmp = 0;
+            else if (keyX is null) cmp = -1;
+            else if (keyY is null) cmp = 1;
+            else if (keyX is string strX && keyY is string strY)
             {
-                return comparableX.CompareTo(keyY);
+                cmp = string.Compare(strX, strY, StringComparison.Ordinal);
+            }
+            else if (keyX is IComparable comparableX)
+            {
+                cmp = comparableX.CompareTo(keyY);
+            }
+            else
+            {
+                cmp = string.Compare(keyX.ToString(), keyY.ToString(), StringComparison.Ordinal);
             }
 
-            return string.Compare(keyX.ToString(), keyY.ToString(), StringComparison.Ordinal);
+            if (cmp == 0 && !ReferenceEquals(x, y))
+            {
+                if (x is string sX && y is string sY)
+                {
+                    return string.Compare(sX, sY, StringComparison.Ordinal);
+                }
+                return string.Compare(x?.ToString(), y?.ToString(), StringComparison.Ordinal);
+            }
+
+            return cmp;
         });
         
         PocoPathHelper.ClearCollection(collection);
@@ -420,7 +519,7 @@ public sealed class SortedSetStrategy(
         }
     }
 
-    private static void ReconstructListForSplitMerge(object root, string path, IEnumerable sourceList, HashSet<IComparable?> keysToKeep, string? sortPropName, Type elementType, Type propertyType)
+    private static void ReconstructListForSplitMerge(object root, string path, LwwSetState state, Type elementType, Type propertyType)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
         if (parent is null || property is null) return;
@@ -433,15 +532,26 @@ public sealed class SortedSetStrategy(
         }
 
         PocoPathHelper.ClearCollection(collection);
-        foreach (var item in sourceList)
+        
+        var liveItems = new List<object>();
+
+        foreach (var kvp in state.Adds)
         {
-            var sortKey = GetSortKey(item, sortPropName) as IComparable ?? GetSortKey(item, sortPropName)?.ToString() as IComparable;
-            if (keysToKeep.Contains(sortKey))
+            var item = kvp.Key;
+            var addTs = kvp.Value;
+            if (!state.Removes.TryGetValue(item, out var rmTs) || addTs.CompareTo(rmTs) > 0)
             {
                 var converted = PocoPathHelper.ConvertValue(item, elementType);
-                if (converted != null) PocoPathHelper.AddToCollection(collection, converted);
+                if (converted != null) liveItems.Add(converted);
             }
         }
+
+        foreach (var item in liveItems)
+        {
+            PocoPathHelper.AddToCollection(collection, item);
+        }
+
+        SortCollection(collection, property);
     }
 
     private static object? GetSortKey(object? obj, string? sortPropertyName)
