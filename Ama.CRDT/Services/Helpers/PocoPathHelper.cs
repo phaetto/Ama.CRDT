@@ -31,6 +31,10 @@ internal static class PocoPathHelper
     private static readonly ConcurrentDictionary<Type, Func<object>> ConstructorCache = new();
     private static readonly ConcurrentDictionary<Type, Func<object?, object?, object>> KvpConstructorCache = new();
 
+    private static readonly ConcurrentDictionary<Type, Action<object, object?>> CollectionAdders = new();
+    private static readonly ConcurrentDictionary<Type, Action<object, object?>> CollectionRemovers = new();
+    private static readonly ConcurrentDictionary<Type, Action<object>> CollectionClearers = new();
+
     internal readonly record struct ParseResult(string JsonPath, PropertyInfo Property);
 
     internal sealed class CachedPropertyMetadata(PropertyInfo property, string jsonPropertyName)
@@ -561,12 +565,131 @@ internal static class PocoPathHelper
             throw new ArgumentNullException(nameof(property));
         }
 
-        return CollectionElementTypeCache.GetOrAdd(property.PropertyType, type =>
+        return GetCollectionElementType(property.PropertyType);
+    }
+    
+    public static Type GetCollectionElementType(Type collectionType)
+    {
+        if (collectionType is null)
         {
+            throw new ArgumentNullException(nameof(collectionType));
+        }
+
+        return CollectionElementTypeCache.GetOrAdd(collectionType, type =>
+        {
+            var iEnumerableOfT = type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+            if (iEnumerableOfT != null)
+            {
+                return iEnumerableOfT.GetGenericArguments()[0];
+            }
+
             return type.IsGenericType
                 ? type.GetGenericArguments()[0]
                 : type.GetElementType() ?? typeof(object);
         });
+    }
+
+    public static object InstantiateCollection(Type propertyType)
+    {
+        var elementType = GetCollectionElementType(propertyType);
+        Type concreteType;
+
+        if (propertyType.IsInterface)
+        {
+            var genericDef = propertyType.IsGenericType ? propertyType.GetGenericTypeDefinition() : null;
+            if (genericDef == typeof(ISet<>) || genericDef == typeof(IReadOnlySet<>))
+                concreteType = typeof(HashSet<>).MakeGenericType(elementType);
+            else
+                concreteType = typeof(List<>).MakeGenericType(elementType);
+        }
+        else if (propertyType.IsAbstract)
+        {
+            concreteType = typeof(List<>).MakeGenericType(elementType);
+        }
+        else
+        {
+            concreteType = propertyType;
+        }
+
+        var factory = ConstructorCache.GetOrAdd(concreteType, CreateConstructor);
+        return factory();
+    }
+
+    public static void AddToCollection(object collection, object? item)
+    {
+        var type = collection.GetType();
+        var adder = CollectionAdders.GetOrAdd(type, t =>
+        {
+            var elementType = GetCollectionElementType(t);
+            var colParam = Expression.Parameter(typeof(object), "col");
+            var itemParam = Expression.Parameter(typeof(object), "item");
+            var castCol = Expression.Convert(colParam, t);
+            
+            var addMethod = t.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))?.GetMethod("Add") 
+                            ?? (typeof(IList).IsAssignableFrom(t) ? typeof(IList).GetMethod("Add") : t.GetMethod("Add"));
+
+            if (addMethod == null) return (_, _) => throw new InvalidOperationException($"Cannot find Add method on {t.Name}");
+
+            var convertItemMethod = typeof(PocoPathHelper).GetMethod(nameof(ConvertValue), BindingFlags.Public | BindingFlags.Static)!;
+            var elementTypeConst = Expression.Constant(elementType, typeof(Type));
+            var convertedItem = Expression.Call(convertItemMethod, itemParam, elementTypeConst);
+            var castItem = Expression.Convert(convertedItem, elementType);
+
+            var call = Expression.Call(castCol, addMethod, castItem);
+            var body = addMethod.ReturnType == typeof(void) ? (Expression)call : Expression.Block(typeof(void), call);
+
+            return Expression.Lambda<Action<object, object?>>(body, colParam, itemParam).Compile();
+        });
+        adder(collection, item);
+    }
+
+    public static void RemoveFromCollection(object collection, object? item)
+    {
+        var type = collection.GetType();
+        var remover = CollectionRemovers.GetOrAdd(type, t =>
+        {
+            var elementType = GetCollectionElementType(t);
+            var colParam = Expression.Parameter(typeof(object), "col");
+            var itemParam = Expression.Parameter(typeof(object), "item");
+            var castCol = Expression.Convert(colParam, t);
+            
+            var removeMethod = t.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))?.GetMethod("Remove") 
+                            ?? (typeof(IList).IsAssignableFrom(t) ? typeof(IList).GetMethod("Remove") : t.GetMethod("Remove"));
+
+            if (removeMethod == null) return (_, _) => throw new InvalidOperationException($"Cannot find Remove method on {t.Name}");
+
+            var convertItemMethod = typeof(PocoPathHelper).GetMethod(nameof(ConvertValue), BindingFlags.Public | BindingFlags.Static)!;
+            var elementTypeConst = Expression.Constant(elementType, typeof(Type));
+            var convertedItem = Expression.Call(convertItemMethod, itemParam, elementTypeConst);
+            var castItem = Expression.Convert(convertedItem, elementType);
+
+            var call = Expression.Call(castCol, removeMethod, castItem);
+            var body = removeMethod.ReturnType == typeof(void) ? (Expression)call : Expression.Block(typeof(void), call);
+
+            return Expression.Lambda<Action<object, object?>>(body, colParam, itemParam).Compile();
+        });
+        remover(collection, item);
+    }
+
+    public static void ClearCollection(object collection)
+    {
+        var type = collection.GetType();
+        var clearer = CollectionClearers.GetOrAdd(type, t =>
+        {
+            var colParam = Expression.Parameter(typeof(object), "col");
+            var castCol = Expression.Convert(colParam, t);
+            
+            var clearMethod = t.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))?.GetMethod("Clear") 
+                            ?? (typeof(IList).IsAssignableFrom(t) ? typeof(IList).GetMethod("Clear") : t.GetMethod("Clear"));
+
+            if (clearMethod == null) return (_) => throw new InvalidOperationException($"Cannot find Clear method on {t.Name}");
+
+            var call = Expression.Call(castCol, clearMethod);
+            var body = clearMethod.ReturnType == typeof(void) ? (Expression)call : Expression.Block(typeof(void), call);
+
+            return Expression.Lambda<Action<object>>(body, colParam).Compile();
+        });
+        clearer(collection);
     }
 
     public static Type GetDictionaryKeyType(PropertyInfo property)

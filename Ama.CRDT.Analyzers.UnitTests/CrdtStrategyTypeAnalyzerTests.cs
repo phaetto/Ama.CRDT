@@ -137,6 +137,82 @@ public class MyPoco
     }
 
     [Fact]
+    public async Task WhenSetStrategyAppliedToGenericISetInterface_ShouldNotReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes.Strategies;
+using System.Collections.Generic;
+
+public class MyPoco
+{
+    [CrdtGSetStrategy]
+    public ISet<string> MySet { get; set; }
+}
+";
+        var test = CreateTest();
+        test.TestCode = source;
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenSetStrategyAppliedToHashSet_ShouldNotReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes.Strategies;
+using System.Collections.Generic;
+
+public class MyPoco
+{
+    [CrdtGSetStrategy]
+    public HashSet<string> MySet { get; set; }
+}
+";
+        var test = CreateTest();
+        test.TestCode = source;
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenSetStrategyAppliedToSortedSet_ShouldNotReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes.Strategies;
+using System.Collections.Generic;
+
+public class MyPoco
+{
+    [CrdtSortedSetStrategy]
+    public SortedSet<string> MySet { get; set; }
+}
+";
+        var test = CreateTest();
+        test.TestCode = source;
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenSetStrategyAppliedToInvalidType_ShouldReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes.Strategies;
+
+public class MyPoco
+{
+    [CrdtGSetStrategy]
+    public int MySet { get; set; }
+}
+";
+        var expected = new DiagnosticResult("CRDT0001", DiagnosticSeverity.Error)
+            .WithLocation(7, 16)
+            .WithArguments("GSetStrategy", "int");
+
+        var test = CreateTest();
+        test.TestCode = source;
+        test.ExpectedDiagnostics.Add(expected);
+        await test.RunAsync();
+    }
+
+    [Fact]
     public async Task WhenInterfaceBasedStrategyAppliedToValidType_ShouldNotReportDiagnostic()
     {
         var source = @"
