@@ -329,6 +329,13 @@
 | `$/Specs/done/readme-update-2025-08-24.md` | No description provided. |
 | `$/Specs/done/support-multiple-properties-for-partition-manager.md` | No description provided. |
 | `$/Specs/mapping-sql-and-distributed-joins.md` | Documentation detailing the paradigm shift from SQL Relational mapping to CRDT POCOs, including 3 distinct strategies for executing distributed JOINs (Denormalization, App-Side joins, and using the built-in Graph strategy). |
+| `$/docs/architecture.md` | Contains a high-level overview of the library's internal abstractions such as ICrdtPatcher and ICrdtApplicator. |
+| `$/docs/explicit-intents.md` | Documents the fluent builder API for generating exact, strongly-typed CRDT intent operations. |
+| `$/docs/extensibility.md` | Provides examples and guides for extending Ama.CRDT, including custom strategies, IElementComparer, and ICrdtTimestampProvider. |
+| `$/docs/metadata-management.md` | Contains best practices for managing CRDT metadata size, detailing techniques like tombstone pruning, version vector compaction, and optimized serialization. |
+| `$/docs/multi-replica-and-serialization.md` | Explains advanced synchronization mechanics for multi-node setups and demonstrates configuring `CrdtPatch` JSON serialization correctly. |
+| `$/docs/partitioning.md` | Documents the setup and usage of the library's Larger-Than-Memory partitioning features and how to use the IPartitionManager. |
+| `$/docs/strategies-reference.md` | Provides a comprehensive table detailing all available CRDT strategies (e.g., LWW, Counters, Sets, Maps) and their ideal use cases. |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/01-crdt-strategy-attribute-and-interface.md` | No description provided. |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/02-lww-strategy-implementation.md` | No description provided. |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/03-counter-strategy-implementation.md` | No description provided. |
