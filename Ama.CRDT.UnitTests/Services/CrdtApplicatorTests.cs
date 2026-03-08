@@ -5,6 +5,7 @@ using Ama.CRDT.Services;
 using Shouldly;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 using Microsoft.Extensions.DependencyInjection;
 using Ama.CRDT.Extensions;
@@ -24,15 +25,17 @@ public sealed class CrdtApplicatorTests : IDisposable
     private readonly ICrdtApplicator applicator;
     private readonly ICrdtTimestampProvider timestampProvider;
     private readonly IServiceScope scope;
+    private readonly string testReplicaId;
 
     public CrdtApplicatorTests()
     {
+        testReplicaId = Guid.NewGuid().ToString();
         var services = new ServiceCollection();
         services.AddCrdt();
 
         var serviceProvider = services.BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        scope = scopeFactory.CreateScope(Guid.NewGuid().ToString());
+        scope = scopeFactory.CreateScope(testReplicaId);
 
         applicator = scope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
@@ -185,5 +188,54 @@ public sealed class CrdtApplicatorTests : IDisposable
         
         result_BA.Document.Name.ShouldBe("Name B");
         result_BA.Document.Likes.ShouldBe(18);
+    }
+
+    [Fact]
+    public void ApplyPatch_WithGlobalClock_ShouldUpdateReplicaContextGlobalVersionVector()
+    {
+        // Arrange
+        var model = new TestModel { Likes = 10 };
+        var metadata = new CrdtMetadata();
+        var document = new CrdtDocument<TestModel>(model, metadata);
+        
+        // This operation represents an incoming change from "replica-B" with a global clock of 5.
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(100), 1, 5);
+        var patch = new CrdtPatch(new List<CrdtOperation> { operation });
+
+        var replicaContext = scope.ServiceProvider.GetRequiredService<ReplicaContext>();
+        
+        // Act
+        applicator.ApplyPatch(document, patch);
+
+        // Assert
+        replicaContext.GlobalVersionVector.Includes("replica-B", 5).ShouldBeTrue();
+    }
+    
+    [Fact]
+    public void ApplyPatch_WithStaleLocalOperationButNewGlobalClock_ShouldAcknowledgeGlobalClock()
+    {
+        // Arrange
+        var model = new TestModel { Name = "Initial" };
+        var metadata = new CrdtMetadata();
+        
+        // The document ALREADY knows about replica-B's document-clock 1
+        metadata.VersionVector["replica-B"] = 1;
+        var document = new CrdtDocument<TestModel>(model, metadata);
+        
+        // But this operation brings a new global clock of 6
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.name", OperationType.Upsert, "Stale", timestampProvider.Create(100), 1, 6);
+        var patch = new CrdtPatch(new List<CrdtOperation> { operation });
+
+        var replicaContext = scope.ServiceProvider.GetRequiredService<ReplicaContext>();
+        
+        // Act
+        var result = applicator.ApplyPatch(document, patch);
+
+        // Assert
+        result.UnappliedOperations.ShouldNotBeEmpty();
+        result.UnappliedOperations.First().Reason.ShouldBe(CrdtOperationStatus.Obsolete);
+        
+        // Even though it was stale for the document, the global causality must acknowledge it saw sequence 6
+        replicaContext.GlobalVersionVector.Includes("replica-B", 6).ShouldBeTrue();
     }
 }
