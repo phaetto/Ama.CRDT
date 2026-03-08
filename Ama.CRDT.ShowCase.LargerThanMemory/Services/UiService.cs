@@ -2,7 +2,9 @@ namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
@@ -15,6 +17,7 @@ public sealed class UiService
 {
     private const string CommentsPropertyName = nameof(BlogPost.Comments);
     private const string TagsPropertyName = nameof(BlogPost.Tags);
+    private const string DvvStateFilePath = "replica_dvvs.json";
 
     private readonly IServiceProvider serviceProvider;
     private readonly List<string> replicaIds;
@@ -48,6 +51,12 @@ public sealed class UiService
     
     private sealed record BlogPostHeader(Guid Id, string Title);
 
+    private sealed class DvvStateDto
+    {
+        public Dictionary<string, long> Versions { get; set; } = new();
+        public Dictionary<string, HashSet<long>> Dots { get; set; } = new();
+    }
+
     public UiService(IServiceProvider serviceProvider, List<string> replicaIds, List<Guid> blogPostIds)
     {
         this.serviceProvider = serviceProvider;
@@ -57,6 +66,57 @@ public sealed class UiService
         foreach (var rId in replicaIds)
         {
             replicaDvvs[rId] = new DottedVersionVector();
+        }
+
+        LoadReplicaStates();
+    }
+
+    private void SaveReplicaStates()
+    {
+        try
+        {
+            var dtos = replicaDvvs.ToDictionary(
+                kvp => kvp.Key,
+                kvp => new DvvStateDto
+                {
+                    Versions = new Dictionary<string, long>(kvp.Value.Versions),
+                    Dots = kvp.Value.Dots.ToDictionary(d => d.Key, d => new HashSet<long>(d.Value))
+                });
+            
+            var json = JsonSerializer.Serialize(dtos, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(DvvStateFilePath, json);
+        }
+        catch 
+        {
+            // Ignore for showcase
+        }
+    }
+
+    private void LoadReplicaStates()
+    {
+        try
+        {
+            if (File.Exists(DvvStateFilePath))
+            {
+                var json = File.ReadAllText(DvvStateFilePath);
+                var dtos = JsonSerializer.Deserialize<Dictionary<string, DvvStateDto>>(json);
+                if (dtos != null)
+                {
+                    foreach (var kvp in dtos)
+                    {
+                        var versions = kvp.Value.Versions;
+                        var dots = kvp.Value.Dots.ToDictionary(d => d.Key, d => (ISet<long>)d.Value);
+                        if (replicaDvvs.ContainsKey(kvp.Key))
+                        {
+                            replicaDvvs[kvp.Key] = new DottedVersionVector(versions, dots);
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore for showcase, will just start fresh
         }
     }
 
@@ -181,7 +241,9 @@ public sealed class UiService
         currentReplicaId = replicaId;
         currentScope?.Dispose();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        currentScope = scopeFactory.CreateScope(replicaId);
+        
+        // Feed the specific DVV instance into the scope so that the library manages the increments internally
+        currentScope = scopeFactory.CreateScope(replicaId, replicaDvvs[replicaId]);
         partitionManager = currentScope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
         
         if (topPane is not null)
@@ -191,13 +253,6 @@ public sealed class UiService
         
         UpdateSyncStatusUI();
         LoadBlogPostHeadersAsync();
-    }
-    
-    private void IncrementLocalDvv()
-    {
-        var dvv = replicaDvvs[currentReplicaId];
-        long currentVersion = dvv.Versions.TryGetValue(currentReplicaId, out var v) ? v : 0;
-        dvv.Add(currentReplicaId, currentVersion + 1);
     }
 
     private void UpdateSyncStatusUI()
@@ -470,7 +525,8 @@ public sealed class UiService
             var syncService = serviceProvider.GetRequiredService<SyncService>();
             syncService.QueuePatch(currentReplicaId, patch, replicaIds);
 
-            IncrementLocalDvv();
+            // The scope components are handling the DVV increments, we just persist
+            SaveReplicaStates();
 
             Application.MainLoop.Invoke(() => {
                 if (!blogPostIds.Contains(id)) {
@@ -527,7 +583,8 @@ public sealed class UiService
             var syncService = serviceProvider.GetRequiredService<SyncService>();
             syncService.QueuePatch(currentReplicaId, patch, replicaIds);
 
-            IncrementLocalDvv();
+            // The scope components are handling the DVV increments, we just persist
+            SaveReplicaStates();
 
             totalCommentPartitionCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
             currentCommentPartitionIndex = (int)totalCommentPartitionCount;
@@ -579,7 +636,8 @@ public sealed class UiService
             var syncService = serviceProvider.GetRequiredService<SyncService>();
             syncService.QueuePatch(currentReplicaId, patch, replicaIds);
 
-            IncrementLocalDvv();
+            // The scope components are handling the DVV increments, we just persist
+            SaveReplicaStates();
 
             Application.MainLoop.Invoke(() => {
                 UpdateSyncStatusUI();
@@ -605,7 +663,9 @@ public sealed class UiService
 
         foreach (var replica in replicaIds.Where(r => r != currentReplicaId))
         {
-            using var scope = scopeFactory.CreateScope(replica);
+            // By passing the replica's specific DVV into the scope factory, 
+            // the PartitionManager and Applicator will increment/update the DVV for us automatically during ApplyPatchAsync.
+            using var scope = scopeFactory.CreateScope(replica, replicaDvvs[replica]);
             var targetPartitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
             
             while (syncService.TryDequeue(replica, out var patch))
@@ -618,10 +678,9 @@ public sealed class UiService
                 await targetPartitionManager.ApplyPatchAsync(patch);
                 syncCount++;
             }
-
-            // After emptying the queue targeting this replica, it has fully absorbed the current replica's causal history.
-            replicaDvvs[replica].Merge(replicaDvvs[currentReplicaId]);
         }
+
+        SaveReplicaStates();
 
         Application.MainLoop.Invoke(() => {
             MessageBox.Query("Sync Complete", $"Successfully synced {syncCount} patches to other replicas.", "Ok");
