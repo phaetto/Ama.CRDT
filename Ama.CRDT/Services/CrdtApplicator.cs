@@ -13,7 +13,8 @@ using System.Collections.Generic;
 /// </summary>
 public sealed class CrdtApplicator(
     ICrdtStrategyProvider strategyProvider,
-    ICrdtMetadataManager metadataManager) : ICrdtApplicator
+    ICrdtMetadataManager metadataManager,
+    ReplicaContext replicaContext) : ICrdtApplicator
 {
     /// <inheritdoc/>
     public ApplyPatchResult<T> ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class
@@ -64,6 +65,13 @@ public sealed class CrdtApplicator(
         ArgumentNullException.ThrowIfNull(metadata);
 
         var strategy = strategyProvider.GetStrategy(operation, document);
+
+        // Track causality globally on the replica context regardless of whether the operation is obsolete locally.
+        // This confirms the node has safely observed this global sequence number.
+        if (operation.GlobalClock > 0)
+        {
+            replicaContext.GlobalVersionVector.Add(operation.ReplicaId, operation.GlobalClock);
+        }
 
         // Every operation now has a unique, monotonically increasing logical clock for its replica.
         // Therefore, if the operation's clock is less than OR EQUAL to the contiguous lastSeenClock,

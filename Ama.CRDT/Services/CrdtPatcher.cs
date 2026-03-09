@@ -53,13 +53,18 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
         var clockState = issuedClocks.GetOrCreateValue(from.Metadata);
         var localClock = Math.Max(currentVectorClock, clockState.Clock);
 
-        // Assign a unique, monotonically increasing logical clock to EACH operation.
-        // This prevents memory bloat in CrdtMetadata.SeenExceptions, as the version vector 
-        // expects distinct events to advance properly and prune older exceptions.
+        // Calculate the global clock starting point for this replica across all tracked changes
+        var globalClock = replicaContext.GlobalVersionVector.Versions.TryGetValue(replicaId, out var gc) ? gc : 0L;
+
+        // Assign unique monotonically increasing local AND global clocks
         for (var i = 0; i < operations.Count; i++)
         {
             localClock++;
-            operations[i] = operations[i] with { Clock = localClock };
+            globalClock++;
+            operations[i] = operations[i] with { Clock = localClock, GlobalClock = globalClock, ReplicaId = replicaId };
+            
+            // Track the operations we've generated in our global causality vector
+            replicaContext.GlobalVersionVector.Add(replicaId, globalClock);
         }
 
         clockState.Clock = localClock;
@@ -116,6 +121,9 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
         localClock++;
         clockState.Clock = localClock;
 
+        var globalClock = replicaContext.GlobalVersionVector.Versions.TryGetValue(replicaId, out var gc) ? gc : 0L;
+        globalClock++;
+
         var context = new GenerateOperationContext(
             DocumentRoot: document.Data,
             Metadata: document.Metadata,
@@ -126,7 +134,13 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
             Clock: localClock
         );
 
-        return strategy.GenerateOperation(context);
+        var operation = strategy.GenerateOperation(context);
+        
+        // Ensure the generated operation uses the correct replicaId and tracks both document and global clocks
+        var finalOperation = operation with { ReplicaId = replicaId, Clock = localClock, GlobalClock = globalClock };
+        replicaContext.GlobalVersionVector.Add(replicaId, globalClock);
+        
+        return finalOperation;
     }
 
     private void ProcessDifferentiations(DifferentiateObjectContext initialContext, long clock)

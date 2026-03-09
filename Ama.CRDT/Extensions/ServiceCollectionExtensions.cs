@@ -62,6 +62,9 @@ public static class ServiceCollectionExtensions
         // Add metrics
         services.TryAddSingleton<PartitionManagerCrdtMetrics>();
 
+        // Pure utility services that don't depend on replica scope
+        services.TryAddSingleton<IVersionVectorSyncService, VersionVectorSyncService>();
+
         // Scoped context that holds the replica ID.
         // It's populated by CrdtScopeFactory.
         services.AddScoped<ReplicaContext>();

@@ -151,6 +151,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseGraphStrategyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseSetStrategyTests.cs` | Contains unit tests for the `TwoPhaseSetStrategy`, verifying that elements can be added and removed, but not re-added after removal. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTests.cs` | Contains unit tests for the `VoteCounterStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent voting scenarios. |
+| `$/Ama.CRDT.UnitTests/Services/VersionVectorSyncServiceTests.cs` | Contains comprehensive unit tests for `VersionVectorSyncService`, validating synchronization requirements calculations between different `DottedVersionVector` states. |
 | `$/Ama.CRDT.UnitTests/stryker-config.json` | Configuration file for Stryker.NET mutation testing. Targets the main CRDT project, setting thresholds, reporters, and ignoring metrics and standard null checks to focus on core algorithmic logic. |
 | `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |
 | `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging and to automatically include its associated Roslyn analyzers. |
@@ -202,6 +203,7 @@
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup. Removes stream-specific registration logic to support decoupling into its own package. |
 | `$/Ama.CRDT/Models/ApplyPatchResult.cs` | Data structure containing the result of a patch application, including the document and any unapplied operations. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
+| `$/Ama.CRDT/Models/BidirectionalSyncRequirements.cs` | A data structure containing the synchronization requirements for two replicas to fully catch up with each other. |
 | `$/Ama.CRDT/Models/CrdtDocumentOfT.cs` | A generic version of `CrdtDocument` that holds a POCO and its associated `CrdtMetadata`, unifying the API for patch generation and application. |
 | `$/Ama.CRDT/Models/CrdtGraph.cs` | A data model for a graph structure with vertices and edges, suitable for CRDT management. |
 | `$/Ama.CRDT/Models/CrdtMetadata.cs` | Encapsulates CRDT state for various strategies using dedicated, serializable record types instead of tuples. For serialization, use the recommended options from `CrdtJsonContext`. |
@@ -211,6 +213,7 @@
 | `$/Ama.CRDT/Models/CrdtTree.cs` | A data model for a tree data structure with nodes that can be added, removed, and moved, suitable for CRDT management. |
 | `$/Ama.CRDT/Models/Decorators/EpochPayload.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Decorators/QuorumPayload.cs` | A data structure for the payload of a quorum-bound operation. |
+| `$/Ama.CRDT/Models/DottedVersionVector.cs` | Represents a Dotted Version Vector (DVV) to track causality and operations seen by a replica. Combines a contiguous version vector with discrete "dots" for out-of-order events. |
 | `$/Ama.CRDT/Models/Edge.cs` | No description provided. |
 | `$/Ama.CRDT/Models/EpochTimestamp.cs` | A default, backward-compatible implementation of `ICrdtTimestamp` that wraps a `long` value representing Unix milliseconds. |
 | `$/Ama.CRDT/Models/GraphEdgePayload.cs` | A data structure for the payload of a graph edge operation. |
@@ -245,6 +248,7 @@
 | `$/Ama.CRDT/Models/OrMapItem.cs` | Contains payload record structs (`OrMapAddItem`, `OrMapRemoveItem`) for OR-Map (Observed-Remove Map) operations, bundling keys and values with unique tags. |
 | `$/Ama.CRDT/Models/OrSetItem.cs` | Contains payload record structs (`OrSetAddItem`, `OrSetRemoveItem`) for OR-Set (Observed-Remove Set) operations, bundling values with unique tags. |
 | `$/Ama.CRDT/Models/OrSetState.cs` | No description provided. |
+| `$/Ama.CRDT/Models/OriginSyncRequirement.cs` | A data structure representing the causality gap for a specific origin replica between a target and a source. |
 | `$/Ama.CRDT/Models/Partitioning/CompositePartitionKey.cs` | Represents a composite key for partitioning, consisting of a logical key and a range key. It now uses `IComparable` for keys to support natural sorting of different key types and implements `IComparable` for consistent ordering. |
 | `$/Ama.CRDT/Models/Partitioning/DataPartition.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Partitioning/HeaderPartition.cs` | No description provided. |
@@ -254,6 +258,7 @@
 | `$/Ama.CRDT/Models/PnCounterState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
+| `$/Ama.CRDT/Models/ReplicaSyncRequirement.cs` | A data structure representing the data a target replica needs to request from a source replica to catch up with its causal history. |
 | `$/Ama.CRDT/Models/RgaIdentifier.cs` | Readonly record struct containing logical timestamp and replicaId used as a unique identifier for each RGA node. |
 | `$/Ama.CRDT/Models/RgaItem.cs` | Data structure representing an RGA node with a pointer to its predecessor, its payload value, and a tombstone flag. |
 | `$/Ama.CRDT/Models/Serialization/Converters/CrdtTimestampJsonConverter.cs` | No description provided. |
@@ -286,6 +291,7 @@
 | `$/Ama.CRDT/Services/ICrdtPatcher.cs` | Defines the contract for a service that compares two versions of a data model and generates a CRDT patch, as well as an intent-based method for creating patches directly. |
 | `$/Ama.CRDT/Services/ICrdtScopeFactory.cs` | Defines the contract for a factory that creates isolated `IServiceScope` instances for CRDT replicas, each configured with a unique replica ID. |
 | `$/Ama.CRDT/Services/IIntentBuilder.cs` | Defines a builder interface for generating explicit CRDT operations in a strongly-typed manner. |
+| `$/Ama.CRDT/Services/IVersionVectorSyncService.cs` | Defines an interface for comparing the causality state (DVVs) of different replicas and determining synchronization requirements. |
 | `$/Ama.CRDT/Services/Metrics/MetricTimer.cs` | A helper `IDisposable` struct that uses a `Stopwatch` to measure the duration of a code block and records it to a `Histogram` upon disposal. |
 | `$/Ama.CRDT/Services/Metrics/PartitionManagerCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `PartitionManager`. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` | Defines the contract for managing a partitioned CRDT document, now supporting asynchronous streaming of partitions via `IAsyncEnumerable` and efficient counting of data partitions for a given logical key. It provides a user-friendly API using property names (`nameof`) and specific methods for header partitions. |
@@ -341,6 +347,7 @@
 | `$/Ama.CRDT/Services/Strategies/TwoPhaseGraphStrategy.cs` | Implements a 2P-Graph strategy where vertices and edges can be added and removed, but not re-added after removal, ensuring monotonic growth of the tombstone sets. |
 | `$/Ama.CRDT/Services/Strategies/TwoPhaseSetStrategy.cs` | Implements the 2P-Set (Two-Phase Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/VoteCounterStrategy.cs` | Implements the Vote Counter strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get dictionary key/value types. |
+| `$/Ama.CRDT/Services/VersionVectorSyncService.cs` | Implements `IVersionVectorSyncService` to calculate directional and bidirectional sync requirements between replicas based on their Dotted Version Vectors. |
 | `$/CodingStandards.md` | No description provided. |
 | `$/FilesDescription.md` | No description provided. |
 | `$/LICENSE` | No description provided. |

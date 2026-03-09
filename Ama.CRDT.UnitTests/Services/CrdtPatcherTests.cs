@@ -150,6 +150,42 @@ public sealed class CrdtPatcherTests : IDisposable
     }
 
     [Fact]
+    public void GeneratePatch_ShouldIncrementAndAssignGlobalClock()
+    {
+        // Arrange
+        var fromModel = new TestModel { Name = "Original", Likes = 5 };
+        var from = new CrdtDocument<TestModel>(fromModel, new CrdtMetadata());
+        var toModel = new TestModel { Name = "Updated", Likes = 15 };
+        
+        var replicaContext = scope.ServiceProvider.GetRequiredService<ReplicaContext>();
+        // Pre-fill the global vector to ensure we increment from the existing state.
+        // DottedVersionVector expects continuous adds to advance the main sequence number.
+        for (long i = 1; i <= 5; i++)
+        {
+            replicaContext.GlobalVersionVector.Add("test-patcher", i);
+        }
+
+        // Act
+        var patch = patcher.GeneratePatch(from, toModel);
+
+        // Assert
+        patch.Operations.Count.ShouldBe(2);
+
+        // They should receive sequential global clocks starting after 5
+        var nameOp = patch.Operations.First(o => o.JsonPath == "$.name");
+        var likesOp = patch.Operations.First(o => o.JsonPath == "$.likes");
+        
+        // Either could be generated first depending on reflection ordering, 
+        // but they must be 6 and 7.
+        var clocks = new[] { nameOp.GlobalClock, likesOp.GlobalClock };
+        clocks.ShouldContain(6L);
+        clocks.ShouldContain(7L);
+
+        // The replica context global version vector must be updated
+        replicaContext.GlobalVersionVector.Versions["test-patcher"].ShouldBe(7L);
+    }
+
+    [Fact]
     public void BuildOperation_Set_ShouldProduceCorrectOperation()
     {
         // Arrange
@@ -168,6 +204,7 @@ public sealed class CrdtPatcherTests : IDisposable
         var replicaContext = scope.ServiceProvider.GetRequiredService<ReplicaContext>();
         op.ReplicaId.ShouldBe(replicaContext.ReplicaId);
         op.Clock.ShouldBe(1);
+        op.GlobalClock.ShouldBe(1);
     }
 
     [Fact]
@@ -185,6 +222,7 @@ public sealed class CrdtPatcherTests : IDisposable
         op.JsonPath.ShouldBe("$.likes");
         op.Type.ShouldBe(OperationType.Increment);
         op.Value.ShouldBe(10);
+        op.GlobalClock.ShouldBe(1);
     }
 
     [Fact]
@@ -202,6 +240,7 @@ public sealed class CrdtPatcherTests : IDisposable
         op.JsonPath.ShouldBe("$.tags");
         op.Type.ShouldBe(OperationType.Upsert);
         op.Value.ShouldNotBeNull();
+        op.GlobalClock.ShouldBe(1);
     }
 
     [Fact]
@@ -219,5 +258,6 @@ public sealed class CrdtPatcherTests : IDisposable
         op.JsonPath.ShouldStartWith("$.scores");
         op.Type.ShouldBe(OperationType.Upsert);
         op.Value.ShouldBe(new KeyValuePair<object, object>("Player1", 100));
+        op.GlobalClock.ShouldBe(1);
     }
 }
