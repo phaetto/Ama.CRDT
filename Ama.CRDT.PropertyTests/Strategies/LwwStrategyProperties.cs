@@ -1,6 +1,7 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using FsCheck;
@@ -36,7 +37,7 @@ public sealed class TestPoco : IEquatable<TestPoco>
 
 public sealed class LwwStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(long timestamp, string? value)
     {
         var op = new CrdtOperation(
@@ -63,7 +64,7 @@ public sealed class LwwStrategyProperties
         ts1.ShouldBe(ts2);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(long timestamp1, string? value1, long timestamp2, string? value2)
     {
         if (timestamp1 == timestamp2)
@@ -105,7 +106,7 @@ public sealed class LwwStrategyProperties
         tsAB.ShouldBe(tsBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, string?>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0)

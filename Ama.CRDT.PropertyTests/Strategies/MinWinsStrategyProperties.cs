@@ -1,6 +1,7 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using FsCheck;
@@ -36,7 +37,7 @@ public sealed class MinWinsTestPoco : IEquatable<MinWinsTestPoco>
 
 public sealed class MinWinsStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(long timestamp, int value)
     {
         var op = new CrdtOperation(
@@ -59,7 +60,7 @@ public sealed class MinWinsStrategyProperties
         state1.ShouldBe(state2);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(long timestamp1, int value1, long timestamp2, int value2)
     {
         var op1 = new CrdtOperation(
@@ -91,7 +92,7 @@ public sealed class MinWinsStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, int>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0)

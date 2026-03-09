@@ -1,6 +1,7 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -31,7 +32,7 @@ public sealed class OrSetTestPoco : IEquatable<OrSetTestPoco>
 
 public sealed class OrSetStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(long timestamp, string item, bool isRemove, Guid tag)
     {
         if (item is null) return;
@@ -60,7 +61,7 @@ public sealed class OrSetStrategyProperties
         state1.ShouldBe(state2);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
         long timestamp1, string item1, bool isRemove1, Guid tag1,
         long timestamp2, string item2, bool isRemove2, Guid tag2)
@@ -104,7 +105,7 @@ public sealed class OrSetStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, string, bool, Guid>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0) return;

@@ -1,6 +1,7 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -20,7 +21,7 @@ public sealed class TwoPhaseGraphTestPoco
 
 public sealed class TwoPhaseGraphStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(long timestamp, string vertex1, string vertex2, bool isEdge, bool isRemove)
     {
         if (vertex1 is null || vertex2 is null) return;
@@ -49,7 +50,7 @@ public sealed class TwoPhaseGraphStrategyProperties
         Serialize(state1).ShouldBe(Serialize(state2));
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
         long timestamp1, string v1a, string v1b, bool isEdge1, bool isRemove1,
         long timestamp2, string v2a, string v2b, bool isEdge2, bool isRemove2)
@@ -88,7 +89,7 @@ public sealed class TwoPhaseGraphStrategyProperties
         Serialize(stateAB).ShouldBe(Serialize(stateBA));
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, string, string, bool, bool>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0) return;

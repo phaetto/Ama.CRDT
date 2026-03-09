@@ -1,6 +1,7 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -47,7 +48,7 @@ public sealed class FwwMapTestPoco : IEquatable<FwwMapTestPoco>
 
 public sealed class FwwMapStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(long timestamp, string key, string? value)
     {
         if (key is null) return;
@@ -73,7 +74,7 @@ public sealed class FwwMapStrategyProperties
         state1.ShouldBe(state2);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
         long timestamp1, string key1, string? value1, 
         long timestamp2, string key2, string? value2)
@@ -112,7 +113,7 @@ public sealed class FwwMapStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, string, string?>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0) return;

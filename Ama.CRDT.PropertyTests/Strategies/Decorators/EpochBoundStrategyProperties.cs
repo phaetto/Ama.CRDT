@@ -3,6 +3,7 @@ namespace Ama.CRDT.PropertyTests.Strategies.Decorators;
 using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -35,7 +36,7 @@ public sealed class EpochBoundTestPoco : IEquatable<EpochBoundTestPoco>
 
 public sealed class EpochBoundStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(int epoch, long timestamp, string? value, bool isClear)
     {
         var op = new CrdtOperation(
@@ -58,7 +59,7 @@ public sealed class EpochBoundStrategyProperties
         state1.ShouldBe(state2);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
         int epoch1, long ts1, string? val1, bool clear1,
         int epoch2, long ts2, string? val2, bool clear2)
@@ -94,7 +95,7 @@ public sealed class EpochBoundStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<int, long, string?, bool>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0) return;

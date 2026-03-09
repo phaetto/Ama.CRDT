@@ -20,6 +20,8 @@ env:
   PROJECT_PATH_MAIN: 'Ama.CRDT/Ama.CRDT.csproj'
   PROJECT_PATH_STREAMS: 'Ama.CRDT.Partitioning.Streams/Ama.CRDT.Partitioning.Streams.csproj'
   PACKAGE_OUTPUT_DIRECTORY: '${{ github.workspace }}/nuget'
+  # Thorough execution of FsCheck permutations for stable prod releases
+  FSCHECK_MAX_TESTS: 1000
 
 jobs:
   build-test-and-publish:

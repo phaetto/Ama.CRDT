@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -39,7 +40,7 @@ public sealed class LseqTestPoco : IEquatable<LseqTestPoco>
 
 public sealed class LseqStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(int pos, string? val)
     {
         var position = Math.Abs(pos) + 1;
@@ -65,7 +66,7 @@ public sealed class LseqStrategyProperties
         state1.ShouldBe(state2);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
         int pos1, string? val1,
         int pos2, string? val2)
@@ -105,7 +106,7 @@ public sealed class LseqStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<bool, int, string?>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0)

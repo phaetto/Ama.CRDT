@@ -3,6 +3,7 @@ namespace Ama.CRDT.PropertyTests.Strategies;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using FsCheck;
@@ -39,7 +40,7 @@ public sealed class StateMachineTestPoco : IEquatable<StateMachineTestPoco>
 
 public sealed class StateMachineStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(long timestamp, int value)
     {
         var op = new CrdtOperation(
@@ -62,7 +63,7 @@ public sealed class StateMachineStrategyProperties
         state1.ShouldBe(state2);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
         long timestamp1, int value1, 
         long timestamp2, int value2)
@@ -98,7 +99,7 @@ public sealed class StateMachineStrategyProperties
         stateAB.ShouldBe(stateBA);
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, int>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0) return;

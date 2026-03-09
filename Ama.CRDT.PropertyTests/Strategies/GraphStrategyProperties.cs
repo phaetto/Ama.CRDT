@@ -1,6 +1,7 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using FsCheck;
@@ -18,7 +19,7 @@ public sealed class GraphTestPoco
 
 public sealed class GraphStrategyProperties
 {
-    [Property]
+    [CrdtProperty]
     public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(long timestamp, string vertex)
     {
         if (vertex is null) return;
@@ -47,7 +48,7 @@ public sealed class GraphStrategyProperties
         Serialize(state1).ShouldBe(Serialize(state2));
     }
 
-    [Property]
+    [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
         long timestamp1, string vertex1, 
         long timestamp2, string vertex2)
@@ -86,7 +87,7 @@ public sealed class GraphStrategyProperties
         Serialize(stateAB).ShouldBe(Serialize(stateBA));
     }
 
-    [Property]
+    [CrdtProperty]
     public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, string>> rawOps)
     {
         if (rawOps is null || rawOps.Count == 0) return;
