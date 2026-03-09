@@ -58,7 +58,7 @@ public sealed class CounterStrategyTests : IDisposable
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
         
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
-        var expectedTimestamp = new EpochTimestampProvider().Create(12345);
+        var expectedTimestamp = new EpochTimestampProvider(new ReplicaContext { ReplicaId = "replica-A" }).Create(12345);
         mockTimestampProvider.Setup(p => p.Now()).Returns(expectedTimestamp);
         var localStrategy = new CounterStrategy(new ReplicaContext { ReplicaId = "replica-A" });
         var context = new GeneratePatchContext(

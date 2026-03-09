@@ -156,8 +156,8 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
 
         var operations = new List<CrdtOperation>
         {
-            new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.level1.level2.message", OperationType.Upsert, "Instantiated dynamically", _timestampProvider.Now(), 0),
-            new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.level1.level2.count", OperationType.Upsert, 99, _timestampProvider.Now(), 0)
+            new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.level1.level2.message", OperationType.Upsert, "Instantiated dynamically", _timestampProvider.Now(), 1),
+            new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.level1.level2.count", OperationType.Upsert, 99, _timestampProvider.Now(), 2)
         };
         var patch = new CrdtPatch(operations);
 
@@ -264,15 +264,22 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         var doc = new CrdtDocument<ComplexDocument>(model, meta);
 
         // Act - Explicitly generate intent-based operations addressing deep strategies
+        // We apply them individually to accurately simulate distinct sequential user actions, 
+        // updating the internal version vector to reflect the correct monotonically increasing clock.
         var op1 = _patcher.GenerateOperation(doc, d => d.Metrics, new MapSetIntent("cpu", 5));
+        _applicator.ApplyPatch(doc, new CrdtPatch([op1]));
+
         var op2 = _patcher.GenerateOperation(doc, d => d.Log, new AddIntent("first entry"));
+        _applicator.ApplyPatch(doc, new CrdtPatch([op2]));
+
         var op3 = _patcher.GenerateOperation(doc, d => d.Network, new AddVertexIntent("V1"));
+        _applicator.ApplyPatch(doc, new CrdtPatch([op3]));
+
         var op4 = _patcher.GenerateOperation(doc, d => d.Status, new SetIntent(DocStatus.Published));
+        _applicator.ApplyPatch(doc, new CrdtPatch([op4]));
+
         var op5 = _patcher.GenerateOperation(doc, d => d.Config!.SubLog, new AddIntent("deep entry"));
-
-        var patch = new CrdtPatch([op1, op2, op3, op4, op5]);
-
-        _applicator.ApplyPatch(doc, patch);
+        _applicator.ApplyPatch(doc, new CrdtPatch([op5]));
 
         // Assert - Verify the intent executions correctly mapped to the underlying strategies
         model.Metrics["cpu"].ShouldBe(5);
@@ -304,6 +311,11 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
     [Fact]
     public void ComplexComposition_MinWinsMap_ShouldConvergeToLowestValue()
     {
+        using var scope2 = _scope.ServiceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test-replica-2");
+        var patcher2 = scope2.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var applicator2 = scope2.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        var metadataManager2 = scope2.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+
         // Arrange - Shared Initial State
         var model1 = new ComplexDocument();
         model1.Metrics["latency"] = 50;
@@ -312,7 +324,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         
         var model2 = new ComplexDocument();
         model2.Metrics["latency"] = 50;
-        var meta2 = _metadataManager.Initialize(model2);
+        var meta2 = metadataManager2.Initialize(model2);
         var doc2 = new CrdtDocument<ComplexDocument>(model2, meta2);
 
         // Act - Concurrent Conflicting Changes
@@ -325,12 +337,12 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         // Replica 2 radically improves latency down to 20
         var mod2 = new ComplexDocument();
         mod2.Metrics["latency"] = 20;
-        var patch2 = _patcher.GeneratePatch(doc2, mod2);
-        _applicator.ApplyPatch(doc2, patch2); // Applying locally shifts Replica 2 to 20
+        var patch2 = patcher2.GeneratePatch(doc2, mod2);
+        applicator2.ApplyPatch(doc2, patch2); // Applying locally shifts Replica 2 to 20
 
         // Exchange - Network sync
         _applicator.ApplyPatch(doc1, patch2);
-        _applicator.ApplyPatch(doc2, patch1); // 40 is ignored because 20 is mathematically lower
+        applicator2.ApplyPatch(doc2, patch1); // 40 is ignored because 20 is mathematically lower
 
         // Assert - Both replicas converge to the mathematically lowest value dynamically
         model1.Metrics["latency"].ShouldBe(20);

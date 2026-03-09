@@ -354,15 +354,14 @@ public sealed class CrdtMetadataManagerTests
         // Act - Apply the contiguous next operation (101)
         manager.AdvanceVersionVector(metadata, replicaId, 101);
 
-        // Assert - should eat 102, stop at 103 (gap), leaving 102 and 104 in exceptions
-        // (102 is kept because it matches the current advanced clock, ensuring idempotency)
+        // Assert - should eat 102, stop at 103 (gap), leaving 104 in exceptions. 102 is pruned.
         metadata.VersionVector[replicaId].ShouldBe(102);
-        metadata.SeenExceptions.Count.ShouldBe(2);
-        metadata.SeenExceptions.Select(op => op.Clock).OrderBy(c => c).ShouldBe(new[] { 102L, 104L });
+        metadata.SeenExceptions.Count.ShouldBe(1);
+        metadata.SeenExceptions.Single().Clock.ShouldBe(104);
     }
 
     [Fact]
-    public void AdvanceVersionVector_WithAllExceptionsPresent_ShouldAdvanceToNewTimestampAndRetainLastClockExceptions()
+    public void AdvanceVersionVector_WithAllExceptionsPresent_ShouldAdvanceToNewTimestampAndPruneAll()
     {
         // Arrange
         var metadata = new CrdtMetadata();
@@ -377,10 +376,9 @@ public sealed class CrdtMetadataManagerTests
         // Act - Apply 101
         manager.AdvanceVersionVector(metadata, replicaId, 101);
 
-        // Assert - should consume up to 104, retaining the operation matching the advanced clock
+        // Assert - should consume up to 104, completely emptying SeenExceptions
         metadata.VersionVector[replicaId].ShouldBe(104);
-        metadata.SeenExceptions.Count.ShouldBe(1);
-        metadata.SeenExceptions.Single().Clock.ShouldBe(104);
+        metadata.SeenExceptions.ShouldBeEmpty();
     }
     
     private CrdtOperation CreateOp(string replicaId, long clockValue)

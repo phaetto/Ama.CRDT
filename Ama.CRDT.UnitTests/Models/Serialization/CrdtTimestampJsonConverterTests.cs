@@ -1,7 +1,9 @@
 namespace Ama.CRDT.UnitTests.Models.Serialization;
+
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization.Converters;
 using Shouldly;
+using System;
 using System.Text.Json;
 
 public readonly record struct CustomTimestamp(int Value) : ICrdtTimestamp
@@ -40,7 +42,7 @@ public sealed class CrdtTimestampJsonConverterTests
 
         var json = JsonSerializer.Serialize(timestamp, serializerOptions);
 
-        json.ShouldBe("{\"Value\":1234567890,\"$type\":\"epoch\"}");
+        json.ShouldBe("{\"Value\":1234567890,\"ReplicaId\":null,\"$type\":\"epoch\"}");
     }
 
     [Fact]

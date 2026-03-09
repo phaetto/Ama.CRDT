@@ -24,6 +24,7 @@
 | `$/Ama.CRDT.Benchmarks/Program.cs` | The entry point for the benchmark runner. |
 | `$/Ama.CRDT.Benchmarks/README.md` | No description provided. |
 | `$/Ama.CRDT.IntegrationTests/Ama.CRDT.IntegrationTests.csproj` | No description provided. |
+| `$/Ama.CRDT.IntegrationTests/NetworkSimulationTests.cs` | Contains integration tests simulating complex network scenarios (out-of-order delivery, partitions, long-term offline nodes, duplicate delivery, and high concurrency conflicts) to guarantee CRDT convergence and idempotency over time. |
 | `$/Ama.CRDT.Partitioning.Streams.UnitTests/Ama.CRDT.Partitioning.Streams.UnitTests.csproj` | No description provided. |
 | `$/Ama.CRDT.Partitioning.Streams.UnitTests/Serialization/DefaultPartitionSerializationServiceTests.cs` | No description provided. |
 | `$/Ama.CRDT.Partitioning.Streams.UnitTests/Services/StreamSpaceAllocatorTests.cs` | Contains unit tests for the `StreamSpaceAllocator` class, verifying block allocation, free list reuse with best-fit logic, and free list size limits. |
