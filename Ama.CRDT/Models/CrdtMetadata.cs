@@ -94,7 +94,13 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     /// The key is the JSON Path to the property.
     /// </summary>
     public IDictionary<string, LwwSetState> PriorityQueues { get; set; } = new Dictionary<string, LwwSetState>();
-        
+
+    /// <summary>
+    /// Gets or sets a dictionary that stores the state for properties managed by the Sorted Set strategy.
+    /// The key is the JSON Path to the property.
+    /// </summary>
+    public IDictionary<string, LwwSetState> SortedSets { get; set; } = new Dictionary<string, LwwSetState>();
+
     /// <summary>
     /// Gets or sets a dictionary that stores the state for properties managed by the LSEQ strategy.
     /// The key is the JSON Path to the array. The value is a list of items, each pairing a dense identifier with a value.
@@ -213,6 +219,14 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         foreach (var kvp in PriorityQueues)
         {
             newMetadata.PriorityQueues.Add(kvp.Key, new LwwSetState(
+                Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
+                Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
+            ));
+        }
+
+        foreach (var kvp in SortedSets)
+        {
+            newMetadata.SortedSets.Add(kvp.Key, new LwwSetState(
                 Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
                 Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
             ));
@@ -359,6 +373,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
             foreach (var kvp in metadata.FwwSets) merged.FwwSets[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.OrSets) merged.OrSets[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.PriorityQueues) merged.PriorityQueues[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.SortedSets) merged.SortedSets[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.OrMaps) merged.OrMaps[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.TwoPhaseGraphs) merged.TwoPhaseGraphs[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.ReplicatedTrees) merged.ReplicatedTrees[kvp.Key] = kvp.Value;
@@ -426,6 +441,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
             && DictionaryEquals(FwwSets, other.FwwSets)
             && DictionaryEquals(OrSets, other.OrSets)
             && DictionaryEquals(PriorityQueues, other.PriorityQueues)
+            && DictionaryEquals(SortedSets, other.SortedSets)
             && DictionaryOfListsEquals(LseqTrackers, other.LseqTrackers)
             && DictionaryOfListsEquals(RgaTrackers, other.RgaTrackers)
             && DictionaryOfDictionariesEquals(LwwMaps, other.LwwMaps)
@@ -453,6 +469,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         hash.Add(GetDictionaryHashCode(FwwSets));
         hash.Add(GetDictionaryHashCode(OrSets));
         hash.Add(GetDictionaryHashCode(PriorityQueues));
+        hash.Add(GetDictionaryHashCode(SortedSets));
         hash.Add(GetDictionaryOfListsHashCode(LseqTrackers));
         hash.Add(GetDictionaryOfListsHashCode(RgaTrackers));
         hash.Add(GetDictionaryOfDictionariesHashCode(LwwMaps));

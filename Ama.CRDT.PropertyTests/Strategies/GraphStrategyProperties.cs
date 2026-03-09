@@ -1,0 +1,155 @@
+namespace Ama.CRDT.PropertyTests.Strategies;
+
+using Ama.CRDT.Models;
+using Ama.CRDT.Services;
+using Ama.CRDT.Services.Strategies;
+using FsCheck;
+using FsCheck.Xunit;
+using Shouldly;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+
+public sealed class GraphTestPoco
+{
+    public CrdtGraph Graph { get; set; } = new();
+}
+
+public sealed class GraphStrategyProperties
+{
+    [Property]
+    public void Idempotence_ApplyingSameOperationTwice_YieldsSameState(long timestamp, string vertex)
+    {
+        if (vertex is null) return;
+
+        // Use Activator to instantiate the payload defensively without hardcoding its exact struct/class signature
+        var payload = Activator.CreateInstance(typeof(GraphVertexPayload), vertex);
+        if (payload is null) return;
+
+        var op = new CrdtOperation(
+            Guid.NewGuid(),
+            "replica-1",
+            nameof(GraphTestPoco.Graph),
+            OperationType.Upsert,
+            payload,
+            new EpochTimestamp(timestamp),
+            0);
+
+        var state1 = new GraphTestPoco();
+        var meta1 = new CrdtMetadata();
+        ApplyOperations(state1, meta1, new[] { op });
+
+        var state2 = new GraphTestPoco();
+        var meta2 = new CrdtMetadata();
+        ApplyOperations(state2, meta2, new[] { op, op }); // Applied twice
+
+        Serialize(state1).ShouldBe(Serialize(state2));
+    }
+
+    [Property]
+    public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(
+        long timestamp1, string vertex1, 
+        long timestamp2, string vertex2)
+    {
+        if (vertex1 is null || vertex2 is null) return;
+
+        var payload1 = Activator.CreateInstance(typeof(GraphVertexPayload), vertex1);
+        var payload2 = Activator.CreateInstance(typeof(GraphVertexPayload), vertex2);
+
+        var op1 = new CrdtOperation(
+            Guid.NewGuid(),
+            "replica-1",
+            nameof(GraphTestPoco.Graph),
+            OperationType.Upsert,
+            payload1,
+            new EpochTimestamp(timestamp1),
+            0);
+
+        var op2 = new CrdtOperation(
+            Guid.NewGuid(),
+            "replica-2",
+            nameof(GraphTestPoco.Graph),
+            OperationType.Upsert,
+            payload2,
+            new EpochTimestamp(timestamp2),
+            0);
+
+        var stateAB = new GraphTestPoco();
+        var metaAB = new CrdtMetadata();
+        ApplyOperations(stateAB, metaAB, new[] { op1, op2 });
+
+        var stateBA = new GraphTestPoco();
+        var metaBA = new CrdtMetadata();
+        ApplyOperations(stateBA, metaBA, new[] { op2, op1 });
+
+        Serialize(stateAB).ShouldBe(Serialize(stateBA));
+    }
+
+    [Property]
+    public void Convergence_AnyPermutationOfOperations_YieldsSameState(List<Tuple<long, string>> rawOps)
+    {
+        if (rawOps is null || rawOps.Count == 0) return;
+
+        var opsData = rawOps.Where(x => x.Item2 != null).ToList();
+        if (opsData.Count == 0) return;
+
+        var ops = opsData.Select((x, i) => {
+            var payload = Activator.CreateInstance(typeof(GraphVertexPayload), x.Item2);
+            return new CrdtOperation(
+                Guid.NewGuid(),
+                $"replica-{i}",
+                nameof(GraphTestPoco.Graph),
+                OperationType.Upsert,
+                payload,
+                new EpochTimestamp(x.Item1),
+                0);
+        }).ToList();
+
+        var random = new System.Random(opsData.Count);
+        var permutation1 = ops.OrderBy(_ => random.Next()).ToList();
+        var permutation2 = ops.OrderBy(_ => random.Next()).ToList();
+
+        var state1 = new GraphTestPoco();
+        var meta1 = new CrdtMetadata();
+        ApplyOperations(state1, meta1, permutation1);
+
+        var state2 = new GraphTestPoco();
+        var meta2 = new CrdtMetadata();
+        ApplyOperations(state2, meta2, permutation2);
+
+        Serialize(state1).ShouldBe(Serialize(state2));
+    }
+
+    private static void ApplyOperations(GraphTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
+    {
+        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
+        var strategy = new GraphStrategy(replicaContext);
+        var propertyInfo = typeof(GraphTestPoco).GetProperty(nameof(GraphTestPoco.Graph));
+
+        foreach (var op in operations)
+        {
+            var context = new ApplyOperationContext(state, metadata, op)
+            {
+                Target = state,
+                Property = propertyInfo,
+                FinalSegment = nameof(GraphTestPoco.Graph)
+            };
+            strategy.ApplyOperation(context);
+        }
+    }
+
+    private static string Serialize(GraphTestPoco state)
+    {
+        var normalized = new
+        {
+            Graph = new
+            {
+                // Force Ordinal comparison and convert object to string explicitly to satisfy the compiler
+                Vertices = state.Graph.Vertices.OrderBy(v => v?.ToString(), StringComparer.Ordinal).ToList(),
+                Edges = state.Graph.Edges.OrderBy(e => e.Source?.ToString(), StringComparer.Ordinal).ThenBy(e => e.Target?.ToString(), StringComparer.Ordinal).ToList()
+            }
+        };
+        return JsonSerializer.Serialize(normalized);
+    }
+}

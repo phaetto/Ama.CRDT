@@ -51,7 +51,39 @@
 | `$/Ama.CRDT.Project.Analyzers/Ama.CRDT.Project.Analyzers.csproj` | No description provided. |
 | `$/Ama.CRDT.Project.Analyzers/PropertyInfoUsageAnalyzer.cs` | No description provided. |
 | `$/Ama.CRDT.Project.Analyzers/SystemConvertUsageAnalyzer.cs` | No description provided. |
-| `$/Ama.CRDT.PropertyTests/Ama.CRDT.PropertyTests.csproj` | No description provided. |
+| `$/Ama.CRDT.PropertyTests/Ama.CRDT.PropertyTests.csproj` | Contains the project definition for the property tests, incorporating FsCheck for automated generative testing validation. |
+| `$/Ama.CRDT.PropertyTests/Strategies/ArrayLcsStrategyProperties.cs` | Contains property-based tests for `ArrayLcsStrategy` validating convergence and commutativity using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/AverageRegisterStrategyProperties.cs` | Contains property-based tests for `AverageRegisterStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/BoundedCounterStrategyProperties.cs` | Contains property-based tests for `BoundedCounterStrategy` validating convergence and commutativity using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/CounterMapStrategyProperties.cs` | Contains property-based tests for `CounterMapStrategy` validating convergence and commutativity using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/CounterStrategyProperties.cs` | Contains property-based tests for `CounterStrategy` validating convergence and commutativity using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/Decorators/ApprovalQuorumStrategyProperties.cs` | Contains property-based tests for `ApprovalQuorumStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/Decorators/EpochBoundStrategyProperties.cs` | Contains property-based tests for `EpochBoundStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/FixedSizeArrayStrategyProperties.cs` | Contains property-based tests for `FixedSizeArrayStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/FwwMapStrategyProperties.cs` | Contains property-based tests for `FwwMapStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/FwwSetStrategyProperties.cs` | Contains property-based tests for `FwwSetStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/FwwStrategyProperties.cs` | Contains property-based tests for `FwwStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/GCounterStrategyProperties.cs` | Contains property-based tests for `GCounterStrategy` validating convergence and commutativity using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/GSetStrategyProperties.cs` | Contains property-based tests for `GSetStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/GraphStrategyProperties.cs` | Contains property-based tests for `GraphStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/LseqStrategyProperties.cs` | Contains property-based tests for `LseqStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/LwwMapStrategyProperties.cs` | Contains property-based tests for `LwwMapStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/LwwSetStrategyProperties.cs` | Contains property-based tests for `LwwSetStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/LwwStrategyProperties.cs` | Contains property-based tests for `LwwStrategy` validating core CRDT mathematical properties (Idempotence, Commutativity, Convergence) using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/MaxWinsMapStrategyProperties.cs` | Contains property-based tests for `MaxWinsMapStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/MaxWinsStrategyProperties.cs` | Contains property-based tests for `MaxWinsStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/MinWinsMapStrategyProperties.cs` | Contains property-based tests for `MinWinsMapStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/MinWinsStrategyProperties.cs` | Contains property-based tests for `MinWinsStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/OrMapStrategyProperties.cs` | Contains property-based tests for `OrMapStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/OrSetStrategyProperties.cs` | Contains property-based tests for `OrSetStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/PriorityQueueStrategyProperties.cs` | Contains property-based tests for `PriorityQueueStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/ReplicatedTreeStrategyProperties.cs` | Contains property-based tests for `ReplicatedTreeStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/RgaStrategyProperties.cs` | Contains property-based tests for `RgaStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/SortedSetStrategyProperties.cs` | Contains property-based tests for `SortedSetStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/StateMachineStrategyProperties.cs` | Contains property-based tests for `StateMachineStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/TwoPhaseGraphStrategyProperties.cs` | Contains property-based tests for `TwoPhaseGraphStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/TwoPhaseSetStrategyProperties.cs` | Contains property-based tests for `TwoPhaseSetStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.PropertyTests/Strategies/VoteCounterStrategyProperties.cs` | Contains property-based tests for `VoteCounterStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/BlogPost.cs` | The root data model for the showcase, representing a blog post. It is decorated with `[PartitionKey]` and its `Comments` list uses `[CrdtArrayLcsStrategy]` to enable partitioning. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/Comment.cs` | A simple record representing a comment in the blog post. |
