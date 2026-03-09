@@ -19,6 +19,7 @@ using System.Reflection;
 /// This set allows re-addition of elements by assigning a unique tag to each added instance.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedType(typeof(ISet<>))]
 [CrdtSupportedIntent(typeof(AddIntent))]
 [CrdtSupportedIntent(typeof(RemoveValueIntent))]
 [CrdtSupportedIntent(typeof(RemoveIntent))]
@@ -92,8 +93,8 @@ public sealed class OrSetStrategy(
 
         if (context.Intent is RemoveIntent removeIntent)
         {
-            var list = PocoPathHelper.GetValue<IList>(context.DocumentRoot, context.JsonPath);
-            if (list != null)
+            var collection = PocoPathHelper.GetValue<IEnumerable>(context.DocumentRoot, context.JsonPath);
+            if (collection is IList list)
             {
                 if (removeIntent.Index >= 0 && removeIntent.Index < list.Count)
                 {
@@ -102,7 +103,7 @@ public sealed class OrSetStrategy(
                 }
                 throw new ArgumentOutOfRangeException(nameof(removeIntent.Index), $"Index {removeIntent.Index} is out of range.");
             }
-            throw new InvalidOperationException($"Could not resolve list at path {context.JsonPath} for RemoveIntent.");
+            throw new InvalidOperationException($"Could not resolve list at path {context.JsonPath} for RemoveIntent or it is not an ordered IList.");
         }
 
         throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported by {nameof(OrSetStrategy)}.");
@@ -114,7 +115,7 @@ public sealed class OrSetStrategy(
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IEnumerable collection)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
@@ -158,11 +159,11 @@ public sealed class OrSetStrategy(
 
         if (isLiveNow)
         {
-            InsertSorted(list, modifiedItemValue, comparer);
+            InsertSorted(collection, modifiedItemValue, comparer);
         }
         else
         {
-            RemoveFromList(list, modifiedItemValue, comparer);
+            RemoveFromCollection(collection, modifiedItemValue, comparer);
         }
 
         return CrdtOperationStatus.Success;
@@ -171,15 +172,17 @@ public sealed class OrSetStrategy(
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var list = PocoPathHelper.GetValue<IList>(data, partitionableProperty.Name);
-        if (list == null || list.Count == 0) return null;
+        var collection = PocoPathHelper.GetValue<IEnumerable>(data, partitionableProperty.Name);
+        if (collection == null) return null;
 
         var items = new List<IComparable>();
-        foreach (var item in list)
+        foreach (var item in collection)
         {
             if (item is IComparable c) items.Add(c);
             else if (item != null) items.Add(item.ToString()!);
         }
+        if (items.Count == 0) return null;
+        
         return items.OrderBy(k => k).FirstOrDefault();
     }
 
@@ -255,8 +258,8 @@ public sealed class OrSetStrategy(
         var doc1 = Activator.CreateInstance(documentType)!;
         var doc2 = Activator.CreateInstance(documentType)!;
 
-        ReconstructListForSplitMerge(doc1, path, meta1.OrSets[path], elementType, comparer);
-        ReconstructListForSplitMerge(doc2, path, meta2.OrSets[path], elementType, comparer);
+        ReconstructListForSplitMerge(doc1, path, meta1.OrSets[path], elementType, partitionableProperty.PropertyType);
+        ReconstructListForSplitMerge(doc2, path, meta2.OrSets[path], elementType, partitionableProperty.PropertyType);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
@@ -298,22 +301,21 @@ public sealed class OrSetStrategy(
         var mergedState = new OrSetState(adds, rems);
         mergedMeta.OrSets[path] = mergedState;
 
-        ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType, comparer);
+        ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType, partitionableProperty.PropertyType);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructListForSplitMerge(object root, string path, OrSetState state, Type elementType, IEqualityComparer<object> comparer)
+    private static void ReconstructListForSplitMerge(object root, string path, OrSetState state, Type elementType, Type propertyType)
     {
-        var list = PocoPathHelper.GetValue<IList>(root, path);
-        if (list is null)
+        var collection = PocoPathHelper.GetValue<object>(root, path);
+        if (collection is null)
         {
-            var listType = typeof(List<>).MakeGenericType(elementType);
-            list = (IList)Activator.CreateInstance(listType)!;
-            PocoPathHelper.SetValue(root, path, list);
+            collection = PocoPathHelper.InstantiateCollection(propertyType);
+            PocoPathHelper.SetValue(root, path, collection);
         }
 
-        list.Clear();
+        PocoPathHelper.ClearCollection(collection);
         var liveItems = new List<object>();
 
         foreach (var kvp in state.Adds)
@@ -328,7 +330,7 @@ public sealed class OrSetStrategy(
         }
 
         liveItems.Sort((x, y) => string.CompareOrdinal(x.ToString(), y.ToString()));
-        foreach (var item in liveItems) list.Add(item);
+        foreach (var item in liveItems) PocoPathHelper.AddToCollection(collection, item);
     }
     
     private static object? ApplyUpsert(OrSetState state, object? opValue, Type elementType)
@@ -368,35 +370,53 @@ public sealed class OrSetStrategy(
         return itemValue;
     }
 
-    private static void InsertSorted(IList list, object item, IEqualityComparer<object> comparer)
+    private static void InsertSorted(object collection, object item, IEqualityComparer<object> comparer)
     {
-        for (int i = 0; i < list.Count; i++)
+        if (collection is IList list)
         {
-            if (comparer.Equals(list[i], item)) return; // Already exists
-        }
-
-        var itemStr = item.ToString() ?? string.Empty;
-        for (int i = 0; i < list.Count; i++)
-        {
-            var currentStr = list[i]?.ToString() ?? string.Empty;
-            if (string.CompareOrdinal(itemStr, currentStr) < 0)
+            for (int i = 0; i < list.Count; i++)
             {
-                list.Insert(i, item);
-                return;
+                if (comparer.Equals(list[i], item)) return; // Already exists
+            }
+
+            var itemStr = item.ToString() ?? string.Empty;
+            for (int i = 0; i < list.Count; i++)
+            {
+                var currentStr = list[i]?.ToString() ?? string.Empty;
+                if (string.CompareOrdinal(itemStr, currentStr) < 0)
+                {
+                    list.Insert(i, item);
+                    return;
+                }
+            }
+            list.Add(item);
+        }
+        else
+        {
+            var enumCol = ((IEnumerable)collection).Cast<object>();
+            if (!enumCol.Contains(item, comparer))
+            {
+                PocoPathHelper.AddToCollection(collection, item);
             }
         }
-        list.Add(item);
     }
 
-    private static void RemoveFromList(IList list, object item, IEqualityComparer<object> comparer)
+    private static void RemoveFromCollection(object collection, object item, IEqualityComparer<object> comparer)
     {
-        for (int i = 0; i < list.Count; i++)
+        if (collection is IList list)
         {
-            if (comparer.Equals(list[i], item))
+            for (int i = 0; i < list.Count; i++)
             {
-                list.RemoveAt(i);
-                return;
+                if (comparer.Equals(list[i], item))
+                {
+                    list.RemoveAt(i);
+                    return;
+                }
             }
+        }
+        else
+        {
+            PocoPathHelper.RemoveFromCollection(collection, item);
         }
     }
 

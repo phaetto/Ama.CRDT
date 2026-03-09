@@ -160,6 +160,7 @@ public sealed class CrdtStrategyTypeAnalyzer : DiagnosticAnalyzer
             "System.Collections.IDictionary" => "System.Collections.Generic.IDictionary`2",
             "System.Collections.ICollection" => "System.Collections.Generic.ICollection`1",
             "System.Collections.IEnumerable" => "System.Collections.Generic.IEnumerable`1",
+            "System.Collections.Generic.ISet`1" => "System.Collections.Generic.ISet`1",
             _ => null
         };
 

@@ -11,6 +11,7 @@ using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 /// <summary>
@@ -18,6 +19,7 @@ using System.Reflection;
 /// An element's membership is determined by the timestamp of its last add or remove operation.
 /// </summary>
 [CrdtSupportedType(typeof(IList))]
+[CrdtSupportedType(typeof(ISet<>))]
 [CrdtSupportedIntent(typeof(AddIntent))]
 [CrdtSupportedIntent(typeof(RemoveValueIntent))]
 [Commutative]
@@ -94,20 +96,21 @@ public sealed class LwwSetStrategy(
         var (root, metadata, operation) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IEnumerable collection)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
         var elementType = PocoPathHelper.GetCollectionElementType(property);
         var comparer = comparerProvider.GetComparer(elementType);
+        var listRepresentation = collection.Cast<object>().ToList();
 
         if (!metadata.LwwSets.TryGetValue(operation.JsonPath, out var state))
         {
             var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
-            for (int i = 0; i < list.Count; i++)
+            for (int i = 0; i < listRepresentation.Count; i++)
             {
-                adds[list[i]] = timestampProvider.Create(0);
+                adds[listRepresentation[i]] = timestampProvider.Create(0);
             }
             state = new LwwSetState(adds, new Dictionary<object, ICrdtTimestamp>(comparer));
             metadata.LwwSets[operation.JsonPath] = state;
@@ -155,11 +158,11 @@ public sealed class LwwSetStrategy(
 
         if (isLiveNow)
         {
-            InsertSorted(list, itemValue, comparer);
+            InsertSorted(collection, itemValue, comparer);
         }
         else
         {
-            RemoveFromList(list, itemValue, comparer);
+            RemoveFromCollection(collection, itemValue, comparer);
         }
 
         return CrdtOperationStatus.Success;
@@ -168,13 +171,12 @@ public sealed class LwwSetStrategy(
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
-        var list = PocoPathHelper.GetValue<IList>(data, partitionableProperty.Name);
-        if (list == null || list.Count == 0) return null;
+        var collection = PocoPathHelper.GetValue<IEnumerable>(data, partitionableProperty.Name);
+        if (collection == null) return null;
 
         IComparable? minKey = null;
-        for (int i = 0; i < list.Count; i++)
+        foreach (var item in collection)
         {
-            var item = list[i];
             var comp = item as IComparable ?? item?.ToString();
             
             if (comp != null)
@@ -259,8 +261,8 @@ public sealed class LwwSetStrategy(
         var doc1 = Activator.CreateInstance(documentType)!;
         var doc2 = Activator.CreateInstance(documentType)!;
 
-        ReconstructListForSplitMerge(doc1, path, meta1.LwwSets[path], elementType);
-        ReconstructListForSplitMerge(doc2, path, meta2.LwwSets[path], elementType);
+        ReconstructListForSplitMerge(doc1, path, meta1.LwwSets[path], elementType, partitionableProperty.PropertyType);
+        ReconstructListForSplitMerge(doc2, path, meta2.LwwSets[path], elementType, partitionableProperty.PropertyType);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
@@ -302,22 +304,21 @@ public sealed class LwwSetStrategy(
         var mergedState = new LwwSetState(adds, rems);
         mergedMeta.LwwSets[path] = mergedState;
 
-        ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType);
+        ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType, partitionableProperty.PropertyType);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructListForSplitMerge(object root, string path, LwwSetState state, Type elementType)
+    private static void ReconstructListForSplitMerge(object root, string path, LwwSetState state, Type elementType, Type propertyType)
     {
-        var list = PocoPathHelper.GetValue<IList>(root, path);
-        if (list is null)
+        var collection = PocoPathHelper.GetValue<object>(root, path);
+        if (collection is null)
         {
-            var listType = typeof(List<>).MakeGenericType(elementType);
-            list = (IList)Activator.CreateInstance(listType)!;
-            PocoPathHelper.SetValue(root, path, list);
+            collection = PocoPathHelper.InstantiateCollection(propertyType);
+            PocoPathHelper.SetValue(root, path, collection);
         }
 
-        list.Clear();
+        PocoPathHelper.ClearCollection(collection);
         var liveItems = new List<object>();
 
         foreach (var kvp in state.Adds)
@@ -332,53 +333,71 @@ public sealed class LwwSetStrategy(
         }
 
         liveItems.Sort((x, y) => string.CompareOrdinal(x.ToString(), y.ToString()));
-        foreach (var item in liveItems) list.Add(item);
+        foreach (var item in liveItems) PocoPathHelper.AddToCollection(collection, item);
     }
     
-    private static void InsertSorted(IList list, object item, IEqualityComparer<object> comparer)
+    private static void InsertSorted(object collection, object item, IEqualityComparer<object> comparer)
     {
-        for (int i = 0; i < list.Count; i++)
+        if (collection is IList list)
         {
-            if (comparer.Equals(list[i], item)) return; // Already exists
-        }
-
-        var itemComp = item as IComparable;
-        var itemStr = itemComp == null ? item.ToString() ?? string.Empty : null;
-
-        for (int i = 0; i < list.Count; i++)
-        {
-            var current = list[i];
-
-            if (itemComp != null && current is IComparable currentComp)
+            for (int i = 0; i < list.Count; i++)
             {
-                if (itemComp.CompareTo(currentComp) < 0)
+                if (comparer.Equals(list[i], item)) return; // Already exists
+            }
+
+            var itemComp = item as IComparable;
+            var itemStr = itemComp == null ? item.ToString() ?? string.Empty : null;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                var current = list[i];
+
+                if (itemComp != null && current is IComparable currentComp)
                 {
-                    list.Insert(i, item);
-                    return;
+                    if (itemComp.CompareTo(currentComp) < 0)
+                    {
+                        list.Insert(i, item);
+                        return;
+                    }
+                }
+                else
+                {
+                    var currentStr = current?.ToString() ?? string.Empty;
+                    if (string.CompareOrdinal(itemStr, currentStr) < 0)
+                    {
+                        list.Insert(i, item);
+                        return;
+                    }
                 }
             }
-            else
+            list.Add(item);
+        }
+        else
+        {
+            var enumCol = ((IEnumerable)collection).Cast<object>();
+            if (!enumCol.Contains(item, comparer))
             {
-                var currentStr = current?.ToString() ?? string.Empty;
-                if (string.CompareOrdinal(itemStr, currentStr) < 0)
-                {
-                    list.Insert(i, item);
-                    return;
-                }
+                PocoPathHelper.AddToCollection(collection, item);
             }
         }
-        list.Add(item);
     }
 
-    private static void RemoveFromList(IList list, object item, IEqualityComparer<object> comparer)
+    private static void RemoveFromCollection(object collection, object item, IEqualityComparer<object> comparer)
     {
-        for (int i = 0; i < list.Count; i++)
+        if (collection is IList list)
         {
-            if (comparer.Equals(list[i], item))
+            for (int i = 0; i < list.Count; i++)
             {
-                list.RemoveAt(i);
-                return;
+                if (comparer.Equals(list[i], item))
+                {
+                    list.RemoveAt(i);
+                    return;
+                }
             }
+        }
+        else
+        {
+            PocoPathHelper.RemoveFromCollection(collection, item);
         }
     }
 
