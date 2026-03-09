@@ -39,6 +39,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ama.CRDT.Project.Analyzers"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ama.CRDT.Project.Analyzers.UnitTests", "Ama.CRDT.Project.Analyzers.UnitTests\Ama.CRDT.Project.Analyzers.UnitTests.csproj", "{F2B545D7-0605-E3C3-6E3E-A2FF69C3228C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ama.CRDT.IntegrationTests", "Ama.CRDT.IntegrationTests\Ama.CRDT.IntegrationTests.csproj", "{5DDC58C5-80E9-44DD-9141-539058B60E90}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ama.CRDT.PropertyTests", "Ama.CRDT.PropertyTests\Ama.CRDT.PropertyTests.csproj", "{1D896AF3-D0AD-4BB5-AB4B-C847DADDA667}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -89,6 +93,14 @@ Global
 		{F2B545D7-0605-E3C3-6E3E-A2FF69C3228C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F2B545D7-0605-E3C3-6E3E-A2FF69C3228C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F2B545D7-0605-E3C3-6E3E-A2FF69C3228C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5DDC58C5-80E9-44DD-9141-539058B60E90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5DDC58C5-80E9-44DD-9141-539058B60E90}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5DDC58C5-80E9-44DD-9141-539058B60E90}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5DDC58C5-80E9-44DD-9141-539058B60E90}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1D896AF3-D0AD-4BB5-AB4B-C847DADDA667}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1D896AF3-D0AD-4BB5-AB4B-C847DADDA667}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1D896AF3-D0AD-4BB5-AB4B-C847DADDA667}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1D896AF3-D0AD-4BB5-AB4B-C847DADDA667}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
