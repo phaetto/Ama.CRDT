@@ -16,6 +16,7 @@ using System.Reflection;
 internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
 {
     private readonly IReadOnlyDictionary<Type, ICrdtStrategy> strategies;
+    private readonly ICrdtModelRegistry registry;
     private readonly ICrdtStrategy defaultStrategy;
     private readonly ICrdtStrategy defaultArrayStrategy;
     private readonly ICrdtStrategy defaultDictionaryStrategy;
@@ -28,12 +29,15 @@ internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
     /// Initializes a new instance of the <see cref="CrdtStrategyProvider"/> class.
     /// </summary>
     /// <param name="strategies">An enumerable of all registered <see cref="ICrdtStrategy"/> instances.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="strategies"/> is null.</exception>
+    /// <param name="registry">The configuration registry that defines runtime strategy bindings.</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="strategies"/> or <paramref name="registry"/> is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown if a required default strategy (like <see cref="LwwStrategy"/>) is not registered.</exception>
-    public CrdtStrategyProvider(IEnumerable<ICrdtStrategy> strategies)
+    public CrdtStrategyProvider(IEnumerable<ICrdtStrategy> strategies, ICrdtModelRegistry registry)
     {
         ArgumentNullException.ThrowIfNull(strategies);
+        ArgumentNullException.ThrowIfNull(registry);
 
+        this.registry = registry;
         this.strategies = strategies
             .GroupBy(s => s.GetType())
             .ToDictionary(g => g.Key, g => g.First());
@@ -95,12 +99,21 @@ internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
 
         return baseStrategyCache.GetOrAdd(propertyInfo, pi =>
         {
+            // 1. Check Fluent API Registry
+            if (registry.TryGetStrategy(pi, out var configuredStrategyType) && 
+                strategies.TryGetValue(configuredStrategyType, out var configuredStrategy))
+            {
+                return configuredStrategy;
+            }
+
+            // 2. Check Attributes
             var attribute = pi.GetCustomAttribute<CrdtStrategyAttribute>();
             if (attribute is not null && strategies.TryGetValue(attribute.StrategyType, out var strategy))
             {
                 return strategy;
             }
             
+            // 3. Fallback to defaults based on property type
             var propertyType = pi.PropertyType;
             if (propertyType != typeof(string) && typeof(IDictionary).IsAssignableFrom(propertyType))
             {
@@ -134,9 +147,21 @@ internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
     private IReadOnlyList<Type> GetDecorators(PropertyInfo propertyInfo)
     {
         return decoratorChainCache.GetOrAdd(propertyInfo, pi => 
-            pi.GetCustomAttributes<CrdtStrategyDecoratorAttribute>()
+        {
+            // 1. Check Fluent API Registry
+            if (registry.TryGetDecorators(pi, out var configuredDecorators))
+            {
+                // Ensure consistent resolution order exactly matching attribute fallback logic
+                return configuredDecorators
+                    .OrderBy(d => d.Name, StringComparer.Ordinal)
+                    .ToList();
+            }
+
+            // 2. Check Attributes
+            return pi.GetCustomAttributes<CrdtStrategyDecoratorAttribute>()
               .OrderBy(a => a.GetType().Name, StringComparer.Ordinal)
               .Select(a => a.StrategyType)
-              .ToList());
+              .ToList();
+        });
     }
 }

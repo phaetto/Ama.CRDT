@@ -82,6 +82,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs, and testing new centralized reflection helpers for getting/setting values and retrieving type information. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionManagerTests.cs` | Contains unit tests for `PartitionManager`, verifying initialization, patch application, and partition splitting logic using a mock `IPartitionStorageService`. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionStorageServiceContractTests.cs` | Contains mock unit tests to verify the `IPartitionStorageService` interface contract. |
+| `$/Ama.CRDT.UnitTests/Services/Providers/CrdtFluentConfigurationTests.cs` | Contains unit tests verifying the Fluent Builder API (`CrdtModelBuilder`) correctly maps CRDT strategies and that the `CrdtStrategyProvider` prioritizes these mappings over attributes. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/ArrayLcsStrategyTests.cs` | Contains unit tests for `ArrayLcsStrategy`, focusing on convergence properties under concurrent operations. This file includes a test that specifically reproduces a known bug related to the non-commutative application of array insertion patches. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/AverageRegisterStrategyTests.cs` | Contains unit tests for the `AverageRegisterStrategy`, verifying convergence, idempotence, and commutativity. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/BoundedCounterStrategyTests.cs` | Contains unit tests for the `BoundedCounterStrategy`, verifying that values are correctly clamped within their defined bounds. |
@@ -257,9 +258,14 @@
 | `$/Ama.CRDT/Services/Partitioning/IPartitionStorageService.cs` | Defines a high-level abstraction for saving and loading partitioned CRDT data and metadata, hiding underlying stream operations. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning. It defines methods for splitting and merging partition data and metadata, and for extracting partition keys from operations and data models. |
 | `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a partitioned CRDT document, allowing it to scale beyond memory. It now explicitly separates logic for header and property partitions, using dedicated stream providers and strategy methods to avoid ambiguity. |
+| `$/Ama.CRDT/Services/Providers/CrdtEntityBuilder.cs` | A generic scope builder mapping CRDT strategy selections to a specific type. |
+| `$/Ama.CRDT/Services/Providers/CrdtModelBuilder.cs` | A fluent builder used to define CRDT mapping configurations across different models during service setup. |
+| `$/Ama.CRDT/Services/Providers/CrdtModelRegistry.cs` | Implements `ICrdtModelRegistry` acting as a fast read-only dictionary for the Fluent API configuration mapping. |
+| `$/Ama.CRDT/Services/Providers/CrdtPropertyBuilder.cs` | A generic scope builder defining strategies and decorators for a specific target property. |
 | `$/Ama.CRDT/Services/Providers/CrdtStrategyProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/ElementComparerProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `EpochTimestamp` based on Unix milliseconds. |
+| `$/Ama.CRDT/Services/Providers/ICrdtModelRegistry.cs` | Defines an interface for a registry that maps POCO properties to their explicit CRDT strategies and decorators, bypassing attributes. |
 | `$/Ama.CRDT/Services/Providers/ICrdtStrategyProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/ICrdtTimestampProvider.cs` | Defines a service for generating CRDT timestamps, allowing for custom timestamp implementations. |
 | `$/Ama.CRDT/Services/Providers/IElementComparer.cs` | No description provided. |
