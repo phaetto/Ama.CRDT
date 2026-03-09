@@ -1,0 +1,32 @@
+{
+  "stryker-config": {
+    "project-info": {
+      "module": "../Ama.CRDT/Ama.CRDT.csproj"
+    },
+    "reporters": [
+      "progress",
+      "html",
+      "cleartext"
+    ],
+    "mutate": [
+      "**/*.cs",
+      "!Services/Metrics/**/*.cs",
+      "!Models/Serialization/**/*.cs",
+      "!Extensions/**/*.cs",
+      "!Models/Intents/**/*.cs",
+      "!Attributes/**/*.cs"
+    ],
+    "thresholds": {
+      "high": 80,
+      "low": 60,
+      "break": 50
+    },
+    "ignore-mutations": [
+      "initializer", "string", "block"
+    ],
+    "ignore-methods": [
+      "ArgumentNullException.ThrowIfNull",
+      "ArgumentException.ThrowIfNullOrWhiteSpace"
+    ]
+  }
+}
