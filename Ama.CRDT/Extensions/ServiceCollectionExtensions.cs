@@ -1,4 +1,3 @@
-using System;
 using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization.Converters;
