@@ -104,6 +104,7 @@
 | `$/Ama.CRDT.ShowCase/SimulationRunner.cs` | Orchestrates the distributed map-reduce simulation using concurrent producers, mappers, and convergers communicating via channels to demonstrate CRDT convergence. |
 | `$/Ama.CRDT.UnitTests/Ama.CRDT.UnitTests.csproj` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Architecture/StrategyConventionTests.cs` | An architecture convention unit test that reflects over all strategies to enforce the presence of unit tests, property tests, benchmarks, and documentation. |
+| `$/Ama.CRDT.UnitTests/Models/DottedVersionVectorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/EpochTimestampTests.cs` | Contains unit tests for the `EpochTimestamp` implementation of `ICrdtTimestamp`. |
 | `$/Ama.CRDT.UnitTests/Models/Partitioning/CompositePartitionKeyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtMetadataSerializationTests.cs` | Contains unit tests for the serialization and deserialization of the `CrdtMetadata` class, verifying both default and compact serialization options and ensuring polymorphic and complex data (e.g., non-string dictionary keys, nested collections) is handled correctly. |
@@ -225,6 +226,7 @@
 | `$/Ama.CRDT/Models/Intents/AddVertexIntent.cs` | Represents the intent to explicitly add a vertex to a graph. |
 | `$/Ama.CRDT/Models/Intents/ClearIntent.cs` | Represents the intent to explicitly clear a property, collection, or state, effectively resetting it for FWW and other strategies. |
 | `$/Ama.CRDT/Models/Intents/Decorators/EpochClearIntent.cs` | Represents the intent to explicitly clear the state within an Epoch-bound decorator, incrementing the epoch and effectively clearing all local data for that path without clashing with base strategy intents. |
+| `$/Ama.CRDT/Models/Intents/IIntentBuilder.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Intents/IOperationIntent.cs` | A marker interface for defining explicit CRDT operations intent directly triggered by user actions, bypassing diff generation. |
 | `$/Ama.CRDT/Models/Intents/IncrementIntent.cs` | Represents the intent to explicitly increment or decrement a numeric value or counter. |
 | `$/Ama.CRDT/Models/Intents/InsertIntent.cs` | Defines an explicit intention to insert a value into an ordered sequence at a specific index. |
@@ -290,7 +292,6 @@
 | `$/Ama.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing CRDT metadata. Its responsibilities include initializing, resetting, cloning, merging, and compacting metadata state such as LWW timestamps, positional trackers, and version vectors. This service is critical for enabling conflict-free merges by externalizing the state needed for resolution. |
 | `$/Ama.CRDT/Services/ICrdtPatcher.cs` | Defines the contract for a service that compares two versions of a data model and generates a CRDT patch, as well as an intent-based method for creating patches directly. |
 | `$/Ama.CRDT/Services/ICrdtScopeFactory.cs` | Defines the contract for a factory that creates isolated `IServiceScope` instances for CRDT replicas, each configured with a unique replica ID. |
-| `$/Ama.CRDT/Services/IIntentBuilder.cs` | Defines a builder interface for generating explicit CRDT operations in a strongly-typed manner. |
 | `$/Ama.CRDT/Services/IVersionVectorSyncService.cs` | Defines an interface for comparing the causality state (DVVs) of different replicas and determining synchronization requirements. |
 | `$/Ama.CRDT/Services/Metrics/MetricTimer.cs` | A helper `IDisposable` struct that uses a `Stopwatch` to measure the duration of a code block and records it to a `Histogram` upon disposal. |
 | `$/Ama.CRDT/Services/Metrics/PartitionManagerCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `PartitionManager`. |
@@ -355,9 +356,7 @@
 | `$/Specs/add-approval-quorum-strategy.md` | No description provided. |
 | `$/Specs/add-leader-election-strategy.md` | No description provided. |
 | `$/Specs/add-more-text-specific-strategies.md` | No description provided. |
-| `$/Specs/add-replica-level-sync-and-journaling.md` | Specification document detailing the architecture and required interfaces for adding global operation journaling and replica-level state tracking. |
 | `$/Specs/create-larger-than-memory-showcase.md` | No description provided. |
-| `$/Specs/distributed-map-reduce-with-crdts.md` | Documentation and conceptual example explaining how to use `Ama.CRDT` as a naturally convergent Map-Reduce engine and Distributed SQL-like aggregator. |
 | `$/Specs/done/add-composite-partition-keys.md` | No description provided. |
 | `$/Specs/done/add-counter-map-strategy.md` | No description provided. |
 | `$/Specs/done/add-exclusive-lock-strategy.md` | No description provided. |

@@ -1,4 +1,3 @@
-using System;
 using FsCheck.Xunit;
 
 namespace Ama.CRDT.PropertyTests.Attributes;
