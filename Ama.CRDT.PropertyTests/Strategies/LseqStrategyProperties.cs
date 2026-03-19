@@ -10,7 +10,6 @@ using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using FsCheck;
-using FsCheck.Xunit;
 using Moq;
 using Shouldly;
 

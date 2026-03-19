@@ -6,7 +6,6 @@ using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
 using FsCheck;
-using FsCheck.Xunit;
 using Shouldly;
 using System;
 using System.Collections.Generic;

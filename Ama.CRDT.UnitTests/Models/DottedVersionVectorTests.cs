@@ -1,6 +1,5 @@
 namespace Ama.CRDT.UnitTests.Models;
 
-using System;
 using System.Collections.Generic;
 using Ama.CRDT.Models;
 using Shouldly;

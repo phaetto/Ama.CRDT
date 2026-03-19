@@ -9,7 +9,6 @@ using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Services.Strategies.Decorators;
 using FsCheck;
-using FsCheck.Xunit;
 using Moq;
 using Shouldly;
 using System;
