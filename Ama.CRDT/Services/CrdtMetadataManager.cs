@@ -30,7 +30,8 @@ public sealed class CrdtMetadataManager(
     public CrdtMetadata Initialize<T>([DisallowNull] T document) where T : class
     {
         ArgumentNullException.ThrowIfNull(document);
-        return Initialize(document, timestampProvider.Now());
+        // Use the absolute minimum timestamp for baseline initialization so any actual patch operation always wins.
+        return Initialize(document, timestampProvider.Create(long.MinValue));
     }
 
     /// <inheritdoc/>
@@ -56,7 +57,8 @@ public sealed class CrdtMetadataManager(
     /// <inheritdoc/>
     public void Initialize<T>(CrdtDocument<T> document) where T : class
     {
-        Initialize(document, timestampProvider.Now());
+        // Use the absolute minimum timestamp for baseline initialization so any actual patch operation always wins.
+        Initialize(document, timestampProvider.Create(long.MinValue));
     }
 
     /// <inheritdoc/>

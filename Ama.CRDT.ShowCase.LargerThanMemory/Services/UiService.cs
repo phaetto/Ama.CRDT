@@ -729,12 +729,15 @@ public sealed class UiService
             using var scope = scopeFactory.CreateScope(replica, replicaDvvs[replica]);
             var targetPartitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
             
+            // Caching logical keys outside the while-loop greatly speeds up the sync
+            var keys = new HashSet<IComparable>(await targetPartitionManager.GetAllLogicalKeysAsync());
+            
             while (syncService.TryDequeue(replica, out var logicalKey, out var patch))
             {
-                var keys = await targetPartitionManager.GetAllLogicalKeysAsync();
                 if (!keys.Contains(logicalKey))
                 {
-                    await targetPartitionManager.InitializeAsync(new BlogPost { Id = logicalKey });
+                    await targetPartitionManager.InitializeAsync(new BlogPost { Id = (Guid)logicalKey });
+                    keys.Add(logicalKey);
                 }
                 var headerDoc = await targetPartitionManager.GetHeaderPartitionContentAsync(logicalKey);
                 await targetPartitionManager.ApplyPatchAsync(headerDoc.Value, patch);
