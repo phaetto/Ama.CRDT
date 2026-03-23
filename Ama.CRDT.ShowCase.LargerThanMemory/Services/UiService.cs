@@ -588,11 +588,10 @@ public sealed class UiService
             var patcher = currentScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
             
             var patch = patcher.GeneratePatch(emptyDoc.Value, newPost);
-            patch = patch with { LogicalKey = id };
-            await partitionManager.ApplyPatchAsync(patch);
+            await partitionManager.ApplyPatchAsync(emptyDoc.Value, patch);
 
             var syncService = serviceProvider.GetRequiredService<SyncService>();
-            syncService.QueuePatch(currentReplicaId, patch, replicaIds);
+            syncService.QueuePatch(currentReplicaId, id, patch, replicaIds);
 
             Application.MainLoop.Invoke(() => {
                 SaveReplicaStates();
@@ -643,12 +642,12 @@ public sealed class UiService
                 headerContent.Value.Metadata);
             
             var operation = patcher.BuildOperation(fromDoc, x => x.Comments).Set(comment.CreatedAt, comment);
-            var patch = new CrdtPatch(new[] { operation }) { LogicalKey = selectedBlogPostId };
+            var patch = new CrdtPatch(new[] { operation });
             
-            await partitionManager.ApplyPatchAsync(patch);
+            await partitionManager.ApplyPatchAsync(fromDoc, patch);
 
             var syncService = serviceProvider.GetRequiredService<SyncService>();
-            syncService.QueuePatch(currentReplicaId, patch, replicaIds);
+            syncService.QueuePatch(currentReplicaId, selectedBlogPostId, patch, replicaIds);
 
             var commentCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
             
@@ -695,12 +694,12 @@ public sealed class UiService
             var fromDoc = new CrdtDocument<BlogPost>(header, headerContent.Value.Metadata);
             
             var operation = patcher.BuildOperation(fromDoc, x => x.Tags).Add(newTag);
-            var patch = new CrdtPatch(new[] { operation }) { LogicalKey = selectedBlogPostId };
+            var patch = new CrdtPatch(new[] { operation });
             
-            await partitionManager.ApplyPatchAsync(patch);
+            await partitionManager.ApplyPatchAsync(fromDoc, patch);
 
             var syncService = serviceProvider.GetRequiredService<SyncService>();
-            syncService.QueuePatch(currentReplicaId, patch, replicaIds);
+            syncService.QueuePatch(currentReplicaId, selectedBlogPostId, patch, replicaIds);
 
             Application.MainLoop.Invoke(() => {
                 SaveReplicaStates();
@@ -730,14 +729,15 @@ public sealed class UiService
             using var scope = scopeFactory.CreateScope(replica, replicaDvvs[replica]);
             var targetPartitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
             
-            while (syncService.TryDequeue(replica, out var patch))
+            while (syncService.TryDequeue(replica, out var logicalKey, out var patch))
             {
                 var keys = await targetPartitionManager.GetAllLogicalKeysAsync();
-                if (!keys.Contains((Guid)patch.LogicalKey))
+                if (!keys.Contains(logicalKey))
                 {
-                    await targetPartitionManager.InitializeAsync(new BlogPost { Id = (Guid)patch.LogicalKey });
+                    await targetPartitionManager.InitializeAsync(new BlogPost { Id = logicalKey });
                 }
-                await targetPartitionManager.ApplyPatchAsync(patch);
+                var headerDoc = await targetPartitionManager.GetHeaderPartitionContentAsync(logicalKey);
+                await targetPartitionManager.ApplyPatchAsync(headerDoc.Value, patch);
                 syncCount++;
             }
         }
