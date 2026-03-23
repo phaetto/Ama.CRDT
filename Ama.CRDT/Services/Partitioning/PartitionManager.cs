@@ -10,6 +10,7 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -80,32 +81,39 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     }
 
     /// <inheritdoc/>
-    public async Task ApplyPatchAsync(CrdtPatch patch, CancellationToken cancellationToken = default)
+    public async Task<ApplyPatchResult<TDoc>> ApplyPatchAsync<TDoc>([DisallowNull] CrdtDocument<TDoc> document, CrdtPatch patch, CancellationToken cancellationToken = default) where TDoc : class
     {
         using var _ = new MetricTimer(metrics.ApplyPatchDuration);
         
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(document.Data);
+
+        if (document.Data is not T typedData)
+        {
+            throw new ArgumentException($"Document data must be of type {typeof(T).Name}");
+        }
+
+        var unappliedOperations = new List<UnappliedOperation>();
+
         if (patch.Operations is null || !patch.Operations.Any())
         {
-            return;
+            return new ApplyPatchResult<TDoc>(document.Data, unappliedOperations);
         }
 
-        if (patch.LogicalKey is null)
-        {
-            throw new ArgumentException("Patch must have a LogicalKey for partitioned documents.", nameof(patch));
-        }
-        
+        var logicalKey = GetLogicalKey(typedData);
         metrics.PatchesApplied.Add(1);
 
-        var headerPartition = await GetHeaderPartitionAsync(patch.LogicalKey, cancellationToken)
-            ?? throw new InvalidOperationException($"Could not find header partition for logical key '{patch.LogicalKey}'.");
-        var headerDoc = await storageService.LoadHeaderPartitionContentAsync<T>(patch.LogicalKey, (HeaderPartition)headerPartition, cancellationToken);
+        var headerPartition = await GetHeaderPartitionAsync(logicalKey, cancellationToken)
+            ?? throw new InvalidOperationException($"Could not find header partition for logical key '{logicalKey}'.");
+        var headerDoc = await storageService.LoadHeaderPartitionContentAsync<T>(logicalKey, (HeaderPartition)headerPartition, cancellationToken);
 
         var (headerOps, propertyOps) = GroupOperationsByProperty(patch.Operations);
         bool headerModified = headerOps.Count > 0;
 
         if (headerOps.Count > 0)
         {
-            crdtApplicator.ApplyPatch(headerDoc, new CrdtPatch(headerOps.AsReadOnly()) { LogicalKey = patch.LogicalKey });
+            var headerResult = crdtApplicator.ApplyPatch(headerDoc, new CrdtPatch(headerOps.AsReadOnly()));
+            unappliedOperations.AddRange(headerResult.UnappliedOperations);
         }
 
         foreach (var (propertyName, operations) in propertyOps)
@@ -113,27 +121,29 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
             var propertyPath = ToPropertyPath(propertyName);
             var (prop, strategy) = partitionableProperties[propertyPath];
 
-            var opsByPartition = await GroupOperationsByPartitionAsync(patch.LogicalKey, propertyName, strategy, prop, operations, cancellationToken);
+            var opsByPartition = await GroupOperationsByPartitionAsync(logicalKey, propertyName, strategy, prop, operations, cancellationToken);
             
             foreach(var (partition, ops) in opsByPartition)
             {
-                var dataDoc = await storageService.LoadPartitionContentAsync<T>(patch.LogicalKey, propertyName, partition, cancellationToken);
+                var dataDoc = await storageService.LoadPartitionContentAsync<T>(logicalKey, propertyName, partition, cancellationToken);
 
                 // Temporarily inject global synchronization state into the data partition's metadata 
                 // so the CrdtApplicator can perform idempotency checks and advance the global clock.
                 dataDoc.Metadata!.VersionVector = headerDoc.Metadata!.VersionVector;
                 dataDoc.Metadata.SeenExceptions = headerDoc.Metadata.SeenExceptions;
 
+                ApplyPatchResult<T> dataResult;
                 using (new MetricTimer(metrics.ApplicatorApplyPatchDuration))
                 {
-                    crdtApplicator.ApplyPatch(dataDoc, new CrdtPatch(ops.AsReadOnly()) { LogicalKey = patch.LogicalKey });
+                    dataResult = crdtApplicator.ApplyPatch(dataDoc, new CrdtPatch(ops.AsReadOnly()));
                 }
+                unappliedOperations.AddRange(dataResult.UnappliedOperations);
 
                 // Remove global state from the data partition's metadata so it is not persisted in the data stream.
                 dataDoc.Metadata.VersionVector = new Dictionary<string, long>();
                 dataDoc.Metadata.SeenExceptions = new HashSet<CrdtOperation>();
 
-                var updatedPartition = await PersistPartitionChangesAsync(patch.LogicalKey, partition, dataDoc.Data!, dataDoc.Metadata, propertyName, cancellationToken);
+                var updatedPartition = await PersistPartitionChangesAsync(logicalKey, partition, dataDoc.Data!, dataDoc.Metadata, propertyName, cancellationToken);
                 
                 if (updatedPartition is DataPartition updatedDataPartition)
                 {
@@ -143,7 +153,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
                     }
                     else if (updatedDataPartition.DataLength < MinPartitionDataSize)
                     {
-                        var partitionCount = await storageService.GetPropertyPartitionCountAsync(patch.LogicalKey, propertyName, cancellationToken);
+                        var partitionCount = await storageService.GetPropertyPartitionCountAsync(logicalKey, propertyName, cancellationToken);
                         if (partitionCount > 1)
                         {
                             await MergePartitionIfNeededAsync(updatedDataPartition, propertyName, strategy, prop, cancellationToken);
@@ -157,8 +167,10 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
 
         if (headerModified)
         {
-            await PersistPartitionChangesAsync(patch.LogicalKey, headerPartition, headerDoc.Data!, headerDoc.Metadata!, null, cancellationToken);
+            await PersistPartitionChangesAsync(logicalKey, headerPartition, headerDoc.Data!, headerDoc.Metadata!, null, cancellationToken);
         }
+        
+        return new ApplyPatchResult<TDoc>((headerDoc.Data as TDoc)!, unappliedOperations);
     }
     
     /// <inheritdoc/>

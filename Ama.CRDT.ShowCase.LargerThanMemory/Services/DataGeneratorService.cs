@@ -71,8 +71,8 @@ public sealed class DataGeneratorService(
                 tagsOperations.Add(op);
             }
 
-            var tagsPatch = new CrdtPatch(tagsOperations) { LogicalKey = blogPost.Id };
-            await partitionManager.ApplyPatchAsync(tagsPatch);
+            var tagsPatch = new CrdtPatch(tagsOperations);
+            await partitionManager.ApplyPatchAsync(crdtDocument.Value, tagsPatch);
 
             var totalComments = random.Next(MinCommentsPerPost, MaxCommentsPerPost + 1);
             var commentsGenerated = 0;
@@ -99,8 +99,8 @@ public sealed class DataGeneratorService(
                     operations.Add(op);
                 }
                 
-                var patch = new CrdtPatch(operations) { LogicalKey = blogPost.Id };
-                await partitionManager.ApplyPatchAsync(patch);
+                var patch = new CrdtPatch(operations);
+                await partitionManager.ApplyPatchAsync(crdtDocument.Value, patch);
 
                 commentsGenerated += currentBatchSize;
                 Console.Write($"\r  - Added {commentsGenerated}/{totalComments} comments.");
