@@ -72,7 +72,7 @@ public interface IAsyncCrdtPatcher
 
     /// <summary>
     /// Asynchronously creates a strongly-typed intent builder for a specific property, allowing you to generate operations
-    /// using fluent extension methods like <c>.Add()</c>, <c>.Remove()</c>, or <c>.Increment()</c> 
+    /// using fluent extension methods like <c>.AddAsync()</c>, <c>.RemoveAsync()</c>, or <c>.IncrementAsync()</c> 
     /// without manually boxing values into intent structs.
     /// </summary>
     /// <typeparam name="T">The type of the document.</typeparam>
@@ -86,9 +86,10 @@ public interface IAsyncCrdtPatcher
     /// <![CDATA[
     /// var doc = new CrdtDocument<MyDataObject>(new MyDataObject(), metadata);
     /// 
-    /// // Uses extension methods from Ama.CRDT.Extensions (e.g., .Set())
-    /// var builder = await patcher.BuildOperationAsync(doc, x => x.Name, cancellationToken);
-    /// var operation = builder.Set("Alice");
+    /// // Uses async extension methods from Ama.CRDT.Extensions (e.g., .SetAsync())
+    /// // You can chain the task directly:
+    /// var operation = await patcher.BuildOperationAsync(doc, x => x.Name, cancellationToken)
+    ///                              .SetAsync("Alice", cancellationToken);
     /// ]]>
     /// </code>
     /// </example>
@@ -96,7 +97,7 @@ public interface IAsyncCrdtPatcher
 
     /// <summary>
     /// Asynchronously creates a strongly-typed intent builder for a specific property with a specified timestamp, allowing you to generate operations
-    /// using fluent extension methods like <c>.Add()</c>, <c>.Remove()</c>, or <c>.Increment()</c> 
+    /// using fluent extension methods like <c>.AddAsync()</c>, <c>.RemoveAsync()</c>, or <c>.IncrementAsync()</c> 
     /// without manually boxing values into intent structs.
     /// </summary>
     /// <typeparam name="T">The type of the document.</typeparam>
@@ -112,8 +113,10 @@ public interface IAsyncCrdtPatcher
     /// var doc = new CrdtDocument<MyDataObject>(new MyDataObject(), metadata);
     /// var customTs = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     /// 
-    /// var builder = await patcher.BuildOperationAsync(doc, x => x.Name, customTs, cancellationToken);
-    /// var operation = builder.Set("Alice");
+    /// // Uses async extension methods from Ama.CRDT.Extensions (e.g., .SetAsync())
+    /// // You can chain the task directly:
+    /// var operation = await patcher.BuildOperationAsync(doc, x => x.Name, customTs, cancellationToken)
+    ///                              .SetAsync("Alice", cancellationToken);
     /// ]]>
     /// </code>
     /// </example>

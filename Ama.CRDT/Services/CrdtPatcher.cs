@@ -4,6 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
@@ -214,6 +216,12 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
             }
 
             return patcher.GenerateOperation(document, propertyExpression, intent);
+        }
+
+        public Task<CrdtOperation> BuildAsync(IOperationIntent intent, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(Build(intent));
         }
     }
 }
