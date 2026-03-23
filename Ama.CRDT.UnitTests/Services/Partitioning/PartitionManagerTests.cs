@@ -118,10 +118,10 @@ public sealed class PartitionManagerTests
         mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, existingPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync(updatedPartition);
 
-        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("key2", "val2", Guid.NewGuid()), timestampProvider.Now(), 0)]) { LogicalKey = logicalKey };
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("key2", "val2", Guid.NewGuid()), timestampProvider.Now(), 0)]);
 
         // Act
-        await manager.ApplyPatchAsync(patch);
+        await manager.ApplyPatchAsync(crdtDoc, patch);
 
         // Assert
         mockStorage.Verify(x => x.UpdatePropertyPartitionAsync(propName, updatedPartition, default), Times.Once);
@@ -157,10 +157,10 @@ public sealed class PartitionManagerTests
         mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, It.Is<IPartition>(p => p != null && !p.Equals(existingPartition)), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync((IComparable k, string pName, IPartition p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
 
-        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("item3", "val3", Guid.NewGuid()), timestampProvider.Now(), 0)]) { LogicalKey = logicalKey };
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("item3", "val3", Guid.NewGuid()), timestampProvider.Now(), 0)]);
 
         // Act
-        await manager.ApplyPatchAsync(patch);
+        await manager.ApplyPatchAsync(crdtDoc, patch);
 
         // Assert
         mockStorage.Verify(x => x.SavePartitionContentAsync(logicalKey, propName, existingPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default), Times.Once);
@@ -218,10 +218,10 @@ public sealed class PartitionManagerTests
         mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, It.Is<IPartition>(p => p != null && p is DataPartition && ((DataPartition)p).StartKey.Equals(dp1.StartKey) && ((DataPartition)p).EndKey == null), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync((IComparable k, string pName, IPartition p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
 
-        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Remove, new OrMapRemoveItem("item6", new HashSet<Guid>()), timestampProvider.Now(), 0)]) { LogicalKey = logicalKey };
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Remove, new OrMapRemoveItem("item6", new HashSet<Guid>()), timestampProvider.Now(), 0)]);
 
         // Act
-        await manager.ApplyPatchAsync(patch);
+        await manager.ApplyPatchAsync(crdtDoc1, patch);
 
         // Assert
         mockStorage.Verify(x => x.DeletePropertyPartitionAsync(propName, dp1, default), Times.Once);
@@ -263,10 +263,10 @@ public sealed class PartitionManagerTests
             .ReturnsAsync(headerPartition);
 
         var operationTs = timestampProvider.Now();
-        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "replica-2", "$.items", OperationType.Upsert, new OrMapAddItem("k1", "v1", Guid.NewGuid()), operationTs, 0)]) { LogicalKey = logicalKey };
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "replica-2", "$.items", OperationType.Upsert, new OrMapAddItem("k1", "v1", Guid.NewGuid()), operationTs, 0)]);
 
         // Act
-        await manager.ApplyPatchAsync(patch);
+        await manager.ApplyPatchAsync(headerCrdtDoc, patch);
 
         // Assert
         // 1. Data partition was saved, and its metadata has NO version vector / seen exceptions

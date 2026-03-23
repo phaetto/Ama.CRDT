@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 /// and specific methods for header partitions.
 /// </summary>
 /// <typeparam name="T">The type of the data model managed by the CRDT.</typeparam>
-public interface IPartitionManager<T> where T : class, new()
+public interface IPartitionManager<T> : IAsyncCrdtApplicator where T : class, new()
 {
     /// <summary>
     /// Initializes a new partitioned CRDT document.
@@ -22,15 +22,6 @@ public interface IPartitionManager<T> where T : class, new()
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that represents the asynchronous initialization operation.</returns>
     Task InitializeAsync(T initialObject, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Applies a CRDT patch to the partitioned document. The manager will route operations to the correct
-    /// property streams, load the correct partition(s), apply changes, and handle splits or merges.
-    /// </summary>
-    /// <param name="patch">The CRDT patch to apply.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A task that represents the asynchronous patch application operation.</returns>
-    Task ApplyPatchAsync(CrdtPatch patch, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves the header partition for a given logical key.
