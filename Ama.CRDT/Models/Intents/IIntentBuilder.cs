@@ -1,7 +1,6 @@
-namespace Ama.CRDT.Services;
+namespace Ama.CRDT.Models.Intents;
 
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Intents;
 
 /// <summary>
 /// A builder interface for generating explicit CRDT operations in a strongly-typed manner.

@@ -6,7 +6,6 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Intents.Decorators;
-using Ama.CRDT.Services;
 
 /// <summary>
 /// Provides strongly-typed extension methods for <see cref="IIntentBuilder{TProperty}"/> to fluent build CRDT operations.
