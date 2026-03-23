@@ -1,4 +1,4 @@
-namespace Ama.CRDT.Attributes;
+namespace Ama.CRDT.Attributes.Strategies;
 
 using Ama.CRDT.Services.Strategies;
 
