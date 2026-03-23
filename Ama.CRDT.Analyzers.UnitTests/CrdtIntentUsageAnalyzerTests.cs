@@ -19,6 +19,7 @@ public sealed class CrdtIntentUsageAnalyzerTests
 
         test.TestState.AdditionalReferences.Add(MetadataReference.CreateFromFile(typeof(CrdtStrategyAttribute).Assembly.Location));
         test.TestState.AdditionalReferences.Add(MetadataReference.CreateFromFile(typeof(ICrdtPatcher).Assembly.Location));
+        // IAsyncCrdtPatcher is in the same assembly as ICrdtPatcher, so the reference is already added.
 
         return test;
     }
@@ -664,8 +665,6 @@ public class TestClass
     [Fact]
     public async Task WhenInvalidIntentUsedWithDecorator_ShouldReportDiagnostic()
     {
-        // Avoid using an intent method with `INumber<T>` constraint (like Increment) on a property type 
-        // that doesn't satisfy it to prevent `CS0411` hiding the analyzer diagnostic in tests.
         var source = @"
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Attributes.Decorators;
@@ -692,6 +691,141 @@ public class TestClass
         var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
             .WithLocation(20, 9)
             .WithArguments("LwwStrategy", "MyList", "InsertIntent");
+
+        var test = CreateTest();
+        test.TestCode = source;
+        test.ExpectedDiagnostics.Add(expected);
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenValidIntentUsedWithAsyncPatcher_ShouldNotReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Services;
+using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+public class MyPoco
+{
+    [CrdtRgaStrategy]
+    public List<string> MyList { get; set; }
+}
+
+public class TestClass
+{
+    public async Task DoWork(IAsyncCrdtPatcher patcher, CrdtDocument<MyPoco> doc)
+    {
+        await patcher.GenerateOperationAsync(doc, x => x.MyList, new InsertIntent(0, ""val""));
+    }
+}
+";
+        var test = CreateTest();
+        test.TestCode = source;
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenInvalidIntentUsedWithAsyncPatcher_ShouldReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Services;
+using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
+using System.Threading.Tasks;
+
+public class MyPoco
+{
+    [CrdtCounterStrategy]
+    public int MyCounter { get; set; }
+}
+
+public class TestClass
+{
+    public async Task DoWork(IAsyncCrdtPatcher patcher, CrdtDocument<MyPoco> doc)
+    {
+        await patcher.GenerateOperationAsync(doc, x => x.MyCounter, new InsertIntent(0, ""val""));
+    }
+}
+";
+        var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
+            .WithLocation(18, 15)
+            .WithArguments("CounterStrategy", "MyCounter", "InsertIntent");
+
+        var test = CreateTest();
+        test.TestCode = source;
+        test.ExpectedDiagnostics.Add(expected);
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenInvalidIntentUsedWithAsyncBuilder_ShouldReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Services;
+using Ama.CRDT.Extensions;
+using Ama.CRDT.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+public class MyPoco
+{
+    [CrdtCounterStrategy]
+    public List<string> MyList { get; set; }
+}
+
+public class TestClass
+{
+    public async Task DoWork(IAsyncCrdtPatcher patcher, CrdtDocument<MyPoco> doc)
+    {
+        await patcher.BuildOperationAsync(doc, x => x.MyList).InsertAsync(0, ""val"");
+    }
+}
+";
+        var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
+            .WithLocation(19, 15)
+            .WithArguments("CounterStrategy", "MyList", "InsertIntent");
+
+        var test = CreateTest();
+        test.TestCode = source;
+        test.ExpectedDiagnostics.Add(expected);
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenInvalidIntentUsedWithAsyncBuilderVariable_ShouldReportDiagnostic()
+    {
+        var source = @"
+using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Services;
+using Ama.CRDT.Extensions;
+using Ama.CRDT.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+public class MyPoco
+{
+    [CrdtCounterStrategy]
+    public List<string> MyList { get; set; }
+}
+
+public class TestClass
+{
+    public async Task DoWork(IAsyncCrdtPatcher patcher, CrdtDocument<MyPoco> doc)
+    {
+        var builder = await patcher.BuildOperationAsync(doc, x => x.MyList);
+        await builder.InsertAsync(0, ""val"");
+    }
+}
+";
+        var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
+            .WithLocation(20, 15)
+            .WithArguments("CounterStrategy", "MyList", "InsertIntent");
 
         var test = CreateTest();
         test.TestCode = source;

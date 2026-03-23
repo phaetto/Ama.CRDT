@@ -39,8 +39,11 @@ public sealed class CrdtIntentUsageAnalyzer : DiagnosticAnalyzer
 
         var containingTypeStr = targetMethod.ContainingType.ToDisplayString();
         var origType = targetMethod.ContainingType.OriginalDefinition;
+        var origTypeNamespace = origType.ContainingNamespace?.ToDisplayString();
+        var targetName = targetMethod.Name;
 
-        if (targetMethod.Name == "GenerateOperation" && containingTypeStr == "Ama.CRDT.Services.ICrdtPatcher")
+        if ((targetName == "GenerateOperation" || targetName == "GenerateOperationAsync") && 
+            (containingTypeStr == "Ama.CRDT.Services.ICrdtPatcher" || containingTypeStr == "Ama.CRDT.Services.IAsyncCrdtPatcher"))
         {
             if (invocation.Arguments.Length < 3)
             {
@@ -50,9 +53,9 @@ public sealed class CrdtIntentUsageAnalyzer : DiagnosticAnalyzer
             propertySymbol = ExtractPropertySymbol(invocation.Arguments[1].Value);
             intentType = ExtractIntentType(invocation.Arguments[2].Value);
         }
-        else if (targetMethod.Name == "Build" && 
+        else if ((targetName == "Build" || targetName == "BuildAsync") && 
                  origType.MetadataName == "IIntentBuilder`1" && 
-                 origType.ContainingNamespace.ToDisplayString() == "Ama.CRDT.Services")
+                 (origTypeNamespace == "Ama.CRDT.Models.Intents" || origTypeNamespace == "Ama.CRDT.Services"))
         {
             if (invocation.Arguments.Length < 1 || invocation.Instance is null)
             {
@@ -129,8 +132,6 @@ public sealed class CrdtIntentUsageAnalyzer : DiagnosticAnalyzer
 
     private static IEnumerable<INamedTypeSymbol> GetStrategyTypeSymbols(IPropertySymbol propertySymbol, Compilation compilation)
     {
-        // Simplifying the discovery logic to rely on the `Crdt*Attribute` naming convention
-        // instead of strict base class comparisons which can fail in disconnected test compilation contexts.
         var strategyAttributes = propertySymbol.GetAttributes()
             .Where(ad => ad.AttributeClass != null && ad.AttributeClass.Name.StartsWith("Crdt"));
 
@@ -163,15 +164,29 @@ public sealed class CrdtIntentUsageAnalyzer : DiagnosticAnalyzer
     {
         var current = operation;
 
-        while (current is IConversionOperation conversion)
+        while (current != null)
         {
-            current = conversion.Operand;
+            if (current is IConversionOperation conversion)
+            {
+                current = conversion.Operand;
+            }
+            else if (current is IAwaitOperation awaitOp)
+            {
+                current = awaitOp.Operation;
+            }
+            else
+            {
+                break;
+            }
         }
 
         if (current is IInvocationOperation invocation)
         {
-            if (invocation.TargetMethod.Name == "BuildOperation" &&
-                invocation.TargetMethod.ContainingType.ToDisplayString() == "Ama.CRDT.Services.ICrdtPatcher")
+            var targetName = invocation.TargetMethod.Name;
+            var containingTypeStr = invocation.TargetMethod.ContainingType.ToDisplayString();
+
+            if ((targetName == "BuildOperation" || targetName == "BuildOperationAsync") &&
+                (containingTypeStr == "Ama.CRDT.Services.ICrdtPatcher" || containingTypeStr == "Ama.CRDT.Services.IAsyncCrdtPatcher"))
             {
                 if (invocation.Arguments.Length >= 2)
                 {
