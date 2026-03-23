@@ -196,7 +196,7 @@ public sealed class UiService
         };
 
         var tagsLabel = new Label("Tags (Loaded On-Demand):") { X = 0, Y = Pos.Bottom(postContentView) + 1 };
-        tagsListView = new ListView()
+        tagsListView = new ListView(new List<string>())
         {
             X = 0,
             Y = Pos.Bottom(tagsLabel),
@@ -205,7 +205,7 @@ public sealed class UiService
         };
 
         var commentsLabel = new Label("Comments (Loaded On-Demand):") { X = 0, Y = Pos.Bottom(tagsListView) + 1 };
-        commentListView = new ListView()
+        commentListView = new ListView(new List<string>())
         {
             X = 0,
             Y = Pos.Bottom(commentsLabel),
@@ -236,13 +236,48 @@ public sealed class UiService
         return replicaIds.Select(id => new MenuItem($"View {id}", "", () => SwitchReplica(id))).ToArray();
     }
 
+    private void SafeSetListViewSource(ListView listView, IEnumerable<string> source)
+    {
+        if (listView == null || source == null) return;
+        
+        // Sanitize newlines which corrupt Terminal.Gui layout height estimations
+        var list = source.Select(s => s?.Replace("\r", "")?.Replace("\n", " ") ?? "").ToList();
+        
+        // Pad all strings to maximum length so that if the user scrolls horizontally,
+        // Terminal.Gui does not crash trying to Substring a short string.
+        int maxLen = list.Count > 0 ? list.Max(s => s.Length) : 0;
+        if (maxLen > 0)
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i].Length < maxLen)
+                {
+                    list[i] = list[i].PadRight(maxLen);
+                }
+            }
+        }
+        
+        listView.SetSource(list);
+        
+        // Hard-clamp states to enforce safe bounds dynamically
+        if (listView.TopItem >= list.Count)
+            listView.TopItem = Math.Max(0, list.Count - 1);
+            
+        if (listView.LeftItem > maxLen)
+            listView.LeftItem = Math.Max(0, maxLen - 1);
+            
+        if (listView.SelectedItem >= list.Count)
+            listView.SelectedItem = Math.Max(0, list.Count - 1);
+            
+        listView.SetNeedsDisplay();
+    }
+
     private void SwitchReplica(string replicaId)
     {
         currentReplicaId = replicaId;
         currentScope?.Dispose();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         
-        // Feed the specific DVV instance into the scope so that the library manages the increments internally
         currentScope = scopeFactory.CreateScope(replicaId, replicaDvvs[replicaId]);
         partitionManager = currentScope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
         
@@ -289,7 +324,7 @@ public sealed class UiService
         var vvSyncService = serviceProvider.GetRequiredService<IVersionVectorSyncService>();
         
         var dialog = new Dialog("Global Sync Status", 70, 20);
-        var listView = new ListView()
+        var listView = new ListView(new List<string>())
         {
             X = 1, Y = 1, Width = Dim.Fill(1), Height = Dim.Fill(2)
         };
@@ -320,7 +355,7 @@ public sealed class UiService
             statusLines.Add("All replicas are fully synchronized!");
         }
         
-        listView.SetSource(statusLines);
+        SafeSetListViewSource(listView, statusLines);
         
         var btnOk = new Button("Close", is_default: true);
         btnOk.Clicked += () => Application.RequestStop();
@@ -336,19 +371,21 @@ public sealed class UiService
 
         Application.MainLoop.Invoke(() =>
         {
-            postListView.SetSource(new List<string> { "Loading..." });
+            postListView.SelectedItemChanged -= OnPostSelected;
+            SafeSetListViewSource(postListView, new List<string> { "Loading..." });
+            postListView.SelectedItemChanged += OnPostSelected;
+
             rightPane.Title = "Selected Post";
-            postContentView.Text = "";
+            postContentView.Text = " ";
             displayedTags.Clear();
-            tagsListView.SetSource(displayedTags);
+            SafeSetListViewSource(tagsListView, new List<string>());
             displayedComments.Clear();
-            commentListView.SetSource(displayedComments);
+            SafeSetListViewSource(commentListView, new List<string>());
         });
 
-        blogPostHeaders.Clear();
         var uniqueKeys = await partitionManager.GetAllLogicalKeysAsync();
         
-        // Add new ids not found in the original list (received from sync)
+        var newHeaders = new List<BlogPostHeader>();
         foreach(var key in uniqueKeys.Cast<Guid>()) {
             if (!blogPostIds.Contains(key)) {
                 blogPostIds.Add(key);
@@ -360,58 +397,84 @@ public sealed class UiService
             var content = await partitionManager.GetHeaderPartitionContentAsync(id);
             if (content.HasValue)
             {
-                blogPostHeaders.Add(new BlogPostHeader(content.Value.Data.Id, content.Value.Data.Title));
+                newHeaders.Add(new BlogPostHeader(content.Value.Data.Id, content.Value.Data.Title ?? "Untitled"));
             }
         }
 
         Application.MainLoop.Invoke(() =>
         {
-            postListView.SetSource(blogPostHeaders.Select(h => h.Title).ToList());
+            postListView.SelectedItemChanged -= OnPostSelected;
+
+            blogPostHeaders.Clear();
+            blogPostHeaders.AddRange(newHeaders);
+
+            SafeSetListViewSource(postListView, blogPostHeaders.Select(h => h.Title).ToList());
             
-            // Re-select currently selected post if available
             var index = blogPostHeaders.FindIndex(h => h.Id == selectedBlogPostId);
             if (index >= 0 && index < postListView.Source.Count) {
                 postListView.SelectedItem = index;
+            } else if (postListView.Source?.Count > 0) {
+                postListView.SelectedItem = 0;
+            }
+
+            postListView.SelectedItemChanged += OnPostSelected;
+
+            if (postListView.Source?.Count > 0)
+            {
+                LoadPostDetails(postListView.SelectedItem);
             }
         });
     }
 
-    private async void OnPostSelected(ListViewItemEventArgs args)
+    private void OnPostSelected(ListViewItemEventArgs args)
     {
-        if (partitionManager is null || commentListView is null || args.Item < 0 || blogPostHeaders is null || args.Item >= blogPostHeaders.Count)
+        LoadPostDetails(args.Item);
+    }
+
+    private async void LoadPostDetails(int itemIndex)
+    {
+        if (partitionManager is null || commentListView is null || itemIndex < 0 || blogPostHeaders is null || itemIndex >= blogPostHeaders.Count)
         {
-            rightPane.Title = "Selected Post";
-            postContentView.Text = "";
-            displayedTags.Clear();
-            tagsListView.SetSource(displayedTags);
-            displayedComments.Clear();
-            commentListView.SetSource(displayedComments);
+            Application.MainLoop.Invoke(() => 
+            {
+                rightPane.Title = "Selected Post";
+                postContentView.Text = " ";
+                displayedTags.Clear();
+                SafeSetListViewSource(tagsListView, new List<string>());
+                displayedComments.Clear();
+                SafeSetListViewSource(commentListView, new List<string>());
+            });
             return;
         }
 
-        var selectedHeader = blogPostHeaders[args.Item];
+        var selectedHeader = blogPostHeaders[itemIndex];
         selectedBlogPostId = selectedHeader.Id;
 
         var headerContent = await partitionManager.GetHeaderPartitionContentAsync(selectedBlogPostId);
+        var tagCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, TagsPropertyName);
+        var commentCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
 
-        if (headerContent.HasValue)
+        Application.MainLoop.Invoke(() =>
         {
-            var post = headerContent.Value.Data;
-            rightPane.Title = post.Title;
-            postContentView.Text = post.Content;
-        }
+            if (headerContent.HasValue)
+            {
+                var post = headerContent.Value.Data;
+                rightPane.Title = post.Title ?? "Unknown";
+                postContentView.Text = string.IsNullOrEmpty(post.Content) ? " " : post.Content;
+            }
 
-        totalTagPartitionCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, TagsPropertyName);
-        currentTagPartitionIndex = (int)totalTagPartitionCount;
-        displayedTags.Clear();
-        tagsListView.SetSource(displayedTags);
+            totalTagPartitionCount = tagCount;
+            currentTagPartitionIndex = (int)totalTagPartitionCount;
+            displayedTags.Clear();
+            SafeSetListViewSource(tagsListView, new List<string>());
 
-        totalCommentPartitionCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
-        currentCommentPartitionIndex = (int)totalCommentPartitionCount;
-        displayedComments.Clear();
-        commentListView.SetSource(displayedComments);
-        
-        LoadNextPartitions();
+            totalCommentPartitionCount = commentCount;
+            currentCommentPartitionIndex = (int)totalCommentPartitionCount;
+            displayedComments.Clear();
+            SafeSetListViewSource(commentListView, new List<string>());
+            
+            LoadNextPartitions();
+        });
     }
 
     private void LoadNextPartitions()
@@ -422,76 +485,82 @@ public sealed class UiService
 
     private async void LoadNextTagPartition()
     {
-        if (currentTagPartitionIndex - 1 < 0)
-        {
-            return;
-        }
+        if (currentTagPartitionIndex - 1 < 0) return;
 
         currentTagPartitionIndex--;
-        var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, currentTagPartitionIndex, TagsPropertyName);
+        var indexToLoad = currentTagPartitionIndex;
+        var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, indexToLoad, TagsPropertyName);
 
         if (partition is null)
         {
-            MessageBox.ErrorQuery("Error", $"Could not load tag partition at index {currentTagPartitionIndex}. The index might be out of sync.", "Ok");
+            Application.MainLoop.Invoke(() => {
+                MessageBox.ErrorQuery("Error", $"Could not load tag partition at index {indexToLoad}. The index might be out of sync.", "Ok");
+            });
             return;
         }
 
         var content = await partitionManager.GetDataPartitionContentAsync(partition.GetPartitionKey(), TagsPropertyName);
 
-        if (content.HasValue && content.Value.Data?.Tags is { Count: > 0 } tags)
+        Application.MainLoop.Invoke(() =>
         {
-            var scrollToIndex = displayedTags.Count;
-            
-            displayedTags.Add($"--- Partition {currentTagPartitionIndex + 1}/{totalTagPartitionCount} ({tags.Count} tags) ---");
-            displayedTags.AddRange(tags);
-
-            tagsListView.SetSource(displayedTags);
-
-            if (scrollToIndex < tagsListView.Source.Count)
+            if (content.HasValue && content.Value.Data?.Tags is { Count: > 0 } tags)
             {
-                tagsListView.TopItem = scrollToIndex;
-                tagsListView.SelectedItem = scrollToIndex;
+                var scrollToIndex = displayedTags.Count;
+                
+                displayedTags.Add($"--- Partition {indexToLoad + 1}/{totalTagPartitionCount} ({tags.Count} tags) ---");
+                displayedTags.AddRange(tags);
+
+                SafeSetListViewSource(tagsListView, displayedTags);
+
+                if (scrollToIndex < tagsListView.Source.Count)
+                {
+                    try { tagsListView.TopItem = scrollToIndex; } catch {}
+                    try { tagsListView.SelectedItem = scrollToIndex; } catch {}
+                }
             }
-        }
+        });
     }
 
     private async void LoadNextCommentPartition()
     {
-        if (currentCommentPartitionIndex - 1 < 0)
-        {
-            return;
-        }
+        if (currentCommentPartitionIndex - 1 < 0) return;
 
         currentCommentPartitionIndex--;
-        var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, currentCommentPartitionIndex, CommentsPropertyName);
+        var indexToLoad = currentCommentPartitionIndex;
+        var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, indexToLoad, CommentsPropertyName);
 
         if (partition is null)
         {
-            MessageBox.ErrorQuery("Error", $"Could not load comment partition at index {currentCommentPartitionIndex}. The index might be out of sync.", "Ok");
+            Application.MainLoop.Invoke(() => {
+                MessageBox.ErrorQuery("Error", $"Could not load comment partition at index {indexToLoad}. The index might be out of sync.", "Ok");
+            });
             return;
         }
 
         var content = await partitionManager.GetDataPartitionContentAsync(partition.GetPartitionKey(), CommentsPropertyName);
 
-        if (content.HasValue && content.Value.Data?.Comments is { Count: > 0 } comments)
+        Application.MainLoop.Invoke(() =>
         {
-            var scrollToIndex = displayedComments.Count;
-            var newComments = comments.Values
-                .OrderByDescending(c => c.CreatedAt)
-                .Select(c => $"[{c.CreatedAt:g}] {c.Author}: {c.Text}")
-                .ToList();
-            
-            displayedComments.Add($"--- Partition {currentCommentPartitionIndex + 1}/{totalCommentPartitionCount} ({comments.Count} comments) ---");
-            displayedComments.AddRange(newComments);
-
-            commentListView.SetSource(displayedComments);
-
-            if (scrollToIndex < commentListView.Source.Count)
+            if (content.HasValue && content.Value.Data?.Comments is { Count: > 0 } comments)
             {
-                commentListView.TopItem = scrollToIndex;
-                commentListView.SelectedItem = scrollToIndex;
+                var scrollToIndex = displayedComments.Count;
+                var newComments = comments.Values
+                    .OrderByDescending(c => c.CreatedAt)
+                    .Select(c => $"[{c.CreatedAt:g}] {c.Author}: {c.Text}")
+                    .ToList();
+                
+                displayedComments.Add($"--- Partition {indexToLoad + 1}/{totalCommentPartitionCount} ({comments.Count} comments) ---");
+                displayedComments.AddRange(newComments);
+
+                SafeSetListViewSource(commentListView, displayedComments);
+
+                if (scrollToIndex < commentListView.Source.Count)
+                {
+                    try { commentListView.TopItem = scrollToIndex; } catch {}
+                    try { commentListView.SelectedItem = scrollToIndex; } catch {}
+                }
             }
-        }
+        });
     }
 
     private void ShowNewPostDialog()
@@ -525,10 +594,8 @@ public sealed class UiService
             var syncService = serviceProvider.GetRequiredService<SyncService>();
             syncService.QueuePatch(currentReplicaId, patch, replicaIds);
 
-            // The scope components are handling the DVV increments, we just persist
-            SaveReplicaStates();
-
             Application.MainLoop.Invoke(() => {
+                SaveReplicaStates();
                 if (!blogPostIds.Contains(id)) {
                     blogPostIds.Add(id);
                 }
@@ -583,13 +650,12 @@ public sealed class UiService
             var syncService = serviceProvider.GetRequiredService<SyncService>();
             syncService.QueuePatch(currentReplicaId, patch, replicaIds);
 
-            // The scope components are handling the DVV increments, we just persist
-            SaveReplicaStates();
-
-            totalCommentPartitionCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
-            currentCommentPartitionIndex = (int)totalCommentPartitionCount;
+            var commentCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
             
             Application.MainLoop.Invoke(() => {
+                SaveReplicaStates();
+                totalCommentPartitionCount = commentCount;
+                currentCommentPartitionIndex = (int)totalCommentPartitionCount;
                 displayedComments.Clear();
                 UpdateSyncStatusUI();
                 LoadNextCommentPartition();
@@ -636,14 +702,12 @@ public sealed class UiService
             var syncService = serviceProvider.GetRequiredService<SyncService>();
             syncService.QueuePatch(currentReplicaId, patch, replicaIds);
 
-            // The scope components are handling the DVV increments, we just persist
-            SaveReplicaStates();
-
             Application.MainLoop.Invoke(() => {
+                SaveReplicaStates();
                 UpdateSyncStatusUI();
                 var index = blogPostHeaders.FindIndex(h => h.Id == selectedBlogPostId);
                 if (index >= 0) {
-                    OnPostSelected(new ListViewItemEventArgs(index, null));
+                    LoadPostDetails(index);
                 }
             });
         };
@@ -663,8 +727,6 @@ public sealed class UiService
 
         foreach (var replica in replicaIds.Where(r => r != currentReplicaId))
         {
-            // By passing the replica's specific DVV into the scope factory, 
-            // the PartitionManager and Applicator will increment/update the DVV for us automatically during ApplyPatchAsync.
             using var scope = scopeFactory.CreateScope(replica, replicaDvvs[replica]);
             var targetPartitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
             
@@ -680,9 +742,8 @@ public sealed class UiService
             }
         }
 
-        SaveReplicaStates();
-
         Application.MainLoop.Invoke(() => {
+            SaveReplicaStates();
             MessageBox.Query("Sync Complete", $"Successfully synced {syncCount} patches to other replicas.", "Ok");
             UpdateSyncStatusUI();
             LoadBlogPostHeadersAsync();
