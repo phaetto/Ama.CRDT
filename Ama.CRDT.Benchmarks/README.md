@@ -5,27 +5,27 @@ These benchmarks test the individual CRDT strategy application, patch generation
 <!-- BENCHMARKS_START -->
 ```
 
-BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.7840/25H2/2025Update/HudsonValley2)
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.8037/25H2/2025Update/HudsonValley2)
 Intel Core i9-10850K CPU 3.60GHz, 1 CPU, 20 logical and 10 physical cores
-.NET SDK 10.0.103
-  [Host] : .NET 10.0.3 (10.0.3, 10.0.326.7603), X64 RyuJIT x86-64-v3
+.NET SDK 10.0.201
+  [Host] : .NET 10.0.5 (10.0.5, 10.0.526.15411), X64 RyuJIT x86-64-v3
 
 Job=MediumRun  Toolchain=InProcessNoEmitToolchain  IterationCount=15  
 LaunchCount=2  WarmupCount=10  
 
 ```
-| Method            | Mean     | Error    | StdDev   | Gen0   | Allocated |
-|------------------ |---------:|---------:|---------:|-------:|----------:|
-| ApplyPatchSimple  | 199.0 ns |  1.33 ns |  1.95 ns | 0.0434 |     456 B |
-| ApplyPatchComplex | 927.0 ns | 11.43 ns | 16.02 ns | 0.1469 |    1552 B |
+| Method            | Mean       | Error   | StdDev   | Gen0   | Allocated |
+|------------------ |-----------:|--------:|---------:|-------:|----------:|
+| ApplyPatchSimple  |   227.8 ns | 1.10 ns |  1.57 ns | 0.0465 |     488 B |
+| ApplyPatchComplex | 1,018.0 ns | 8.56 ns | 12.55 ns | 0.1564 |    1648 B |
 
 
 ```
 
-BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.7840/25H2/2025Update/HudsonValley2)
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.8037/25H2/2025Update/HudsonValley2)
 Intel Core i9-10850K CPU 3.60GHz, 1 CPU, 20 logical and 10 physical cores
-.NET SDK 10.0.103
-  [Host] : .NET 10.0.3 (10.0.3, 10.0.326.7603), X64 RyuJIT x86-64-v3
+.NET SDK 10.0.201
+  [Host] : .NET 10.0.5 (10.0.5, 10.0.526.15411), X64 RyuJIT x86-64-v3
 
 Job=MediumRun  Toolchain=InProcessNoEmitToolchain  IterationCount=15  
 LaunchCount=2  WarmupCount=10  
@@ -33,16 +33,16 @@ LaunchCount=2  WarmupCount=10
 ```
 | Method               | Mean       | Error    | StdDev   | Gen0   | Gen1   | Allocated |
 |--------------------- |-----------:|---------:|---------:|-------:|-------:|----------:|
-| GeneratePatchSimple  |   517.3 ns |  9.10 ns | 13.06 ns | 0.1211 |      - |   1.24 KB |
-| GeneratePatchComplex | 3,111.2 ns | 15.59 ns | 21.85 ns | 0.5760 | 0.0038 |   5.88 KB |
+| GeneratePatchSimple  |   603.3 ns | 14.51 ns | 20.81 ns | 0.1240 |      - |   1.27 KB |
+| GeneratePatchComplex | 3,297.9 ns | 27.11 ns | 38.00 ns | 0.5836 | 0.0038 |   5.98 KB |
 
 
 ```
 
-BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.7840/25H2/2025Update/HudsonValley2)
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.8037/25H2/2025Update/HudsonValley2)
 Intel Core i9-10850K CPU 3.60GHz, 1 CPU, 20 logical and 10 physical cores
-.NET SDK 10.0.103
-  [Host] : .NET 10.0.3 (10.0.3, 10.0.326.7603), X64 RyuJIT x86-64-v3
+.NET SDK 10.0.201
+  [Host] : .NET 10.0.5 (10.0.5, 10.0.526.15411), X64 RyuJIT x86-64-v3
 
 Job=MediumRun  Toolchain=InProcessNoEmitToolchain  InvocationCount=1  
 IterationCount=15  LaunchCount=2  UnrollFactor=1  
@@ -51,133 +51,133 @@ WarmupCount=10
 ```
 | Method                            | Mean         | Error      | StdDev     | Median       | Allocated |
 |---------------------------------- |-------------:|-----------:|-----------:|-------------:|----------:|
-| &#39;Strategy.Apply: LWW&#39;             |     18.64 ns |   2.157 ns |   3.094 ns |     18.00 ns |         - |
-| &#39;Strategy.Apply: FWW&#39;             |    333.59 ns |   9.837 ns |  14.419 ns |    334.00 ns |     326 B |
-| &#39;Strategy.Apply: Counter&#39;         |    243.37 ns |  12.056 ns |  16.900 ns |    239.00 ns |     200 B |
-| &#39;Strategy.Apply: GCounter&#39;        |    260.79 ns |  12.202 ns |  17.885 ns |    257.00 ns |     200 B |
-| &#39;Strategy.Apply: BoundedCounter&#39;  |     77.74 ns |   9.413 ns |  13.196 ns |     72.00 ns |     120 B |
-| &#39;Strategy.Apply: MaxWins&#39;         |    260.71 ns |  35.542 ns |  50.973 ns |    233.00 ns |     244 B |
-| &#39;Strategy.Apply: MinWins&#39;         |    249.11 ns |  12.362 ns |  17.729 ns |    246.00 ns |     224 B |
-| &#39;Strategy.Apply: AverageRegister&#39; |    355.59 ns |  93.107 ns | 136.475 ns |    294.00 ns |     584 B |
-| &#39;Strategy.Apply: GSet&#39;            |    355.72 ns |  72.970 ns | 106.958 ns |    293.00 ns |     534 B |
-| &#39;Strategy.Apply: TwoPhaseSet&#39;     |    414.31 ns |  67.635 ns |  99.139 ns |    375.00 ns |     745 B |
-| &#39;Strategy.Apply: LwwSet&#39;          |    953.17 ns | 180.638 ns | 270.371 ns |    822.00 ns |    1601 B |
-| &#39;Strategy.Apply: FwwSet&#39;          |  1,297.60 ns | 249.915 ns | 374.060 ns |  1,301.50 ns |    2457 B |
-| &#39;Strategy.Apply: OrSet&#39;           |  1,241.11 ns | 227.964 ns | 319.574 ns |  1,040.00 ns |    2585 B |
-| &#39;Strategy.Apply: ArrayLcs&#39;        |    678.90 ns | 139.707 ns | 204.781 ns |    576.00 ns |     377 B |
-| &#39;Strategy.Apply: FixedSizeArray&#39;  |     15.22 ns |   0.749 ns |   1.050 ns |     15.00 ns |         - |
-| &#39;Strategy.Apply: Lseq&#39;            |    743.54 ns | 272.088 ns | 390.221 ns |    953.00 ns |     329 B |
-| &#39;Strategy.Apply: VoteCounter&#39;     |     16.11 ns |   0.636 ns |   0.892 ns |     16.00 ns |         - |
-| &#39;Strategy.Apply: StateMachine&#39;    |  3,754.76 ns | 147.567 ns | 216.301 ns |  3,697.00 ns |     860 B |
-| &#39;Strategy.Apply: PriorityQueue&#39;   | 10,557.36 ns | 335.335 ns | 480.927 ns | 10,405.00 ns |   13297 B |
-| &#39;Strategy.Apply: SortedSet&#39;       |  2,241.33 ns | 243.031 ns | 363.758 ns |  2,018.00 ns |    2243 B |
-| &#39;Strategy.Apply: RGA&#39;             |  1,800.93 ns | 591.804 ns | 885.785 ns |  1,395.00 ns |    2521 B |
-| &#39;Strategy.Apply: CounterMap&#39;      |    854.69 ns | 110.159 ns | 161.469 ns |    781.00 ns |    1145 B |
-| &#39;Strategy.Apply: LwwMap&#39;          |    571.30 ns |  36.532 ns |  51.212 ns |    552.00 ns |     681 B |
-| &#39;Strategy.Apply: FwwMap&#39;          |    630.00 ns |  85.419 ns | 119.746 ns |    576.00 ns |     969 B |
-| &#39;Strategy.Apply: MaxWinsMap&#39;      |    462.46 ns |  20.911 ns |  28.623 ns |    453.50 ns |     417 B |
-| &#39;Strategy.Apply: MinWinsMap&#39;      |    492.82 ns |  55.554 ns |  79.674 ns |    456.00 ns |     404 B |
-| &#39;Strategy.Apply: OrMap&#39;           |  1,177.09 ns |  23.527 ns |  33.741 ns |  1,177.75 ns |    1841 B |
-| &#39;Strategy.Apply: Graph&#39;           |    207.65 ns |   6.445 ns |   8.822 ns |    206.50 ns |     264 B |
-| &#39;Strategy.Apply: TwoPhaseGraph&#39;   |    344.20 ns |  36.122 ns |  54.066 ns |    319.50 ns |     456 B |
-| &#39;Strategy.Apply: ReplicatedTree&#39;  |    397.11 ns |  64.649 ns |  92.718 ns |    352.00 ns |     819 B |
-| &#39;Strategy.Apply: EpochBound&#39;      |    256.00 ns |  11.366 ns |  16.660 ns |    250.00 ns |     176 B |
-| &#39;Strategy.Apply: ApprovalQuorum&#39;  |     73.48 ns |   3.244 ns |   4.331 ns |     72.00 ns |     120 B |
+| &#39;Strategy.Apply: LWW&#39;             |    394.08 ns |  28.476 ns |  38.014 ns |    381.50 ns |     225 B |
+| &#39;Strategy.Apply: FWW&#39;             |    293.86 ns |  20.700 ns |  29.688 ns |    283.25 ns |     304 B |
+| &#39;Strategy.Apply: Counter&#39;         |    262.54 ns |  20.849 ns |  29.902 ns |    262.50 ns |     208 B |
+| &#39;Strategy.Apply: GCounter&#39;        |    298.07 ns |  23.393 ns |  35.014 ns |    291.50 ns |     255 B |
+| &#39;Strategy.Apply: BoundedCounter&#39;  |     82.00 ns |   7.026 ns |   9.849 ns |     82.00 ns |     128 B |
+| &#39;Strategy.Apply: MaxWins&#39;         |    260.43 ns |  13.461 ns |  19.305 ns |    262.50 ns |     269 B |
+| &#39;Strategy.Apply: MinWins&#39;         |    252.15 ns |  11.571 ns |  16.221 ns |    255.00 ns |     232 B |
+| &#39;Strategy.Apply: AverageRegister&#39; |    519.48 ns | 150.872 ns | 221.147 ns |    429.00 ns |     950 B |
+| &#39;Strategy.Apply: GSet&#39;            |    502.20 ns | 101.913 ns | 152.539 ns |    446.00 ns |     546 B |
+| &#39;Strategy.Apply: TwoPhaseSet&#39;     |    522.21 ns |  65.004 ns |  93.227 ns |    488.50 ns |     749 B |
+| &#39;Strategy.Apply: LwwSet&#39;          |  1,367.31 ns | 207.822 ns | 304.623 ns |  1,222.00 ns |    2201 B |
+| &#39;Strategy.Apply: FwwSet&#39;          |  1,414.11 ns | 259.180 ns | 371.709 ns |  1,627.50 ns |    2473 B |
+| &#39;Strategy.Apply: OrSet&#39;           |  1,255.77 ns | 231.615 ns | 346.670 ns |  1,123.50 ns |    2601 B |
+| &#39;Strategy.Apply: ArrayLcs&#39;        |    677.45 ns |  90.695 ns | 132.940 ns |    635.00 ns |     389 B |
+| &#39;Strategy.Apply: FixedSizeArray&#39;  |    369.60 ns |  41.547 ns |  62.186 ns |    344.50 ns |     202 B |
+| &#39;Strategy.Apply: Lseq&#39;            |    747.69 ns | 271.403 ns | 397.819 ns |    987.00 ns |     280 B |
+| &#39;Strategy.Apply: VoteCounter&#39;     |    772.93 ns | 134.490 ns | 201.299 ns |    650.00 ns |     585 B |
+| &#39;Strategy.Apply: StateMachine&#39;    |  4,269.33 ns | 157.953 ns | 236.416 ns |  4,292.00 ns |     865 B |
+| &#39;Strategy.Apply: PriorityQueue&#39;   | 12,044.92 ns | 196.810 ns | 269.395 ns | 11,987.00 ns |   13006 B |
+| &#39;Strategy.Apply: SortedSet&#39;       |  7,113.11 ns | 450.592 ns | 646.226 ns |  6,789.50 ns |    8819 B |
+| &#39;Strategy.Apply: RGA&#39;             |  1,907.41 ns | 635.737 ns | 931.855 ns |  1,677.00 ns |    2537 B |
+| &#39;Strategy.Apply: CounterMap&#39;      |    842.32 ns | 113.961 ns | 163.439 ns |    759.50 ns |    1161 B |
+| &#39;Strategy.Apply: LwwMap&#39;          |    617.93 ns |  78.053 ns | 116.826 ns |    567.00 ns |     825 B |
+| &#39;Strategy.Apply: FwwMap&#39;          |    607.68 ns |  28.514 ns |  40.894 ns |    596.00 ns |     985 B |
+| &#39;Strategy.Apply: MaxWinsMap&#39;      |    469.33 ns |  31.516 ns |  44.181 ns |    450.00 ns |     433 B |
+| &#39;Strategy.Apply: MinWinsMap&#39;      |    474.68 ns |  35.287 ns |  50.608 ns |    455.00 ns |     433 B |
+| &#39;Strategy.Apply: OrMap&#39;           |  1,167.75 ns |  24.438 ns |  35.048 ns |  1,175.50 ns |    1857 B |
+| &#39;Strategy.Apply: Graph&#39;           |    214.15 ns |  12.245 ns |  17.166 ns |    207.00 ns |     329 B |
+| &#39;Strategy.Apply: TwoPhaseGraph&#39;   |    371.17 ns |  22.131 ns |  33.125 ns |    365.00 ns |     490 B |
+| &#39;Strategy.Apply: ReplicatedTree&#39;  |    426.95 ns |  65.291 ns |  95.702 ns |    383.00 ns |     814 B |
+| &#39;Strategy.Apply: EpochBound&#39;      |    274.98 ns |   9.892 ns |  14.187 ns |    275.75 ns |     218 B |
+| &#39;Strategy.Apply: ApprovalQuorum&#39;  |     78.00 ns |   7.116 ns |  10.205 ns |     75.00 ns |     128 B |
 
 
 ```
 
-BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.7840/25H2/2025Update/HudsonValley2)
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.8037/25H2/2025Update/HudsonValley2)
 Intel Core i9-10850K CPU 3.60GHz, 1 CPU, 20 logical and 10 physical cores
-.NET SDK 10.0.103
-  [Host] : .NET 10.0.3 (10.0.3, 10.0.326.7603), X64 RyuJIT x86-64-v3
+.NET SDK 10.0.201
+  [Host] : .NET 10.0.5 (10.0.5, 10.0.526.15411), X64 RyuJIT x86-64-v3
 
 Job=MediumRun  Toolchain=InProcessNoEmitToolchain  IterationCount=15  
 LaunchCount=2  WarmupCount=10  
 
 ```
-| Method                               | Mean        | Error     | StdDev    | Median      | Gen0   | Allocated |
-|------------------------------------- |------------:|----------:|----------:|------------:|-------:|----------:|
-| &#39;Strategy.Generate: LWW&#39;             |    46.64 ns |  0.518 ns |  0.775 ns |    46.30 ns | 0.0130 |     136 B |
-| &#39;Strategy.Generate: FWW&#39;             |    93.92 ns |  0.238 ns |  0.334 ns |    93.92 ns | 0.0130 |     136 B |
-| &#39;Strategy.Generate: Counter&#39;         |   137.66 ns |  0.633 ns |  0.867 ns |   137.62 ns | 0.0205 |     216 B |
-| &#39;Strategy.Generate: GCounter&#39;        |   134.41 ns |  0.733 ns |  1.052 ns |   134.23 ns | 0.0205 |     216 B |
-| &#39;Strategy.Generate: BoundedCounter&#39;  |   135.77 ns |  0.778 ns |  1.116 ns |   135.77 ns | 0.0205 |     216 B |
-| &#39;Strategy.Generate: MaxWins&#39;         |   101.07 ns |  1.133 ns |  1.696 ns |   100.50 ns | 0.0175 |     184 B |
-| &#39;Strategy.Generate: MinWins&#39;         |   101.02 ns |  0.963 ns |  1.381 ns |   101.32 ns | 0.0175 |     184 B |
-| &#39;Strategy.Generate: AverageRegister&#39; |   105.20 ns |  0.735 ns |  1.100 ns |   104.86 ns | 0.0191 |     200 B |
-| &#39;Strategy.Generate: GSet&#39;            |   367.58 ns |  2.174 ns |  3.187 ns |   367.88 ns | 0.0749 |     784 B |
-| &#39;Strategy.Generate: TwoPhaseSet&#39;     |   633.99 ns |  3.973 ns |  5.698 ns |   633.07 ns | 0.1554 |    1632 B |
-| &#39;Strategy.Generate: LwwSet&#39;          |   434.64 ns |  1.658 ns |  2.430 ns |   434.85 ns | 0.1178 |    1232 B |
-| &#39;Strategy.Generate: FwwSet&#39;          |   468.37 ns |  1.372 ns |  1.923 ns |   468.30 ns | 0.1178 |    1232 B |
-| &#39;Strategy.Generate: OrSet&#39;           |   985.95 ns |  6.137 ns |  9.186 ns |   986.69 ns | 0.2060 |    2160 B |
-| &#39;Strategy.Generate: ArrayLcs&#39;        | 1,531.91 ns |  8.120 ns | 11.646 ns | 1,529.80 ns | 0.3719 |    3896 B |
-| &#39;Strategy.Generate: FixedSizeArray&#39;  |   983.01 ns |  3.569 ns |  5.342 ns |   981.93 ns | 0.0801 |     840 B |
-| &#39;Strategy.Generate: Lseq&#39;            |   343.11 ns |  7.114 ns | 10.648 ns |   337.65 ns | 0.0892 |     936 B |
-| &#39;Strategy.Generate: VoteCounter&#39;     |   330.55 ns |  1.754 ns |  2.626 ns |   330.24 ns | 0.1001 |    1048 B |
-| &#39;Strategy.Generate: StateMachine&#39;    | 1,544.77 ns |  7.539 ns | 11.284 ns | 1,544.52 ns | 0.0648 |     696 B |
-| &#39;Strategy.Generate: PriorityQueue&#39;   | 8,059.38 ns | 37.142 ns | 53.269 ns | 8,072.39 ns | 0.9766 |   10232 B |
-| &#39;Strategy.Generate: SortedSet&#39;       | 2,407.82 ns |  7.309 ns | 10.714 ns | 2,407.44 ns | 0.4807 |    5032 B |
-| &#39;Strategy.Generate: RGA&#39;             |   939.34 ns | 17.592 ns | 26.331 ns |   932.28 ns | 0.2728 |    2864 B |
-| &#39;Strategy.Generate: CounterMap&#39;      |   971.96 ns |  4.802 ns |  7.188 ns |   971.11 ns | 0.2537 |    2656 B |
-| &#39;Strategy.Generate: LwwMap&#39;          | 1,156.08 ns | 12.479 ns | 18.292 ns | 1,147.96 ns | 0.2575 |    2712 B |
-| &#39;Strategy.Generate: FwwMap&#39;          | 1,075.07 ns |  5.936 ns |  8.885 ns | 1,076.89 ns | 0.2460 |    2584 B |
-| &#39;Strategy.Generate: MaxWinsMap&#39;      |   605.69 ns |  4.213 ns |  6.043 ns |   605.91 ns | 0.1469 |    1536 B |
-| &#39;Strategy.Generate: MinWinsMap&#39;      |   583.52 ns |  1.922 ns |  2.877 ns |   583.49 ns | 0.1469 |    1536 B |
-| &#39;Strategy.Generate: OrMap&#39;           | 1,356.64 ns |  5.629 ns |  8.250 ns | 1,356.07 ns | 0.2918 |    3056 B |
-| &#39;Strategy.Generate: Graph&#39;           |   369.37 ns |  1.601 ns |  2.347 ns |   369.95 ns | 0.0863 |     904 B |
-| &#39;Strategy.Generate: TwoPhaseGraph&#39;   |   431.50 ns |  2.535 ns |  3.715 ns |   431.65 ns | 0.1044 |    1096 B |
-| &#39;Strategy.Generate: ReplicatedTree&#39;  |   528.43 ns |  1.987 ns |  2.912 ns |   527.77 ns | 0.1078 |    1128 B |
-| &#39;Strategy.Generate: EpochBound&#39;      |   228.00 ns |  0.994 ns |  1.488 ns |   228.16 ns | 0.0558 |     584 B |
-| &#39;Strategy.Generate: ApprovalQuorum&#39;  |   226.67 ns |  1.135 ns |  1.698 ns |   227.29 ns | 0.0551 |     576 B |
+| Method                               | Mean        | Error     | StdDev    | Gen0   | Allocated |
+|------------------------------------- |------------:|----------:|----------:|-------:|----------:|
+| &#39;Strategy.Generate: LWW&#39;             |   120.64 ns |  1.589 ns |  2.378 ns | 0.0129 |     136 B |
+| &#39;Strategy.Generate: FWW&#39;             |    99.99 ns |  0.851 ns |  1.248 ns | 0.0130 |     136 B |
+| &#39;Strategy.Generate: Counter&#39;         |   142.39 ns |  1.735 ns |  2.543 ns | 0.0205 |     216 B |
+| &#39;Strategy.Generate: GCounter&#39;        |   139.64 ns |  1.595 ns |  2.387 ns | 0.0205 |     216 B |
+| &#39;Strategy.Generate: BoundedCounter&#39;  |   138.47 ns |  0.686 ns |  1.006 ns | 0.0205 |     216 B |
+| &#39;Strategy.Generate: MaxWins&#39;         |   103.25 ns |  0.435 ns |  0.637 ns | 0.0175 |     184 B |
+| &#39;Strategy.Generate: MinWins&#39;         |   125.69 ns |  0.578 ns |  0.865 ns | 0.0174 |     184 B |
+| &#39;Strategy.Generate: AverageRegister&#39; |   102.19 ns |  0.712 ns |  1.044 ns | 0.0191 |     200 B |
+| &#39;Strategy.Generate: GSet&#39;            |   348.32 ns |  2.428 ns |  3.559 ns | 0.0749 |     784 B |
+| &#39;Strategy.Generate: TwoPhaseSet&#39;     |   621.61 ns |  5.932 ns |  8.695 ns | 0.1554 |    1632 B |
+| &#39;Strategy.Generate: LwwSet&#39;          |   428.14 ns |  2.767 ns |  3.969 ns | 0.1178 |    1232 B |
+| &#39;Strategy.Generate: FwwSet&#39;          |   429.55 ns |  3.977 ns |  5.952 ns | 0.1178 |    1232 B |
+| &#39;Strategy.Generate: OrSet&#39;           |   980.70 ns |  4.569 ns |  6.697 ns | 0.2060 |    2160 B |
+| &#39;Strategy.Generate: ArrayLcs&#39;        | 1,586.77 ns | 11.367 ns | 16.303 ns | 0.3719 |    3896 B |
+| &#39;Strategy.Generate: FixedSizeArray&#39;  | 1,077.71 ns |  4.237 ns |  6.211 ns | 0.0801 |     840 B |
+| &#39;Strategy.Generate: Lseq&#39;            |   336.77 ns |  2.180 ns |  3.195 ns | 0.0892 |     936 B |
+| &#39;Strategy.Generate: VoteCounter&#39;     |   426.88 ns |  8.780 ns | 12.308 ns | 0.1030 |    1080 B |
+| &#39;Strategy.Generate: StateMachine&#39;    | 1,715.89 ns | 10.111 ns | 14.820 ns | 0.0648 |     696 B |
+| &#39;Strategy.Generate: PriorityQueue&#39;   | 8,178.31 ns | 46.707 ns | 69.909 ns | 0.9766 |   10232 B |
+| &#39;Strategy.Generate: SortedSet&#39;       | 2,445.72 ns | 19.471 ns | 27.925 ns | 0.4845 |    5096 B |
+| &#39;Strategy.Generate: RGA&#39;             |   911.52 ns |  8.978 ns | 13.160 ns | 0.2737 |    2864 B |
+| &#39;Strategy.Generate: CounterMap&#39;      | 1,007.80 ns |  8.090 ns | 11.858 ns | 0.2537 |    2656 B |
+| &#39;Strategy.Generate: LwwMap&#39;          | 1,169.28 ns |  9.153 ns | 13.416 ns | 0.2575 |    2712 B |
+| &#39;Strategy.Generate: FwwMap&#39;          | 1,084.30 ns |  7.753 ns | 10.613 ns | 0.2460 |    2584 B |
+| &#39;Strategy.Generate: MaxWinsMap&#39;      |   603.19 ns | 13.890 ns | 20.789 ns | 0.1469 |    1536 B |
+| &#39;Strategy.Generate: MinWinsMap&#39;      |   580.61 ns | 13.588 ns | 20.339 ns | 0.1469 |    1536 B |
+| &#39;Strategy.Generate: OrMap&#39;           | 1,376.70 ns |  8.043 ns | 12.039 ns | 0.2918 |    3056 B |
+| &#39;Strategy.Generate: Graph&#39;           |   371.01 ns |  2.690 ns |  4.027 ns | 0.0863 |     904 B |
+| &#39;Strategy.Generate: TwoPhaseGraph&#39;   |   414.92 ns |  3.968 ns |  5.816 ns | 0.1044 |    1096 B |
+| &#39;Strategy.Generate: ReplicatedTree&#39;  |   529.67 ns |  4.858 ns |  6.968 ns | 0.1078 |    1128 B |
+| &#39;Strategy.Generate: EpochBound&#39;      |   242.46 ns |  4.988 ns |  7.154 ns | 0.0587 |     616 B |
+| &#39;Strategy.Generate: ApprovalQuorum&#39;  |   239.24 ns |  2.863 ns |  4.197 ns | 0.0577 |     608 B |
 
 
 ```
 
-BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.7840/25H2/2025Update/HudsonValley2)
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.8037/25H2/2025Update/HudsonValley2)
 Intel Core i9-10850K CPU 3.60GHz, 1 CPU, 20 logical and 10 physical cores
-.NET SDK 10.0.103
-  [Host] : .NET 10.0.3 (10.0.3, 10.0.326.7603), X64 RyuJIT x86-64-v3
+.NET SDK 10.0.201
+  [Host] : .NET 10.0.5 (10.0.5, 10.0.526.15411), X64 RyuJIT x86-64-v3
 
 Job=MediumRun  Toolchain=InProcessNoEmitToolchain  IterationCount=15  
 LaunchCount=2  WarmupCount=10  
 
 ```
-| Method                                 | Mean        | Error    | StdDev    | Median      | Gen0   | Allocated |
-|--------------------------------------- |------------:|---------:|----------:|------------:|-------:|----------:|
-| &#39;Strategy.GenerateOp: LWW&#39;             |    53.83 ns | 0.191 ns |  0.280 ns |    53.86 ns |      - |         - |
-| &#39;Strategy.GenerateOp: FWW&#39;             |    54.06 ns | 0.383 ns |  0.574 ns |    54.14 ns |      - |         - |
-| &#39;Strategy.GenerateOp: Counter&#39;         |    69.17 ns | 0.165 ns |  0.247 ns |    69.12 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: GCounter&#39;        |    75.93 ns | 0.802 ns |  1.124 ns |    75.39 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: BoundedCounter&#39;  |    53.96 ns | 0.251 ns |  0.368 ns |    53.98 ns |      - |         - |
-| &#39;Strategy.GenerateOp: MaxWins&#39;         |    53.70 ns | 0.112 ns |  0.161 ns |    53.72 ns |      - |         - |
-| &#39;Strategy.GenerateOp: MinWins&#39;         |    54.11 ns | 0.096 ns |  0.144 ns |    54.09 ns |      - |         - |
-| &#39;Strategy.GenerateOp: AverageRegister&#39; |    53.61 ns | 0.160 ns |  0.224 ns |    53.58 ns |      - |         - |
-| &#39;Strategy.GenerateOp: GSet&#39;            |    63.49 ns | 0.582 ns |  0.872 ns |    63.50 ns |      - |         - |
-| &#39;Strategy.GenerateOp: TwoPhaseSet&#39;     |    55.64 ns | 0.096 ns |  0.141 ns |    55.64 ns |      - |         - |
-| &#39;Strategy.GenerateOp: LwwSet&#39;          |    56.24 ns | 0.362 ns |  0.542 ns |    56.36 ns |      - |         - |
-| &#39;Strategy.GenerateOp: FwwSet&#39;          |    55.54 ns | 0.156 ns |  0.233 ns |    55.55 ns |      - |         - |
-| &#39;Strategy.GenerateOp: OrSet&#39;           |   137.57 ns | 0.543 ns |  0.813 ns |   137.52 ns | 0.0038 |      40 B |
-| &#39;Strategy.GenerateOp: ArrayLcs&#39;        |   355.21 ns | 1.216 ns |  1.820 ns |   355.46 ns | 0.0244 |     256 B |
-| &#39;Strategy.GenerateOp: FixedSizeArray&#39;  |   739.60 ns | 2.505 ns |  3.750 ns |   739.59 ns | 0.0269 |     288 B |
-| &#39;Strategy.GenerateOp: Lseq&#39;            |   102.08 ns | 0.496 ns |  0.727 ns |   102.01 ns | 0.0107 |     112 B |
-| &#39;Strategy.GenerateOp: VoteCounter&#39;     |    58.38 ns | 0.185 ns |  0.278 ns |    58.34 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: StateMachine&#39;    | 1,660.84 ns | 7.764 ns | 11.134 ns | 1,663.56 ns | 0.0562 |     592 B |
-| &#39;Strategy.GenerateOp: PriorityQueue&#39;   |    64.57 ns | 1.182 ns |  1.769 ns |    64.52 ns |      - |         - |
-| &#39;Strategy.GenerateOp: SortedSet&#39;       |    61.68 ns | 0.234 ns |  0.343 ns |    61.80 ns | 0.0053 |      56 B |
-| &#39;Strategy.GenerateOp: RGA&#39;             |   210.27 ns | 0.662 ns |  0.950 ns |   210.35 ns | 0.0443 |     464 B |
-| &#39;Strategy.GenerateOp: CounterMap&#39;      |    58.24 ns | 0.136 ns |  0.204 ns |    58.23 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: LwwMap&#39;          |    60.02 ns | 0.381 ns |  0.571 ns |    59.93 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: FwwMap&#39;          |    59.80 ns | 0.142 ns |  0.208 ns |    59.84 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: MaxWinsMap&#39;      |    58.49 ns | 0.195 ns |  0.292 ns |    58.45 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: MinWinsMap&#39;      |    58.33 ns | 0.134 ns |  0.200 ns |    58.27 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: OrMap&#39;           |   151.04 ns | 2.036 ns |  2.985 ns |   152.66 ns | 0.0046 |      48 B |
-| &#39;Strategy.GenerateOp: Graph&#39;           |    57.44 ns | 0.108 ns |  0.158 ns |    57.44 ns | 0.0023 |      24 B |
-| &#39;Strategy.GenerateOp: TwoPhaseGraph&#39;   |    67.36 ns | 0.140 ns |  0.210 ns |    67.38 ns | 0.0023 |      24 B |
-| &#39;Strategy.GenerateOp: ReplicatedTree&#39;  |   123.25 ns | 0.333 ns |  0.499 ns |   123.31 ns | 0.0053 |      56 B |
-| &#39;Strategy.GenerateOp: EpochBound&#39;      |   117.44 ns | 2.349 ns |  3.516 ns |   117.30 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: EpochClear&#39;      |    69.70 ns | 0.290 ns |  0.425 ns |    69.56 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: ApprovalQuorum&#39;  |   122.84 ns | 0.567 ns |  0.849 ns |   123.07 ns | 0.0084 |      88 B |
+| Method                                 | Mean        | Error     | StdDev    | Median      | Gen0   | Allocated |
+|--------------------------------------- |------------:|----------:|----------:|------------:|-------:|----------:|
+| &#39;Strategy.GenerateOp: LWW&#39;             |    54.52 ns |  0.522 ns |  0.781 ns |    54.47 ns |      - |         - |
+| &#39;Strategy.GenerateOp: FWW&#39;             |    54.08 ns |  0.145 ns |  0.218 ns |    54.04 ns |      - |         - |
+| &#39;Strategy.GenerateOp: Counter&#39;         |    70.26 ns |  0.358 ns |  0.536 ns |    70.21 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: GCounter&#39;        |    79.15 ns |  1.835 ns |  2.690 ns |    77.07 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: BoundedCounter&#39;  |    54.11 ns |  0.104 ns |  0.145 ns |    54.07 ns |      - |         - |
+| &#39;Strategy.GenerateOp: MaxWins&#39;         |    54.03 ns |  0.076 ns |  0.114 ns |    54.03 ns |      - |         - |
+| &#39;Strategy.GenerateOp: MinWins&#39;         |    54.40 ns |  0.079 ns |  0.114 ns |    54.36 ns |      - |         - |
+| &#39;Strategy.GenerateOp: AverageRegister&#39; |    53.96 ns |  0.096 ns |  0.138 ns |    53.92 ns |      - |         - |
+| &#39;Strategy.GenerateOp: GSet&#39;            |    63.50 ns |  0.112 ns |  0.163 ns |    63.54 ns |      - |         - |
+| &#39;Strategy.GenerateOp: TwoPhaseSet&#39;     |    56.00 ns |  0.102 ns |  0.147 ns |    56.00 ns |      - |         - |
+| &#39;Strategy.GenerateOp: LwwSet&#39;          |    55.97 ns |  0.093 ns |  0.137 ns |    55.90 ns |      - |         - |
+| &#39;Strategy.GenerateOp: FwwSet&#39;          |    56.09 ns |  0.166 ns |  0.243 ns |    56.04 ns |      - |         - |
+| &#39;Strategy.GenerateOp: OrSet&#39;           |   137.48 ns |  0.475 ns |  0.711 ns |   137.27 ns | 0.0038 |      40 B |
+| &#39;Strategy.GenerateOp: ArrayLcs&#39;        |   354.86 ns |  1.431 ns |  2.097 ns |   354.28 ns | 0.0244 |     256 B |
+| &#39;Strategy.GenerateOp: FixedSizeArray&#39;  |   750.71 ns |  2.150 ns |  3.014 ns |   751.81 ns | 0.0269 |     288 B |
+| &#39;Strategy.GenerateOp: Lseq&#39;            |   105.85 ns |  0.542 ns |  0.812 ns |   105.95 ns | 0.0107 |     112 B |
+| &#39;Strategy.GenerateOp: VoteCounter&#39;     |    59.42 ns |  0.334 ns |  0.490 ns |    59.25 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: StateMachine&#39;    | 1,702.67 ns | 13.344 ns | 19.559 ns | 1,699.57 ns | 0.0562 |     592 B |
+| &#39;Strategy.GenerateOp: PriorityQueue&#39;   |    65.24 ns |  0.346 ns |  0.507 ns |    65.49 ns |      - |         - |
+| &#39;Strategy.GenerateOp: SortedSet&#39;       |    61.88 ns |  0.276 ns |  0.413 ns |    61.86 ns | 0.0053 |      56 B |
+| &#39;Strategy.GenerateOp: RGA&#39;             |   217.13 ns |  1.609 ns |  2.358 ns |   216.96 ns | 0.0443 |     464 B |
+| &#39;Strategy.GenerateOp: CounterMap&#39;      |    59.57 ns |  0.334 ns |  0.489 ns |    59.36 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: LwwMap&#39;          |    61.03 ns |  0.397 ns |  0.569 ns |    60.79 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: FwwMap&#39;          |    69.80 ns |  0.237 ns |  0.341 ns |    69.84 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: MaxWinsMap&#39;      |    59.06 ns |  0.182 ns |  0.273 ns |    59.06 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: MinWinsMap&#39;      |    59.22 ns |  0.199 ns |  0.291 ns |    59.18 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: OrMap&#39;           |   151.83 ns |  0.204 ns |  0.279 ns |   151.91 ns | 0.0046 |      48 B |
+| &#39;Strategy.GenerateOp: Graph&#39;           |    58.53 ns |  0.379 ns |  0.567 ns |    58.36 ns | 0.0023 |      24 B |
+| &#39;Strategy.GenerateOp: TwoPhaseGraph&#39;   |    69.33 ns |  0.263 ns |  0.393 ns |    69.34 ns | 0.0023 |      24 B |
+| &#39;Strategy.GenerateOp: ReplicatedTree&#39;  |   125.44 ns |  0.245 ns |  0.359 ns |   125.45 ns | 0.0053 |      56 B |
+| &#39;Strategy.GenerateOp: EpochBound&#39;      |   114.48 ns |  0.339 ns |  0.496 ns |   114.42 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: EpochClear&#39;      |    70.42 ns |  0.338 ns |  0.463 ns |    70.29 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: ApprovalQuorum&#39;  |   132.90 ns |  0.825 ns |  1.209 ns |   133.01 ns | 0.0145 |     152 B |
 
 
 <!-- BENCHMARKS_END -->
