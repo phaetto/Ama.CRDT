@@ -9,6 +9,7 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.Versioning;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Terminal.Gui;

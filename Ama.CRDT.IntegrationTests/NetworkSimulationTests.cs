@@ -3,10 +3,15 @@ namespace Ama.CRDT.IntegrationTests;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Journaling;
+using Ama.CRDT.Services.Versioning;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
@@ -44,6 +49,63 @@ public sealed record SimulationDocument : IEquatable<SimulationDocument>
     }
 
     public override int GetHashCode() => HashCode.Combine(Title, ViewCount);
+}
+
+/// <summary>
+/// A simple in-memory implementation of the journal to demonstrate local replication storage.
+/// </summary>
+public sealed class InMemoryJournal : ICrdtOperationJournal
+{
+    public List<CrdtOperation> Operations { get; } = new List<CrdtOperation>();
+
+    public void Append(IReadOnlyList<CrdtOperation> operations)
+    {
+        lock (Operations)
+        {
+            foreach (var op in operations)
+            {
+                // Ensure idempotency. When applying self-generated operations, 
+                // the decorator might hit the journal multiple times.
+                if (!Operations.Any(o => o.Id == op.Id))
+                {
+                    Operations.Add(op);
+                }
+            }
+        }
+    }
+
+    public Task AppendAsync(IReadOnlyList<CrdtOperation> operations, CancellationToken cancellationToken = default)
+    {
+        Append(operations);
+        return Task.CompletedTask;
+    }
+
+    public async IAsyncEnumerable<CrdtOperation> GetOperationsByRangeAsync(string originReplicaId, long minGlobalClock, long maxGlobalClock, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        List<CrdtOperation> snapshot;
+        lock (Operations) { snapshot = Operations.ToList(); }
+        
+        foreach (var op in snapshot.Where(o => o.ReplicaId == originReplicaId && o.GlobalClock > minGlobalClock && o.GlobalClock <= maxGlobalClock))
+        {
+            yield return op;
+        }
+
+        await Task.CompletedTask;
+    }
+
+    public async IAsyncEnumerable<CrdtOperation> GetOperationsByDotsAsync(string originReplicaId, IEnumerable<long> globalClocks, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var clocks = globalClocks.ToHashSet();
+        List<CrdtOperation> snapshot;
+        lock (Operations) { snapshot = Operations.ToList(); }
+        
+        foreach (var op in snapshot.Where(o => o.ReplicaId == originReplicaId && clocks.Contains(o.GlobalClock)))
+        {
+            yield return op;
+        }
+
+        await Task.CompletedTask;
+    }
 }
 
 public sealed class NetworkSimulationTests
@@ -403,6 +465,137 @@ public sealed class NetworkSimulationTests
         docC.Data.Tags.ShouldNotContain("GhostItem");
         
         docA.Data.ShouldBe(docC.Data);
+    }
+
+    [Fact]
+    public async Task Journaling_Sync_ShouldProvideMissingOperations_AndConverge()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        services.AddCrdtJournaling<InMemoryJournal>(); // Injects local journal implementation per scope
+        var provider = services.BuildServiceProvider();
+
+        var scopeFactory = provider.GetRequiredService<ICrdtScopeFactory>();
+        var vvSyncService = provider.GetRequiredService<IVersionVectorSyncService>();
+
+        using var scopeA = scopeFactory.CreateScope("A");
+        using var scopeB = scopeFactory.CreateScope("B");
+
+        var docA = InitializeDocument(scopeA);
+        var docB = InitializeDocument(scopeB);
+
+        var patcherA = scopeA.ServiceProvider.GetRequiredService<IAsyncCrdtPatcher>();
+        var applicatorA = scopeA.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
+
+        // Act
+        // Replica A makes several changes over time using the Async interfaces directly 
+        // (which are automatically decorated to save to the local journal).
+        for (int i = 0; i < 5; i++)
+        {
+            var builder = await patcherA.BuildOperationAsync(docA, d => d.ViewCount);
+            var op = builder.Increment(1);
+            var patch = new CrdtPatch(new[] { op });
+            
+            var result = await applicatorA.ApplyPatchAsync(docA, patch);
+            docA = new CrdtDocument<SimulationDocument>(result.Document, docA.Metadata);
+        }
+
+        // Replica B determines it's behind and needs to catch up
+
+        // Calculate what Target (B) needs from Source (A)
+        var syncReq = vvSyncService.CalculateRequirement(
+            scopeB.ServiceProvider.GetRequiredService<ReplicaContext>(),
+            scopeA.ServiceProvider.GetRequiredService<ReplicaContext>()
+        );
+        syncReq.IsBehind.ShouldBeTrue();
+
+        // Replica A's journal serves the missing operations to satisfy B's sync requirement
+        var journalManagerA = scopeA.ServiceProvider.GetRequiredService<IJournalManager>();
+        var missingOpsStream = journalManagerA.GetMissingOperationsAsync(syncReq);
+        
+        var missingOps = new List<CrdtOperation>();
+        await foreach (var missingOp in missingOpsStream)
+        {
+            missingOps.Add(missingOp);
+        }
+
+        missingOps.Count.ShouldBe(5); // 5 increments were made
+
+        // Replica B applies the operations
+        var applicatorB = scopeB.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
+        var resultB = await applicatorB.ApplyPatchAsync(docB, new CrdtPatch(missingOps));
+        docB = new CrdtDocument<SimulationDocument>(resultB.Document, docB.Metadata);
+
+        // Assert convergence
+        docB.Data.ShouldBe(docA.Data);
+        docB.Data!.ViewCount.ShouldBe(5);
+    }
+
+    [Fact]
+    public async Task Journaling_Sync_WithMissingDots_ShouldFetchOnlyMissingOperations()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        services.AddCrdtJournaling<InMemoryJournal>();
+        var provider = services.BuildServiceProvider();
+
+        var scopeFactory = provider.GetRequiredService<ICrdtScopeFactory>();
+        var vvSyncService = provider.GetRequiredService<IVersionVectorSyncService>();
+
+        using var scopeA = scopeFactory.CreateScope("A");
+        using var scopeB = scopeFactory.CreateScope("B");
+
+        var docA = InitializeDocument(scopeA);
+        var docB = InitializeDocument(scopeB);
+
+        var patcherA = scopeA.ServiceProvider.GetRequiredService<IAsyncCrdtPatcher>();
+        var applicatorA = scopeA.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
+
+        // Act - A generates 3 distinct operations
+        var opsA = new List<CrdtOperation>();
+        for (int i = 0; i < 3; i++)
+        {
+            var nextDoc = docA.Data! with { Title = $"Title-{i}" };
+            var patch = await patcherA.GeneratePatchAsync(docA, nextDoc);
+            opsA.AddRange(patch.Operations);
+            
+            var result = await applicatorA.ApplyPatchAsync(docA, patch);
+            docA = new CrdtDocument<SimulationDocument>(result.Document, docA.Metadata);
+        }
+
+        // B receives operations out of order due to network anomaly (only gets 1st and 3rd)
+        var applicatorB = scopeB.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
+        var partialPatch = new CrdtPatch(new[] { opsA[0], opsA[2] });
+        var resultB = await applicatorB.ApplyPatchAsync(docB, partialPatch);
+        docB = new CrdtDocument<SimulationDocument>(resultB.Document, docB.Metadata);
+
+        // B detects divergence and triggers a sync with A to get the missing 2nd operation (dot)
+        var syncReq = vvSyncService.CalculateRequirement(
+            scopeB.ServiceProvider.GetRequiredService<ReplicaContext>(),
+            scopeA.ServiceProvider.GetRequiredService<ReplicaContext>()
+        );
+        syncReq.IsBehind.ShouldBeTrue();
+        
+        var journalManagerA = scopeA.ServiceProvider.GetRequiredService<IJournalManager>();
+        var missingOpsStream = journalManagerA.GetMissingOperationsAsync(syncReq);
+        
+        var missingOps = new List<CrdtOperation>();
+        await foreach (var missingOp in missingOpsStream)
+        {
+            missingOps.Add(missingOp);
+        }
+
+        // Assert that the Journal Manager only extracted exactly what was missing based on the Dotted Version Vector
+        missingOps.Count.ShouldBe(1);
+        missingOps[0].Id.ShouldBe(opsA[1].Id); 
+
+        // B applies it and finally converges completely
+        var finalResultB = await applicatorB.ApplyPatchAsync(docB, new CrdtPatch(missingOps));
+        docB = new CrdtDocument<SimulationDocument>(finalResultB.Document, docB.Metadata);
+
+        docB.Data.ShouldBe(docA.Data);
     }
 
     private IServiceProvider CreateServiceProvider()

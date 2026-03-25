@@ -1,5 +1,6 @@
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Versioning;
 using Shouldly;
 
 namespace Ama.CRDT.UnitTests.Services;
