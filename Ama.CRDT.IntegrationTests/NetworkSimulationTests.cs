@@ -10,6 +10,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Decorators;
 using Ama.CRDT.Services.Journaling;
 using Ama.CRDT.Services.Versioning;
 using Microsoft.Extensions.DependencyInjection;
@@ -472,8 +473,10 @@ public sealed class NetworkSimulationTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddCrdt();
-        services.AddCrdtJournaling<InMemoryJournal>(); // Injects local journal implementation per scope
+        services.AddCrdt()
+                .AddCrdtJournaling<InMemoryJournal>()
+                .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()
+                .AddCrdtPatcherDecorator<JournalingPatcherDecorator>();
         var provider = services.BuildServiceProvider();
 
         var scopeFactory = provider.GetRequiredService<ICrdtScopeFactory>();
@@ -537,8 +540,10 @@ public sealed class NetworkSimulationTests
     {
         // Arrange
         var services = new ServiceCollection();
-        services.AddCrdt();
-        services.AddCrdtJournaling<InMemoryJournal>();
+        services.AddCrdt()
+                .AddCrdtJournaling<InMemoryJournal>()
+                .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()
+                .AddCrdtPatcherDecorator<JournalingPatcherDecorator>();
         var provider = services.BuildServiceProvider();
 
         var scopeFactory = provider.GetRequiredService<ICrdtScopeFactory>();
