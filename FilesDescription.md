@@ -109,13 +109,18 @@
 | `$/Ama.CRDT.UnitTests/Models/Partitioning/CompositePartitionKeyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtMetadataSerializationTests.cs` | Contains unit tests for the serialization and deserialization of the `CrdtMetadata` class, verifying both default and compact serialization options and ensuring polymorphic and complex data (e.g., non-string dictionary keys, nested collections) is handled correctly. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtTimestampJsonConverterTests.cs` | Contains unit tests for the `CrdtTimestampJsonConverter`, verifying polymorphic serialization and deserialization of `ICrdtTimestamp` implementations. |
+| `$/Ama.CRDT.UnitTests/Services/Adapters/AsyncCrdtApplicatorAdapterTests.cs` | Contains unit tests for `AsyncCrdtApplicatorAdapter`, verifying its bridging of synchronous execution to asynchronous interfaces and cancellation handling. |
+| `$/Ama.CRDT.UnitTests/Services/Adapters/AsyncCrdtPatcherAdapterTests.cs` | Contains unit tests for `AsyncCrdtPatcherAdapter`, validating proper adaptation of patch and operation generation with cancellation checks. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtApplicatorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtComposableArchitectureTests.cs` | Contains integration tests for the CRDT composable architecture, verifying that the Patcher and Applicator correctly handle deep nesting, complex model traversal, intent-based operation generation, and resolution across multiple nested CRDT strategies (LSEQ, Min-Wins Map, State Machine, Graph, etc.). |
 | `$/Ama.CRDT.UnitTests/Services/CrdtMetadataManagerTests.cs` | Contains unit tests for the `CrdtMetadataManager`, verifying LWW pruning and version vector advancement logic. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtPatcherTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Decorators/JournalingApplicatorDecoratorTests.cs` | Contains unit tests for `JournalingApplicatorDecorator`, validating that only successfully applied CRDT operations are dispatched to the operation journal. |
+| `$/Ama.CRDT.UnitTests/Services/Decorators/JournalingPatcherDecoratorTests.cs` | Contains unit tests for `JournalingPatcherDecorator`, verifying that generated patches, intents, and explicit operations are properly captured and journaled. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/PartitioningApplicatorDecoratorTests.cs` | Contains unit tests for `PartitioningApplicatorDecorator`, validating the patch interception logic, partition splitting and merging, and ensuring operations are properly delegated to the inner `IAsyncCrdtApplicator`. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/Models.cs` | Contains simple data models for unit testing path conversion and resolution helpers. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs, and testing new centralized reflection helpers for getting/setting values and retrieving type information. |
+| `$/Ama.CRDT.UnitTests/Services/Journaling/JournalManagerTests.cs` | Contains unit tests for `JournalManager`, verifying the retrieval of missing operations based on synchronization requirements, range bounds, and missing dots. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionManagerTests.cs` | Contains unit tests for `PartitionManager`, focusing on verifying storage initialization, partition querying, and index management via `IPartitionStorageService`. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionStorageServiceContractTests.cs` | Contains mock unit tests to verify the `IPartitionStorageService` interface contract. |
 | `$/Ama.CRDT.UnitTests/Services/Providers/CrdtFluentConfigurationTests.cs` | Contains unit tests verifying the Fluent Builder API (`CrdtModelBuilder`) correctly maps CRDT strategies and that the `CrdtStrategyProvider` prioritizes these mappings over attributes. |
@@ -303,7 +308,6 @@
 | `$/Ama.CRDT/Services/ICrdtScopeFactory.cs` | Defines the contract for a factory that creates isolated `IServiceScope` instances for CRDT replicas, each configured with a unique replica ID. |
 | `$/Ama.CRDT/Services/Journaling/ICrdtOperationJournal.cs` | Defines a contract for an operation journal that captures explicitly generated and successfully applied CRDT operations, and allows retrieval of operations. |
 | `$/Ama.CRDT/Services/Journaling/IJournalManager.cs` | No description provided. |
-| `$/Ama.CRDT/Services/Journaling/IJournalStorageService.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Journaling/JournalManager.cs` | Implements `IJournalManager` to retrieve missing operations based on `ReplicaSyncRequirement` by querying an underlying `ICrdtOperationJournal`. |
 | `$/Ama.CRDT/Services/Metrics/MetricTimer.cs` | A helper `IDisposable` struct that uses a `Stopwatch` to measure the duration of a code block and records it to a `Histogram` upon disposal. |
 | `$/Ama.CRDT/Services/Metrics/PartitionManagerCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `PartitionManager`. |
