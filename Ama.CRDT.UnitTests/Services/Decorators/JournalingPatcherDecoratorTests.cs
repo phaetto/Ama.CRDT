@@ -55,6 +55,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Assert
         result.ShouldBe(patch);
         journalMock.Verify(m => m.AppendAsync(
+            It.IsAny<string>(),
             It.Is<IReadOnlyList<CrdtOperation>>(ops => ops.Count == 1 && ops.Contains(op)), 
             It.IsAny<CancellationToken>()), 
             Times.Once);
@@ -83,6 +84,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Assert
         result.ShouldBe(patch);
         journalMock.Verify(m => m.AppendAsync(
+            It.IsAny<string>(),
             It.Is<IReadOnlyList<CrdtOperation>>(ops => ops.Count == 1 && ops.Contains(op)), 
             It.IsAny<CancellationToken>()), 
             Times.Once);
@@ -107,7 +109,7 @@ public sealed class JournalingPatcherDecoratorTests
         await decorator.GeneratePatchAsync(document, changed);
 
         // Assert
-        journalMock.Verify(m => m.AppendAsync(It.IsAny<IReadOnlyList<CrdtOperation>>(), It.IsAny<CancellationToken>()), Times.Never);
+        journalMock.Verify(m => m.AppendAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<CrdtOperation>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -154,6 +156,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Assert
         result.ShouldBe(expectedOperation);
         journalMock.Verify(m => m.AppendAsync(
+            It.IsAny<string>(),
             It.Is<IReadOnlyList<CrdtOperation>>(ops => ops.Count == 1 && ops.Contains(expectedOperation)), 
             It.IsAny<CancellationToken>()), 
             Times.Once);

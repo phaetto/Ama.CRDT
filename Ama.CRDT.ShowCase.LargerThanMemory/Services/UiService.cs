@@ -8,6 +8,7 @@ using System.Text.Json;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Journaling;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Versioning;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
@@ -241,11 +242,8 @@ public sealed class UiService
     {
         if (listView == null || source == null) return;
         
-        // Sanitize newlines which corrupt Terminal.Gui layout height estimations
         var list = source.Select(s => s?.Replace("\r", "")?.Replace("\n", " ") ?? "").ToList();
         
-        // Pad all strings to maximum length so that if the user scrolls horizontally,
-        // Terminal.Gui does not crash trying to Substring a short string.
         int maxLen = list.Count > 0 ? list.Max(s => s.Length) : 0;
         if (maxLen > 0)
         {
@@ -260,7 +258,6 @@ public sealed class UiService
         
         listView.SetSource(list);
         
-        // Hard-clamp states to enforce safe bounds dynamically
         if (listView.TopItem >= list.Count)
             listView.TopItem = Math.Max(0, list.Count - 1);
             
@@ -303,7 +300,7 @@ public sealed class UiService
             {
                 var sourceCtx = new ReplicaContext { ReplicaId = source, GlobalVersionVector = replicaDvvs[source] };
                 var req = vvSyncService.CalculateRequirement(targetCtx, sourceCtx);
-                if (req.IsBehind)
+                if (req.IsBehind && req.RequirementsByOrigin != null)
                 {
                     totalMissing += (int)req.RequirementsByOrigin.Values.Sum(r => Math.Max(0, r.SourceContiguousVersion - r.TargetContiguousVersion) + (r.SourceMissingDots?.Count ?? 0));
                 }
@@ -343,7 +340,7 @@ public sealed class UiService
                 var sourceCtx = new ReplicaContext { ReplicaId = source, GlobalVersionVector = replicaDvvs[source] };
                 var req = vvSyncService.CalculateRequirement(targetCtx, sourceCtx);
                 
-                if (req.IsBehind)
+                if (req.IsBehind && req.RequirementsByOrigin != null)
                 {
                     var missingCount = req.RequirementsByOrigin.Values.Sum(r => Math.Max(0, r.SourceContiguousVersion - r.TargetContiguousVersion) + (r.SourceMissingDots?.Count ?? 0));
                     statusLines.Add($"{target} is BEHIND {source} by {missingCount} ops");
@@ -492,13 +489,7 @@ public sealed class UiService
         var indexToLoad = currentTagPartitionIndex;
         var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, indexToLoad, TagsPropertyName);
 
-        if (partition is null)
-        {
-            Application.MainLoop.Invoke(() => {
-                MessageBox.ErrorQuery("Error", $"Could not load tag partition at index {indexToLoad}. The index might be out of sync.", "Ok");
-            });
-            return;
-        }
+        if (partition is null) return;
 
         var content = await partitionManager.GetDataPartitionContentAsync(partition.GetPartitionKey(), TagsPropertyName);
 
@@ -530,13 +521,7 @@ public sealed class UiService
         var indexToLoad = currentCommentPartitionIndex;
         var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, indexToLoad, CommentsPropertyName);
 
-        if (partition is null)
-        {
-            Application.MainLoop.Invoke(() => {
-                MessageBox.ErrorQuery("Error", $"Could not load comment partition at index {indexToLoad}. The index might be out of sync.", "Ok");
-            });
-            return;
-        }
+        if (partition is null) return;
 
         var content = await partitionManager.GetDataPartitionContentAsync(partition.GetPartitionKey(), CommentsPropertyName);
 
@@ -590,10 +575,9 @@ public sealed class UiService
             var applicator = currentScope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
             
             var patch = patcher.GeneratePatch(emptyDoc.Value, newPost);
+            
+            // Operations generated during patch apply will be captured automatically by the JournalingApplicatorDecorator
             await applicator.ApplyPatchAsync(emptyDoc.Value, patch);
-
-            var syncService = serviceProvider.GetRequiredService<SyncService>();
-            syncService.QueuePatch(currentReplicaId, id, patch, replicaIds);
 
             Application.MainLoop.Invoke(() => {
                 SaveReplicaStates();
@@ -647,10 +631,8 @@ public sealed class UiService
             var operation = patcher.BuildOperation(fromDoc, x => x.Comments).Set(comment.CreatedAt, comment);
             var patch = new CrdtPatch(new[] { operation });
             
+            // Journal decorator automatically saves
             await applicator.ApplyPatchAsync(fromDoc, patch);
-
-            var syncService = serviceProvider.GetRequiredService<SyncService>();
-            syncService.QueuePatch(currentReplicaId, selectedBlogPostId, patch, replicaIds);
 
             var commentCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
             
@@ -700,10 +682,8 @@ public sealed class UiService
             var operation = patcher.BuildOperation(fromDoc, x => x.Tags).Add(newTag);
             var patch = new CrdtPatch(new[] { operation });
             
+            // Journal decorator automatically saves
             await applicator.ApplyPatchAsync(fromDoc, patch);
-
-            var syncService = serviceProvider.GetRequiredService<SyncService>();
-            syncService.QueuePatch(currentReplicaId, selectedBlogPostId, patch, replicaIds);
 
             Application.MainLoop.Invoke(() => {
                 SaveReplicaStates();
@@ -724,35 +704,60 @@ public sealed class UiService
 
     private async void SyncReplicas()
     {
-        var syncService = serviceProvider.GetRequiredService<SyncService>();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        var vvSyncService = serviceProvider.GetRequiredService<IVersionVectorSyncService>();
         int syncCount = 0;
 
         foreach (var replica in replicaIds.Where(r => r != currentReplicaId))
         {
-            using var scope = scopeFactory.CreateScope(replica, replicaDvvs[replica]);
-            var targetPartitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
-            var targetApplicator = scope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
+            var targetCtx = new ReplicaContext { ReplicaId = currentReplicaId, GlobalVersionVector = replicaDvvs[currentReplicaId] };
+            var sourceCtx = new ReplicaContext { ReplicaId = replica, GlobalVersionVector = replicaDvvs[replica] };
             
-            // Caching logical keys outside the while-loop greatly speeds up the sync
-            var keys = new HashSet<IComparable>(await targetPartitionManager.GetAllLogicalKeysAsync());
-            
-            while (syncService.TryDequeue(replica, out var logicalKey, out var patch))
+            var req = vvSyncService.CalculateRequirement(targetCtx, sourceCtx);
+            if (!req.IsBehind) continue;
+
+            // Fetch missing operations directly from the source replica's journal
+            using var sourceScope = scopeFactory.CreateScope(replica, sourceCtx.GlobalVersionVector);
+            var sourceJournalManager = sourceScope.ServiceProvider.GetRequiredService<IJournalManager>();
+            var missingOpsStream = sourceJournalManager.GetMissingOperationsAsync(req);
+
+            var opsByDocument = new Dictionary<string, List<CrdtOperation>>();
+            await foreach (var jOp in missingOpsStream)
             {
-                if (!keys.Contains(logicalKey))
+                if (!opsByDocument.TryGetValue(jOp.DocumentId, out var opList))
                 {
-                    await targetPartitionManager.InitializeAsync(new BlogPost { Id = (Guid)logicalKey });
-                    keys.Add(logicalKey);
+                    opList = new List<CrdtOperation>();
+                    opsByDocument[jOp.DocumentId] = opList;
                 }
-                var headerDoc = await targetPartitionManager.GetHeaderPartitionContentAsync(logicalKey);
-                await targetApplicator.ApplyPatchAsync(headerDoc.Value, patch);
-                syncCount++;
+                opList.Add(jOp.Operation);
+            }
+
+            if (opsByDocument.Count > 0)
+            {
+                var keys = new HashSet<IComparable>(await partitionManager.GetAllLogicalKeysAsync());
+                var targetApplicator = currentScope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
+
+                foreach (var kvp in opsByDocument)
+                {
+                    if (!Guid.TryParse(kvp.Key, out var logicalKey)) continue;
+
+                    if (!keys.Contains(logicalKey))
+                    {
+                        await partitionManager.InitializeAsync(new BlogPost { Id = logicalKey });
+                        keys.Add(logicalKey);
+                    }
+                    
+                    var headerDoc = await partitionManager.GetHeaderPartitionContentAsync(logicalKey);
+                    var patch = new CrdtPatch(kvp.Value);
+                    await targetApplicator.ApplyPatchAsync(headerDoc.Value, patch);
+                    syncCount++;
+                }
             }
         }
 
         Application.MainLoop.Invoke(() => {
             SaveReplicaStates();
-            MessageBox.Query("Sync Complete", $"Successfully synced {syncCount} patches to other replicas.", "Ok");
+            MessageBox.Query("Sync Complete", $"Successfully applied patches for {syncCount} documents.", "Ok");
             UpdateSyncStatusUI();
             LoadBlogPostHeadersAsync();
         });

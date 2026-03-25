@@ -56,9 +56,9 @@ public sealed record SimulationDocument : IEquatable<SimulationDocument>
 /// </summary>
 public sealed class InMemoryJournal : ICrdtOperationJournal
 {
-    public List<CrdtOperation> Operations { get; } = new List<CrdtOperation>();
+    public List<JournaledOperation> Operations { get; } = new List<JournaledOperation>();
 
-    public void Append(IReadOnlyList<CrdtOperation> operations)
+    public void Append(string documentId, IReadOnlyList<CrdtOperation> operations)
     {
         lock (Operations)
         {
@@ -66,26 +66,26 @@ public sealed class InMemoryJournal : ICrdtOperationJournal
             {
                 // Ensure idempotency. When applying self-generated operations, 
                 // the decorator might hit the journal multiple times.
-                if (!Operations.Any(o => o.Id == op.Id))
+                if (!Operations.Any(o => o.Operation.Id == op.Id))
                 {
-                    Operations.Add(op);
+                    Operations.Add(new JournaledOperation(documentId, op));
                 }
             }
         }
     }
 
-    public Task AppendAsync(IReadOnlyList<CrdtOperation> operations, CancellationToken cancellationToken = default)
+    public Task AppendAsync(string documentId, IReadOnlyList<CrdtOperation> operations, CancellationToken cancellationToken = default)
     {
-        Append(operations);
+        Append(documentId, operations);
         return Task.CompletedTask;
     }
 
-    public async IAsyncEnumerable<CrdtOperation> GetOperationsByRangeAsync(string originReplicaId, long minGlobalClock, long maxGlobalClock, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<JournaledOperation> GetOperationsByRangeAsync(string originReplicaId, long minGlobalClock, long maxGlobalClock, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        List<CrdtOperation> snapshot;
+        List<JournaledOperation> snapshot;
         lock (Operations) { snapshot = Operations.ToList(); }
         
-        foreach (var op in snapshot.Where(o => o.ReplicaId == originReplicaId && o.GlobalClock > minGlobalClock && o.GlobalClock <= maxGlobalClock))
+        foreach (var op in snapshot.Where(o => o.Operation.ReplicaId == originReplicaId && o.Operation.GlobalClock > minGlobalClock && o.Operation.GlobalClock <= maxGlobalClock))
         {
             yield return op;
         }
@@ -93,13 +93,13 @@ public sealed class InMemoryJournal : ICrdtOperationJournal
         await Task.CompletedTask;
     }
 
-    public async IAsyncEnumerable<CrdtOperation> GetOperationsByDotsAsync(string originReplicaId, IEnumerable<long> globalClocks, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<JournaledOperation> GetOperationsByDotsAsync(string originReplicaId, IEnumerable<long> globalClocks, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var clocks = globalClocks.ToHashSet();
-        List<CrdtOperation> snapshot;
+        List<JournaledOperation> snapshot;
         lock (Operations) { snapshot = Operations.ToList(); }
         
-        foreach (var op in snapshot.Where(o => o.ReplicaId == originReplicaId && clocks.Contains(o.GlobalClock)))
+        foreach (var op in snapshot.Where(o => o.Operation.ReplicaId == originReplicaId && clocks.Contains(o.Operation.GlobalClock)))
         {
             yield return op;
         }
@@ -517,7 +517,7 @@ public sealed class NetworkSimulationTests
         var missingOps = new List<CrdtOperation>();
         await foreach (var missingOp in missingOpsStream)
         {
-            missingOps.Add(missingOp);
+            missingOps.Add(missingOp.Operation);
         }
 
         missingOps.Count.ShouldBe(5); // 5 increments were made
@@ -584,7 +584,7 @@ public sealed class NetworkSimulationTests
         var missingOps = new List<CrdtOperation>();
         await foreach (var missingOp in missingOpsStream)
         {
-            missingOps.Add(missingOp);
+            missingOps.Add(missingOp.Operation);
         }
 
         // Assert that the Journal Manager only extracted exactly what was missing based on the Dotted Version Vector

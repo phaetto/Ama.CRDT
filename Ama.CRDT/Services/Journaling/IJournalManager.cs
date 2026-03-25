@@ -5,16 +5,16 @@ using System.Threading;
 using Ama.CRDT.Models;
 
 /// <summary>
-/// Defines a contract for managing the operation journal, specifically to retrieve 
-/// operations that fulfill synchronization requirements between replicas.
+/// Defines a service for retrieving missing CRDT operations from an operation journal 
+/// based on synchronization requirements calculated between replicas.
 /// </summary>
 public interface IJournalManager
 {
     /// <summary>
-    /// Retrieves a stream of operations from the journal that fulfill the specified synchronization requirement.
+    /// Retrieves a stream of operations that are missing in the target replica based on the provided requirements.
     /// </summary>
-    /// <param name="requirement">The synchronization requirement detailing missing causality.</param>
+    /// <param name="requirement">The synchronization requirement detailing missing contiguous versions and out-of-order dots.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
-    /// <returns>An asynchronous stream of CRDT operations needed by the target replica.</returns>
-    IAsyncEnumerable<CrdtOperation> GetMissingOperationsAsync(ReplicaSyncRequirement requirement, CancellationToken cancellationToken = default);
+    /// <returns>An asynchronous stream of wrapped operations including their Document ID.</returns>
+    IAsyncEnumerable<JournaledOperation> GetMissingOperationsAsync(ReplicaSyncRequirement requirement, CancellationToken cancellationToken = default);
 }

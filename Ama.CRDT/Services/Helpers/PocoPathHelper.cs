@@ -21,6 +21,7 @@ internal static class PocoPathHelper
     private static readonly ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> PropertyCache = new();
     private static readonly ConcurrentDictionary<Type, CachedPropertyMetadata[]> MetadataPropertyCache = new();
     private static readonly ConcurrentDictionary<PropertyInfo, PropertyAccessor> AccessorCache = new();
+    private static readonly ConcurrentDictionary<Type, PropertyInfo?> DocumentIdPropertyCache = new();
     
     // Type resolution caches to avoid repetitive LINQ and reflection overhead
     private static readonly ConcurrentDictionary<Type, Type> CollectionElementTypeCache = new();
@@ -43,6 +44,33 @@ internal static class PocoPathHelper
         public string PathSuffix { get; } = $".{jsonPropertyName}";
         public string RootedPath { get; } = $"$.{jsonPropertyName}";
         public PropertyAccessor Accessor { get; } = GetAccessor(property);
+    }
+
+    /// <summary>
+    /// Extracts the Document ID from a POCO by looking for a PartitionKey attribute or an Id property.
+    /// </summary>
+    public static string GetDocumentId<T>(T? obj)
+    {
+        if (obj is null) return "default";
+
+        var type = obj.GetType();
+        var prop = DocumentIdPropertyCache.GetOrAdd(type, t =>
+        {
+            var attr = t.GetCustomAttribute<Ama.CRDT.Attributes.PartitionKeyAttribute>();
+            if (attr != null)
+            {
+                return t.GetProperty(attr.PropertyName, BindingFlags.Public | BindingFlags.Instance);
+            }
+            return t.GetProperty("Id", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+        });
+
+        if (prop != null)
+        {
+            var val = GetAccessor(prop).Getter(obj);
+            return val?.ToString() ?? "default";
+        }
+
+        return "default";
     }
 
     /// <summary>
