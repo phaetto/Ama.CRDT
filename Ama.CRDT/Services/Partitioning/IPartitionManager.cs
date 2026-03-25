@@ -8,12 +8,12 @@ using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
-/// Defines the contract for managing a CRDT document that is partitioned across one or more streams,
+/// Defines the contract for querying and managing a CRDT document that is partitioned across one or more streams,
 /// allowing it to scale beyond available memory. It provides a user-friendly API using property names (e.g., nameof(MyModel.MyProperty))
 /// and specific methods for header partitions.
 /// </summary>
 /// <typeparam name="T">The type of the data model managed by the CRDT.</typeparam>
-public interface IPartitionManager<T> : IAsyncCrdtApplicator where T : class, new()
+public interface IPartitionManager<T> where T : class, new()
 {
     /// <summary>
     /// Initializes a new partitioned CRDT document.
