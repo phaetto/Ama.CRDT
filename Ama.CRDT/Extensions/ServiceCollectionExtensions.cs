@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization.Converters;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Adapters;
 using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
@@ -76,6 +77,9 @@ public static class ServiceCollectionExtensions
         // This prevents resolving them from a non-replica scope (e.g., root container, ASP.NET request scope).
         services.TryAddScoped(CreateValidatedInstance<CrdtApplicator>);
         services.TryAddScoped<ICrdtApplicator>(sp => sp.GetRequiredService<CrdtApplicator>());
+        
+        // Base asynchronous pipeline executor. Translates IAsyncCrdtApplicator to ICrdtApplicator.
+        services.TryAddScoped<IAsyncCrdtApplicator>(sp => new AsyncCrdtApplicatorAdapter(sp.GetRequiredService<ICrdtApplicator>()));
 
         services.TryAddScoped(CreateValidatedInstance<CrdtPatcher>);
         services.TryAddScoped<ICrdtPatcher>(sp => sp.GetRequiredService<CrdtPatcher>());
@@ -165,6 +169,56 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICrdtStrategy, RgaStrategy>(sp => sp.GetRequiredService<RgaStrategy>());
         services.AddScoped<ICrdtStrategy, EpochBoundStrategy>(sp => sp.GetRequiredService<EpochBoundStrategy>());
         services.AddScoped<ICrdtStrategy, ApprovalQuorumStrategy>(sp => sp.GetRequiredService<ApprovalQuorumStrategy>());
+
+        return services;
+    }
+
+    /// <summary>
+    /// Decorates the previously registered <see cref="IAsyncCrdtApplicator"/> with the specified decorator type.
+    /// This allows building a pipeline of applicators (e.g., adding journaling or partitioning natively into the DI container).
+    /// </summary>
+    /// <typeparam name="TDecorator">The decorator implementation of <see cref="IAsyncCrdtApplicator"/>.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// builder.Services.AddCrdt()
+    ///                 .AddCrdtApplicatorDecorator&lt;PartitioningApplicatorDecorator&gt;();
+    /// ]]>
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddCrdtApplicatorDecorator<TDecorator>(this IServiceCollection services)
+        where TDecorator : class, IAsyncCrdtApplicator
+    {
+        var existingDescriptor = services.LastOrDefault(d => d.ServiceType == typeof(IAsyncCrdtApplicator));
+        if (existingDescriptor == null)
+        {
+            throw new InvalidOperationException($"Cannot decorate {nameof(IAsyncCrdtApplicator)} because it has not been registered. Ensure AddCrdt() is called first.");
+        }
+
+        services.Remove(existingDescriptor);
+
+        services.Add(new ServiceDescriptor(typeof(IAsyncCrdtApplicator), sp =>
+        {
+            // Resolve the inner instance correctly handling factories or instance types
+            IAsyncCrdtApplicator inner;
+            if (existingDescriptor.ImplementationInstance != null)
+            {
+                inner = (IAsyncCrdtApplicator)existingDescriptor.ImplementationInstance;
+            }
+            else if (existingDescriptor.ImplementationFactory != null)
+            {
+                inner = (IAsyncCrdtApplicator)existingDescriptor.ImplementationFactory(sp);
+            }
+            else
+            {
+                inner = (IAsyncCrdtApplicator)ActivatorUtilities.GetServiceOrCreateInstance(sp, existingDescriptor.ImplementationType!);
+            }
+
+            // Create the decorator, injecting the inner applicator
+            return ActivatorUtilities.CreateInstance<TDecorator>(sp, inner);
+        }, existingDescriptor.Lifetime));
 
         return services;
     }
