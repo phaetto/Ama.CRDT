@@ -26,7 +26,7 @@ public sealed class JournalManager : IJournalManager
     }
 
     /// <inheritdoc/>
-    public async IAsyncEnumerable<CrdtOperation> GetMissingOperationsAsync(
+    public async IAsyncEnumerable<JournaledOperation> GetMissingOperationsAsync(
         ReplicaSyncRequirement requirement, 
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -53,7 +53,7 @@ public sealed class JournalManager : IJournalManager
                     await foreach (var op in rangeStream.ConfigureAwait(false))
                     {
                         // Exclude operations that the target already knows (TargetKnownDots)
-                        if (originReq.TargetKnownDots != null && originReq.TargetKnownDots.Contains(op.GlobalClock))
+                        if (originReq.TargetKnownDots != null && originReq.TargetKnownDots.Contains(op.Operation.GlobalClock))
                         {
                             continue;
                         }
