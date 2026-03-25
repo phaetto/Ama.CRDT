@@ -6,7 +6,6 @@ using Ama.CRDT.Models;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
-using FsCheck;
 using Moq;
 using Shouldly;
 using System;
