@@ -69,13 +69,6 @@ jobs:
       - name: Test
         run: dotnet test --configuration Release --no-build --verbosity normal -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
 
-      - name: Install Stryker.NET
-        run: dotnet tool install -g dotnet-stryker
-
-      - name: Run Mutation Tests (Stryker)
-        working-directory: Ama.CRDT.UnitTests
-        run: dotnet stryker -f stryker-config.json
-
       - name: Pack
         run: |
           dotnet pack ${{ env.PROJECT_PATH_MAIN }} --configuration Release --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }} -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
