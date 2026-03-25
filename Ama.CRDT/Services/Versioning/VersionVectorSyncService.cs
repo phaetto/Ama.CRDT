@@ -1,4 +1,4 @@
-namespace Ama.CRDT.Services;
+namespace Ama.CRDT.Services.Versioning;
 
 using System;
 using System.Collections.Generic;

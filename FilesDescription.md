@@ -202,7 +202,7 @@
 | `$/Ama.CRDT/Attributes/Strategies/Semantic/StateBasedAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/IntentBuilderExtensions.cs` | Provides strongly-typed extension methods for `IIntentBuilder<TProperty>` to fluent build CRDT operations without boxing. |
-| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup, including applicator pipeline decoration `AddCrdtApplicatorDecorator`. Removes stream-specific registration logic. |
+| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods for easy library setup, unifying `AddCrdt`, applicator/patcher pipeline decoration (`AddCrdtApplicatorDecorator`, `AddCrdtJournaling`), comparers, timestamp providers, and serialization polymorphism. |
 | `$/Ama.CRDT/Models/ApplyPatchResult.cs` | Data structure containing the result of a patch application, including the document and any unapplied operations. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
 | `$/Ama.CRDT/Models/BidirectionalSyncRequirements.cs` | A data structure containing the synchronization requirements for two replicas to fully catch up with each other. |
@@ -284,11 +284,14 @@
 | `$/Ama.CRDT/PublicAPI.Shipped.txt` | Tracks the shipped public API surface of the library to detect breaking changes. This file should be updated when new APIs are officially released in a stable version. |
 | `$/Ama.CRDT/PublicAPI.Unshipped.txt` | Tracks new public APIs that have not yet been included in a stable release. This file must be empty before a manual, stable publish. Build will fail if new public APIs are added without being added to this file first. |
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtApplicatorAdapter.cs` | No description provided. |
-| `$/Ama.CRDT/Services/AsyncCrdtApplicatorAdapter.cs` | An adapter that bridges the synchronous `ICrdtApplicator` to the `IAsyncCrdtApplicator` interface, serving as the base inner applicator for decorator chains. |
+| `$/Ama.CRDT/Services/Adapters/AsyncCrdtPatcherAdapter.cs` | An adapter that bridges the synchronous `ICrdtPatcher` to the asynchronous `IAsyncCrdtPatcher` pipeline, acting as the base layer in the patcher decorator chain. |
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | No description provided. |
 | `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implements the `ICrdtMetadataManager` for managing and compacting CRDT metadata. It provides helper methods like Initialize(document) to create a metadata object from a POCO by reflecting on its properties, and Reset(metadata, document) to clear and re-initialize an existing metadata object. The initialization logic correctly traverses nested objects and collections. |
 | `$/Ama.CRDT/Services/CrdtPatcher.cs` | Implements the logic to recursively compare two objects and generate a CRDT patch by delegating to property-specific strategies. It now also supports generating operations based on explicit intents via expression trees. |
 | `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext` holding the unique replica ID. |
+| `$/Ama.CRDT/Services/Decorators/JournalingApplicatorDecorator.cs` | A decorator for `IAsyncCrdtApplicator` that intercepts patch applications and forwards successfully applied operations to an `ICrdtOperationJournal`. |
+| `$/Ama.CRDT/Services/Decorators/JournalingIntentBuilderDecorator.cs` | A decorator for `IIntentBuilder` that ensures operations generated via fluent intents are recorded to the journal. |
+| `$/Ama.CRDT/Services/Decorators/JournalingPatcherDecorator.cs` | A decorator for `IAsyncCrdtPatcher` that intercepts patch generation and explicitly created operations, forwarding them to an `ICrdtOperationJournal`. |
 | `$/Ama.CRDT/Services/Decorators/PartitioningApplicatorDecorator.cs` | A global decorator implementation of `IAsyncCrdtApplicator` that intercepts patch application, skips non-partitionable types, handles partition streaming, and delegates internal CRDT operations to the inner applicator. |
 | `$/Ama.CRDT/Services/DifferentiateObjectContext.cs` | Defines the context object for the `ICrdtPatcher.DifferentiateObject` method, encapsulating all necessary parameters. |
 | `$/Ama.CRDT/Services/Helpers/PocoPathHelper.cs` | A utility class that centralizes reflection-based logic for CRDT strategies. It handles parsing JSON paths, resolving them against POCOs, getting and setting property values, and retrieving type information for collections and dictionaries. |
@@ -298,7 +301,10 @@
 | `$/Ama.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing CRDT metadata. Its responsibilities include initializing, resetting, cloning, merging, and compacting metadata state such as LWW timestamps, positional trackers, and version vectors. This service is critical for enabling conflict-free merges by externalizing the state needed for resolution. |
 | `$/Ama.CRDT/Services/ICrdtPatcher.cs` | Defines the contract for a service that compares two versions of a data model and generates a CRDT patch, as well as an intent-based method for creating patches directly. |
 | `$/Ama.CRDT/Services/ICrdtScopeFactory.cs` | Defines the contract for a factory that creates isolated `IServiceScope` instances for CRDT replicas, each configured with a unique replica ID. |
-| `$/Ama.CRDT/Services/IVersionVectorSyncService.cs` | Defines an interface for comparing the causality state (DVVs) of different replicas and determining synchronization requirements. |
+| `$/Ama.CRDT/Services/Journaling/ICrdtOperationJournal.cs` | Defines a contract for an operation journal that captures explicitly generated and successfully applied CRDT operations, and allows retrieval of operations. |
+| `$/Ama.CRDT/Services/Journaling/IJournalManager.cs` | No description provided. |
+| `$/Ama.CRDT/Services/Journaling/IJournalStorageService.cs` | No description provided. |
+| `$/Ama.CRDT/Services/Journaling/JournalManager.cs` | Implements `IJournalManager` to retrieve missing operations based on `ReplicaSyncRequirement` by querying an underlying `ICrdtOperationJournal`. |
 | `$/Ama.CRDT/Services/Metrics/MetricTimer.cs` | A helper `IDisposable` struct that uses a `Stopwatch` to measure the duration of a code block and records it to a `Histogram` upon disposal. |
 | `$/Ama.CRDT/Services/Metrics/PartitionManagerCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `PartitionManager`. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` | Defines the contract for managing a partitioned CRDT document, now supporting asynchronous streaming of partitions via `IAsyncEnumerable` and efficient counting of data partitions for a given logical key. It provides a user-friendly API using property names (`nameof`) and specific methods for header partitions. |
@@ -354,7 +360,8 @@
 | `$/Ama.CRDT/Services/Strategies/TwoPhaseGraphStrategy.cs` | Implements a 2P-Graph strategy where vertices and edges can be added and removed, but not re-added after removal, ensuring monotonic growth of the tombstone sets. |
 | `$/Ama.CRDT/Services/Strategies/TwoPhaseSetStrategy.cs` | Implements the 2P-Set (Two-Phase Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/VoteCounterStrategy.cs` | Implements the Vote Counter strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get dictionary key/value types. |
-| `$/Ama.CRDT/Services/VersionVectorSyncService.cs` | Implements `IVersionVectorSyncService` to calculate directional and bidirectional sync requirements between replicas based on their Dotted Version Vectors. |
+| `$/Ama.CRDT/Services/Versioning/IVersionVectorSyncService.cs` | No description provided. |
+| `$/Ama.CRDT/Services/Versioning/VersionVectorSyncService.cs` | No description provided. |
 | `$/CodingStandards.md` | No description provided. |
 | `$/FilesDescription.md` | No description provided. |
 | `$/LICENSE` | No description provided. |
