@@ -203,8 +203,30 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers a custom journaling service and decorates the CRDT applicator and patcher 
-    /// so that successfully applied and explicitly generated operations are automatically appended to the journal.
+    /// Decorates the previously registered <see cref="IAsyncCrdtPatcher"/> with the specified decorator type.
+    /// This allows building a pipeline of patchers (e.g., adding journaling natively into the DI container).
+    /// </summary>
+    /// <typeparam name="TDecorator">The decorator implementation of <see cref="IAsyncCrdtPatcher"/>.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// builder.Services.AddCrdt()
+    ///                 .AddCrdtPatcherDecorator<JournalingPatcherDecorator>();
+    /// ]]>
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddCrdtPatcherDecorator<TDecorator>(this IServiceCollection services)
+        where TDecorator : class, IAsyncCrdtPatcher
+    {
+        return services.DecorateService<IAsyncCrdtPatcher, TDecorator>();
+    }
+
+    /// <summary>
+    /// Registers a custom journaling service.
+    /// To enable automatic journaling of generated and applied operations, you must also decorate the applicator and patcher 
+    /// using <see cref="AddCrdtApplicatorDecorator{TDecorator}"/> and <see cref="AddCrdtPatcherDecorator{TDecorator}"/>.
     /// Ensure <c>AddCrdt()</c> is called prior to invoking this method.
     /// </summary>
     /// <typeparam name="TJournal">The custom implementation of <see cref="ICrdtOperationJournal"/>.</typeparam>
@@ -213,8 +235,10 @@ public static class ServiceCollectionExtensions
     /// <example>
     /// <code>
     /// <![CDATA[
-    /// builder.Services.AddCrdt();
-    /// builder.Services.AddCrdtJournaling<MyDatabaseJournal>();
+    /// builder.Services.AddCrdt()
+    ///                 .AddCrdtJournaling<MyDatabaseJournal>()
+    ///                 .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()
+    ///                 .AddCrdtPatcherDecorator<JournalingPatcherDecorator>();
     /// ]]>
     /// </code>
     /// </example>
@@ -226,12 +250,6 @@ public static class ServiceCollectionExtensions
 
         // Register the journal manager to be used for finding missing operations
         services.TryAddScoped<IJournalManager, JournalManager>();
-
-        // Decorate the Applicator pipeline
-        services.DecorateService<IAsyncCrdtApplicator, JournalingApplicatorDecorator>();
-
-        // Decorate the Patcher pipeline
-        services.DecorateService<IAsyncCrdtPatcher, JournalingPatcherDecorator>();
 
         return services;
     }
