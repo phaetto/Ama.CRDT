@@ -17,22 +17,22 @@ public interface IPartitionStorageService
     /// <summary>
     /// Loads the deserialized content (data and metadata) of a data partition.
     /// </summary>
-    Task<CrdtDocument<TData>> LoadPartitionContentAsync<TData>(IComparable logicalKey, string propertyName, IPartition partition, CancellationToken cancellationToken = default) where TData : class, new();
+    Task<CrdtDocument<TData>> LoadPartitionContentAsync<TData>(IComparable logicalKey, string propertyName, IPartition partition, CancellationToken cancellationToken = default) where TData : class;
 
     /// <summary>
     /// Saves the content (data and metadata) of a data partition to storage and returns an updated partition object with the new storage offsets.
     /// </summary>
-    Task<IPartition> SavePartitionContentAsync<TData>(IComparable logicalKey, string propertyName, IPartition partitionToUpdate, TData data, CrdtMetadata metadata, CancellationToken cancellationToken = default) where TData : class, new();
+    Task<IPartition> SavePartitionContentAsync<TData>(IComparable logicalKey, string propertyName, IPartition partitionToUpdate, TData data, CrdtMetadata metadata, CancellationToken cancellationToken = default) where TData : class;
 
     /// <summary>
     /// Loads the deserialized content (data and metadata) of a header partition.
     /// </summary>
-    Task<CrdtDocument<TData>> LoadHeaderPartitionContentAsync<TData>(IComparable logicalKey, HeaderPartition partition, CancellationToken cancellationToken = default) where TData : class, new();
+    Task<CrdtDocument<TData>> LoadHeaderPartitionContentAsync<TData>(IComparable logicalKey, HeaderPartition partition, CancellationToken cancellationToken = default) where TData : class;
 
     /// <summary>
     /// Saves the content (data and metadata) of a header partition to storage and returns an updated header partition object with the new storage offsets.
     /// </summary>
-    Task<HeaderPartition> SaveHeaderPartitionContentAsync<TData>(IComparable logicalKey, HeaderPartition partitionToUpdate, TData data, CrdtMetadata metadata, CancellationToken cancellationToken = default) where TData : class, new();
+    Task<HeaderPartition> SaveHeaderPartitionContentAsync<TData>(IComparable logicalKey, HeaderPartition partitionToUpdate, TData data, CrdtMetadata metadata, CancellationToken cancellationToken = default) where TData : class;
 
     /// <summary>
     /// Clears the stored data for a specific property partition.

@@ -22,7 +22,7 @@ public sealed class PartitioningApplicatorDecoratorTests
 {
     private readonly Mock<IPartitionStorageService> mockStorage;
     private readonly Mock<IAsyncCrdtApplicator> mockInnerApplicator;
-    private readonly PartitioningApplicatorDecorator<MultiPartitionedModel> decorator;
+    private readonly PartitioningApplicatorDecorator decorator;
     private readonly ICrdtMetadataManager metaManager;
     private readonly ICrdtTimestampProvider timestampProvider;
 
@@ -52,7 +52,7 @@ public sealed class PartitioningApplicatorDecoratorTests
         var strategyProvider = scope.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
         var metrics = scope.ServiceProvider.GetRequiredService<PartitionManagerCrdtMetrics>();
 
-        decorator = new PartitioningApplicatorDecorator<MultiPartitionedModel>(
+        decorator = new PartitioningApplicatorDecorator(
             mockInnerApplicator.Object,
             mockStorage.Object,
             strategyProvider,
