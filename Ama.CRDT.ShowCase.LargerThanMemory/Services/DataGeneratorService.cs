@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 
 public sealed class DataGeneratorService(
     IPartitionManager<BlogPost> partitionManager,
+    IAsyncCrdtApplicator crdtApplicator,
     ICrdtPatcher patcher,
     ICrdtMetadataManager metadataManager)
 {
@@ -72,7 +73,7 @@ public sealed class DataGeneratorService(
             }
 
             var tagsPatch = new CrdtPatch(tagsOperations);
-            await partitionManager.ApplyPatchAsync(crdtDocument.Value, tagsPatch);
+            await crdtApplicator.ApplyPatchAsync(crdtDocument.Value, tagsPatch);
 
             var totalComments = random.Next(MinCommentsPerPost, MaxCommentsPerPost + 1);
             var commentsGenerated = 0;
@@ -100,7 +101,7 @@ public sealed class DataGeneratorService(
                 }
                 
                 var patch = new CrdtPatch(operations);
-                await partitionManager.ApplyPatchAsync(crdtDocument.Value, patch);
+                await crdtApplicator.ApplyPatchAsync(crdtDocument.Value, patch);
 
                 commentsGenerated += currentBatchSize;
                 Console.Write($"\r  - Added {commentsGenerated}/{totalComments} comments.");
