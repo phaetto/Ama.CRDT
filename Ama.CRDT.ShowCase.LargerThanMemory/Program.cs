@@ -1,5 +1,6 @@
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Partitioning.Streams.Extensions;
+using Ama.CRDT.Services.Decorators;
 using Ama.CRDT.ShowCase.LargerThanMemory;
 using Ama.CRDT.ShowCase.LargerThanMemory.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,8 +10,9 @@ var builder = Host.CreateDefaultBuilder(args);
 
 builder.ConfigureServices((context, services) =>
 {
-    services.AddCrdt();
-    services.AddCrdtStreamPartitioning<FileSystemPartitionStreamProvider>();
+    services.AddCrdt()
+        .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>()
+        .AddCrdtStreamPartitioning<FileSystemPartitionStreamProvider>();
 
     services.AddScoped<DataGeneratorService>();
     services.AddScoped<UiService>();

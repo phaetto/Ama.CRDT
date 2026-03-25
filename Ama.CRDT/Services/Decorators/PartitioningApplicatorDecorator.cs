@@ -18,26 +18,27 @@ using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
-/// A decorator that intercepts a patch application, slices it by partitionable properties,
-/// loads the necessary partitions via the storage service, delegates the actual CRDT math
-/// to the inner applicator, and saves the modified partitions back to storage.
+/// A global decorator that intercepts patch applications. If the document type is partitionable,
+/// it slices the patch, loads necessary partitions via the storage service, delegates CRDT math 
+/// to the inner applicator, and saves modifications. Otherwise, it simply passes through.
 /// </summary>
-/// <typeparam name="T">The type of the data model managed by the CRDT.</typeparam>
-public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator where T : class, new()
+public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
 {
     private const int MaxPartitionDataSize = 8192;
     private const int MinPartitionDataSize = MaxPartitionDataSize / 4;
 
-    private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, (PropertyInfo Property, IPartitionableCrdtStrategy Strategy)>> partitionablePropertyCache = new();
-    private static readonly ConcurrentDictionary<Type, PropertyInfo> partitionKeyCache = new();
-    private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, string>> propertyNamePathCache = new();
-
     private readonly IAsyncCrdtApplicator _innerApplicator;
     private readonly IPartitionStorageService _storageService;
+    private readonly ICrdtStrategyProvider _strategyProvider;
     private readonly PartitionManagerCrdtMetrics _metrics;
 
-    private readonly PropertyInfo _partitionKeyProperty;
-    private readonly IReadOnlyDictionary<string, (PropertyInfo Property, IPartitionableCrdtStrategy Strategy)> _partitionableProperties;
+    private record TypePartitionInfo(
+        PropertyInfo? PartitionKeyProperty,
+        IReadOnlyDictionary<string, (PropertyInfo Property, IPartitionableCrdtStrategy Strategy)> PartitionableProperties,
+        IReadOnlyDictionary<string, string> PropertyNameToPathCache
+    );
+
+    private static readonly ConcurrentDictionary<Type, TypePartitionInfo> typeCache = new();
 
     public PartitioningApplicatorDecorator(
         IAsyncCrdtApplicator innerApplicator,
@@ -52,26 +53,26 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
 
         _innerApplicator = innerApplicator;
         _storageService = storageService;
+        _strategyProvider = strategyProvider;
         _metrics = metrics;
-
-        _partitionKeyProperty = partitionKeyCache.GetOrAdd(typeof(T), FindPartitionKeyProperty);
-        _partitionableProperties = partitionablePropertyCache.GetOrAdd(typeof(T), _ => FindPartitionablePropertiesAndStrategies(strategyProvider));
-        propertyNamePathCache.GetOrAdd(typeof(T), _ => _partitionableProperties.ToDictionary(kvp => kvp.Value.Property.Name, kvp => kvp.Key));
     }
 
     /// <inheritdoc/>
     public async Task<ApplyPatchResult<TDoc>> ApplyPatchAsync<TDoc>([DisallowNull] CrdtDocument<TDoc> document, CrdtPatch patch, CancellationToken cancellationToken = default) where TDoc : class
     {
-        using var _ = new MetricTimer(_metrics.ApplyPatchDuration);
-        
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(document.Data);
 
-        if (document.Data is not T typedData)
+        var typeInfo = GetTypeInfo(typeof(TDoc));
+
+        // If the document type is not configured for partitioning, simply pass through to the inner applicator.
+        if (typeInfo.PartitionKeyProperty is null || typeInfo.PartitionableProperties.Count == 0)
         {
-            throw new ArgumentException($"Document data must be of type {typeof(T).Name}");
+            return await _innerApplicator.ApplyPatchAsync(document, patch, cancellationToken);
         }
 
+        using var _ = new MetricTimer(_metrics.ApplyPatchDuration);
+        
         var unappliedOperations = new List<UnappliedOperation>();
 
         if (patch.Operations is null || !patch.Operations.Any())
@@ -79,14 +80,14 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
             return new ApplyPatchResult<TDoc>(document.Data, unappliedOperations);
         }
 
-        var logicalKey = GetLogicalKey(typedData);
+        var logicalKey = GetLogicalKey(document.Data, typeInfo.PartitionKeyProperty);
         _metrics.PatchesApplied.Add(1);
 
         var headerPartition = await _storageService.GetHeaderPartitionAsync(logicalKey, cancellationToken)
             ?? throw new InvalidOperationException($"Could not find header partition for logical key '{logicalKey}'.");
-        var headerDoc = await _storageService.LoadHeaderPartitionContentAsync<T>(logicalKey, (HeaderPartition)headerPartition, cancellationToken);
+        var headerDoc = await _storageService.LoadHeaderPartitionContentAsync<TDoc>(logicalKey, (HeaderPartition)headerPartition, cancellationToken);
 
-        var (headerOps, propertyOps) = GroupOperationsByProperty(patch.Operations);
+        var (headerOps, propertyOps) = GroupOperationsByProperty(patch.Operations, typeInfo);
         bool headerModified = headerOps.Count > 0;
 
         if (headerOps.Count > 0)
@@ -97,21 +98,20 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
 
         foreach (var (propertyName, operations) in propertyOps)
         {
-            var propertyPath = ToPropertyPath(propertyName);
-            var (prop, strategy) = _partitionableProperties[propertyPath];
+            var propertyPath = ToPropertyPath(propertyName, typeInfo);
+            var (prop, strategy) = typeInfo.PartitionableProperties[propertyPath];
 
             var opsByPartition = await GroupOperationsByPartitionAsync(logicalKey, propertyName, strategy, prop, operations, cancellationToken);
             
             foreach(var (partition, ops) in opsByPartition)
             {
-                var dataDoc = await _storageService.LoadPartitionContentAsync<T>(logicalKey, propertyName, partition, cancellationToken);
+                var dataDoc = await _storageService.LoadPartitionContentAsync<TDoc>(logicalKey, propertyName, partition, cancellationToken);
 
                 // Temporarily inject global synchronization state into the data partition's metadata 
-                // so the inner CrdtApplicator can perform idempotency checks and advance the global clock.
                 dataDoc.Metadata!.VersionVector = headerDoc.Metadata!.VersionVector;
                 dataDoc.Metadata.SeenExceptions = headerDoc.Metadata.SeenExceptions;
 
-                ApplyPatchResult<T> dataResult;
+                ApplyPatchResult<TDoc> dataResult;
                 using (new MetricTimer(_metrics.ApplicatorApplyPatchDuration))
                 {
                     dataResult = await _innerApplicator.ApplyPatchAsync(dataDoc, new CrdtPatch(ops.AsReadOnly()), cancellationToken);
@@ -128,14 +128,14 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
                 {
                     if (updatedDataPartition.DataLength > MaxPartitionDataSize)
                     {
-                        await SplitPartitionAsync(updatedDataPartition, propertyName, strategy, prop, cancellationToken);
+                        await SplitPartitionAsync<TDoc>(updatedDataPartition, propertyName, strategy, prop, cancellationToken);
                     }
                     else if (updatedDataPartition.DataLength < MinPartitionDataSize)
                     {
                         var partitionCount = await _storageService.GetPropertyPartitionCountAsync(logicalKey, propertyName, cancellationToken);
                         if (partitionCount > 1)
                         {
-                            await MergePartitionIfNeededAsync(updatedDataPartition, propertyName, strategy, prop, cancellationToken);
+                            await MergePartitionIfNeededAsync<TDoc>(updatedDataPartition, propertyName, strategy, prop, cancellationToken);
                         }
                     }
                 }
@@ -149,17 +149,17 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
             await PersistPartitionChangesAsync(logicalKey, headerPartition, headerDoc.Data!, headerDoc.Metadata!, null, cancellationToken);
         }
         
-        return new ApplyPatchResult<TDoc>((headerDoc.Data as TDoc)!, unappliedOperations);
+        return new ApplyPatchResult<TDoc>(headerDoc.Data!, unappliedOperations);
     }
 
-    private (List<CrdtOperation> headerOps, Dictionary<string, List<CrdtOperation>> propertyOps) GroupOperationsByProperty(IEnumerable<CrdtOperation> operations)
+    private (List<CrdtOperation> headerOps, Dictionary<string, List<CrdtOperation>> propertyOps) GroupOperationsByProperty(IEnumerable<CrdtOperation> operations, TypePartitionInfo typeInfo)
     {
         var propertyOps = new Dictionary<string, List<CrdtOperation>>();
         var headerOps = new List<CrdtOperation>();
 
         foreach(var op in operations)
         {
-            var propertyName = GetPropertyNameFromOperation(op);
+            var propertyName = GetPropertyNameFromOperation(op, typeInfo);
             if (propertyName is null)
             {
                 headerOps.Add(op);
@@ -178,7 +178,7 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
         return (headerOps, propertyOps);
     }
     
-    private string? GetPropertyNameFromOperation(CrdtOperation op)
+    private string? GetPropertyNameFromOperation(CrdtOperation op, TypePartitionInfo typeInfo)
     {
         if (string.IsNullOrEmpty(op.JsonPath) || op.JsonPath == "$")
         {
@@ -195,7 +195,7 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
         var propertyName = segments[0];
         var fullPath = $"$.{propertyName}";
 
-        return _partitionableProperties.TryGetValue(fullPath, out var val) ? val.Property.Name : null;
+        return typeInfo.PartitionableProperties.TryGetValue(fullPath, out var val) ? val.Property.Name : null;
     }
 
     private async Task<Dictionary<IPartition, List<CrdtOperation>>> GroupOperationsByPartitionAsync(IComparable logicalKey, string propertyName, IPartitionableCrdtStrategy strategy, PropertyInfo prop, IEnumerable<CrdtOperation> operations, CancellationToken cancellationToken)
@@ -203,7 +203,7 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
         using var _ = new MetricTimer(_metrics.GroupOperationsDuration);
         var opsByPartition = new Dictionary<IPartition, List<CrdtOperation>>();
         
-        var propertyPath = ToPropertyPath(propertyName);
+        var propertyPath = ToPropertyPath(propertyName, GetTypeInfo(prop.DeclaringType!));
 
         foreach (var op in operations)
         {
@@ -225,14 +225,12 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
         return opsByPartition;
     }
 
-    private async Task SplitPartitionAsync(IPartition partitionToSplit, string propertyName, IPartitionableCrdtStrategy strategy, PropertyInfo prop, CancellationToken cancellationToken)
+    private async Task SplitPartitionAsync<TDoc>(DataPartition dataPartitionToSplit, string propertyName, IPartitionableCrdtStrategy strategy, PropertyInfo prop, CancellationToken cancellationToken) where TDoc : class
     {
         using var _ = new MetricTimer(_metrics.SplitPartitionDuration);
-        if (partitionToSplit is not DataPartition dataPartitionToSplit) return;
-        
         _metrics.PartitionsSplit.Add(1);
 
-        var crdtDoc = await _storageService.LoadPartitionContentAsync<T>(dataPartitionToSplit.StartKey.LogicalKey, propertyName, dataPartitionToSplit, cancellationToken);
+        var crdtDoc = await _storageService.LoadPartitionContentAsync<TDoc>(dataPartitionToSplit.StartKey.LogicalKey, propertyName, dataPartitionToSplit, cancellationToken);
         
         SplitResult splitResult;
         using (new MetricTimer(_metrics.StrategySplitDuration))
@@ -247,8 +245,8 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
         var p1Empty = new DataPartition(p1Key, p2Key, 0, 0, 0, 0);
         var p2Empty = new DataPartition(p2Key, dataPartitionToSplit.EndKey, 0, 0, 0, 0);
 
-        var p1 = await _storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p1Empty, (T)splitResult.Partition1.Data, splitResult.Partition1.Metadata, cancellationToken);
-        var p2 = await _storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p2Empty, (T)splitResult.Partition2.Data, splitResult.Partition2.Metadata, cancellationToken);
+        var p1 = await _storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p1Empty, (TDoc)splitResult.Partition1.Data, splitResult.Partition1.Metadata, cancellationToken);
+        var p2 = await _storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p2Empty, (TDoc)splitResult.Partition2.Data, splitResult.Partition2.Metadata, cancellationToken);
 
         await _storageService.DeletePropertyPartitionAsync(propertyName, dataPartitionToSplit, cancellationToken);
         await _storageService.InsertPropertyPartitionAsync(propertyName, p1, cancellationToken);
@@ -256,20 +254,18 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
 
         if (p1 is DataPartition dp1 && dp1.DataLength > MaxPartitionDataSize && dp1.DataLength < dataPartitionToSplit.DataLength)
         {
-            await SplitPartitionAsync(dp1, propertyName, strategy, prop, cancellationToken);
+            await SplitPartitionAsync<TDoc>(dp1, propertyName, strategy, prop, cancellationToken);
         }
 
         if (p2 is DataPartition dp2 && dp2.DataLength > MaxPartitionDataSize && dp2.DataLength < dataPartitionToSplit.DataLength)
         {
-            await SplitPartitionAsync(dp2, propertyName, strategy, prop, cancellationToken);
+            await SplitPartitionAsync<TDoc>(dp2, propertyName, strategy, prop, cancellationToken);
         }
     }
 
-    private async Task MergePartitionIfNeededAsync(IPartition partitionToMerge, string propertyName, IPartitionableCrdtStrategy strategy, PropertyInfo prop, CancellationToken cancellationToken)
+    private async Task MergePartitionIfNeededAsync<TDoc>(DataPartition dataPartitionToMerge, string propertyName, IPartitionableCrdtStrategy strategy, PropertyInfo prop, CancellationToken cancellationToken) where TDoc : class
     {
         using var _ = new MetricTimer(_metrics.MergePartitionDuration);
-        if (partitionToMerge is not DataPartition dataPartitionToMerge) return;
-
         var logicalKey = dataPartitionToMerge.StartKey.LogicalKey;
         
         DataPartition targetPartition;
@@ -295,12 +291,12 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
             sourcePartition = dataPartitionToMerge;
         }
         
-        var targetDocument = await _storageService.LoadPartitionContentAsync<T>(logicalKey, propertyName, targetPartition, cancellationToken);
-        var sourceDocument = await _storageService.LoadPartitionContentAsync<T>(logicalKey, propertyName, sourcePartition, cancellationToken);
+        var targetDocument = await _storageService.LoadPartitionContentAsync<TDoc>(logicalKey, propertyName, targetPartition, cancellationToken);
+        var sourceDocument = await _storageService.LoadPartitionContentAsync<TDoc>(logicalKey, propertyName, sourcePartition, cancellationToken);
         
         var mergedContent = strategy.Merge(targetDocument.Data!, targetDocument.Metadata!, sourceDocument.Data!, sourceDocument.Metadata!, prop);
         var mergedEmpty = new DataPartition(targetPartition.StartKey, sourcePartition.EndKey, 0, 0, 0, 0);
-        var mergedPartition = await _storageService.SavePartitionContentAsync(logicalKey, propertyName, mergedEmpty, (T)mergedContent.Data, mergedContent.Metadata, cancellationToken);
+        var mergedPartition = await _storageService.SavePartitionContentAsync(logicalKey, propertyName, mergedEmpty, (TDoc)mergedContent.Data, mergedContent.Metadata, cancellationToken);
 
         await _storageService.DeletePropertyPartitionAsync(propertyName, targetPartition, cancellationToken);
         await _storageService.DeletePropertyPartitionAsync(propertyName, sourcePartition, cancellationToken);
@@ -309,7 +305,7 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
         _metrics.PartitionsMerged.Add(1);
     }
 
-    private async Task<IPartition> PersistPartitionChangesAsync(IComparable logicalKey, IPartition partitionToUpdate, T newData, CrdtMetadata newMeta, string? propertyName, CancellationToken cancellationToken)
+    private async Task<IPartition> PersistPartitionChangesAsync<TDoc>(IComparable logicalKey, IPartition partitionToUpdate, TDoc newData, CrdtMetadata newMeta, string? propertyName, CancellationToken cancellationToken) where TDoc : class
     {
         using var _ = new MetricTimer(_metrics.PersistChangesDuration);
 
@@ -332,59 +328,48 @@ public sealed class PartitioningApplicatorDecorator<T> : IAsyncCrdtApplicator wh
         }
     }
 
-    private IComparable GetLogicalKey(T obj)
+    private IComparable GetLogicalKey<TDoc>(TDoc obj, PropertyInfo partitionKeyProperty)
     {
-        var logicalKeyObj = PocoPathHelper.GetAccessor(_partitionKeyProperty).Getter(obj) ?? throw new InvalidOperationException($"Partition key property '{_partitionKeyProperty.Name}' cannot be null.");
+        var logicalKeyObj = PocoPathHelper.GetAccessor(partitionKeyProperty).Getter(obj) 
+            ?? throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' cannot be null.");
         if (logicalKeyObj is not IComparable logicalKey)
         {
-            throw new InvalidOperationException($"Partition key property '{_partitionKeyProperty.Name}' must implement IComparable.");
+            throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' must implement IComparable.");
         }
         return logicalKey;
     }
-    
-    private static IReadOnlyDictionary<string, (PropertyInfo Property, IPartitionableCrdtStrategy Strategy)> FindPartitionablePropertiesAndStrategies(ICrdtStrategyProvider strategyProvider)
+
+    private TypePartitionInfo GetTypeInfo(Type type)
     {
-        var partitionableProperties = typeof(T).GetProperties()
-            .Select(p => new
+        return typeCache.GetOrAdd(type, t =>
+        {
+            var attr = t.GetCustomAttribute<PartitionKeyAttribute>();
+            PropertyInfo? partitionKey = null;
+            if (attr != null)
             {
-                Property = p,
-                Strategy = strategyProvider.GetStrategy(p),
-                Path = $"$.{char.ToLowerInvariant(p.Name[0])}{p.Name[1..]}"
-            })
-            .Where(x => x.Strategy is IPartitionableCrdtStrategy)
-            .ToDictionary(x => x.Path, x => (x.Property, (IPartitionableCrdtStrategy)x.Strategy!));
+                partitionKey = t.GetProperty(attr.PropertyName, BindingFlags.Public | BindingFlags.Instance);
+            }
 
-        if (partitionableProperties.Count == 0)
-        {
-            throw new NotSupportedException($"The type '{typeof(T).Name}' does not have any properties with a CRDT strategy that supports partitioning (implements {nameof(IPartitionableCrdtStrategy)}).");
-        }
-        
-        return partitionableProperties;
-    }
-    
-    private static PropertyInfo FindPartitionKeyProperty(Type type)
-    {
-        var attr = type.GetCustomAttribute<PartitionKeyAttribute>();
-        if (attr is null)
-        {
-            throw new NotSupportedException($"The type '{type.Name}' must be decorated with the [{nameof(PartitionKeyAttribute)}] to be used with partitioning.");
-        }
-        
-        var property = type.GetProperty(attr.PropertyName, BindingFlags.Public | BindingFlags.Instance);
-        if (property is null)
-        {
-            throw new NotSupportedException($"The partition key property '{attr.PropertyName}' specified on type '{type.Name}' was not found.");
-        }
-        
-        return property;
+            var properties = t.GetProperties()
+                .Select(p => new { Property = p, Strategy = _strategyProvider.GetStrategy(p) })
+                .Where(x => x.Strategy is IPartitionableCrdtStrategy)
+                .ToDictionary(
+                    x => $"$.{char.ToLowerInvariant(x.Property.Name[0])}{x.Property.Name[1..]}",
+                    x => (x.Property, (IPartitionableCrdtStrategy)x.Strategy!)
+                );
+
+            var nameToPath = properties.ToDictionary(kvp => kvp.Value.Property.Name, kvp => kvp.Key);
+
+            return new TypePartitionInfo(partitionKey, properties, nameToPath);
+        });
     }
 
-    private string ToPropertyPath(string propertyName)
+    private string ToPropertyPath(string propertyName, TypePartitionInfo typeInfo)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
-        if (!propertyNamePathCache.TryGetValue(typeof(T), out var nameToPathMap) || !nameToPathMap.TryGetValue(propertyName, out var propertyPath))
+        if (!typeInfo.PropertyNameToPathCache.TryGetValue(propertyName, out var propertyPath))
         {
-            throw new ArgumentException($"Property '{propertyName}' is not a partitionable property on type '{typeof(T).Name}'.", nameof(propertyName));
+            throw new ArgumentException($"Property '{propertyName}' is not a partitionable property.", nameof(propertyName));
         }
         return propertyPath;
     }

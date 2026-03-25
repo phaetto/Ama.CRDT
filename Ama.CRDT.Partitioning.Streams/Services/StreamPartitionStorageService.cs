@@ -67,7 +67,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     #region Data Stream Operations (IPartitionStorageService core)
 
     /// <inheritdoc/>
-    public async Task<CrdtDocument<TData>> LoadPartitionContentAsync<TData>(IComparable logicalKey, string propertyName, IPartition partition, CancellationToken cancellationToken = default) where TData : class, new()
+    public async Task<CrdtDocument<TData>> LoadPartitionContentAsync<TData>(IComparable logicalKey, string propertyName, IPartition partition, CancellationToken cancellationToken = default) where TData : class
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
@@ -82,7 +82,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     }
 
     /// <inheritdoc/>
-    public async Task<CrdtDocument<TData>> LoadHeaderPartitionContentAsync<TData>(IComparable logicalKey, HeaderPartition partition, CancellationToken cancellationToken = default) where TData : class, new()
+    public async Task<CrdtDocument<TData>> LoadHeaderPartitionContentAsync<TData>(IComparable logicalKey, HeaderPartition partition, CancellationToken cancellationToken = default) where TData : class
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
 
@@ -94,7 +94,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         return await LoadContentInternalAsync<TData>(partition, dataStream, cancellationToken);
     }
 
-    private async Task<CrdtDocument<TData>> LoadContentInternalAsync<TData>(IPartition partition, Stream dataStream, CancellationToken cancellationToken) where TData : class, new()
+    private async Task<CrdtDocument<TData>> LoadContentInternalAsync<TData>(IPartition partition, Stream dataStream, CancellationToken cancellationToken) where TData : class
     {
         var docBuffer = new byte[partition.DataLength];
         dataStream.Seek(partition.DataOffset, SeekOrigin.Begin);
@@ -112,7 +112,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     }
 
     /// <inheritdoc/>
-    public async Task<IPartition> SavePartitionContentAsync<TData>(IComparable logicalKey, string propertyName, IPartition partitionToUpdate, TData data, CrdtMetadata metadata, CancellationToken cancellationToken = default) where TData : class, new()
+    public async Task<IPartition> SavePartitionContentAsync<TData>(IComparable logicalKey, string propertyName, IPartition partitionToUpdate, TData data, CrdtMetadata metadata, CancellationToken cancellationToken = default) where TData : class
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
@@ -148,7 +148,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     }
 
     /// <inheritdoc/>
-    public async Task<HeaderPartition> SaveHeaderPartitionContentAsync<TData>(IComparable logicalKey, HeaderPartition partitionToUpdate, TData data, CrdtMetadata metadata, CancellationToken cancellationToken = default) where TData : class, new()
+    public async Task<HeaderPartition> SaveHeaderPartitionContentAsync<TData>(IComparable logicalKey, HeaderPartition partitionToUpdate, TData data, CrdtMetadata metadata, CancellationToken cancellationToken = default) where TData : class
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
         ArgumentNullException.ThrowIfNull(data);

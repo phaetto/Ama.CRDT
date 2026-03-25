@@ -202,12 +202,11 @@
 | `$/Ama.CRDT/Attributes/Strategies/Semantic/StateBasedAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/IntentBuilderExtensions.cs` | Provides strongly-typed extension methods for `IIntentBuilder<TProperty>` to fluent build CRDT operations without boxing. |
-| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup. Removes stream-specific registration logic to support decoupling into its own package. |
+| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides DI extension methods for easy library setup, including applicator pipeline decoration `AddCrdtApplicatorDecorator`. Removes stream-specific registration logic. |
 | `$/Ama.CRDT/Models/ApplyPatchResult.cs` | Data structure containing the result of a patch application, including the document and any unapplied operations. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
 | `$/Ama.CRDT/Models/BidirectionalSyncRequirements.cs` | A data structure containing the synchronization requirements for two replicas to fully catch up with each other. |
 | `$/Ama.CRDT/Models/CrdtDocument.cs` | No description provided. |
-| `$/Ama.CRDT/Models/CrdtDocumentOfT.cs` | A generic version of `CrdtDocument` that holds a POCO and its associated `CrdtMetadata`, unifying the API for patch generation and application. |
 | `$/Ama.CRDT/Models/CrdtGraph.cs` | A data model for a graph structure with vertices and edges, suitable for CRDT management. |
 | `$/Ama.CRDT/Models/CrdtMetadata.cs` | Encapsulates CRDT state for various strategies using dedicated, serializable record types instead of tuples. For serialization, use the recommended options from `CrdtJsonContext`. |
 | `$/Ama.CRDT/Models/CrdtOperation.cs` | Represents a single CRDT operation. For serialization, use the recommended options from `CrdtJsonContext`. |
@@ -284,11 +283,13 @@
 | `$/Ama.CRDT/Models/VotePayload.cs` | A data structure for the payload of a vote operation, containing the voter's identifier and their chosen option. |
 | `$/Ama.CRDT/PublicAPI.Shipped.txt` | Tracks the shipped public API surface of the library to detect breaking changes. This file should be updated when new APIs are officially released in a stable version. |
 | `$/Ama.CRDT/PublicAPI.Unshipped.txt` | Tracks new public APIs that have not yet been included in a stable release. This file must be empty before a manual, stable publish. Build will fail if new public APIs are added without being added to this file first. |
+| `$/Ama.CRDT/Services/Adapters/AsyncCrdtApplicatorAdapter.cs` | No description provided. |
+| `$/Ama.CRDT/Services/AsyncCrdtApplicatorAdapter.cs` | An adapter that bridges the synchronous `ICrdtApplicator` to the `IAsyncCrdtApplicator` interface, serving as the base inner applicator for decorator chains. |
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | No description provided. |
 | `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implements the `ICrdtMetadataManager` for managing and compacting CRDT metadata. It provides helper methods like Initialize(document) to create a metadata object from a POCO by reflecting on its properties, and Reset(metadata, document) to clear and re-initialize an existing metadata object. The initialization logic correctly traverses nested objects and collections. |
 | `$/Ama.CRDT/Services/CrdtPatcher.cs` | Implements the logic to recursively compare two objects and generate a CRDT patch by delegating to property-specific strategies. It now also supports generating operations based on explicit intents via expression trees. |
 | `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext` holding the unique replica ID. |
-| `$/Ama.CRDT/Services/Decorators/PartitioningApplicatorDecorator.cs` | A decorator implementation of `IAsyncCrdtApplicator` that intercepts patch application, handles loading and saving partitions using `IPartitionStorageService`, and delegates the actual CRDT operations to an inner applicator. |
+| `$/Ama.CRDT/Services/Decorators/PartitioningApplicatorDecorator.cs` | A global decorator implementation of `IAsyncCrdtApplicator` that intercepts patch application, skips non-partitionable types, handles partition streaming, and delegates internal CRDT operations to the inner applicator. |
 | `$/Ama.CRDT/Services/DifferentiateObjectContext.cs` | Defines the context object for the `ICrdtPatcher.DifferentiateObject` method, encapsulating all necessary parameters. |
 | `$/Ama.CRDT/Services/Helpers/PocoPathHelper.cs` | A utility class that centralizes reflection-based logic for CRDT strategies. It handles parsing JSON paths, resolving them against POCOs, getting and setting property values, and retrieving type information for collections and dictionaries. |
 | `$/Ama.CRDT/Services/IAsyncCrdtApplicator.cs` | Defines the asynchronous contract for a service that applies a CRDT patch to a document. |
