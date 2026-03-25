@@ -11,8 +11,10 @@ var builder = Host.CreateDefaultBuilder(args);
 builder.ConfigureServices((context, services) =>
 {
     services.AddCrdt()
-        .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>()
         .AddCrdtJournaling<FileSystemOperationJournal>()
+        .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()
+        .AddCrdtPatcherDecorator<JournalingPatcherDecorator>()
+        .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>()
         .AddCrdtStreamPartitioning<FileSystemPartitionStreamProvider>();
 
     services.AddScoped<DataGeneratorService>();
