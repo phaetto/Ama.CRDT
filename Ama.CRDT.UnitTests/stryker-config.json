@@ -22,11 +22,14 @@
       "break": 50
     },
     "ignore-mutations": [
-      "initializer", "string", "block"
+      "initializer",
+      "string",
+      "block"
     ],
     "ignore-methods": [
       "ArgumentNullException.ThrowIfNull",
       "ArgumentException.ThrowIfNullOrWhiteSpace"
-    ]
+    ],
+    "coverage-analysis": "off"
   }
 }

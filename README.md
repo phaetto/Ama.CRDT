@@ -1,16 +1,18 @@
 # Ama.CRDT
 
-A .NET library for achieving eventual consistency in distributed systems using Conflict-free Replicated Data Types (CRDTs). It provides a simple, high-level API to compare, patch, and merge POCOs (Plain Old C# Objects), with merge behavior controlled by attributes.
+A .NET library for achieving eventual consistency in distributed systems using Conflict-free Replicated Data Types (CRDTs). It provides a simple, high-level API to compare, patch, and merge POCOs (Plain Old C# Objects), with merge behavior controlled by attributes or a fluent configuration API.
 
 ## Features
 
-- **Attribute-Driven Strategies**: Define conflict resolution logic directly on your POCO properties using a rich set of attributes like `[CrdtLwwStrategy]`, `[CrdtCounterStrategy]`, `[CrdtOrSetStrategy]`, and `[CrdtStateMachineStrategy]`.
-- **POCO-First**: Work directly with your C# objects. The library handles recursive diffing and patching seamlessly.
+- **Attribute & Fluent Strategies**: Define conflict resolution logic on your properties using attributes like `[CrdtLwwStrategy]`, `[CrdtOrSetStrategy]`, or use the **Fluent API** to keep your POCOs pure.
+- **Strategy Decorators**: Stack complex distributed rules on top of base strategies. Chain decorators like `[CrdtEpochBound]` (for Clear-Wins/Reset semantics) and `[CrdtApprovalQuorum]` natively in the pipeline.
+- **POCO-First & Composable**: Work directly with your C# objects. Mix and match strategies at any depth. The library handles recursive diffing, patching, and missing object auto-instantiation seamlessly.
 - **Explicit Intent Builder**: Create precise patches by declaring specific intents (e.g., Increment, Add, Move) instead of diffing entire document states.
-- **Clean Data/Metadata Separation**: Keeps your data models pure by storing CRDT state (timestamps, version vectors) in a parallel `CrdtMetadata` object.
-- **Extensible**: Easily create and register your own custom CRDT strategies, element comparers, and timestamp providers.
-- **Multi-Replica Support**: Designed for scenarios with multiple concurrent writers, using a factory pattern to create services for each unique replica.
-- **Dependency Injection Friendly**: All services are designed to be registered and resolved through a standard DI container.
+- **Larger-Than-Memory Partitioning**: Scale your collections beyond RAM. Use the bundled Stream-based B+Tree storage (`Ama.CRDT.Partitioning.Streams`) to automatically split, merge, and stream partitions on demand.
+- **Advanced Synchronization & Journaling**: Built-in Dotted Version Vectors (DVV) and operation journaling (`ICrdtOperationJournal`) to track causal history, sync disconnected replicas, and request missing data accurately.
+- **Clean Data/Metadata Separation**: Keeps your data models pure by storing CRDT state (timestamps, tombstones, version vectors) in a parallel, highly-compactible `CrdtMetadata` object.
+- **Mathematically Proven**: Validated using generative property testing (FsCheck) to guarantee strict convergence, commutativity, and idempotence across all strategies.
+- **Developer Experience**: Ships with built-in **Roslyn Analyzers** to catch configuration errors at compile-time, and integrates natively with `System.Diagnostics.Metrics` for robust observability.
 
 ## Installation
 
@@ -20,6 +22,11 @@ You can install Ama.CRDT via the .NET CLI or the NuGet Package Manager in Visual
 
 ```bash
 dotnet add package Ama.CRDT
+```
+
+If you need the stream-based larger-than-memory partitioning, also install:
+```bash
+dotnet add package Ama.CRDT.Partitioning.Streams
 ```
 
 ### NuGet Package Manager
@@ -34,30 +41,43 @@ Install-Package Ama.CRDT
 
 ### 1. Setup
 
-In your `Program.cs` or service configuration file, register the CRDT services.
+In your `Program.cs` or service configuration file, register the CRDT services. You can configure strategies fluently here, or use attributes directly on your models.
 
 ```csharp
 using Ama.CRDT.Extensions;
+using Ama.CRDT.Services.Strategies;
+using Ama.CRDT.Services.Strategies.Decorators;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add CRDT services to the DI container.
-builder.Services.AddCrdt();
+builder.Services.AddCrdt(options => 
+{
+    // Optionally configure strategies fluently instead of using attributes
+    options.Entity<UserStats>()
+           .Property(x => x.LoginCount).HasStrategy<CounterStrategy>()
+           .Property(x => x.Badges).HasStrategy<OrSetStrategy>()
+           .Property(x => x.LastSeenLocation).HasStrategy<LwwStrategy>()
+                                             .HasDecorator<EpochBoundStrategy>(); // Add decorators!
+});
 
 var app = builder.Build();
 ```
 
 ### 2. Define Your Model
 
-Decorate your POCO properties with the desired CRDT strategy attributes.
+Work with plain C# objects. If you didn't use the Fluent API above, you can decorate properties directly.
 
 ```csharp
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Decorators;
 
 public class UserStats
 {
     // LwwStrategy is the default. The value with the latest timestamp wins.
+    // The EpochBound decorator allows this property to be explicitly "reset" across replicas.
     [CrdtLwwStrategy]
+    [CrdtEpochBound]
     public string LastSeenLocation { get; set; } = string.Empty;
 
     // Changes to this value are additive and safely mergeable.
@@ -72,7 +92,7 @@ public class UserStats
 
 ### 3. Basic Usage
 
-The core workflow involves creating a patch from a change and applying it to another replica.
+The core workflow involves creating a patch from a change (or via explicit intents) and applying it to another replica.
 
 ```csharp
 using Ama.CRDT.Models;
@@ -119,9 +139,10 @@ var applyResult = serverApplicator.ApplyPatch(serverDocument, patch);
 
 Explore the detailed features of the library by checking out the advanced topics in the `/docs` folder:
 
-- [**CRDT Strategies Reference**](docs/strategies-reference.md) - A full list of supported CRDT strategies like LWW, Sets, Counters, Graphs, and Maps.
+- [**CRDT Strategies Reference**](docs/strategies-reference.md) - A full list of supported CRDT strategies like LWW, Counters, Sets, Maps, and Graphs.
 - [**Explicit Intents Builder**](docs/explicit-intents.md) - Learn how to build precise, strongly-typed operations directly instead of generating diffs.
 - [**Multi-Replica Synchronization & Serialization**](docs/multi-replica-and-serialization.md) - Learn how to set up multi-node environments and safely serialize patches over the wire.
+- [**Operation Journaling**](docs/journaling.md) - Learn how to automatically record operations to an external datastore for advanced offline-first synchronization.
 - [**Managing Metadata Size**](docs/metadata-management.md) - Strategies for compacting state and pruning tombstones efficiently.
 - [**Larger-Than-Memory Partitioning**](docs/partitioning.md) - Handle massive datasets efficiently by breaking documents into on-demand streams.
 - [**Extensibility & Customization**](docs/extensibility.md) - Build your own CRDT strategies, timestamps, and comparers.
