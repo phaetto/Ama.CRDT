@@ -1,13 +1,18 @@
+using System;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization.Converters;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Adapters;
+using Ama.CRDT.Services.Decorators;
+using Ama.CRDT.Services.Journaling;
 using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Services.Strategies.Decorators;
+using Ama.CRDT.Services.Versioning;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -83,6 +88,9 @@ public static class ServiceCollectionExtensions
 
         services.TryAddScoped(CreateValidatedInstance<CrdtPatcher>);
         services.TryAddScoped<ICrdtPatcher>(sp => sp.GetRequiredService<CrdtPatcher>());
+
+        // Base asynchronous pipeline executor. Translates IAsyncCrdtPatcher to ICrdtPatcher.
+        services.TryAddScoped<IAsyncCrdtPatcher>(sp => new AsyncCrdtPatcherAdapter(sp.GetRequiredService<ICrdtPatcher>()));
         
         services.TryAddScoped(CreateValidatedInstance<CrdtStrategyProvider>);
         services.TryAddScoped<ICrdtStrategyProvider>(sp => sp.GetRequiredService<CrdtStrategyProvider>());
@@ -184,41 +192,46 @@ public static class ServiceCollectionExtensions
     /// <code>
     /// <![CDATA[
     /// builder.Services.AddCrdt()
-    ///                 .AddCrdtApplicatorDecorator&lt;PartitioningApplicatorDecorator&gt;();
+    ///                 .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>();
     /// ]]>
     /// </code>
     /// </example>
     public static IServiceCollection AddCrdtApplicatorDecorator<TDecorator>(this IServiceCollection services)
         where TDecorator : class, IAsyncCrdtApplicator
     {
-        var existingDescriptor = services.LastOrDefault(d => d.ServiceType == typeof(IAsyncCrdtApplicator));
-        if (existingDescriptor == null)
-        {
-            throw new InvalidOperationException($"Cannot decorate {nameof(IAsyncCrdtApplicator)} because it has not been registered. Ensure AddCrdt() is called first.");
-        }
+        return services.DecorateService<IAsyncCrdtApplicator, TDecorator>();
+    }
 
-        services.Remove(existingDescriptor);
+    /// <summary>
+    /// Registers a custom journaling service and decorates the CRDT applicator and patcher 
+    /// so that successfully applied and explicitly generated operations are automatically appended to the journal.
+    /// Ensure <c>AddCrdt()</c> is called prior to invoking this method.
+    /// </summary>
+    /// <typeparam name="TJournal">The custom implementation of <see cref="ICrdtOperationJournal"/>.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/> to add services to.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// builder.Services.AddCrdt();
+    /// builder.Services.AddCrdtJournaling<MyDatabaseJournal>();
+    /// ]]>
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddCrdtJournaling<TJournal>(this IServiceCollection services)
+        where TJournal : class, ICrdtOperationJournal
+    {
+        // Register the user-provided journal implementation
+        services.TryAddScoped<ICrdtOperationJournal, TJournal>();
 
-        services.Add(new ServiceDescriptor(typeof(IAsyncCrdtApplicator), sp =>
-        {
-            // Resolve the inner instance correctly handling factories or instance types
-            IAsyncCrdtApplicator inner;
-            if (existingDescriptor.ImplementationInstance != null)
-            {
-                inner = (IAsyncCrdtApplicator)existingDescriptor.ImplementationInstance;
-            }
-            else if (existingDescriptor.ImplementationFactory != null)
-            {
-                inner = (IAsyncCrdtApplicator)existingDescriptor.ImplementationFactory(sp);
-            }
-            else
-            {
-                inner = (IAsyncCrdtApplicator)ActivatorUtilities.GetServiceOrCreateInstance(sp, existingDescriptor.ImplementationType!);
-            }
+        // Register the journal manager to be used for finding missing operations
+        services.TryAddScoped<IJournalManager, JournalManager>();
 
-            // Create the decorator, injecting the inner applicator
-            return ActivatorUtilities.CreateInstance<TDecorator>(sp, inner);
-        }, existingDescriptor.Lifetime));
+        // Decorate the Applicator pipeline
+        services.DecorateService<IAsyncCrdtApplicator, JournalingApplicatorDecorator>();
+
+        // Decorate the Patcher pipeline
+        services.DecorateService<IAsyncCrdtPatcher, JournalingPatcherDecorator>();
 
         return services;
     }
@@ -359,6 +372,42 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtSerializableType<T>(this IServiceCollection services, string discriminator)
     {
         PolymorphicObjectJsonConverter.Register(discriminator, typeof(T));
+        return services;
+    }
+
+    private static IServiceCollection DecorateService<TInterface, TDecorator>(this IServiceCollection services)
+        where TInterface : class
+        where TDecorator : class, TInterface
+    {
+        var existingDescriptor = services.LastOrDefault(d => d.ServiceType == typeof(TInterface));
+        if (existingDescriptor == null)
+        {
+            throw new InvalidOperationException($"Cannot decorate {typeof(TInterface).Name} because it has not been registered. Ensure AddCrdt() is called first.");
+        }
+
+        services.Remove(existingDescriptor);
+
+        services.Add(new ServiceDescriptor(typeof(TInterface), sp =>
+        {
+            // Resolve the inner instance correctly handling factories or instance types
+            TInterface inner;
+            if (existingDescriptor.ImplementationInstance != null)
+            {
+                inner = (TInterface)existingDescriptor.ImplementationInstance;
+            }
+            else if (existingDescriptor.ImplementationFactory != null)
+            {
+                inner = (TInterface)existingDescriptor.ImplementationFactory(sp);
+            }
+            else
+            {
+                inner = (TInterface)ActivatorUtilities.GetServiceOrCreateInstance(sp, existingDescriptor.ImplementationType!);
+            }
+
+            // Create the decorator, injecting the inner service
+            return ActivatorUtilities.CreateInstance<TDecorator>(sp, inner);
+        }, existingDescriptor.Lifetime));
+
         return services;
     }
 
