@@ -11,7 +11,6 @@ var builder = Host.CreateDefaultBuilder(args);
 builder.ConfigureServices((context, services) =>
 {
     services.AddCrdt()
-        .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()
         .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>()
         .AddCrdtJournaling<FileSystemOperationJournal>()
         .AddCrdtStreamPartitioning<FileSystemPartitionStreamProvider>();
@@ -19,9 +18,6 @@ builder.ConfigureServices((context, services) =>
     services.AddScoped<DataGeneratorService>();
     services.AddScoped<UiService>();
     
-    // Add SyncService to simulate network propagation
-    services.AddSingleton<SyncService>();
-
     services.AddSingleton<SimulationRunner>();
 });
 

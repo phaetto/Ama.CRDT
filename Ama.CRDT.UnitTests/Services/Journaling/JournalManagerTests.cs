@@ -99,10 +99,10 @@ public sealed class JournalManagerTests
             }
         };
 
-        var ops = new List<CrdtOperation>
+        var ops = new List<JournaledOperation>
         {
-            new CrdtOperation { GlobalClock = 6 },
-            new CrdtOperation { GlobalClock = 7 }
+            new JournaledOperation("doc1", new CrdtOperation { GlobalClock = 6 }),
+            new JournaledOperation("doc1", new CrdtOperation { GlobalClock = 7 })
         };
 
         journalMock.Setup(j => j.GetOperationsByRangeAsync("origin1", 5L, 10L, It.IsAny<CancellationToken>()))
@@ -113,8 +113,8 @@ public sealed class JournalManagerTests
 
         // Assert
         result.Count.ShouldBe(2);
-        result.ShouldContain(o => o.GlobalClock == 6);
-        result.ShouldContain(o => o.GlobalClock == 7);
+        result.ShouldContain(o => o.Operation.GlobalClock == 6);
+        result.ShouldContain(o => o.Operation.GlobalClock == 7);
     }
 
     [Fact]
@@ -138,12 +138,12 @@ public sealed class JournalManagerTests
             }
         };
 
-        var ops = new List<CrdtOperation>
+        var ops = new List<JournaledOperation>
         {
-            new CrdtOperation { GlobalClock = 6 },
-            new CrdtOperation { GlobalClock = 7 },
-            new CrdtOperation { GlobalClock = 8 },
-            new CrdtOperation { GlobalClock = 9 }
+            new JournaledOperation("doc1", new CrdtOperation { GlobalClock = 6 }),
+            new JournaledOperation("doc1", new CrdtOperation { GlobalClock = 7 }),
+            new JournaledOperation("doc1", new CrdtOperation { GlobalClock = 8 }),
+            new JournaledOperation("doc1", new CrdtOperation { GlobalClock = 9 })
         };
 
         journalMock.Setup(j => j.GetOperationsByRangeAsync("origin1", 5L, 10L, It.IsAny<CancellationToken>()))
@@ -154,10 +154,10 @@ public sealed class JournalManagerTests
 
         // Assert
         result.Count.ShouldBe(2);
-        result.ShouldContain(o => o.GlobalClock == 6);
-        result.ShouldContain(o => o.GlobalClock == 8);
-        result.ShouldNotContain(o => o.GlobalClock == 7);
-        result.ShouldNotContain(o => o.GlobalClock == 9);
+        result.ShouldContain(o => o.Operation.GlobalClock == 6);
+        result.ShouldContain(o => o.Operation.GlobalClock == 8);
+        result.ShouldNotContain(o => o.Operation.GlobalClock == 7);
+        result.ShouldNotContain(o => o.Operation.GlobalClock == 9);
     }
 
     [Fact]
@@ -182,10 +182,10 @@ public sealed class JournalManagerTests
             }
         };
 
-        var ops = new List<CrdtOperation>
+        var ops = new List<JournaledOperation>
         {
-            new CrdtOperation { GlobalClock = 12 },
-            new CrdtOperation { GlobalClock = 15 }
+            new JournaledOperation("doc1", new CrdtOperation { GlobalClock = 12 }),
+            new JournaledOperation("doc1", new CrdtOperation { GlobalClock = 15 })
         };
 
         journalMock.Setup(j => j.GetOperationsByDotsAsync("origin2", missingDots, It.IsAny<CancellationToken>()))
@@ -196,8 +196,8 @@ public sealed class JournalManagerTests
 
         // Assert
         result.Count.ShouldBe(2);
-        result.ShouldContain(o => o.GlobalClock == 12);
-        result.ShouldContain(o => o.GlobalClock == 15);
+        result.ShouldContain(o => o.Operation.GlobalClock == 12);
+        result.ShouldContain(o => o.Operation.GlobalClock == 15);
     }
 
     [Fact]
@@ -223,16 +223,16 @@ public sealed class JournalManagerTests
             }
         };
 
-        var rangeOps = new List<CrdtOperation>
+        var rangeOps = new List<JournaledOperation>
         {
-            new CrdtOperation { GlobalClock = 6 },
-            new CrdtOperation { GlobalClock = 7 },
-            new CrdtOperation { GlobalClock = 8 }
+            new JournaledOperation("doc1", new CrdtOperation { GlobalClock = 6 }),
+            new JournaledOperation("doc1", new CrdtOperation { GlobalClock = 7 }),
+            new JournaledOperation("doc1", new CrdtOperation { GlobalClock = 8 })
         };
 
-        var dotOps = new List<CrdtOperation>
+        var dotOps = new List<JournaledOperation>
         {
-            new CrdtOperation { GlobalClock = 11 }
+            new JournaledOperation("doc1", new CrdtOperation { GlobalClock = 11 })
         };
 
         journalMock.Setup(j => j.GetOperationsByRangeAsync("origin3", 5L, 8L, It.IsAny<CancellationToken>()))
@@ -246,10 +246,10 @@ public sealed class JournalManagerTests
 
         // Assert
         result.Count.ShouldBe(3);
-        result.ShouldContain(o => o.GlobalClock == 6);
-        result.ShouldContain(o => o.GlobalClock == 8);
-        result.ShouldContain(o => o.GlobalClock == 11);
-        result.ShouldNotContain(o => o.GlobalClock == 7);
+        result.ShouldContain(o => o.Operation.GlobalClock == 6);
+        result.ShouldContain(o => o.Operation.GlobalClock == 8);
+        result.ShouldContain(o => o.Operation.GlobalClock == 11);
+        result.ShouldNotContain(o => o.Operation.GlobalClock == 7);
     }
 
     private static async Task<List<T>> ToListAsync<T>(IAsyncEnumerable<T> asyncEnumerable)

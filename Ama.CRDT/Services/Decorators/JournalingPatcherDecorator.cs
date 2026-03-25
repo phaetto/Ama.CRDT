@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Journaling;
 
 /// <summary>
@@ -40,7 +41,8 @@ public sealed class JournalingPatcherDecorator : IAsyncCrdtPatcher
         
         if (patch.Operations is { Count: > 0 })
         {
-            await this.journal.AppendAsync(patch.Operations, cancellationToken).ConfigureAwait(false);
+            var docId = PocoPathHelper.GetDocumentId(from.Data);
+            await this.journal.AppendAsync(docId, patch.Operations, cancellationToken).ConfigureAwait(false);
         }
         
         return patch;
@@ -53,7 +55,8 @@ public sealed class JournalingPatcherDecorator : IAsyncCrdtPatcher
         
         if (patch.Operations is { Count: > 0 })
         {
-            await this.journal.AppendAsync(patch.Operations, cancellationToken).ConfigureAwait(false);
+            var docId = PocoPathHelper.GetDocumentId(from.Data);
+            await this.journal.AppendAsync(docId, patch.Operations, cancellationToken).ConfigureAwait(false);
         }
         
         return patch;
@@ -63,21 +66,24 @@ public sealed class JournalingPatcherDecorator : IAsyncCrdtPatcher
     public async Task<IIntentBuilder<TProp>> BuildOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, CancellationToken cancellationToken = default) where T : class
     {
         var builder = await this.innerPatcher.BuildOperationAsync(document, propertyExpression, cancellationToken).ConfigureAwait(false);
-        return new JournalingIntentBuilderDecorator<TProp>(builder, this.journal);
+        var docId = PocoPathHelper.GetDocumentId(document.Data);
+        return new JournalingIntentBuilderDecorator<TProp>(builder, this.journal, docId);
     }
 
     /// <inheritdoc/>
     public async Task<IIntentBuilder<TProp>> BuildOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, [DisallowNull] ICrdtTimestamp timestamp, CancellationToken cancellationToken = default) where T : class
     {
         var builder = await this.innerPatcher.BuildOperationAsync(document, propertyExpression, timestamp, cancellationToken).ConfigureAwait(false);
-        return new JournalingIntentBuilderDecorator<TProp>(builder, this.journal);
+        var docId = PocoPathHelper.GetDocumentId(document.Data);
+        return new JournalingIntentBuilderDecorator<TProp>(builder, this.journal, docId);
     }
 
     /// <inheritdoc/>
     public async Task<CrdtOperation> GenerateOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CancellationToken cancellationToken = default) where T : class
     {
         var operation = await this.innerPatcher.GenerateOperationAsync(document, propertyExpression, intent, cancellationToken).ConfigureAwait(false);
-        await this.journal.AppendAsync(new[] { operation }, cancellationToken).ConfigureAwait(false);
+        var docId = PocoPathHelper.GetDocumentId(document.Data);
+        await this.journal.AppendAsync(docId, new[] { operation }, cancellationToken).ConfigureAwait(false);
         return operation;
     }
 
@@ -85,7 +91,8 @@ public sealed class JournalingPatcherDecorator : IAsyncCrdtPatcher
     public async Task<CrdtOperation> GenerateOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, [DisallowNull] ICrdtTimestamp timestamp, CancellationToken cancellationToken = default) where T : class
     {
         var operation = await this.innerPatcher.GenerateOperationAsync(document, propertyExpression, intent, timestamp, cancellationToken).ConfigureAwait(false);
-        await this.journal.AppendAsync(new[] { operation }, cancellationToken).ConfigureAwait(false);
+        var docId = PocoPathHelper.GetDocumentId(document.Data);
+        await this.journal.AppendAsync(docId, new[] { operation }, cancellationToken).ConfigureAwait(false);
         return operation;
     }
 }

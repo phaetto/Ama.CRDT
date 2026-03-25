@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Ama.CRDT.Models;
+using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Journaling;
 
 /// <summary>
@@ -47,7 +48,8 @@ public sealed class JournalingApplicatorDecorator : IAsyncCrdtApplicator
 
             if (appliedOperations.Count > 0)
             {
-                await this.journal.AppendAsync(appliedOperations, cancellationToken).ConfigureAwait(false);
+                var docId = PocoPathHelper.GetDocumentId(document.Data);
+                await this.journal.AppendAsync(docId, appliedOperations, cancellationToken).ConfigureAwait(false);
             }
         }
 

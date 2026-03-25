@@ -16,7 +16,7 @@ using Ama.CRDT.Services.Journaling;
 public sealed class FileSystemOperationJournal : ICrdtOperationJournal
 {
     private readonly string journalFilePath;
-    private readonly Dictionary<string, List<CrdtOperation>> operationsByOrigin = new();
+    private readonly Dictionary<string, List<JournaledOperation>> operationsByOrigin = new();
     private readonly object lockObj = new();
 
     public FileSystemOperationJournal(ReplicaContext replicaContext)
@@ -38,16 +38,16 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         try
         {
             var json = File.ReadAllText(journalFilePath);
-            var ops = JsonSerializer.Deserialize<List<CrdtOperation>>(json, CrdtJsonContext.DefaultOptions) ?? new List<CrdtOperation>();
+            var ops = JsonSerializer.Deserialize<List<JournaledOperation>>(json, CrdtJsonContext.DefaultOptions) ?? new List<JournaledOperation>();
             
-            foreach (var op in ops)
+            foreach (var jOp in ops)
             {
-                if (!operationsByOrigin.TryGetValue(op.ReplicaId, out var originOps))
+                if (!operationsByOrigin.TryGetValue(jOp.Operation.ReplicaId, out var originOps))
                 {
-                    originOps = new List<CrdtOperation>();
-                    operationsByOrigin[op.ReplicaId] = originOps;
+                    originOps = new List<JournaledOperation>();
+                    operationsByOrigin[jOp.Operation.ReplicaId] = originOps;
                 }
-                originOps.Add(op);
+                originOps.Add(jOp);
             }
         }
         catch
@@ -63,7 +63,7 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         File.WriteAllText(journalFilePath, json);
     }
 
-    public void Append(IReadOnlyList<CrdtOperation> operations)
+    public void Append(string documentId, IReadOnlyList<CrdtOperation> operations)
     {
         lock (lockObj)
         {
@@ -72,14 +72,14 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
             {
                 if (!operationsByOrigin.TryGetValue(op.ReplicaId, out var originOps))
                 {
-                    originOps = new List<CrdtOperation>();
+                    originOps = new List<JournaledOperation>();
                     operationsByOrigin[op.ReplicaId] = originOps;
                 }
                 
                 // Prevent duplicates
-                if (!originOps.Any(o => o.GlobalClock == op.GlobalClock))
+                if (!originOps.Any(o => o.Operation.GlobalClock == op.GlobalClock))
                 {
-                    originOps.Add(op);
+                    originOps.Add(new JournaledOperation(documentId, op));
                     added = true;
                 }
             }
@@ -91,17 +91,17 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         }
     }
 
-    public Task AppendAsync(IReadOnlyList<CrdtOperation> operations, CancellationToken cancellationToken = default)
+    public Task AppendAsync(string documentId, IReadOnlyList<CrdtOperation> operations, CancellationToken cancellationToken = default)
     {
-        Append(operations);
+        Append(documentId, operations);
         return Task.CompletedTask;
     }
 
-    public async IAsyncEnumerable<CrdtOperation> GetOperationsByRangeAsync(string originReplicaId, long minGlobalClock, long maxGlobalClock, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<JournaledOperation> GetOperationsByRangeAsync(string originReplicaId, long minGlobalClock, long maxGlobalClock, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await Task.Yield(); // Suppress CS1998
 
-        List<CrdtOperation> matchingOps;
+        List<JournaledOperation> matchingOps;
         lock (lockObj)
         {
             if (!operationsByOrigin.TryGetValue(originReplicaId, out var originOps))
@@ -109,7 +109,7 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
                 yield break;
             }
 
-            matchingOps = originOps.Where(o => o.GlobalClock > minGlobalClock && o.GlobalClock <= maxGlobalClock).ToList();
+            matchingOps = originOps.Where(o => o.Operation.GlobalClock > minGlobalClock && o.Operation.GlobalClock <= maxGlobalClock).ToList();
         }
 
         foreach (var op in matchingOps)
@@ -119,12 +119,12 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         }
     }
 
-    public async IAsyncEnumerable<CrdtOperation> GetOperationsByDotsAsync(string originReplicaId, IEnumerable<long> globalClocks, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<JournaledOperation> GetOperationsByDotsAsync(string originReplicaId, IEnumerable<long> globalClocks, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await Task.Yield(); // Suppress CS1998
 
         var clockSet = new HashSet<long>(globalClocks);
-        List<CrdtOperation> matchingOps;
+        List<JournaledOperation> matchingOps;
 
         lock (lockObj)
         {
@@ -133,7 +133,7 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
                 yield break;
             }
 
-            matchingOps = originOps.Where(o => clockSet.Contains(o.GlobalClock)).ToList();
+            matchingOps = originOps.Where(o => clockSet.Contains(o.Operation.GlobalClock)).ToList();
         }
 
         foreach (var op in matchingOps)
