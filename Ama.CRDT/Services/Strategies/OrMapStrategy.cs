@@ -166,6 +166,53 @@ public sealed class OrMapStrategy(
 
         return CrdtOperationStatus.Success;
     }
+
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        if (context.Document is null) return;
+
+        var (parent, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath);
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict)
+        {
+            return;
+        }
+
+        // 1. Prune LWW metadata for values of removed keys
+        var prefix = context.PropertyPath + "['";
+        var lwwKeysToRemove = new List<string>();
+
+        foreach (var kvp in context.Metadata.Lww)
+        {
+            if (kvp.Key.StartsWith(prefix, StringComparison.Ordinal) && kvp.Key.EndsWith("']", StringComparison.Ordinal))
+            {
+                bool exists = false;
+                var extractedKeyStr = kvp.Key.Substring(prefix.Length, kvp.Key.Length - prefix.Length - 2).Replace("\\'", "'");
+                
+                foreach (var dictKey in dict.Keys)
+                {
+                    if (dictKey?.ToString() == extractedKeyStr)
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (!exists && context.Policy.IsSafeToCompact(kvp.Value))
+                {
+                    lwwKeysToRemove.Add(kvp.Key);
+                }
+            }
+        }
+
+        foreach (var key in lwwKeysToRemove)
+        {
+            context.Metadata.Lww.Remove(key);
+        }
+
+        // 2. OR-Map keys state (OrSetState) uses Guid tags rather than ICrdtTimestamps, 
+        // so its tombstones cannot be safely evaluated against the ICompactionPolicy.
+    }
     
     /// <inheritdoc/>
     public IComparable? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath)

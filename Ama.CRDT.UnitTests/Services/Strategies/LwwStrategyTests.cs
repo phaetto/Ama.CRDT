@@ -4,6 +4,7 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
@@ -234,6 +235,25 @@ public sealed class LwwStrategyTests : IDisposable
         // Assert
         // The highest timestamp wins (op2 with value 30)
         finalValues.ShouldAllBe(v => v == 30);
+    }
+
+    [Fact]
+    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTombstones()
+    {
+        // Arrange
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        var metadata = new CrdtMetadata();
+        metadata.Lww["$.Value"] = timestampProvider.Create(200L);
+
+        var context = new CompactionContext(metadata, mockPolicy.Object, "Value", "$.Value", new TestModel());
+
+        // Act
+        strategyA.Compact(context);
+
+        // Assert
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        metadata.Lww["$.Value"].ShouldBe(timestampProvider.Create(200L));
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

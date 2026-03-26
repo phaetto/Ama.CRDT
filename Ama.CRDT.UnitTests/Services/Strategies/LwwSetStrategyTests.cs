@@ -5,9 +5,11 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -350,6 +352,60 @@ public sealed class LwwSetStrategyTests : IDisposable
         result.Metadata.LwwSets["$.tags"].Adds.Keys.Count.ShouldBeGreaterThanOrEqualTo(4);
     }
     
+    [Fact]
+    public void Compact_ShouldRemoveDeadItems_WhenPolicyAllows()
+    {
+        // Arrange
+        var doc = new TestModel();
+        var meta = new CrdtMetadata();
+        
+        var safeTs1 = timestampProvider.Create(10);
+        var safeTs2 = timestampProvider.Create(20);
+        var unsafeTs = timestampProvider.Create(30);
+        
+        var adds = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default);
+        var removes = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default);
+
+        // Item 1: Alive (Add > Remove => Add wins)
+        adds["item1"] = safeTs2;
+        removes["item1"] = safeTs1;
+
+        // Item 2: Dead, Safe (Remove >= Add)
+        adds["item2"] = safeTs1;
+        removes["item2"] = safeTs2;
+
+        // Item 3: Dead, Unsafe Remove
+        adds["item3"] = safeTs1;
+        removes["item3"] = unsafeTs;
+
+        // Item 4: Dead, Safe (No Add)
+        removes["item4"] = safeTs1;
+
+        meta.LwwSets["$.tags"] = new LwwSetState(adds, removes);
+
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs1)).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs2)).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(unsafeTs)).Returns(false);
+
+        var context = new CompactionContext(meta, mockPolicy.Object, "Tags", "$.tags", doc);
+
+        // Act
+        strategyA.Compact(context);
+
+        // Assert
+        meta.LwwSets["$.tags"].Adds.ShouldContainKey("item1");
+        meta.LwwSets["$.tags"].Removes.ShouldContainKey("item1");
+
+        meta.LwwSets["$.tags"].Adds.ShouldNotContainKey("item2");
+        meta.LwwSets["$.tags"].Removes.ShouldNotContainKey("item2");
+
+        meta.LwwSets["$.tags"].Adds.ShouldContainKey("item3");
+        meta.LwwSets["$.tags"].Removes.ShouldContainKey("item3");
+
+        meta.LwwSets["$.tags"].Removes.ShouldNotContainKey("item4");
+    }
+
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {
         if (length == 1) return list.Select(t => new T[] { t });

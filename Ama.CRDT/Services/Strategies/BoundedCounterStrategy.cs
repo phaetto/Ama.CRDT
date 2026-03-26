@@ -118,4 +118,11 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
 
         return CrdtOperationStatus.Success;
     }
+
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // BoundedCounterStrategy does not maintain tombstones, only the current unbounded value.
+        // Therefore, there is no metadata to prune.
+    }
 }

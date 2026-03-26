@@ -303,6 +303,13 @@ public sealed class LseqStrategy(
     }
 
     /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // LseqStrategy uses absolute positions and hard-deletes elements immediately.
+        // There are no tombstones kept in metadata, so compaction is a no-op.
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
         return null;

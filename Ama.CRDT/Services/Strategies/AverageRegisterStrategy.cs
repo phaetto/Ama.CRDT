@@ -89,6 +89,13 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
         return CrdtOperationStatus.Success;
     }
 
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // AverageRegisterStrategy does not maintain tombstones, only active replica contributions.
+        // Therefore, there is no metadata to prune safely.
+    }
+
     private static void RecalculateAndApplyAverage(object root, string jsonPath, IDictionary<string, AverageRegisterValue> contributions)
     {
         if (contributions.Count == 0)

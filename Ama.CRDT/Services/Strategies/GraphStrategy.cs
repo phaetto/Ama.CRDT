@@ -83,4 +83,10 @@ public sealed class GraphStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 
         return CrdtOperationStatus.Success;
     }
+
+    public void Compact(CompactionContext context)
+    {
+        // GraphStrategy is a grow-only implementation and does not track tombstones or use metadata.
+        // Therefore, there is no state to prune.
+    }
 }

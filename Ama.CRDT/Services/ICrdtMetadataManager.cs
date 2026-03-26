@@ -1,6 +1,7 @@
 namespace Ama.CRDT.Services;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using System.Diagnostics.CodeAnalysis;
 
@@ -128,72 +129,22 @@ public interface ICrdtMetadataManager
     void Reset<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
 
     /// <summary>
-    /// Removes LWW tombstones from the metadata that are older than the specified threshold.
-    /// This helps in managing metadata growth by garbage-collecting outdated entries. It is primarily beneficial for strategies that rely on LWW logic, such as `LwwStrategy` and `FixedSizeArrayStrategy`.
+    /// Compacts the metadata and tombstones for the entire document based on the provided compaction policy.
+    /// It traverses the document structure and delegates to each property's CRDT strategy, and also compacts global state like SeenExceptions.
     /// </summary>
-    /// <param name="metadata">The metadata object to prune.</param>
-    /// <param name="threshold">The timestamp threshold. Any LWW entry older than this will be removed.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="threshold"/> is null.</exception>
+    /// <typeparam name="T">The type of the document.</typeparam>
+    /// <param name="document">The CRDT document to compact.</param>
+    /// <param name="policy">The policy determining what is safe to delete.</param>
+    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/> or <paramref name="policy"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
-    /// var threshold = new EpochTimestamp(DateTimeOffset.UtcNow.AddDays(-7).ToUnixTimeMilliseconds());
-    /// metadataManager.PruneLwwTombstones(metadata, threshold);
+    /// var policy = new TimeBasedCompactionPolicy(TimeSpan.FromDays(7));
+    /// metadataManager.Compact(myDoc, policy);
     /// ]]>
     /// </code>
     /// </example>
-    void PruneLwwTombstones([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold);
-
-    /// <summary>
-    /// Removes LWW-Set and Priority Queue tombstones from the metadata that are older than the specified threshold.
-    /// An element is permanently removed (pruned from both adds and removes) if its remove timestamp is older than the threshold and it definitively wins over the add timestamp.
-    /// </summary>
-    /// <param name="metadata">The metadata object to prune.</param>
-    /// <param name="threshold">The timestamp threshold. Any resolved LWW-Set tombstone older than this will be removed.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="threshold"/> is null.</exception>
-    /// <example>
-    /// <code>
-    /// <![CDATA[
-    /// var threshold = new EpochTimestamp(DateTimeOffset.UtcNow.AddDays(-30).ToUnixTimeMilliseconds());
-    /// metadataManager.PruneLwwSetTombstones(metadata, threshold);
-    /// ]]>
-    /// </code>
-    /// </example>
-    void PruneLwwSetTombstones([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold);
-
-    /// <summary>
-    /// Prunes resolved Observed-Remove (OR) Set, Map, and Replicated Tree tombstones.
-    /// An element is fully pruned if its recorded 'Removes' tags completely cover its 'Adds' tags. 
-    /// This safely garbage collects data for elements that are fully deleted without needing a time threshold.
-    /// </summary>
-    /// <param name="metadata">The metadata object to prune.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
-    /// <example>
-    /// <code>
-    /// <![CDATA[
-    /// // Automatically cleans up OR-Set elements that have been fully removed.
-    /// metadataManager.PruneOrSetTombstones(metadata);
-    /// ]]>
-    /// </code>
-    /// </example>
-    void PruneOrSetTombstones([DisallowNull] CrdtMetadata metadata);
-
-    /// <summary>
-    /// Removes out-of-order seen operations from the metadata that are older than the specified threshold.
-    /// This prevents unbounded growth of the exceptions set if a replica permanently drops out.
-    /// </summary>
-    /// <param name="metadata">The metadata object to prune.</param>
-    /// <param name="threshold">The timestamp threshold. Any exception older than this will be removed.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> or <paramref name="threshold"/> is null.</exception>
-    /// <example>
-    /// <code>
-    /// <![CDATA[
-    /// var threshold = new EpochTimestamp(DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeMilliseconds());
-    /// metadataManager.PruneSeenExceptions(metadata, threshold);
-    /// ]]>
-    /// </code>
-    /// </example>
-    void PruneSeenExceptions([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold);
+    void Compact<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] ICompactionPolicy policy) where T : class;
     
     /// <summary>
     /// Advances the version vector for the replica that generated the operation, pruning any covered exceptions.

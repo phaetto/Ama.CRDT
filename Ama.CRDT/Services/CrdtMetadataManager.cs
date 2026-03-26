@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Services.GarbageCollection;
 
 /// <inheritdoc/>
 public sealed class CrdtMetadataManager(
@@ -122,56 +123,22 @@ public sealed class CrdtMetadataManager(
     }
 
     /// <inheritdoc/>
-    public void PruneLwwTombstones([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold)
+    public void Compact<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] ICompactionPolicy policy) where T : class
     {
-        ArgumentNullException.ThrowIfNull(metadata);
-        ArgumentNullException.ThrowIfNull(threshold);
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(document.Metadata);
+        ArgumentNullException.ThrowIfNull(document.Data);
+        ArgumentNullException.ThrowIfNull(policy);
 
-        var keysToRemove = metadata.Lww
-            .Where(kvp => kvp.Value.CompareTo(threshold) < 0)
-            .Select(kvp => kvp.Key)
-            .ToList();
+        CompactRecursive(document.Metadata, document.Data, "$", policy, document.Data);
 
-        foreach (var key in keysToRemove)
-        {
-            metadata.Lww.Remove(key);
-        }
-    }
-
-    /// <inheritdoc/>
-    public void PruneLwwSetTombstones([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold)
-    {
-        ArgumentNullException.ThrowIfNull(metadata);
-        ArgumentNullException.ThrowIfNull(threshold);
-
-        PruneLwwSetStateMap(metadata.LwwSets, threshold);
-        PruneLwwSetStateMap(metadata.PriorityQueues, threshold);
-        PruneLwwSetStateMap(metadata.SortedSets, threshold);
-    }
-
-    /// <inheritdoc/>
-    public void PruneOrSetTombstones([DisallowNull] CrdtMetadata metadata)
-    {
-        ArgumentNullException.ThrowIfNull(metadata);
-
-        PruneOrSetStateMap(metadata.OrSets);
-        PruneOrSetStateMap(metadata.OrMaps);
-        PruneOrSetStateMap(metadata.ReplicatedTrees);
-    }
-
-    /// <inheritdoc/>
-    public void PruneSeenExceptions([DisallowNull] CrdtMetadata metadata, [DisallowNull] ICrdtTimestamp threshold)
-    {
-        ArgumentNullException.ThrowIfNull(metadata);
-        ArgumentNullException.ThrowIfNull(threshold);
-
-        var exceptionsToRemove = metadata.SeenExceptions
-            .Where(op => op.Timestamp.CompareTo(threshold) < 0)
+        var exceptionsToRemove = document.Metadata.SeenExceptions
+            .Where(op => policy.IsSafeToCompact(op.Timestamp))
             .ToList();
 
         foreach (var ex in exceptionsToRemove)
         {
-            metadata.SeenExceptions.Remove(ex);
+            document.Metadata.SeenExceptions.Remove(ex);
         }
     }
 
@@ -299,6 +266,72 @@ public sealed class CrdtMetadataManager(
             if (propertyValue is IEnumerable and not string || propertyType.IsClass && propertyType != typeof(string))
             {
                 PopulateMetadataRecursive(metadata, propertyValue, propertyPath, timestamp, root);
+            }
+        }
+    }
+    
+    private void CompactRecursive(CrdtMetadata metadata, object obj, string path, ICompactionPolicy policy, object root)
+    {
+        if (obj is null)
+        {
+            return;
+        }
+
+        if (obj is IDictionary dictionary)
+        {
+            foreach (DictionaryEntry entry in dictionary)
+            {
+                if (entry.Value is not null)
+                {
+                    var valueType = entry.Value.GetType();
+                    if (valueType.IsClass && valueType != typeof(string))
+                    {
+                        var keyString = GetVoterKey(entry.Key);
+                        var newPath = $"{path}.['{keyString}']";
+                        CompactRecursive(metadata, entry.Value, newPath, policy, root);
+                    }
+                }
+            }
+            return;
+        }
+
+        if (obj is IEnumerable collection && obj is not string)
+        {
+            var i = 0;
+            foreach (var item in collection)
+            {
+                if (item is not null)
+                {
+                    var itemType = item.GetType();
+                    if (itemType.IsClass && itemType != typeof(string))
+                    {
+                        CompactRecursive(metadata, item, $"{path}[{i}]", policy, root);
+                    }
+                }
+                i++;
+            }
+            return;
+        }
+
+        var properties = PocoPathHelper.GetCachedProperties(obj.GetType());
+        foreach (var cached in properties)
+        {
+            var propertyInfo = cached.Property;
+            var propertyValue = cached.Accessor.Getter(obj);
+            if (propertyValue is null)
+            {
+                continue;
+            }
+
+            var propertyPath = path == "$" ? cached.RootedPath : path + cached.PathSuffix;
+            var strategy = strategyProvider.GetStrategy(propertyInfo);
+
+            strategy.Compact(new CompactionContext(metadata, policy, propertyInfo.Name, propertyPath, root));
+
+            var propertyType = propertyInfo.PropertyType;
+            if (propertyValue is IEnumerable and not string || propertyType.IsClass && propertyType != typeof(string))
+            {
+                CompactRecursive(metadata, propertyValue, propertyPath, policy, root);
             }
         }
     }
@@ -549,46 +582,6 @@ public sealed class CrdtMetadataManager(
             Adds: adds,
             Removes: new Dictionary<object, ISet<Guid>>(idComparer)
         );
-    }
-
-    private static void PruneLwwSetStateMap(IDictionary<string, LwwSetState> map, ICrdtTimestamp threshold)
-    {
-        foreach (var state in map.Values)
-        {
-            var keysToPrune = state.Removes
-                .Where(kvp => kvp.Value.CompareTo(threshold) < 0 && 
-                              (!state.Adds.TryGetValue(kvp.Key, out var addTs) || kvp.Value.CompareTo(addTs) >= 0))
-                .Select(kvp => kvp.Key)
-                .ToList();
-
-            foreach (var key in keysToPrune)
-            {
-                state.Removes.Remove(key);
-                state.Adds.Remove(key);
-            }
-        }
-    }
-
-    private static void PruneOrSetStateMap(IDictionary<string, OrSetState> map)
-    {
-        foreach (var state in map.Values)
-        {
-            var keysToPrune = new List<object>();
-
-            foreach (var (key, removedTags) in state.Removes)
-            {
-                if (state.Adds.TryGetValue(key, out var addedTags) && addedTags.IsSubsetOf(removedTags))
-                {
-                    keysToPrune.Add(key);
-                }
-            }
-
-            foreach (var key in keysToPrune)
-            {
-                state.Adds.Remove(key);
-                state.Removes.Remove(key);
-            }
-        }
     }
 
     private static string GetVoterKey(object voter)

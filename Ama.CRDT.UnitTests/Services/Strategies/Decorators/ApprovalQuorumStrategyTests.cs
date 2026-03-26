@@ -7,12 +7,15 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Services.Strategies.Decorators;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using System;
+using System.Collections.Generic;
 using Xunit;
 
 public sealed class ApprovalQuorumStrategyTests : IDisposable
@@ -214,5 +217,26 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         
         // Should NOT track any approvals because the operation is invalid for this strategy
         doc.Metadata.QuorumApprovals.ShouldNotContainKey("$.configValue");
+    }
+
+    [Fact]
+    public void Compact_ShouldNotModifyDecoratorMetadata_AndDelegateToInnerStrategy()
+    {
+        // Arrange
+        var property = typeof(ProposalDocument).GetProperty(nameof(ProposalDocument.ConfigValue))!;
+        var strategy = strategyProvider.GetStrategy(property);
+        
+        var metadata = new CrdtMetadata();
+        metadata.QuorumApprovals["$.configValue"] = new Dictionary<object, ISet<string>>();
+        
+        var mockPolicy = new Mock<ICompactionPolicy>();
+
+        var context = new CompactionContext(metadata, mockPolicy.Object, "ConfigValue", "$.configValue", new ProposalDocument());
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        metadata.QuorumApprovals.ShouldContainKey("$.configValue");
     }
 }

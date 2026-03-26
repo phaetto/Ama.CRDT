@@ -156,6 +156,20 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         return innerStrategy.ApplyOperation(innerContext);
     }
 
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // For decorators, we must delegate the compaction request down the chain to the inner strategy.
+        if (context.Document is null) return;
+        
+        var (_, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath);
+        if (property is not null)
+        {
+            var innerStrategy = GetInnerStrategy(property);
+            innerStrategy.Compact(context);
+        }
+    }
+
     private static int GetEpochForPath(CrdtMetadata metadata, string fullPath, out string matchingPath)
     {
         int maxEpoch = 0;
