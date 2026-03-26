@@ -113,7 +113,7 @@ public sealed class LwwSetStrategy(
             {
                 adds[listRepresentation[i]] = timestampProvider.Create(0);
             }
-            state = new LwwSetState(adds, new Dictionary<object, ICrdtTimestamp>(comparer));
+            state = new LwwSetState(adds, new Dictionary<object, CausalTimestamp>(comparer));
             metadata.LwwSets[operation.JsonPath] = state;
         }
 
@@ -126,9 +126,9 @@ public sealed class LwwSetStrategy(
         switch (operation.Type)
         {
             case OperationType.Upsert:
-                if (!state.Removes.TryGetValue(itemValue, out var removeTimestamp) || operation.Timestamp.CompareTo(removeTimestamp) > 0)
+                if (!state.Removes.TryGetValue(itemValue, out var removeCausalTs) || operation.Timestamp.CompareTo(removeCausalTs.Timestamp) > 0)
                 {
-                    if (!state.Adds.TryGetValue(itemValue, out var removeAddTimestamp) || operation.Timestamp.CompareTo(removeAddTimestamp) > 0)
+                    if (!state.Adds.TryGetValue(itemValue, out var addTs) || operation.Timestamp.CompareTo(addTs) > 0)
                     {
                         state.Adds[itemValue] = operation.Timestamp;
                     }
@@ -137,9 +137,9 @@ public sealed class LwwSetStrategy(
             case OperationType.Remove:
                 if (!state.Adds.TryGetValue(itemValue, out var addTimestamp) || operation.Timestamp.CompareTo(addTimestamp) > 0)
                 {
-                    if (!state.Removes.TryGetValue(itemValue, out var addRemoveTimestamp) || operation.Timestamp.CompareTo(addRemoveTimestamp) > 0)
+                    if (!state.Removes.TryGetValue(itemValue, out var existingRemove) || operation.Timestamp.CompareTo(existingRemove.Timestamp) > 0)
                     {
-                        state.Removes[itemValue] = operation.Timestamp;
+                        state.Removes[itemValue] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
                     }
                 }
                 break;
@@ -151,7 +151,7 @@ public sealed class LwwSetStrategy(
         bool isLiveNow = false;
         if (state.Adds.TryGetValue(itemValue, out var finalAddTs))
         {
-            if (!state.Removes.TryGetValue(itemValue, out var finalRemoveTs) || finalAddTs.CompareTo(finalRemoveTs) > 0)
+            if (!state.Removes.TryGetValue(itemValue, out var finalRemoveTs) || finalAddTs.CompareTo(finalRemoveTs.Timestamp) > 0)
             {
                 isLiveNow = true;
             }
@@ -185,9 +185,9 @@ public sealed class LwwSetStrategy(
             {
                 // In LWW, the highest timestamp wins. If addTs <= removeTs, the Remove operation is newer (or equal, resolving to remove).
                 // Thus, the item is mathematically dead.
-                if (addTs.CompareTo(removeTs) <= 0)
+                if (addTs.CompareTo(removeTs.Timestamp) <= 0)
                 {
-                    if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs)) && 
+                    if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs.Timestamp, ReplicaId: removeTs.ReplicaId, Version: removeTs.Clock)) && 
                         context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: addTs)))
                     {
                         deadItemsToRemove.Add(item);
@@ -197,7 +197,7 @@ public sealed class LwwSetStrategy(
             else
             {
                 // Item is in Removes but not in Adds, so it's dead.
-                if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs)))
+                if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs.Timestamp, ReplicaId: removeTs.ReplicaId, Version: removeTs.Clock)))
                 {
                     deadItemsToRemove.Add(item);
                 }
@@ -290,8 +290,8 @@ public sealed class LwwSetStrategy(
             else adds2[kvp.Key] = kvp.Value;
         }
 
-        var rems1 = new Dictionary<object, ICrdtTimestamp>(comparer);
-        var rems2 = new Dictionary<object, ICrdtTimestamp>(comparer);
+        var rems1 = new Dictionary<object, CausalTimestamp>(comparer);
+        var rems2 = new Dictionary<object, CausalTimestamp>(comparer);
         foreach (var kvp in state.Removes)
         {
             if (keys1.Contains((IComparable)kvp.Key)) rems1[kvp.Key] = kvp.Value;
@@ -323,7 +323,7 @@ public sealed class LwwSetStrategy(
         var comparer = comparerProvider.GetComparer(elementType);
 
         var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
-        var rems = new Dictionary<object, ICrdtTimestamp>(comparer);
+        var rems = new Dictionary<object, CausalTimestamp>(comparer);
 
         if (meta1.LwwSets.TryGetValue(path, out var state1))
         {
@@ -368,7 +368,7 @@ public sealed class LwwSetStrategy(
         {
             var item = kvp.Key;
             var addTs = kvp.Value;
-            if (!state.Removes.TryGetValue(item, out var rmTs) || addTs.CompareTo(rmTs) > 0)
+            if (!state.Removes.TryGetValue(item, out var rmTs) || addTs.CompareTo(rmTs.Timestamp) > 0)
             {
                 var converted = PocoPathHelper.ConvertValue(item, elementType);
                 if (converted != null) liveItems.Add(converted);

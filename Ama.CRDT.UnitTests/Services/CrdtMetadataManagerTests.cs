@@ -92,12 +92,18 @@ public sealed class CrdtMetadataManagerTests
     {
         // Arrange
         var metadata = new CrdtMetadata();
-        metadata.Lww["$.a"] = timestampProviderMock.Object.Create(100);
+        var causalTs = new CausalTimestamp(timestampProviderMock.Object.Create(100), "replica", 1);
+
+        metadata.Lww["$.a"] = causalTs;
+        metadata.Fww["$.a"] = causalTs;
         metadata.PositionalTrackers["$.b"] = [];
         metadata.AverageRegisters["$.c"] = new Dictionary<string, AverageRegisterValue>();
-        metadata.PriorityQueues["$.d"] = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, ICrdtTimestamp>());
-        metadata.LwwMaps["$.f"] = new Dictionary<object, ICrdtTimestamp>();
-        metadata.OrMaps["$.g"] = new OrSetState(new Dictionary<object, ISet<Guid>>(), new Dictionary<object, ISet<Guid>>());
+        metadata.PriorityQueues["$.d"] = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
+        metadata.LwwSets["$.e"] = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
+        metadata.FwwSets["$.e2"] = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
+        metadata.LwwMaps["$.f"] = new Dictionary<object, CausalTimestamp>();
+        metadata.FwwMaps["$.f2"] = new Dictionary<object, CausalTimestamp>();
+        metadata.OrMaps["$.g"] = new OrSetState(new Dictionary<object, ISet<Guid>>(), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>());
         metadata.CounterMaps["$.h"] = new Dictionary<object, PnCounterState> { { "key", new PnCounterState(1, 1) } };
 
         var doc = new object();
@@ -108,10 +114,14 @@ public sealed class CrdtMetadataManagerTests
         
         // Assert
         metadata.Lww.ShouldBeEmpty();
+        metadata.Fww.ShouldBeEmpty();
         metadata.PositionalTrackers.ShouldBeEmpty();
         metadata.AverageRegisters.ShouldBeEmpty();
         metadata.PriorityQueues.ShouldBeEmpty();
+        metadata.LwwSets.ShouldBeEmpty();
+        metadata.FwwSets.ShouldBeEmpty();
         metadata.LwwMaps.ShouldBeEmpty();
+        metadata.FwwMaps.ShouldBeEmpty();
         metadata.OrMaps.ShouldBeEmpty();
         metadata.CounterMaps.ShouldBeEmpty();
     }
@@ -130,8 +140,19 @@ public sealed class CrdtMetadataManagerTests
         metadata.SeenExceptions.Add(op2);
 
         var policyMock = new Mock<ICompactionPolicy>();
-        policyMock.Setup(p => p.IsSafeToCompact(op1.Timestamp)).Returns(true);
-        policyMock.Setup(p => p.IsSafeToCompact(op2.Timestamp)).Returns(false);
+        
+        // Setup matching based on the new CompactionCandidate structure
+        policyMock.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => 
+            c.Timestamp == op1.Timestamp && 
+            c.ReplicaId == op1.ReplicaId && 
+            c.Version == op1.Clock)))
+            .Returns(true);
+            
+        policyMock.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => 
+            c.Timestamp == op2.Timestamp && 
+            c.ReplicaId == op2.ReplicaId && 
+            c.Version == op2.Clock)))
+            .Returns(false);
 
         strategyProviderMock.Setup(p => p.GetStrategy(It.IsAny<PropertyInfo>())).Returns(Mock.Of<ICrdtStrategy>());
 

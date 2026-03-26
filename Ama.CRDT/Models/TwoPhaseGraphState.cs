@@ -1,13 +1,16 @@
 namespace Ama.CRDT.Models;
 
+using System;
+using System.Collections.Generic;
+
 /// <summary>
 /// Represents the state for a Two-Phase Graph (2P-Graph).
 /// </summary>
 /// <param name="VertexAdds">A set of added vertices.</param>
-/// <param name="VertexTombstones">A set of removed vertices (tombstones).</param>
+/// <param name="VertexTombstones">A dictionary of removed vertices (tombstones) tracking the causality of the removal.</param>
 /// <param name="EdgeAdds">A set of added edges.</param>
-/// <param name="EdgeTombstones">A set of removed edges (tombstones).</param>
-public sealed record TwoPhaseGraphState(ISet<object> VertexAdds, ISet<object> VertexTombstones, ISet<object> EdgeAdds, ISet<object> EdgeTombstones) : IEquatable<TwoPhaseGraphState>
+/// <param name="EdgeTombstones">A dictionary of removed edges (tombstones) tracking the causality of the removal.</param>
+public sealed record TwoPhaseGraphState(ISet<object> VertexAdds, IDictionary<object, CausalTimestamp> VertexTombstones, ISet<object> EdgeAdds, IDictionary<object, CausalTimestamp> EdgeTombstones) : IEquatable<TwoPhaseGraphState>
 {
     private static bool SetEquals(ISet<object> left, ISet<object> right)
     {
@@ -27,6 +30,30 @@ public sealed record TwoPhaseGraphState(ISet<object> VertexAdds, ISet<object> Ve
         return hash;
     }
 
+    private static bool DictionaryEquals<TKey, TValue>(IDictionary<TKey, TValue> left, IDictionary<TKey, TValue> right) where TKey : notnull
+    {
+        if (ReferenceEquals(left, right)) return true;
+        if (left is null || right is null) return false;
+        if (left.Count != right.Count) return false;
+        foreach (var (key, value) in left)
+        {
+            if (!right.TryGetValue(key, out var rightValue) || !EqualityComparer<TValue>.Default.Equals(value, rightValue))
+                return false;
+        }
+        return true;
+    }
+
+    private static int GetDictionaryHashCode<TKey, TValue>(IDictionary<TKey, TValue> dict) where TKey : notnull
+    {
+        if (dict is null) return 0;
+        int hash = 0;
+        foreach (var (key, value) in dict)
+        {
+            hash ^= HashCode.Combine(key, value);
+        }
+        return hash;
+    }
+
     /// <inheritdoc />
     public bool Equals(TwoPhaseGraphState? other)
     {
@@ -34,9 +61,9 @@ public sealed record TwoPhaseGraphState(ISet<object> VertexAdds, ISet<object> Ve
         if (ReferenceEquals(this, other)) return true;
 
         return SetEquals(VertexAdds, other.VertexAdds) &&
-               SetEquals(VertexTombstones, other.VertexTombstones) &&
+               DictionaryEquals(VertexTombstones, other.VertexTombstones) &&
                SetEquals(EdgeAdds, other.EdgeAdds) &&
-               SetEquals(EdgeTombstones, other.EdgeTombstones);
+               DictionaryEquals(EdgeTombstones, other.EdgeTombstones);
     }
 
     /// <inheritdoc />
@@ -44,9 +71,9 @@ public sealed record TwoPhaseGraphState(ISet<object> VertexAdds, ISet<object> Ve
     {
         return HashCode.Combine(
             GetSetHashCode(VertexAdds),
-            GetSetHashCode(VertexTombstones),
+            GetDictionaryHashCode(VertexTombstones),
             GetSetHashCode(EdgeAdds),
-            GetSetHashCode(EdgeTombstones)
+            GetDictionaryHashCode(EdgeTombstones)
         );
     }
 }

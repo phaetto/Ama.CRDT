@@ -46,7 +46,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
 
             var voterMetaPath = $"{path}.['{GetVoterKey(voter)}']";
             
-            if (originalMeta.Lww.TryGetValue(voterMetaPath, out var lastTimestamp) && changeTimestamp.CompareTo(lastTimestamp) <= 0)
+            if (originalMeta.Lww.TryGetValue(voterMetaPath, out var lastTimestamp) && changeTimestamp.CompareTo(lastTimestamp.Timestamp) <= 0)
             {
                 continue;
             }
@@ -90,7 +90,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
         }
         var voterMetaPath = $"{operation.JsonPath}.['{GetVoterKey(payload.Voter)}']";
 
-        if (metadata.Lww.TryGetValue(voterMetaPath, out var currentTimestamp) && operation.Timestamp.CompareTo(currentTimestamp) <= 0)
+        if (metadata.Lww.TryGetValue(voterMetaPath, out var currentTimestamp) && operation.Timestamp.CompareTo(currentTimestamp.Timestamp) <= 0)
         {
             return CrdtOperationStatus.Obsolete;
         }
@@ -122,7 +122,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
         RemoveVoterFromAllOptions(dictionary, voter);
         AddVoterToOption(dictionary, voter, newOption, dictValueType);
         
-        metadata.Lww[voterMetaPath] = operation.Timestamp;
+        metadata.Lww[voterMetaPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
 
         return CrdtOperationStatus.Success;
     }
@@ -161,7 +161,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
             {
                 var voterKey = kvp.Key.Substring(prefix.Length, kvp.Key.Length - prefix.Length - 2);
                 
-                if (!currentVoters.Contains(voterKey) && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: kvp.Value)))
+                if (!currentVoters.Contains(voterKey) && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: kvp.Value.Timestamp, ReplicaId: kvp.Value.ReplicaId, Version: kvp.Value.Clock)))
                 {
                     keysToRemove.Add(kvp.Key);
                 }

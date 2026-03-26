@@ -132,7 +132,7 @@ public sealed class ReplicatedTreeStrategy(
 
         if (!metadata.ReplicatedTrees.TryGetValue(operation.JsonPath, out var state))
         {
-            state = new OrSetState(new Dictionary<object, ISet<Guid>>(idComparer), new Dictionary<object, ISet<Guid>>(idComparer));
+            state = new OrSetState(new Dictionary<object, ISet<Guid>>(idComparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(idComparer));
             metadata.ReplicatedTrees[operation.JsonPath] = state;
         }
         
@@ -161,7 +161,7 @@ public sealed class ReplicatedTreeStrategy(
             bool isLive = true;
             if (state.Removes.TryGetValue(nodeId, out var rmTags) && state.Adds.TryGetValue(nodeId, out var addTags))
             {
-                isLive = addTags.Except(rmTags).Any();
+                isLive = addTags.Except(rmTags.Keys).Any();
             }
 
             if (isLive)
@@ -172,12 +172,13 @@ public sealed class ReplicatedTreeStrategy(
         }
         else if (payload is TreeRemoveNodePayload removePayload)
         {
-            ApplyRemove(state, removePayload.NodeId, removePayload.Tags);
+            var causalTs = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
+            ApplyRemove(state, removePayload.NodeId, removePayload.Tags, causalTs);
 
             bool isLive = false;
             if (state.Adds.TryGetValue(removePayload.NodeId, out var addTags))
             {
-                if (!state.Removes.TryGetValue(removePayload.NodeId, out var rmTags) || addTags.Except(rmTags).Any())
+                if (!state.Removes.TryGetValue(removePayload.NodeId, out var rmTags) || addTags.Except(rmTags.Keys).Any())
                 {
                     isLive = true;
                 }
@@ -214,9 +215,49 @@ public sealed class ReplicatedTreeStrategy(
 
     public void Compact(CompactionContext context)
     {
-        // ReplicatedTreeStrategy uses an OrSetState pattern mapping Nodes via Guids rather than ICrdtTimestamps.
-        // Also it uses LWW for tree movement properties. While tree moves could theoretically be pruned,
-        // pruning the tags requires timestamp tracking we do not currently possess in this structure.
+        if (!context.Metadata.ReplicatedTrees.TryGetValue(context.PropertyPath, out var state)) return;
+
+        var nodesToRemove = new List<object>();
+
+        foreach (var kvp in state.Removes)
+        {
+            var nodeId = kvp.Key;
+            var removeDict = kvp.Value;
+            
+            var tagsToRemove = new List<Guid>();
+
+            foreach (var tagKvp in removeDict)
+            {
+                var tag = tagKvp.Key;
+                var causalTs = tagKvp.Value;
+                
+                var candidate = new CompactionCandidate(causalTs.Timestamp, causalTs.ReplicaId, causalTs.Clock);
+                if (context.Policy.IsSafeToCompact(candidate))
+                {
+                    tagsToRemove.Add(tag);
+                }
+            }
+
+            foreach (var tag in tagsToRemove)
+            {
+                removeDict.Remove(tag);
+                if (state.Adds.TryGetValue(nodeId, out var addTags))
+                {
+                    addTags.Remove(tag);
+                }
+            }
+
+            if (removeDict.Count == 0 && (!state.Adds.TryGetValue(nodeId, out var remainingAdds) || remainingAdds.Count == 0))
+            {
+                nodesToRemove.Add(nodeId);
+            }
+        }
+
+        foreach (var nodeId in nodesToRemove)
+        {
+            state.Removes.Remove(nodeId);
+            state.Adds.Remove(nodeId);
+        }
     }
     
     private static void ApplyAdd(OrSetState state, object nodeId, Guid tag)
@@ -229,16 +270,16 @@ public sealed class ReplicatedTreeStrategy(
         addTags.Add(tag);
     }
 
-    private static void ApplyRemove(OrSetState state, object nodeId, ISet<Guid> tags)
+    private static void ApplyRemove(OrSetState state, object nodeId, ISet<Guid> tags, CausalTimestamp causalTs)
     {
         if (!state.Removes.TryGetValue(nodeId, out var removeTags))
         {
-            removeTags = new HashSet<Guid>();
+            removeTags = new Dictionary<Guid, CausalTimestamp>();
             state.Removes[nodeId] = removeTags;
         }
         foreach (var tag in tags)
         {
-            removeTags.Add(tag);
+            removeTags[tag] = causalTs;
         }
     }
 }

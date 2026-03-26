@@ -366,7 +366,11 @@ public sealed class RgaStrategy(
                     {
                         if (!items[i].IsDeleted)
                         {
-                            items[i] = items[i] with { IsDeleted = true };
+                            items[i] = items[i] with { 
+                                IsDeleted = true, 
+                                DeletedByReplicaId = operation.ReplicaId, 
+                                DeletedAtClock = operation.Clock 
+                            };
                             if (visibleIdx < list.Count)
                             {
                                 list.RemoveAt(visibleIdx);
@@ -432,9 +436,9 @@ public sealed class RgaStrategy(
         {
             var item = candidates.Dequeue();
             
-            // RGA items don't store deletion timestamps, so we approximate with the insertion timestamp.
+            // RGA items don't store insertion timestamps via ICrdtTimestamp natively, so we approximate with the ticks from the identifier.
             long unixMs = (item.Identifier.Timestamp - DateTime.UnixEpoch.Ticks) / TimeSpan.TicksPerMillisecond;
-            if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: new EpochTimestamp(unixMs))))
+            if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: new EpochTimestamp(unixMs), ReplicaId: item.DeletedByReplicaId, Version: item.DeletedAtClock)))
             {
                 itemsToRemove.Add(item.Identifier);
                 
