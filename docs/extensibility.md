@@ -1,6 +1,6 @@
 # Extensibility & Customization
 
-Ama.CRDT is built to be highly extensible. You can add your own conflict resolution strategies, custom equality comparers, and logical timestamp providers.
+Ama.CRDT is built to be highly extensible. You can add your own conflict resolution strategies, custom equality comparers, logical timestamp providers, and garbage collection policies.
 
 ## Extensibility: Creating Custom Strategies
 
@@ -20,6 +20,7 @@ Create a class that implements `ICrdtStrategy`, using the context objects for pa
 
 ```csharp
 using Ama.CRDT.Services.Strategies;
+using Ama.CRDT.Models;
 
 public sealed class MyCustomStrategy : ICrdtStrategy
 {
@@ -29,10 +30,22 @@ public sealed class MyCustomStrategy : ICrdtStrategy
         // var (patcher, operations, path, ...) = context;
     }
 
-    public void ApplyOperation(ApplyOperationContext context)
+    public CrdtOperation GenerateOperation(GenerateOperationContext context)
+    {
+        // Handle explicit intents (e.g., IncrementIntent, AddIntent) here
+        throw new NotSupportedException();
+    }
+
+    public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
         // Add custom application logic here
         // var (root, metadata, operation) = context;
+        return CrdtOperationStatus.Applied;
+    }
+
+    public void Compact(CompactionContext context)
+    {
+        // Add logic to prune tombstones managed by your strategy based on the context.Policy
     }
 }
 ```
@@ -174,4 +187,54 @@ builder.Services.AddCrdtTimestampProvider<VectorClockProvider>();
 builder.Services.AddCrdtTimestampType<VectorClockTimestamp>("vector-clock");
 ```
 
-Now, when a patch with a `VectorClockTimestamp` is serialized, the JSON will include a `"$type": "vector-clock"` discriminator.
+### Custom Garbage Collection Policies
+
+To execute unique compaction rules, you can create a custom `ICompactionPolicy` and an associated `ICompactionPolicyFactory`. The factory ensures a new policy evaluation context is created dynamically right before garbage collection kicks in.
+
+#### 1. Implement Policy & Factory
+
+```csharp
+using Ama.CRDT.Services.GarbageCollection;
+
+public class HighWaterMarkCompactionPolicy : ICompactionPolicy
+{
+    private readonly long minimumSafeVersion;
+
+    public HighWaterMarkCompactionPolicy(long minimumSafeVersion)
+    {
+        this.minimumSafeVersion = minimumSafeVersion;
+    }
+
+    public bool IsSafeToCompact(CompactionCandidate candidate)
+    {
+        // Safe to discard tombstones older than our high watermark
+        return candidate.Version.HasValue && candidate.Version.Value <= minimumSafeVersion;
+    }
+}
+
+public class HighWaterMarkPolicyFactory : ICompactionPolicyFactory
+{
+    private readonly IMyCustomVersionStore store;
+
+    public HighWaterMarkPolicyFactory(IMyCustomVersionStore store)
+    {
+        this.store = store;
+    }
+
+    public ICompactionPolicy CreatePolicy()
+    {
+        // Evaluated precisely at the moment the applicator finishes a patch
+        var watermark = store.GetLowestConfirmedVersion();
+        return new HighWaterMarkCompactionPolicy(watermark);
+    }
+}
+```
+
+#### 2. Register the Policy Factory
+
+```csharp
+// In Program.cs
+builder.Services.AddCrdt()
+    .AddCrdtCompactionPolicyFactory<HighWaterMarkPolicyFactory>()
+    .AddCrdtApplicatorDecorator<CompactingApplicatorDecorator>();
+```
