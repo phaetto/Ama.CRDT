@@ -2,7 +2,6 @@ namespace Ama.CRDT.Services.GarbageCollection;
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Ama.CRDT.Models;
 
 /// <summary>
@@ -20,55 +19,6 @@ public sealed class GlobalMinimumVersionPolicy : ICompactionPolicy
     public GlobalMinimumVersionPolicy(IReadOnlyDictionary<string, long> globalMinimumVersions)
     {
         this.globalMinimumVersions = globalMinimumVersions ?? throw new ArgumentNullException(nameof(globalMinimumVersions));
-    }
-
-    /// <summary>
-    /// Calculates the Global Minimum Version Vector from a collection of replica version vectors.
-    /// </summary>
-    /// <param name="clusterVectors">The version vectors of all active replicas in the cluster.</param>
-    /// <returns>A new <see cref="GlobalMinimumVersionPolicy"/> configured with the calculated global minimums.</returns>
-    public static GlobalMinimumVersionPolicy CreateFromClusterState(IEnumerable<DottedVersionVector> clusterVectors)
-    {
-        ArgumentNullException.ThrowIfNull(clusterVectors);
-
-        var vectors = clusterVectors.ToList();
-        if (vectors.Count == 0)
-        {
-            return new GlobalMinimumVersionPolicy(new Dictionary<string, long>());
-        }
-
-        // Find all unique origin replicas across all vectors
-        var allOrigins = vectors.SelectMany(v => v.Versions.Keys).Distinct().ToList();
-        var gmvv = new Dictionary<string, long>();
-
-        foreach (var origin in allOrigins)
-        {
-            // The global minimum for an origin is the lowest contiguous version seen by ANY replica in the cluster.
-            long minVersion = long.MaxValue;
-            foreach (var vector in vectors)
-            {
-                if (vector.Versions.TryGetValue(origin, out var version))
-                {
-                    if (version < minVersion)
-                    {
-                        minVersion = version;
-                    }
-                }
-                else
-                {
-                    // One replica hasn't seen anything from this origin yet, so GMVV is effectively 0
-                    minVersion = 0;
-                    break;
-                }
-            }
-
-            if (minVersion > 0 && minVersion != long.MaxValue)
-            {
-                gmvv[origin] = minVersion;
-            }
-        }
-
-        return new GlobalMinimumVersionPolicy(gmvv);
     }
 
     /// <inheritdoc/>

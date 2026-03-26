@@ -3,7 +3,7 @@ using Ama.CRDT.Services;
 using Ama.CRDT.Services.Versioning;
 using Shouldly;
 
-namespace Ama.CRDT.UnitTests.Services;
+namespace Ama.CRDT.UnitTests.Services.Versioning;
 
 public class VersionVectorSyncServiceTests
 {
@@ -207,6 +207,37 @@ public class VersionVectorSyncServiceTests
 
         result.IsBehind.ShouldBeFalse();
         result.RequirementsByOrigin.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void CalculateGlobalMinimumVersionVector_NullClusterVectors_ThrowsArgumentNullException()
+    {
+        Should.Throw<ArgumentNullException>(() => _sut.CalculateGlobalMinimumVersionVector(null!));
+    }
+
+    [Fact]
+    public void CalculateGlobalMinimumVersionVector_EmptyClusterVectors_ReturnsEmptyDictionary()
+    {
+        var result = _sut.CalculateGlobalMinimumVersionVector(Enumerable.Empty<DottedVersionVector>());
+        result.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void CalculateGlobalMinimumVersionVector_CalculatesCorrectly()
+    {
+        var vectors = new[]
+        {
+            CreateDvv(new Dictionary<string, long> { { "A", 5 }, { "B", 3 }, { "C", 2 } }, null),
+            CreateDvv(new Dictionary<string, long> { { "A", 4 }, { "B", 4 }, { "C", 2 } }, null),
+            CreateDvv(new Dictionary<string, long> { { "A", 6 }, { "B", 3 } }, null) // Missing C
+        };
+
+        var result = _sut.CalculateGlobalMinimumVersionVector(vectors);
+
+        result.Count.ShouldBe(2); // Only A and B should be present, C is 0 because third replica misses it
+        result["A"].ShouldBe(4);
+        result["B"].ShouldBe(3);
+        result.ContainsKey("C").ShouldBeFalse();
     }
 
     private static DottedVersionVector CreateDvv(IDictionary<string, long> versions, IDictionary<string, ISet<long>>? dots)

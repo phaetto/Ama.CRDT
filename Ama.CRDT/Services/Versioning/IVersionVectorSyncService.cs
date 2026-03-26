@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Services.Versioning;
 
+using System.Collections.Generic;
 using Ama.CRDT.Models;
 
 /// <summary>
@@ -72,4 +73,33 @@ public interface IVersionVectorSyncService
     /// </code>
     /// </example>
     BidirectionalSyncRequirements CalculateBidirectionalRequirements(ReplicaContext replicaA, ReplicaContext replicaB);
+
+    /// <summary>
+    /// Calculates the Global Minimum Version Vector from a collection of replica version vectors.
+    /// </summary>
+    /// <param name="clusterVectors">The version vectors of all active replicas in the cluster.</param>
+    /// <returns>A dictionary mapping each origin replica ID to the lowest contiguous version acknowledged by all replicas in the cluster.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var vector1 = new DottedVersionVector();
+    /// vector1.Add("OriginX", 5);
+    /// 
+    /// var vector2 = new DottedVersionVector();
+    /// vector2.Add("OriginX", 4);
+    /// vector2.Add("OriginY", 2);
+    /// 
+    /// var vector3 = new DottedVersionVector();
+    /// vector3.Add("OriginX", 6);
+    /// 
+    /// var syncService = new VersionVectorSyncService();
+    /// var clusterVectors = new[] { vector1, vector2, vector3 };
+    /// var gmvv = syncService.CalculateGlobalMinimumVersionVector(clusterVectors);
+    /// 
+    /// // gmvv["OriginX"] is 4 (the minimum contiguous version known by ALL replicas)
+    /// // gmvv does not contain "OriginY" (since vector1 and vector3 have not seen it)
+    /// ]]>
+    /// </code>
+    /// </example>
+    IReadOnlyDictionary<string, long> CalculateGlobalMinimumVersionVector(IEnumerable<DottedVersionVector> clusterVectors);
 }

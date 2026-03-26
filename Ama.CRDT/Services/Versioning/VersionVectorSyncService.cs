@@ -2,6 +2,7 @@ namespace Ama.CRDT.Services.Versioning;
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Ama.CRDT.Models;
 
 /// <summary>
@@ -88,5 +89,51 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
             ReplicaANeedsFromB = CalculateRequirement(replicaA, replicaB),
             ReplicaBNeedsFromA = CalculateRequirement(replicaB, replicaA)
         };
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<string, long> CalculateGlobalMinimumVersionVector(IEnumerable<DottedVersionVector> clusterVectors)
+    {
+        ArgumentNullException.ThrowIfNull(clusterVectors);
+
+        var vectors = clusterVectors.ToList();
+        var gmvv = new Dictionary<string, long>();
+
+        if (vectors.Count == 0)
+        {
+            return gmvv;
+        }
+
+        // Find all unique origin replicas across all vectors
+        var allOrigins = vectors.SelectMany(v => v.Versions.Keys).Distinct().ToList();
+
+        foreach (var origin in allOrigins)
+        {
+            // The global minimum for an origin is the lowest contiguous version seen by ANY replica in the cluster.
+            long minVersion = long.MaxValue;
+            foreach (var vector in vectors)
+            {
+                if (vector.Versions.TryGetValue(origin, out var version))
+                {
+                    if (version < minVersion)
+                    {
+                        minVersion = version;
+                    }
+                }
+                else
+                {
+                    // One replica hasn't seen anything from this origin yet, so GMVV is effectively 0
+                    minVersion = 0;
+                    break;
+                }
+            }
+
+            if (minVersion > 0 && minVersion != long.MaxValue)
+            {
+                gmvv[origin] = minVersion;
+            }
+        }
+
+        return gmvv;
     }
 }
