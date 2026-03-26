@@ -5,8 +5,10 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
 using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// Implements the First-Writer-Wins (FWW) strategy for conflict resolution. When a conflict occurs (i.e., multiple replicas modify the same property concurrently),
@@ -120,7 +122,23 @@ public sealed class FwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
     /// <inheritdoc/>
     public void Compact(CompactionContext context)
     {
-        // FwwStrategy maintains a single active timestamp per property and does not maintain tombstones.
-        // Therefore, there is no metadata to prune safely.
+        var keysToRemove = new List<string>();
+
+        foreach (var kvp in context.Metadata.Fww)
+        {
+            if (kvp.Key.StartsWith(context.PropertyPath, StringComparison.Ordinal))
+            {
+                var candidate = new CompactionCandidate(Timestamp: kvp.Value);
+                if (context.Policy.IsSafeToCompact(candidate))
+                {
+                    keysToRemove.Add(kvp.Key);
+                }
+            }
+        }
+
+        foreach (var key in keysToRemove)
+        {
+            context.Metadata.Fww.Remove(key);
+        }
     }
 }

@@ -179,7 +179,7 @@ public sealed class ArrayLcsStrategy(
     public void Compact(CompactionContext context)
     {
         // ArrayLcsStrategy uses absolute positions and hard-deletes elements immediately.
-        // There are no tombstones kept in metadata, so compaction is a no-op.
+        // There are no tombstones kept in metadata, so compaction is a no-op as per guidelines.
     }
 
     /// <inheritdoc/>

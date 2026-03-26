@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
@@ -186,7 +187,8 @@ public sealed class FwwSetStrategy(
                 // and thus wins, meaning the item is mathematically dead.
                 if (addTs.CompareTo(removeTs) > 0)
                 {
-                    if (context.Policy.IsSafeToCompact(removeTs) && context.Policy.IsSafeToCompact(addTs))
+                    if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs)) && 
+                        context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: addTs)))
                     {
                         deadItemsToRemove.Add(item);
                     }
@@ -195,7 +197,7 @@ public sealed class FwwSetStrategy(
             else
             {
                 // Item is in Removes but not in Adds, so it's dead.
-                if (context.Policy.IsSafeToCompact(removeTs))
+                if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs)))
                 {
                     deadItemsToRemove.Add(item);
                 }

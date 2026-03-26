@@ -9,8 +9,8 @@ using Ama.CRDT.Models;
 /// </summary>
 public sealed class ThresholdCompactionPolicy : ICompactionPolicy
 {
-    private readonly ICrdtTimestamp? _thresholdTimestamp;
-    private readonly long? _thresholdVersion;
+    private readonly ICrdtTimestamp? thresholdTimestamp;
+    private readonly long? thresholdVersion;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ThresholdCompactionPolicy"/> class with a wall-clock timestamp threshold.
@@ -18,7 +18,7 @@ public sealed class ThresholdCompactionPolicy : ICompactionPolicy
     /// <param name="thresholdTimestamp">The maximum timestamp that is considered safe to compact. Anything less than or equal to this will be compacted.</param>
     public ThresholdCompactionPolicy(ICrdtTimestamp thresholdTimestamp)
     {
-        _thresholdTimestamp = thresholdTimestamp ?? throw new ArgumentNullException(nameof(thresholdTimestamp));
+        this.thresholdTimestamp = thresholdTimestamp ?? throw new ArgumentNullException(nameof(thresholdTimestamp));
     }
 
     /// <summary>
@@ -27,7 +27,7 @@ public sealed class ThresholdCompactionPolicy : ICompactionPolicy
     /// <param name="thresholdVersion">The maximum version that is considered safe to compact.</param>
     public ThresholdCompactionPolicy(long thresholdVersion)
     {
-        _thresholdVersion = thresholdVersion;
+        this.thresholdVersion = thresholdVersion;
     }
 
     /// <summary>
@@ -37,29 +37,29 @@ public sealed class ThresholdCompactionPolicy : ICompactionPolicy
     /// <param name="thresholdVersion">The maximum version that is considered safe to compact.</param>
     public ThresholdCompactionPolicy(ICrdtTimestamp thresholdTimestamp, long thresholdVersion)
     {
-        _thresholdTimestamp = thresholdTimestamp ?? throw new ArgumentNullException(nameof(thresholdTimestamp));
-        _thresholdVersion = thresholdVersion;
+        this.thresholdTimestamp = thresholdTimestamp ?? throw new ArgumentNullException(nameof(thresholdTimestamp));
+        this.thresholdVersion = thresholdVersion;
     }
 
     /// <inheritdoc/>
-    public bool IsSafeToCompact(ICrdtTimestamp timestamp)
+    public bool IsSafeToCompact(CompactionCandidate candidate)
     {
-        if (timestamp == null || _thresholdTimestamp == null)
+        if (this.thresholdTimestamp != null && candidate.Timestamp != null)
         {
-            return false;
+            if (candidate.Timestamp.CompareTo(this.thresholdTimestamp) <= 0)
+            {
+                return true;
+            }
         }
 
-        return timestamp.CompareTo(_thresholdTimestamp) <= 0;
-    }
-
-    /// <inheritdoc/>
-    public bool IsSafeToCompact(string replicaId, long version)
-    {
-        if (_thresholdVersion == null)
+        if (this.thresholdVersion != null && candidate.Version != null)
         {
-            return false;
+            if (candidate.Version.Value <= this.thresholdVersion.Value)
+            {
+                return true;
+            }
         }
 
-        return version <= _thresholdVersion.Value;
+        return false;
     }
 }
