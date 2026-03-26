@@ -128,7 +128,6 @@ public sealed class CrdtMetadataManager(
     /// <inheritdoc/>
     public void Compact<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] ICompactionPolicy policy) where T : class
     {
-        ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(document.Metadata);
         ArgumentNullException.ThrowIfNull(document.Data);
         ArgumentNullException.ThrowIfNull(policy);
