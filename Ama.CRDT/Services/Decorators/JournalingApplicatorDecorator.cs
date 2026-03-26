@@ -37,7 +37,6 @@ public sealed class JournalingApplicatorDecorator : IAsyncCrdtApplicator
     /// <inheritdoc/>
     public async Task<ApplyPatchResult<TDoc>> ApplyPatchAsync<TDoc>([DisallowNull] CrdtDocument<TDoc> document, CrdtPatch patch, CancellationToken cancellationToken = default) where TDoc : class
     {
-        ArgumentNullException.ThrowIfNull(document);
 
         var result = await this.innerApplicator.ApplyPatchAsync(document, patch, cancellationToken).ConfigureAwait(false);
 
