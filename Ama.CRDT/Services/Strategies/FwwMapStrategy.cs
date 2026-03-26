@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
@@ -170,7 +171,7 @@ public sealed class FwwMapStrategy(
         foreach (var kvp in timestamps)
         {
             // If the key is not in the dictionary, it's a tombstone.
-            if (!dict.Contains(kvp.Key) && context.Policy.IsSafeToCompact(kvp.Value))
+            if (!dict.Contains(kvp.Key) && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: kvp.Value)))
             {
                 keysToRemove.Add(kvp.Key);
             }

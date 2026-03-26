@@ -43,7 +43,7 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
         var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue);
         var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue);
@@ -123,6 +123,6 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
     public void Compact(CompactionContext context)
     {
         // BoundedCounterStrategy does not maintain tombstones, only the current unbounded value.
-        // Therefore, there is no metadata to prune.
+        // Therefore, there is no metadata to prune safely using the ICompactionPolicy.
     }
 }

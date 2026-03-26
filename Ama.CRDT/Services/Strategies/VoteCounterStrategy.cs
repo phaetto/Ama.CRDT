@@ -13,6 +13,7 @@ using System.Linq;
 using System.Reflection;
 using Ama.CRDT.Services;
 using Ama.CRDT.Attributes.Strategies.Semantic;
+using Ama.CRDT.Services.GarbageCollection;
 
 [CrdtSupportedType(typeof(IDictionary))]
 [CrdtSupportedIntent(typeof(VoteIntent))]
@@ -160,7 +161,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
             {
                 var voterKey = kvp.Key.Substring(prefix.Length, kvp.Key.Length - prefix.Length - 2);
                 
-                if (!currentVoters.Contains(voterKey) && context.Policy.IsSafeToCompact(kvp.Value))
+                if (!currentVoters.Contains(voterKey) && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: kvp.Value)))
                 {
                     keysToRemove.Add(kvp.Key);
                 }

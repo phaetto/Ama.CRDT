@@ -154,7 +154,7 @@ public sealed class CounterMapStrategy(
     public void Compact(CompactionContext context)
     {
         // CounterMapStrategy tracks independent PN-Counters per key, without tombstoning the keys themselves.
-        // Therefore, there is no metadata to prune safely.
+        // Therefore, there is no causal or time-based metadata (tombstones) to prune safely using ICompactionPolicy.
     }
 
     /// <inheritdoc/>

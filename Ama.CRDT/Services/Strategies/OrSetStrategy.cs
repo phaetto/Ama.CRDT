@@ -173,7 +173,7 @@ public sealed class OrSetStrategy(
     public void Compact(CompactionContext context)
     {
         // OrSetStrategy tracks elements using unique Guid tags rather than ICrdtTimestamps.
-        // Without timestamp information attached to the tombstones, they cannot be safely 
+        // Without timestamp or version information attached to the tombstones, they cannot be safely 
         // evaluated against the ICompactionPolicy to prevent ghost elements resurrections.
     }
 

@@ -8,6 +8,7 @@ using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.GarbageCollection;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -275,7 +276,8 @@ public sealed class SortedSetStrategy(
                 // In LWW, highest timestamp wins. If addTs <= removeTs, Remove is newer/equal.
                 if (addTs.CompareTo(removeTs) <= 0)
                 {
-                    if (context.Policy.IsSafeToCompact(removeTs) && context.Policy.IsSafeToCompact(addTs))
+                    if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs)) && 
+                        context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: addTs)))
                     {
                         deadItemsToRemove.Add(item);
                     }
@@ -283,7 +285,7 @@ public sealed class SortedSetStrategy(
             }
             else
             {
-                if (context.Policy.IsSafeToCompact(removeTs))
+                if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs)))
                 {
                     deadItemsToRemove.Add(item);
                 }

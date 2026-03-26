@@ -14,6 +14,7 @@ using System.Linq;
 using System.Reflection;
 using Ama.CRDT.Services;
 using Ama.CRDT.Attributes.Strategies.Semantic;
+using Ama.CRDT.Services.GarbageCollection;
 
 /// <summary>
 /// Implements the LWW-Map (Last-Writer-Wins Map) CRDT strategy.
@@ -160,7 +161,7 @@ public sealed class LwwMapStrategy(
         foreach (var kvp in timestamps)
         {
             // If the key is not in the dictionary, it's a tombstone.
-            if (!dict.Contains(kvp.Key) && context.Policy.IsSafeToCompact(kvp.Value))
+            if (!dict.Contains(kvp.Key) && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: kvp.Value)))
             {
                 keysToRemove.Add(kvp.Key);
             }

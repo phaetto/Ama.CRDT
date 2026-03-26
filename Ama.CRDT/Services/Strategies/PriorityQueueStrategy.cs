@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
 using System;
@@ -179,7 +180,7 @@ public sealed class PriorityQueueStrategy(
                 // Thus, the item is dead.
                 if (addTs.CompareTo(removeTs) <= 0)
                 {
-                    if (context.Policy.IsSafeToCompact(removeTs) && context.Policy.IsSafeToCompact(addTs))
+                    if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs)) && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: addTs)))
                     {
                         deadItemsToRemove.Add(item);
                     }
@@ -188,7 +189,7 @@ public sealed class PriorityQueueStrategy(
             else
             {
                 // Item is in Removes but not in Adds, so it's dead.
-                if (context.Policy.IsSafeToCompact(removeTs))
+                if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs)))
                 {
                     deadItemsToRemove.Add(item);
                 }

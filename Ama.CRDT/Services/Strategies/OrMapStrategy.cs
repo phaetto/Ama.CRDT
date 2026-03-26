@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
@@ -198,7 +199,7 @@ public sealed class OrMapStrategy(
                     }
                 }
 
-                if (!exists && context.Policy.IsSafeToCompact(kvp.Value))
+                if (!exists && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: kvp.Value)))
                 {
                     lwwKeysToRemove.Add(kvp.Key);
                 }
