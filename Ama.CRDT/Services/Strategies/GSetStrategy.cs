@@ -118,6 +118,12 @@ public sealed class GSetStrategy(
     }
 
     /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // GSetStrategy is an append-only collection that stores no metadata or tombstones.
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
         var collection = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IEnumerable;

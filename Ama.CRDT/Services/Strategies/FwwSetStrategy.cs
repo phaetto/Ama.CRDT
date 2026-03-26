@@ -169,6 +169,47 @@ public sealed class FwwSetStrategy(
     }
 
     /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        if (!context.Metadata.FwwSets.TryGetValue(context.PropertyPath, out var state)) return;
+
+        var deadItemsToRemove = new List<object>();
+
+        foreach (var kvp in state.Removes)
+        {
+            var item = kvp.Key;
+            var removeTs = kvp.Value;
+
+            if (state.Adds.TryGetValue(item, out var addTs))
+            {
+                // In FWW, the lowest timestamp wins. If addTs > removeTs, the Remove operation is older
+                // and thus wins, meaning the item is mathematically dead.
+                if (addTs.CompareTo(removeTs) > 0)
+                {
+                    if (context.Policy.IsSafeToCompact(removeTs) && context.Policy.IsSafeToCompact(addTs))
+                    {
+                        deadItemsToRemove.Add(item);
+                    }
+                }
+            }
+            else
+            {
+                // Item is in Removes but not in Adds, so it's dead.
+                if (context.Policy.IsSafeToCompact(removeTs))
+                {
+                    deadItemsToRemove.Add(item);
+                }
+            }
+        }
+
+        foreach (var item in deadItemsToRemove)
+        {
+            state.Removes.Remove(item);
+            state.Adds.Remove(item); // Ensure we also drop the Add timestamp so it doesn't resurrect.
+        }
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
         var list = PocoPathHelper.GetValue<IList>(data, partitionableProperty.Name);

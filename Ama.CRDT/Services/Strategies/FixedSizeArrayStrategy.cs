@@ -119,4 +119,11 @@ public sealed class FixedSizeArrayStrategy(
 
         return CrdtOperationStatus.Success;
     }
+
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // FixedSizeArrayStrategy uses LWW metadata for explicit indices but does not maintain tombstones for deleted elements
+        // as the array size is fixed. Therefore, there is no metadata to prune safely.
+    }
 }

@@ -160,6 +160,47 @@ public sealed class PriorityQueueStrategy(
 
         return CrdtOperationStatus.Obsolete;
     }
+
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        if (!context.Metadata.PriorityQueues.TryGetValue(context.PropertyPath, out var state)) return;
+
+        var deadItemsToRemove = new List<object>();
+
+        foreach (var kvp in state.Removes)
+        {
+            var item = kvp.Key;
+            var removeTs = kvp.Value;
+
+            if (state.Adds.TryGetValue(item, out var addTs))
+            {
+                // If addTs <= removeTs, the Remove operation is newer (or equal).
+                // Thus, the item is dead.
+                if (addTs.CompareTo(removeTs) <= 0)
+                {
+                    if (context.Policy.IsSafeToCompact(removeTs) && context.Policy.IsSafeToCompact(addTs))
+                    {
+                        deadItemsToRemove.Add(item);
+                    }
+                }
+            }
+            else
+            {
+                // Item is in Removes but not in Adds, so it's dead.
+                if (context.Policy.IsSafeToCompact(removeTs))
+                {
+                    deadItemsToRemove.Add(item);
+                }
+            }
+        }
+
+        foreach (var item in deadItemsToRemove)
+        {
+            state.Removes.Remove(item);
+            state.Adds.Remove(item); // Ensure we also drop the Add timestamp so it doesn't resurrect.
+        }
+    }
     
     private bool ApplyUpsert(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, ICrdtTimestamp> removes, object value, ICrdtTimestamp timestamp, IEqualityComparer<object> comparer)
     {

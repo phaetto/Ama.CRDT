@@ -170,6 +170,14 @@ public sealed class OrSetStrategy(
     }
 
     /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // OrSetStrategy tracks elements using unique Guid tags rather than ICrdtTimestamps.
+        // Without timestamp information attached to the tombstones, they cannot be safely 
+        // evaluated against the ICompactionPolicy to prevent ghost elements resurrections.
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
         var collection = PocoPathHelper.GetValue<IEnumerable>(data, partitionableProperty.Name);

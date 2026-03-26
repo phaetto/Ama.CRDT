@@ -116,4 +116,11 @@ public sealed class FwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 
         return CrdtOperationStatus.Success;
     }
+
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // FwwStrategy maintains a single active timestamp per property and does not maintain tombstones.
+        // Therefore, there is no metadata to prune safely.
+    }
 }

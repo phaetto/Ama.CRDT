@@ -5,6 +5,7 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
@@ -271,6 +272,26 @@ public sealed class MaxWinsMapStrategyTests
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
+    }
+
+    [Fact]
+    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTombstones()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
+
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        var metadata = new CrdtMetadata();
+
+        var context = new CompactionContext(metadata, mockPolicy.Object, "Map", "$.map", new TestModel());
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
     }
 
     private sealed class TestModel

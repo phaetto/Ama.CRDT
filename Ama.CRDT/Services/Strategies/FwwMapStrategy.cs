@@ -154,6 +154,35 @@ public sealed class FwwMapStrategy(
     }
 
     /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        if (context.Document is null) return;
+        if (!context.Metadata.FwwMaps.TryGetValue(context.PropertyPath, out var timestamps)) return;
+
+        var (parent, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath);
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict)
+        {
+            return;
+        }
+
+        var keysToRemove = new List<object>();
+
+        foreach (var kvp in timestamps)
+        {
+            // If the key is not in the dictionary, it's a tombstone.
+            if (!dict.Contains(kvp.Key) && context.Policy.IsSafeToCompact(kvp.Value))
+            {
+                keysToRemove.Add(kvp.Key);
+            }
+        }
+
+        foreach (var key in keysToRemove)
+        {
+            timestamps.Remove(key);
+        }
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
         if (data is null || partitionableProperty is null) return null;

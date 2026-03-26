@@ -88,6 +88,13 @@ public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrate
         return CrdtOperationStatus.Success;
     }
 
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // CounterStrategy does not maintain tombstones, only the numerical value directly on the document.
+        // Therefore, there is no metadata to prune safely.
+    }
+
     private CrdtOperation GenerateSetOperation(object root, string path, SetIntent intent, ICrdtTimestamp timestamp, long clock)
     {
         var targetValue = PocoPathHelper.ConvertTo<decimal>(intent.Value);

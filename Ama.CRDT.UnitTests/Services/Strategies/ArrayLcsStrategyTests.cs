@@ -5,9 +5,11 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -304,6 +306,29 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         var positionalItem = patchY.Operations.Single().Value.ShouldBeOfType<PositionalItem>();
         positionalItem.Value.ShouldBe("Y");
         positionalItem.Position.ShouldBe("1.5");
+    }
+
+    [Fact]
+    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTombstones()
+    {
+        // Arrange
+        var doc = new TestModel { Tags = new List<string> { "A", "B" } };
+        var meta = metadataManagerA.Initialize(doc);
+        var originalTrackersCount = meta.PositionalTrackers["$.tags"].Count;
+
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+
+        var context = new CompactionContext(meta, mockPolicy.Object, "Tags", "$.tags", doc);
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        meta.PositionalTrackers["$.tags"].Count.ShouldBe(originalTrackersCount);
+        // Verify IsSafeToCompact was never called, as there are no tombstones to check
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

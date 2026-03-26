@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
+using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -116,5 +117,19 @@ public sealed class ApprovalQuorumStrategy(IServiceProvider serviceProvider, IEl
         }
 
         return CrdtOperationStatus.Success;
+    }
+
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // For decorators, we must delegate the compaction request down the chain to the inner strategy.
+        if (context.Document is null) return;
+        
+        var (_, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath);
+        if (property is not null)
+        {
+            var innerStrategy = GetInnerStrategy(property);
+            innerStrategy.Compact(context);
+        }
     }
 }

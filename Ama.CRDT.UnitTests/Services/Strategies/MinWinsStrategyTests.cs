@@ -4,9 +4,11 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -236,6 +238,23 @@ public sealed class MinWinsStrategyTests : IDisposable
         // Assert
         // The lowest value wins (op3 with value 150)
         finalTimes.ShouldAllBe(t => t == 150);
+    }
+
+    [Fact]
+    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTombstones()
+    {
+        // Arrange
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        var metadata = new CrdtMetadata();
+
+        var context = new CompactionContext(metadata, mockPolicy.Object, "BestTime", "$.bestTime", new TestModel());
+
+        // Act
+        strategyA.Compact(context);
+
+        // Assert
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

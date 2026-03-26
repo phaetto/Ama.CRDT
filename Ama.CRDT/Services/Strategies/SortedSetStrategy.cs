@@ -259,6 +259,45 @@ public sealed class SortedSetStrategy(
     }
 
     /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        if (!context.Metadata.SortedSets.TryGetValue(context.PropertyPath, out var state)) return;
+
+        var deadItemsToRemove = new List<object>();
+
+        foreach (var kvp in state.Removes)
+        {
+            var item = kvp.Key;
+            var removeTs = kvp.Value;
+
+            if (state.Adds.TryGetValue(item, out var addTs))
+            {
+                // In LWW, highest timestamp wins. If addTs <= removeTs, Remove is newer/equal.
+                if (addTs.CompareTo(removeTs) <= 0)
+                {
+                    if (context.Policy.IsSafeToCompact(removeTs) && context.Policy.IsSafeToCompact(addTs))
+                    {
+                        deadItemsToRemove.Add(item);
+                    }
+                }
+            }
+            else
+            {
+                if (context.Policy.IsSafeToCompact(removeTs))
+                {
+                    deadItemsToRemove.Add(item);
+                }
+            }
+        }
+
+        foreach (var item in deadItemsToRemove)
+        {
+            state.Removes.Remove(item);
+            state.Adds.Remove(item);
+        }
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
         var collection = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IEnumerable;

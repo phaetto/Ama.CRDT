@@ -5,6 +5,7 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
@@ -367,5 +368,40 @@ public sealed class VoteCounterStrategyTests : IDisposable
         mergedDoc.Votes["O1"].ShouldBe(["a", "b"], ignoreOrder: true);
         mergedDoc.Votes["O2"].ShouldBe(["c", "d"], ignoreOrder: true);
         result.Metadata.Lww.Keys.Count.ShouldBeGreaterThanOrEqualTo(4);
+    }
+
+    [Fact]
+    public void Compact_ShouldRemoveLwwTombstones_WhenPolicyAllows()
+    {
+        // Arrange
+        var doc = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "ActiveVoter" } } };
+        var meta = new CrdtMetadata();
+
+        var tsActive = timestampProvider.Create(1);
+        var tsDeadSafe = timestampProvider.Create(2);
+        var tsDeadUnsafe = timestampProvider.Create(3);
+
+        meta.Lww["$.votes.['ActiveVoter']"] = tsActive;
+        meta.Lww["$.votes.['DeadSafeVoter']"] = tsDeadSafe;
+        meta.Lww["$.votes.['DeadUnsafeVoter']"] = tsDeadUnsafe;
+
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(tsActive)).Returns(true); // Should not be called
+        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadSafe)).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadUnsafe)).Returns(false);
+
+        var context = new CompactionContext(meta, mockPolicy.Object, "Votes", "$.votes", doc);
+
+        // Act
+        strategyA.Compact(context);
+
+        // Assert
+        meta.Lww.ShouldContainKey("$.votes.['ActiveVoter']");
+        meta.Lww.ShouldContainKey("$.votes.['DeadUnsafeVoter']");
+        meta.Lww.ShouldNotContainKey("$.votes.['DeadSafeVoter']");
+
+        mockPolicy.Verify(p => p.IsSafeToCompact(tsActive), Times.Never);
+        mockPolicy.Verify(p => p.IsSafeToCompact(tsDeadSafe), Times.Once);
+        mockPolicy.Verify(p => p.IsSafeToCompact(tsDeadUnsafe), Times.Once);
     }
 }

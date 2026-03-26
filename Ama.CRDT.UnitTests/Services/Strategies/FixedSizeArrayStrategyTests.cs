@@ -5,8 +5,11 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -286,6 +289,26 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => patcherA.GenerateOperation(crdtDoc1, m => m.Values, intent));
+    }
+
+    [Fact]
+    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTombstones()
+    {
+        // Arrange
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+
+        var doc = new TestModel { Values = [1, 2, 3] };
+        var meta = metadataManagerA.Initialize(doc);
+
+        var context = new CompactionContext(meta, mockPolicy.Object, "Values", "$.values", doc);
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<FixedSizeArrayStrategy>().Single();
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

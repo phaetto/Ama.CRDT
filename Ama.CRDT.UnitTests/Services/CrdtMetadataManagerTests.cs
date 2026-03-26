@@ -2,12 +2,15 @@ namespace Ama.CRDT.UnitTests.Services;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Services.Strategies;
 using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Xunit;
 
 public sealed class CrdtMetadataManagerTests
@@ -32,13 +35,14 @@ public sealed class CrdtMetadataManagerTests
     [InlineData(false, false, true, false, false)]
     [InlineData(false, false, false, true, false)]
     [InlineData(false, false, false, false, true)]
-    public void PublicMethods_WithNullArguments_ShouldThrowArgumentNullException(bool testInitialize, bool testReset, bool testPrune, bool testAdvanceVector, bool testLocking)
+    public void PublicMethods_WithNullArguments_ShouldThrowArgumentNullException(bool testInitialize, bool testReset, bool testCompact, bool testAdvanceVector, bool testLocking)
     {
         // Arrange
         var doc = new object();
         var metadata = new CrdtMetadata();
         var timestamp = timestampProviderMock.Object.Create(1);
         var operation = new CrdtOperation();
+        var policy = Mock.Of<ICompactionPolicy>();
         
         // Act & Assert
         if (testInitialize)
@@ -66,10 +70,13 @@ public sealed class CrdtMetadataManagerTests
             Should.Throw<ArgumentNullException>(() => manager.Reset(new CrdtDocument<object>(doc, metadata), null!));
         }
         
-        if (testPrune)
+        if (testCompact)
         {
-            Should.Throw<ArgumentNullException>(() => manager.PruneLwwTombstones(null!, timestamp));
-            Should.Throw<ArgumentNullException>(() => manager.PruneLwwTombstones(metadata, null!));
+            // Test Compact<T>(CrdtDocument<T> document, ICompactionPolicy policy)
+            Should.Throw<ArgumentNullException>(() => manager.Compact<object>(default, policy));
+            Should.Throw<ArgumentNullException>(() => manager.Compact(new CrdtDocument<object>(null!, metadata), policy));
+            Should.Throw<ArgumentNullException>(() => manager.Compact(new CrdtDocument<object>(doc, null!), policy));
+            Should.Throw<ArgumentNullException>(() => manager.Compact(new CrdtDocument<object>(doc, metadata), null!));
         }
         
         if (testAdvanceVector)
@@ -108,187 +115,60 @@ public sealed class CrdtMetadataManagerTests
         metadata.OrMaps.ShouldBeEmpty();
         metadata.CounterMaps.ShouldBeEmpty();
     }
-    
+
     [Fact]
-    public void PruneLwwTombstones_ShouldRemoveOlderEntries()
+    public void Compact_ShouldRemoveSeenExceptionsBasedOnPolicy()
     {
         // Arrange
         var metadata = new CrdtMetadata();
-        metadata.Lww["$.a"] = timestampProviderMock.Object.Create(100);
-        metadata.Lww["$.b"] = timestampProviderMock.Object.Create(200);
-        metadata.Lww["$.c"] = timestampProviderMock.Object.Create(300);
-        var threshold = timestampProviderMock.Object.Create(250);
-        
-        // Act
-        manager.PruneLwwTombstones(metadata, threshold);
+        var doc = new CrdtDocument<object>(new object(), metadata);
 
-        // Assert
-        metadata.Lww.ShouldContainKey("$.c");
-        metadata.Lww.ShouldNotContainKey("$.a");
-        metadata.Lww.ShouldNotContainKey("$.b");
-        metadata.Lww.Count.ShouldBe(1);
-    }
-
-    [Fact]
-    public void PruneLwwSetTombstones_WithNullArguments_ShouldThrowArgumentNullException()
-    {
-        var metadata = new CrdtMetadata();
-        var threshold = timestampProviderMock.Object.Create(1);
-        Should.Throw<ArgumentNullException>(() => manager.PruneLwwSetTombstones(null!, threshold));
-        Should.Throw<ArgumentNullException>(() => manager.PruneLwwSetTombstones(metadata, null!));
-    }
-
-    [Fact]
-    public void PruneLwwSetTombstones_ShouldRemoveFullyResolvedOlderTombstones()
-    {
-        // Arrange
-        var metadata = new CrdtMetadata();
-        var threshold = timestampProviderMock.Object.Create(200);
-        
-        var lwwSetState = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, ICrdtTimestamp>());
-        
-        // Case 1: Removed, remove TS < threshold, add TS < remove TS (Fully resolved & old -> Prune)
-        lwwSetState.Adds["prune-me"] = timestampProviderMock.Object.Create(100);
-        lwwSetState.Removes["prune-me"] = timestampProviderMock.Object.Create(150);
-        
-        // Case 2: Removed, remove TS < threshold, but add TS > remove TS (Item was re-added -> DO NOT Prune Removes)
-        lwwSetState.Adds["keep-me-readded"] = timestampProviderMock.Object.Create(180);
-        lwwSetState.Removes["keep-me-readded"] = timestampProviderMock.Object.Create(150);
-        
-        // Case 3: Removed, remove TS >= threshold (Too new -> DO NOT Prune)
-        lwwSetState.Adds["keep-me-new"] = timestampProviderMock.Object.Create(210);
-        lwwSetState.Removes["keep-me-new"] = timestampProviderMock.Object.Create(250);
-
-        // Case 4: Only removed (no add), remove TS < threshold -> Prune
-        lwwSetState.Removes["prune-me-no-add"] = timestampProviderMock.Object.Create(150);
-
-        metadata.LwwSets["$.set"] = lwwSetState;
-        
-        // Setup similar state for PriorityQueue to test it cascades correctly
-        var priorityQueueState = new LwwSetState(
-            new Dictionary<object, ICrdtTimestamp> { { "prune-me-pq", timestampProviderMock.Object.Create(100) } },
-            new Dictionary<object, ICrdtTimestamp> { { "prune-me-pq", timestampProviderMock.Object.Create(150) } }
-        );
-        metadata.PriorityQueues["$.pq"] = priorityQueueState;
-
-        // Act
-        manager.PruneLwwSetTombstones(metadata, threshold);
-
-        // Assert LWW-Sets
-        lwwSetState.Adds.ShouldNotContainKey("prune-me");
-        lwwSetState.Removes.ShouldNotContainKey("prune-me");
-        
-        lwwSetState.Removes.ShouldNotContainKey("prune-me-no-add");
-        
-        lwwSetState.Adds.ShouldContainKey("keep-me-readded");
-        lwwSetState.Removes.ShouldContainKey("keep-me-readded");
-        
-        lwwSetState.Adds.ShouldContainKey("keep-me-new");
-        lwwSetState.Removes.ShouldContainKey("keep-me-new");
-
-        // Assert PriorityQueues
-        priorityQueueState.Adds.ShouldNotContainKey("prune-me-pq");
-        priorityQueueState.Removes.ShouldNotContainKey("prune-me-pq");
-    }
-
-    [Fact]
-    public void PruneOrSetTombstones_WithNullArguments_ShouldThrowArgumentNullException()
-    {
-        Should.Throw<ArgumentNullException>(() => manager.PruneOrSetTombstones(null!));
-    }
-
-    [Fact]
-    public void PruneOrSetTombstones_ShouldRemoveFullyCoveredElements()
-    {
-        // Arrange
-        var metadata = new CrdtMetadata();
-        
-        var orSetState = new OrSetState(new Dictionary<object, ISet<Guid>>(), new Dictionary<object, ISet<Guid>>());
-        
-        var tag1 = Guid.NewGuid();
-        var tag2 = Guid.NewGuid();
-        var tag3 = Guid.NewGuid();
-
-        // Case 1: Fully covered (Adds subset of Removes) -> Prune
-        orSetState.Adds["prune-me"] = new HashSet<Guid> { tag1 };
-        orSetState.Removes["prune-me"] = new HashSet<Guid> { tag1, tag2 };
-        
-        // Case 2: Not fully covered (Adds has tag not in Removes) -> Do Not Prune
-        orSetState.Adds["keep-me"] = new HashSet<Guid> { tag1, tag3 };
-        orSetState.Removes["keep-me"] = new HashSet<Guid> { tag1 };
-
-        // Case 3: No removes at all -> Do Not Prune
-        orSetState.Adds["keep-me-new"] = new HashSet<Guid> { tag1 };
-        
-        metadata.OrSets["$.orset"] = orSetState;
-        
-        // Setup for OrMaps
-        var orMapState = new OrSetState(
-            new Dictionary<object, ISet<Guid>> { { "prune-map", new HashSet<Guid> { tag1 } } }, 
-            new Dictionary<object, ISet<Guid>> { { "prune-map", new HashSet<Guid> { tag1 } } }
-        );
-        metadata.OrMaps["$.ormap"] = orMapState;
-
-        // Setup for ReplicatedTrees
-        var replicatedTreeState = new OrSetState(
-            new Dictionary<object, ISet<Guid>> { { "prune-tree", new HashSet<Guid> { tag1 } } }, 
-            new Dictionary<object, ISet<Guid>> { { "prune-tree", new HashSet<Guid> { tag1 } } }
-        );
-        metadata.ReplicatedTrees["$.tree"] = replicatedTreeState;
-
-        // Act
-        manager.PruneOrSetTombstones(metadata);
-
-        // Assert OR-Sets
-        orSetState.Adds.ShouldNotContainKey("prune-me");
-        orSetState.Removes.ShouldNotContainKey("prune-me");
-
-        orSetState.Adds.ShouldContainKey("keep-me");
-        orSetState.Removes.ShouldContainKey("keep-me");
-        
-        orSetState.Adds.ShouldContainKey("keep-me-new");
-
-        // Assert OR-Maps
-        orMapState.Adds.ShouldNotContainKey("prune-map");
-        orMapState.Removes.ShouldNotContainKey("prune-map");
-
-        // Assert ReplicatedTrees
-        replicatedTreeState.Adds.ShouldNotContainKey("prune-tree");
-        replicatedTreeState.Removes.ShouldNotContainKey("prune-tree");
-    }
-
-    [Fact]
-    public void PruneSeenExceptions_WithNullArguments_ShouldThrowArgumentNullException()
-    {
-        var metadata = new CrdtMetadata();
-        var threshold = timestampProviderMock.Object.Create(1);
-        Should.Throw<ArgumentNullException>(() => manager.PruneSeenExceptions(null!, threshold));
-        Should.Throw<ArgumentNullException>(() => manager.PruneSeenExceptions(metadata, null!));
-    }
-
-    [Fact]
-    public void PruneSeenExceptions_ShouldRemoveExceptionsOlderThanThreshold()
-    {
-        // Arrange
-        var metadata = new CrdtMetadata();
-        var threshold = timestampProviderMock.Object.Create(200);
-
-        var op1 = new CrdtOperation(Guid.NewGuid(), "rep1", "$.path", OperationType.Upsert, null, timestampProviderMock.Object.Create(100), 1); // Older -> Prune
-        var op2 = new CrdtOperation(Guid.NewGuid(), "rep1", "$.path", OperationType.Upsert, null, timestampProviderMock.Object.Create(200), 2); // Exact threshold -> Keep
-        var op3 = new CrdtOperation(Guid.NewGuid(), "rep1", "$.path", OperationType.Upsert, null, timestampProviderMock.Object.Create(300), 3); // Newer -> Keep
+        var op1 = CreateOp("rep1", 100); // Policy says safe to compact
+        var op2 = CreateOp("rep1", 200); // Policy says NOT safe to compact
 
         metadata.SeenExceptions.Add(op1);
         metadata.SeenExceptions.Add(op2);
-        metadata.SeenExceptions.Add(op3);
+
+        var policyMock = new Mock<ICompactionPolicy>();
+        policyMock.Setup(p => p.IsSafeToCompact(op1.Timestamp)).Returns(true);
+        policyMock.Setup(p => p.IsSafeToCompact(op2.Timestamp)).Returns(false);
+
+        strategyProviderMock.Setup(p => p.GetStrategy(It.IsAny<PropertyInfo>())).Returns(Mock.Of<ICrdtStrategy>());
 
         // Act
-        manager.PruneSeenExceptions(metadata, threshold);
+        manager.Compact(doc, policyMock.Object);
 
         // Assert
-        metadata.SeenExceptions.Count.ShouldBe(2);
+        metadata.SeenExceptions.Count.ShouldBe(1);
         metadata.SeenExceptions.ShouldNotContain(op1);
         metadata.SeenExceptions.ShouldContain(op2);
-        metadata.SeenExceptions.ShouldContain(op3);
+    }
+
+    [Fact]
+    public void Compact_ShouldTraverseDocumentAndInvokeStrategyCompact()
+    {
+        // Arrange
+        var dummyDoc = new OuterDoc();
+        var doc = new CrdtDocument<OuterDoc>(dummyDoc, new CrdtMetadata());
+        var policyMock = new Mock<ICompactionPolicy>();
+
+        var mockStrategy = new Mock<ICrdtStrategy>();
+        strategyProviderMock.Setup(p => p.GetStrategy(It.IsAny<PropertyInfo>())).Returns(mockStrategy.Object);
+
+        // Act
+        manager.Compact(doc, policyMock.Object);
+
+        // Assert
+        // We expect the following traversal paths:
+        // $.inner
+        // $.inner.value
+        // $.list
+        // $.list[0].value
+        // $.list[1].value
+        // $.dict
+        // $.dict.['k1'].value
+        // Total = 7 strategy invocations.
+        mockStrategy.Verify(s => s.Compact(It.IsAny<CompactionContext>()), Times.Exactly(7));
     }
 
     [Theory]
@@ -382,5 +262,18 @@ public sealed class CrdtMetadataManagerTests
     }
     
     private CrdtOperation CreateOp(string replicaId, long clockValue)
-        => new(Guid.NewGuid(), replicaId, "path", OperationType.Upsert, null, timestampProviderMock.Object.Create(0), clockValue);
+        => new(Guid.NewGuid(), replicaId, "path", OperationType.Upsert, null, timestampProviderMock.Object.Create(clockValue), clockValue);
+
+    // Dummy classes for traversal testing
+    private class OuterDoc
+    {
+        public InnerDoc Inner { get; set; } = new();
+        public List<InnerDoc> List { get; set; } = [new InnerDoc(), new InnerDoc()];
+        public Dictionary<string, InnerDoc> Dict { get; set; } = new() { { "k1", new InnerDoc() } };
+    }
+
+    private class InnerDoc
+    {
+        public string Value { get; set; } = "v";
+    }
 }

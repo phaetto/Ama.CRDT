@@ -97,4 +97,11 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 
         return CrdtOperationStatus.Success;
     }
+
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // LwwStrategy maintains a single active timestamp per property and does not maintain tombstones.
+        // Therefore, there is no metadata to prune safely.
+    }
 }

@@ -5,8 +5,10 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -218,5 +220,23 @@ public sealed class GraphStrategyTests : IDisposable
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
+    }
+
+    [Fact]
+    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTombstones()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        var metadata = new CrdtMetadata();
+
+        var context = new CompactionContext(metadata, mockPolicy.Object, "Graph", "$.Graph", new TestModel());
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
     }
 }

@@ -124,6 +124,13 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
         return CrdtOperationStatus.Success;
     }
 
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // StateMachineStrategy maintains a single active timestamp per property via LWW and does not maintain tombstones.
+        // Therefore, there is no metadata to prune safely.
+    }
+
     private bool IsValidTransition(Type validatorType, object? from, object? to)
     {
         var validator = serviceProvider.GetService(validatorType);

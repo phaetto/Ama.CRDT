@@ -210,6 +210,13 @@ public sealed class ReplicatedTreeStrategy(
 
         return CrdtOperationStatus.Success;
     }
+
+    public void Compact(CompactionContext context)
+    {
+        // ReplicatedTreeStrategy uses an OrSetState pattern mapping Nodes via Guids rather than ICrdtTimestamps.
+        // Also it uses LWW for tree movement properties. While tree moves could theoretically be pruned,
+        // pruning the tags requires timestamp tracking we do not currently possess in this structure.
+    }
     
     private static void ApplyAdd(OrSetState state, object nodeId, Guid tag)
     {

@@ -151,6 +151,13 @@ public sealed class CounterMapStrategy(
     }
 
     /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // CounterMapStrategy tracks independent PN-Counters per key, without tombstoning the keys themselves.
+        // Therefore, there is no metadata to prune safely.
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
         var dict = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IDictionary;

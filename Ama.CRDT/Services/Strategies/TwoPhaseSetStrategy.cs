@@ -125,6 +125,14 @@ public sealed class TwoPhaseSetStrategy(
     }
 
     /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // TwoPhaseSetStrategy tracks adds and tombstones using hash sets without associated ICrdtTimestamps.
+        // Without timestamp information attached to the tombstones, they cannot be safely 
+        // evaluated against the ICompactionPolicy to prevent ghost elements resurrections.
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
         var list = PocoPathHelper.GetValue<IList>(data, partitionableProperty.Name);

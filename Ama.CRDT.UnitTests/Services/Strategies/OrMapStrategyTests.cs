@@ -5,6 +5,7 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
@@ -284,6 +285,44 @@ public sealed class OrMapStrategyTests
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
+    }
+
+    [Fact]
+    public void Compact_ShouldRemoveLwwTombstones_WhenPolicyAllows()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
+
+        var doc = CreateDocument(new Dictionary<string, int> { { "alive", 1 } });
+        var meta = doc.Metadata;
+
+        var tsAlive = timestampProvider.Create(1);
+        var tsDeadSafe = timestampProvider.Create(2);
+        var tsDeadUnsafe = timestampProvider.Create(3);
+
+        meta.Lww["$.map['alive']"] = tsAlive;
+        meta.Lww["$.map['dead_safe']"] = tsDeadSafe;
+        meta.Lww["$.map['dead_unsafe']"] = tsDeadUnsafe;
+
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(tsAlive)).Returns(true); // Should not be called because it's alive
+        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadSafe)).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadUnsafe)).Returns(false);
+
+        var context = new CompactionContext(meta, mockPolicy.Object, "Map", "$.map", doc.Data);
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        meta.Lww.ShouldContainKey("$.map['alive']");
+        meta.Lww.ShouldNotContainKey("$.map['dead_safe']");
+        meta.Lww.ShouldContainKey("$.map['dead_unsafe']");
+
+        mockPolicy.Verify(p => p.IsSafeToCompact(tsAlive), Times.Never);
+        mockPolicy.Verify(p => p.IsSafeToCompact(tsDeadSafe), Times.Once);
+        mockPolicy.Verify(p => p.IsSafeToCompact(tsDeadUnsafe), Times.Once);
     }
 
     private sealed class TestModel

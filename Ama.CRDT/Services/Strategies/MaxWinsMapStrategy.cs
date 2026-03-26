@@ -133,6 +133,12 @@ public sealed class MaxWinsMapStrategy(
     }
 
     /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // MaxWinsMapStrategy relies solely on value comparisons and does not maintain metadata or tombstones.
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
         var dict = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IDictionary;

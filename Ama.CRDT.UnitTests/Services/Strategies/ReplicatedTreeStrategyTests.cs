@@ -5,8 +5,10 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -257,5 +259,25 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
 
         // Assert
         model.Tree.Nodes[nodeId].ParentId.ShouldBe(parentId);
+    }
+
+    [Fact]
+    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTombstones()
+    {
+        // Arrange
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        
+        var doc = new TestModel();
+        var meta = new CrdtMetadata();
+        var strategy = scopeA.ServiceProvider.GetServices<Ama.CRDT.Services.Strategies.ICrdtStrategy>().OfType<Ama.CRDT.Services.Strategies.ReplicatedTreeStrategy>().Single();
+
+        var context = new Ama.CRDT.Services.Strategies.CompactionContext(meta, mockPolicy.Object, "Tree", "$.tree", doc);
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
     }
 }

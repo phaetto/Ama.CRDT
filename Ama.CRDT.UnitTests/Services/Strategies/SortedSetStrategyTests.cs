@@ -16,6 +16,7 @@ using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Services.GarbageCollection;
 
 public sealed class SortedSetStrategyTests : IDisposable
 {
@@ -530,6 +531,62 @@ public sealed class SortedSetStrategyTests : IDisposable
 
         var mergedDoc = (ConvergenceTestModel)result.Data;
         mergedDoc.Users.Select(u => u.Name).ShouldBe(["Alice", "Bob", "Charlie", "Dave"]); // Already sorted correctly by Name
+    }
+
+    [Fact]
+    public void Compact_ShouldRemoveDeadItems_WhenPolicyAllows()
+    {
+        // Arrange
+        var doc = new MutableTestModel { Items = new List<string> { "alive" } };
+        var meta = new CrdtMetadata();
+        
+        var safeTs1 = timestampProvider.Create(10);
+        var safeTs2 = timestampProvider.Create(20);
+        var unsafeTs = timestampProvider.Create(30);
+        
+        var adds = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default);
+        var removes = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default);
+
+        // Item 1: Alive (Add > Remove => Add wins)
+        adds["alive"] = safeTs2;
+        removes["alive"] = safeTs1;
+
+        // Item 2: Dead, Safe (Remove >= Add)
+        adds["dead_safe"] = safeTs1;
+        removes["dead_safe"] = safeTs2;
+
+        // Item 3: Dead, Unsafe Remove
+        adds["dead_unsafe"] = safeTs1;
+        removes["dead_unsafe"] = unsafeTs;
+
+        // Item 4: Dead, Safe (No Add)
+        removes["dead_no_add"] = safeTs1;
+
+        meta.SortedSets["$.items"] = new LwwSetState(adds, removes);
+
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs1)).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs2)).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(unsafeTs)).Returns(false);
+
+        var context = new CompactionContext(meta, mockPolicy.Object, "Items", "$.items", doc);
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<SortedSetStrategy>().Single();
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        var set = meta.SortedSets["$.items"];
+        set.Adds.ShouldContainKey("alive");
+        set.Removes.ShouldContainKey("alive");
+
+        set.Adds.ShouldNotContainKey("dead_safe");
+        set.Removes.ShouldNotContainKey("dead_safe");
+
+        set.Adds.ShouldContainKey("dead_unsafe");
+        set.Removes.ShouldContainKey("dead_unsafe");
+
+        set.Removes.ShouldNotContainKey("dead_no_add");
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

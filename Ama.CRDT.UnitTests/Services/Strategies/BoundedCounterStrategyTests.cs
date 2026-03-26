@@ -13,6 +13,8 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Attributes.Strategies;
+using Moq;
+using Ama.CRDT.Services.GarbageCollection;
 
 public sealed class BoundedCounterStrategyTests : IDisposable
 {
@@ -225,6 +227,27 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         // Assert
         // Expected: 50 + 10 - 20 + 70 = 110, which clamps to 100.
         finalScores.ShouldAllBe(s => s == 100);
+    }
+
+    [Fact]
+    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTombstones()
+    {
+        // Arrange
+        var metadata = new CrdtMetadata();
+        var timestamp = timestampProvider.Create(1L);
+        metadata.Lww["$.level"] = timestamp;
+
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+
+        var context = new CompactionContext(metadata, mockPolicy.Object, "Level", "$.level", new TestModel());
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        metadata.Lww["$.level"].ShouldBe(timestamp);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

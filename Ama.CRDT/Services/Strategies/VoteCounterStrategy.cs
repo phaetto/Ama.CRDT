@@ -126,6 +126,53 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
         return CrdtOperationStatus.Success;
     }
 
+    public void Compact(CompactionContext context)
+    {
+        if (context.Document is null) return;
+
+        var (parent, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath);
+        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict)
+        {
+            return;
+        }
+
+        var prefix = context.PropertyPath + ".['";
+        var keysToRemove = new List<string>();
+
+        var currentVoters = new HashSet<string>(StringComparer.Ordinal);
+        foreach (DictionaryEntry entry in dict)
+        {
+            if (entry.Value is IEnumerable voters)
+            {
+                foreach (var voter in voters)
+                {
+                    if (voter != null)
+                    {
+                        currentVoters.Add(GetVoterKey(voter));
+                    }
+                }
+            }
+        }
+
+        foreach (var kvp in context.Metadata.Lww)
+        {
+            if (kvp.Key.StartsWith(prefix, StringComparison.Ordinal) && kvp.Key.EndsWith("']", StringComparison.Ordinal))
+            {
+                var voterKey = kvp.Key.Substring(prefix.Length, kvp.Key.Length - prefix.Length - 2);
+                
+                if (!currentVoters.Contains(voterKey) && context.Policy.IsSafeToCompact(kvp.Value))
+                {
+                    keysToRemove.Add(kvp.Key);
+                }
+            }
+        }
+
+        foreach (var key in keysToRemove)
+        {
+            context.Metadata.Lww.Remove(key);
+        }
+    }
+
     /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {

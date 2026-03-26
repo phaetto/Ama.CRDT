@@ -226,6 +226,7 @@
 | `$/Ama.CRDT/Models/EpochTimestamp.cs` | A default, backward-compatible implementation of `ICrdtTimestamp` that wraps a `long` value representing Unix milliseconds. |
 | `$/Ama.CRDT/Models/GraphEdgePayload.cs` | A data structure for the payload of a graph edge operation. |
 | `$/Ama.CRDT/Models/GraphVertexPayload.cs` | A data structure for the payload of a graph vertex operation. |
+| `$/Ama.CRDT/Models/ICompactionPolicy.cs` | Defines a policy that determines whether a CRDT tombstone or metadata entry is safe to delete. |
 | `$/Ama.CRDT/Models/ICrdtTimestamp.cs` | Represents a logical point in time for a CRDT operation, allowing for different timestamping mechanisms. |
 | `$/Ama.CRDT/Models/Intents/AddEdgeIntent.cs` | Represents the intent to explicitly add an edge to a graph. |
 | `$/Ama.CRDT/Models/Intents/AddIntent.cs` | Represents the intent to explicitly add an item to an unordered collection or set. |
@@ -301,6 +302,10 @@
 | `$/Ama.CRDT/Services/Decorators/JournalingPatcherDecorator.cs` | A decorator for `IAsyncCrdtPatcher` that intercepts patch generation and explicitly created operations, forwarding them to an `ICrdtOperationJournal`. |
 | `$/Ama.CRDT/Services/Decorators/PartitioningApplicatorDecorator.cs` | A global decorator implementation of `IAsyncCrdtApplicator` that intercepts patch application, skips non-partitionable types, handles partition streaming, and delegates internal CRDT operations to the inner applicator. |
 | `$/Ama.CRDT/Services/DifferentiateObjectContext.cs` | Defines the context object for the `ICrdtPatcher.DifferentiateObject` method, encapsulating all necessary parameters. |
+| `$/Ama.CRDT/Services/GarbageCollection/CompositeCompactionPolicy.cs` | Implements a composite compaction policy that evaluates an item as safe to compact if any of its underlying policies consider it safe. |
+| `$/Ama.CRDT/Services/GarbageCollection/GlobalMinimumVersionPolicy.cs` | Implements a mathematically safe compaction policy based on the Global Minimum Version Vector (GMVV) across a cluster of replicas. |
+| `$/Ama.CRDT/Services/GarbageCollection/ICompactionPolicy.cs` | Defines a policy that determines whether a CRDT tombstone or metadata entry is safe to delete, supporting both wall-clock timestamps and causal versions. |
+| `$/Ama.CRDT/Services/GarbageCollection/ThresholdCompactionPolicy.cs` | Implements a heuristic-based compaction policy (TTL) that considers any timestamp or version older than a specified threshold as safe to compact. |
 | `$/Ama.CRDT/Services/Helpers/PocoPathHelper.cs` | A utility class that centralizes reflection-based logic for CRDT strategies. It handles parsing JSON paths, resolving them against POCOs, getting and setting property values, and retrieving type information for collections and dictionaries. |
 | `$/Ama.CRDT/Services/IAsyncCrdtApplicator.cs` | Defines the asynchronous contract for a service that applies a CRDT patch to a document. |
 | `$/Ama.CRDT/Services/IAsyncCrdtPatcher.cs` | Defines the asynchronous contract for a service that compares two versions of a data model and generates a CRDT patch. |
@@ -334,6 +339,7 @@
 | `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements a CRDT strategy for arrays using LCS. It supports type-specific element comparers and partitioning, using centralized reflection helpers. |
 | `$/Ama.CRDT/Services/Strategies/AverageRegisterStrategy.cs` | Implements the Average Register strategy. It now uses centralized reflection helpers from `PocoPathHelper` to apply the calculated average value. |
 | `$/Ama.CRDT/Services/Strategies/BoundedCounterStrategy.cs` | Implements a counter that is clamped within a specified minimum and maximum value. It now uses centralized reflection helpers from `PocoPathHelper`. |
+| `$/Ama.CRDT/Services/Strategies/CompactionContext.cs` | Defines the context for an `ICrdtStrategy.Compact` call, encapsulating parameters for garbage collection. |
 | `$/Ama.CRDT/Services/Strategies/CounterMapStrategy.cs` | Implements the Counter-Map strategy, where each key in a dictionary is treated as an independent PN-Counter. |
 | `$/Ama.CRDT/Services/Strategies/CounterStrategy.cs` | Implements the CRDT Counter strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get the current value and apply the increment. |
 | `$/Ama.CRDT/Services/Strategies/Decorators/ApprovalQuorumStrategy.cs` | A decorator strategy that tracks pending proposals and requires a quorum of replicas to propose the exact same operation before it is applied. |
@@ -372,6 +378,7 @@
 | `$/FilesDescription.md` | No description provided. |
 | `$/LICENSE` | No description provided. |
 | `$/README.md` | No description provided. |
+| `$/Scripts/refactor-strategies.csx` | A C# script used to automate the injection of the `Compact` method into all strategy files using an AI agent. |
 | `$/Specs/add-approval-quorum-strategy.md` | No description provided. |
 | `$/Specs/add-leader-election-strategy.md` | No description provided. |
 | `$/Specs/add-more-text-specific-strategies.md` | No description provided. |

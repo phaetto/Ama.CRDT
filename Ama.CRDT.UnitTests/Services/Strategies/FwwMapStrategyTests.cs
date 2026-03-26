@@ -5,6 +5,7 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
@@ -421,6 +422,43 @@ public sealed class FwwMapStrategyTests
 
         mergedMeta.FwwMaps["$.map"].Count.ShouldBe(3);
         mergedMeta.FwwMaps["$.map"]["overlap"].ShouldBe(timestampProvider.Create(100));
+    }
+
+    [Fact]
+    public void Compact_ShouldRemoveTombstones_WhenPolicyAllows()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
+        
+        var doc = new TestModel { Map = new Dictionary<string, int> { { "alive", 1 } } };
+        var meta = new CrdtMetadata();
+
+        var tsAlive = timestampProvider.Create(1);
+        var tsDeadSafe = timestampProvider.Create(2);
+        var tsDeadUnsafe = timestampProvider.Create(3);
+
+        meta.FwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default)
+        {
+            { "alive", tsAlive },
+            { "dead_safe", tsDeadSafe },
+            { "dead_unsafe", tsDeadUnsafe }
+        };
+
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadSafe)).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadUnsafe)).Returns(false);
+        mockPolicy.Setup(p => p.IsSafeToCompact(tsAlive)).Returns(true); // Shouldn't be checked anyway
+
+        var context = new CompactionContext(meta, mockPolicy.Object, "Map", "$.map", doc);
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        meta.FwwMaps["$.map"].ShouldContainKey("alive");
+        meta.FwwMaps["$.map"].ShouldContainKey("dead_unsafe");
+        meta.FwwMaps["$.map"].ShouldNotContainKey("dead_safe");
     }
 
     private sealed class TestModel
