@@ -184,7 +184,30 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     public void Dispose() => scope.Dispose();
 
     [Fact] public void LwwStrategy_Payload_ShouldBeSerializable() => TestStrategy(new LwwModel { Value = 10 }, new LwwModel { Value = 20 });
-    [Fact] public void FwwStrategy_Payload_ShouldBeSerializable() => TestStrategy(new FwwModel { Value = 10 }, new FwwModel { Value = 20 });
+    
+    [Fact]
+    public void FwwStrategy_Payload_ShouldBeSerializable()
+    {
+        var initial = new FwwModel { Value = 10 };
+        var initialJson = JsonSerializer.Serialize(initial, jsonSerializerOptions);
+        var initialForTarget = JsonSerializer.Deserialize<FwwModel>(initialJson, jsonSerializerOptions)!;
+
+        var metadata = metadataManager.Initialize(initial, new EpochTimestamp(1));
+        var targetDoc = new CrdtDocument<FwwModel>(initialForTarget, metadata.DeepClone());
+
+        // Create an operation with an OLDER timestamp so it wins (FWW)
+        var olderTimestamp = new EpochTimestamp(0);
+        var op = new CrdtOperation(Guid.NewGuid(), "test", "$.value", OperationType.Upsert, 20, olderTimestamp, 0);
+        var patch = new CrdtPatch(new List<CrdtOperation> { op });
+
+        var deserializedPatch = SerializeAndDeserialize(patch);
+        deserializedPatch.Operations.Count.ShouldBe(1);
+
+        applicator.ApplyPatch(targetDoc, deserializedPatch);
+
+        targetDoc.Data!.Value.ShouldBe(20);
+    }
+
     [Fact] public void CounterStrategy_Payload_ShouldBeSerializable() => TestStrategy(new CounterModel { Value = 10 }, new CounterModel { Value = 15 });
     [Fact] public void GCounterStrategy_Payload_ShouldBeSerializable() => TestStrategy(new GCounterModel { Value = 10 }, new GCounterModel { Value = 15 });
     [Fact] public void BoundedCounterStrategy_Payload_ShouldBeSerializable() => TestStrategy(new BoundedCounterModel { Value = 50 }, new BoundedCounterModel { Value = 60 });
@@ -202,7 +225,31 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     [Fact] public void RgaStrategy_Payload_ShouldBeSerializable() => TestStrategy(new RgaModel { Items = { "A", "C" } }, new RgaModel { Items = { "A", "B", "C" } });
     [Fact] public void SortedSetStrategy_Payload_ShouldBeSerializable() => TestStrategy(new SortedSetModel { Users = { new User(Guid.NewGuid(), "A") } }, new SortedSetModel { Users = { new User(Guid.NewGuid(), "A"), new User(Guid.NewGuid(), "B") } });
     [Fact] public void LwwMapStrategy_Payload_ShouldBeSerializable() => TestStrategy(new LwwMapModel { Map = { { "A", 1 } } }, new LwwMapModel { Map = { { "A", 2 } } });
-    [Fact] public void FwwMapStrategy_Payload_ShouldBeSerializable() => TestStrategy(new FwwMapModel { Map = { { "A", 1 } } }, new FwwMapModel { Map = { { "A", 2 } } });
+    
+    [Fact]
+    public void FwwMapStrategy_Payload_ShouldBeSerializable()
+    {
+        var initial = new FwwMapModel { Map = { { "A", 1 } } };
+        var initialJson = JsonSerializer.Serialize(initial, jsonSerializerOptions);
+        var initialForTarget = JsonSerializer.Deserialize<FwwMapModel>(initialJson, jsonSerializerOptions)!;
+
+        var metadata = metadataManager.Initialize(initial, new EpochTimestamp(1));
+        var targetDoc = new CrdtDocument<FwwMapModel>(initialForTarget, metadata.DeepClone());
+
+        // Create an operation with an OLDER timestamp so it wins (FWW)
+        var olderTimestamp = new EpochTimestamp(0);
+        var payload = new KeyValuePair<object, object?>("A", 2);
+        var op = new CrdtOperation(Guid.NewGuid(), "test", "$.map", OperationType.Upsert, payload, olderTimestamp, 0);
+        var patch = new CrdtPatch(new List<CrdtOperation> { op });
+
+        var deserializedPatch = SerializeAndDeserialize(patch);
+        deserializedPatch.Operations.Count.ShouldBe(1);
+
+        applicator.ApplyPatch(targetDoc, deserializedPatch);
+
+        targetDoc.Data!.Map["A"].ShouldBe(2);
+    }
+
     [Fact] public void OrMapStrategy_Payload_ShouldBeSerializable() => TestStrategy(new OrMapModel { Map = { { "A", 1 } } }, new OrMapModel { Map = { { "A", 1 }, { "B", 2 } } });
     [Fact] public void CounterMapStrategy_Payload_ShouldBeSerializable() => TestStrategy(new CounterMapModel { Map = { { "A", 10 } } }, new CounterMapModel { Map = { { "A", 15 } } });
     [Fact] public void MaxWinsMapStrategy_Payload_ShouldBeSerializable() => TestStrategy(new MaxWinsMapModel { Map = { { "A", 10 } } }, new MaxWinsMapModel { Map = { { "A", 20 } } });

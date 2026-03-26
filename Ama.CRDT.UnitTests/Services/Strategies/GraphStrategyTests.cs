@@ -228,7 +228,7 @@ public sealed class GraphStrategyTests : IDisposable
         // Arrange
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
         var metadata = new CrdtMetadata();
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Graph", "$.Graph", new TestModel());
@@ -237,6 +237,6 @@ public sealed class GraphStrategyTests : IDisposable
         strategy.Compact(context);
 
         // Assert
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
 }

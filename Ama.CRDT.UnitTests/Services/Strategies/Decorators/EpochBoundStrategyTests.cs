@@ -256,6 +256,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
         metadata.Epochs["$.status"] = 5;
         
         var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Status", "$.status", new ShoppingCart());
 

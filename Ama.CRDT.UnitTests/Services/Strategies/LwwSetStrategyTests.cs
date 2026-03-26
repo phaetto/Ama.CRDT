@@ -359,34 +359,41 @@ public sealed class LwwSetStrategyTests : IDisposable
         var doc = new TestModel();
         var meta = new CrdtMetadata();
         
-        var safeTs1 = timestampProvider.Create(10);
-        var safeTs2 = timestampProvider.Create(20);
-        var unsafeTs = timestampProvider.Create(30);
+        var safeAddTs1 = timestampProvider.Create(5);
+        var safeAddTs2 = timestampProvider.Create(15);
+        
+        var safeRemove1 = new CausalTimestamp(timestampProvider.Create(10), "replica-1", 5);
+        var safeRemove2 = new CausalTimestamp(timestampProvider.Create(20), "replica-1", 5);
+        var unsafeRemove = new CausalTimestamp(timestampProvider.Create(30), "replica-2", 10);
         
         var adds = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default);
-        var removes = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default);
+        var removes = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default);
 
         // Item 1: Alive (Add > Remove => Add wins)
-        adds["item1"] = safeTs2;
-        removes["item1"] = safeTs1;
+        adds["item1"] = safeAddTs2;
+        removes["item1"] = safeRemove1;
 
         // Item 2: Dead, Safe (Remove >= Add)
-        adds["item2"] = safeTs1;
-        removes["item2"] = safeTs2;
+        adds["item2"] = safeAddTs1;
+        removes["item2"] = safeRemove2;
 
         // Item 3: Dead, Unsafe Remove
-        adds["item3"] = safeTs1;
-        removes["item3"] = unsafeTs;
+        adds["item3"] = safeAddTs1;
+        removes["item3"] = unsafeRemove;
 
         // Item 4: Dead, Safe (No Add)
-        removes["item4"] = safeTs1;
+        removes["item4"] = safeRemove1;
 
         meta.LwwSets["$.tags"] = new LwwSetState(adds, removes);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs1)).Returns(true);
-        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs2)).Returns(true);
-        mockPolicy.Setup(p => p.IsSafeToCompact(unsafeTs)).Returns(false);
+        
+        // Mock Add timestamps behavior (assuming they only have Timestamp populated)
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp != null && c.ReplicaId == null))).Returns(true);
+        
+        // Mock Remove timestamps behavior based on causal metadata
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version <= 5))).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-2" && c.Version == 10))).Returns(false);
 
         var context = new CompactionContext(meta, mockPolicy.Object, "Tags", "$.tags", doc);
 

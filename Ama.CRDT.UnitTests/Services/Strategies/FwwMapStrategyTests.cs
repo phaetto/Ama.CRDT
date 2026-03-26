@@ -73,7 +73,11 @@ public sealed class FwwMapStrategyTests
 
         // Assert
         doc1.Data.Map.ShouldBe(doc2.Data.Map);
-        doc1.Data.Map.ShouldNotContainKey("a");
+        
+        // "a" was set at initialization. op2 is a later operation. For FWW, older timestamp wins, so "a" should NOT be removed!
+        doc1.Data.Map.ShouldContainKey("a");
+        doc1.Data.Map["a"].ShouldBe(1);
+        
         doc1.Data.Map.ShouldContainKey("b");
         doc1.Data.Map["b"].ShouldBe(2);
     }
@@ -89,7 +93,7 @@ public sealed class FwwMapStrategyTests
         Thread.Sleep(5);
         var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), timestampProvider.Now(), 0);
         
-        var expectedMap = new Dictionary<string, int> { { "a", 2 } };
+        var expectedMap = new Dictionary<string, int> { { "a", 1 } }; // Expect 1 to stay, as older timestamp wins
 
         // Act
         strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op));
@@ -108,9 +112,9 @@ public sealed class FwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default)
+        doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
         {
-            { "a", timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) }
+            { "a", new CausalTimestamp(timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), "A", 1) }
         };
         
         var newerTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(50).ToUnixTimeMilliseconds());
@@ -232,9 +236,9 @@ public sealed class FwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default)
+        doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
         {
-            { "a", timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) }
+            { "a", new CausalTimestamp(timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), "A", 1) }
         };
         
         var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Remove, null, timestampProvider.Now(), 0);
@@ -333,12 +337,12 @@ public sealed class FwwMapStrategyTests
         var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "b", 2 }, { "c", 3 }, { "d", 4 } });
         
-        doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>
+        doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
         {
-            { "a", timestampProvider.Create(1) },
-            { "b", timestampProvider.Create(2) },
-            { "c", timestampProvider.Create(3) },
-            { "d", timestampProvider.Create(4) }
+            { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
+            { "b", new CausalTimestamp(timestampProvider.Create(2), "A", 2) },
+            { "c", new CausalTimestamp(timestampProvider.Create(3), "A", 3) },
+            { "d", new CausalTimestamp(timestampProvider.Create(4), "A", 4) }
         };
 
         // Act
@@ -377,9 +381,9 @@ public sealed class FwwMapStrategyTests
         var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         
-        doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>
+        doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
         {
-            { "a", timestampProvider.Create(1) }
+            { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) }
         };
 
         // Act & Assert
@@ -395,17 +399,17 @@ public sealed class FwwMapStrategyTests
         var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
 
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "overlap", 100 } });
-        doc1.Metadata.FwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>
+        doc1.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
         {
-            { "a", timestampProvider.Create(1) },
-            { "overlap", timestampProvider.Create(100) } // Lower timestamp, should win
+            { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
+            { "overlap", new CausalTimestamp(timestampProvider.Create(100), "A", 2) } // Lower timestamp, should win
         };
 
         var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "overlap", 200 } });
-        doc2.Metadata.FwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>
+        doc2.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
         {
-            { "c", timestampProvider.Create(3) },
-            { "overlap", timestampProvider.Create(200) } 
+            { "c", new CausalTimestamp(timestampProvider.Create(3), "B", 1) },
+            { "overlap", new CausalTimestamp(timestampProvider.Create(200), "B", 2) } 
         };
 
         // Act
@@ -421,7 +425,7 @@ public sealed class FwwMapStrategyTests
         mergedDoc.Map["overlap"].ShouldBe(100);
 
         mergedMeta.FwwMaps["$.map"].Count.ShouldBe(3);
-        mergedMeta.FwwMaps["$.map"]["overlap"].ShouldBe(timestampProvider.Create(100));
+        mergedMeta.FwwMaps["$.map"]["overlap"].Timestamp.ShouldBe(timestampProvider.Create(100));
     }
 
     [Fact]
@@ -438,17 +442,16 @@ public sealed class FwwMapStrategyTests
         var tsDeadSafe = timestampProvider.Create(2);
         var tsDeadUnsafe = timestampProvider.Create(3);
 
-        meta.FwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default)
+        meta.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
         {
-            { "alive", tsAlive },
-            { "dead_safe", tsDeadSafe },
-            { "dead_unsafe", tsDeadUnsafe }
+            { "alive", new CausalTimestamp(tsAlive, "replica-1", 1) },
+            { "dead_safe", new CausalTimestamp(tsDeadSafe, "replica-1", 2) },
+            { "dead_unsafe", new CausalTimestamp(tsDeadUnsafe, "replica-2", 3) }
         };
 
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadSafe)).Returns(true);
-        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadUnsafe)).Returns(false);
-        mockPolicy.Setup(p => p.IsSafeToCompact(tsAlive)).Returns(true); // Shouldn't be checked anyway
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()))
+            .Returns((CompactionCandidate c) => c.ReplicaId == "replica-1" && c.Version <= 2);
 
         var context = new CompactionContext(meta, mockPolicy.Object, "Map", "$.map", doc);
 

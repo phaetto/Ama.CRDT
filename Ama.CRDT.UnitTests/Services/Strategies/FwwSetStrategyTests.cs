@@ -394,32 +394,36 @@ public sealed class FwwSetStrategyTests : IDisposable
         var unsafeTs = timestampProvider.Create(30);
         
         var adds = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default);
-        var removes = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default);
+        var removes = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default);
 
         // Item 1: Alive (Add < Remove => Add wins)
         adds["item1"] = safeTs1;
-        removes["item1"] = safeTs2;
+        removes["item1"] = new CausalTimestamp(safeTs2, "replica-1", 2);
 
         // Item 2: Dead, Safe (Remove < Add)
         adds["item2"] = safeTs2;
-        removes["item2"] = safeTs1;
+        removes["item2"] = new CausalTimestamp(safeTs1, "replica-1", 1);
 
         // Item 3: Dead, Unsafe Add
         adds["item3"] = unsafeTs;
-        removes["item3"] = safeTs1;
+        removes["item3"] = new CausalTimestamp(safeTs1, "replica-1", 1);
 
         // Item 4: Dead, Safe (No Add)
-        removes["item4"] = safeTs1;
+        removes["item4"] = new CausalTimestamp(safeTs1, "replica-1", 1);
 
         // Item 5: Dead, Unsafe Remove (No Add)
-        removes["item5"] = unsafeTs;
+        removes["item5"] = new CausalTimestamp(unsafeTs, "replica-2", 3);
 
         meta.FwwSets["$.tags"] = new LwwSetState(adds, removes);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs1)).Returns(true);
-        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs2)).Returns(true);
-        mockPolicy.Setup(p => p.IsSafeToCompact(unsafeTs)).Returns(false);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()))
+            .Returns((CompactionCandidate c) => 
+            {
+                if (c.ReplicaId != null) return c.ReplicaId == "replica-1" && c.Version <= 2;
+                if (c.Timestamp != null) return c.Timestamp.CompareTo(safeTs2) <= 0;
+                return false;
+            });
 
         var context = new CompactionContext(meta, mockPolicy.Object, "Tags", "$.tags", doc);
 

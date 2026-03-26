@@ -78,9 +78,9 @@ public sealed class CrdtPatcherTests : IDisposable
         var ts = timestampProvider.Create(100);
         var model = new TestModel { Name = "Test", Likes = 10, Unchanged = 123 };
         var metadata = new CrdtMetadata();
-        metadata.Lww["$.name"] = ts;
-        metadata.Lww["$.likes"] = ts;
-        metadata.Lww["$.unchanged"] = ts;
+        metadata.Lww["$.name"] = new CausalTimestamp(ts, "test-replica", 1);
+        metadata.Lww["$.likes"] = new CausalTimestamp(ts, "test-replica", 1);
+        metadata.Lww["$.unchanged"] = new CausalTimestamp(ts, "test-replica", 1);
 
         var from = new CrdtDocument<TestModel>(model, metadata);
 
@@ -98,9 +98,9 @@ public sealed class CrdtPatcherTests : IDisposable
         var ts1 = timestampProvider.Create(100);
         var fromModel = new TestModel { Name = "Original", Likes = 5, Unchanged = 123 };
         var fromMeta = new CrdtMetadata();
-        fromMeta.Lww["$.name"] = ts1;
-        fromMeta.Lww["$.likes"] = ts1;
-        fromMeta.Lww["$.unchanged"] = ts1;
+        fromMeta.Lww["$.name"] = new CausalTimestamp(ts1, "test-replica", 1);
+        fromMeta.Lww["$.likes"] = new CausalTimestamp(ts1, "test-replica", 1);
+        fromMeta.Lww["$.unchanged"] = new CausalTimestamp(ts1, "test-replica", 1);
         var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
 
         var ts2 = timestampProvider.Create(200);
@@ -130,7 +130,7 @@ public sealed class CrdtPatcherTests : IDisposable
         var ts1 = timestampProvider.Create(100);
         var fromModel = new TestModel { Nested = new NestedModel { Value = "Nested Original" } };
         var fromMeta = new CrdtMetadata();
-        fromMeta.Lww["$.nested.value"] = ts1;
+        fromMeta.Lww["$.nested.value"] = new CausalTimestamp(ts1, "test-replica", 1);
         var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
 
         var ts2 = timestampProvider.Create(200);

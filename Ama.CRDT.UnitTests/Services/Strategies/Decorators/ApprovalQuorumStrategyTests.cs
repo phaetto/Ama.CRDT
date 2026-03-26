@@ -230,6 +230,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         metadata.QuorumApprovals["$.configValue"] = new Dictionary<object, ISet<string>>();
         
         var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "ConfigValue", "$.configValue", new ProposalDocument());
 

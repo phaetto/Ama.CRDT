@@ -57,7 +57,7 @@ public sealed class LwwStrategyTests : IDisposable
         // Arrange
         var originalValue = 10;
         var modifiedValue = 20;
-        var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = timestampProvider.Create(100L) } };
+        var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(100L), "A", 1) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
         var changeTimestamp = timestampProvider.Create(200L);
         var context = new GeneratePatchContext(
@@ -181,7 +181,7 @@ public sealed class LwwStrategyTests : IDisposable
         // Assert
         model.Value.ShouldBe(valueAfterFirstApply);
         model.Value.ShouldBe(20);
-        metadata.Lww["$.Value"].ShouldBe(timestampProvider.Create(200L));
+        metadata.Lww["$.Value"].Timestamp.ShouldBe(timestampProvider.Create(200L));
     }
 
     [Fact]
@@ -242,9 +242,9 @@ public sealed class LwwStrategyTests : IDisposable
     {
         // Arrange
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
         var metadata = new CrdtMetadata();
-        metadata.Lww["$.Value"] = timestampProvider.Create(200L);
+        metadata.Lww["$.Value"] = new CausalTimestamp(timestampProvider.Create(200L), "A", 1);
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Value", "$.Value", new TestModel());
 
@@ -252,8 +252,8 @@ public sealed class LwwStrategyTests : IDisposable
         strategyA.Compact(context);
 
         // Assert
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
-        metadata.Lww["$.Value"].ShouldBe(timestampProvider.Create(200L));
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
+        metadata.Lww["$.Value"].Timestamp.ShouldBe(timestampProvider.Create(200L));
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

@@ -38,7 +38,7 @@ public sealed class FwwMapStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
 
         var originalDict = originalValue as IDictionary;
         var modifiedDict = modifiedValue as IDictionary;
@@ -55,6 +55,8 @@ public sealed class FwwMapStrategy(
         var removedKeys = originalKeys.Except(modifiedKeys, comparer);
         var commonKeys = originalKeys.Intersect(modifiedKeys, comparer);
 
+        var timestamps = originalMeta.FwwMaps.TryGetValue(path, out var ts) ? ts : null;
+
         foreach (var key in addedKeys)
         {
             operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new KeyValuePair<object, object?>(key, modifiedDict![key]), changeTimestamp, clock));
@@ -62,6 +64,10 @@ public sealed class FwwMapStrategy(
 
         foreach (var key in removedKeys)
         {
+            if (timestamps != null && timestamps.TryGetValue(key, out var causal) && changeTimestamp.CompareTo(causal.Timestamp) >= 0)
+            {
+                continue;
+            }
             operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, new KeyValuePair<object, object?>(key, null), changeTimestamp, clock));
         }
 
@@ -72,6 +78,10 @@ public sealed class FwwMapStrategy(
 
             if (!Equals(originalItemValue, modifiedItemValue))
             {
+                if (timestamps != null && timestamps.TryGetValue(key, out var causal) && changeTimestamp.CompareTo(causal.Timestamp) >= 0)
+                {
+                    continue;
+                }
                 operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new KeyValuePair<object, object?>(key, modifiedItemValue), changeTimestamp, clock));
             }
         }

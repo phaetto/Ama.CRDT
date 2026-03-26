@@ -376,33 +376,37 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         
         var comparer = new ItemComparer();
         var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
-        var removes = new Dictionary<object, ICrdtTimestamp>(comparer);
+        var removes = new Dictionary<object, CausalTimestamp>(comparer);
 
         // Alive: addTs > removeTs
         var itemAlive = new Item("alive", 1);
         adds[itemAlive] = safeTs2;
-        removes[itemAlive] = safeTs1;
+        removes[itemAlive] = new CausalTimestamp(safeTs1, "replica-1", 5);
 
         // Dead Safe: addTs <= removeTs
         var itemDeadSafe = new Item("dead_safe", 2);
         adds[itemDeadSafe] = safeTs1;
-        removes[itemDeadSafe] = safeTs2;
+        removes[itemDeadSafe] = new CausalTimestamp(safeTs2, "replica-1", 6);
 
         // Dead Unsafe
         var itemDeadUnsafe = new Item("dead_unsafe", 3);
         adds[itemDeadUnsafe] = safeTs1;
-        removes[itemDeadUnsafe] = unsafeTs;
+        removes[itemDeadUnsafe] = new CausalTimestamp(unsafeTs, "replica-2", 10);
 
         // Dead No Add Safe
         var itemDeadNoAdd = new Item("dead_no_add", 4);
-        removes[itemDeadNoAdd] = safeTs1;
+        removes[itemDeadNoAdd] = new CausalTimestamp(safeTs1, "replica-1", 5);
 
         meta.PriorityQueues["$.Items"] = new LwwSetState(adds, removes);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs1)).Returns(true);
-        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs2)).Returns(true);
-        mockPolicy.Setup(p => p.IsSafeToCompact(unsafeTs)).Returns(false);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == safeTs1 && c.ReplicaId == null))).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == safeTs2 && c.ReplicaId == null))).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == unsafeTs && c.ReplicaId == null))).Returns(false);
+
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version == 5))).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version == 6))).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-2" && c.Version == 10))).Returns(false);
 
         var context = new CompactionContext(meta, mockPolicy.Object, "Items", "$.Items", doc);
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<PriorityQueueStrategy>().Single();

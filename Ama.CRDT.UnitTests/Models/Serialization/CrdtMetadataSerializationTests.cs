@@ -46,7 +46,7 @@ public sealed class CrdtMetadataSerializationTests
     {
         // Arrange
         var metadata = new CrdtMetadata();
-        metadata.Lww.Add("$.prop1", new EpochTimestamp(12345));
+        metadata.Lww.Add("$.prop1", new CausalTimestamp(new EpochTimestamp(12345), "replica1", 1));
         metadata.VersionVector.Add("replica1", 100L);
 
         // Act
@@ -118,7 +118,7 @@ public sealed class CrdtMetadataSerializationTests
 
         var metadata = new CrdtMetadata();
 
-        metadata.Lww.Add("$.prop1", new EpochTimestamp(12345));
+        metadata.Lww.Add("$.prop1", new CausalTimestamp(new EpochTimestamp(12345), "replica1", 1));
         metadata.VersionVector.Add("replica1", 100L);
         metadata.SeenExceptions.Add(new CrdtOperation(guid, "replica2", "$.prop2", OperationType.Upsert, "value", timestamp, 0));
         metadata.PositionalTrackers.Add("$.array", [new PositionalIdentifier("0.5", guid)]);
@@ -126,27 +126,29 @@ public sealed class CrdtMetadataSerializationTests
         {
             ["replica1"] = new(10m, timestamp)
         });
-        metadata.TwoPhaseSets.Add("$.set1", new TwoPhaseSetState(new HashSet<object> { "item1" }, new HashSet<object> { "item2" }));
+        metadata.TwoPhaseSets.Add("$.set1", new TwoPhaseSetState(
+            new HashSet<object> { "item1" }, 
+            new Dictionary<object, CausalTimestamp> { ["item2"] = new CausalTimestamp(timestamp, "replica1", 1) }));
 
         var guid1 = Guid.NewGuid();
         var guid2 = Guid.NewGuid();
         metadata.LwwSets.Add("$.lwwset1", new LwwSetState(
             new Dictionary<object, ICrdtTimestamp> { ["item1"] = new EpochTimestamp(1) },
-            new Dictionary<object, ICrdtTimestamp> { ["item2"] = new EpochTimestamp(2) }
+            new Dictionary<object, CausalTimestamp> { ["item2"] = new CausalTimestamp(new EpochTimestamp(2), "replica1", 1) }
         ));
         metadata.OrSets.Add("$.orset1", new OrSetState(
             new Dictionary<object, ISet<Guid>> { ["item1"] = new HashSet<Guid> { guid1 } },
-            new Dictionary<object, ISet<Guid>> { ["item2"] = new HashSet<Guid> { guid2 } }
+            new Dictionary<object, IDictionary<Guid, CausalTimestamp>> { ["item2"] = new Dictionary<Guid, CausalTimestamp> { [guid2] = new CausalTimestamp(timestamp, "replica1", 1) } }
         ));
         metadata.PriorityQueues.Add("$.pq1", new LwwSetState(
             new Dictionary<object, ICrdtTimestamp> { ["task1"] = new EpochTimestamp(1) },
-            new Dictionary<object, ICrdtTimestamp>()
+            new Dictionary<object, CausalTimestamp>()
         ));
         metadata.LseqTrackers.Add("$.lseq1", [new LseqItem(new LseqIdentifier(ImmutableList.Create(new LseqPathSegment(1, "r1"))), "A")]);
-        metadata.LwwMaps.Add("$.lwwmap1", new Dictionary<object, ICrdtTimestamp> { ["key1"] = new EpochTimestamp(1), [2] = new EpochTimestamp(2) });
+        metadata.LwwMaps.Add("$.lwwmap1", new Dictionary<object, CausalTimestamp> { ["key1"] = new CausalTimestamp(new EpochTimestamp(1), "replica1", 1), [2] = new CausalTimestamp(new EpochTimestamp(2), "replica1", 2) });
         metadata.OrMaps.Add("$.ormap1", new OrSetState(
              new Dictionary<object, ISet<Guid>> { ["key1"] = new HashSet<Guid> { guid1 } },
-             new Dictionary<object, ISet<Guid>>()
+             new Dictionary<object, IDictionary<Guid, CausalTimestamp>>()
         ));
         metadata.CounterMaps.Add("$.countermap1", new Dictionary<object, PnCounterState>
         {
@@ -156,14 +158,14 @@ public sealed class CrdtMetadataSerializationTests
         var edge = new Edge("v1", "v2", null);
         metadata.TwoPhaseGraphs.Add("$.graph1", new TwoPhaseGraphState(
             new HashSet<object> { "v1", "v2" },
-            new HashSet<object> { "v3" },
+            new Dictionary<object, CausalTimestamp> { ["v3"] = new CausalTimestamp(timestamp, "replica1", 1) },
             new HashSet<object> { edge },
-            new HashSet<object> { new Edge("v4", "v5", null) }
+            new Dictionary<object, CausalTimestamp> { [new Edge("v4", "v5", null)] = new CausalTimestamp(timestamp, "replica1", 2) }
         ));
 
         metadata.ReplicatedTrees.Add("$.tree1", new OrSetState(
             new Dictionary<object, ISet<Guid>> { [1] = new HashSet<Guid> { guid1 } },
-            new Dictionary<object, ISet<Guid>>()
+            new Dictionary<object, IDictionary<Guid, CausalTimestamp>>()
         ));
 
         return metadata;

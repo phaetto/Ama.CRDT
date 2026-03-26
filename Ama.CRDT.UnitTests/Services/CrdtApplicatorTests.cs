@@ -79,7 +79,7 @@ public sealed class CrdtApplicatorTests : IDisposable
         var opTimestamp = timestampProvider.Create(100);
         var existingTimestamp = timestampProvider.Create(200);
 
-        metadata.Lww["$.name"] = existingTimestamp;
+        metadata.Lww["$.name"] = new CausalTimestamp(existingTimestamp, "replica-A", 1);
         var operation = new CrdtOperation(Guid.NewGuid(), "replica-A", "$.name", OperationType.Upsert, "Stale", opTimestamp, 1);
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
@@ -88,7 +88,7 @@ public sealed class CrdtApplicatorTests : IDisposable
 
         // Assert
         result.Document.Name.ShouldBe("Initial");
-        metadata.Lww["$.name"].ShouldBe(existingTimestamp);
+        metadata.Lww["$.name"].Timestamp.ShouldBe(existingTimestamp);
     }
     
     [Fact]
@@ -146,13 +146,13 @@ public sealed class CrdtApplicatorTests : IDisposable
         // Assert
         result1.Document.Name.ShouldBe("Updated");
         result1.Document.Likes.ShouldBe(15);
-        metadata.Lww["$.name"].ShouldBe(lwwOperation.Timestamp);
+        metadata.Lww["$.name"].Timestamp.ShouldBe(lwwOperation.Timestamp);
         // With the updated logic, SeenExceptions should be completely pruned for contiguous operations
         metadata.SeenExceptions.Count.ShouldBe(0);
 
         result2.Document.Name.ShouldBe("Updated");
         result2.Document.Likes.ShouldBe(15);
-        metadata.Lww["$.name"].ShouldBe(lwwOperation.Timestamp);
+        metadata.Lww["$.name"].Timestamp.ShouldBe(lwwOperation.Timestamp);
         metadata.SeenExceptions.Count.ShouldBe(0);
     }
     

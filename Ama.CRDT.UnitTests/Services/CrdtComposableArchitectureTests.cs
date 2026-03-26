@@ -200,7 +200,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         // Explicitly set the parent object's initialization timestamp into the past 
         // to prevent it from identically matching the change generation timestamp 
         // within the same millisecond and causing conflict suppression.
-        fromMeta.Lww["$.level1"] = _timestampProvider.Create(1L);
+        fromMeta.Lww["$.level1"] = new CausalTimestamp(_timestampProvider.Create(1L), "test-replica-1", 1);
 
         var fromDoc = new CrdtDocument<TestRoot>(fromModel, fromMeta);
         var toModel = new TestRoot { Level1 = null };

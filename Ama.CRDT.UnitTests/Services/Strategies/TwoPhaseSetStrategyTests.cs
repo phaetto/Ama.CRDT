@@ -354,16 +354,30 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         // Assert
         doc1.Tags.ShouldBe(["B"], ignoreOrder: true);
         meta1.TwoPhaseSets["$.tags"].Adds.ShouldContain("B");
-        meta1.TwoPhaseSets["$.tags"].Tomstones.ShouldContain("A");
+        meta1.TwoPhaseSets["$.tags"].Tombstones.ShouldContainKey("A");
     }
 
     [Fact]
-    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTimestampTombstones()
+    public void Compact_ShouldRemoveTombstones_WhenPolicyAllows()
     {
         // Arrange
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+
+        // Mock policy: Safe to compact if ReplicaId == "R1" and Version <= 5
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()))
+            .Returns((CompactionCandidate c) => c.ReplicaId == "R1" && c.Version <= 5);
+
         var metadata = new CrdtMetadata();
+        var state = new TwoPhaseSetState(
+            new HashSet<object>(),
+            new Dictionary<object, CausalTimestamp>()
+        );
+
+        state.Tombstones["A"] = new CausalTimestamp(timestampProvider.Now(), "R1", 5); // Should be removed
+        state.Tombstones["B"] = new CausalTimestamp(timestampProvider.Now(), "R2", 10); // Should be kept
+        state.Tombstones["C"] = new CausalTimestamp(timestampProvider.Now(), "R1", 6); // Should be kept
+
+        metadata.TwoPhaseSets["$.tags"] = state;
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Tags", "$.tags", new TestModel());
 
@@ -371,7 +385,9 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         strategyA.Compact(context);
 
         // Assert
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        state.Tombstones.ShouldNotContainKey("A");
+        state.Tombstones.ShouldContainKey("B");
+        state.Tombstones.ShouldContainKey("C");
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

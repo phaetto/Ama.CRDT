@@ -318,7 +318,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
 
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
 
         var context = new CompactionContext(meta, mockPolicy.Object, "Tags", "$.tags", doc);
 
@@ -328,7 +328,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         // Assert
         meta.PositionalTrackers["$.tags"].Count.ShouldBe(originalTrackersCount);
         // Verify IsSafeToCompact was never called, as there are no tombstones to check
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
