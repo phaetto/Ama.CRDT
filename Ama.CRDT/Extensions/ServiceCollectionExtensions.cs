@@ -6,6 +6,7 @@ using Ama.CRDT.Models.Serialization.Converters;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Adapters;
 using Ama.CRDT.Services.Decorators;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Journaling;
 using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Partitioning;
@@ -390,6 +391,48 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtSerializableType<T>(this IServiceCollection services, string discriminator)
     {
         PolymorphicObjectJsonConverter.Register(discriminator, typeof(T));
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a compaction policy for Garbage Collection and metadata pruning. 
+    /// If multiple policies are registered, they are all applied sequentially.
+    /// </summary>
+    /// <typeparam name="TPolicy">The type of the compaction policy to register. Must implement <see cref="ICompactionPolicy"/>.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// builder.Services.AddCrdtCompactionPolicy<GlobalMinimumVersionPolicy>();
+    /// ]]>
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddCrdtCompactionPolicy<TPolicy>(this IServiceCollection services)
+        where TPolicy : class, ICompactionPolicy
+    {
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ICompactionPolicy, TPolicy>());
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a compaction policy for Garbage Collection and metadata pruning using a specific implementation factory.
+    /// </summary>
+    /// <typeparam name="TPolicy">The type of the compaction policy to register. Must implement <see cref="ICompactionPolicy"/>.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <param name="implementationFactory">The factory that creates the policy.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// builder.Services.AddCrdtCompactionPolicy(sp => new ThresholdCompactionPolicy(new EpochTimestamp(123456789)));
+    /// ]]>
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddCrdtCompactionPolicy<TPolicy>(this IServiceCollection services, Func<IServiceProvider, TPolicy> implementationFactory)
+        where TPolicy : class, ICompactionPolicy
+    {
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ICompactionPolicy, TPolicy>(implementationFactory));
         return services;
     }
 
