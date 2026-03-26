@@ -74,7 +74,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     public void GeneratePatch_WithValidTransition_ShouldCreateUpsertOperation()
     {
         // Arrange
-        var originalMeta = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
+        var originalMeta = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
         var changeTimestamp = timestampProvider.Create(200);
         var context = new GeneratePatchContext(
@@ -96,7 +96,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     public void GeneratePatch_WithInvalidTransition_ShouldNotCreateOperation()
     {
         // Arrange
-        var originalMeta = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
+        var originalMeta = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
         var context = new GeneratePatchContext(
             operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "SHIPPED", new TestModel { Status = "PENDING" }, new TestModel { Status = "SHIPPED" }, originalMeta, timestampProvider.Create(200), 0);
@@ -113,7 +113,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Status = "PENDING" };
-        var metadata = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
+        var metadata = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status))!;
         var timestamp = timestampProvider.Create(200);
         var intent = new SetIntent("PROCESSING");
@@ -135,7 +135,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Status = "PENDING" };
-        var metadata = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
+        var metadata = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
         var property = typeof(TestModel).GetProperty(nameof(TestModel.Status))!;
         var timestamp = timestampProvider.Create(200);
         var intent = new SetIntent("SHIPPED"); // Invalid transition directly from PENDING
@@ -165,7 +165,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Status = "PENDING" };
-        var metadata = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
+        var metadata = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200), 0);
         var context = new ApplyOperationContext(model, metadata, operation);
 
@@ -174,7 +174,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         
         // Assert
         model.Status.ShouldBe("PROCESSING");
-        metadata.Lww["$.status"].ShouldBe(timestampProvider.Create(200));
+        metadata.Lww["$.status"].Timestamp.ShouldBe(timestampProvider.Create(200));
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Status = "PENDING" };
-        var metadata = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(100) } };
+        var metadata = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(200), 0);
         var context = new ApplyOperationContext(model, metadata, operation);
 
@@ -191,7 +191,7 @@ public sealed class StateMachineStrategyTests : IDisposable
 
         // Assert
         model.Status.ShouldBe("PENDING");
-        metadata.Lww["$.status"].ShouldBe(timestampProvider.Create(100));
+        metadata.Lww["$.status"].Timestamp.ShouldBe(timestampProvider.Create(100));
     }
     
     [Fact]
@@ -199,7 +199,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Status = "PROCESSING" };
-        var metadata = new CrdtMetadata { Lww = { ["$.status"] = timestampProvider.Create(300) } };
+        var metadata = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(300), "A", 1) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(200), 0);
         var context = new ApplyOperationContext(model, metadata, operation);
 
@@ -208,7 +208,7 @@ public sealed class StateMachineStrategyTests : IDisposable
 
         // Assert
         model.Status.ShouldBe("PROCESSING");
-        metadata.Lww["$.status"].ShouldBe(timestampProvider.Create(300));
+        metadata.Lww["$.status"].Timestamp.ShouldBe(timestampProvider.Create(300));
     }
 
     [Fact]
@@ -228,7 +228,7 @@ public sealed class StateMachineStrategyTests : IDisposable
 
         // Assert
         model.Status.ShouldBe("PROCESSING");
-        metadata.Lww["$.status"].ShouldBe(timestampProvider.Create(200));
+        metadata.Lww["$.status"].Timestamp.ShouldBe(timestampProvider.Create(200));
     }
 
     [Fact]
@@ -249,10 +249,10 @@ public sealed class StateMachineStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op1));
 
         model1.Status.ShouldBe("SHIPPED");
-        meta1.Lww["$.status"].ShouldBe(timestampProvider.Create(300));
+        meta1.Lww["$.status"].Timestamp.ShouldBe(timestampProvider.Create(300));
         
         model2.Status.ShouldBe("SHIPPED");
-        meta2.Lww["$.status"].ShouldBe(timestampProvider.Create(300));
+        meta2.Lww["$.status"].Timestamp.ShouldBe(timestampProvider.Create(300));
     }
 
     [Fact]
@@ -260,7 +260,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     {
         // Arrange
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
         var metadata = new CrdtMetadata();
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Status", "$.status", new TestModel());
@@ -269,6 +269,6 @@ public sealed class StateMachineStrategyTests : IDisposable
         strategyA.Compact(context);
 
         // Assert
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
 }

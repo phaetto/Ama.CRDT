@@ -6,6 +6,7 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -29,6 +30,7 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
     private readonly ICrdtPatcher patcherB;
     private readonly ICrdtApplicator applicator;
     private readonly ICrdtMetadataManager metadataManager;
+    private readonly ICrdtTimestampProvider timestampProvider;
 
     public TwoPhaseGraphStrategyTests()
     {
@@ -45,6 +47,7 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
         patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         applicator = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManager = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()
@@ -206,13 +209,33 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTimestampTombstones()
+    public void Compact_ShouldRemoveTombstones_WhenPolicyAllows()
     {
         // Arrange
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<TwoPhaseGraphStrategy>().Single();
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+
+        // Mock policy: Safe to compact if ReplicaId == "R1" and Version <= 5
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()))
+            .Returns((CompactionCandidate c) => c.ReplicaId == "R1" && c.Version <= 5);
+
         var metadata = new CrdtMetadata();
+        var state = new TwoPhaseGraphState(
+            new HashSet<object>(),
+            new Dictionary<object, CausalTimestamp>(),
+            new HashSet<object>(),
+            new Dictionary<object, CausalTimestamp>()
+        );
+
+        state.VertexTombstones["A"] = new CausalTimestamp(timestampProvider.Create(100), "R1", 5); // Should be removed
+        state.VertexTombstones["B"] = new CausalTimestamp(timestampProvider.Create(200), "R2", 10); // Should be kept
+
+        var edgeA = new Edge("A", "B", null);
+        var edgeB = new Edge("B", "C", null);
+        state.EdgeTombstones[edgeA] = new CausalTimestamp(timestampProvider.Create(100), "R1", 4); // Should be removed
+        state.EdgeTombstones[edgeB] = new CausalTimestamp(timestampProvider.Create(200), "R1", 6); // Should be kept
+
+        metadata.TwoPhaseGraphs["$.graph"] = state;
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Graph", "$.graph", new TestModel());
 
@@ -220,6 +243,10 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
         strategy.Compact(context);
 
         // Assert
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        state.VertexTombstones.ShouldNotContainKey("A");
+        state.VertexTombstones.ShouldContainKey("B");
+
+        state.EdgeTombstones.ShouldNotContainKey(edgeA);
+        state.EdgeTombstones.ShouldContainKey(edgeB);
     }
 }

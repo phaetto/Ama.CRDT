@@ -344,7 +344,7 @@ public sealed class GSetStrategyTests : IDisposable
     {
         // Arrange
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
         var metadata = new CrdtMetadata();
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Tags", "$.tags", new TestModel());
@@ -353,7 +353,7 @@ public sealed class GSetStrategyTests : IDisposable
         strategyA.Compact(context);
 
         // Assert
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

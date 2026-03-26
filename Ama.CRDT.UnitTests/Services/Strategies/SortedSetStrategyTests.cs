@@ -545,29 +545,36 @@ public sealed class SortedSetStrategyTests : IDisposable
         var unsafeTs = timestampProvider.Create(30);
         
         var adds = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default);
-        var removes = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default);
+        var removes = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default);
 
         // Item 1: Alive (Add > Remove => Add wins)
         adds["alive"] = safeTs2;
-        removes["alive"] = safeTs1;
+        removes["alive"] = new CausalTimestamp(safeTs1, "replica-1", 1);
 
         // Item 2: Dead, Safe (Remove >= Add)
         adds["dead_safe"] = safeTs1;
-        removes["dead_safe"] = safeTs2;
+        removes["dead_safe"] = new CausalTimestamp(safeTs2, "replica-1", 2);
 
         // Item 3: Dead, Unsafe Remove
         adds["dead_unsafe"] = safeTs1;
-        removes["dead_unsafe"] = unsafeTs;
+        removes["dead_unsafe"] = new CausalTimestamp(unsafeTs, "replica-2", 3);
 
         // Item 4: Dead, Safe (No Add)
-        removes["dead_no_add"] = safeTs1;
+        removes["dead_no_add"] = new CausalTimestamp(safeTs1, "replica-1", 1);
 
         meta.SortedSets["$.items"] = new LwwSetState(adds, removes);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs1)).Returns(true);
-        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs2)).Returns(true);
-        mockPolicy.Setup(p => p.IsSafeToCompact(unsafeTs)).Returns(false);
+        // Allow compacting if ReplicaId == "replica-1" and Version <= 2, or if evaluating an Add timestamp (ReplicaId null) <= 20
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => 
+            (c.ReplicaId == "replica-1" && c.Version <= 2) || 
+            (c.ReplicaId == null && c.Timestamp != null && c.Timestamp.CompareTo(unsafeTs) < 0))))
+            .Returns(true);
+        
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => 
+            (c.ReplicaId != null && (c.ReplicaId != "replica-1" || c.Version > 2)) ||
+            (c.ReplicaId == null && c.Timestamp != null && c.Timestamp.CompareTo(unsafeTs) >= 0))))
+            .Returns(false);
 
         var context = new CompactionContext(meta, mockPolicy.Object, "Items", "$.items", doc);
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<SortedSetStrategy>().Single();

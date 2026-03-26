@@ -235,10 +235,10 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         // Arrange
         var metadata = new CrdtMetadata();
         var timestamp = timestampProvider.Create(1L);
-        metadata.Lww["$.level"] = timestamp;
+        metadata.Lww["$.level"] = new CausalTimestamp(timestamp, "A", 1);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Level", "$.level", new TestModel());
 
@@ -246,8 +246,8 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         strategy.Compact(context);
 
         // Assert
-        metadata.Lww["$.level"].ShouldBe(timestamp);
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        metadata.Lww["$.level"].ShouldBe(new CausalTimestamp(timestamp, "A", 1));
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

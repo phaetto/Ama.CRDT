@@ -296,7 +296,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
     {
         // Arrange
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
 
         var doc = new TestModel { Values = [1, 2, 3] };
         var meta = metadataManagerA.Initialize(doc);
@@ -308,7 +308,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         strategy.Compact(context);
 
         // Assert
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

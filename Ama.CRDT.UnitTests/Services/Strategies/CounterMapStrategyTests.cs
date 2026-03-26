@@ -337,7 +337,7 @@ public sealed class CounterMapStrategyTests
         };
 
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Map", "$.map", new TestModel());
 
@@ -347,7 +347,7 @@ public sealed class CounterMapStrategyTests
         // Assert
         metadata.CounterMaps["$.map"].ShouldContainKey("a");
         metadata.CounterMaps["$.map"]["a"].P.ShouldBe(10);
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
 
     private sealed class TestModel

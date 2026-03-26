@@ -393,20 +393,52 @@ public sealed class OrSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTimestampTombstones()
+    public void Compact_ShouldRemoveDeadItems_WhenPolicyAllows()
     {
         // Arrange
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
 
+        var tsProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        var ts = tsProvider.Now();
+
+        var tag1 = Guid.NewGuid();
+        var tag2 = Guid.NewGuid();
+        var tag3 = Guid.NewGuid();
+
+        var adds = new Dictionary<object, ISet<Guid>>
+        {
+            { "alive", new HashSet<Guid> { tag3 } },
+            { "dead_safe", new HashSet<Guid> { tag1 } },
+            { "dead_unsafe", new HashSet<Guid> { tag2 } }
+        };
+
+        var removes = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>
+        {
+            { "dead_safe", new Dictionary<Guid, CausalTimestamp> { { tag1, new CausalTimestamp(ts, "replica-1", 5) } } },
+            { "dead_unsafe", new Dictionary<Guid, CausalTimestamp> { { tag2, new CausalTimestamp(ts, "replica-2", 10) } } }
+        };
+
+        meta.OrSets["$.tags"] = new OrSetState(adds, removes);
+
         var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version == 5))).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-2" && c.Version == 10))).Returns(false);
+
         var context = new CompactionContext(meta, mockPolicy.Object, "Tags", "$.tags", doc);
 
         // Act
         strategyA.Compact(context);
 
         // Assert
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        var queueState = meta.OrSets["$.tags"];
+        
+        queueState.Adds.ShouldContainKey("alive");
+        queueState.Adds.ShouldNotContainKey("dead_safe");
+        queueState.Removes.ShouldNotContainKey("dead_safe");
+
+        queueState.Adds.ShouldContainKey("dead_unsafe");
+        queueState.Removes.ShouldContainKey("dead_unsafe");
     }
 
     private sealed class TestTimestampProvider : ICrdtTimestampProvider

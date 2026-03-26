@@ -193,8 +193,9 @@ public sealed class ReplicatedTreeStrategy(
         {
             var nodeId = movePayload.NodeId;
             var nodePath = $"{operation.JsonPath}.Nodes.['{nodeId}'].ParentId";
+            var causalOpTs = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
 
-            if (metadata.Lww.TryGetValue(nodePath, out var existingTimestamp) && operation.Timestamp.CompareTo(existingTimestamp) <= 0)
+            if (metadata.Lww.TryGetValue(nodePath, out var existingTimestamp) && causalOpTs.CompareTo(existingTimestamp) <= 0)
             {
                 return CrdtOperationStatus.Obsolete;
             }
@@ -202,7 +203,7 @@ public sealed class ReplicatedTreeStrategy(
             if (tree.Nodes.TryGetValue(nodeId, out var nodeToMove))
             {
                 nodeToMove.ParentId = movePayload.NewParentId;
-                metadata.Lww[nodePath] = operation.Timestamp;
+                metadata.Lww[nodePath] = causalOpTs;
             }
         }
         else

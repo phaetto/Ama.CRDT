@@ -108,7 +108,7 @@ public sealed class LwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.LwwMaps["$.map"]["a"] = timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        doc.Metadata.LwwMaps["$.map"]["a"] = new CausalTimestamp(timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), "A", 1);
         
         var newerTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(50).ToUnixTimeMilliseconds());
         var olderTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(-50).ToUnixTimeMilliseconds());
@@ -283,12 +283,12 @@ public sealed class LwwMapStrategyTests
         var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "b", 2 }, { "c", 3 }, { "d", 4 } });
         
-        doc.Metadata.LwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>
+        doc.Metadata.LwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
         {
-            { "a", timestampProvider.Create(1) },
-            { "b", timestampProvider.Create(2) },
-            { "c", timestampProvider.Create(3) },
-            { "d", timestampProvider.Create(4) }
+            { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
+            { "b", new CausalTimestamp(timestampProvider.Create(2), "A", 2) },
+            { "c", new CausalTimestamp(timestampProvider.Create(3), "A", 3) },
+            { "d", new CausalTimestamp(timestampProvider.Create(4), "A", 4) }
         };
 
         // Act
@@ -327,9 +327,9 @@ public sealed class LwwMapStrategyTests
         var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         
-        doc.Metadata.LwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>
+        doc.Metadata.LwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
         {
-            { "a", timestampProvider.Create(1) }
+            { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) }
         };
 
         // Act & Assert
@@ -345,17 +345,17 @@ public sealed class LwwMapStrategyTests
         var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
 
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "overlap", 100 } });
-        doc1.Metadata.LwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>
+        doc1.Metadata.LwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
         {
-            { "a", timestampProvider.Create(1) },
-            { "overlap", timestampProvider.Create(100) }
+            { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
+            { "overlap", new CausalTimestamp(timestampProvider.Create(100), "A", 100) }
         };
 
         var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "overlap", 200 } });
-        doc2.Metadata.LwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>
+        doc2.Metadata.LwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
         {
-            { "c", timestampProvider.Create(3) },
-            { "overlap", timestampProvider.Create(200) } // Higher timestamp, should win
+            { "c", new CausalTimestamp(timestampProvider.Create(3), "B", 3) },
+            { "overlap", new CausalTimestamp(timestampProvider.Create(200), "B", 200) } // Higher timestamp, should win
         };
 
         // Act
@@ -371,7 +371,7 @@ public sealed class LwwMapStrategyTests
         mergedDoc.Map["overlap"].ShouldBe(200);
 
         mergedMeta.LwwMaps["$.map"].Count.ShouldBe(3);
-        mergedMeta.LwwMaps["$.map"]["overlap"].ShouldBe(timestampProvider.Create(200));
+        mergedMeta.LwwMaps["$.map"]["overlap"].ShouldBe(new CausalTimestamp(timestampProvider.Create(200), "B", 200));
     }
 
     [Fact]
@@ -384,11 +384,11 @@ public sealed class LwwMapStrategyTests
         var doc = new TestModel { Map = new Dictionary<string, int> { { "alive", 1 } } };
         var meta = new CrdtMetadata();
 
-        var tsAlive = timestampProvider.Create(1);
-        var tsDeadSafe = timestampProvider.Create(2);
-        var tsDeadUnsafe = timestampProvider.Create(3);
+        var tsAlive = new CausalTimestamp(timestampProvider.Create(1), "replica-1", 1);
+        var tsDeadSafe = new CausalTimestamp(timestampProvider.Create(2), "replica-1", 2);
+        var tsDeadUnsafe = new CausalTimestamp(timestampProvider.Create(3), "replica-2", 3);
 
-        meta.LwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default)
+        meta.LwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
         {
             { "alive", tsAlive },
             { "dead_safe", tsDeadSafe },
@@ -396,9 +396,9 @@ public sealed class LwwMapStrategyTests
         };
 
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadSafe)).Returns(true);
-        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadUnsafe)).Returns(false);
-        mockPolicy.Setup(p => p.IsSafeToCompact(tsAlive)).Returns(true); // Shouldn't be checked anyway
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version <= 2))).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-2" && c.Version == 3))).Returns(false);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version == 1))).Returns(true); // Shouldn't be checked anyway
 
         var context = new CompactionContext(meta, mockPolicy.Object, "Map", "$.map", doc);
 
@@ -411,7 +411,7 @@ public sealed class LwwMapStrategyTests
         meta.LwwMaps["$.map"].ShouldNotContainKey("dead_safe");
         
         // Verify alive was not checked
-        mockPolicy.Verify(p => p.IsSafeToCompact(tsAlive), Times.Never);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version == 1)), Times.Never);
     }
 
     private sealed class TestModel
