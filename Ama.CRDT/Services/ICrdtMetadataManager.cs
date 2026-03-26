@@ -139,7 +139,7 @@ public interface ICrdtMetadataManager
     /// <example>
     /// <code>
     /// <![CDATA[
-    /// var policy = new TimeBasedCompactionPolicy(TimeSpan.FromDays(7));
+    /// var policy = new ThresholdCompactionPolicy(new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 7L * 24 * 60 * 60 * 1000));
     /// metadataManager.Compact(myDoc, policy);
     /// ]]>
     /// </code>

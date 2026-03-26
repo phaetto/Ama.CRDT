@@ -2,44 +2,43 @@
 
 The `CrdtMetadata` object stores the necessary state to resolve conflicts and ensure eventual consistency. Over time, this metadata can grow. The library provides tools to help you keep it compact.
 
-## Pruning Tombstones and Exceptions
+## Compacting Tombstones and Exceptions
 
 When you remove properties, overwrite values, or remove elements from sets/maps, their timestamps or unique tags are kept as "tombstones" to prevent older updates from incorrectly re-introducing them. Similarly, network partitions may cause replicas to buffer out-of-order logs (`SeenExceptions`).
 
-You can periodically prune these safely using the `ICrdtMetadataManager`:
+You can periodically clean these safely using the `ICrdtMetadataManager` and an `ICompactionPolicy`:
 
 ```csharp
 using Ama.CRDT.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Services.GarbageCollection;
 
 // 1. Resolve services from a replica scope
 // var scope = ...;
 // var metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
 // var timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
 
-// 2. Assume 'myMetadata' is the CrdtMetadata for a document
-CrdtMetadata myMetadata = ...;
+// 2. Assume 'myDocument' is a CrdtDocument<T>
+CrdtDocument<MyModel> myDocument = ...;
 
-// 3. Define a threshold (e.g., prune everything older than 30 days).
-// (This example assumes the default EpochTimestamp, based on milliseconds)
+// 3. Define a compaction policy.
+// Example A: Time-To-Live (TTL) threshold (e.g., compact everything older than 30 days)
 long thirtyDaysInMillis = 30L * 24 * 60 * 60 * 1000;
 var nowTimestamp = (EpochTimestamp)timestampProvider.Now();
 var thresholdTimestamp = new EpochTimestamp(nowTimestamp.Value - thirtyDaysInMillis);
+var ttlPolicy = new ThresholdCompactionPolicy(thresholdTimestamp);
 
-// 4. Prune basic LWW property tombstones
-metadataManager.PruneLwwTombstones(myMetadata, thresholdTimestamp);
+// Example B: Global Minimum Version Vector (GMVV) policy
+// Used when replicas share their version vectors, allowing mathematically safe compaction
+// var clusterGmvv = new Dictionary<string, long> { { "replica-A", 100 }, { "replica-B", 95 } };
+// var gmvvPolicy = new GlobalMinimumVersionPolicy(clusterGmvv);
 
-// 5. Prune LWW-Set and Priority Queue tombstones
-metadataManager.PruneLwwSetTombstones(myMetadata, thresholdTimestamp);
-
-// 6. Prune OR-Set, OR-Map, and Replicated Tree tombstones
-// (No threshold needed; safely removes elements where removes fully cover adds)
-metadataManager.PruneOrSetTombstones(myMetadata);
-
-// 7. Prune old out-of-order operations to prevent unbounded growth
-metadataManager.PruneSeenExceptions(myMetadata, thresholdTimestamp);
+// 4. Compact the document and its metadata
+metadataManager.Compact(myDocument, ttlPolicy);
 ```
+
+The `Compact` method will recursively traverse your document, delegating to the corresponding strategies (like LWW, OR-Set, Maps, etc.) to evaluate and safely remove tombstones based on the provided policy. It will also prune old out-of-order operations (`SeenExceptions`) that meet the criteria.
 
 ## Version Vector Compaction
 
