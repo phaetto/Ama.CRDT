@@ -60,7 +60,6 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
     /// <inheritdoc/>
     public async Task<ApplyPatchResult<TDoc>> ApplyPatchAsync<TDoc>([DisallowNull] CrdtDocument<TDoc> document, CrdtPatch patch, CancellationToken cancellationToken = default) where TDoc : class
     {
-        ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(document.Data);
 
         var typeInfo = GetTypeInfo(typeof(TDoc));
