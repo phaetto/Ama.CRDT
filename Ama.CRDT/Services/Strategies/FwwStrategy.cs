@@ -35,9 +35,9 @@ public sealed class FwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
             return;
         }
         
-        originalMeta.Fww.TryGetValue(path, out var originalTimestamp);
+        originalMeta.Fww.TryGetValue(path, out var originalCausal);
         
-        if (originalTimestamp is not null && changeTimestamp.CompareTo(originalTimestamp) >= 0)
+        if (originalCausal.Timestamp is not null && changeTimestamp.CompareTo(originalCausal.Timestamp) >= 0)
         {
             return;
         }
@@ -90,8 +90,8 @@ public sealed class FwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 
         bool isReset = operation.Type == OperationType.Remove && operation.Value is null;
 
-        metadata.Fww.TryGetValue(operation.JsonPath, out var fwwTs);
-        if (!isReset && fwwTs is not null && operation.Timestamp.CompareTo(fwwTs) >= 0)
+        metadata.Fww.TryGetValue(operation.JsonPath, out var fwwCausal);
+        if (!isReset && fwwCausal.Timestamp is not null && operation.Timestamp.CompareTo(fwwCausal.Timestamp) >= 0)
         {
             return CrdtOperationStatus.Obsolete;
         }
@@ -104,12 +104,12 @@ public sealed class FwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
         else if (operation.Type == OperationType.Remove)
         {
             PocoPathHelper.SetValue(root, operation.JsonPath, null);
-            metadata.Fww[operation.JsonPath] = operation.Timestamp;
+            metadata.Fww[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
         }
         else if (operation.Type == OperationType.Upsert)
         {
             PocoPathHelper.SetValue(root, operation.JsonPath, operation.Value);
-            metadata.Fww[operation.JsonPath] = operation.Timestamp;
+            metadata.Fww[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
         }
         else
         {
@@ -128,7 +128,7 @@ public sealed class FwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
         {
             if (kvp.Key.StartsWith(context.PropertyPath, StringComparison.Ordinal))
             {
-                var candidate = new CompactionCandidate(Timestamp: kvp.Value);
+                var candidate = new CompactionCandidate(Timestamp: kvp.Value.Timestamp, ReplicaId: kvp.Value.ReplicaId, Version: kvp.Value.Clock);
                 if (context.Policy.IsSafeToCompact(candidate))
                 {
                     keysToRemove.Add(kvp.Key);

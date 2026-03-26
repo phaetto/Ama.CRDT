@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
 using System;
@@ -81,8 +82,11 @@ public sealed class TwoPhaseGraphStrategy(
             var vertexComparer = comparerProvider.GetComparer(typeof(object));
             var edgeComparer = comparerProvider.GetComparer(typeof(Edge));
 
-            state = new TwoPhaseGraphState(new HashSet<object>(vertexComparer), new HashSet<object>(vertexComparer),
-                     new HashSet<object>(edgeComparer), new HashSet<object>(edgeComparer));
+            state = new TwoPhaseGraphState(
+                new HashSet<object>(vertexComparer), 
+                new Dictionary<object, CausalTimestamp>(vertexComparer),
+                new HashSet<object>(edgeComparer), 
+                new Dictionary<object, CausalTimestamp>(edgeComparer));
             metadata.TwoPhaseGraphs[operation.JsonPath] = state;
         }
         
@@ -91,15 +95,16 @@ public sealed class TwoPhaseGraphStrategy(
         {
             if (operation.Type == OperationType.Upsert) 
             {
-                if (!state.VertexTombstones.Contains(vertexPayload.Vertex) && state.VertexAdds.Add(vertexPayload.Vertex))
+                if (!state.VertexTombstones.ContainsKey(vertexPayload.Vertex) && state.VertexAdds.Add(vertexPayload.Vertex))
                 {
                     graph.Vertices.Add(vertexPayload.Vertex);
                 }
             }
             else if (operation.Type == OperationType.Remove)
             {
-                if (state.VertexTombstones.Add(vertexPayload.Vertex))
+                if (!state.VertexTombstones.TryGetValue(vertexPayload.Vertex, out var existingTs) || operation.Timestamp.CompareTo(existingTs.Timestamp) > 0)
                 {
+                    state.VertexTombstones[vertexPayload.Vertex] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
                     graph.Vertices.Remove(vertexPayload.Vertex);
                 }
             }
@@ -112,15 +117,16 @@ public sealed class TwoPhaseGraphStrategy(
         {
             if (operation.Type == OperationType.Upsert) 
             {
-                if (!state.EdgeTombstones.Contains(edgePayload.Edge) && state.EdgeAdds.Add(edgePayload.Edge))
+                if (!state.EdgeTombstones.ContainsKey(edgePayload.Edge) && state.EdgeAdds.Add(edgePayload.Edge))
                 {
                     graph.Edges.Add(edge);
                 }
             }
             else if (operation.Type == OperationType.Remove)
             {
-                if (state.EdgeTombstones.Add(edgePayload.Edge))
+                if (!state.EdgeTombstones.TryGetValue(edgePayload.Edge, out var existingTs) || operation.Timestamp.CompareTo(existingTs.Timestamp) > 0)
                 {
+                    state.EdgeTombstones[edgePayload.Edge] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
                     graph.Edges.Remove(edge);
                 }
             }
@@ -139,8 +145,39 @@ public sealed class TwoPhaseGraphStrategy(
 
     public void Compact(CompactionContext context)
     {
-        // TwoPhaseGraphStrategy tracks adds and tombstones using hash sets without associated ICrdtTimestamps.
-        // Without timestamp information attached to the tombstones, they cannot be safely 
-        // evaluated against the ICompactionPolicy to prevent ghost elements resurrections.
+        if (context.Metadata.TwoPhaseGraphs.TryGetValue(context.PropertyPath, out var state))
+        {
+            var verticesToRemove = new List<object>();
+            foreach (var kvp in state.VertexTombstones)
+            {
+                var candidate = new CompactionCandidate(kvp.Value.Timestamp, kvp.Value.ReplicaId, kvp.Value.Clock);
+                if (context.Policy.IsSafeToCompact(candidate))
+                {
+                    verticesToRemove.Add(kvp.Key);
+                }
+            }
+            
+            foreach (var v in verticesToRemove)
+            {
+                state.VertexTombstones.Remove(v);
+                state.VertexAdds.Remove(v);
+            }
+
+            var edgesToRemove = new List<object>();
+            foreach (var kvp in state.EdgeTombstones)
+            {
+                var candidate = new CompactionCandidate(kvp.Value.Timestamp, kvp.Value.ReplicaId, kvp.Value.Clock);
+                if (context.Policy.IsSafeToCompact(candidate))
+                {
+                    edgesToRemove.Add(kvp.Key);
+                }
+            }
+            
+            foreach (var e in edgesToRemove)
+            {
+                state.EdgeTombstones.Remove(e);
+                state.EdgeAdds.Remove(e);
+            }
+        }
     }
 }

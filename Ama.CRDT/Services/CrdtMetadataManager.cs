@@ -96,16 +96,19 @@ public sealed class CrdtMetadataManager(
         document.Metadata.Epochs.Clear();
         document.Metadata.QuorumApprovals.Clear();
         document.Metadata.Lww.Clear();
+        document.Metadata.Fww.Clear();
         document.Metadata.PositionalTrackers.Clear();
         document.Metadata.AverageRegisters.Clear();
         document.Metadata.TwoPhaseSets.Clear();
         document.Metadata.LwwSets.Clear();
+        document.Metadata.FwwSets.Clear();
         document.Metadata.OrSets.Clear();
         document.Metadata.PriorityQueues.Clear();
         document.Metadata.SortedSets.Clear();
         document.Metadata.LseqTrackers.Clear();
         document.Metadata.RgaTrackers.Clear();
         document.Metadata.LwwMaps.Clear();
+        document.Metadata.FwwMaps.Clear();
         document.Metadata.OrMaps.Clear();
         document.Metadata.CounterMaps.Clear();
         document.Metadata.TwoPhaseGraphs.Clear();
@@ -133,7 +136,10 @@ public sealed class CrdtMetadataManager(
         CompactRecursive(document.Metadata, document.Data, "$", policy, document.Data);
 
         var exceptionsToRemove = document.Metadata.SeenExceptions
-            .Where(op => policy.IsSafeToCompact(op.Timestamp))
+            .Where(op => policy.IsSafeToCompact(new CompactionCandidate(
+                Timestamp: op.Timestamp,
+                ReplicaId: op.ReplicaId,
+                Version: op.Clock)))
             .ToList();
 
         foreach (var ex in exceptionsToRemove)
@@ -338,10 +344,16 @@ public sealed class CrdtMetadataManager(
 
     private void InitializeStrategyMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, object root)
     {
+        var replicaId = replicaContext.ReplicaId ?? string.Empty;
+        var causalTimestamp = new CausalTimestamp(timestamp, replicaId, 0);
+
         switch (strategy)
         {
             case LwwStrategy:
-                metadata.Lww[propertyPath] = timestamp;
+                metadata.Lww[propertyPath] = causalTimestamp;
+                break;
+            case FwwStrategy:
+                metadata.Fww[propertyPath] = causalTimestamp;
                 break;
             case ArrayLcsStrategy:
                 if (propertyValue is IList lcsList)
@@ -355,7 +367,7 @@ public sealed class CrdtMetadataManager(
                 {
                     for (var i = 0; i < Math.Min(fixedList.Count, fixedSizeAttr.Size); i++)
                     {
-                        metadata.Lww[$"{propertyPath}[{i}]"] = timestamp;
+                        metadata.Lww[$"{propertyPath}[{i}]"] = causalTimestamp;
                     }
                 }
                 break;
@@ -390,32 +402,34 @@ public sealed class CrdtMetadataManager(
                 }
                 break;
             case VoteCounterStrategy:
-                InitializeVoteCounterMetadata(metadata, propertyPath, propertyValue, timestamp);
+                InitializeVoteCounterMetadata(metadata, propertyPath, propertyValue, timestamp, replicaId);
                 break;
             case TwoPhaseSetStrategy:
             case LwwSetStrategy:
+            case FwwSetStrategy:
             case OrSetStrategy:
             case PriorityQueueStrategy:
             case SortedSetStrategy:
-                InitializeSetMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
+                InitializeSetMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp, replicaId);
                 break;
             case LwwMapStrategy:
+            case FwwMapStrategy:
             case OrMapStrategy:
             case CounterMapStrategy:
             case MaxWinsMapStrategy:
             case MinWinsMapStrategy:
-                InitializeMapMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
+                InitializeMapMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp, replicaId);
                 break;
             case TwoPhaseGraphStrategy:
                 InitializeTwoPhaseGraphMetadata(metadata, propertyPath, propertyValue);
                 break;
             case ReplicatedTreeStrategy:
-                InitializeReplicatedTreeMetadata(metadata, propertyPath, propertyValue, timestamp);
+                InitializeReplicatedTreeMetadata(metadata, propertyPath, propertyValue, timestamp, replicaId);
                 break;
         }
     }
 
-    private void InitializeSetMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)
+    private void InitializeSetMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, string replicaId)
     {
         if (propertyValue is not IEnumerable collection) return;
 
@@ -430,32 +444,37 @@ public sealed class CrdtMetadataManager(
             case TwoPhaseSetStrategy:
                 metadata.TwoPhaseSets[propertyPath] = new TwoPhaseSetState(
                     Adds: new HashSet<object>(collectionAsObjects, comparer),
-                    Tomstones: new HashSet<object>(comparer));
+                    Tombstones: new Dictionary<object, CausalTimestamp>(comparer));
                 break;
             case LwwSetStrategy:
                 metadata.LwwSets[propertyPath] = new LwwSetState(
                     Adds: collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
-                    Removes: new Dictionary<object, ICrdtTimestamp>(comparer));
+                    Removes: new Dictionary<object, CausalTimestamp>(comparer));
+                break;
+            case FwwSetStrategy:
+                metadata.FwwSets[propertyPath] = new LwwSetState(
+                    Adds: collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
+                    Removes: new Dictionary<object, CausalTimestamp>(comparer));
                 break;
             case OrSetStrategy:
                 metadata.OrSets[propertyPath] = new OrSetState(
                     Adds: collectionAsObjects.ToDictionary(k => k, _ => (ISet<Guid>)new HashSet<Guid> { Guid.NewGuid() }, comparer),
-                    Removes: new Dictionary<object, ISet<Guid>>(comparer));
+                    Removes: new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
                 break;
             case PriorityQueueStrategy:
                 metadata.PriorityQueues[propertyPath] = new LwwSetState(
                     Adds: collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
-                    Removes: new Dictionary<object, ICrdtTimestamp>(comparer));
+                    Removes: new Dictionary<object, CausalTimestamp>(comparer));
                 break;
             case SortedSetStrategy:
                 metadata.SortedSets[propertyPath] = new LwwSetState(
                     Adds: collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
-                    Removes: new Dictionary<object, ICrdtTimestamp>(comparer));
+                    Removes: new Dictionary<object, CausalTimestamp>(comparer));
                 break;
         }
     }
 
-    private void InitializeMapMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)
+    private void InitializeMapMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, string replicaId)
     {
         if (propertyValue is not IDictionary dictionary) return;
 
@@ -465,15 +484,27 @@ public sealed class CrdtMetadataManager(
         switch (strategy)
         {
             case LwwMapStrategy:
-                var lwwMap = new Dictionary<object, ICrdtTimestamp>(comparer);
+                var lwwMap = new Dictionary<object, CausalTimestamp>(comparer);
                 foreach (DictionaryEntry entry in dictionary)
                 {
                     if (entry.Key != null)
                     {
-                        lwwMap[entry.Key] = timestamp;
+                        lwwMap[entry.Key] = new CausalTimestamp(timestamp, replicaId, 0);
                     }
                 }
                 metadata.LwwMaps[propertyPath] = lwwMap;
+                break;
+
+            case FwwMapStrategy:
+                var fwwMap = new Dictionary<object, CausalTimestamp>(comparer);
+                foreach (DictionaryEntry entry in dictionary)
+                {
+                    if (entry.Key != null)
+                    {
+                        fwwMap[entry.Key] = new CausalTimestamp(timestamp, replicaId, 0);
+                    }
+                }
+                metadata.FwwMaps[propertyPath] = fwwMap;
                 break;
 
             case OrMapStrategy:
@@ -484,12 +515,12 @@ public sealed class CrdtMetadataManager(
                     {
                         orMapAdds[entry.Key] = new HashSet<Guid> { Guid.NewGuid() };
                         var keyString = GetVoterKey(entry.Key);
-                        metadata.Lww[$"{propertyPath}.['{keyString}']"] = timestamp;
+                        metadata.Lww[$"{propertyPath}.['{keyString}']"] = new CausalTimestamp(timestamp, replicaId, 0);
                     }
                 }
                 metadata.OrMaps[propertyPath] = new OrSetState(
                     Adds: orMapAdds,
-                    Removes: new Dictionary<object, ISet<Guid>>(comparer));
+                    Removes: new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
                 break;
 
             case CounterMapStrategy:
@@ -507,7 +538,7 @@ public sealed class CrdtMetadataManager(
         }
     }
 
-    private void InitializeVoteCounterMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)
+    private void InitializeVoteCounterMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, string replicaId)
     {
         if (propertyValue is not IDictionary dictionary) return;
 
@@ -528,7 +559,7 @@ public sealed class CrdtMetadataManager(
         {
             var voterKey = GetVoterKey(voter);
             var voterMetaPath = $"{propertyPath}.['{voterKey}']";
-            metadata.Lww[voterMetaPath] = timestamp;
+            metadata.Lww[voterMetaPath] = new CausalTimestamp(timestamp, replicaId, 0);
         }
     }
     
@@ -550,13 +581,13 @@ public sealed class CrdtMetadataManager(
         
         metadata.TwoPhaseGraphs[propertyPath] = new TwoPhaseGraphState(
             VertexAdds: new HashSet<object>(vertices.Cast<object>(), vertexComparer),
-            VertexTombstones: new HashSet<object>(vertexComparer),
+            VertexTombstones: new Dictionary<object, CausalTimestamp>(vertexComparer),
             EdgeAdds: new HashSet<object>(edges.Cast<object>(), edgeComparer),
-            EdgeTombstones: new HashSet<object>(edgeComparer)
+            EdgeTombstones: new Dictionary<object, CausalTimestamp>(edgeComparer)
         );
     }
     
-    private void InitializeReplicatedTreeMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, ICrdtTimestamp timestamp)
+    private void InitializeReplicatedTreeMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, string replicaId)
     {
         var cachedProps = PocoPathHelper.GetCachedProperties(propertyValue.GetType());
         var nodesProp = cachedProps.FirstOrDefault(p => p.Property.Name == "Nodes");
@@ -574,13 +605,13 @@ public sealed class CrdtMetadataManager(
             adds[entry.Key] = new HashSet<Guid> { Guid.NewGuid() };
             
             var nodeIdString = GetVoterKey(entry.Key);
-            metadata.Lww[$"{propertyPath}.Nodes.['{nodeIdString}'].Value"] = timestamp;
-            metadata.Lww[$"{propertyPath}.Nodes.['{nodeIdString}'].ParentId"] = timestamp;
+            metadata.Lww[$"{propertyPath}.Nodes.['{nodeIdString}'].Value"] = new CausalTimestamp(timestamp, replicaId, 0);
+            metadata.Lww[$"{propertyPath}.Nodes.['{nodeIdString}'].ParentId"] = new CausalTimestamp(timestamp, replicaId, 0);
         }
 
         metadata.ReplicatedTrees[propertyPath] = new OrSetState(
             Adds: adds,
-            Removes: new Dictionary<object, ISet<Guid>>(idComparer)
+            Removes: new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(idComparer)
         );
     }
 

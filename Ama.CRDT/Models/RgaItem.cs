@@ -7,8 +7,12 @@ namespace Ama.CRDT.Models;
 /// <param name="LeftIdentifier">The identifier of the item that immediately preceded this one at the time of insertion.</param>
 /// <param name="Value">The actual value payload.</param>
 /// <param name="IsDeleted">A tombstone flag indicating if this item has been removed.</param>
+/// <param name="DeletedByReplicaId">The replica ID that performed the deletion, used for causal tracking.</param>
+/// <param name="DeletedAtClock">The causal clock at which this item was deleted.</param>
 public readonly record struct RgaItem(
     RgaIdentifier Identifier, 
     RgaIdentifier? LeftIdentifier, 
     object? Value, 
-    bool IsDeleted);
+    bool IsDeleted,
+    string? DeletedByReplicaId = null,
+    long? DeletedAtClock = null);

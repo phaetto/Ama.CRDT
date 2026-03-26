@@ -29,16 +29,16 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     public IDictionary<string, IDictionary<object, ISet<string>>> QuorumApprovals { get; set; } = new Dictionary<string, IDictionary<object, ISet<string>>>();
 
     /// <summary>
-    /// Gets or sets a dictionary that stores the last-seen timestamp for properties managed by the Last-Writer-Wins (LWW) strategy.
+    /// Gets or sets a dictionary that stores the last-seen causal timestamp for properties managed by the Last-Writer-Wins (LWW) strategy.
     /// The key is the JSON Path to the property.
     /// </summary>
-    public IDictionary<string, ICrdtTimestamp> Lww { get; set; } = new Dictionary<string, ICrdtTimestamp>();
+    public IDictionary<string, CausalTimestamp> Lww { get; set; } = new Dictionary<string, CausalTimestamp>();
 
     /// <summary>
-    /// Gets or sets a dictionary that stores the earliest-seen timestamp for properties managed by the First-Writer-Wins (FWW) strategy.
+    /// Gets or sets a dictionary that stores the earliest-seen causal timestamp for properties managed by the First-Writer-Wins (FWW) strategy.
     /// The key is the JSON Path to the property.
     /// </summary>
-    public IDictionary<string, ICrdtTimestamp> Fww { get; set; } = new Dictionary<string, ICrdtTimestamp>();
+    public IDictionary<string, CausalTimestamp> Fww { get; set; } = new Dictionary<string, CausalTimestamp>();
 
     /// <summary>
     /// Gets or sets a version vector mapping a ReplicaId to the latest contiguous causal sequence clock received from that replica.
@@ -115,15 +115,15 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     
     /// <summary>
     /// Gets or sets a dictionary that stores the state for properties managed by the Last-Writer-Wins Map (LWW-Map) strategy.
-    /// The outer key is the JSON Path to the property. The inner dictionary maps each key from the user's dictionary to its LWW timestamp.
+    /// The outer key is the JSON Path to the property. The inner dictionary maps each key from the user's dictionary to its LWW timestamp and causal tracking.
     /// </summary>
-    public IDictionary<string, IDictionary<object, ICrdtTimestamp>> LwwMaps { get; set; } = new Dictionary<string, IDictionary<object, ICrdtTimestamp>>();
+    public IDictionary<string, IDictionary<object, CausalTimestamp>> LwwMaps { get; set; } = new Dictionary<string, IDictionary<object, CausalTimestamp>>();
 
     /// <summary>
     /// Gets or sets a dictionary that stores the state for properties managed by the First-Writer-Wins Map (FWW-Map) strategy.
-    /// The outer key is the JSON Path to the property. The inner dictionary maps each key from the user's dictionary to its earliest-seen timestamp.
+    /// The outer key is the JSON Path to the property. The inner dictionary maps each key from the user's dictionary to its earliest-seen causal timestamp.
     /// </summary>
-    public IDictionary<string, IDictionary<object, ICrdtTimestamp>> FwwMaps { get; set; } = new Dictionary<string, IDictionary<object, ICrdtTimestamp>>();
+    public IDictionary<string, IDictionary<object, CausalTimestamp>> FwwMaps { get; set; } = new Dictionary<string, IDictionary<object, CausalTimestamp>>();
 
     /// <summary>
     /// Gets or sets a dictionary that stores the state for properties managed by the Observed-Remove Map (OR-Map) strategy.
@@ -179,7 +179,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         {
             newMetadata.TwoPhaseSets.Add(kvp.Key, new TwoPhaseSetState(
                 Adds: new HashSet<object>(kvp.Value.Adds, (kvp.Value.Adds as HashSet<object>)?.Comparer),
-                Tomstones: new HashSet<object>(kvp.Value.Tomstones, (kvp.Value.Tomstones as HashSet<object>)?.Comparer)
+                Tombstones: new Dictionary<object, CausalTimestamp>(kvp.Value.Tombstones, (kvp.Value.Tombstones as Dictionary<object, CausalTimestamp>)?.Comparer)
             ));
         }
 
@@ -187,7 +187,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         {
             newMetadata.LwwSets.Add(kvp.Key, new LwwSetState(
                 Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
-                Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
+                Removes: new Dictionary<object, CausalTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, CausalTimestamp>)?.Comparer)
             ));
         }
 
@@ -195,7 +195,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         {
             newMetadata.FwwSets.Add(kvp.Key, new LwwSetState(
                 Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
-                Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
+                Removes: new Dictionary<object, CausalTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, CausalTimestamp>)?.Comparer)
             ));
         }
 
@@ -207,10 +207,10 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
                 innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
                 addedComparer);
 
-            var removedComparer = (kvp.Value.Removes as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var removedComparer = (kvp.Value.Removes as Dictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer;
             var newRemoved = kvp.Value.Removes.ToDictionary(
                 innerKvp => innerKvp.Key,
-                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                innerKvp => (IDictionary<Guid, CausalTimestamp>)new Dictionary<Guid, CausalTimestamp>(innerKvp.Value),
                 removedComparer);
 
             newMetadata.OrSets.Add(kvp.Key, new OrSetState(Adds: newAdded, Removes: newRemoved));
@@ -220,7 +220,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         {
             newMetadata.PriorityQueues.Add(kvp.Key, new LwwSetState(
                 Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
-                Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
+                Removes: new Dictionary<object, CausalTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, CausalTimestamp>)?.Comparer)
             ));
         }
 
@@ -228,7 +228,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         {
             newMetadata.SortedSets.Add(kvp.Key, new LwwSetState(
                 Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
-                Removes: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, ICrdtTimestamp>)?.Comparer)
+                Removes: new Dictionary<object, CausalTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, CausalTimestamp>)?.Comparer)
             ));
         }
 
@@ -239,12 +239,12 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
 
         foreach (var kvp in LwwMaps)
         {
-            newMetadata.LwwMaps.Add(kvp.Key, new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer));
+            newMetadata.LwwMaps.Add(kvp.Key, new Dictionary<object, CausalTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, CausalTimestamp>)?.Comparer));
         }
 
         foreach (var kvp in FwwMaps)
         {
-            newMetadata.FwwMaps.Add(kvp.Key, new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer));
+            newMetadata.FwwMaps.Add(kvp.Key, new Dictionary<object, CausalTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, CausalTimestamp>)?.Comparer));
         }
 
         foreach (var kvp in OrMaps)
@@ -255,10 +255,10 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
                 innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
                 addedComparer);
 
-            var removedComparer = (kvp.Value.Removes as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var removedComparer = (kvp.Value.Removes as Dictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer;
             var newRemoved = kvp.Value.Removes.ToDictionary(
                 innerKvp => innerKvp.Key,
-                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                innerKvp => (IDictionary<Guid, CausalTimestamp>)new Dictionary<Guid, CausalTimestamp>(innerKvp.Value),
                 removedComparer);
 
             newMetadata.OrMaps.Add(kvp.Key, new OrSetState(Adds: newAdded, Removes: newRemoved));
@@ -273,9 +273,9 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         {
             newMetadata.TwoPhaseGraphs.Add(kvp.Key, new TwoPhaseGraphState(
                 VertexAdds: new HashSet<object>(kvp.Value.VertexAdds, (kvp.Value.VertexAdds as HashSet<object>)?.Comparer),
-                VertexTombstones: new HashSet<object>(kvp.Value.VertexTombstones, (kvp.Value.VertexTombstones as HashSet<object>)?.Comparer),
+                VertexTombstones: new Dictionary<object, CausalTimestamp>(kvp.Value.VertexTombstones, (kvp.Value.VertexTombstones as Dictionary<object, CausalTimestamp>)?.Comparer),
                 EdgeAdds: new HashSet<object>(kvp.Value.EdgeAdds, (kvp.Value.EdgeAdds as HashSet<object>)?.Comparer),
-                EdgeTombstones: new HashSet<object>(kvp.Value.EdgeTombstones, (kvp.Value.EdgeTombstones as HashSet<object>)?.Comparer)
+                EdgeTombstones: new Dictionary<object, CausalTimestamp>(kvp.Value.EdgeTombstones, (kvp.Value.EdgeTombstones as Dictionary<object, CausalTimestamp>)?.Comparer)
             ));
         }
 
@@ -287,10 +287,10 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
                 innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
                 addedComparer);
 
-            var removedComparer = (kvp.Value.Removes as Dictionary<object, ISet<Guid>>)?.Comparer;
+            var removedComparer = (kvp.Value.Removes as Dictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer;
             var newRemoved = kvp.Value.Removes.ToDictionary(
                 innerKvp => innerKvp.Key,
-                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
+                innerKvp => (IDictionary<Guid, CausalTimestamp>)new Dictionary<Guid, CausalTimestamp>(innerKvp.Value),
                 removedComparer);
 
             newMetadata.ReplicatedTrees.Add(kvp.Key, new OrSetState(Adds: newAdded, Removes: newRemoved));
@@ -368,14 +368,67 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
                 }
             }
             
-            foreach (var kvp in metadata.TwoPhaseSets) merged.TwoPhaseSets[kvp.Key] = kvp.Value;
+            foreach (var kvp in metadata.TwoPhaseSets) 
+            {
+                if (!merged.TwoPhaseSets.TryGetValue(kvp.Key, out var existing))
+                {
+                    merged.TwoPhaseSets[kvp.Key] = new TwoPhaseSetState(
+                        new HashSet<object>(kvp.Value.Adds, (kvp.Value.Adds as HashSet<object>)?.Comparer),
+                        new Dictionary<object, CausalTimestamp>(kvp.Value.Tombstones, (kvp.Value.Tombstones as Dictionary<object, CausalTimestamp>)?.Comparer)
+                    );
+                }
+                else
+                {
+                    foreach (var item in kvp.Value.Adds) existing.Adds.Add(item);
+                    foreach (var item in kvp.Value.Tombstones) 
+                    {
+                        if (!existing.Tombstones.TryGetValue(item.Key, out var existingTs) || item.Value.CompareTo(existingTs) > 0) 
+                        {
+                            existing.Tombstones[item.Key] = item.Value;
+                        }
+                    }
+                }
+            }
+            
             foreach (var kvp in metadata.LwwSets) merged.LwwSets[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.FwwSets) merged.FwwSets[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.OrSets) merged.OrSets[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.PriorityQueues) merged.PriorityQueues[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.SortedSets) merged.SortedSets[kvp.Key] = kvp.Value;
             foreach (var kvp in metadata.OrMaps) merged.OrMaps[kvp.Key] = kvp.Value;
-            foreach (var kvp in metadata.TwoPhaseGraphs) merged.TwoPhaseGraphs[kvp.Key] = kvp.Value;
+            
+            foreach (var kvp in metadata.TwoPhaseGraphs) 
+            {
+                if (!merged.TwoPhaseGraphs.TryGetValue(kvp.Key, out var existing))
+                {
+                    merged.TwoPhaseGraphs[kvp.Key] = new TwoPhaseGraphState(
+                        new HashSet<object>(kvp.Value.VertexAdds, (kvp.Value.VertexAdds as HashSet<object>)?.Comparer),
+                        new Dictionary<object, CausalTimestamp>(kvp.Value.VertexTombstones, (kvp.Value.VertexTombstones as Dictionary<object, CausalTimestamp>)?.Comparer),
+                        new HashSet<object>(kvp.Value.EdgeAdds, (kvp.Value.EdgeAdds as HashSet<object>)?.Comparer),
+                        new Dictionary<object, CausalTimestamp>(kvp.Value.EdgeTombstones, (kvp.Value.EdgeTombstones as Dictionary<object, CausalTimestamp>)?.Comparer)
+                    );
+                }
+                else
+                {
+                    foreach (var item in kvp.Value.VertexAdds) existing.VertexAdds.Add(item);
+                    foreach (var item in kvp.Value.VertexTombstones) 
+                    {
+                        if (!existing.VertexTombstones.TryGetValue(item.Key, out var existingTs) || item.Value.CompareTo(existingTs) > 0) 
+                        {
+                            existing.VertexTombstones[item.Key] = item.Value;
+                        }
+                    }
+                    foreach (var item in kvp.Value.EdgeAdds) existing.EdgeAdds.Add(item);
+                    foreach (var item in kvp.Value.EdgeTombstones) 
+                    {
+                        if (!existing.EdgeTombstones.TryGetValue(item.Key, out var existingTs) || item.Value.CompareTo(existingTs) > 0) 
+                        {
+                            existing.EdgeTombstones[item.Key] = item.Value;
+                        }
+                    }
+                }
+            }
+            
             foreach (var kvp in metadata.ReplicatedTrees) merged.ReplicatedTrees[kvp.Key] = kvp.Value;
             
             foreach (var op in metadata.SeenExceptions) merged.SeenExceptions.Add(op);
@@ -384,8 +437,8 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
             foreach (var kvp in metadata.LseqTrackers) merged.LseqTrackers[kvp.Key] = new List<LseqItem>(kvp.Value);
             
             foreach (var kvp in metadata.AverageRegisters) merged.AverageRegisters[kvp.Key] = new Dictionary<string, AverageRegisterValue>(kvp.Value);
-            foreach (var kvp in metadata.LwwMaps) merged.LwwMaps[kvp.Key] = new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer);
-            foreach (var kvp in metadata.FwwMaps) merged.FwwMaps[kvp.Key] = new Dictionary<object, ICrdtTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, ICrdtTimestamp>)?.Comparer);
+            foreach (var kvp in metadata.LwwMaps) merged.LwwMaps[kvp.Key] = new Dictionary<object, CausalTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, CausalTimestamp>)?.Comparer);
+            foreach (var kvp in metadata.FwwMaps) merged.FwwMaps[kvp.Key] = new Dictionary<object, CausalTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, CausalTimestamp>)?.Comparer);
             foreach (var kvp in metadata.CounterMaps) merged.CounterMaps[kvp.Key] = new Dictionary<object, PnCounterState>(kvp.Value, (kvp.Value as Dictionary<object, PnCounterState>)?.Comparer);
             
             foreach (var kvp in metadata.RgaTrackers)

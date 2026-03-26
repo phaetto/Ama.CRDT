@@ -134,7 +134,7 @@ public sealed class OrMapStrategy(
 
         if (!metadata.OrMaps.TryGetValue(operation.JsonPath, out var state))
         {
-            state = new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, ISet<Guid>>(comparer));
+            state = new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
             metadata.OrMaps[operation.JsonPath] = state;
         }
 
@@ -147,11 +147,11 @@ public sealed class OrMapStrategy(
                 }
                 break;
             case OperationType.Remove:
-                var removedKey = ApplyRemove(state, operation.Value, keyType);
+                var removedKey = ApplyRemove(state, operation, keyType);
                 if (removedKey != null)
                 {
                     if (!state.Adds.TryGetValue(removedKey, out var addTags) || 
-                       (state.Removes.TryGetValue(removedKey, out var rmTags) && !addTags.Except(rmTags).Any()))
+                       (state.Removes.TryGetValue(removedKey, out var rmTags) && !addTags.Except(rmTags.Keys).Any()))
                     {
                         dict.Remove(removedKey);
                     }
@@ -211,8 +211,60 @@ public sealed class OrMapStrategy(
             context.Metadata.Lww.Remove(key);
         }
 
-        // 2. OR-Map keys state (OrSetState) uses Guid tags rather than ICrdtTimestamps, 
-        // so its tombstones cannot be safely evaluated against the ICompactionPolicy.
+        // 2. OR-Map keys state (OrSetState) uses Guid tags.
+        // We now have causal metadata on removals, so we can compact them!
+        if (context.Metadata.OrMaps.TryGetValue(context.PropertyPath, out var state))
+        {
+            var keysToRemove = new List<object>();
+
+            foreach (var kvp in state.Removes)
+            {
+                var key = kvp.Key;
+                var removes = kvp.Value;
+                var safeToRemoveTags = new List<Guid>();
+
+                foreach (var (tag, causalTs) in removes)
+                {
+                    if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: causalTs.Timestamp, ReplicaId: causalTs.ReplicaId, Version: causalTs.Clock)))
+                    {
+                        safeToRemoveTags.Add(tag);
+                    }
+                }
+
+                if (safeToRemoveTags.Count > 0)
+                {
+                    if (state.Adds.TryGetValue(key, out var adds))
+                    {
+                        foreach (var tag in safeToRemoveTags)
+                        {
+                            adds.Remove(tag);
+                            removes.Remove(tag);
+                        }
+                        if (adds.Count == 0 && removes.Count == 0)
+                        {
+                            keysToRemove.Add(key);
+                        }
+                    }
+                    else
+                    {
+                        foreach (var tag in safeToRemoveTags)
+                        {
+                            removes.Remove(tag);
+                        }
+                        if (removes.Count == 0)
+                        {
+                            keysToRemove.Add(key);
+                        }
+                    }
+                }
+            }
+
+            foreach (var key in keysToRemove)
+            {
+                state.Adds.Remove(key);
+                state.Removes.Remove(key);
+            }
+        }
     }
     
     /// <inheritdoc/>
@@ -328,14 +380,14 @@ public sealed class OrMapStrategy(
         {
             IDictionary<object, ISet<Guid>> adds1 = orMapState.Adds.Where(kvp => keys1.Contains(kvp.Key))
                 .ToDictionary(kvp => kvp.Key, kvp => (ISet<Guid>)new HashSet<Guid>(kvp.Value), comparer);
-            IDictionary<object, ISet<Guid>> removes1 = orMapState.Removes.Where(kvp => keys1.Contains(kvp.Key))
-                .ToDictionary(kvp => kvp.Key, kvp => (ISet<Guid>)new HashSet<Guid>(kvp.Value), comparer);
+            IDictionary<object, IDictionary<Guid, CausalTimestamp>> removes1 = orMapState.Removes.Where(kvp => keys1.Contains(kvp.Key))
+                .ToDictionary(kvp => kvp.Key, kvp => (IDictionary<Guid, CausalTimestamp>)new Dictionary<Guid, CausalTimestamp>(kvp.Value), comparer);
             meta1.OrMaps[path] = new OrSetState(adds1, removes1);
 
             IDictionary<object, ISet<Guid>> adds2 = orMapState.Adds.Where(kvp => keys2.Contains(kvp.Key))
                 .ToDictionary(kvp => kvp.Key, kvp => (ISet<Guid>)new HashSet<Guid>(kvp.Value), comparer);
-            IDictionary<object, ISet<Guid>> removes2 = orMapState.Removes.Where(kvp => keys2.Contains(kvp.Key))
-                .ToDictionary(kvp => kvp.Key, kvp => (ISet<Guid>)new HashSet<Guid>(kvp.Value), comparer);
+            IDictionary<object, IDictionary<Guid, CausalTimestamp>> removes2 = orMapState.Removes.Where(kvp => keys2.Contains(kvp.Key))
+                .ToDictionary(kvp => kvp.Key, kvp => (IDictionary<Guid, CausalTimestamp>)new Dictionary<Guid, CausalTimestamp>(kvp.Value), comparer);
             meta2.OrMaps[path] = new OrSetState(adds2, removes2);
         }
 
@@ -378,8 +430,8 @@ public sealed class OrMapStrategy(
 
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var orMap1 = meta1.OrMaps.TryGetValue(path, out var s1) ? s1 : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, ISet<Guid>>(comparer));
-        var orMap2 = meta2.OrMaps.TryGetValue(path, out var s2) ? s2 : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, ISet<Guid>>(comparer));
+        var orMap1 = meta1.OrMaps.TryGetValue(path, out var s1) ? s1 : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+        var orMap2 = meta2.OrMaps.TryGetValue(path, out var s2) ? s2 : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
         
         IDictionary<object, ISet<Guid>> mergedAdds = orMap1.Adds.ToDictionary(kvp => kvp.Key, kvp => (ISet<Guid>)new HashSet<Guid>(kvp.Value), comparer);
         foreach(var(key, tags) in orMap2.Adds)
@@ -394,16 +446,22 @@ public sealed class OrMapStrategy(
             }
         }
 
-        IDictionary<object, ISet<Guid>> mergedRemoves = orMap1.Removes.ToDictionary(kvp => kvp.Key, kvp => (ISet<Guid>)new HashSet<Guid>(kvp.Value), comparer);
-        foreach(var(key, tags) in orMap2.Removes)
+        IDictionary<object, IDictionary<Guid, CausalTimestamp>> mergedRemoves = orMap1.Removes.ToDictionary(kvp => kvp.Key, kvp => (IDictionary<Guid, CausalTimestamp>)new Dictionary<Guid, CausalTimestamp>(kvp.Value), comparer);
+        foreach(var(key, tagsDict) in orMap2.Removes)
         {
-            if (!mergedRemoves.TryGetValue(key, out var existingTags))
+            if (!mergedRemoves.TryGetValue(key, out var existingDict))
             {
-                mergedRemoves[key] = new HashSet<Guid>(tags);
+                mergedRemoves[key] = new Dictionary<Guid, CausalTimestamp>(tagsDict);
             }
             else 
             {
-                foreach (var tag in tags) existingTags.Add(tag);
+                foreach (var (tag, ts) in tagsDict) 
+                {
+                    if (!existingDict.TryGetValue(tag, out var existingTs) || ts.CompareTo(existingTs) > 0)
+                    {
+                        existingDict[tag] = ts;
+                    }
+                }
             }
         }
 
@@ -447,7 +505,7 @@ public sealed class OrMapStrategy(
             var liveKeys = new HashSet<object>(comparer);
             foreach (var (key, addTags) in orState.Adds)
             {
-                if (!orState.Removes.TryGetValue(key, out var rmTags) || addTags.Except(rmTags).Any())
+                if (!orState.Removes.TryGetValue(key, out var rmTags) || addTags.Except(rmTags.Keys).Any())
                 {
                     liveKeys.Add(key);
                 }
@@ -493,21 +551,25 @@ public sealed class OrMapStrategy(
         return true;
     }
 
-    private static object? ApplyRemove(OrSetState state, object? opValue, Type keyType)
+    private static object? ApplyRemove(OrSetState state, CrdtOperation operation, Type keyType)
     {
-        if (PocoPathHelper.ConvertValue(opValue, typeof(OrMapRemoveItem)) is not OrMapRemoveItem payload) return null;
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapRemoveItem)) is not OrMapRemoveItem payload) return null;
 
         var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
         if (itemKey is null) return null;
 
-        if (!state.Removes.TryGetValue(itemKey, out var removeTags))
+        if (!state.Removes.TryGetValue(itemKey, out var removeDict))
         {
-            removeTags = new HashSet<Guid>();
-            state.Removes[itemKey] = removeTags;
+            removeDict = new Dictionary<Guid, CausalTimestamp>();
+            state.Removes[itemKey] = removeDict;
         }
+        var causalTimestamp = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
         foreach (var tag in payload.Tags)
         {
-            removeTags.Add(tag);
+            if (!removeDict.TryGetValue(tag, out var existing) || causalTimestamp.CompareTo(existing) > 0)
+            {
+                removeDict[tag] = causalTimestamp;
+            }
         }
 
         return itemKey;

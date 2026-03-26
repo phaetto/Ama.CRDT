@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
@@ -125,7 +126,7 @@ public sealed class OrSetStrategy(
 
         if (!metadata.OrSets.TryGetValue(operation.JsonPath, out var state))
         {
-            state = new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, ISet<Guid>>(comparer));
+            state = new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
             metadata.OrSets[operation.JsonPath] = state;
         }
 
@@ -137,7 +138,7 @@ public sealed class OrSetStrategy(
                 modifiedItemValue = ApplyUpsert(state, operation.Value, elementType);
                 break;
             case OperationType.Remove:
-                modifiedItemValue = ApplyRemove(state, operation.Value, elementType);
+                modifiedItemValue = ApplyRemove(state, operation, elementType);
                 break;
             default:
                 return CrdtOperationStatus.StrategyApplicationFailed;
@@ -151,7 +152,7 @@ public sealed class OrSetStrategy(
         bool isLiveNow = false;
         if (state.Adds.TryGetValue(modifiedItemValue, out var addTags))
         {
-            if (!state.Removes.TryGetValue(modifiedItemValue, out var rmTags) || addTags.Except(rmTags).Any())
+            if (!state.Removes.TryGetValue(modifiedItemValue, out var rmTags) || addTags.Except(rmTags.Keys).Any())
             {
                 isLiveNow = true;
             }
@@ -172,9 +173,57 @@ public sealed class OrSetStrategy(
     /// <inheritdoc/>
     public void Compact(CompactionContext context)
     {
-        // OrSetStrategy tracks elements using unique Guid tags rather than ICrdtTimestamps.
-        // Without timestamp or version information attached to the tombstones, they cannot be safely 
-        // evaluated against the ICompactionPolicy to prevent ghost elements resurrections.
+        if (!context.Metadata.OrSets.TryGetValue(context.PropertyPath, out var state)) return;
+
+        var itemsToRemove = new List<object>();
+
+        foreach (var kvp in state.Removes)
+        {
+            var item = kvp.Key;
+            var removes = kvp.Value;
+            var safeToRemoveTags = new List<Guid>();
+
+            foreach (var (tag, causalTs) in removes)
+            {
+                if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: causalTs.Timestamp, ReplicaId: causalTs.ReplicaId, Version: causalTs.Clock)))
+                {
+                    safeToRemoveTags.Add(tag);
+                }
+            }
+
+            if (safeToRemoveTags.Count > 0)
+            {
+                if (state.Adds.TryGetValue(item, out var adds))
+                {
+                    foreach (var tag in safeToRemoveTags)
+                    {
+                        adds.Remove(tag);
+                        removes.Remove(tag);
+                    }
+                    if (adds.Count == 0 && removes.Count == 0)
+                    {
+                        itemsToRemove.Add(item);
+                    }
+                }
+                else
+                {
+                    foreach (var tag in safeToRemoveTags)
+                    {
+                        removes.Remove(tag);
+                    }
+                    if (removes.Count == 0)
+                    {
+                        itemsToRemove.Add(item);
+                    }
+                }
+            }
+        }
+
+        foreach (var item in itemsToRemove)
+        {
+            state.Adds.Remove(item);
+            state.Removes.Remove(item);
+        }
     }
 
     /// <inheritdoc/>
@@ -252,12 +301,12 @@ public sealed class OrSetStrategy(
             else adds2[kvp.Key] = new HashSet<Guid>(kvp.Value);
         }
 
-        var rems1 = new Dictionary<object, ISet<Guid>>(comparer);
-        var rems2 = new Dictionary<object, ISet<Guid>>(comparer);
+        var rems1 = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer);
+        var rems2 = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer);
         foreach (var kvp in state.Removes)
         {
-            if (keys1.Contains((IComparable)kvp.Key)) rems1[kvp.Key] = new HashSet<Guid>(kvp.Value);
-            else rems2[kvp.Key] = new HashSet<Guid>(kvp.Value);
+            if (keys1.Contains((IComparable)kvp.Key)) rems1[kvp.Key] = new Dictionary<Guid, CausalTimestamp>(kvp.Value);
+            else rems2[kvp.Key] = new Dictionary<Guid, CausalTimestamp>(kvp.Value);
         }
 
         meta1.OrSets[path] = new OrSetState(adds1, rems1);
@@ -285,12 +334,12 @@ public sealed class OrSetStrategy(
         var comparer = comparerProvider.GetComparer(elementType);
 
         var adds = new Dictionary<object, ISet<Guid>>(comparer);
-        var rems = new Dictionary<object, ISet<Guid>>(comparer);
+        var rems = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer);
 
         if (meta1.OrSets.TryGetValue(path, out var state1))
         {
             foreach (var kvp in state1.Adds) adds[kvp.Key] = new HashSet<Guid>(kvp.Value);
-            foreach (var kvp in state1.Removes) rems[kvp.Key] = new HashSet<Guid>(kvp.Value);
+            foreach (var kvp in state1.Removes) rems[kvp.Key] = new Dictionary<Guid, CausalTimestamp>(kvp.Value);
         }
         if (meta2.OrSets.TryGetValue(path, out var state2))
         {
@@ -301,8 +350,14 @@ public sealed class OrSetStrategy(
             }
             foreach (var kvp in state2.Removes)
             {
-                if (!rems.TryGetValue(kvp.Key, out var set)) { set = new HashSet<Guid>(); rems[kvp.Key] = set; }
-                foreach (var t in kvp.Value) set.Add(t);
+                if (!rems.TryGetValue(kvp.Key, out var dict)) { dict = new Dictionary<Guid, CausalTimestamp>(); rems[kvp.Key] = dict; }
+                foreach (var t in kvp.Value) 
+                {
+                    if (!dict.TryGetValue(t.Key, out var existing) || t.Value.CompareTo(existing) > 0)
+                    {
+                        dict[t.Key] = t.Value;
+                    }
+                }
             }
         }
 
@@ -330,7 +385,7 @@ public sealed class OrSetStrategy(
         {
             var item = kvp.Key;
             var addTags = kvp.Value;
-            if (!state.Removes.TryGetValue(item, out var rmTags) || addTags.Except(rmTags).Any())
+            if (!state.Removes.TryGetValue(item, out var rmTags) || addTags.Except(rmTags.Keys).Any())
             {
                 var converted = PocoPathHelper.ConvertValue(item, elementType);
                 if (converted != null) liveItems.Add(converted);
@@ -358,21 +413,25 @@ public sealed class OrSetStrategy(
         return itemValue;
     }
 
-    private static object? ApplyRemove(OrSetState state, object? opValue, Type elementType)
+    private static object? ApplyRemove(OrSetState state, CrdtOperation operation, Type elementType)
     {
-        if (PocoPathHelper.ConvertValue(opValue, typeof(OrSetRemoveItem)) is not OrSetRemoveItem payload) return null;
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrSetRemoveItem)) is not OrSetRemoveItem payload) return null;
 
         var itemValue = PocoPathHelper.ConvertValue(payload.Value, elementType);
         if (itemValue is null) return null;
 
-        if (!state.Removes.TryGetValue(itemValue, out var removeTags))
+        if (!state.Removes.TryGetValue(itemValue, out var removeDict))
         {
-            removeTags = new HashSet<Guid>();
-            state.Removes[itemValue] = removeTags;
+            removeDict = new Dictionary<Guid, CausalTimestamp>();
+            state.Removes[itemValue] = removeDict;
         }
+        var causalTimestamp = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
         foreach (var tag in payload.Tags)
         {
-            removeTags.Add(tag);
+            if (!removeDict.TryGetValue(tag, out var existing) || causalTimestamp.CompareTo(existing) > 0)
+            {
+                removeDict[tag] = causalTimestamp;
+            }
         }
 
         return itemValue;
