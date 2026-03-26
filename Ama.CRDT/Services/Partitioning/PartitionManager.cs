@@ -34,7 +34,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     private readonly IPartitionStorageService storageService;
     private readonly ICrdtMetadataManager metadataManager;
     private readonly PartitionManagerCrdtMetrics metrics;
-    private readonly IEnumerable<ICompactionPolicy> compactionPolicies;
+    private readonly IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories;
 
     private readonly PropertyInfo partitionKeyProperty;
     private readonly IReadOnlyDictionary<string, (PropertyInfo Property, IPartitionableCrdtStrategy Strategy)> partitionableProperties;
@@ -45,13 +45,13 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         ICrdtStrategyProvider strategyProvider,
         ReplicaContext replicaContext,
         PartitionManagerCrdtMetrics metrics,
-        IEnumerable<ICompactionPolicy> compactionPolicies)
+        IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories)
     {
         ArgumentNullException.ThrowIfNull(storageService);
         ArgumentNullException.ThrowIfNull(metadataManager);
         ArgumentNullException.ThrowIfNull(strategyProvider);
         ArgumentNullException.ThrowIfNull(metrics);
-        ArgumentNullException.ThrowIfNull(compactionPolicies);
+        ArgumentNullException.ThrowIfNull(compactionPolicyFactories);
 
         if (replicaContext == null || string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
         {
@@ -61,7 +61,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         this.storageService = storageService;
         this.metadataManager = metadataManager;
         this.metrics = metrics;
-        this.compactionPolicies = compactionPolicies;
+        this.compactionPolicyFactories = compactionPolicyFactories;
 
         partitionKeyProperty = partitionKeyCache.GetOrAdd(typeof(T), FindPartitionKeyProperty);
         partitionableProperties = partitionablePropertyCache.GetOrAdd(typeof(T), _ => FindPartitionablePropertiesAndStrategies(strategyProvider));
@@ -251,7 +251,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     /// <inheritdoc/>
     public async Task CompactAsync(CancellationToken cancellationToken = default)
     {
-        if (!compactionPolicies.Any())
+        if (!compactionPolicyFactories.Any())
         {
             return;
         }
@@ -265,8 +265,9 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
             if (headerPartition is HeaderPartition hp)
             {
                 var headerDoc = await storageService.LoadHeaderPartitionContentAsync<T>(logicalKey, hp, cancellationToken);
-                foreach (var policy in compactionPolicies)
+                foreach (var factory in compactionPolicyFactories)
                 {
+                    var policy = factory.CreatePolicy();
                     metadataManager.Compact(headerDoc, policy);
                 }
 
@@ -290,8 +291,9 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
                 {
                     var crdtDoc = await storageService.LoadPartitionContentAsync<T>(logicalKey, prop.Name, dataPartition, cancellationToken);
                     
-                    foreach (var policy in compactionPolicies)
+                    foreach (var factory in compactionPolicyFactories)
                     {
+                        var policy = factory.CreatePolicy();
                         metadataManager.Compact(crdtDoc, policy);
                     }
 
@@ -383,10 +385,11 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         var crdtDoc = await storageService.LoadPartitionContentAsync<T>(dataPartitionToSplit.StartKey.LogicalKey, propertyName, dataPartitionToSplit, cancellationToken);
         
         // 1. Attempt Piggybacked Compaction to avoid the split entirely
-        if (compactionPolicies.Any())
+        if (compactionPolicyFactories.Any())
         {
-            foreach (var policy in compactionPolicies)
+            foreach (var factory in compactionPolicyFactories)
             {
+                var policy = factory.CreatePolicy();
                 metadataManager.Compact(crdtDoc, policy);
             }
 

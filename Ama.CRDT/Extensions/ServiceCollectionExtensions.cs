@@ -395,44 +395,44 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers a compaction policy for Garbage Collection and metadata pruning. 
-    /// If multiple policies are registered, they are all applied sequentially.
+    /// Registers a compaction policy factory for Garbage Collection and metadata pruning. 
+    /// If multiple factories are registered, they are all applied sequentially.
     /// </summary>
-    /// <typeparam name="TPolicy">The type of the compaction policy to register. Must implement <see cref="ICompactionPolicy"/>.</typeparam>
+    /// <typeparam name="TFactory">The type of the compaction policy factory to register. Must implement <see cref="ICompactionPolicyFactory"/>.</typeparam>
     /// <param name="services">The <see cref="IServiceCollection"/>.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
     /// <example>
     /// <code>
     /// <![CDATA[
-    /// builder.Services.AddCrdtCompactionPolicy<GlobalMinimumVersionPolicy>();
+    /// builder.Services.AddCrdtCompactionPolicyFactory<MyCompactionPolicyFactory>();
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtCompactionPolicy<TPolicy>(this IServiceCollection services)
-        where TPolicy : class, ICompactionPolicy
+    public static IServiceCollection AddCrdtCompactionPolicyFactory<TFactory>(this IServiceCollection services)
+        where TFactory : class, ICompactionPolicyFactory
     {
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<ICompactionPolicy, TPolicy>());
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ICompactionPolicyFactory, TFactory>());
         return services;
     }
 
     /// <summary>
-    /// Registers a compaction policy for Garbage Collection and metadata pruning using a specific implementation factory.
+    /// Registers a compaction policy factory for Garbage Collection and metadata pruning using a specific implementation factory.
     /// </summary>
-    /// <typeparam name="TPolicy">The type of the compaction policy to register. Must implement <see cref="ICompactionPolicy"/>.</typeparam>
+    /// <typeparam name="TFactory">The type of the compaction policy factory to register. Must implement <see cref="ICompactionPolicyFactory"/>.</typeparam>
     /// <param name="services">The <see cref="IServiceCollection"/>.</param>
-    /// <param name="implementationFactory">The factory that creates the policy.</param>
+    /// <param name="implementationFactory">The factory that creates the policy factory.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
     /// <example>
     /// <code>
     /// <![CDATA[
-    /// builder.Services.AddCrdtCompactionPolicy(sp => new ThresholdCompactionPolicy(new EpochTimestamp(123456789)));
+    /// builder.Services.AddCrdtCompactionPolicyFactory(sp => new ThresholdCompactionPolicyFactory(TimeSpan.FromDays(7)));
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtCompactionPolicy<TPolicy>(this IServiceCollection services, Func<IServiceProvider, TPolicy> implementationFactory)
-        where TPolicy : class, ICompactionPolicy
+    public static IServiceCollection AddCrdtCompactionPolicyFactory<TFactory>(this IServiceCollection services, Func<IServiceProvider, TFactory> implementationFactory)
+        where TFactory : class, ICompactionPolicyFactory
     {
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<ICompactionPolicy, TPolicy>(implementationFactory));
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<ICompactionPolicyFactory, TFactory>(implementationFactory));
         return services;
     }
 

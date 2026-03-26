@@ -308,8 +308,11 @@
 | `$/Ama.CRDT/Services/DifferentiateObjectContext.cs` | Defines the context object for the `ICrdtPatcher.DifferentiateObject` method, encapsulating all necessary parameters. |
 | `$/Ama.CRDT/Services/GarbageCollection/CompactionCandidate.cs` | Represents the metadata payload (e.g., Timestamp, ReplicaId, Version) of a tombstone or deleted item being evaluated for garbage collection. |
 | `$/Ama.CRDT/Services/GarbageCollection/GlobalMinimumVersionPolicy.cs` | Implements a mathematically safe compaction policy based on the Global Minimum Version Vector (GMVV) across a cluster of replicas. |
+| `$/Ama.CRDT/Services/GarbageCollection/GlobalMinimumVersionPolicyFactory.cs` | Factory for creating instances of `GlobalMinimumVersionPolicy` dynamically using a provider delegate for the GMVV. |
 | `$/Ama.CRDT/Services/GarbageCollection/ICompactionPolicy.cs` | Defines a policy that determines whether a CRDT tombstone or metadata entry is safe to delete, supporting both wall-clock timestamps and causal versions. |
+| `$/Ama.CRDT/Services/GarbageCollection/ICompactionPolicyFactory.cs` | Defines a factory that dynamically generates a compaction policy. Useful for long-running scopes that need policies evaluated relative to the current time. |
 | `$/Ama.CRDT/Services/GarbageCollection/ThresholdCompactionPolicy.cs` | Implements a heuristic-based compaction policy (TTL) that considers any timestamp or version older than a specified threshold as safe to compact. |
+| `$/Ama.CRDT/Services/GarbageCollection/ThresholdCompactionPolicyFactory.cs` | Factory for creating instances of `ThresholdCompactionPolicy` dynamically based on time-to-live (`TimeSpan`) or dynamic threshold providers. |
 | `$/Ama.CRDT/Services/Helpers/PocoPathHelper.cs` | A utility class that centralizes reflection-based logic for CRDT strategies. It handles parsing JSON paths, resolving them against POCOs, getting and setting property values, and retrieving type information for collections and dictionaries. |
 | `$/Ama.CRDT/Services/IAsyncCrdtApplicator.cs` | Defines the asynchronous contract for a service that applies a CRDT patch to a document. |
 | `$/Ama.CRDT/Services/IAsyncCrdtPatcher.cs` | Defines the asynchronous contract for a service that compares two versions of a data model and generates a CRDT patch. |
