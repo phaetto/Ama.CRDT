@@ -17,22 +17,22 @@ public sealed class CompactingApplicatorDecorator : IAsyncCrdtApplicator
 {
     private readonly IAsyncCrdtApplicator inner;
     private readonly ICrdtMetadataManager metadataManager;
-    private readonly IEnumerable<ICompactionPolicy> compactionPolicies;
+    private readonly IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CompactingApplicatorDecorator"/> class.
     /// </summary>
     /// <param name="inner">The inner applicator to delegate patch application to.</param>
     /// <param name="metadataManager">The service used to compact metadata.</param>
-    /// <param name="compactionPolicies">The registered policies determining what is safe to compact.</param>
+    /// <param name="compactionPolicyFactories">The registered factories determining what is safe to compact.</param>
     public CompactingApplicatorDecorator(
         IAsyncCrdtApplicator inner,
         ICrdtMetadataManager metadataManager,
-        IEnumerable<ICompactionPolicy> compactionPolicies)
+        IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories)
     {
         this.inner = inner ?? throw new ArgumentNullException(nameof(inner));
         this.metadataManager = metadataManager ?? throw new ArgumentNullException(nameof(metadataManager));
-        this.compactionPolicies = compactionPolicies ?? throw new ArgumentNullException(nameof(compactionPolicies));
+        this.compactionPolicyFactories = compactionPolicyFactories ?? throw new ArgumentNullException(nameof(compactionPolicyFactories));
     }
 
     /// <inheritdoc/>
@@ -40,10 +40,11 @@ public sealed class CompactingApplicatorDecorator : IAsyncCrdtApplicator
     {
         var result = await inner.ApplyPatchAsync(document, patch, cancellationToken);
 
-        if (compactionPolicies.Any())
+        if (compactionPolicyFactories.Any())
         {
-            foreach (var policy in compactionPolicies)
+            foreach (var factory in compactionPolicyFactories)
             {
+                var policy = factory.CreatePolicy();
                 metadataManager.Compact<T>(document, policy);
             }
         }
