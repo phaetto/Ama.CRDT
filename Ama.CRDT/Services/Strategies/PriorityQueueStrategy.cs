@@ -47,7 +47,7 @@ public sealed class PriorityQueueStrategy(
 
         if (!originalMeta.PriorityQueues.TryGetValue(path, out var originalMetaState))
         {
-            originalMetaState = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, ICrdtTimestamp>(comparer));
+            originalMetaState = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
         }
         var originalAdds = originalMetaState.Adds;
         var originalRemoves = originalMetaState.Removes;
@@ -80,7 +80,7 @@ public sealed class PriorityQueueStrategy(
 
             if (isNew || hasChanged)
             {
-                if (originalRemoves.TryGetValue(modifiedItem, out var removeTimestamp) && changeTimestamp.CompareTo(removeTimestamp) < 0)
+                if (originalRemoves.TryGetValue(modifiedItem, out var removeCausalTs) && changeTimestamp.CompareTo(removeCausalTs.Timestamp) < 0)
                 {
                     continue;
                 }
@@ -127,7 +127,7 @@ public sealed class PriorityQueueStrategy(
         
         if (!metadata.PriorityQueues.TryGetValue(operation.JsonPath, out var meta))
         {
-            meta = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, ICrdtTimestamp>(comparer));
+            meta = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
             metadata.PriorityQueues[operation.JsonPath] = meta;
         }
         var adds = meta.Adds;
@@ -144,10 +144,10 @@ public sealed class PriorityQueueStrategy(
         switch (operation.Type)
         {
             case OperationType.Upsert:
-                wasApplied = ApplyUpsert(list, adds, removes, value, operation.Timestamp, comparer);
+                wasApplied = ApplyUpsert(list, adds, removes, value, operation, comparer);
                 break;
             case OperationType.Remove:
-                wasApplied = ApplyRemove(list, adds, removes, value, operation.Timestamp, comparer);
+                wasApplied = ApplyRemove(list, adds, removes, value, operation, comparer);
                 break;
             default:
                 return CrdtOperationStatus.StrategyApplicationFailed;
@@ -172,15 +172,15 @@ public sealed class PriorityQueueStrategy(
         foreach (var kvp in state.Removes)
         {
             var item = kvp.Key;
-            var removeTs = kvp.Value;
+            var removeCausalTs = kvp.Value;
 
             if (state.Adds.TryGetValue(item, out var addTs))
             {
                 // If addTs <= removeTs, the Remove operation is newer (or equal).
                 // Thus, the item is dead.
-                if (addTs.CompareTo(removeTs) <= 0)
+                if (addTs.CompareTo(removeCausalTs.Timestamp) <= 0)
                 {
-                    if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs)) && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: addTs)))
+                    if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeCausalTs.Timestamp, ReplicaId: removeCausalTs.ReplicaId, Version: removeCausalTs.Clock)) && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: addTs)))
                     {
                         deadItemsToRemove.Add(item);
                     }
@@ -189,7 +189,7 @@ public sealed class PriorityQueueStrategy(
             else
             {
                 // Item is in Removes but not in Adds, so it's dead.
-                if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs)))
+                if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeCausalTs.Timestamp, ReplicaId: removeCausalTs.ReplicaId, Version: removeCausalTs.Clock)))
                 {
                     deadItemsToRemove.Add(item);
                 }
@@ -203,14 +203,14 @@ public sealed class PriorityQueueStrategy(
         }
     }
     
-    private bool ApplyUpsert(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, ICrdtTimestamp> removes, object value, ICrdtTimestamp timestamp, IEqualityComparer<object> comparer)
+    private bool ApplyUpsert(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, CausalTimestamp> removes, object value, CrdtOperation operation, IEqualityComparer<object> comparer)
     {
-        if (removes.TryGetValue(value, out var removeTimestamp) && timestamp.CompareTo(removeTimestamp) < 0)
+        if (removes.TryGetValue(value, out var removeCausalTs) && operation.Timestamp.CompareTo(removeCausalTs.Timestamp) < 0)
         {
             return false;
         }
 
-        if (adds.TryGetValue(value, out var addTimestamp) && timestamp.CompareTo(addTimestamp) < 0)
+        if (adds.TryGetValue(value, out var addTimestamp) && operation.Timestamp.CompareTo(addTimestamp) < 0)
         {
             return false;
         }
@@ -222,20 +222,22 @@ public sealed class PriorityQueueStrategy(
         }
 
         list.Add(value);
-        adds[value] = timestamp;
+        adds[value] = operation.Timestamp;
         return true;
     }
     
-    private bool ApplyRemove(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, ICrdtTimestamp> removes, object value, ICrdtTimestamp timestamp, IEqualityComparer<object> comparer)
+    private bool ApplyRemove(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, CausalTimestamp> removes, object value, CrdtOperation operation, IEqualityComparer<object> comparer)
     {
-        if (removes.TryGetValue(value, out var removeTimestamp) && timestamp.CompareTo(removeTimestamp) <= 0)
+        var causalTimestamp = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
+
+        if (removes.TryGetValue(value, out var removeCausalTs) && causalTimestamp.CompareTo(removeCausalTs) <= 0)
         {
             return false;
         }
 
-        removes[value] = timestamp;
+        removes[value] = causalTimestamp;
 
-        if (adds.TryGetValue(value, out var addTimestamp) && timestamp.CompareTo(addTimestamp) < 0)
+        if (adds.TryGetValue(value, out var addTimestamp) && operation.Timestamp.CompareTo(addTimestamp) < 0)
         {
             return false; // Still returning false for the obsolete indicator even if removal logic might conceptually progress, aligned with lww metadata checks.
         }

@@ -106,7 +106,7 @@ public sealed class LwwMapStrategy(
 
         if (!metadata.LwwMaps.TryGetValue(operation.JsonPath, out var timestamps))
         {
-            timestamps = new Dictionary<object, ICrdtTimestamp>(comparer);
+            timestamps = new Dictionary<object, CausalTimestamp>(comparer);
             metadata.LwwMaps[operation.JsonPath] = timestamps;
         }
 
@@ -121,12 +121,12 @@ public sealed class LwwMapStrategy(
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
         
-        if (timestamps.TryGetValue(itemKey, out var currentTimestamp) && operation.Timestamp.CompareTo(currentTimestamp) <= 0)
+        if (timestamps.TryGetValue(itemKey, out var currentTimestamp) && operation.Timestamp.CompareTo(currentTimestamp.Timestamp) <= 0)
         {
             return CrdtOperationStatus.Obsolete;
         }
 
-        timestamps[itemKey] = operation.Timestamp;
+        timestamps[itemKey] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
 
         switch (operation.Type)
         {
@@ -161,7 +161,7 @@ public sealed class LwwMapStrategy(
         foreach (var kvp in timestamps)
         {
             // If the key is not in the dictionary, it's a tombstone.
-            if (!dict.Contains(kvp.Key) && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: kvp.Value)))
+            if (!dict.Contains(kvp.Key) && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: kvp.Value.Timestamp, ReplicaId: kvp.Value.ReplicaId, Version: kvp.Value.Clock)))
             {
                 keysToRemove.Add(kvp.Key);
             }
@@ -312,10 +312,10 @@ public sealed class LwwMapStrategy(
 
         // CrdtMetadata.Merge blindly overwrites nested maps with the last passed metadata for that path.
         // We need to properly combine the specific disjoint keys of the partitioned map here manually.
-        var items1 = meta1.LwwMaps.TryGetValue(path, out var i1) ? i1 : new Dictionary<object, ICrdtTimestamp>(comparer);
-        var items2 = meta2.LwwMaps.TryGetValue(path, out var i2) ? i2 : new Dictionary<object, ICrdtTimestamp>(comparer);
+        var items1 = meta1.LwwMaps.TryGetValue(path, out var i1) ? i1 : new Dictionary<object, CausalTimestamp>(comparer);
+        var items2 = meta2.LwwMaps.TryGetValue(path, out var i2) ? i2 : new Dictionary<object, CausalTimestamp>(comparer);
 
-        var mergedItems = new Dictionary<object, ICrdtTimestamp>(comparer);
+        var mergedItems = new Dictionary<object, CausalTimestamp>(comparer);
         foreach (var kvp in items1) mergedItems[kvp.Key] = kvp.Value;
         foreach (var kvp in items2)
         {
@@ -335,7 +335,7 @@ public sealed class LwwMapStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructDictionaryForSplitMerge(object root, string path, List<KeyValuePair<object, ICrdtTimestamp>> items, object originalData)
+    private static void ReconstructDictionaryForSplitMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object originalData)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
         var (origParent, origProperty, _) = PocoPathHelper.ResolvePath(originalData, path);
@@ -362,7 +362,7 @@ public sealed class LwwMapStrategy(
         }
     }
 
-    private static void ReconstructDictionaryForMerge(object root, string path, List<KeyValuePair<object, ICrdtTimestamp>> items, object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2)
+    private static void ReconstructDictionaryForMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
         var (parent1, property1, _) = PocoPathHelper.ResolvePath(data1, path);
@@ -392,10 +392,10 @@ public sealed class LwwMapStrategy(
 
             if (inDict1 && inDict2)
             {
-                var ts1 = items1?.TryGetValue(item.Key, out var t1) == true ? t1 : null;
-                var ts2 = items2?.TryGetValue(item.Key, out var t2) == true ? t2 : null;
+                var ts1 = items1?.TryGetValue(item.Key, out var t1) == true ? (CausalTimestamp?)t1 : null;
+                var ts2 = items2?.TryGetValue(item.Key, out var t2) == true ? (CausalTimestamp?)t2 : null;
 
-                if (ts2 != null && ts1 != null && ts2.CompareTo(ts1) > 0)
+                if (ts2 != null && ts1 != null && ts2.Value.CompareTo(ts1.Value) > 0)
                 {
                     dict[typedKey] = dict2![typedKey];
                 }

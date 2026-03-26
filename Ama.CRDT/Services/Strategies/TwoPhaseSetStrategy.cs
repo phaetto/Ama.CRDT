@@ -8,6 +8,7 @@ using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Services.GarbageCollection;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -85,7 +86,7 @@ public sealed class TwoPhaseSetStrategy(
 
         if (!metadata.TwoPhaseSets.TryGetValue(operation.JsonPath, out var state))
         {
-            state = new TwoPhaseSetState(new HashSet<object>(comparer), new HashSet<object>(comparer));
+            state = new TwoPhaseSetState(new HashSet<object>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
             metadata.TwoPhaseSets[operation.JsonPath] = state;
         }
 
@@ -98,19 +99,22 @@ public sealed class TwoPhaseSetStrategy(
         switch (operation.Type)
         {
             case OperationType.Upsert:
-                if (!state.Tomstones.Contains(itemValue))
+                if (!state.Tombstones.ContainsKey(itemValue))
                 {
                     state.Adds.Add(itemValue);
                 }
                 break;
             case OperationType.Remove:
-                state.Tomstones.Add(itemValue);
+                if (!state.Tombstones.TryGetValue(itemValue, out var existingTs) || operation.Timestamp.CompareTo(existingTs.Timestamp) > 0)
+                {
+                    state.Tombstones[itemValue] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
+                }
                 break;
             default:
                 return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        bool isLiveNow = state.Adds.Contains(itemValue) && !state.Tomstones.Contains(itemValue);
+        bool isLiveNow = state.Adds.Contains(itemValue) && !state.Tombstones.ContainsKey(itemValue);
 
         if (isLiveNow)
         {
@@ -127,9 +131,25 @@ public sealed class TwoPhaseSetStrategy(
     /// <inheritdoc/>
     public void Compact(CompactionContext context)
     {
-        // TwoPhaseSetStrategy tracks adds and tombstones using hash sets without associated ICrdtTimestamps.
-        // Without timestamp information attached to the tombstones, they cannot be safely 
-        // evaluated against the ICompactionPolicy to prevent ghost elements resurrections.
+        if (context.Metadata.TwoPhaseSets.TryGetValue(context.PropertyPath, out var state))
+        {
+            var keysToRemove = new List<object>();
+
+            foreach (var kvp in state.Tombstones)
+            {
+                var candidate = new CompactionCandidate(kvp.Value.Timestamp, kvp.Value.ReplicaId, kvp.Value.Clock);
+                if (context.Policy.IsSafeToCompact(candidate))
+                {
+                    keysToRemove.Add(kvp.Key);
+                }
+            }
+
+            foreach (var key in keysToRemove)
+            {
+                state.Tombstones.Remove(key);
+                state.Adds.Remove(key);
+            }
+        }
     }
 
     /// <inheritdoc/>
@@ -168,12 +188,12 @@ public sealed class TwoPhaseSetStrategy(
         var documentType = partitionableProperty.DeclaringType!;
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        if (!originalMetadata.TwoPhaseSets.TryGetValue(path, out var state) || state.Adds.Count + state.Tomstones.Count < 2)
+        if (!originalMetadata.TwoPhaseSets.TryGetValue(path, out var state) || state.Adds.Count + state.Tombstones.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
         }
 
-        var allKeys = state.Adds.Union(state.Tomstones).Cast<IComparable>().OrderBy(k => k).ToList();
+        var allKeys = state.Adds.Union(state.Tombstones.Keys).Cast<IComparable>().OrderBy(k => k).ToList();
         var splitIndex = allKeys.Count / 2;
         var splitKey = allKeys[splitIndex];
 
@@ -194,12 +214,12 @@ public sealed class TwoPhaseSetStrategy(
             else adds2.Add(kvp);
         }
 
-        var toms1 = new HashSet<object>(comparer);
-        var toms2 = new HashSet<object>(comparer);
-        foreach (var kvp in state.Tomstones)
+        var toms1 = new Dictionary<object, CausalTimestamp>(comparer);
+        var toms2 = new Dictionary<object, CausalTimestamp>(comparer);
+        foreach (var kvp in state.Tombstones)
         {
-            if (keys1.Contains((IComparable)kvp)) toms1.Add(kvp);
-            else toms2.Add(kvp);
+            if (keys1.Contains((IComparable)kvp.Key)) toms1.Add(kvp.Key, kvp.Value);
+            else toms2.Add(kvp.Key, kvp.Value);
         }
 
         meta1.TwoPhaseSets[path] = new TwoPhaseSetState(adds1, toms1);
@@ -227,17 +247,23 @@ public sealed class TwoPhaseSetStrategy(
         var comparer = comparerProvider.GetComparer(elementType);
 
         var adds = new HashSet<object>(comparer);
-        var toms = new HashSet<object>(comparer);
+        var toms = new Dictionary<object, CausalTimestamp>(comparer);
 
         if (meta1.TwoPhaseSets.TryGetValue(path, out var state1))
         {
             foreach (var item in state1.Adds) adds.Add(item);
-            foreach (var item in state1.Tomstones) toms.Add(item);
+            foreach (var item in state1.Tombstones) toms[item.Key] = item.Value;
         }
         if (meta2.TwoPhaseSets.TryGetValue(path, out var state2))
         {
             foreach (var item in state2.Adds) adds.Add(item);
-            foreach (var item in state2.Tomstones) toms.Add(item);
+            foreach (var item in state2.Tombstones) 
+            {
+                if (!toms.TryGetValue(item.Key, out var existing) || item.Value.CompareTo(existing) > 0)
+                {
+                    toms[item.Key] = item.Value;
+                }
+            }
         }
 
         var mergedState = new TwoPhaseSetState(adds, toms);
@@ -263,7 +289,7 @@ public sealed class TwoPhaseSetStrategy(
 
         foreach (var item in state.Adds)
         {
-            if (!state.Tomstones.Contains(item))
+            if (!state.Tombstones.ContainsKey(item))
             {
                 var converted = PocoPathHelper.ConvertValue(item, elementType);
                 if (converted != null) liveItems.Add(converted);

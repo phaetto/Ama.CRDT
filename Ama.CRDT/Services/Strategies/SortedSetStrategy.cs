@@ -162,7 +162,7 @@ public sealed class SortedSetStrategy(
             {
                 adds[item] = timestampProvider.Create(0);
             }
-            state = new LwwSetState(adds, new Dictionary<object, ICrdtTimestamp>(comparer));
+            state = new LwwSetState(adds, new Dictionary<object, CausalTimestamp>(comparer));
             metadata.SortedSets[collectionPath] = state;
         }
 
@@ -178,9 +178,9 @@ public sealed class SortedSetStrategy(
                 }
                 break;
             case OperationType.Remove:
-                if (!state.Removes.TryGetValue(itemValue, out var removeTimestamp) || operation.Timestamp.CompareTo(removeTimestamp) > 0)
+                if (!state.Removes.TryGetValue(itemValue, out var removeCausalTs) || operation.Timestamp.CompareTo(removeCausalTs.Timestamp) > 0)
                 {
-                    state.Removes[itemValue] = operation.Timestamp;
+                    state.Removes[itemValue] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
                 }
                 break;
             default:
@@ -190,7 +190,7 @@ public sealed class SortedSetStrategy(
         bool isLiveNow = false;
         if (state.Adds.TryGetValue(itemValue, out var finalAddTs))
         {
-            if (!state.Removes.TryGetValue(itemValue, out var finalRemoveTs) || finalAddTs.CompareTo(finalRemoveTs) > 0)
+            if (!state.Removes.TryGetValue(itemValue, out var finalRemoveCausalTs) || finalAddTs.CompareTo(finalRemoveCausalTs.Timestamp) > 0)
             {
                 isLiveNow = true;
             }
@@ -269,14 +269,15 @@ public sealed class SortedSetStrategy(
         foreach (var kvp in state.Removes)
         {
             var item = kvp.Key;
-            var removeTs = kvp.Value;
+            var removeCausal = kvp.Value;
+            var removeTs = removeCausal.Timestamp;
 
             if (state.Adds.TryGetValue(item, out var addTs))
             {
                 // In LWW, highest timestamp wins. If addTs <= removeTs, Remove is newer/equal.
                 if (addTs.CompareTo(removeTs) <= 0)
                 {
-                    if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs)) && 
+                    if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs, ReplicaId: removeCausal.ReplicaId, Version: removeCausal.Clock)) && 
                         context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: addTs)))
                     {
                         deadItemsToRemove.Add(item);
@@ -285,7 +286,7 @@ public sealed class SortedSetStrategy(
             }
             else
             {
-                if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs)))
+                if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: removeTs, ReplicaId: removeCausal.ReplicaId, Version: removeCausal.Clock)))
                 {
                     deadItemsToRemove.Add(item);
                 }
@@ -361,7 +362,7 @@ public sealed class SortedSetStrategy(
             var comparer = comparerProvider.GetComparer(elementType);
             var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
             foreach (var item in list) adds[item] = timestampProvider.Create(0);
-            state = new LwwSetState(adds, new Dictionary<object, ICrdtTimestamp>(comparer));
+            state = new LwwSetState(adds, new Dictionary<object, CausalTimestamp>(comparer));
             originalMetadata.SortedSets[path] = state;
         }
 
@@ -398,8 +399,8 @@ public sealed class SortedSetStrategy(
             else adds2[kvp.Key] = kvp.Value;
         }
 
-        var rems1 = new Dictionary<object, ICrdtTimestamp>(comparerProp);
-        var rems2 = new Dictionary<object, ICrdtTimestamp>(comparerProp);
+        var rems1 = new Dictionary<object, CausalTimestamp>(comparerProp);
+        var rems2 = new Dictionary<object, CausalTimestamp>(comparerProp);
         foreach (var kvp in state.Removes)
         {
             var k = GetSortKey(kvp.Key, sortPropName) as IComparable ?? GetSortKey(kvp.Key, sortPropName)?.ToString() as IComparable;
@@ -435,7 +436,7 @@ public sealed class SortedSetStrategy(
         var comparer = comparerProvider.GetComparer(elementType);
 
         var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
-        var rems = new Dictionary<object, ICrdtTimestamp>(comparer);
+        var rems = new Dictionary<object, CausalTimestamp>(comparer);
 
         if (meta1.SortedSets.TryGetValue(path, out var state1))
         {
@@ -451,7 +452,7 @@ public sealed class SortedSetStrategy(
             }
             foreach (var kvp in state2.Removes)
             {
-                if (!rems.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
+                if (!rems.TryGetValue(kvp.Key, out var existing) || kvp.Value.Timestamp.CompareTo(existing.Timestamp) > 0)
                     rems[kvp.Key] = kvp.Value;
             }
         }
@@ -580,7 +581,7 @@ public sealed class SortedSetStrategy(
         {
             var item = kvp.Key;
             var addTs = kvp.Value;
-            if (!state.Removes.TryGetValue(item, out var rmTs) || addTs.CompareTo(rmTs) > 0)
+            if (!state.Removes.TryGetValue(item, out var rmCausal) || addTs.CompareTo(rmCausal.Timestamp) > 0)
             {
                 var converted = PocoPathHelper.ConvertValue(item, elementType);
                 if (converted != null) liveItems.Add(converted);
