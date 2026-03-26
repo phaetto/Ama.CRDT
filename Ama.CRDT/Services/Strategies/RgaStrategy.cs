@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
@@ -433,7 +434,7 @@ public sealed class RgaStrategy(
             
             // RGA items don't store deletion timestamps, so we approximate with the insertion timestamp.
             long unixMs = (item.Identifier.Timestamp - DateTime.UnixEpoch.Ticks) / TimeSpan.TicksPerMillisecond;
-            if (context.Policy.IsSafeToCompact(new EpochTimestamp(unixMs)))
+            if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: new EpochTimestamp(unixMs))))
             {
                 itemsToRemove.Add(item.Identifier);
                 

@@ -11,7 +11,7 @@ using Ama.CRDT.Models;
 /// </summary>
 public sealed class GlobalMinimumVersionPolicy : ICompactionPolicy
 {
-    private readonly IReadOnlyDictionary<string, long> _globalMinimumVersions;
+    private readonly IReadOnlyDictionary<string, long> globalMinimumVersions;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GlobalMinimumVersionPolicy"/> class.
@@ -19,7 +19,7 @@ public sealed class GlobalMinimumVersionPolicy : ICompactionPolicy
     /// <param name="globalMinimumVersions">A dictionary mapping each origin replica ID to the lowest contiguous version acknowledged by all replicas in the cluster.</param>
     public GlobalMinimumVersionPolicy(IReadOnlyDictionary<string, long> globalMinimumVersions)
     {
-        _globalMinimumVersions = globalMinimumVersions ?? throw new ArgumentNullException(nameof(globalMinimumVersions));
+        this.globalMinimumVersions = globalMinimumVersions ?? throw new ArgumentNullException(nameof(globalMinimumVersions));
     }
 
     /// <summary>
@@ -72,25 +72,16 @@ public sealed class GlobalMinimumVersionPolicy : ICompactionPolicy
     }
 
     /// <inheritdoc/>
-    public bool IsSafeToCompact(ICrdtTimestamp timestamp)
+    public bool IsSafeToCompact(CompactionCandidate candidate)
     {
-        // GMVV tracks causal sequence numbers, not wall-clock timestamps.
-        // Therefore, it cannot safely determine if a purely time-based tombstone (like LWW) is safe to delete.
-        // A ThresholdCompactionPolicy or CompositeCompactionPolicy should be used to handle ICrdtTimestamp.
-        return false;
-    }
-
-    /// <inheritdoc/>
-    public bool IsSafeToCompact(string replicaId, long version)
-    {
-        if (string.IsNullOrWhiteSpace(replicaId))
+        if (string.IsNullOrWhiteSpace(candidate.ReplicaId) || candidate.Version == null)
         {
             return false;
         }
 
-        if (_globalMinimumVersions.TryGetValue(replicaId, out var minVersion))
+        if (this.globalMinimumVersions.TryGetValue(candidate.ReplicaId, out var minVersion))
         {
-            return version <= minVersion;
+            return candidate.Version.Value <= minVersion;
         }
 
         return false;
