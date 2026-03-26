@@ -10,6 +10,7 @@ A .NET library for achieving eventual consistency in distributed systems using C
 - **Explicit Intent Builder**: Create precise patches by declaring specific intents (e.g., Increment, Add, Move) instead of diffing entire document states.
 - **Larger-Than-Memory Partitioning**: Scale your collections beyond RAM. Use the bundled Stream-based B+Tree storage (`Ama.CRDT.Partitioning.Streams`) to automatically split, merge, and stream partitions on demand.
 - **Advanced Synchronization & Journaling**: Built-in Dotted Version Vectors (DVV) and operation journaling (`ICrdtOperationJournal`) to track causal history, sync disconnected replicas, and request missing data accurately.
+- **Automatic Garbage Collection**: Seamlessly compact tombstones and metadata using time-to-live (TTL) thresholds or mathematically safe Global Minimum Version Vectors (GMVV) natively within the DI pipeline via the `CompactingApplicatorDecorator`.
 - **Clean Data/Metadata Separation**: Keeps your data models pure by storing CRDT state (timestamps, tombstones, version vectors) in a parallel, highly-compactible `CrdtMetadata` object.
 - **Mathematically Proven**: Validated using generative property testing (FsCheck) to guarantee strict convergence, commutativity, and idempotence across all strategies.
 - **Developer Experience**: Ships with built-in **Roslyn Analyzers** to catch configuration errors at compile-time, and integrates natively with `System.Diagnostics.Metrics` for robust observability.
@@ -41,12 +42,15 @@ Install-Package Ama.CRDT
 
 ### 1. Setup
 
-In your `Program.cs` or service configuration file, register the CRDT services. You can configure strategies fluently here, or use attributes directly on your models.
+In your `Program.cs` or service configuration file, register the CRDT services. You can configure strategies fluently here, or use attributes directly on your models. You can also configure automatic garbage collection policies here.
 
 ```csharp
 using Ama.CRDT.Extensions;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Services.Strategies.Decorators;
+using Ama.CRDT.Services.GarbageCollection;
+using Ama.CRDT.Services.Decorators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,7 +63,12 @@ builder.Services.AddCrdt(options =>
            .Property(x => x.Badges).HasStrategy<OrSetStrategy>()
            .Property(x => x.LastSeenLocation).HasStrategy<LwwStrategy>()
                                              .HasDecorator<EpochBoundStrategy>(); // Add decorators!
-});
+})
+// Optional: Configure automatic garbage collection (e.g., compacting tombstones older than 7 days)
+.AddCrdtCompactionPolicyFactory(sp => new ThresholdCompactionPolicyFactory(
+    TimeSpan.FromDays(7), 
+    sp.GetRequiredService<ICrdtTimestampProvider>()))
+.AddCrdtApplicatorDecorator<CompactingApplicatorDecorator>();
 
 var app = builder.Build();
 ```
