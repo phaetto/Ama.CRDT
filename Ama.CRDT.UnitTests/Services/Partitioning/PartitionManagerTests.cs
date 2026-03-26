@@ -50,7 +50,9 @@ public sealed class PartitionManagerTests
         if (withPolicy)
         {
             var mockPolicy = new Mock<ICompactionPolicy>();
-            services.AddSingleton(mockPolicy.Object);
+            var mockFactory = new Mock<ICompactionPolicyFactory>();
+            mockFactory.Setup(f => f.CreatePolicy()).Returns(mockPolicy.Object);
+            services.AddSingleton(mockFactory.Object);
         }
 
         var sp = services.BuildServiceProvider();

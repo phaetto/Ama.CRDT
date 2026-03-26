@@ -112,7 +112,7 @@ public interface IPartitionManager<T> where T : class, new()
 
     /// <summary>
     /// Explicitly triggers a garbage collection compaction pass across all logical keys and partitions.
-    /// It utilizes the registered <see cref="Ama.CRDT.Services.GarbageCollection.ICompactionPolicy"/> instances 
+    /// It utilizes the registered <see cref="Ama.CRDT.Services.GarbageCollection.ICompactionPolicyFactory"/> instances 
     /// to safely prune tombstones and compress metadata streams.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>
