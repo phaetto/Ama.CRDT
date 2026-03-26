@@ -5,6 +5,7 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
@@ -320,6 +321,33 @@ public sealed class CounterMapStrategyTests
         mergedDoc.Map["d"].ShouldBe(40);
 
         merged.Metadata.CounterMaps["$.map"].Keys.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
+    }
+
+    [Fact]
+    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTombstones()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
+
+        var metadata = new CrdtMetadata();
+        metadata.CounterMaps["$.map"] = new Dictionary<object, PnCounterState>
+        {
+            { "a", new PnCounterState(10, 5) }
+        };
+
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+
+        var context = new CompactionContext(metadata, mockPolicy.Object, "Map", "$.map", new TestModel());
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        metadata.CounterMaps["$.map"].ShouldContainKey("a");
+        metadata.CounterMaps["$.map"]["a"].P.ShouldBe(10);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
     }
 
     private sealed class TestModel

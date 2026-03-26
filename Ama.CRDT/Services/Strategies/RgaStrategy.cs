@@ -391,6 +391,89 @@ public sealed class RgaStrategy(
         return CrdtOperationStatus.Success;
     }
 
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        if (!context.Metadata.RgaTrackers.TryGetValue(context.PropertyPath, out var items))
+        {
+            return;
+        }
+
+        var itemLookup = new Dictionary<RgaIdentifier, RgaItem>();
+        var referenceCounts = new Dictionary<RgaIdentifier, int>();
+
+        foreach (var item in items)
+        {
+            itemLookup[item.Identifier] = item;
+            if (item.LeftIdentifier.HasValue)
+            {
+                referenceCounts.TryGetValue(item.LeftIdentifier.Value, out var count);
+                referenceCounts[item.LeftIdentifier.Value] = count + 1;
+            }
+        }
+
+        var itemsToRemove = new HashSet<RgaIdentifier>();
+        var candidates = new Queue<RgaItem>();
+
+        foreach (var item in items)
+        {
+            if (item.IsDeleted)
+            {
+                referenceCounts.TryGetValue(item.Identifier, out var count);
+                if (count == 0)
+                {
+                    candidates.Enqueue(item);
+                }
+            }
+        }
+
+        while (candidates.Count > 0)
+        {
+            var item = candidates.Dequeue();
+            
+            // RGA items don't store deletion timestamps, so we approximate with the insertion timestamp.
+            long unixMs = (item.Identifier.Timestamp - DateTime.UnixEpoch.Ticks) / TimeSpan.TicksPerMillisecond;
+            if (context.Policy.IsSafeToCompact(new EpochTimestamp(unixMs)))
+            {
+                itemsToRemove.Add(item.Identifier);
+                
+                if (item.LeftIdentifier.HasValue)
+                {
+                    var parentId = item.LeftIdentifier.Value;
+                    if (referenceCounts.TryGetValue(parentId, out var count))
+                    {
+                        referenceCounts[parentId] = count - 1;
+                        
+                        if (referenceCounts[parentId] == 0 && 
+                            itemLookup.TryGetValue(parentId, out var parentItem) && 
+                            parentItem.IsDeleted)
+                        {
+                            candidates.Enqueue(parentItem);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (itemsToRemove.Count > 0)
+        {
+            if (items is List<RgaItem> list)
+            {
+                list.RemoveAll(x => itemsToRemove.Contains(x.Identifier));
+            }
+            else
+            {
+                for (int i = items.Count - 1; i >= 0; i--)
+                {
+                    if (itemsToRemove.Contains(items[i].Identifier))
+                    {
+                        items.RemoveAt(i);
+                    }
+                }
+            }
+        }
+    }
+
     private static List<RgaItem> RebuildRgaOrder(List<RgaItem> items)
     {
         var childrenMap = new Dictionary<RgaIdentifier, List<RgaItem>>();

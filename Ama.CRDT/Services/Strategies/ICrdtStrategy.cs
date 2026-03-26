@@ -30,4 +30,10 @@ public interface ICrdtStrategy
     /// <param name="context">The context for the apply operation, containing the target document, metadata, and the operation to apply.</param>
     /// <returns>The status of the operation application.</returns>
     CrdtOperationStatus ApplyOperation(ApplyOperationContext context);
+
+    /// <summary>
+    /// Compacts the metadata and tombstones for this strategy based on the provided compaction policy.
+    /// </summary>
+    /// <param name="context">The context for the compaction, containing metadata and the policy determining what is safe to delete.</param>
+    void Compact(CompactionContext context);
 }

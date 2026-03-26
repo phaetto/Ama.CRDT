@@ -5,6 +5,7 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
@@ -371,6 +372,46 @@ public sealed class LwwMapStrategyTests
 
         mergedMeta.LwwMaps["$.map"].Count.ShouldBe(3);
         mergedMeta.LwwMaps["$.map"]["overlap"].ShouldBe(timestampProvider.Create(200));
+    }
+
+    [Fact]
+    public void Compact_ShouldRemoveTombstones_WhenPolicyAllows()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
+        
+        var doc = new TestModel { Map = new Dictionary<string, int> { { "alive", 1 } } };
+        var meta = new CrdtMetadata();
+
+        var tsAlive = timestampProvider.Create(1);
+        var tsDeadSafe = timestampProvider.Create(2);
+        var tsDeadUnsafe = timestampProvider.Create(3);
+
+        meta.LwwMaps["$.map"] = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default)
+        {
+            { "alive", tsAlive },
+            { "dead_safe", tsDeadSafe },
+            { "dead_unsafe", tsDeadUnsafe }
+        };
+
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadSafe)).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadUnsafe)).Returns(false);
+        mockPolicy.Setup(p => p.IsSafeToCompact(tsAlive)).Returns(true); // Shouldn't be checked anyway
+
+        var context = new CompactionContext(meta, mockPolicy.Object, "Map", "$.map", doc);
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        meta.LwwMaps["$.map"].ShouldContainKey("alive");
+        meta.LwwMaps["$.map"].ShouldContainKey("dead_unsafe");
+        meta.LwwMaps["$.map"].ShouldNotContainKey("dead_safe");
+        
+        // Verify alive was not checked
+        mockPolicy.Verify(p => p.IsSafeToCompact(tsAlive), Times.Never);
     }
 
     private sealed class TestModel

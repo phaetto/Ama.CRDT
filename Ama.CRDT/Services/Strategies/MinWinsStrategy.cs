@@ -97,4 +97,10 @@ public sealed class MinWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
 
         return CrdtOperationStatus.Success;
     }
+
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // MinWinsStrategy relies solely on value comparisons and does not maintain metadata or tombstones.
+    }
 }

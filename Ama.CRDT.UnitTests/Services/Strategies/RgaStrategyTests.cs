@@ -5,8 +5,10 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -263,5 +265,48 @@ public sealed class RgaStrategyTests : IDisposable
         strategy.GetKeyFromOperation(upsertOp, "$.items").ShouldBe(id);
         strategy.GetKeyFromOperation(removeOp, "$.items").ShouldBe(id);
         strategy.GetKeyFromOperation(upsertOp, "$.other").ShouldBeNull();
+    }
+
+    [Fact]
+    public void Compact_ShouldRemoveTombstones_WhenPolicyAllowsAndNoDependenciesExist()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<RgaStrategy>().Single();
+        var doc = new RgaTestModel();
+        var meta = new CrdtMetadata();
+
+        long safeTicksRoot = DateTime.UnixEpoch.Ticks + 1000 * TimeSpan.TicksPerMillisecond;
+        long safeTicksA = DateTime.UnixEpoch.Ticks + 1001 * TimeSpan.TicksPerMillisecond;
+        long safeTicksB = DateTime.UnixEpoch.Ticks + 1002 * TimeSpan.TicksPerMillisecond;
+        long unsafeTicksC = DateTime.UnixEpoch.Ticks + 2000 * TimeSpan.TicksPerMillisecond;
+
+        var idRoot = new RgaIdentifier(safeTicksRoot, "A");
+        var idA = new RgaIdentifier(safeTicksA, "A");
+        var idB = new RgaIdentifier(safeTicksB, "A");
+        var idC = new RgaIdentifier(unsafeTicksC, "A");
+        
+        var root = new RgaItem(idRoot, null, "Root", false); // Alive
+        var itemA = new RgaItem(idA, idRoot, "A", true); // Dead, Safe, parent=Root
+        var itemB = new RgaItem(idB, idA, "B", true); // Dead, Safe, parent=A
+        var itemC = new RgaItem(idC, idRoot, "C", true); // Dead, Unsafe, parent=Root
+
+        meta.RgaTrackers["$.items"] = new List<RgaItem> { root, itemA, itemB, itemC };
+
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        // Using approximate threshold to filter Safe vs Unsafe
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<ICrdtTimestamp>(ts => ((EpochTimestamp)ts).Value < 2000))).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<ICrdtTimestamp>(ts => ((EpochTimestamp)ts).Value >= 2000))).Returns(false);
+
+        var context = new CompactionContext(meta, mockPolicy.Object, "Items", "$.items", doc);
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        var trackers = meta.RgaTrackers["$.items"];
+        trackers.ShouldContain(i => i.Identifier == idRoot);
+        trackers.ShouldNotContain(i => i.Identifier == idA); // Deleted because B is deleted and A is safe
+        trackers.ShouldNotContain(i => i.Identifier == idB); // Deleted because safe and no children
+        trackers.ShouldContain(i => i.Identifier == idC); // Not deleted because unsafe
     }
 }

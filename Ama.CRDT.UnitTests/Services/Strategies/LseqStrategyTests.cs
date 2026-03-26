@@ -5,10 +5,12 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -423,6 +425,26 @@ public sealed class LseqStrategyTests : IDisposable
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => lseqStrategy.GenerateOperation(context));
+    }
+
+    [Fact]
+    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTombstones()
+    {
+        // Arrange
+        var doc = new LseqTestModel { Items = new List<string> { "A", "B" } };
+        var meta = metadataManagerA.Initialize(doc);
+        
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+
+        var context = new CompactionContext(meta, mockPolicy.Object, "Items", "$.items", doc);
+
+        // Act
+        lseqStrategy.Compact(context);
+
+        // Assert
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        meta.LseqTrackers.ShouldNotBeNull();
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

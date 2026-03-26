@@ -91,4 +91,10 @@ public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrat
 
         return CrdtOperationStatus.Success;
     }
+
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // GCounterStrategy does not maintain metadata or tombstones.
+    }
 }

@@ -136,4 +136,11 @@ public sealed class TwoPhaseGraphStrategy(
 
         return CrdtOperationStatus.Success;
     }
+
+    public void Compact(CompactionContext context)
+    {
+        // TwoPhaseGraphStrategy tracks adds and tombstones using hash sets without associated ICrdtTimestamps.
+        // Without timestamp information attached to the tombstones, they cannot be safely 
+        // evaluated against the ICompactionPolicy to prevent ghost elements resurrections.
+    }
 }

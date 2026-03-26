@@ -5,9 +5,11 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -358,6 +360,69 @@ public sealed class PriorityQueueStrategyTests : IDisposable
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
+    }
+
+    [Fact]
+    public void Compact_ShouldRemoveDeadItems_WhenPolicyAllows()
+    {
+        // Arrange
+        var doc = new TestModel { Items = new List<Item> { new Item("alive", 1) } };
+        var meta = new CrdtMetadata();
+        
+        var tsProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        var safeTs1 = tsProvider.Create(10);
+        var safeTs2 = tsProvider.Create(20);
+        var unsafeTs = tsProvider.Create(30);
+        
+        var comparer = new ItemComparer();
+        var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
+        var removes = new Dictionary<object, ICrdtTimestamp>(comparer);
+
+        // Alive: addTs > removeTs
+        var itemAlive = new Item("alive", 1);
+        adds[itemAlive] = safeTs2;
+        removes[itemAlive] = safeTs1;
+
+        // Dead Safe: addTs <= removeTs
+        var itemDeadSafe = new Item("dead_safe", 2);
+        adds[itemDeadSafe] = safeTs1;
+        removes[itemDeadSafe] = safeTs2;
+
+        // Dead Unsafe
+        var itemDeadUnsafe = new Item("dead_unsafe", 3);
+        adds[itemDeadUnsafe] = safeTs1;
+        removes[itemDeadUnsafe] = unsafeTs;
+
+        // Dead No Add Safe
+        var itemDeadNoAdd = new Item("dead_no_add", 4);
+        removes[itemDeadNoAdd] = safeTs1;
+
+        meta.PriorityQueues["$.Items"] = new LwwSetState(adds, removes);
+
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs1)).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(safeTs2)).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(unsafeTs)).Returns(false);
+
+        var context = new CompactionContext(meta, mockPolicy.Object, "Items", "$.Items", doc);
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<PriorityQueueStrategy>().Single();
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        var queueState = meta.PriorityQueues["$.Items"];
+        
+        queueState.Adds.ShouldContainKey(itemAlive);
+        queueState.Removes.ShouldContainKey(itemAlive);
+
+        queueState.Adds.ShouldNotContainKey(itemDeadSafe);
+        queueState.Removes.ShouldNotContainKey(itemDeadSafe);
+
+        queueState.Adds.ShouldContainKey(itemDeadUnsafe);
+        queueState.Removes.ShouldContainKey(itemDeadUnsafe);
+
+        queueState.Removes.ShouldNotContainKey(itemDeadNoAdd);
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

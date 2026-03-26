@@ -89,4 +89,10 @@ public sealed class MaxWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
 
         return CrdtOperationStatus.Success;
     }
+
+    /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // MaxWinsStrategy relies solely on value comparisons and does not maintain metadata or tombstones.
+    }
 }

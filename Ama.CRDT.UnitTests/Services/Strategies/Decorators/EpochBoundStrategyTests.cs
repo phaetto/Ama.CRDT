@@ -6,10 +6,12 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Services.Strategies.Decorators;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -241,5 +243,26 @@ public sealed class EpochBoundStrategyTests : IDisposable
         
         doc.Data.Items.ContainsKey("Key2").ShouldBeTrue();
         doc.Data.Items["Key2"].ShouldBe("Val2");
+    }
+
+    [Fact]
+    public void Compact_ShouldNotModifyDecoratorMetadata_AndDelegateToInnerStrategy()
+    {
+        // Arrange
+        var property = typeof(ShoppingCart).GetProperty(nameof(ShoppingCart.Status))!;
+        var strategy = strategyProvider.GetStrategy(property);
+        
+        var metadata = new CrdtMetadata();
+        metadata.Epochs["$.status"] = 5;
+        
+        var mockPolicy = new Mock<ICompactionPolicy>();
+
+        var context = new CompactionContext(metadata, mockPolicy.Object, "Status", "$.status", new ShoppingCart());
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        metadata.Epochs["$.status"].ShouldBe(5);
     }
 }

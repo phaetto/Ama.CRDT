@@ -176,6 +176,13 @@ public sealed class ArrayLcsStrategy(
     }
 
     /// <inheritdoc/>
+    public void Compact(CompactionContext context)
+    {
+        // ArrayLcsStrategy uses absolute positions and hard-deletes elements immediately.
+        // There are no tombstones kept in metadata, so compaction is a no-op.
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
     {
         var list = (IList?)PocoPathHelper.GetAccessor(partitionableProperty).Getter(data);

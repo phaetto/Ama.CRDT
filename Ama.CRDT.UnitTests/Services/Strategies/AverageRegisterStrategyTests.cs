@@ -4,9 +4,11 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -235,6 +237,31 @@ public sealed class AverageRegisterStrategyTests : IDisposable
         model.Rating.ShouldBe(8m); // Only one value from r1
         metadata.AverageRegisters[Path].Count.ShouldBe(1);
         metadata.AverageRegisters[Path]["r1"].Value.ShouldBe(8m);
+    }
+
+    [Fact]
+    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTombstones()
+    {
+        // Arrange
+        var metadata = new CrdtMetadata();
+        var timestamp = timestampProvider.Create(1L);
+        metadata.AverageRegisters[Path] = new Dictionary<string, AverageRegisterValue>
+        {
+            { "r1", new AverageRegisterValue(5m, timestamp) }
+        };
+
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+
+        var context = new CompactionContext(metadata, mockPolicy.Object, "Rating", Path, new TestModel());
+
+        // Act
+        strategyA.Compact(context);
+
+        // Assert
+        metadata.AverageRegisters[Path].ShouldContainKey("r1");
+        metadata.AverageRegisters[Path]["r1"].Value.ShouldBe(5m);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
