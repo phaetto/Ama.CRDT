@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Providers;
@@ -33,6 +34,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     private readonly IPartitionStorageService storageService;
     private readonly ICrdtMetadataManager metadataManager;
     private readonly PartitionManagerCrdtMetrics metrics;
+    private readonly IEnumerable<ICompactionPolicy> compactionPolicies;
 
     private readonly PropertyInfo partitionKeyProperty;
     private readonly IReadOnlyDictionary<string, (PropertyInfo Property, IPartitionableCrdtStrategy Strategy)> partitionableProperties;
@@ -42,12 +44,14 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         ICrdtMetadataManager metadataManager,
         ICrdtStrategyProvider strategyProvider,
         ReplicaContext replicaContext,
-        PartitionManagerCrdtMetrics metrics)
+        PartitionManagerCrdtMetrics metrics,
+        IEnumerable<ICompactionPolicy> compactionPolicies)
     {
         ArgumentNullException.ThrowIfNull(storageService);
         ArgumentNullException.ThrowIfNull(metadataManager);
         ArgumentNullException.ThrowIfNull(strategyProvider);
         ArgumentNullException.ThrowIfNull(metrics);
+        ArgumentNullException.ThrowIfNull(compactionPolicies);
 
         if (replicaContext == null || string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
         {
@@ -57,6 +61,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         this.storageService = storageService;
         this.metadataManager = metadataManager;
         this.metrics = metrics;
+        this.compactionPolicies = compactionPolicies;
 
         partitionKeyProperty = partitionKeyCache.GetOrAdd(typeof(T), FindPartitionKeyProperty);
         partitionableProperties = partitionablePropertyCache.GetOrAdd(typeof(T), _ => FindPartitionablePropertiesAndStrategies(strategyProvider));
@@ -243,6 +248,68 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         return logicalKeys;
     }
 
+    /// <inheritdoc/>
+    public async Task CompactAsync(CancellationToken cancellationToken = default)
+    {
+        if (!compactionPolicies.Any())
+        {
+            return;
+        }
+
+        var logicalKeys = await GetAllLogicalKeysAsync(cancellationToken);
+
+        foreach (var logicalKey in logicalKeys)
+        {
+            // Compact the Header Partition
+            var headerPartition = await GetHeaderPartitionAsync(logicalKey, cancellationToken);
+            if (headerPartition is HeaderPartition hp)
+            {
+                var headerDoc = await storageService.LoadHeaderPartitionContentAsync<T>(logicalKey, hp, cancellationToken);
+                foreach (var policy in compactionPolicies)
+                {
+                    metadataManager.Compact(headerDoc, policy);
+                }
+
+                var compactedHeader = await storageService.SaveHeaderPartitionContentAsync(logicalKey, hp, headerDoc.Data!, headerDoc.Metadata!, cancellationToken);
+                await storageService.InsertHeaderPartitionAsync(logicalKey, compactedHeader, cancellationToken);
+            }
+
+            // Compact the Property Data Partitions
+            foreach (var (_, (prop, _)) in partitionableProperties)
+            {
+                var partitionsToCompact = new List<DataPartition>();
+                await foreach (var partition in GetAllDataPartitionsAsync(logicalKey, prop.Name, cancellationToken).WithCancellation(cancellationToken))
+                {
+                    if (partition is DataPartition dp)
+                    {
+                        partitionsToCompact.Add(dp);
+                    }
+                }
+
+                foreach (var dataPartition in partitionsToCompact)
+                {
+                    var crdtDoc = await storageService.LoadPartitionContentAsync<T>(logicalKey, prop.Name, dataPartition, cancellationToken);
+                    
+                    foreach (var policy in compactionPolicies)
+                    {
+                        metadataManager.Compact(crdtDoc, policy);
+                    }
+
+                    var compactedPartition = await storageService.SavePartitionContentAsync(
+                        logicalKey,
+                        prop.Name,
+                        dataPartition,
+                        crdtDoc.Data!,
+                        crdtDoc.Metadata!,
+                        cancellationToken);
+
+                    await storageService.DeletePropertyPartitionAsync(prop.Name, dataPartition, cancellationToken);
+                    await storageService.InsertPropertyPartitionAsync(prop.Name, compactedPartition, cancellationToken);
+                }
+            }
+        }
+    }
+
     private async Task InitializeHeaderAsync(IComparable logicalKey, T initialObject, CancellationToken cancellationToken)
     {
         var headerObject = new T();
@@ -315,6 +382,33 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
 
         var crdtDoc = await storageService.LoadPartitionContentAsync<T>(dataPartitionToSplit.StartKey.LogicalKey, propertyName, dataPartitionToSplit, cancellationToken);
         
+        // 1. Attempt Piggybacked Compaction to avoid the split entirely
+        if (compactionPolicies.Any())
+        {
+            foreach (var policy in compactionPolicies)
+            {
+                metadataManager.Compact(crdtDoc, policy);
+            }
+
+            var compactedPartition = await storageService.SavePartitionContentAsync(
+                dataPartitionToSplit.StartKey.LogicalKey,
+                propertyName,
+                dataPartitionToSplit,
+                crdtDoc.Data!,
+                crdtDoc.Metadata!,
+                cancellationToken);
+
+            if (compactedPartition is DataPartition dp && dp.DataLength <= MaxPartitionDataSize)
+            {
+                await storageService.DeletePropertyPartitionAsync(propertyName, dataPartitionToSplit, cancellationToken);
+                await storageService.InsertPropertyPartitionAsync(propertyName, dp, cancellationToken);
+                return;
+            }
+
+            dataPartitionToSplit = (DataPartition)compactedPartition;
+        }
+
+        // 2. Proceed with split
         SplitResult splitResult;
         using (new MetricTimer(metrics.StrategySplitDuration))
         {

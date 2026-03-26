@@ -109,4 +109,13 @@ public interface IPartitionManager<T> where T : class, new()
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains a collection of unique logical keys.</returns>
     Task<IEnumerable<IComparable>> GetAllLogicalKeysAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Explicitly triggers a garbage collection compaction pass across all logical keys and partitions.
+    /// It utilizes the registered <see cref="Ama.CRDT.Services.GarbageCollection.ICompactionPolicy"/> instances 
+    /// to safely prune tombstones and compress metadata streams.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    Task CompactAsync(CancellationToken cancellationToken = default);
 }
