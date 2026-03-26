@@ -199,7 +199,7 @@ public sealed class OrMapStrategy(
                     }
                 }
 
-                if (!exists && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: kvp.Value)))
+                if (!exists && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: kvp.Value.Timestamp, ReplicaId: kvp.Value.ReplicaId, Version: kvp.Value.Clock)))
                 {
                     lwwKeysToRemove.Add(kvp.Key);
                 }
@@ -483,11 +483,11 @@ public sealed class OrMapStrategy(
             if (mergedDict.Contains(key))
             {
                 // Conflict: key exists in both. Resolve with LWW.
-                meta1.Lww.TryGetValue(itemPath, out var ts1);
-                meta2.Lww.TryGetValue(itemPath, out var ts2);
+                var hasTs1 = meta1.Lww.TryGetValue(itemPath, out var ts1);
+                var hasTs2 = meta2.Lww.TryGetValue(itemPath, out var ts2);
 
-                // If ts2 is newer, update the value.
-                if (ts2 is not null && (ts1 is null || ts2.CompareTo(ts1) > 0))
+                // If ts2 is present, and either ts1 is not present or ts2 is newer, update the value.
+                if (hasTs2 && (!hasTs1 || ts2.CompareTo(ts1) > 0))
                 {
                     mergedDict[key] = value2;
                 }
@@ -541,9 +541,10 @@ public sealed class OrMapStrategy(
         addTags.Add(payload.Tag);
         
         var valuePath = $"{operation.JsonPath}['{itemKey.ToString()?.Replace("'", "\\'")}']";
-        if (!metadata.Lww.TryGetValue(valuePath, out var currentTimestamp) || operation.Timestamp.CompareTo(currentTimestamp) > 0)
+        var causalOpTs = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
+        if (!metadata.Lww.TryGetValue(valuePath, out var currentTimestamp) || causalOpTs.CompareTo(currentTimestamp) > 0)
         {
-            metadata.Lww[valuePath] = operation.Timestamp;
+            metadata.Lww[valuePath] = causalOpTs;
             var itemValue = PocoPathHelper.ConvertValue(payload.Value, valueType);
             dict[itemKey] = itemValue;
         }

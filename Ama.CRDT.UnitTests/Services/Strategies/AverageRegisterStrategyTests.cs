@@ -251,7 +251,7 @@ public sealed class AverageRegisterStrategyTests : IDisposable
         };
 
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Rating", Path, new TestModel());
 
@@ -261,7 +261,7 @@ public sealed class AverageRegisterStrategyTests : IDisposable
         // Assert
         metadata.AverageRegisters[Path].ShouldContainKey("r1");
         metadata.AverageRegisters[Path]["r1"].Value.ShouldBe(5m);
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

@@ -275,27 +275,24 @@ public sealed class RgaStrategyTests : IDisposable
         var doc = new RgaTestModel();
         var meta = new CrdtMetadata();
 
-        long safeTicksRoot = DateTime.UnixEpoch.Ticks + 1000 * TimeSpan.TicksPerMillisecond;
-        long safeTicksA = DateTime.UnixEpoch.Ticks + 1001 * TimeSpan.TicksPerMillisecond;
-        long safeTicksB = DateTime.UnixEpoch.Ticks + 1002 * TimeSpan.TicksPerMillisecond;
-        long unsafeTicksC = DateTime.UnixEpoch.Ticks + 2000 * TimeSpan.TicksPerMillisecond;
-
-        var idRoot = new RgaIdentifier(safeTicksRoot, "A");
-        var idA = new RgaIdentifier(safeTicksA, "A");
-        var idB = new RgaIdentifier(safeTicksB, "A");
-        var idC = new RgaIdentifier(unsafeTicksC, "A");
+        long baseTicks = DateTime.UnixEpoch.Ticks + 1000 * TimeSpan.TicksPerMillisecond;
+        var idRoot = new RgaIdentifier(baseTicks + 1, "A");
+        var idA = new RgaIdentifier(baseTicks + 2, "A");
+        var idB = new RgaIdentifier(baseTicks + 3, "A");
+        var idC = new RgaIdentifier(baseTicks + 4, "A");
+        var idD = new RgaIdentifier(baseTicks + 5, "B");
         
         var root = new RgaItem(idRoot, null, "Root", false); // Alive
-        var itemA = new RgaItem(idA, idRoot, "A", true); // Dead, Safe, parent=Root
-        var itemB = new RgaItem(idB, idA, "B", true); // Dead, Safe, parent=A
-        var itemC = new RgaItem(idC, idRoot, "C", true); // Dead, Unsafe, parent=Root
+        var itemA = new RgaItem(idA, idRoot, "A", true) with { DeletedByReplicaId = "replica-1", DeletedAtClock = 3 }; // Safe, parent=Root
+        var itemB = new RgaItem(idB, idA, "B", true) with { DeletedByReplicaId = "replica-1", DeletedAtClock = 5 }; // Safe, parent=A
+        var itemC = new RgaItem(idC, idRoot, "C", true) with { DeletedByReplicaId = "replica-1", DeletedAtClock = 10 }; // Unsafe (Version > 5)
+        var itemD = new RgaItem(idD, idRoot, "D", true) with { DeletedByReplicaId = "replica-2", DeletedAtClock = 4 }; // Unsafe (Wrong replica)
 
-        meta.RgaTrackers["$.items"] = new List<RgaItem> { root, itemA, itemB, itemC };
+        meta.RgaTrackers["$.items"] = new List<RgaItem> { root, itemA, itemB, itemC, itemD };
 
         var mockPolicy = new Mock<ICompactionPolicy>();
-        // Using approximate threshold to filter Safe vs Unsafe
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<ICrdtTimestamp>(ts => ((EpochTimestamp)ts).Value < 2000))).Returns(true);
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<ICrdtTimestamp>(ts => ((EpochTimestamp)ts).Value >= 2000))).Returns(false);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version <= 5))).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId != "replica-1" || c.Version > 5))).Returns(false);
 
         var context = new CompactionContext(meta, mockPolicy.Object, "Items", "$.items", doc);
 
@@ -307,6 +304,7 @@ public sealed class RgaStrategyTests : IDisposable
         trackers.ShouldContain(i => i.Identifier == idRoot);
         trackers.ShouldNotContain(i => i.Identifier == idA); // Deleted because B is deleted and A is safe
         trackers.ShouldNotContain(i => i.Identifier == idB); // Deleted because safe and no children
-        trackers.ShouldContain(i => i.Identifier == idC); // Not deleted because unsafe
+        trackers.ShouldContain(i => i.Identifier == idC); // Not deleted because unsafe version
+        trackers.ShouldContain(i => i.Identifier == idD); // Not deleted because unsafe replica
     }
 }

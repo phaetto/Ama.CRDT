@@ -130,7 +130,7 @@ public sealed class OrMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.Lww["$.map['a']"] = timestampProvider.Create(10);
+        doc.Metadata.Lww["$.map['a']"] = new CausalTimestamp(timestampProvider.Create(10), "A", 1);
         
         var olderUpdate = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("a", 0, Guid.NewGuid()), timestampProvider.Create(5), 0);
         var newerUpdate = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("a", 2, Guid.NewGuid()), timestampProvider.Create(15), 0);
@@ -156,8 +156,8 @@ public sealed class OrMapStrategyTests
         {
             { "a", 1 }, { "b", 2 }, { "c", 3 }, { "d", 4 }, { "e", 5 }
         });
-        originalDoc.Metadata.Lww["$.map['a']"] = timestampProvider.Create(1);
-        originalDoc.Metadata.Lww["$.map['d']"] = timestampProvider.Create(1);
+        originalDoc.Metadata.Lww["$.map['a']"] = new CausalTimestamp(timestampProvider.Create(1), "A", 1);
+        originalDoc.Metadata.Lww["$.map['d']"] = new CausalTimestamp(timestampProvider.Create(1), "A", 1);
 
         var propertyInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map));
         propertyInfo.ShouldNotBeNull();
@@ -192,10 +192,10 @@ public sealed class OrMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
 
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "b", 2 } });
-        doc1.Metadata.Lww["$.map['b']"] = timestampProvider.Create(10);
+        doc1.Metadata.Lww["$.map['b']"] = new CausalTimestamp(timestampProvider.Create(10), "A", 1);
         
         var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "b", 0 } }); // Conflict on "b"
-        doc2.Metadata.Lww["$.map['b']"] = timestampProvider.Create(5); // Older timestamp
+        doc2.Metadata.Lww["$.map['b']"] = new CausalTimestamp(timestampProvider.Create(5), "A", 1); // Older timestamp
 
         var propertyInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map));
         propertyInfo.ShouldNotBeNull();
@@ -214,7 +214,7 @@ public sealed class OrMapStrategyTests
         mergedDoc.Map["c"].ShouldBe(3);
 
         mergedMeta.OrMaps["$.map"].Adds.Count.ShouldBe(3);
-        mergedMeta.Lww["$.map['b']"].ShouldBe(timestampProvider.Create(10));
+        mergedMeta.Lww["$.map['b']"].Timestamp.ShouldBe(timestampProvider.Create(10));
     }
 
     [Fact]
@@ -301,14 +301,14 @@ public sealed class OrMapStrategyTests
         var tsDeadSafe = timestampProvider.Create(2);
         var tsDeadUnsafe = timestampProvider.Create(3);
 
-        meta.Lww["$.map['alive']"] = tsAlive;
-        meta.Lww["$.map['dead_safe']"] = tsDeadSafe;
-        meta.Lww["$.map['dead_unsafe']"] = tsDeadUnsafe;
+        meta.Lww["$.map['alive']"] = new CausalTimestamp(tsAlive, "A", 1);
+        meta.Lww["$.map['dead_safe']"] = new CausalTimestamp(tsDeadSafe, "A", 2);
+        meta.Lww["$.map['dead_unsafe']"] = new CausalTimestamp(tsDeadUnsafe, "A", 3);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(tsAlive)).Returns(true); // Should not be called because it's alive
-        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadSafe)).Returns(true);
-        mockPolicy.Setup(p => p.IsSafeToCompact(tsDeadUnsafe)).Returns(false);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == tsAlive))).Returns(true); // Should not be called because it's alive
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == tsDeadSafe))).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == tsDeadUnsafe))).Returns(false);
 
         var context = new CompactionContext(meta, mockPolicy.Object, "Map", "$.map", doc.Data);
 
@@ -320,9 +320,58 @@ public sealed class OrMapStrategyTests
         meta.Lww.ShouldNotContainKey("$.map['dead_safe']");
         meta.Lww.ShouldContainKey("$.map['dead_unsafe']");
 
-        mockPolicy.Verify(p => p.IsSafeToCompact(tsAlive), Times.Never);
-        mockPolicy.Verify(p => p.IsSafeToCompact(tsDeadSafe), Times.Once);
-        mockPolicy.Verify(p => p.IsSafeToCompact(tsDeadUnsafe), Times.Once);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == tsAlive)), Times.Never);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == tsDeadSafe)), Times.Once);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == tsDeadUnsafe)), Times.Once);
+    }
+
+    [Fact]
+    public void Compact_ShouldRemoveOrMapTombstones_WhenPolicyAllows()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
+
+        var doc = CreateDocument(new Dictionary<string, int>());
+        var meta = doc.Metadata;
+
+        var ts = timestampProvider.Create(1);
+        var tag1 = Guid.NewGuid();
+        var tag2 = Guid.NewGuid();
+        var tag3 = Guid.NewGuid();
+
+        var adds = new Dictionary<object, ISet<Guid>>
+        {
+            { "alive", new HashSet<Guid> { tag3 } },
+            { "dead_safe", new HashSet<Guid> { tag1 } },
+            { "dead_unsafe", new HashSet<Guid> { tag2 } }
+        };
+
+        var removes = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>
+        {
+            { "dead_safe", new Dictionary<Guid, CausalTimestamp> { { tag1, new CausalTimestamp(ts, "replica-1", 5) } } },
+            { "dead_unsafe", new Dictionary<Guid, CausalTimestamp> { { tag2, new CausalTimestamp(ts, "replica-2", 10) } } }
+        };
+
+        meta.OrMaps["$.map"] = new OrSetState(adds, removes);
+
+        var mockPolicy = new Mock<ICompactionPolicy>();
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version == 5))).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-2" && c.Version == 10))).Returns(false);
+
+        var context = new CompactionContext(meta, mockPolicy.Object, "Map", "$.map", doc.Data);
+
+        // Act
+        strategy.Compact(context);
+
+        // Assert
+        var state = meta.OrMaps["$.map"];
+        state.Adds.ShouldContainKey("alive");
+        state.Adds.ShouldNotContainKey("dead_safe");
+        state.Removes.ShouldNotContainKey("dead_safe");
+
+        state.Adds.ShouldContainKey("dead_unsafe");
+        state.Removes.ShouldContainKey("dead_unsafe");
     }
 
     private sealed class TestModel

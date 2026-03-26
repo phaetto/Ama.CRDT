@@ -98,7 +98,7 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
         }
 
         decimal unboundedValue;
-        if (metadata.Lww.TryGetValue(operation.JsonPath, out var timestamp) && timestamp is UnboundedCounterValue counterValue)
+        if (metadata.Lww.TryGetValue(operation.JsonPath, out var timestamp) && timestamp.Timestamp is UnboundedCounterValue counterValue)
         {
             unboundedValue = counterValue.Value;
         }
@@ -110,7 +110,7 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
         var increment = PocoPathHelper.ConvertTo<decimal>(operation.Value);
         var newUnboundedValue = unboundedValue + increment;
 
-        metadata.Lww[operation.JsonPath] = new UnboundedCounterValue(newUnboundedValue);
+        metadata.Lww[operation.JsonPath] = new CausalTimestamp(new UnboundedCounterValue(newUnboundedValue), operation.ReplicaId, operation.Clock);
 
         var clampedValue = Math.Max(attribute.Min, Math.Min(attribute.Max, newUnboundedValue));
 

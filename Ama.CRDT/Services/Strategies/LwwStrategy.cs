@@ -33,9 +33,7 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
             return;
         }
         
-        originalMeta.Lww.TryGetValue(path, out var originalTimestamp);
-        
-        if (originalTimestamp is not null && changeTimestamp.CompareTo(originalTimestamp) <= 0)
+        if (originalMeta.Lww.TryGetValue(path, out var originalTimestamp) && originalTimestamp.Timestamp is not null && changeTimestamp.CompareTo(originalTimestamp.Timestamp) <= 0)
         {
             return;
         }
@@ -74,8 +72,7 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
     {
         var (root, metadata, operation) = context;
 
-        metadata.Lww.TryGetValue(operation.JsonPath, out var lwwTs);
-        if (lwwTs is not null && operation.Timestamp.CompareTo(lwwTs) <= 0)
+        if (metadata.Lww.TryGetValue(operation.JsonPath, out var lwwTs) && lwwTs.Timestamp is not null && operation.Timestamp.CompareTo(lwwTs.Timestamp) <= 0)
         {
             return CrdtOperationStatus.Obsolete;
         }
@@ -83,12 +80,12 @@ public sealed class LwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
         if (operation.Type == OperationType.Remove)
         {
             PocoPathHelper.SetValue(root, operation.JsonPath, null);
-            metadata.Lww[operation.JsonPath] = operation.Timestamp;
+            metadata.Lww[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
         }
         else if (operation.Type == OperationType.Upsert)
         {
             PocoPathHelper.SetValue(root, operation.JsonPath, operation.Value);
-            metadata.Lww[operation.JsonPath] = operation.Timestamp;
+            metadata.Lww[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
         }
         else
         {

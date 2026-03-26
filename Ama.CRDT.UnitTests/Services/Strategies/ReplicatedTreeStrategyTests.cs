@@ -262,15 +262,38 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Compact_ShouldNotModifyMetadata_AsStrategyDoesNotMaintainTombstones()
+    public void Compact_ShouldRemoveTombstones_WhenPolicyAllows()
     {
         // Arrange
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        // Return true if ReplicaId == "replica-1" and Version <= 5
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version <= 5))).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId != "replica-1" || c.Version > 5))).Returns(false);
         
         var doc = new TestModel();
         var meta = new CrdtMetadata();
         var strategy = scopeA.ServiceProvider.GetServices<Ama.CRDT.Services.Strategies.ICrdtStrategy>().OfType<Ama.CRDT.Services.Strategies.ReplicatedTreeStrategy>().Single();
+
+        var nodeId = Guid.NewGuid();
+        var tagSafe = Guid.NewGuid();
+        var tagUnsafe = Guid.NewGuid();
+        var tagOther = Guid.NewGuid();
+
+        var adds = new Dictionary<object, ISet<Guid>> { { nodeId, new HashSet<Guid> { tagSafe, tagUnsafe, tagOther } } };
+        
+        var removes = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>
+        {
+            {
+                nodeId, new Dictionary<Guid, CausalTimestamp>
+                {
+                    { tagSafe, new CausalTimestamp(timestampProvider.Create(100), "replica-1", 5) },
+                    { tagUnsafe, new CausalTimestamp(timestampProvider.Create(200), "replica-1", 10) },
+                    { tagOther, new CausalTimestamp(timestampProvider.Create(150), "replica-2", 3) }
+                }
+            }
+        };
+
+        meta.ReplicatedTrees["$.tree"] = new OrSetState(adds, removes);
 
         var context = new Ama.CRDT.Services.Strategies.CompactionContext(meta, mockPolicy.Object, "Tree", "$.tree", doc);
 
@@ -278,6 +301,13 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
         strategy.Compact(context);
 
         // Assert
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        var state = meta.ReplicatedTrees["$.tree"];
+        state.Removes[nodeId].ShouldNotContainKey(tagSafe); // Compacted
+        state.Removes[nodeId].ShouldContainKey(tagUnsafe); // Not compacted (Version > 5)
+        state.Removes[nodeId].ShouldContainKey(tagOther); // Not compacted (Wrong replica)
+
+        state.Adds[nodeId].ShouldNotContain(tagSafe); // Add tag removed along with remove tag
+        state.Adds[nodeId].ShouldContain(tagUnsafe);
+        state.Adds[nodeId].ShouldContain(tagOther);
     }
 }

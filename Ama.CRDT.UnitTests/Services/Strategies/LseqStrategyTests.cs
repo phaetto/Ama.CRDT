@@ -435,7 +435,7 @@ public sealed class LseqStrategyTests : IDisposable
         var meta = metadataManagerA.Initialize(doc);
         
         var mockPolicy = new Mock<ICompactionPolicy>();
-        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>())).Returns(true);
+        mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
 
         var context = new CompactionContext(meta, mockPolicy.Object, "Items", "$.items", doc);
 
@@ -443,7 +443,7 @@ public sealed class LseqStrategyTests : IDisposable
         lseqStrategy.Compact(context);
 
         // Assert
-        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<ICrdtTimestamp>()), Times.Never);
+        mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
         meta.LseqTrackers.ShouldNotBeNull();
     }
 
