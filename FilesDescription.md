@@ -86,11 +86,13 @@
 | `$/Ama.CRDT.PropertyTests/Strategies/TwoPhaseSetStrategyProperties.cs` | Contains property-based tests for `TwoPhaseSetStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
 | `$/Ama.CRDT.PropertyTests/Strategies/VoteCounterStrategyProperties.cs` | Contains property-based tests for `VoteCounterStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Ama.CRDT.ShowCase.CollaborativeEditing.csproj` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/Controls/IntentTextBox.cs` | A custom TextBox control that behaves like a standard multiline text editor, but internally uses linear diffing to calculate and emit explicit CRDT intents (Insert, SetIndex, Remove) during typing. It directly integrates `IAsyncCrdtPatcher` enabling Roslyn analyzers to validate its intent operations against the model strategies. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/EditorForm.cs` | An editor GUI capable of syncing its local state and incoming patches correctly using timers. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/EditorForm.resx` | No description provided. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Form1.Designer.cs` | No description provided. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Form1.cs` | No description provided. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Form1.resx` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/LineControl.cs` | A WinForms UserControl that represents a single text line with its unique ID and handles intent-based text updates and deletions. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.Designer.cs` | No description provided. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.cs` | No description provided. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.resx` | No description provided. |
