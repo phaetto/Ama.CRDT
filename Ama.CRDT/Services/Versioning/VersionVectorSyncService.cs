@@ -15,23 +15,34 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(source);
-        ArgumentException.ThrowIfNullOrWhiteSpace(target.ReplicaId);
-        ArgumentException.ThrowIfNullOrWhiteSpace(source.ReplicaId);
+
+        return CalculateRequirement(
+            target.ReplicaId, 
+            target.GlobalVersionVector ?? new DottedVersionVector(), 
+            source.ReplicaId, 
+            source.GlobalVersionVector ?? new DottedVersionVector());
+    }
+
+    /// <inheritdoc/>
+    public ReplicaSyncRequirement CalculateRequirement(string targetReplicaId, DottedVersionVector targetVector, string sourceReplicaId, DottedVersionVector sourceVector)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetReplicaId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceReplicaId);
+        ArgumentNullException.ThrowIfNull(targetVector);
+        ArgumentNullException.ThrowIfNull(sourceVector);
 
         var requirements = new Dictionary<string, OriginSyncRequirement>();
-        var targetDvv = target.GlobalVersionVector ?? new DottedVersionVector();
-        var sourceDvv = source.GlobalVersionVector ?? new DottedVersionVector();
 
-        var allSourceOrigins = new HashSet<string>(sourceDvv.Versions.Keys);
-        allSourceOrigins.UnionWith(sourceDvv.Dots.Keys);
+        var allSourceOrigins = new HashSet<string>(sourceVector.Versions.Keys);
+        allSourceOrigins.UnionWith(sourceVector.Dots.Keys);
 
         foreach (var origin in allSourceOrigins)
         {
-            sourceDvv.Versions.TryGetValue(origin, out var sourceMax);
-            targetDvv.Versions.TryGetValue(origin, out var targetMax);
+            sourceVector.Versions.TryGetValue(origin, out var sourceMax);
+            targetVector.Versions.TryGetValue(origin, out var targetMax);
 
-            targetDvv.Dots.TryGetValue(origin, out var targetDots);
-            sourceDvv.Dots.TryGetValue(origin, out var sourceDots);
+            targetVector.Dots.TryGetValue(origin, out var targetDots);
+            sourceVector.Dots.TryGetValue(origin, out var sourceDots);
 
             var targetKnownDots = new HashSet<long>();
             var sourceMissingDots = new HashSet<long>();
@@ -51,7 +62,7 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
             {
                 foreach (var dot in sourceDots)
                 {
-                    if (!targetDvv.Includes(origin, dot))
+                    if (!targetVector.Includes(origin, dot))
                     {
                         sourceMissingDots.Add(dot);
                     }
@@ -72,8 +83,8 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
 
         return new ReplicaSyncRequirement
         {
-            TargetReplicaId = target.ReplicaId,
-            SourceReplicaId = source.ReplicaId,
+            TargetReplicaId = targetReplicaId,
+            SourceReplicaId = sourceReplicaId,
             RequirementsByOrigin = requirements
         };
     }
@@ -84,10 +95,20 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
         ArgumentNullException.ThrowIfNull(replicaA);
         ArgumentNullException.ThrowIfNull(replicaB);
 
+        return CalculateBidirectionalRequirements(
+            replicaA.ReplicaId, 
+            replicaA.GlobalVersionVector ?? new DottedVersionVector(), 
+            replicaB.ReplicaId, 
+            replicaB.GlobalVersionVector ?? new DottedVersionVector());
+    }
+
+    /// <inheritdoc/>
+    public BidirectionalSyncRequirements CalculateBidirectionalRequirements(string replicaAId, DottedVersionVector vectorA, string replicaBId, DottedVersionVector vectorB)
+    {
         return new BidirectionalSyncRequirements
         {
-            ReplicaANeedsFromB = CalculateRequirement(replicaA, replicaB),
-            ReplicaBNeedsFromA = CalculateRequirement(replicaB, replicaA)
+            ReplicaANeedsFromB = CalculateRequirement(replicaAId, vectorA, replicaBId, vectorB),
+            ReplicaBNeedsFromA = CalculateRequirement(replicaBId, vectorB, replicaAId, vectorA)
         };
     }
 
