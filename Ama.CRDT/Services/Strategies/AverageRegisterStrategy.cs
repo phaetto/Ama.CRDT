@@ -107,6 +107,6 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
         var sum = contributions.OrderBy(c => c.Key, StringComparer.Ordinal).Sum(c => c.Value.Value);
         var average = sum / contributions.Count;
 
-        PocoPathHelper.SetValue<decimal>(root, jsonPath, average);
+        PocoPathHelper.SetValue(root, jsonPath, average);
     }
 }

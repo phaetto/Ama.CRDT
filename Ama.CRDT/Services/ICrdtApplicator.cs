@@ -19,7 +19,7 @@ public interface ICrdtApplicator
     /// <param name="document">The <see cref="CrdtDocument{T}"/> containing the data and metadata to which the patch will be applied.</param>
     /// <param name="patch">A <see cref="CrdtPatch"/> containing the list of operations to apply. If the patch is null or contains no operations, the method returns without making changes.</param>
     /// <returns>An <see cref="ApplyPatchResult{T}"/> containing the document and a list of operations that could not be applied.</returns>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Data, or <paramref name="document"/>.Metadata is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Data, or <paramref name="document"/>.Metadata is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[

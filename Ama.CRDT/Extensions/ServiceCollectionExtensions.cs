@@ -63,7 +63,7 @@ public static class ServiceCollectionExtensions
         // Build the configuration registry
         var builder = new CrdtModelBuilder();
         configure?.Invoke(builder);
-        services.TryAddSingleton<ICrdtModelRegistry>(builder.Build());
+        services.TryAddSingleton(builder.Build());
 
         // Add metrics
         services.TryAddSingleton<PartitionManagerCrdtMetrics>();

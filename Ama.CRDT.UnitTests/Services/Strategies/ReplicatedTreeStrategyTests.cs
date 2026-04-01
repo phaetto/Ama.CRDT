@@ -272,7 +272,7 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
         
         var doc = new TestModel();
         var meta = new CrdtMetadata();
-        var strategy = scopeA.ServiceProvider.GetServices<Ama.CRDT.Services.Strategies.ICrdtStrategy>().OfType<Ama.CRDT.Services.Strategies.ReplicatedTreeStrategy>().Single();
+        var strategy = scopeA.ServiceProvider.GetServices<CRDT.Services.Strategies.ICrdtStrategy>().OfType<CRDT.Services.Strategies.ReplicatedTreeStrategy>().Single();
 
         var nodeId = Guid.NewGuid();
         var tagSafe = Guid.NewGuid();
@@ -295,7 +295,7 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
 
         meta.ReplicatedTrees["$.tree"] = new OrSetState(adds, removes);
 
-        var context = new Ama.CRDT.Services.Strategies.CompactionContext(meta, mockPolicy.Object, "Tree", "$.tree", doc);
+        var context = new CRDT.Services.Strategies.CompactionContext(meta, mockPolicy.Object, "Tree", "$.tree", doc);
 
         // Act
         strategy.Compact(context);
