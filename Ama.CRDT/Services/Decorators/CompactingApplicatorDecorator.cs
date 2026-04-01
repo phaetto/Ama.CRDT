@@ -45,7 +45,7 @@ public sealed class CompactingApplicatorDecorator : IAsyncCrdtApplicator
             foreach (var factory in compactionPolicyFactories)
             {
                 var policy = factory.CreatePolicy();
-                metadataManager.Compact<T>(document, policy);
+                metadataManager.Compact(document, policy);
             }
         }
 

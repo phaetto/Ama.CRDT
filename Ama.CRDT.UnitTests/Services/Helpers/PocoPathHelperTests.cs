@@ -528,7 +528,7 @@ public sealed class PocoPathHelperTests
         var newValue = "new generic value";
 
         // Act
-        var success = PocoPathHelper.SetValue<string>(rootObject, path, newValue);
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
 
         // Assert
         success.ShouldBeTrue();
@@ -543,7 +543,7 @@ public sealed class PocoPathHelperTests
         var newValue = "updated-tag";
 
         // Act
-        var success = PocoPathHelper.SetValue<string>(rootObject, path, newValue);
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
 
         // Assert
         success.ShouldBeTrue();

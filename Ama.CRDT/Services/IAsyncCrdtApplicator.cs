@@ -22,7 +22,7 @@ public interface IAsyncCrdtApplicator
     /// <param name="patch">A <see cref="CrdtPatch"/> containing the list of operations to apply. If the patch is null or contains no operations, the method returns without making changes.</param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the work.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains an <see cref="ApplyPatchResult{T}"/> with the document and a list of operations that could not be applied.</returns>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Data, or <paramref name="document"/>.Metadata is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Data, or <paramref name="document"/>.Metadata is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[

@@ -21,7 +21,7 @@ public interface ICrdtMetadataManager
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="document">The document object to initialize metadata for.</param>
     /// <returns>A new, initialized <see cref="CrdtMetadata"/> object.</returns>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -42,7 +42,7 @@ public interface ICrdtMetadataManager
     /// <param name="document">The document object to initialize metadata for.</param>
     /// <param name="timestamp">The timestamp to use for initialization.</param>
     /// <returns>A new, initialized <see cref="CrdtMetadata"/> object.</returns>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/> or <paramref name="timestamp"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/> or <paramref name="timestamp"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -61,7 +61,7 @@ public interface ICrdtMetadataManager
     /// </summary>
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="document">The CRDT document containing the data to derive metadata from and the metadata object to populate.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata or <paramref name="document"/>.Data is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata or <paramref name="document"/>.Data is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -79,7 +79,7 @@ public interface ICrdtMetadataManager
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="document">The CRDT document containing the data to derive metadata from and the metadata object to populate.</param>
     /// <param name="timestamp">The timestamp to use for initialization.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata, <paramref name="document"/>.Data, or <paramref name="timestamp"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata, <paramref name="document"/>.Data, or <paramref name="timestamp"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -98,7 +98,7 @@ public interface ICrdtMetadataManager
     /// </summary>
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="document">The CRDT document containing the data to derive metadata from and the metadata object to reset.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata or <paramref name="document"/>.Data is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata or <paramref name="document"/>.Data is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -116,7 +116,7 @@ public interface ICrdtMetadataManager
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="document">The CRDT document containing the data to derive metadata from and the metadata object to reset.</param>
     /// <param name="timestamp">The timestamp to use for initialization.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata, <paramref name="document"/>.Data, or <paramref name="timestamp"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/>, <paramref name="document"/>.Metadata, <paramref name="document"/>.Data, or <paramref name="timestamp"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -135,7 +135,7 @@ public interface ICrdtMetadataManager
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="document">The CRDT document to compact.</param>
     /// <param name="policy">The policy determining what is safe to delete.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="document"/> or <paramref name="policy"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/> or <paramref name="policy"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -145,7 +145,7 @@ public interface ICrdtMetadataManager
     /// </code>
     /// </example>
     void Compact<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] ICompactionPolicy policy) where T : class;
-    
+
     /// <summary>
     /// Advances the version vector for the replica that generated the operation, pruning any covered exceptions.
     /// This is a core causality tracking mechanism used by the applicator to prevent duplicate operation application.
@@ -154,7 +154,7 @@ public interface ICrdtMetadataManager
     /// </summary>
     /// <param name="metadata">The metadata object to update.</param>
     /// <param name="operation">The operation whose replica and clock sequence will be used to advance the vector.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -175,8 +175,8 @@ public interface ICrdtMetadataManager
     /// <param name="metadata">The metadata object to update.</param>
     /// <param name="replicaId">The ID of the replica whose version vector is being advanced.</param>
     /// <param name="clock">The new causal clock sequence for the replica's version vector.</param>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
-    /// <exception cref="System.ArgumentException">Thrown if <paramref name="replicaId"/> is null or whitespace.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="replicaId"/> is null or whitespace.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[

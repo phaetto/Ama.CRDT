@@ -120,7 +120,7 @@ public sealed class FixedSizeArrayStrategyProperties
                 0);
         }).ToList();
 
-        var random = new System.Random(distinctOpsData.Count);
+        var random = new Random(distinctOpsData.Count);
         var permutation1 = ops.OrderBy(_ => random.Next()).ToList();
         var permutation2 = ops.OrderBy(_ => random.Next()).ToList();
 

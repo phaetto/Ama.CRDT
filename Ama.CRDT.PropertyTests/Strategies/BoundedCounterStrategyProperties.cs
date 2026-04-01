@@ -86,7 +86,7 @@ public sealed class BoundedCounterStrategyProperties
             new EpochTimestamp(i),
             0)).ToList();
 
-        var random = new System.Random(increments.Count);
+        var random = new Random(increments.Count);
         var permutation1 = ops.OrderBy(_ => random.Next()).ToList();
         var permutation2 = ops.OrderBy(_ => random.Next()).ToList();
 
