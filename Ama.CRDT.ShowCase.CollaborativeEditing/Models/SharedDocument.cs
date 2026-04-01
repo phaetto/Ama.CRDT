@@ -8,10 +8,12 @@ using Ama.CRDT.Attributes.Strategies;
 public sealed class SharedDocument : IEquatable<SharedDocument>
 {
     /// <summary>
-    /// Represents the text lines of our document. 
-    /// The ArrayLcsStrategy will handle insertion, deletion, and convergence of lines conflict-free.
+    /// Represents the text lines of our document as an ordered list.
+    /// The RgaStrategy (Replicated Growable Array) is the industry standard for 
+    /// collaborative sequential data like text. We will use Index-based Intents 
+    /// to update it precisely without calculating full-document differences.
     /// </summary>
-    [CrdtArrayLcsStrategy]
+    [CrdtRgaStrategy]
     public IList<string> Lines { get; set; } = new List<string>();
 
     public bool Equals(SharedDocument? other)

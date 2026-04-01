@@ -15,6 +15,7 @@ using Ama.CRDT.Services.Journaling;
 using Ama.CRDT.Services.Versioning;
 using Ama.CRDT.ShowCase.CollaborativeEditing.Models;
 using Ama.CRDT.ShowCase.CollaborativeEditing.Services;
+using Ama.CRDT.ShowCase.CollaborativeEditing.Controls;
 
 public sealed class EditorForm : Form
 {
@@ -23,18 +24,19 @@ public sealed class EditorForm : Form
     private readonly NetworkBroker networkBroker;
 
     private readonly IAsyncCrdtApplicator applicator;
-    private readonly ICrdtPatcher patcher;
+    private readonly IAsyncCrdtPatcher patcher;
 
     private CrdtDocument<SharedDocument> document = default!;
-    private readonly TextBox textBox;
-    private readonly Timer typingTimer;
+    
+    // UI components
+    private readonly IntentTextBox textBox;
+    private readonly Panel topPanel;
     
     // Monkey mode fields
     private readonly Timer monkeyTimer;
     private readonly CheckBox monkeyModeCheckBox;
     private readonly NumericUpDown monkeyIntervalNumericUpDown;
     private readonly Label intervalLabel;
-    private readonly Panel topPanel;
     private readonly Random rng = new();
     private readonly string[] loremWords = new[] 
     { 
@@ -43,7 +45,6 @@ public sealed class EditorForm : Form
         "incididunt", "ut", "labore", "et", "dolore", "magna", "aliqua" 
     };
     
-    private bool isApplyingNetworkPatch = false;
     private bool isLoaded = false;
     private readonly Queue<NetworkMessage> backlog = new();
 
@@ -58,19 +59,10 @@ public sealed class EditorForm : Form
         this.networkBroker = networkBroker;
 
         applicator = scope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
-        patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        patcher = scope.ServiceProvider.GetRequiredService<IAsyncCrdtPatcher>();
         
-        textBox = new TextBox
-        {
-            Multiline = true,
-            Dock = DockStyle.Fill,
-            ScrollBars = ScrollBars.Vertical,
-            Font = new Font("Consolas", 12F, FontStyle.Regular, GraphicsUnit.Point)
-        };
+        textBox = new IntentTextBox();
         
-        typingTimer = new Timer { Interval = 500 };
-        typingTimer.Tick += TypingTimer_Tick;
-
         monkeyTimer = new Timer { Interval = 1000 };
         monkeyTimer.Tick += MonkeyTimer_Tick;
         
@@ -117,8 +109,9 @@ public sealed class EditorForm : Form
         topPanel.Controls.Add(intervalLabel);
         topPanel.Controls.Add(monkeyIntervalNumericUpDown);
 
-        Controls.Add(topPanel);
         Controls.Add(textBox);
+        Controls.Add(topPanel);
+        
         textBox.BringToFront();
 
         FormClosed += EditorForm_FormClosed;
@@ -172,23 +165,18 @@ public sealed class EditorForm : Form
             return JsonSerializer.Serialize(document, CrdtJsonContext.DefaultOptions);
         });
 
-        textBox.Lines = document.Data.Lines.ToArray();
-        textBox.TextChanged += TextBox_TextChanged;
-        
+        // Initialize IntentTextBox dependencies and callbacks
+        textBox.Patcher = patcher;
+        textBox.DocumentProvider = () => document;
+        textBox.OnPatchGenerated = async (patch) => await ApplyAndBroadcastPatchAsync(patch, updateUi: false);
+
+        textBox.ApplyExternalLines(document.Data.Lines, 0);
         isLoaded = true;
 
         while (backlog.TryDequeue(out var eMsg))
         {
             await ProcessNetworkMessageAsync(eMsg);
         }
-    }
-
-    private void TextBox_TextChanged(object? sender, EventArgs e)
-    {
-        if (isApplyingNetworkPatch) return;
-        
-        typingTimer.Stop();
-        typingTimer.Start();
     }
 
     private void MonkeyModeCheckBox_CheckedChanged(object? sender, EventArgs e)
@@ -210,44 +198,42 @@ public sealed class EditorForm : Form
 
     private void MonkeyTimer_Tick(object? sender, EventArgs e)
     {
-        if (isApplyingNetworkPatch || !isLoaded) return;
+        if (!isLoaded) return;
 
         var lines = textBox.Lines.ToList();
         int action = lines.Count == 0 ? 0 : rng.Next(4);
 
-        switch (action)
+        try
         {
-            case 0: // Add line
+            if (action == 0) // Add line
+            {
                 lines.Insert(rng.Next(lines.Count + 1), GetRandomSentence());
-                break;
-            case 1: // Append to line
-                int idx1 = rng.Next(lines.Count);
-                lines[idx1] = lines[idx1] + " " + loremWords[rng.Next(loremWords.Length)];
-                break;
-            case 2: // Remove line
+            }
+            else if (action == 1) // Append to line
+            {
+                int idx = rng.Next(lines.Count);
+                lines[idx] = lines[idx] + " " + loremWords[rng.Next(loremWords.Length)];
+            }
+            else if (action == 2) // Remove line
+            {
                 if (lines.Count > 1)
                 {
                     lines.RemoveAt(rng.Next(lines.Count));
                 }
-                break;
-            case 3: // Change line
-                int idx3 = rng.Next(lines.Count);
-                lines[idx3] = GetRandomSentence();
-                break;
-        }
+            }
+            else if (action == 3) // Change line completely
+            {
+                int idx = rng.Next(lines.Count);
+                lines[idx] = GetRandomSentence();
+            }
 
-        int selectionStart = textBox.SelectionStart;
-        
-        // This will trigger TextBox_TextChanged and restart typingTimer to broadcast the patch
-        textBox.Lines = lines.ToArray();
-
-        if (selectionStart <= textBox.Text.Length)
-        {
-            textBox.SelectionStart = selectionStart;
+            // Directly setting lines triggers OnTextChanged in the IntentTextBox, 
+            // which calculates the CRDT operations and signals OnPatchGenerated for us!
+            textBox.Lines = lines.ToArray();
         }
-        else 
+        catch (Exception ex)
         {
-            textBox.SelectionStart = textBox.Text.Length;
+            Console.WriteLine(ex.Message);
         }
     }
 
@@ -257,18 +243,8 @@ public sealed class EditorForm : Form
         return string.Join(" ", Enumerable.Range(0, wordCount).Select(_ => loremWords[rng.Next(loremWords.Length)]));
     }
 
-    private async void TypingTimer_Tick(object? sender, EventArgs e)
+    private async Task ApplyAndBroadcastPatchAsync(CrdtPatch patch, bool updateUi)
     {
-        typingTimer.Stop();
-        await GenerateAndBroadcastPatchAsync();
-    }
-
-    private async Task GenerateAndBroadcastPatchAsync()
-    {
-        var currentLines = textBox.Lines.ToList();
-        var targetState = new SharedDocument { Lines = currentLines };
-        var patch = patcher.GeneratePatch(document, targetState);
-
         if (patch.Operations.Count > 0)
         {
             var result = await applicator.ApplyPatchAsync(document, patch);
@@ -278,6 +254,11 @@ public sealed class EditorForm : Form
             {
                 networkBroker.UpdateReplicaState(replicaId, new DottedVersionVector(document.Metadata.VersionVector, new Dictionary<string, ISet<long>>()));
                 networkBroker.Broadcast(replicaId, patch);
+                
+                if (updateUi)
+                {
+                    textBox.ApplyExternalLines(document.Data.Lines, textBox.SelectionStart);
+                }
             }
         }
     }
@@ -305,33 +286,12 @@ public sealed class EditorForm : Form
     {
         try
         {
-            if (typingTimer.Enabled)
-            {
-                typingTimer.Stop();
-                await GenerateAndBroadcastPatchAsync();
-            }
-
             var result = await applicator.ApplyPatchAsync(document, e.Patch);
             document = new CrdtDocument<SharedDocument>(result.Document, document.Metadata);
             
             networkBroker.UpdateReplicaState(replicaId, new DottedVersionVector(document.Metadata.VersionVector, new Dictionary<string, ISet<long>>()));
             
-            isApplyingNetworkPatch = true;
-            
-            int selectionStart = textBox.SelectionStart;
-
-            textBox.Lines = document.Data.Lines.ToArray();
-
-            if (selectionStart <= textBox.Text.Length)
-            {
-                textBox.SelectionStart = selectionStart;
-            }
-            else 
-            {
-                textBox.SelectionStart = textBox.Text.Length;
-            }
-
-            isApplyingNetworkPatch = false;
+            textBox.ApplyExternalLines(document.Data.Lines, textBox.SelectionStart);
         }
         catch (Exception ex)
         {
@@ -343,7 +303,6 @@ public sealed class EditorForm : Form
     {
         networkBroker.MessageReceived -= NetworkBroker_MessageReceived;
         networkBroker.UnregisterReplica(replicaId);
-        typingTimer.Dispose();
         monkeyTimer.Dispose();
         scope.Dispose(); 
     }
