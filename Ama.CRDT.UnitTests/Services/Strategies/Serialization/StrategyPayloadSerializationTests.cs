@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -342,6 +343,39 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
         // The value shouldn't change yet because quorum is 2, but metadata should have the proposal
         targetDoc.Data!.Value.ShouldBe(10);
         targetDoc.Metadata!.QuorumApprovals.ShouldNotBeEmpty();
+    }
+
+    [Fact] public void GraphEdgePayload_ShouldSerializeAndDeserialize() => TestPayloadSerialization<GraphEdgePayload>();
+    [Fact] public void GraphVertexPayload_ShouldSerializeAndDeserialize() => TestPayloadSerialization<GraphVertexPayload>();
+    [Fact] public void OrMapAddItem_ShouldSerializeAndDeserialize() => TestPayloadSerialization<OrMapAddItem>();
+    [Fact] public void OrMapRemoveItem_ShouldSerializeAndDeserialize() => TestPayloadSerialization<OrMapRemoveItem>();
+    [Fact] public void OrSetAddItem_ShouldSerializeAndDeserialize() => TestPayloadSerialization<OrSetAddItem>();
+    [Fact] public void OrSetRemoveItem_ShouldSerializeAndDeserialize() => TestPayloadSerialization<OrSetRemoveItem>();
+    [Fact] public void PositionalItem_ShouldSerializeAndDeserialize() => TestPayloadSerialization<PositionalItem>();
+    [Fact] public void RgaIdentifier_ShouldSerializeAndDeserialize() => TestPayloadSerialization<RgaIdentifier>();
+    [Fact] public void RgaItem_ShouldSerializeAndDeserialize() => TestPayloadSerialization<RgaItem>();
+    [Fact] public void TreeAddNodePayload_ShouldSerializeAndDeserialize() => TestPayloadSerialization<TreeAddNodePayload>();
+    [Fact] public void TreeMoveNodePayload_ShouldSerializeAndDeserialize() => TestPayloadSerialization<TreeMoveNodePayload>();
+    [Fact] public void TreeRemoveNodePayload_ShouldSerializeAndDeserialize() => TestPayloadSerialization<TreeRemoveNodePayload>();
+    [Fact] public void VotePayload_ShouldSerializeAndDeserialize() => TestPayloadSerialization<VotePayload>();
+    [Fact] public void EpochPayload_ShouldSerializeAndDeserialize() => TestPayloadSerialization<EpochPayload>();
+    [Fact] public void QuorumPayload_ShouldSerializeAndDeserialize() => TestPayloadSerialization<QuorumPayload>();
+
+    private void TestPayloadSerialization<T>()
+    {
+        var type = typeof(T);
+        var obj = default(T);
+        var json = JsonSerializer.Serialize(obj, type, jsonSerializerOptions);
+        var deserialized = JsonSerializer.Deserialize(json, type, jsonSerializerOptions);
+        
+        if (obj != null)
+        {
+            deserialized.ShouldBe(obj);
+        }
+        else
+        {
+            deserialized.ShouldBeNull();
+        }
     }
 
     private CrdtPatch SerializeAndDeserialize(CrdtPatch patch)
