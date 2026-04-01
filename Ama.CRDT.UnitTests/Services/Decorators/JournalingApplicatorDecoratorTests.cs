@@ -39,7 +39,7 @@ public sealed class JournalingApplicatorDecoratorTests
         var journalMock = new Mock<ICrdtOperationJournal>();
         var decorator = new JournalingApplicatorDecorator(applicatorMock.Object, journalMock.Object);
 
-        var document = new CrdtDocument<TestModel>(new TestModel());
+        var document = new CrdtDocument<TestModel>(new TestModel(), new CrdtMetadata());
         
         var appliedOp = CreateOperationWithId(Guid.NewGuid());
         var unappliedOp = CreateOperationWithId(Guid.NewGuid());
@@ -48,7 +48,7 @@ public sealed class JournalingApplicatorDecoratorTests
 
         var unappliedOperationData = new UnappliedOperation(unappliedOp, default);
 
-        var expectedResult = new ApplyPatchResult<TestModel>(document.Data!, new[] { unappliedOperationData });
+        var expectedResult = new ApplyPatchResult<TestModel>(document, new[] { unappliedOperationData });
 
         applicatorMock.Setup(m => m.ApplyPatchAsync(document, patch, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
@@ -74,7 +74,7 @@ public sealed class JournalingApplicatorDecoratorTests
         var journalMock = new Mock<ICrdtOperationJournal>();
         var decorator = new JournalingApplicatorDecorator(applicatorMock.Object, journalMock.Object);
 
-        var document = new CrdtDocument<TestModel>(new TestModel());
+        var document = new CrdtDocument<TestModel>(new TestModel(), new CrdtMetadata());
         
         var failedOp = CreateOperationWithId(Guid.NewGuid());
 
@@ -82,7 +82,7 @@ public sealed class JournalingApplicatorDecoratorTests
 
         var unappliedOperationData = new UnappliedOperation(failedOp, default);
 
-        var expectedResult = new ApplyPatchResult<TestModel>(document.Data!, new[] { unappliedOperationData });
+        var expectedResult = new ApplyPatchResult<TestModel>(document, new[] { unappliedOperationData });
 
         applicatorMock.Setup(m => m.ApplyPatchAsync(document, patch, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
@@ -103,11 +103,11 @@ public sealed class JournalingApplicatorDecoratorTests
         var journalMock = new Mock<ICrdtOperationJournal>();
         var decorator = new JournalingApplicatorDecorator(applicatorMock.Object, journalMock.Object);
 
-        var document = new CrdtDocument<TestModel>(new TestModel());
+        var document = new CrdtDocument<TestModel>(new TestModel(), new CrdtMetadata());
         
         var patch = new CrdtPatch(Array.Empty<CrdtOperation>());
 
-        var expectedResult = new ApplyPatchResult<TestModel>(document.Data!, Array.Empty<UnappliedOperation>());
+        var expectedResult = new ApplyPatchResult<TestModel>(document, Array.Empty<UnappliedOperation>());
 
         applicatorMock.Setup(m => m.ApplyPatchAsync(document, patch, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);

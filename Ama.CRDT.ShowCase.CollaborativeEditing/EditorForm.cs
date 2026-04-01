@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Extensions.DependencyInjection;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Services;
@@ -135,32 +136,24 @@ public sealed class EditorForm : Form
 
         var clusterState = networkBroker.GetClusterState();
         var syncService = scope.ServiceProvider.GetRequiredService<IVersionVectorSyncService>();
+
+        // Simulating global state locally using the document's local clock for the showcase
+        var localDvv = scope.ServiceProvider.GetRequiredService<ReplicaContext>().GlobalVersionVector;
         
-        var localDvv = new DottedVersionVector(document.Metadata.VersionVector, new Dictionary<string, ISet<long>>());
-        var localContext = new ReplicaContext { ReplicaId = replicaId, GlobalVersionVector = localDvv };
-        var targetContext = new ReplicaContext { ReplicaId = "Cluster", GlobalVersionVector = clusterState };
+        // Calculate requirements directly using the simplified overload
+        var requirement = syncService.CalculateRequirement(replicaId, localDvv, "Cluster", clusterState);
         
-        var requirement = syncService.CalculateRequirement(localContext, targetContext);
         if (requirement.IsBehind)
         {
             var journalManager = scope.ServiceProvider.GetRequiredService<IJournalManager>();
             var missingOpsStream = journalManager.GetMissingOperationsAsync(requirement);
             
-            var ops = new List<CrdtOperation>();
-            await foreach (var jo in missingOpsStream)
-            {
-                ops.Add(jo.Operation);
-            }
-            
-            if (ops.Count > 0)
-            {
-                var patch = new CrdtPatch(ops);
-                var result = await applicator.ApplyPatchAsync(document, patch);
-                document = new CrdtDocument<SharedDocument>(result.Document, document.Metadata);
-            }
+            // Streamline: Directly apply the async stream of missing operations!
+            var result = await applicator.ApplyOperationsAsync(document, missingOpsStream);
+            document = result.Document;
         }
 
-        networkBroker.RegisterReplica(replicaId, new DottedVersionVector(document.Metadata.VersionVector, new Dictionary<string, ISet<long>>()), () => 
+        networkBroker.RegisterReplica(replicaId, scope.ServiceProvider.GetRequiredService<ReplicaContext>().GlobalVersionVector, () => 
         {
             return JsonSerializer.Serialize(document, CrdtJsonContext.DefaultOptions);
         });
@@ -170,7 +163,7 @@ public sealed class EditorForm : Form
         textBox.DocumentProvider = () => document;
         textBox.OnPatchGenerated = async (patch) => await ApplyAndBroadcastPatchAsync(patch, updateUi: false);
 
-        textBox.ApplyExternalLines(document.Data.Lines, 0);
+        textBox.ApplyExternalLines(document.Data!.Lines, 0);
         isLoaded = true;
 
         while (backlog.TryDequeue(out var eMsg))
@@ -248,16 +241,16 @@ public sealed class EditorForm : Form
         if (patch.Operations.Count > 0)
         {
             var result = await applicator.ApplyPatchAsync(document, patch);
-            document = new CrdtDocument<SharedDocument>(result.Document, document.Metadata);
+            document = result.Document; // Streamline: result.Document is now the full CrdtDocument struct
             
             if (result.UnappliedOperations == null || result.UnappliedOperations.Count == 0)
             {
-                networkBroker.UpdateReplicaState(replicaId, new DottedVersionVector(document.Metadata.VersionVector, new Dictionary<string, ISet<long>>()));
+                networkBroker.UpdateReplicaState(replicaId, scope.ServiceProvider.GetRequiredService<ReplicaContext>().GlobalVersionVector);
                 networkBroker.Broadcast(replicaId, patch);
                 
                 if (updateUi)
                 {
-                    textBox.ApplyExternalLines(document.Data.Lines, textBox.SelectionStart);
+                    textBox.ApplyExternalLines(document.Data!.Lines, textBox.SelectionStart);
                 }
             }
         }
@@ -287,11 +280,11 @@ public sealed class EditorForm : Form
         try
         {
             var result = await applicator.ApplyPatchAsync(document, e.Patch);
-            document = new CrdtDocument<SharedDocument>(result.Document, document.Metadata);
+            document = result.Document; // Streamline: result.Document is now the full CrdtDocument struct
             
-            networkBroker.UpdateReplicaState(replicaId, new DottedVersionVector(document.Metadata.VersionVector, new Dictionary<string, ISet<long>>()));
+            networkBroker.UpdateReplicaState(replicaId, scope.ServiceProvider.GetRequiredService<ReplicaContext>().GlobalVersionVector);
             
-            textBox.ApplyExternalLines(document.Data.Lines, textBox.SelectionStart);
+            textBox.ApplyExternalLines(document.Data!.Lines, textBox.SelectionStart);
         }
         catch (Exception ex)
         {

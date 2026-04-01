@@ -27,10 +27,10 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
     private const int MaxPartitionDataSize = 8192;
     private const int MinPartitionDataSize = MaxPartitionDataSize / 4;
 
-    private readonly IAsyncCrdtApplicator _innerApplicator;
-    private readonly IPartitionStorageService _storageService;
-    private readonly ICrdtStrategyProvider _strategyProvider;
-    private readonly PartitionManagerCrdtMetrics _metrics;
+    private readonly IAsyncCrdtApplicator innerApplicator;
+    private readonly IPartitionStorageService storageService;
+    private readonly ICrdtStrategyProvider strategyProvider;
+    private readonly PartitionManagerCrdtMetrics metrics;
 
     private record TypePartitionInfo(
         PropertyInfo? PartitionKeyProperty,
@@ -51,10 +51,10 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
         ArgumentNullException.ThrowIfNull(strategyProvider);
         ArgumentNullException.ThrowIfNull(metrics);
 
-        _innerApplicator = innerApplicator;
-        _storageService = storageService;
-        _strategyProvider = strategyProvider;
-        _metrics = metrics;
+        this.innerApplicator = innerApplicator;
+        this.storageService = storageService;
+        this.strategyProvider = strategyProvider;
+        this.metrics = metrics;
     }
 
     /// <inheritdoc/>
@@ -67,31 +67,31 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
         // If the document type is not configured for partitioning, simply pass through to the inner applicator.
         if (typeInfo.PartitionKeyProperty is null || typeInfo.PartitionableProperties.Count == 0)
         {
-            return await _innerApplicator.ApplyPatchAsync(document, patch, cancellationToken);
+            return await innerApplicator.ApplyPatchAsync(document, patch, cancellationToken);
         }
 
-        using var _ = new MetricTimer(_metrics.ApplyPatchDuration);
+        using var _ = new MetricTimer(metrics.ApplyPatchDuration);
         
         var unappliedOperations = new List<UnappliedOperation>();
 
         if (patch.Operations is null || !patch.Operations.Any())
         {
-            return new ApplyPatchResult<TDoc>(document.Data, unappliedOperations);
+            return new ApplyPatchResult<TDoc>(document, unappliedOperations);
         }
 
         var logicalKey = GetLogicalKey(document.Data, typeInfo.PartitionKeyProperty);
-        _metrics.PatchesApplied.Add(1);
+        metrics.PatchesApplied.Add(1);
 
-        var headerPartition = await _storageService.GetHeaderPartitionAsync(logicalKey, cancellationToken)
+        var headerPartition = await storageService.GetHeaderPartitionAsync(logicalKey, cancellationToken)
             ?? throw new InvalidOperationException($"Could not find header partition for logical key '{logicalKey}'.");
-        var headerDoc = await _storageService.LoadHeaderPartitionContentAsync<TDoc>(logicalKey, (HeaderPartition)headerPartition, cancellationToken);
+        var headerDoc = await storageService.LoadHeaderPartitionContentAsync<TDoc>(logicalKey, (HeaderPartition)headerPartition, cancellationToken);
 
         var (headerOps, propertyOps) = GroupOperationsByProperty(patch.Operations, typeInfo);
         bool headerModified = headerOps.Count > 0;
 
         if (headerOps.Count > 0)
         {
-            var headerResult = await _innerApplicator.ApplyPatchAsync(headerDoc, new CrdtPatch(headerOps.AsReadOnly()), cancellationToken);
+            var headerResult = await innerApplicator.ApplyPatchAsync(headerDoc, new CrdtPatch(headerOps.AsReadOnly()), cancellationToken);
             unappliedOperations.AddRange(headerResult.UnappliedOperations);
         }
 
@@ -104,16 +104,16 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
             
             foreach(var (partition, ops) in opsByPartition)
             {
-                var dataDoc = await _storageService.LoadPartitionContentAsync<TDoc>(logicalKey, propertyName, partition, cancellationToken);
+                var dataDoc = await storageService.LoadPartitionContentAsync<TDoc>(logicalKey, propertyName, partition, cancellationToken);
 
                 // Temporarily inject global synchronization state into the data partition's metadata 
                 dataDoc.Metadata!.VersionVector = headerDoc.Metadata!.VersionVector;
                 dataDoc.Metadata.SeenExceptions = headerDoc.Metadata.SeenExceptions;
 
                 ApplyPatchResult<TDoc> dataResult;
-                using (new MetricTimer(_metrics.ApplicatorApplyPatchDuration))
+                using (new MetricTimer(metrics.ApplicatorApplyPatchDuration))
                 {
-                    dataResult = await _innerApplicator.ApplyPatchAsync(dataDoc, new CrdtPatch(ops.AsReadOnly()), cancellationToken);
+                    dataResult = await innerApplicator.ApplyPatchAsync(dataDoc, new CrdtPatch(ops.AsReadOnly()), cancellationToken);
                 }
                 unappliedOperations.AddRange(dataResult.UnappliedOperations);
 
@@ -131,7 +131,7 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
                     }
                     else if (updatedDataPartition.DataLength < MinPartitionDataSize)
                     {
-                        var partitionCount = await _storageService.GetPropertyPartitionCountAsync(logicalKey, propertyName, cancellationToken);
+                        var partitionCount = await storageService.GetPropertyPartitionCountAsync(logicalKey, propertyName, cancellationToken);
                         if (partitionCount > 1)
                         {
                             await MergePartitionIfNeededAsync<TDoc>(updatedDataPartition, propertyName, strategy, prop, cancellationToken);
@@ -148,7 +148,7 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
             await PersistPartitionChangesAsync(logicalKey, headerPartition, headerDoc.Data!, headerDoc.Metadata!, null, cancellationToken);
         }
         
-        return new ApplyPatchResult<TDoc>(headerDoc.Data!, unappliedOperations);
+        return new ApplyPatchResult<TDoc>(headerDoc, unappliedOperations);
     }
 
     private (List<CrdtOperation> headerOps, Dictionary<string, List<CrdtOperation>> propertyOps) GroupOperationsByProperty(IEnumerable<CrdtOperation> operations, TypePartitionInfo typeInfo)
@@ -199,7 +199,7 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
 
     private async Task<Dictionary<IPartition, List<CrdtOperation>>> GroupOperationsByPartitionAsync(IComparable logicalKey, string propertyName, IPartitionableCrdtStrategy strategy, PropertyInfo prop, IEnumerable<CrdtOperation> operations, CancellationToken cancellationToken)
     {
-        using var _ = new MetricTimer(_metrics.GroupOperationsDuration);
+        using var _ = new MetricTimer(metrics.GroupOperationsDuration);
         var opsByPartition = new Dictionary<IPartition, List<CrdtOperation>>();
         
         var propertyPath = ToPropertyPath(propertyName, GetTypeInfo(prop.DeclaringType!));
@@ -209,7 +209,7 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
             var rangeKey = strategy.GetKeyFromOperation(op, propertyPath);
             var compositeKey = new CompositePartitionKey(logicalKey, rangeKey);
 
-            var partition = await _storageService.GetPropertyPartitionAsync(compositeKey, propertyName, cancellationToken)
+            var partition = await storageService.GetPropertyPartitionAsync(compositeKey, propertyName, cancellationToken)
                 ?? throw new InvalidOperationException($"Could not find partition for key '{compositeKey}' in property '{propertyName}'.");
 
             if (!opsByPartition.TryGetValue(partition, out var opList))
@@ -226,13 +226,13 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
 
     private async Task SplitPartitionAsync<TDoc>(DataPartition dataPartitionToSplit, string propertyName, IPartitionableCrdtStrategy strategy, PropertyInfo prop, CancellationToken cancellationToken) where TDoc : class
     {
-        using var _ = new MetricTimer(_metrics.SplitPartitionDuration);
-        _metrics.PartitionsSplit.Add(1);
+        using var _ = new MetricTimer(metrics.SplitPartitionDuration);
+        metrics.PartitionsSplit.Add(1);
 
-        var crdtDoc = await _storageService.LoadPartitionContentAsync<TDoc>(dataPartitionToSplit.StartKey.LogicalKey, propertyName, dataPartitionToSplit, cancellationToken);
+        var crdtDoc = await storageService.LoadPartitionContentAsync<TDoc>(dataPartitionToSplit.StartKey.LogicalKey, propertyName, dataPartitionToSplit, cancellationToken);
         
         SplitResult splitResult;
-        using (new MetricTimer(_metrics.StrategySplitDuration))
+        using (new MetricTimer(metrics.StrategySplitDuration))
         {
             splitResult = strategy.Split(crdtDoc.Data!, crdtDoc.Metadata!, prop);
         }
@@ -244,12 +244,12 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
         var p1Empty = new DataPartition(p1Key, p2Key, 0, 0, 0, 0);
         var p2Empty = new DataPartition(p2Key, dataPartitionToSplit.EndKey, 0, 0, 0, 0);
 
-        var p1 = await _storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p1Empty, (TDoc)splitResult.Partition1.Data, splitResult.Partition1.Metadata, cancellationToken);
-        var p2 = await _storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p2Empty, (TDoc)splitResult.Partition2.Data, splitResult.Partition2.Metadata, cancellationToken);
+        var p1 = await storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p1Empty, (TDoc)splitResult.Partition1.Data, splitResult.Partition1.Metadata, cancellationToken);
+        var p2 = await storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p2Empty, (TDoc)splitResult.Partition2.Data, splitResult.Partition2.Metadata, cancellationToken);
 
-        await _storageService.DeletePropertyPartitionAsync(propertyName, dataPartitionToSplit, cancellationToken);
-        await _storageService.InsertPropertyPartitionAsync(propertyName, p1, cancellationToken);
-        await _storageService.InsertPropertyPartitionAsync(propertyName, p2, cancellationToken);
+        await storageService.DeletePropertyPartitionAsync(propertyName, dataPartitionToSplit, cancellationToken);
+        await storageService.InsertPropertyPartitionAsync(propertyName, p1, cancellationToken);
+        await storageService.InsertPropertyPartitionAsync(propertyName, p2, cancellationToken);
 
         if (p1 is DataPartition dp1 && dp1.DataLength > MaxPartitionDataSize && dp1.DataLength < dataPartitionToSplit.DataLength)
         {
@@ -264,7 +264,7 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
 
     private async Task MergePartitionIfNeededAsync<TDoc>(DataPartition dataPartitionToMerge, string propertyName, IPartitionableCrdtStrategy strategy, PropertyInfo prop, CancellationToken cancellationToken) where TDoc : class
     {
-        using var _ = new MetricTimer(_metrics.MergePartitionDuration);
+        using var _ = new MetricTimer(metrics.MergePartitionDuration);
         var logicalKey = dataPartitionToMerge.StartKey.LogicalKey;
         
         DataPartition targetPartition;
@@ -272,7 +272,7 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
 
         if (dataPartitionToMerge.EndKey.HasValue)
         {
-            var nextPartitionObj = await _storageService.GetPropertyPartitionAsync(dataPartitionToMerge.EndKey.Value, propertyName, cancellationToken);
+            var nextPartitionObj = await storageService.GetPropertyPartitionAsync(dataPartitionToMerge.EndKey.Value, propertyName, cancellationToken);
             if (nextPartitionObj is not DataPartition nextPartition) return;
 
             targetPartition = dataPartitionToMerge;
@@ -280,45 +280,45 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
         }
         else
         {
-            var partitionCount = await _storageService.GetPropertyPartitionCountAsync(logicalKey, propertyName, cancellationToken);
+            var partitionCount = await storageService.GetPropertyPartitionCountAsync(logicalKey, propertyName, cancellationToken);
             if (partitionCount < 2) return;
 
-            var previousPartitionObj = await _storageService.GetPropertyPartitionByIndexAsync(logicalKey, partitionCount - 2, propertyName, cancellationToken);
+            var previousPartitionObj = await storageService.GetPropertyPartitionByIndexAsync(logicalKey, partitionCount - 2, propertyName, cancellationToken);
             if (previousPartitionObj is not DataPartition previousPartition) return;
 
             targetPartition = previousPartition;
             sourcePartition = dataPartitionToMerge;
         }
         
-        var targetDocument = await _storageService.LoadPartitionContentAsync<TDoc>(logicalKey, propertyName, targetPartition, cancellationToken);
-        var sourceDocument = await _storageService.LoadPartitionContentAsync<TDoc>(logicalKey, propertyName, sourcePartition, cancellationToken);
+        var targetDocument = await storageService.LoadPartitionContentAsync<TDoc>(logicalKey, propertyName, targetPartition, cancellationToken);
+        var sourceDocument = await storageService.LoadPartitionContentAsync<TDoc>(logicalKey, propertyName, sourcePartition, cancellationToken);
         
         var mergedContent = strategy.Merge(targetDocument.Data!, targetDocument.Metadata!, sourceDocument.Data!, sourceDocument.Metadata!, prop);
         var mergedEmpty = new DataPartition(targetPartition.StartKey, sourcePartition.EndKey, 0, 0, 0, 0);
-        var mergedPartition = await _storageService.SavePartitionContentAsync(logicalKey, propertyName, mergedEmpty, (TDoc)mergedContent.Data, mergedContent.Metadata, cancellationToken);
+        var mergedPartition = await storageService.SavePartitionContentAsync(logicalKey, propertyName, mergedEmpty, (TDoc)mergedContent.Data, mergedContent.Metadata, cancellationToken);
 
-        await _storageService.DeletePropertyPartitionAsync(propertyName, targetPartition, cancellationToken);
-        await _storageService.DeletePropertyPartitionAsync(propertyName, sourcePartition, cancellationToken);
-        await _storageService.InsertPropertyPartitionAsync(propertyName, mergedPartition, cancellationToken);
+        await storageService.DeletePropertyPartitionAsync(propertyName, targetPartition, cancellationToken);
+        await storageService.DeletePropertyPartitionAsync(propertyName, sourcePartition, cancellationToken);
+        await storageService.InsertPropertyPartitionAsync(propertyName, mergedPartition, cancellationToken);
         
-        _metrics.PartitionsMerged.Add(1);
+        metrics.PartitionsMerged.Add(1);
     }
 
     private async Task<IPartition> PersistPartitionChangesAsync<TDoc>(IComparable logicalKey, IPartition partitionToUpdate, TDoc newData, CrdtMetadata newMeta, string? propertyName, CancellationToken cancellationToken) where TDoc : class
     {
-        using var _ = new MetricTimer(_metrics.PersistChangesDuration);
+        using var _ = new MetricTimer(metrics.PersistChangesDuration);
 
         if (partitionToUpdate is HeaderPartition hp)
         {
-            var updatedHeader = await _storageService.SaveHeaderPartitionContentAsync(logicalKey, hp, newData, newMeta, cancellationToken);
-            await _storageService.UpdateHeaderPartitionAsync(logicalKey, updatedHeader, cancellationToken);
+            var updatedHeader = await storageService.SaveHeaderPartitionContentAsync(logicalKey, hp, newData, newMeta, cancellationToken);
+            await storageService.UpdateHeaderPartitionAsync(logicalKey, updatedHeader, cancellationToken);
             return updatedHeader;
         }
         else if (partitionToUpdate is DataPartition dp)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
-            var updatedData = await _storageService.SavePartitionContentAsync(logicalKey, propertyName, dp, newData, newMeta, cancellationToken);
-            await _storageService.UpdatePropertyPartitionAsync(propertyName, updatedData, cancellationToken);
+            var updatedData = await storageService.SavePartitionContentAsync(logicalKey, propertyName, dp, newData, newMeta, cancellationToken);
+            await storageService.UpdatePropertyPartitionAsync(propertyName, updatedData, cancellationToken);
             return updatedData;
         }
         else
@@ -350,7 +350,7 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
             }
 
             var properties = t.GetProperties()
-                .Select(p => new { Property = p, Strategy = _strategyProvider.GetStrategy(p) })
+                .Select(p => new { Property = p, Strategy = strategyProvider.GetStrategy(p) })
                 .Where(x => x.Strategy is IPartitionableCrdtStrategy)
                 .ToDictionary(
                     x => $"$.{char.ToLowerInvariant(x.Property.Name[0])}{x.Property.Name[1..]}",

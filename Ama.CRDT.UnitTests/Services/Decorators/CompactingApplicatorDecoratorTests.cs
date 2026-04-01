@@ -53,9 +53,9 @@ public sealed class CompactingApplicatorDecoratorTests
 
         var decorator = new CompactingApplicatorDecorator(applicatorMock.Object, metadataManagerMock.Object, factories);
 
-        var document = new CrdtDocument<TestModel>(new TestModel());
+        var document = new CrdtDocument<TestModel>(new TestModel(), new CrdtMetadata());
         var patch = new CrdtPatch(Array.Empty<CrdtOperation>());
-        var expectedResult = new ApplyPatchResult<TestModel>(document.Data!, Array.Empty<UnappliedOperation>());
+        var expectedResult = new ApplyPatchResult<TestModel>(document, Array.Empty<UnappliedOperation>());
 
         applicatorMock.Setup(m => m.ApplyPatchAsync(document, patch, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
@@ -86,9 +86,9 @@ public sealed class CompactingApplicatorDecoratorTests
 
         var decorator = new CompactingApplicatorDecorator(applicatorMock.Object, metadataManagerMock.Object, factories);
 
-        var document = new CrdtDocument<TestModel>(new TestModel());
+        var document = new CrdtDocument<TestModel>(new TestModel(), new CrdtMetadata());
         var patch = new CrdtPatch(Array.Empty<CrdtOperation>());
-        var expectedResult = new ApplyPatchResult<TestModel>(document.Data!, Array.Empty<UnappliedOperation>());
+        var expectedResult = new ApplyPatchResult<TestModel>(document, Array.Empty<UnappliedOperation>());
 
         applicatorMock.Setup(m => m.ApplyPatchAsync(document, patch, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);

@@ -49,6 +49,16 @@ public interface IVersionVectorSyncService
     ReplicaSyncRequirement CalculateRequirement(ReplicaContext target, ReplicaContext source);
 
     /// <summary>
+    /// Compares two dotted version vectors and determines what data the target replica needs from the source replica.
+    /// </summary>
+    /// <param name="targetReplicaId">The ID of the replica that may be behind.</param>
+    /// <param name="targetVector">The version vector of the replica that may be behind.</param>
+    /// <param name="sourceReplicaId">The ID of the replica that may have newer data.</param>
+    /// <param name="sourceVector">The version vector of the replica that may have newer data.</param>
+    /// <returns>A <see cref="ReplicaSyncRequirement"/> detailing exactly what versions the target is missing from the source.</returns>
+    ReplicaSyncRequirement CalculateRequirement(string targetReplicaId, DottedVersionVector targetVector, string sourceReplicaId, DottedVersionVector sourceVector);
+
+    /// <summary>
     /// Compares two replica contexts bidirectionally, returning the requirements for both to fully synchronize with each other.
     /// </summary>
     /// <param name="replicaA">The first replica context.</param>
@@ -73,6 +83,16 @@ public interface IVersionVectorSyncService
     /// </code>
     /// </example>
     BidirectionalSyncRequirements CalculateBidirectionalRequirements(ReplicaContext replicaA, ReplicaContext replicaB);
+
+    /// <summary>
+    /// Compares two dotted version vectors bidirectionally, returning the requirements for both to fully synchronize with each other.
+    /// </summary>
+    /// <param name="replicaAId">The ID of the first replica.</param>
+    /// <param name="vectorA">The version vector of the first replica.</param>
+    /// <param name="replicaBId">The ID of the second replica.</param>
+    /// <param name="vectorB">The version vector of the second replica.</param>
+    /// <returns>A <see cref="BidirectionalSyncRequirements"/> containing the requirements for A to catch up to B, and B to catch up to A.</returns>
+    BidirectionalSyncRequirements CalculateBidirectionalRequirements(string replicaAId, DottedVersionVector vectorA, string replicaBId, DottedVersionVector vectorB);
 
     /// <summary>
     /// Calculates the Global Minimum Version Vector from a collection of replica version vectors.
