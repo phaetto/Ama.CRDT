@@ -102,4 +102,29 @@ public interface IVersionVectorSyncService
     /// </code>
     /// </example>
     IReadOnlyDictionary<string, long> CalculateGlobalMinimumVersionVector(IEnumerable<DottedVersionVector> clusterVectors);
+
+    /// <summary>
+    /// Calculates the Global Maximum Version Vector from a collection of replica version vectors, 
+    /// representing the absolute latest known causal state across the entire cluster.
+    /// </summary>
+    /// <param name="clusterVectors">The version vectors of all active replicas in the cluster.</param>
+    /// <returns>A new <see cref="DottedVersionVector"/> merging all contiguous versions and dots.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var vector1 = new DottedVersionVector();
+    /// vector1.Add("OriginX", 2);
+    /// 
+    /// var vector2 = new DottedVersionVector();
+    /// vector2.Add("OriginX", 5);
+    /// 
+    /// var syncService = new VersionVectorSyncService();
+    /// var clusterVectors = new[] { vector1, vector2 };
+    /// var maximumState = syncService.CalculateGlobalMaximumVersionVector(clusterVectors);
+    /// 
+    /// // maximumState will reflect "OriginX" = 5
+    /// ]]>
+    /// </code>
+    /// </example>
+    DottedVersionVector CalculateGlobalMaximumVersionVector(IEnumerable<DottedVersionVector> clusterVectors);
 }
