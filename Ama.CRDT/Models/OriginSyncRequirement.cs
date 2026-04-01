@@ -24,12 +24,12 @@ public readonly record struct OriginSyncRequirement : IEquatable<OriginSyncRequi
     /// Gets specific out-of-order versions (dots) that the target already possesses that fall between the TargetContiguousVersion and SourceContiguousVersion.
     /// The source should exclude these when sending the contiguous range.
     /// </summary>
-    public IReadOnlySet<long> TargetKnownDots { get; init; }
+    public HashSet<long> TargetKnownDots { get; init; }
 
     /// <summary>
     /// Gets specific out-of-order versions (dots) that the source has, which are missing from the target.
     /// </summary>
-    public IReadOnlySet<long> SourceMissingDots { get; init; }
+    public HashSet<long> SourceMissingDots { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether there is actually any missing data for this origin.

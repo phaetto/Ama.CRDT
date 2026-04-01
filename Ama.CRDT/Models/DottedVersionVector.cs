@@ -3,6 +3,7 @@ namespace Ama.CRDT.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Serialization;
 
 /// <summary>
 /// Represents a Dotted Version Vector (DVV) to track causality and operations seen by a replica.
@@ -34,6 +35,7 @@ public sealed class DottedVersionVector : IEquatable<DottedVersionVector>
     /// </summary>
     /// <param name="versions">The contiguous versions state.</param>
     /// <param name="dots">The isolated dots state.</param>
+    [JsonConstructor]
     public DottedVersionVector(IDictionary<string, long> versions, IDictionary<string, ISet<long>> dots)
     {
         ArgumentNullException.ThrowIfNull(versions);

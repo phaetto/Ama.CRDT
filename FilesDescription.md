@@ -105,12 +105,17 @@
 | `$/Ama.CRDT.ShowCase/Services/InMemoryDatabaseService.cs` | An implementation of `IInMemoryDatabaseService` using `ConcurrentDictionary` to simulate a database for CRDT documents and metadata. |
 | `$/Ama.CRDT.ShowCase/SimulationRunner.cs` | Orchestrates the distributed map-reduce simulation using concurrent producers, mappers, and convergers communicating via channels to demonstrate CRDT convergence. |
 | `$/Ama.CRDT.UnitTests/Ama.CRDT.UnitTests.csproj` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Architecture/ModelConventionTests.cs` | An architecture convention unit test that reflects over all data models to enforce the presence of serialization tests by scanning the test source files. |
 | `$/Ama.CRDT.UnitTests/Architecture/StrategyConventionTests.cs` | An architecture convention unit test that reflects over all strategies to enforce the presence of unit tests, property tests, benchmarks, and documentation. |
 | `$/Ama.CRDT.UnitTests/Models/DottedVersionVectorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/EpochTimestampTests.cs` | Contains unit tests for the `EpochTimestamp` implementation of `ICrdtTimestamp`. |
 | `$/Ama.CRDT.UnitTests/Models/Partitioning/CompositePartitionKeyTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Models/Serialization/CoreModelSerializationTests.cs` | Contains unit tests for serializing core library models like `ApplyPatchResult`, `JournaledOperation`, `UnappliedOperation`, and `DottedVersionVector`. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtMetadataSerializationTests.cs` | Contains unit tests for the serialization and deserialization of the `CrdtMetadata` class, verifying both default and compact serialization options and ensuring polymorphic and complex data (e.g., non-string dictionary keys, nested collections) is handled correctly. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtTimestampJsonConverterTests.cs` | Contains unit tests for the `CrdtTimestampJsonConverter`, verifying polymorphic serialization and deserialization of `ICrdtTimestamp` implementations. |
+| `$/Ama.CRDT.UnitTests/Models/Serialization/IntentModelSerializationTests.cs` | Contains unit tests for serializing all explicit intent models to ensure they map successfully to JSON. |
+| `$/Ama.CRDT.UnitTests/Models/Serialization/PartitioningModelSerializationTests.cs` | Contains unit tests for serializing partitioning models including `CompositePartitionKey`, `DataPartition`, `HeaderPartition`, `PartitionContent`, and `SplitResult`. |
+| `$/Ama.CRDT.UnitTests/Models/Serialization/SyncRequirementSerializationTests.cs` | Contains unit tests for serializing synchronization requirement models like `ReplicaSyncRequirement`, `OriginSyncRequirement`, and `BidirectionalSyncRequirements`. |
 | `$/Ama.CRDT.UnitTests/Services/Adapters/AsyncCrdtApplicatorAdapterTests.cs` | Contains unit tests for `AsyncCrdtApplicatorAdapter`, verifying its bridging of synchronous execution to asynchronous interfaces and cancellation handling. |
 | `$/Ama.CRDT.UnitTests/Services/Adapters/AsyncCrdtPatcherAdapterTests.cs` | Contains unit tests for `AsyncCrdtPatcherAdapter`, validating proper adaptation of patch and operation generation with cancellation checks. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtApplicatorTests.cs` | No description provided. |
