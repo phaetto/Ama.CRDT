@@ -4,6 +4,9 @@ using System;
 using System.Windows.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Ama.CRDT.Extensions;
+using Ama.CRDT.Services.Decorators;
+using Ama.CRDT.Services.GarbageCollection;
+using Ama.CRDT.Services.Journaling;
 using Ama.CRDT.ShowCase.CollaborativeEditing.Services;
 
 internal static class Program
@@ -20,8 +23,21 @@ internal static class Program
 
         var services = new ServiceCollection();
         
-        // Register the CRDT infrastructure
+        // Register the core CRDT infrastructure
         services.AddCrdt();
+
+        // Register Memory Journal as Singleton so all replicas share it (simulating a central DB or shared bus)
+        services.AddSingleton<MemoryJournal>();
+        services.AddSingleton<ICrdtOperationJournal>(sp => sp.GetRequiredService<MemoryJournal>());
+
+        // Decorate pipeline to automatically journal changes and trigger garbage collection routines
+        services.AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>();
+        services.AddCrdtPatcherDecorator<JournalingPatcherDecorator>();
+        services.AddCrdtApplicatorDecorator<CompactingApplicatorDecorator>();
+
+        // Register Global GC policy for CRDT Metadata connected to the network's minimum version state
+        services.AddSingleton<ICompactionPolicyFactory>(sp => 
+            new GlobalMinimumVersionPolicyFactory(() => sp.GetRequiredService<NetworkBroker>().GetGmvv()));
         
         // Register our showcase-specific services
         services.AddSingleton<NetworkBroker>();

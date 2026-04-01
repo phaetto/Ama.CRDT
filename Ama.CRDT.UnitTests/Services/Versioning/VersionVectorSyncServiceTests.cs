@@ -240,6 +240,58 @@ public class VersionVectorSyncServiceTests
         result.ContainsKey("C").ShouldBeFalse();
     }
 
+    [Fact]
+    public void CalculateGlobalMaximumVersionVector_NullClusterVectors_ThrowsArgumentNullException()
+    {
+        Should.Throw<ArgumentNullException>(() => _sut.CalculateGlobalMaximumVersionVector(null!));
+    }
+
+    [Fact]
+    public void CalculateGlobalMaximumVersionVector_EmptyClusterVectors_ReturnsEmpty()
+    {
+        var result = _sut.CalculateGlobalMaximumVersionVector(Enumerable.Empty<DottedVersionVector>());
+        result.Versions.ShouldBeEmpty();
+        result.Dots.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void CalculateGlobalMaximumVersionVector_CalculatesCorrectly()
+    {
+        var vectors = new[]
+        {
+            CreateDvv(new Dictionary<string, long> { { "A", 5 }, { "B", 3 } }, new Dictionary<string, ISet<long>> { { "A", new HashSet<long> { 7 } } }),
+            CreateDvv(new Dictionary<string, long> { { "A", 4 }, { "B", 4 } }, new Dictionary<string, ISet<long>> { { "B", new HashSet<long> { 6 } } }),
+            CreateDvv(new Dictionary<string, long> { { "C", 2 } }, null)
+        };
+
+        var result = _sut.CalculateGlobalMaximumVersionVector(vectors);
+
+        result.Versions.Count.ShouldBe(3);
+        result.Versions["A"].ShouldBe(5);
+        result.Versions["B"].ShouldBe(4);
+        result.Versions["C"].ShouldBe(2);
+
+        result.Dots.Count.ShouldBe(2);
+        result.Dots["A"].ShouldBe(new[] { 7L });
+        result.Dots["B"].ShouldBe(new[] { 6L });
+    }
+
+    [Fact]
+    public void CalculateGlobalMaximumVersionVector_PrunesCoveredDots()
+    {
+        var vectors = new[]
+        {
+            CreateDvv(new Dictionary<string, long> { { "A", 3 } }, new Dictionary<string, ISet<long>> { { "A", new HashSet<long> { 5, 6 } } }),
+            CreateDvv(new Dictionary<string, long> { { "A", 5 } }, null)
+        };
+
+        var result = _sut.CalculateGlobalMaximumVersionVector(vectors);
+
+        result.Versions["A"].ShouldBe(5);
+        result.Dots.Count.ShouldBe(1);
+        result.Dots["A"].ShouldBe(new[] { 6L }); // 5 was pruned because Max version is 5
+    }
+
     private static DottedVersionVector CreateDvv(IDictionary<string, long> versions, IDictionary<string, ISet<long>>? dots)
     {
         return new DottedVersionVector(versions, dots ?? new Dictionary<string, ISet<long>>());
