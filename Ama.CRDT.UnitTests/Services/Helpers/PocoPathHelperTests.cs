@@ -35,6 +35,10 @@ public sealed class PocoPathHelperTests
             UniqueTags = new HashSet<string> { "unique1" },
             Scores = [100, 200],
             Settings = new Dictionary<string, string> { { "theme", "dark" } },
+            UsersMap = new Dictionary<string, TestUser> 
+            { 
+                { "u1", new TestUser { Name = "Charlie", Age = 40 } } 
+            },
             UntypedList = ["one", 2]
         };
     }
@@ -125,6 +129,54 @@ public sealed class PocoPathHelperTests
         property.ShouldNotBeNull();
         property.Name.ShouldBe(nameof(TestUser.Age));
         finalSegment.ShouldBe("age");
+    }
+
+    [Fact]
+    public void ResolvePath_ShouldResolveDictionaryItself()
+    {
+        // Arrange
+        var path = "$.settings";
+
+        // Act
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+
+        // Assert
+        parent.ShouldBe(rootObject);
+        property.ShouldNotBeNull();
+        property.Name.ShouldBe(nameof(TestRoot.Settings));
+        finalSegment.ShouldBe("settings");
+    }
+
+    [Fact]
+    public void ResolvePath_ShouldResolveDictionaryElement()
+    {
+        // Arrange
+        var path = "$.settings['theme']";
+
+        // Act
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+
+        // Assert
+        parent.ShouldBe(rootObject);
+        property.ShouldNotBeNull();
+        property.Name.ShouldBe(nameof(TestRoot.Settings));
+        finalSegment.ShouldBe(new PocoPathHelper.DictionaryKeyPathSegment("theme"));
+    }
+
+    [Fact]
+    public void ResolvePath_ShouldResolvePropertyOfDictionaryElement()
+    {
+        // Arrange
+        var path = "$.usersMap['u1'].name";
+
+        // Act
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+
+        // Assert
+        parent.ShouldBe(rootObject.UsersMap!["u1"]);
+        property.ShouldNotBeNull();
+        property.Name.ShouldBe(nameof(TestUser.Name));
+        finalSegment.ShouldBe("name");
     }
 
     [Fact]
@@ -371,6 +423,38 @@ public sealed class PocoPathHelperTests
     }
 
     [Fact]
+    public void GetValue_ShouldReturnDictionaryItself()
+    {
+        // Act
+        var value = PocoPathHelper.GetValue(rootObject, "$.settings");
+
+        // Assert
+        value.ShouldBe(rootObject.Settings);
+        var dict = value.ShouldBeAssignableTo<IDictionary<string, string>>();
+        dict["theme"].ShouldBe("dark");
+    }
+
+    [Fact]
+    public void GetValue_ShouldReturnDictionaryElementValue()
+    {
+        // Act
+        var value = PocoPathHelper.GetValue(rootObject, "$.settings['theme']");
+
+        // Assert
+        value.ShouldBe("dark");
+    }
+
+    [Fact]
+    public void GetValue_ShouldReturnPropertyOfDictionaryElement()
+    {
+        // Act
+        var value = PocoPathHelper.GetValue(rootObject, "$.usersMap['u1'].name");
+
+        // Assert
+        value.ShouldBe("Charlie");
+    }
+
+    [Fact]
     public void GetValue_ShouldReturnNullForInvalidProperty()
     {
         // Act
@@ -385,6 +469,16 @@ public sealed class PocoPathHelperTests
     {
         // Act
         var value = PocoPathHelper.GetValue(rootObject, "$.users[99]");
+
+        // Assert
+        value.ShouldBeNull();
+    }
+
+    [Fact]
+    public void GetValue_ShouldReturnNullForInvalidDictionaryKey()
+    {
+        // Act
+        var value = PocoPathHelper.GetValue(rootObject, "$.settings['missing-key']");
 
         // Assert
         value.ShouldBeNull();
@@ -408,6 +502,37 @@ public sealed class PocoPathHelperTests
 
         // Assert
         value.ShouldBe("tag1");
+    }
+
+    [Fact]
+    public void GetValue_Generic_ShouldReturnDictionaryItself()
+    {
+        // Act
+        var value = PocoPathHelper.GetValue<IDictionary<string, string>>(rootObject, "$.settings");
+
+        // Assert
+        value.ShouldBe(rootObject.Settings);
+        value["theme"].ShouldBe("dark");
+    }
+
+    [Fact]
+    public void GetValue_Generic_ShouldReturnDictionaryElement()
+    {
+        // Act
+        var value = PocoPathHelper.GetValue<string>(rootObject, "$.settings['theme']");
+
+        // Assert
+        value.ShouldBe("dark");
+    }
+
+    [Fact]
+    public void GetValue_Generic_ShouldReturnPropertyOfDictionaryElement()
+    {
+        // Act
+        var value = PocoPathHelper.GetValue<int>(rootObject, "$.usersMap['u1'].age");
+
+        // Assert
+        value.ShouldBe(40);
     }
 
     [Fact]
@@ -473,6 +598,67 @@ public sealed class PocoPathHelperTests
         // Assert
         success.ShouldBeTrue();
         rootObject.Tags![1].ShouldBe(newValue);
+    }
+
+    [Fact]
+    public void SetValue_ShouldSetDictionaryItself()
+    {
+        // Arrange
+        var path = "$.settings";
+        var newDict = new Dictionary<string, string> { { "theme", "light" }, { "mode", "auto" } };
+
+        // Act
+        var success = PocoPathHelper.SetValue(rootObject, path, newDict);
+
+        // Assert
+        success.ShouldBeTrue();
+        rootObject.Settings.ShouldBe(newDict);
+        rootObject.Settings!["mode"].ShouldBe("auto");
+    }
+
+    [Fact]
+    public void SetValue_ShouldSetDictionaryElementValue()
+    {
+        // Arrange
+        var path = "$.settings['theme']";
+        var newValue = "light";
+
+        // Act
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+
+        // Assert
+        success.ShouldBeTrue();
+        rootObject.Settings!["theme"].ShouldBe(newValue);
+    }
+
+    [Fact]
+    public void SetValue_ShouldCreateDictionaryElement_IfMissing()
+    {
+        // Arrange
+        var path = "$.settings['newKey']";
+        var newValue = "newVal";
+
+        // Act
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+
+        // Assert
+        success.ShouldBeTrue();
+        rootObject.Settings!["newKey"].ShouldBe(newValue);
+    }
+
+    [Fact]
+    public void SetValue_ShouldSetNestedPropertyOfDictionaryElement()
+    {
+        // Arrange
+        var path = "$.usersMap['u1'].age";
+        var newValue = 55;
+
+        // Act
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+
+        // Assert
+        success.ShouldBeTrue();
+        rootObject.UsersMap!["u1"].Age.ShouldBe(newValue);
     }
 
     [Fact]
@@ -548,6 +734,37 @@ public sealed class PocoPathHelperTests
         // Assert
         success.ShouldBeTrue();
         rootObject.Tags![0].ShouldBe(newValue);
+    }
+
+    [Fact]
+    public void SetValue_Generic_ShouldSetDictionaryItself()
+    {
+        // Arrange
+        var path = "$.settings";
+        var newDict = new Dictionary<string, string> { { "font", "arial" } };
+
+        // Act
+        var success = PocoPathHelper.SetValue(rootObject, path, newDict);
+
+        // Assert
+        success.ShouldBeTrue();
+        rootObject.Settings.ShouldBe(newDict);
+        rootObject.Settings!["font"].ShouldBe("arial");
+    }
+
+    [Fact]
+    public void SetValue_Generic_ShouldSetDictionaryElement()
+    {
+        // Arrange
+        var path = "$.settings['theme']";
+        var newValue = "blue";
+
+        // Act
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+
+        // Assert
+        success.ShouldBeTrue();
+        rootObject.Settings!["theme"].ShouldBe(newValue);
     }
 
     [Fact]
@@ -894,6 +1111,7 @@ public sealed class PocoPathHelperTests
         public string? SpecialNameProp { get; set; }
         public int[]? Scores { get; set; }
         public IDictionary<string, string>? Settings { get; set; }
+        public Dictionary<string, TestUser>? UsersMap { get; set; }
         public ArrayList? UntypedList { get; set; }
     }
 }
