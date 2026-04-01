@@ -38,6 +38,11 @@ internal static class PocoPathHelper
 
     internal readonly record struct ParseResult(string JsonPath, PropertyInfo Property);
 
+    /// <summary>
+    /// Represents a dictionary key in a resolved path.
+    /// </summary>
+    internal readonly record struct DictionaryKeyPathSegment(string Key);
+
     internal sealed class CachedPropertyMetadata(PropertyInfo property, string jsonPropertyName)
     {
         public PropertyInfo Property { get; } = property;
@@ -359,7 +364,38 @@ internal static class PocoPathHelper
             
             parentOfCurrent = currentObject;
 
-            if (int.TryParse(currentSegment, out var index))
+            if (currentObject is IDictionary dict)
+            {
+                var keyType = GetDictionaryKeyType(currentObject.GetType());
+                var keyObj = ConvertValue(currentSegment.ToString(), keyType);
+                
+                if (keyObj != null && dict.Contains(keyObj))
+                {
+                    currentObject = dict[keyObj];
+                    lastProperty = null; // We are inside an item, property context is reset
+                }
+                else if (createMissing && keyObj != null)
+                {
+                    var valueType = GetDictionaryValueType(currentObject.GetType());
+                    if (valueType.IsClass && valueType != typeof(string) && !typeof(IEnumerable).IsAssignableFrom(valueType))
+                    {
+                        var factory = ConstructorCache.GetOrAdd(valueType, CreateConstructor);
+                        var newObj = factory();
+                        dict[keyObj] = newObj;
+                        currentObject = newObj;
+                        lastProperty = null;
+                    }
+                    else
+                    {
+                        return (null, null, null);
+                    }
+                }
+                else
+                {
+                    return (null, null, null);
+                }
+            }
+            else if (int.TryParse(currentSegment, out var index))
             {
                 if (currentObject is IList list)
                 {
@@ -405,6 +441,13 @@ internal static class PocoPathHelper
         if (currentObject is null) return (null, null, null);
 
         // Now, resolve the last segment against the parent
+        if (currentObject is IDictionary)
+        {
+            // The target is a key in a dictionary.
+            // We return information about the dictionary's parent container and property.
+            return (parentOfCurrent ?? root, lastProperty, new DictionaryKeyPathSegment(currentSegment.ToString()));
+        }
+
         if (int.TryParse(currentSegment, out var lastIndex))
         {
             // The target is an index in a collection.
@@ -448,6 +491,7 @@ internal static class PocoPathHelper
         }
 
         var propertyValue = GetAccessor(property).Getter(parent);
+        
         if (finalSegment is int index)
         {
             if (propertyValue is IList list && index >= 0 && index < list.Count)
@@ -455,6 +499,16 @@ internal static class PocoPathHelper
                 return list[index];
             }
             return null; // Index out of bounds or not a list
+        }
+        else if (finalSegment is DictionaryKeyPathSegment dictKey && propertyValue is IDictionary dict)
+        {
+            var keyType = GetDictionaryKeyType(property);
+            var keyObj = ConvertValue(dictKey.Key, keyType);
+            if (keyObj != null && dict.Contains(keyObj))
+            {
+                return dict[keyObj];
+            }
+            return null;
         }
 
         return propertyValue;
@@ -487,6 +541,20 @@ internal static class PocoPathHelper
             }
             return default!;
         }
+        else if (finalSegment is DictionaryKeyPathSegment dictKey)
+        {
+            var propertyValue = GetAccessor(property).Getter(parent);
+            if (propertyValue is IDictionary dict)
+            {
+                var keyType = GetDictionaryKeyType(property);
+                var keyObj = ConvertValue(dictKey.Key, keyType);
+                if (keyObj != null && dict.Contains(keyObj))
+                {
+                    return ConvertTo<T>(dict[keyObj]);
+                }
+                return default!;
+            }
+        }
 
         // Delegate to the perfectly typed and precompiled property accessor
         return GenericPropertyAccessor<T>.GetGetter(property)(parent);
@@ -518,6 +586,18 @@ internal static class PocoPathHelper
                 var convertedValue = ConvertValue(value, elementType);
 
                 list[index] = convertedValue;
+                return true;
+            }
+            return false;
+        }
+        else if (finalSegment is DictionaryKeyPathSegment dictKey && accessor.Getter(parent) is IDictionary dict)
+        {
+            var keyType = GetDictionaryKeyType(property);
+            var valueType = GetDictionaryValueType(property);
+            var keyObj = ConvertValue(dictKey.Key, keyType);
+            if (keyObj != null)
+            {
+                dict[keyObj] = ConvertValue(value, valueType);
                 return true;
             }
             return false;
@@ -564,6 +644,22 @@ internal static class PocoPathHelper
                 return true;
             }
             return false;
+        }
+        else if (finalSegment is DictionaryKeyPathSegment dictKey)
+        {
+            var accessor = GetAccessor(property);
+            if (accessor.Getter(parent) is IDictionary dict)
+            {
+                var keyType = GetDictionaryKeyType(property);
+                var valueType = GetDictionaryValueType(property);
+                var keyObj = ConvertValue(dictKey.Key, keyType);
+                if (keyObj != null)
+                {
+                    dict[keyObj] = ConvertValue(value, valueType);
+                    return true;
+                }
+                return false;
+            }
         }
 
         if (!property.CanWrite)
@@ -720,19 +816,19 @@ internal static class PocoPathHelper
         clearer(collection);
     }
 
-    public static Type GetDictionaryKeyType(PropertyInfo property)
+    public static Type GetDictionaryKeyType(Type type)
     {
-        if (property is null)
+        if (type is null)
         {
-            throw new ArgumentNullException(nameof(property));
+            throw new ArgumentNullException(nameof(type));
         }
 
-        return DictionaryKeyTypeCache.GetOrAdd(property.PropertyType, type =>
+        return DictionaryKeyTypeCache.GetOrAdd(type, t =>
         {
             // Check if the type is or implements IDictionary<,>
-            var genericDictionaryInterface = (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IDictionary<,>))
-                ? type
-                : type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
+            var genericDictionaryInterface = (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IDictionary<,>))
+                ? t
+                : t.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
 
             if (genericDictionaryInterface is not null)
             {
@@ -744,19 +840,19 @@ internal static class PocoPathHelper
         });
     }
 
-    public static Type GetDictionaryValueType(PropertyInfo property)
+    public static Type GetDictionaryValueType(Type type)
     {
-        if (property is null)
+        if (type is null)
         {
-            throw new ArgumentNullException(nameof(property));
+            throw new ArgumentNullException(nameof(type));
         }
 
-        return DictionaryValueTypeCache.GetOrAdd(property.PropertyType, type =>
+        return DictionaryValueTypeCache.GetOrAdd(type, t =>
         {
             // Check if the type is or implements IDictionary<,>
-            var genericDictionaryInterface = (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IDictionary<,>))
-                ? type
-                : type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
+            var genericDictionaryInterface = (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IDictionary<,>))
+                ? t
+                : t.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
 
             if (genericDictionaryInterface is not null)
             {
@@ -766,6 +862,24 @@ internal static class PocoPathHelper
             // Fallback for non-generic IDictionary, as we cannot determine the value type.
             return typeof(object);
         });
+    }
+
+    public static Type GetDictionaryKeyType(PropertyInfo property)
+    {
+        if (property is null)
+        {
+            throw new ArgumentNullException(nameof(property));
+        }
+        return GetDictionaryKeyType(property.PropertyType);
+    }
+
+    public static Type GetDictionaryValueType(PropertyInfo property)
+    {
+        if (property is null)
+        {
+            throw new ArgumentNullException(nameof(property));
+        }
+        return GetDictionaryValueType(property.PropertyType);
     }
 
     public static object? ConvertValue(object? value, Type targetType)
