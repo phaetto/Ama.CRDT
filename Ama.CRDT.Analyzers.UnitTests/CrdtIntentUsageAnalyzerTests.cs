@@ -172,138 +172,6 @@ public class TestClass
     }
 
     [Fact]
-    public async Task WhenValidIntentUsedViaBuilder_ShouldNotReportDiagnostic()
-    {
-        var source = @"
-using Ama.CRDT.Attributes.Strategies;
-using Ama.CRDT.Services;
-using Ama.CRDT.Extensions;
-using Ama.CRDT.Models;
-using System.Collections.Generic;
-
-public class MyPoco
-{
-    [CrdtRgaStrategy]
-    public List<string> MyList { get; set; }
-}
-
-public class TestClass
-{
-    public void DoWork(ICrdtPatcher patcher, CrdtDocument<MyPoco> doc)
-    {
-        patcher.BuildOperation(doc, x => x.MyList).Insert(0, ""val"");
-    }
-}
-";
-        var test = CreateTest();
-        test.TestCode = source;
-        await test.RunAsync();
-    }
-
-    [Fact]
-    public async Task WhenInvalidIntentUsedViaBuilder_ShouldReportDiagnostic()
-    {
-        var source = @"
-using Ama.CRDT.Attributes.Strategies;
-using Ama.CRDT.Services;
-using Ama.CRDT.Extensions;
-using Ama.CRDT.Models;
-using System.Collections.Generic;
-
-public class MyPoco
-{
-    [CrdtCounterStrategy]
-    public List<string> MyList { get; set; }
-}
-
-public class TestClass
-{
-    public void DoWork(ICrdtPatcher patcher, CrdtDocument<MyPoco> doc)
-    {
-        patcher.BuildOperation(doc, x => x.MyList).Insert(0, ""val"");
-    }
-}
-";
-        var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
-            .WithLocation(18, 9)
-            .WithArguments("CounterStrategy", "MyList", "InsertIntent");
-
-        var test = CreateTest();
-        test.TestCode = source;
-        test.ExpectedDiagnostics.Add(expected);
-        await test.RunAsync();
-    }
-
-    [Fact]
-    public async Task WhenInvalidIntentUsedViaBuilderVariable_ShouldReportDiagnostic()
-    {
-        var source = @"
-using Ama.CRDT.Attributes.Strategies;
-using Ama.CRDT.Services;
-using Ama.CRDT.Extensions;
-using Ama.CRDT.Models;
-using System.Collections.Generic;
-
-public class MyPoco
-{
-    [CrdtCounterStrategy]
-    public List<string> MyList { get; set; }
-}
-
-public class TestClass
-{
-    public void DoWork(ICrdtPatcher patcher, CrdtDocument<MyPoco> doc)
-    {
-        var builder = patcher.BuildOperation(doc, x => x.MyList);
-        builder.Insert(0, ""val"");
-    }
-}
-";
-        var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
-            .WithLocation(19, 9)
-            .WithArguments("CounterStrategy", "MyList", "InsertIntent");
-
-        var test = CreateTest();
-        test.TestCode = source;
-        test.ExpectedDiagnostics.Add(expected);
-        await test.RunAsync();
-    }
-
-    [Fact]
-    public async Task WhenInvalidIntentUsedViaBuildExplicit_ShouldReportDiagnostic()
-    {
-        var source = @"
-using Ama.CRDT.Attributes.Strategies;
-using Ama.CRDT.Services;
-using Ama.CRDT.Models;
-using Ama.CRDT.Models.Intents;
-using System.Collections.Generic;
-
-public class MyPoco
-{
-    [CrdtCounterStrategy]
-    public int MyCounter { get; set; }
-}
-
-public class TestClass
-{
-    public void DoWork(ICrdtPatcher patcher, CrdtDocument<MyPoco> doc)
-    {
-        patcher.BuildOperation(doc, x => x.MyCounter).Build(new InsertIntent(0, 5));
-    }
-}
-";
-        var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
-            .WithLocation(18, 9)
-            .WithArguments("CounterStrategy", "MyCounter", "InsertIntent");
-
-        var test = CreateTest();
-        test.TestCode = source;
-        test.ExpectedDiagnostics.Add(expected);
-        await test.RunAsync();
-    }
-
-    [Fact]
     public async Task WhenValidIntentUsedOnDeepPath_ShouldNotReportDiagnostic()
     {
         var source = @"
@@ -368,45 +236,6 @@ public class TestClass
         var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
             .WithLocation(22, 9)
             .WithArguments("CounterStrategy", "MyCounter", "InsertIntent");
-
-        var test = CreateTest();
-        test.TestCode = source;
-        test.ExpectedDiagnostics.Add(expected);
-        await test.RunAsync();
-    }
-
-    [Fact]
-    public async Task WhenInvalidIntentUsedOnDeepPathViaBuilder_ShouldReportDiagnostic()
-    {
-        var source = @"
-using Ama.CRDT.Attributes.Strategies;
-using Ama.CRDT.Services;
-using Ama.CRDT.Extensions;
-using Ama.CRDT.Models;
-using System.Collections.Generic;
-
-public class MyPoco
-{
-    public Level1 L1 { get; set; }
-}
-
-public class Level1
-{
-    [CrdtCounterStrategy]
-    public List<string> MyList { get; set; }
-}
-
-public class TestClass
-{
-    public void DoWork(ICrdtPatcher patcher, CrdtDocument<MyPoco> doc)
-    {
-        patcher.BuildOperation(doc, x => x.L1.MyList).Insert(0, ""val"");
-    }
-}
-";
-        var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
-            .WithLocation(23, 9)
-            .WithArguments("CounterStrategy", "MyList", "InsertIntent");
 
         var test = CreateTest();
         test.TestCode = source;
@@ -561,52 +390,12 @@ public class TestClass
     }
 
     [Fact]
-    public async Task WhenInvalidIntentUsedOnListIndexerPathViaBuilder_ShouldReportDiagnostic()
-    {
-        var source = @"
-using Ama.CRDT.Attributes.Strategies;
-using Ama.CRDT.Services;
-using Ama.CRDT.Extensions;
-using Ama.CRDT.Models;
-using System.Collections.Generic;
-
-public class MyPoco
-{
-    public List<Tag> Tags { get; set; }
-}
-
-public class Tag
-{
-    [CrdtLwwStrategy]
-    public int Value { get; set; }
-}
-
-public class TestClass
-{
-    public void DoWork(ICrdtPatcher patcher, CrdtDocument<MyPoco> doc)
-    {
-        patcher.BuildOperation(doc, x => x.Tags[0].Value).Increment(5);
-    }
-}
-";
-        var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
-            .WithLocation(23, 9)
-            .WithArguments("LwwStrategy", "Value", "IncrementIntent");
-
-        var test = CreateTest();
-        test.TestCode = source;
-        test.ExpectedDiagnostics.Add(expected);
-        await test.RunAsync();
-    }
-
-    [Fact]
     public async Task WhenValidDecoratorIntentUsed_ShouldNotReportDiagnostic()
     {
         var source = @"
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Services;
-using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents.Decorators;
 using System.Collections.Generic;
@@ -622,7 +411,7 @@ public class TestClass
 {
     public void DoWork(ICrdtPatcher patcher, CrdtDocument<MyPoco> doc)
     {
-        patcher.BuildOperation(doc, x => x.MyString).ClearEpoch();
+        patcher.GenerateOperation(doc, x => x.MyString, new EpochClearIntent());
     }
 }
 ";
@@ -638,8 +427,8 @@ public class TestClass
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Services;
-using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using System.Collections.Generic;
 
 public class MyPoco
@@ -653,7 +442,7 @@ public class TestClass
 {
     public void DoWork(ICrdtPatcher patcher, CrdtDocument<MyPoco> doc)
     {
-        patcher.BuildOperation(doc, x => x.MyList).Insert(0, ""val"");
+        patcher.GenerateOperation(doc, x => x.MyList, new InsertIntent(0, ""val""));
     }
 }
 ";
@@ -669,8 +458,8 @@ public class TestClass
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Services;
-using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using System.Collections.Generic;
 
 public class MyPoco
@@ -684,7 +473,7 @@ public class TestClass
 {
     public void DoWork(ICrdtPatcher patcher, CrdtDocument<MyPoco> doc)
     {
-        patcher.BuildOperation(doc, x => x.MyList).Insert(0, ""val"");
+        patcher.GenerateOperation(doc, x => x.MyList, new InsertIntent(0, ""val""));
     }
 }
 ";
@@ -755,77 +544,6 @@ public class TestClass
         var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
             .WithLocation(18, 15)
             .WithArguments("CounterStrategy", "MyCounter", "InsertIntent");
-
-        var test = CreateTest();
-        test.TestCode = source;
-        test.ExpectedDiagnostics.Add(expected);
-        await test.RunAsync();
-    }
-
-    [Fact]
-    public async Task WhenInvalidIntentUsedWithAsyncBuilder_ShouldReportDiagnostic()
-    {
-        var source = @"
-using Ama.CRDT.Attributes.Strategies;
-using Ama.CRDT.Services;
-using Ama.CRDT.Extensions;
-using Ama.CRDT.Models;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
-public class MyPoco
-{
-    [CrdtCounterStrategy]
-    public List<string> MyList { get; set; }
-}
-
-public class TestClass
-{
-    public async Task DoWork(IAsyncCrdtPatcher patcher, CrdtDocument<MyPoco> doc)
-    {
-        await patcher.BuildOperationAsync(doc, x => x.MyList).InsertAsync(0, ""val"");
-    }
-}
-";
-        var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
-            .WithLocation(19, 15)
-            .WithArguments("CounterStrategy", "MyList", "InsertIntent");
-
-        var test = CreateTest();
-        test.TestCode = source;
-        test.ExpectedDiagnostics.Add(expected);
-        await test.RunAsync();
-    }
-
-    [Fact]
-    public async Task WhenInvalidIntentUsedWithAsyncBuilderVariable_ShouldReportDiagnostic()
-    {
-        var source = @"
-using Ama.CRDT.Attributes.Strategies;
-using Ama.CRDT.Services;
-using Ama.CRDT.Extensions;
-using Ama.CRDT.Models;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
-public class MyPoco
-{
-    [CrdtCounterStrategy]
-    public List<string> MyList { get; set; }
-}
-
-public class TestClass
-{
-    public async Task DoWork(IAsyncCrdtPatcher patcher, CrdtDocument<MyPoco> doc)
-    {
-        var builder = await patcher.BuildOperationAsync(doc, x => x.MyList);
-        await builder.InsertAsync(0, ""val"");
-    }
-}
-";
-        var expected = new DiagnosticResult("CRDT0002", DiagnosticSeverity.Error)
-            .WithLocation(20, 15)
-            .WithArguments("CounterStrategy", "MyList", "InsertIntent");
 
         var test = CreateTest();
         test.TestCode = source;
