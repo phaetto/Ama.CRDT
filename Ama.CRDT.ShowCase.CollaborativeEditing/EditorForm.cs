@@ -2,6 +2,7 @@ namespace Ama.CRDT.ShowCase.CollaborativeEditing;
 
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -17,31 +18,49 @@ using Ama.CRDT.ShowCase.CollaborativeEditing.Services;
 
 public sealed class EditorForm : Form
 {
-    private readonly IServiceScope _scope;
-    private readonly string _replicaId;
-    private readonly NetworkBroker _networkBroker;
+    private readonly IServiceScope scope;
+    private readonly string replicaId;
+    private readonly NetworkBroker networkBroker;
 
-    private readonly IAsyncCrdtApplicator _applicator;
-    private readonly ICrdtPatcher _patcher;
+    private readonly IAsyncCrdtApplicator applicator;
+    private readonly ICrdtPatcher patcher;
 
-    private CrdtDocument<SharedDocument> _document = default!;
-    private readonly TextBox _textBox;
-    private readonly Timer _typingTimer;
+    private CrdtDocument<SharedDocument> document = default!;
+    private readonly TextBox textBox;
+    private readonly Timer typingTimer;
     
-    private bool _isApplyingNetworkPatch = false;
-    private bool _isLoaded = false;
-    private readonly Queue<NetworkMessageEventArgs> _backlog = new();
+    // Monkey mode fields
+    private readonly Timer monkeyTimer;
+    private readonly CheckBox monkeyModeCheckBox;
+    private readonly NumericUpDown monkeyIntervalNumericUpDown;
+    private readonly Label intervalLabel;
+    private readonly Panel topPanel;
+    private readonly Random rng = new();
+    private readonly string[] loremWords = new[] 
+    { 
+        "lorem", "ipsum", "dolor", "sit", "amet", "consectetur", 
+        "adipiscing", "elit", "sed", "do", "eiusmod", "tempor", 
+        "incididunt", "ut", "labore", "et", "dolore", "magna", "aliqua" 
+    };
+    
+    private bool isApplyingNetworkPatch = false;
+    private bool isLoaded = false;
+    private readonly Queue<NetworkMessage> backlog = new();
 
     public EditorForm(IServiceScope scope, string replicaId, NetworkBroker networkBroker)
     {
-        _scope = scope ?? throw new ArgumentNullException(nameof(scope));
-        _replicaId = string.IsNullOrWhiteSpace(replicaId) ? throw new ArgumentException("Replica ID cannot be empty", nameof(replicaId)) : replicaId;
-        _networkBroker = networkBroker ?? throw new ArgumentNullException(nameof(networkBroker));
+        if (scope == null) throw new ArgumentNullException(nameof(scope));
+        if (string.IsNullOrWhiteSpace(replicaId)) throw new ArgumentException("Replica ID cannot be empty", nameof(replicaId));
+        if (networkBroker == null) throw new ArgumentNullException(nameof(networkBroker));
 
-        _applicator = scope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
-        _patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        this.scope = scope;
+        this.replicaId = replicaId;
+        this.networkBroker = networkBroker;
+
+        applicator = scope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
+        patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         
-        _textBox = new TextBox
+        textBox = new TextBox
         {
             Multiline = true,
             Dock = DockStyle.Fill,
@@ -49,12 +68,41 @@ public sealed class EditorForm : Form
             Font = new Font("Consolas", 12F, FontStyle.Regular, GraphicsUnit.Point)
         };
         
-        // Timer to batch rapid keystrokes before generating a diff/patch
-        _typingTimer = new Timer { Interval = 500 };
-        _typingTimer.Tick += TypingTimer_Tick;
+        typingTimer = new Timer { Interval = 500 };
+        typingTimer.Tick += TypingTimer_Tick;
 
-        // Catch messages early, they will be backlogged until load is complete
-        _networkBroker.MessageReceived += NetworkBroker_MessageReceived;
+        monkeyTimer = new Timer { Interval = 1000 };
+        monkeyTimer.Tick += MonkeyTimer_Tick;
+        
+        topPanel = new Panel { Dock = DockStyle.Top, Height = 40 };
+
+        monkeyModeCheckBox = new CheckBox 
+        { 
+            Text = "Monkey Mode", 
+            Location = new Point(10, 10), 
+            AutoSize = true 
+        };
+        
+        intervalLabel = new Label 
+        { 
+            Text = "Interval (ms):", 
+            Location = new Point(120, 12), 
+            AutoSize = true 
+        };
+
+        monkeyIntervalNumericUpDown = new NumericUpDown 
+        { 
+            Location = new Point(200, 10), 
+            Minimum = 100, 
+            Maximum = 10000, 
+            Value = 1000,
+            Increment = 100
+        };
+
+        monkeyModeCheckBox.CheckedChanged += MonkeyModeCheckBox_CheckedChanged;
+        monkeyIntervalNumericUpDown.ValueChanged += MonkeyIntervalNumericUpDown_ValueChanged;
+
+        this.networkBroker.MessageReceived += NetworkBroker_MessageReceived;
 
         SetupUi();
         this.Load += EditorForm_Load;
@@ -62,42 +110,47 @@ public sealed class EditorForm : Form
 
     private void SetupUi()
     {
-        Text = $"Editor Replica - {_replicaId}";
-        Size = new Size(650, 400);
+        Text = $"Editor Replica - {replicaId}";
+        Size = new Size(1000, 800);
 
-        Controls.Add(_textBox);
+        topPanel.Controls.Add(monkeyModeCheckBox);
+        topPanel.Controls.Add(intervalLabel);
+        topPanel.Controls.Add(monkeyIntervalNumericUpDown);
+
+        Controls.Add(topPanel);
+        Controls.Add(textBox);
+        textBox.BringToFront();
+
         FormClosed += EditorForm_FormClosed;
     }
 
     private async void EditorForm_Load(object? sender, EventArgs e)
     {
-        var metadataManager = _scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        var metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         
-        // 1. Snapshot Init: Pull the existing document from the cluster baseline to avoid replay of ancient events
-        var snapshotJson = _networkBroker.GetSnapshotJson();
+        var snapshotJson = networkBroker.GetSnapshotJson();
         if (snapshotJson != null)
         {
-            _document = JsonSerializer.Deserialize<CrdtDocument<SharedDocument>>(snapshotJson, CrdtJsonContext.DefaultOptions)!;
+            document = JsonSerializer.Deserialize<CrdtDocument<SharedDocument>>(snapshotJson, CrdtJsonContext.DefaultOptions)!;
         }
         else
         {
             var state = new SharedDocument();
             var metadata = metadataManager.Initialize(state);
-            _document = new CrdtDocument<SharedDocument>(state, metadata);
+            document = new CrdtDocument<SharedDocument>(state, metadata);
         }
 
-        // 2. Journal Sync: Catch up missing operations via Version Vectors
-        var clusterState = _networkBroker.GetClusterState();
-        var syncService = _scope.ServiceProvider.GetRequiredService<IVersionVectorSyncService>();
+        var clusterState = networkBroker.GetClusterState();
+        var syncService = scope.ServiceProvider.GetRequiredService<IVersionVectorSyncService>();
         
-        var localDvv = new DottedVersionVector(_document.Metadata.VersionVector, new Dictionary<string, ISet<long>>());
-        var localContext = new ReplicaContext { ReplicaId = _replicaId, GlobalVersionVector = localDvv };
+        var localDvv = new DottedVersionVector(document.Metadata.VersionVector, new Dictionary<string, ISet<long>>());
+        var localContext = new ReplicaContext { ReplicaId = replicaId, GlobalVersionVector = localDvv };
         var targetContext = new ReplicaContext { ReplicaId = "Cluster", GlobalVersionVector = clusterState };
         
         var requirement = syncService.CalculateRequirement(localContext, targetContext);
         if (requirement.IsBehind)
         {
-            var journalManager = _scope.ServiceProvider.GetRequiredService<IJournalManager>();
+            var journalManager = scope.ServiceProvider.GetRequiredService<IJournalManager>();
             var missingOpsStream = journalManager.GetMissingOperationsAsync(requirement);
             
             var ops = new List<CrdtOperation>();
@@ -109,24 +162,22 @@ public sealed class EditorForm : Form
             if (ops.Count > 0)
             {
                 var patch = new CrdtPatch(ops);
-                var result = await _applicator.ApplyPatchAsync(_document, patch);
-                _document = new CrdtDocument<SharedDocument>(result.Document, _document.Metadata);
+                var result = await applicator.ApplyPatchAsync(document, patch);
+                document = new CrdtDocument<SharedDocument>(result.Document, document.Metadata);
             }
         }
 
-        // 3. Register self for active cluster GC tracking
-        _networkBroker.RegisterReplica(_replicaId, new DottedVersionVector(_document.Metadata.VersionVector, new Dictionary<string, ISet<long>>()), () => 
+        networkBroker.RegisterReplica(replicaId, new DottedVersionVector(document.Metadata.VersionVector, new Dictionary<string, ISet<long>>()), () => 
         {
-            return JsonSerializer.Serialize(_document, CrdtJsonContext.DefaultOptions);
+            return JsonSerializer.Serialize(document, CrdtJsonContext.DefaultOptions);
         });
 
-        _textBox.Lines = _document.Data.Lines.ToArray();
-        _textBox.TextChanged += TextBox_TextChanged;
+        textBox.Lines = document.Data.Lines.ToArray();
+        textBox.TextChanged += TextBox_TextChanged;
         
-        _isLoaded = true;
+        isLoaded = true;
 
-        // Drain any messages that arrived while we were loading
-        while (_backlog.TryDequeue(out var eMsg))
+        while (backlog.TryDequeue(out var eMsg))
         {
             await ProcessNetworkMessageAsync(eMsg);
         }
@@ -134,43 +185,106 @@ public sealed class EditorForm : Form
 
     private void TextBox_TextChanged(object? sender, EventArgs e)
     {
-        // Don't trigger patch generation if the text changed because of a network patch application
-        if (_isApplyingNetworkPatch) return;
+        if (isApplyingNetworkPatch) return;
         
-        _typingTimer.Stop();
-        _typingTimer.Start();
+        typingTimer.Stop();
+        typingTimer.Start();
+    }
+
+    private void MonkeyModeCheckBox_CheckedChanged(object? sender, EventArgs e)
+    {
+        if (monkeyModeCheckBox.Checked)
+        {
+            monkeyTimer.Start();
+        }
+        else
+        {
+            monkeyTimer.Stop();
+        }
+    }
+
+    private void MonkeyIntervalNumericUpDown_ValueChanged(object? sender, EventArgs e)
+    {
+        monkeyTimer.Interval = (int)monkeyIntervalNumericUpDown.Value;
+    }
+
+    private void MonkeyTimer_Tick(object? sender, EventArgs e)
+    {
+        if (isApplyingNetworkPatch || !isLoaded) return;
+
+        var lines = textBox.Lines.ToList();
+        int action = lines.Count == 0 ? 0 : rng.Next(4);
+
+        switch (action)
+        {
+            case 0: // Add line
+                lines.Insert(rng.Next(lines.Count + 1), GetRandomSentence());
+                break;
+            case 1: // Append to line
+                int idx1 = rng.Next(lines.Count);
+                lines[idx1] = lines[idx1] + " " + loremWords[rng.Next(loremWords.Length)];
+                break;
+            case 2: // Remove line
+                if (lines.Count > 1)
+                {
+                    lines.RemoveAt(rng.Next(lines.Count));
+                }
+                break;
+            case 3: // Change line
+                int idx3 = rng.Next(lines.Count);
+                lines[idx3] = GetRandomSentence();
+                break;
+        }
+
+        int selectionStart = textBox.SelectionStart;
+        
+        // This will trigger TextBox_TextChanged and restart typingTimer to broadcast the patch
+        textBox.Lines = lines.ToArray();
+
+        if (selectionStart <= textBox.Text.Length)
+        {
+            textBox.SelectionStart = selectionStart;
+        }
+        else 
+        {
+            textBox.SelectionStart = textBox.Text.Length;
+        }
+    }
+
+    private string GetRandomSentence()
+    {
+        int wordCount = rng.Next(3, 8);
+        return string.Join(" ", Enumerable.Range(0, wordCount).Select(_ => loremWords[rng.Next(loremWords.Length)]));
     }
 
     private async void TypingTimer_Tick(object? sender, EventArgs e)
     {
-        _typingTimer.Stop();
+        typingTimer.Stop();
         await GenerateAndBroadcastPatchAsync();
     }
 
     private async Task GenerateAndBroadcastPatchAsync()
     {
-        // Extract lines and compute the difference
-        var currentLines = _textBox.Lines.ToList();
+        var currentLines = textBox.Lines.ToList();
         var targetState = new SharedDocument { Lines = currentLines };
-        var patch = _patcher.GeneratePatch(_document, targetState);
+        var patch = patcher.GeneratePatch(document, targetState);
 
         if (patch.Operations.Count > 0)
         {
-            // Apply locally; the decorator manages pushing it to the Operation Journal
-            var result = await _applicator.ApplyPatchAsync(_document, patch);
-            _document = new CrdtDocument<SharedDocument>(result.Document, _document.Metadata);
+            var result = await applicator.ApplyPatchAsync(document, patch);
+            document = new CrdtDocument<SharedDocument>(result.Document, document.Metadata);
             
             if (result.UnappliedOperations == null || result.UnappliedOperations.Count == 0)
             {
-                _networkBroker.UpdateReplicaState(_replicaId, new DottedVersionVector(_document.Metadata.VersionVector, new Dictionary<string, ISet<long>>()));
-                _networkBroker.Broadcast(_replicaId, patch);
+                networkBroker.UpdateReplicaState(replicaId, new DottedVersionVector(document.Metadata.VersionVector, new Dictionary<string, ISet<long>>()));
+                networkBroker.Broadcast(replicaId, patch);
             }
         }
     }
 
-    private async void NetworkBroker_MessageReceived(object? sender, NetworkMessageEventArgs e)
+    private async void NetworkBroker_MessageReceived(object? sender, NetworkMessage e)
     {
-        if (e.SenderId == _replicaId) return;
+        if (e.SenderId == replicaId) return;
 
         if (InvokeRequired)
         {
@@ -178,50 +292,46 @@ public sealed class EditorForm : Form
             return;
         }
 
-        if (!_isLoaded)
+        if (!isLoaded)
         {
-            _backlog.Enqueue(e);
+            backlog.Enqueue(e);
             return;
         }
 
         await ProcessNetworkMessageAsync(e);
     }
 
-    private async Task ProcessNetworkMessageAsync(NetworkMessageEventArgs e)
+    private async Task ProcessNetworkMessageAsync(NetworkMessage e)
     {
         try
         {
-            // Check if user has un-broadcasted changes typed recently. If so, generate and sync them first.
-            if (_typingTimer.Enabled)
+            if (typingTimer.Enabled)
             {
-                _typingTimer.Stop();
+                typingTimer.Stop();
                 await GenerateAndBroadcastPatchAsync();
             }
 
-            // Apply incoming patch to our underlying document
-            var result = await _applicator.ApplyPatchAsync(_document, e.Patch);
-            _document = new CrdtDocument<SharedDocument>(result.Document, _document.Metadata);
+            var result = await applicator.ApplyPatchAsync(document, e.Patch);
+            document = new CrdtDocument<SharedDocument>(result.Document, document.Metadata);
             
-            _networkBroker.UpdateReplicaState(_replicaId, new DottedVersionVector(_document.Metadata.VersionVector, new Dictionary<string, ISet<long>>()));
+            networkBroker.UpdateReplicaState(replicaId, new DottedVersionVector(document.Metadata.VersionVector, new Dictionary<string, ISet<long>>()));
             
-            _isApplyingNetworkPatch = true;
+            isApplyingNetworkPatch = true;
             
-            int selectionStart = _textBox.SelectionStart;
+            int selectionStart = textBox.SelectionStart;
 
-            // Re-render text directly from CRDT state
-            _textBox.Lines = _document.Data.Lines.ToArray();
+            textBox.Lines = document.Data.Lines.ToArray();
 
-            // Best-effort cursor preservation
-            if (selectionStart <= _textBox.Text.Length)
+            if (selectionStart <= textBox.Text.Length)
             {
-                _textBox.SelectionStart = selectionStart;
+                textBox.SelectionStart = selectionStart;
             }
             else 
             {
-                _textBox.SelectionStart = _textBox.Text.Length;
+                textBox.SelectionStart = textBox.Text.Length;
             }
 
-            _isApplyingNetworkPatch = false;
+            isApplyingNetworkPatch = false;
         }
         catch (Exception ex)
         {
@@ -231,9 +341,10 @@ public sealed class EditorForm : Form
 
     private void EditorForm_FormClosed(object? sender, FormClosedEventArgs e)
     {
-        _networkBroker.MessageReceived -= NetworkBroker_MessageReceived;
-        _networkBroker.UnregisterReplica(_replicaId);
-        _typingTimer.Dispose();
-        _scope.Dispose(); // Cleans up replica-scoped services
+        networkBroker.MessageReceived -= NetworkBroker_MessageReceived;
+        networkBroker.UnregisterReplica(replicaId);
+        typingTimer.Dispose();
+        monkeyTimer.Dispose();
+        scope.Dispose(); 
     }
 }

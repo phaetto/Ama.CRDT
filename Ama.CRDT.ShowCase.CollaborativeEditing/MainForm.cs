@@ -1,6 +1,7 @@
 namespace Ama.CRDT.ShowCase.CollaborativeEditing;
 
 using System;
+using System.Drawing;
 using System.Windows.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Ama.CRDT.Services;
@@ -8,23 +9,26 @@ using Ama.CRDT.ShowCase.CollaborativeEditing.Services;
 
 public partial class MainForm : Form
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly NetworkBroker _networkBroker;
-    private int _editorCount = 0;
+    private readonly IServiceProvider serviceProvider;
+    private readonly NetworkBroker networkBroker;
+    private int editorCount = 0;
 
     [Obsolete("Designer only", true)]
     public MainForm()
     {
         InitializeComponent();
-        _serviceProvider = null!;
-        _networkBroker = null!;
+        serviceProvider = null!;
+        networkBroker = null!;
     }
 
     public MainForm(IServiceProvider serviceProvider, NetworkBroker networkBroker)
     {
+        if (serviceProvider == null) throw new ArgumentNullException(nameof(serviceProvider));
+        if (networkBroker == null) throw new ArgumentNullException(nameof(networkBroker));
+
         InitializeComponent();
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-        _networkBroker = networkBroker ?? throw new ArgumentNullException(nameof(networkBroker));
+        this.serviceProvider = serviceProvider;
+        this.networkBroker = networkBroker;
         
         SetupUi();
     }
@@ -48,14 +52,13 @@ public partial class MainForm : Form
 
     private void BtnAddEditor_Click(object? sender, EventArgs e)
     {
-        _editorCount++;
-        string replicaId = $"editor-{_editorCount}";
+        editorCount++;
+        string replicaId = $"editor-{editorCount}";
 
-        // We create an isolated DI scope for each editor to give it a unique replica identity and metadata manager
-        var scopeFactory = _serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         var scope = scopeFactory.CreateScope(replicaId);
 
-        var editorForm = new EditorForm(scope, replicaId, _networkBroker);
+        var editorForm = new EditorForm(scope, replicaId, networkBroker);
         editorForm.Show();
     }
 }

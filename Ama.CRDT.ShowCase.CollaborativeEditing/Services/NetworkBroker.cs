@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Versioning;
+using Ama.CRDT.ShowCase.CollaborativeEditing.Models;
 
 /// <summary>
 /// A singleton service to simulate a fast network message bus broadcasting CRDT patches.
@@ -13,69 +14,79 @@ using Ama.CRDT.Services.Versioning;
 /// </summary>
 public sealed class NetworkBroker
 {
-    private readonly IVersionVectorSyncService _syncService;
-    private readonly MemoryJournal _journal;
+    private readonly IVersionVectorSyncService syncService;
+    private readonly MemoryJournal journal;
     
-    private readonly ConcurrentDictionary<string, DottedVersionVector> _replicaStates = new();
-    private readonly ConcurrentDictionary<string, Func<string>> _snapshotProviders = new();
+    private readonly ConcurrentDictionary<string, DottedVersionVector> replicaStates = new();
+    private readonly ConcurrentDictionary<string, Func<string>> snapshotProviders = new();
 
-    public event EventHandler<NetworkMessageEventArgs>? MessageReceived;
+    public event EventHandler<NetworkMessage>? MessageReceived;
 
     public NetworkBroker(IVersionVectorSyncService syncService, MemoryJournal journal)
     {
-        _syncService = syncService ?? throw new ArgumentNullException(nameof(syncService));
-        _journal = journal ?? throw new ArgumentNullException(nameof(journal));
+        if (syncService == null) throw new ArgumentNullException(nameof(syncService));
+        if (journal == null) throw new ArgumentNullException(nameof(journal));
+
+        this.syncService = syncService;
+        this.journal = journal;
     }
 
     public void RegisterReplica(string replicaId, DottedVersionVector state, Func<string> snapshotProvider)
     {
-        _replicaStates[replicaId] = state;
-        _snapshotProviders[replicaId] = snapshotProvider;
+        if (string.IsNullOrWhiteSpace(replicaId)) throw new ArgumentException("Replica ID cannot be empty", nameof(replicaId));
+        if (snapshotProvider == null) throw new ArgumentNullException(nameof(snapshotProvider));
+
+        replicaStates[replicaId] = state;
+        snapshotProviders[replicaId] = snapshotProvider;
         RunGarbageCollection();
     }
 
     public void UnregisterReplica(string replicaId)
     {
-        _replicaStates.TryRemove(replicaId, out _);
-        _snapshotProviders.TryRemove(replicaId, out _);
+        if (string.IsNullOrWhiteSpace(replicaId)) throw new ArgumentException("Replica ID cannot be empty", nameof(replicaId));
+
+        replicaStates.TryRemove(replicaId, out _);
+        snapshotProviders.TryRemove(replicaId, out _);
         RunGarbageCollection();
     }
 
     public void UpdateReplicaState(string replicaId, DottedVersionVector state)
     {
-        _replicaStates[replicaId] = state;
+        if (string.IsNullOrWhiteSpace(replicaId)) throw new ArgumentException("Replica ID cannot be empty", nameof(replicaId));
+
+        replicaStates[replicaId] = state;
         RunGarbageCollection();
     }
 
     public void Broadcast(string senderId, CrdtPatch patch)
     {
+        if (string.IsNullOrWhiteSpace(senderId)) throw new ArgumentException("Sender ID cannot be empty", nameof(senderId));
+
         if (patch.Operations.Count == 0) return;
 
-        MessageReceived?.Invoke(this, new NetworkMessageEventArgs(senderId, patch));
+        MessageReceived?.Invoke(this, new NetworkMessage(senderId, patch));
     }
 
     public string? GetSnapshotJson()
     {
-        // Pick an active replica to provide a baseline snapshot for new editors
-        var provider = _snapshotProviders.Values.FirstOrDefault();
+        var provider = snapshotProviders.Values.FirstOrDefault();
         return provider?.Invoke();
     }
 
     public DottedVersionVector GetClusterState()
     {
-        var states = _replicaStates.Values.ToList();
+        var states = replicaStates.Values.ToList();
         if (states.Count == 0) return new DottedVersionVector();
 
-        // Merge all known versions to create a "max" state representing everything the network knows
-        return _syncService.CalculateGlobalMaximumVersionVector(states);
+        return syncService.CalculateGlobalMaximumVersionVector(states);
     }
 
     public IReadOnlyDictionary<string, long> GetGmvv()
     {
-        var states = _replicaStates.Values.ToList();
+        var states = replicaStates.Values.ToList();
         if (states.Count == 0) return new Dictionary<string, long>();
         
-        return _syncService.CalculateGlobalMinimumVersionVector(states);
+        return syncService.CalculateGlobalMinimumVersionVector(states);
     }
 
     private void RunGarbageCollection()
@@ -83,19 +94,7 @@ public sealed class NetworkBroker
         var gmvv = GetGmvv();
         if (gmvv.Count > 0)
         {
-            _journal.Trim(gmvv);
+            journal.Trim(gmvv);
         }
-    }
-}
-
-public sealed class NetworkMessageEventArgs : EventArgs
-{
-    public string SenderId { get; }
-    public CrdtPatch Patch { get; }
-
-    public NetworkMessageEventArgs(string senderId, CrdtPatch patch)
-    {
-        SenderId = senderId ?? throw new ArgumentNullException(nameof(senderId));
-        Patch = patch;
     }
 }

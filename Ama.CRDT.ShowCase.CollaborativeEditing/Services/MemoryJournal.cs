@@ -1,5 +1,6 @@
 namespace Ama.CRDT.ShowCase.CollaborativeEditing.Services;
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -14,33 +15,37 @@ using Ama.CRDT.Services.Journaling;
 /// </summary>
 public sealed class MemoryJournal : ICrdtOperationJournal
 {
-    private readonly List<JournaledOperation> _operations = new();
+    private readonly List<JournaledOperation> operations = new();
 
-    public void Append(string documentId, IReadOnlyList<CrdtOperation> operations)
+    public void Append(string documentId, IReadOnlyList<CrdtOperation> operationsList)
     {
-        lock (_operations)
+        if (string.IsNullOrWhiteSpace(documentId)) throw new ArgumentException("Document ID cannot be null or empty.", nameof(documentId));
+        if (operationsList == null) throw new ArgumentNullException(nameof(operationsList));
+
+        lock (operations)
         {
-            foreach (var op in operations)
+            foreach (var op in operationsList)
             {
-                // Ensure idempotency for self-generated operations
-                if (!_operations.Any(o => o.Operation.Id == op.Id))
+                if (!operations.Any(o => o.Operation.Id == op.Id))
                 {
-                    _operations.Add(new JournaledOperation(documentId, op));
+                    operations.Add(new JournaledOperation(documentId, op));
                 }
             }
         }
     }
 
-    public Task AppendAsync(string documentId, IReadOnlyList<CrdtOperation> operations, CancellationToken cancellationToken = default)
+    public Task AppendAsync(string documentId, IReadOnlyList<CrdtOperation> operationsList, CancellationToken cancellationToken = default)
     {
-        Append(documentId, operations);
+        Append(documentId, operationsList);
         return Task.CompletedTask;
     }
 
     public async IAsyncEnumerable<JournaledOperation> GetOperationsByRangeAsync(string originReplicaId, long minGlobalClock, long maxGlobalClock, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(originReplicaId)) throw new ArgumentException("Origin Replica ID cannot be null or empty.", nameof(originReplicaId));
+
         List<JournaledOperation> snapshot;
-        lock (_operations) { snapshot = _operations.ToList(); }
+        lock (operations) { snapshot = operations.ToList(); }
 
         foreach (var op in snapshot.Where(o => o.Operation.ReplicaId == originReplicaId && o.Operation.GlobalClock > minGlobalClock && o.Operation.GlobalClock <= maxGlobalClock))
         {
@@ -52,9 +57,12 @@ public sealed class MemoryJournal : ICrdtOperationJournal
 
     public async IAsyncEnumerable<JournaledOperation> GetOperationsByDotsAsync(string originReplicaId, IEnumerable<long> globalClocks, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(originReplicaId)) throw new ArgumentException("Origin Replica ID cannot be null or empty.", nameof(originReplicaId));
+        if (globalClocks == null) throw new ArgumentNullException(nameof(globalClocks));
+
         var clocks = globalClocks.ToHashSet();
         List<JournaledOperation> snapshot;
-        lock (_operations) { snapshot = _operations.ToList(); }
+        lock (operations) { snapshot = operations.ToList(); }
 
         foreach (var op in snapshot.Where(o => o.Operation.ReplicaId == originReplicaId && clocks.Contains(o.Operation.GlobalClock)))
         {
@@ -70,9 +78,11 @@ public sealed class MemoryJournal : ICrdtOperationJournal
     /// </summary>
     public void Trim(IReadOnlyDictionary<string, long> gmvv)
     {
-        lock (_operations)
+        if (gmvv == null) throw new ArgumentNullException(nameof(gmvv));
+
+        lock (operations)
         {
-            _operations.RemoveAll(op => 
+            operations.RemoveAll(op => 
                 gmvv.TryGetValue(op.Operation.ReplicaId, out var minKnown) && 
                 op.Operation.GlobalClock <= minKnown);
         }
