@@ -123,6 +123,7 @@
 | `$/Ama.CRDT.UnitTests/Ama.CRDT.UnitTests.csproj` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Architecture/ModelConventionTests.cs` | An architecture convention unit test that reflects over all data models to enforce the presence of serialization tests by scanning the test source files. |
 | `$/Ama.CRDT.UnitTests/Architecture/StrategyConventionTests.cs` | An architecture convention unit test that reflects over all strategies to enforce the presence of unit tests, property tests, benchmarks, and documentation. |
+| `$/Ama.CRDT.UnitTests/Extensions/AsyncCrdtApplicatorExtensionsTests.cs` | Contains unit tests for `AsyncCrdtApplicatorExtensions`, verifying the correct asynchronous streaming of journaled operations and their translation into patches for the applicator. |
 | `$/Ama.CRDT.UnitTests/Models/DottedVersionVectorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/EpochTimestampTests.cs` | Contains unit tests for the `EpochTimestamp` implementation of `ICrdtTimestamp`. |
 | `$/Ama.CRDT.UnitTests/Models/Partitioning/CompositePartitionKeyTests.cs` | No description provided. |
@@ -231,6 +232,7 @@
 | `$/Ama.CRDT/Attributes/Strategies/Semantic/IdempotentAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/Strategies/Semantic/OperationBasedAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/Strategies/Semantic/StateBasedAttribute.cs` | No description provided. |
+| `$/Ama.CRDT/Extensions/AsyncCrdtApplicatorExtensions.cs` | Provides extension methods for `IAsyncCrdtApplicator` to streamline common synchronization tasks, such as directly applying an asynchronous stream of missing operations. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/IntentBuilderExtensions.cs` | Provides strongly-typed extension methods for `IIntentBuilder<TProperty>` to fluent build CRDT operations without boxing. |
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods for easy library setup, unifying `AddCrdt`, applicator/patcher pipeline decoration (`AddCrdtApplicatorDecorator`, `AddCrdtJournaling`), comparers, timestamp providers, and serialization polymorphism. |

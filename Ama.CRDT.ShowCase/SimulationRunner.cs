@@ -119,7 +119,7 @@ public sealed class SimulationRunner(
             // 4. Update the write replica's own local state with the changes it just made.
             var newDocumentResult = applicator.ApplyPatch(new CrdtDocument<UserStats>(from, metadata), patch);
     
-            await database.SaveStateAsync(replicaId, newDocumentResult.Document, metadata);
+            await database.SaveStateAsync(replicaId, newDocumentResult.Document.Data!, newDocumentResult.Document.Metadata!);
     
             // 5. Broadcast the patch to all passive replicas.
             if (patch.Operations.Any())
@@ -163,7 +163,7 @@ public sealed class SimulationRunner(
             
             var newDocumentResult = applicator.ApplyPatch(new CrdtDocument<UserStats>(document, metadata), patch);
 
-            await database.SaveStateAsync(replicaId, newDocumentResult.Document, metadata);
+            await database.SaveStateAsync(replicaId, newDocumentResult.Document.Data!, newDocumentResult.Document.Metadata!);
 
             ++count;
         }

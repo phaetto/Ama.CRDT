@@ -87,7 +87,7 @@ public sealed class CrdtApplicatorTests : IDisposable
         var result = applicator.ApplyPatch(document, patch);
 
         // Assert
-        result.Document.Name.ShouldBe("Initial");
+        result.Document.Data!.Name.ShouldBe("Initial");
         metadata.Lww["$.name"].Timestamp.ShouldBe(existingTimestamp);
     }
     
@@ -106,7 +106,7 @@ public sealed class CrdtApplicatorTests : IDisposable
         var result = applicator.ApplyPatch(document, patch);
         
         // Assert
-        result.Document.Likes.ShouldBe(10);
+        result.Document.Data!.Likes.ShouldBe(10);
         metadata.SeenExceptions.Count.ShouldBe(1);
     }
     
@@ -124,7 +124,7 @@ public sealed class CrdtApplicatorTests : IDisposable
         var result = applicator.ApplyPatch(document, patch);
 
         // Assert
-        result.Document.Likes.ShouldBe(15);
+        result.Document.Data!.Likes.ShouldBe(15);
     }
 
     [Fact]
@@ -144,14 +144,14 @@ public sealed class CrdtApplicatorTests : IDisposable
         var result2 = applicator.ApplyPatch(document, patch);
 
         // Assert
-        result1.Document.Name.ShouldBe("Updated");
-        result1.Document.Likes.ShouldBe(15);
+        result1.Document.Data!.Name.ShouldBe("Updated");
+        result1.Document.Data!.Likes.ShouldBe(15);
         metadata.Lww["$.name"].Timestamp.ShouldBe(lwwOperation.Timestamp);
         // With the updated logic, SeenExceptions should be completely pruned for contiguous operations
         metadata.SeenExceptions.Count.ShouldBe(0);
 
-        result2.Document.Name.ShouldBe("Updated");
-        result2.Document.Likes.ShouldBe(15);
+        result2.Document.Data!.Name.ShouldBe("Updated");
+        result2.Document.Data!.Likes.ShouldBe(15);
         metadata.Lww["$.name"].Timestamp.ShouldBe(lwwOperation.Timestamp);
         metadata.SeenExceptions.Count.ShouldBe(0);
     }
@@ -183,11 +183,11 @@ public sealed class CrdtApplicatorTests : IDisposable
         var result_BA = applicator.ApplyPatch(doc_BA, patchA);
         
         // Assert
-        result_AB.Document.Name.ShouldBe("Name B");
-        result_AB.Document.Likes.ShouldBe(18);
+        result_AB.Document.Data!.Name.ShouldBe("Name B");
+        result_AB.Document.Data!.Likes.ShouldBe(18);
         
-        result_BA.Document.Name.ShouldBe("Name B");
-        result_BA.Document.Likes.ShouldBe(18);
+        result_BA.Document.Data!.Name.ShouldBe("Name B");
+        result_BA.Document.Data!.Likes.ShouldBe(18);
     }
 
     [Fact]

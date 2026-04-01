@@ -501,7 +501,7 @@ public sealed class NetworkSimulationTests
             var patch = new CrdtPatch(new[] { op });
             
             var result = await applicatorA.ApplyPatchAsync(docA, patch);
-            docA = new CrdtDocument<SimulationDocument>(result.Document, docA.Metadata);
+            docA = result.Document;
         }
 
         // Replica B determines it's behind and needs to catch up
@@ -528,7 +528,7 @@ public sealed class NetworkSimulationTests
         // Replica B applies the operations
         var applicatorB = scopeB.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
         var resultB = await applicatorB.ApplyPatchAsync(docB, new CrdtPatch(missingOps));
-        docB = new CrdtDocument<SimulationDocument>(resultB.Document, docB.Metadata);
+        docB = resultB.Document;
 
         // Assert convergence
         docB.Data.ShouldBe(docA.Data);
@@ -567,14 +567,14 @@ public sealed class NetworkSimulationTests
             opsA.AddRange(patch.Operations);
             
             var result = await applicatorA.ApplyPatchAsync(docA, patch);
-            docA = new CrdtDocument<SimulationDocument>(result.Document, docA.Metadata);
+            docA = result.Document;
         }
 
         // B receives operations out of order due to network anomaly (only gets 1st and 3rd)
         var applicatorB = scopeB.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
         var partialPatch = new CrdtPatch(new[] { opsA[0], opsA[2] });
         var resultB = await applicatorB.ApplyPatchAsync(docB, partialPatch);
-        docB = new CrdtDocument<SimulationDocument>(resultB.Document, docB.Metadata);
+        docB = resultB.Document;
 
         // B detects divergence and triggers a sync with A to get the missing 2nd operation (dot)
         var syncReq = vvSyncService.CalculateRequirement(
@@ -598,7 +598,7 @@ public sealed class NetworkSimulationTests
 
         // B applies it and finally converges completely
         var finalResultB = await applicatorB.ApplyPatchAsync(docB, new CrdtPatch(missingOps));
-        docB = new CrdtDocument<SimulationDocument>(finalResultB.Document, docB.Metadata);
+        docB = finalResultB.Document;
 
         docB.Data.ShouldBe(docA.Data);
     }
@@ -659,7 +659,7 @@ public sealed class NetworkSimulationTests
         foreach (var patch in shuffled)
         {
             var result = applicator.ApplyPatch(crdtDoc, patch);
-            crdtDoc = new CrdtDocument<SimulationDocument>(result.Document, crdtDoc.Metadata);
+            crdtDoc = result.Document;
         }
     }
 
@@ -676,6 +676,6 @@ public sealed class NetworkSimulationTests
     {
         var applicator = scope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         var result = applicator.ApplyPatch(crdtDoc, patch);
-        crdtDoc = new CrdtDocument<SimulationDocument>(result.Document, crdtDoc.Metadata);
+        crdtDoc = result.Document;
     }
 }

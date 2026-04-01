@@ -33,7 +33,7 @@ public sealed class PartitioningApplicatorDecoratorTests
 
         // Setup the inner applicator mock to act as a pass-through
         mockInnerApplicator.Setup(x => x.ApplyPatchAsync(It.IsAny<CrdtDocument<MultiPartitionedModel>>(), It.IsAny<CrdtPatch>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((CrdtDocument<MultiPartitionedModel> doc, CrdtPatch p, CancellationToken c) => new ApplyPatchResult<MultiPartitionedModel>(doc.Data, new List<UnappliedOperation>()));
+            .ReturnsAsync((CrdtDocument<MultiPartitionedModel> doc, CrdtPatch p, CancellationToken c) => new ApplyPatchResult<MultiPartitionedModel>(doc, new List<UnappliedOperation>()));
 
         var meterFactoryMock = new Mock<IMeterFactory>();
         meterFactoryMock.Setup(f => f.Create(It.IsAny<MeterOptions>())).Returns(new Meter("TestMeter"));

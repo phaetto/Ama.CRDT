@@ -24,7 +24,7 @@ public sealed class CrdtApplicator(
 
         if (patch.Operations is null || patch.Operations.Count == 0)
         {
-            return new ApplyPatchResult<T>(document.Data, Array.Empty<UnappliedOperation>());
+            return new ApplyPatchResult<T>(document, Array.Empty<UnappliedOperation>());
         }
 
         List<UnappliedOperation>? unappliedOperations = null;
@@ -56,7 +56,7 @@ public sealed class CrdtApplicator(
             }
         }
 
-        return new ApplyPatchResult<T>(document.Data, unappliedOperations ?? (IReadOnlyList<UnappliedOperation>)Array.Empty<UnappliedOperation>());
+        return new ApplyPatchResult<T>(document, unappliedOperations ?? (IReadOnlyList<UnappliedOperation>)Array.Empty<UnappliedOperation>());
     }
 
     private CrdtOperationStatus ApplyOperation(object document, CrdtOperation operation, CrdtMetadata metadata)

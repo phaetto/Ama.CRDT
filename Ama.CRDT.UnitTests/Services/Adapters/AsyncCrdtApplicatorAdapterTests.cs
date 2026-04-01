@@ -31,9 +31,9 @@ public sealed class AsyncCrdtApplicatorAdapterTests
         var innerMock = new Mock<ICrdtApplicator>();
         var adapter = new AsyncCrdtApplicatorAdapter(innerMock.Object);
         
-        var document = new CrdtDocument<TestModel>(new TestModel());
+        var document = new CrdtDocument<TestModel>(new TestModel(), new CrdtMetadata());
         var patch = new CrdtPatch(Array.Empty<CrdtOperation>());
-        var expectedResult = new ApplyPatchResult<TestModel>(document.Data!, Array.Empty<UnappliedOperation>());
+        var expectedResult = new ApplyPatchResult<TestModel>(document, Array.Empty<UnappliedOperation>());
 
         innerMock.Setup(m => m.ApplyPatch(document, patch)).Returns(expectedResult);
 
@@ -52,7 +52,7 @@ public sealed class AsyncCrdtApplicatorAdapterTests
         var innerMock = new Mock<ICrdtApplicator>();
         var adapter = new AsyncCrdtApplicatorAdapter(innerMock.Object);
         
-        var document = new CrdtDocument<TestModel>(new TestModel());
+        var document = new CrdtDocument<TestModel>(new TestModel(), new CrdtMetadata());
         var patch = new CrdtPatch(Array.Empty<CrdtOperation>());
 
         using var cts = new CancellationTokenSource();

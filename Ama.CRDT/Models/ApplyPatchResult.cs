@@ -8,14 +8,14 @@ using System.Collections.Generic;
 /// </summary>
 /// <typeparam name="T">The type of the document.</typeparam>
 public readonly record struct ApplyPatchResult<T>(
-    T Document,
+    CrdtDocument<T> Document,
     IReadOnlyList<UnappliedOperation> UnappliedOperations
 ) : IEquatable<ApplyPatchResult<T>> where T : class
 {
     /// <inheritdoc />
     public bool Equals(ApplyPatchResult<T> other)
     {
-        if (!EqualityComparer<T>.Default.Equals(Document, other.Document))
+        if (!EqualityComparer<CrdtDocument<T>>.Default.Equals(Document, other.Document))
         {
             return false;
         }

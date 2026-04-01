@@ -29,7 +29,8 @@ public sealed class CoreModelSerializationTests
     {
         var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Upsert, "value", new EpochTimestamp(123), 1, 2);
         var unapplied = new UnappliedOperation(op, CrdtOperationStatus.Obsolete);
-        var result = new ApplyPatchResult<TestModel>(new TestModel { Data = "Test" }, new[] { unapplied });
+        var document = new CrdtDocument<TestModel>(new TestModel { Data = "Test" }, new CrdtMetadata());
+        var result = new ApplyPatchResult<TestModel>(document, new[] { unapplied });
 
         var json = JsonSerializer.Serialize(result, CrdtJsonContext.DefaultOptions);
         var deserialized = JsonSerializer.Deserialize<ApplyPatchResult<TestModel>>(json, CrdtJsonContext.DefaultOptions);

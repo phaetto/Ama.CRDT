@@ -36,6 +36,27 @@ public class VersionVectorSyncServiceTests
         Should.Throw<ArgumentException>(() => _sut.CalculateRequirement(validContext, invalidContext));
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData(null)]
+    public void CalculateRequirement_StringArgs_InvalidReplicaId_ThrowsArgumentException(string invalidId)
+    {
+        var dvv = new DottedVersionVector();
+
+        Should.Throw<ArgumentException>(() => _sut.CalculateRequirement(invalidId, dvv, "Valid", dvv));
+        Should.Throw<ArgumentException>(() => _sut.CalculateRequirement("Valid", dvv, invalidId, dvv));
+    }
+
+    [Fact]
+    public void CalculateRequirement_StringArgs_NullVector_ThrowsArgumentNullException()
+    {
+        var dvv = new DottedVersionVector();
+
+        Should.Throw<ArgumentNullException>(() => _sut.CalculateRequirement("Target", null!, "Source", dvv));
+        Should.Throw<ArgumentNullException>(() => _sut.CalculateRequirement("Target", dvv, "Source", null!));
+    }
+
     [Fact]
     public void CalculateRequirement_EmptyDVVs_ReturnsNoRequirements()
     {
@@ -165,6 +186,15 @@ public class VersionVectorSyncServiceTests
         
         result.RequirementsByOrigin["OriginC"].TargetContiguousVersion.ShouldBe(0);
         result.RequirementsByOrigin["OriginC"].SourceContiguousVersion.ShouldBe(1);
+    }
+
+    [Fact]
+    public void CalculateBidirectionalRequirements_NullArguments_ThrowsArgumentNullException()
+    {
+        var context = new ReplicaContext { ReplicaId = "A" };
+
+        Should.Throw<ArgumentNullException>(() => _sut.CalculateBidirectionalRequirements(null!, context));
+        Should.Throw<ArgumentNullException>(() => _sut.CalculateBidirectionalRequirements(context, null!));
     }
 
     [Fact]
