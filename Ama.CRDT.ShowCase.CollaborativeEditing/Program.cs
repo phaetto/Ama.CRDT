@@ -36,7 +36,7 @@ internal static class Program
         services.AddCrdtApplicatorDecorator<CompactingApplicatorDecorator>();
 
         // Register Global GC policy for CRDT Metadata connected to the network's minimum version state
-        services.AddSingleton<ICompactionPolicyFactory>(sp => 
+        services.AddCrdtCompactionPolicyFactory(sp => 
             new GlobalMinimumVersionPolicyFactory(() => sp.GetRequiredService<NetworkBroker>().GetGmvv()));
         
         // Register our showcase-specific services
