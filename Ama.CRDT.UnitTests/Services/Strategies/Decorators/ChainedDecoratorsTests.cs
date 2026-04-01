@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -72,7 +73,7 @@ public sealed class ChainedDecoratorsTests : IDisposable
         var doc = new CrdtDocument<ChainedDocument>(new ChainedDocument { Value = "Initial" }, new CrdtMetadata());
         
         // Generate a properly wrapped intent payload using the patcher chain
-        var op = patcher.BuildOperation(doc, x => x.Value).Set("Proposed");
+        var op = patcher.GenerateOperation(doc, x => x.Value, new SetIntent("Proposed"));
 
         // Simulate operations coming from two distinct replicas
         var opReplica1 = op with { ReplicaId = "Replica1" };

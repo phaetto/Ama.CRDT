@@ -1,16 +1,17 @@
 namespace Ama.CRDT.UnitTests.Services;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Shouldly;
 using Xunit;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Ama.CRDT.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Extensions;
 
 public sealed class CrdtPatcherTests : IDisposable
 {
@@ -186,7 +187,7 @@ public sealed class CrdtPatcherTests : IDisposable
     }
 
     [Fact]
-    public void BuildOperation_Set_ShouldProduceCorrectOperation()
+    public void GenerateOperation_Set_ShouldProduceCorrectOperation()
     {
         // Arrange
         var model = new TestModel { Name = "Original" };
@@ -194,7 +195,7 @@ public sealed class CrdtPatcherTests : IDisposable
         var doc = new CrdtDocument<TestModel>(model, metadata);
 
         // Act
-        var op = patcher.BuildOperation(doc, m => m.Name).Set("Updated");
+        var op = patcher.GenerateOperation(doc, m => m.Name, new SetIntent("Updated"));
 
         // Assert
         op.JsonPath.ShouldBe("$.name");
@@ -208,7 +209,7 @@ public sealed class CrdtPatcherTests : IDisposable
     }
 
     [Fact]
-    public void BuildOperation_Increment_ShouldProduceCorrectOperation()
+    public void GenerateOperation_Increment_ShouldProduceCorrectOperation()
     {
         // Arrange
         var model = new TestModel { Likes = 5 };
@@ -216,7 +217,7 @@ public sealed class CrdtPatcherTests : IDisposable
         var doc = new CrdtDocument<TestModel>(model, metadata);
 
         // Act
-        var op = patcher.BuildOperation(doc, m => m.Likes).Increment(10);
+        var op = patcher.GenerateOperation(doc, m => m.Likes, new IncrementIntent(10));
 
         // Assert
         op.JsonPath.ShouldBe("$.likes");
@@ -226,7 +227,7 @@ public sealed class CrdtPatcherTests : IDisposable
     }
 
     [Fact]
-    public void BuildOperation_ListAdd_ShouldProduceCorrectOperation()
+    public void GenerateOperation_ListAdd_ShouldProduceCorrectOperation()
     {
         // Arrange
         var model = new TestModel { Tags = [] };
@@ -234,7 +235,7 @@ public sealed class CrdtPatcherTests : IDisposable
         var doc = new CrdtDocument<TestModel>(model, metadata);
 
         // Act
-        var op = patcher.BuildOperation(doc, m => m.Tags).Add("NewTag");
+        var op = patcher.GenerateOperation(doc, m => m.Tags, new AddIntent("NewTag"));
 
         // Assert
         op.JsonPath.ShouldBe("$.tags");
@@ -244,7 +245,7 @@ public sealed class CrdtPatcherTests : IDisposable
     }
 
     [Fact]
-    public void BuildOperation_DictionaryMapSet_ShouldProduceCorrectOperation()
+    public void GenerateOperation_DictionaryMapSet_ShouldProduceCorrectOperation()
     {
         // Arrange
         var model = new TestModel { Scores = new Dictionary<string, int>() };
@@ -252,7 +253,7 @@ public sealed class CrdtPatcherTests : IDisposable
         var doc = new CrdtDocument<TestModel>(model, metadata);
 
         // Act
-        var op = patcher.BuildOperation(doc, m => m.Scores).Set("Player1", 100);
+        var op = patcher.GenerateOperation(doc, m => m.Scores, new MapSetIntent("Player1", 100));
 
         // Assert
         op.JsonPath.ShouldStartWith("$.scores");

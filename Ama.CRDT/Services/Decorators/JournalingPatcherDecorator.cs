@@ -63,22 +63,6 @@ public sealed class JournalingPatcherDecorator : IAsyncCrdtPatcher
     }
 
     /// <inheritdoc/>
-    public async Task<IIntentBuilder<TProp>> BuildOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, CancellationToken cancellationToken = default) where T : class
-    {
-        var builder = await this.innerPatcher.BuildOperationAsync(document, propertyExpression, cancellationToken).ConfigureAwait(false);
-        var docId = PocoPathHelper.GetDocumentId(document.Data);
-        return new JournalingIntentBuilderDecorator<TProp>(builder, this.journal, docId);
-    }
-
-    /// <inheritdoc/>
-    public async Task<IIntentBuilder<TProp>> BuildOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, [DisallowNull] ICrdtTimestamp timestamp, CancellationToken cancellationToken = default) where T : class
-    {
-        var builder = await this.innerPatcher.BuildOperationAsync(document, propertyExpression, timestamp, cancellationToken).ConfigureAwait(false);
-        var docId = PocoPathHelper.GetDocumentId(document.Data);
-        return new JournalingIntentBuilderDecorator<TProp>(builder, this.journal, docId);
-    }
-
-    /// <inheritdoc/>
     public async Task<CrdtOperation> GenerateOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CancellationToken cancellationToken = default) where T : class
     {
         var operation = await this.innerPatcher.GenerateOperationAsync(document, propertyExpression, intent, cancellationToken).ConfigureAwait(false);

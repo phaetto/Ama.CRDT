@@ -5,6 +5,8 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
+using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Models.Intents.Decorators;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
@@ -113,8 +115,8 @@ public sealed class EpochBoundStrategyTests : IDisposable
         var doc = new CrdtDocument<ShoppingCart>(new ShoppingCart(), new CrdtMetadata());
         doc.Metadata.Epochs["$.items"] = 3; // Parent is at epoch 3
 
-        // Use IntentBuilder on a child path with Set extension method
-        var op = patcher.BuildOperation(doc, x => x.Items).Set("Key1", "Val1");
+        // Use GenerateOperation on a child path with Set intent
+        var op = patcher.GenerateOperation(doc, x => x.Items, new MapSetIntent("Key1", "Val1"));
 
         op.JsonPath.ShouldStartWith("$.items"); // Inner strategy defines the final generated path layout
         op.Value.ShouldBeOfType<EpochPayload>();
@@ -129,7 +131,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
         var doc = new CrdtDocument<ShoppingCart>(new ShoppingCart(), new CrdtMetadata());
         doc.Metadata.Epochs["$.items"] = 5; // Start at epoch 5
 
-        var op = patcher.BuildOperation(doc, x => x.Items).ClearEpoch();
+        var op = patcher.GenerateOperation(doc, x => x.Items, new EpochClearIntent());
 
         op.Type.ShouldBe(OperationType.Remove);
         op.JsonPath.ShouldBe("$.items");
@@ -226,7 +228,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
         doc.Metadata.Epochs["$.items"] = 1;
 
         // Now parent clear arrives with Epoch 2
-        var clearOp = patcher.BuildOperation(doc, x => x.Items).ClearEpoch();
+        var clearOp = patcher.GenerateOperation(doc, x => x.Items, new EpochClearIntent());
 
         applicator.ApplyPatch(doc, new CrdtPatch([clearOp]));
 
@@ -237,7 +239,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
         doc.Metadata.Epochs.ContainsKey("$.items['Key1']").ShouldBeFalse();
 
         // Future operation on child with epoch 2 should succeed and NOT trigger a clear
-        var childOp = patcher.BuildOperation(doc, x => x.Items).Set("Key2", "Val2");
+        var childOp = patcher.GenerateOperation(doc, x => x.Items, new MapSetIntent("Key2", "Val2"));
 
         applicator.ApplyPatch(doc, new CrdtPatch([childOp]));
         

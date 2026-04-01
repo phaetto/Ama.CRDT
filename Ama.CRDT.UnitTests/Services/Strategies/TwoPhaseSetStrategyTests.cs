@@ -344,11 +344,11 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
 
         // Act
         // Create and apply the first operation to increment the local clock
-        var addOp = patcherA.BuildOperation(document, x => x.Tags).Add("B");
+        var addOp = patcherA.GenerateOperation(document, x => x.Tags, new AddIntent("B"));
         applicatorA.ApplyPatch(document, new CrdtPatch([addOp]));
         
         // Create and apply the second operation with the updated metadata clock state
-        var removeOp = patcherA.BuildOperation(document, x => x.Tags).Remove("A");
+        var removeOp = patcherA.GenerateOperation(document, x => x.Tags, new RemoveValueIntent("A"));
         applicatorA.ApplyPatch(document, new CrdtPatch([removeOp]));
 
         // Assert

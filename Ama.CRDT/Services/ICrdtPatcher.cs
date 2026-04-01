@@ -67,51 +67,6 @@ public interface ICrdtPatcher
     CrdtPatch GeneratePatch<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, [DisallowNull] ICrdtTimestamp changeTimestamp) where T : class;
 
     /// <summary>
-    /// Creates a strongly-typed intent builder for a specific property, allowing you to generate operations
-    /// using fluent extension methods like <c>.Add()</c>, <c>.Remove()</c>, or <c>.Increment()</c> 
-    /// without manually boxing values into intent structs.
-    /// </summary>
-    /// <typeparam name="T">The type of the document.</typeparam>
-    /// <typeparam name="TProp">The type of the property being targeted.</typeparam>
-    /// <param name="document">The original document state, including its data and metadata.</param>
-    /// <param name="propertyExpression">An expression pinpointing the target property for the explicit intent.</param>
-    /// <returns>An <see cref="IIntentBuilder{TProperty}"/> that can be used to fluently build the operation.</returns>
-    /// <example>
-    /// <code>
-    /// <![CDATA[
-    /// var doc = new CrdtDocument<MyDataObject>(new MyDataObject(), metadata);
-    /// 
-    /// // Uses extension methods from Ama.CRDT.Extensions (e.g., .Set())
-    /// var operation = patcher.BuildOperation(doc, x => x.Name).Set("Alice");
-    /// ]]>
-    /// </code>
-    /// </example>
-    IIntentBuilder<TProp> BuildOperation<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression) where T : class;
-
-    /// <summary>
-    /// Creates a strongly-typed intent builder for a specific property with a specified timestamp, allowing you to generate operations
-    /// using fluent extension methods like <c>.Add()</c>, <c>.Remove()</c>, or <c>.Increment()</c> 
-    /// without manually boxing values into intent structs.
-    /// </summary>
-    /// <typeparam name="T">The type of the document.</typeparam>
-    /// <typeparam name="TProp">The type of the property being targeted.</typeparam>
-    /// <param name="document">The original document state, including its data and metadata.</param>
-    /// <param name="propertyExpression">An expression pinpointing the target property for the explicit intent.</param>
-    /// <param name="timestamp">The specific timestamp to assign to the generated operation.</param>
-    /// <returns>An <see cref="IIntentBuilder{TProperty}"/> that can be used to fluently build the operation.</returns>
-    /// <example>
-    /// <code>
-    /// <![CDATA[
-    /// var doc = new CrdtDocument<MyDataObject>(new MyDataObject(), metadata);
-    /// var customTs = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-    /// 
-    /// var operation = patcher.BuildOperation(doc, x => x.Name, customTs).Set("Alice");
-    /// ]]>
-    /// </code>
-    /// </example>
-    IIntentBuilder<TProp> BuildOperation<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
-
-    /// <summary>
     /// Generates a single CRDT operation explicitly based on a provided operation intent, bypassing the state diffing process.
     /// Uses an expression tree to strongly type and identify the targeted property.
     /// </summary>

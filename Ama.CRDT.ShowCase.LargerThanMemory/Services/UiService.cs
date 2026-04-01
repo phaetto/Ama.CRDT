@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text.Json;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Journaling;
 using Ama.CRDT.Services.Partitioning;
@@ -628,7 +629,7 @@ public sealed class UiService
                 new BlogPost { Id = selectedBlogPostId, Comments = new Dictionary<DateTimeOffset, Comment>() }, 
                 headerContent.Value.Metadata);
             
-            var operation = patcher.BuildOperation(fromDoc, x => x.Comments).Set(comment.CreatedAt, comment);
+            var operation = patcher.GenerateOperation(fromDoc, x => x.Comments, new MapSetIntent(comment.CreatedAt, comment));
             var patch = new CrdtPatch(new[] { operation });
             
             // Journal decorator automatically saves
@@ -679,7 +680,7 @@ public sealed class UiService
             var header = headerContent.Value.Data;
             var fromDoc = new CrdtDocument<BlogPost>(header, headerContent.Value.Metadata);
             
-            var operation = patcher.BuildOperation(fromDoc, x => x.Tags).Add(newTag);
+            var operation = patcher.GenerateOperation(fromDoc, x => x.Tags, new AddIntent(newTag));
             var patch = new CrdtPatch(new[] { operation });
             
             // Journal decorator automatically saves

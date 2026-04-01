@@ -70,49 +70,6 @@ public sealed class AsyncCrdtPatcherAdapterTests
     }
 
     [Fact]
-    public async Task BuildOperationAsync_WithoutTimestamp_ShouldCallInnerPatcher()
-    {
-        // Arrange
-        var innerMock = new Mock<ICrdtPatcher>();
-        var adapter = new AsyncCrdtPatcherAdapter(innerMock.Object);
-
-        var document = new CrdtDocument<TestModel>(new TestModel());
-        Expression<Func<TestModel, string?>> expression = m => m.Property;
-        var expectedBuilder = new Mock<IIntentBuilder<string?>>().Object;
-
-        innerMock.Setup(m => m.BuildOperation(document, expression)).Returns(expectedBuilder);
-
-        // Act
-        var result = await adapter.BuildOperationAsync(document, expression);
-
-        // Assert
-        result.ShouldBe(expectedBuilder);
-        innerMock.Verify(m => m.BuildOperation(document, expression), Times.Once);
-    }
-
-    [Fact]
-    public async Task BuildOperationAsync_WithTimestamp_ShouldCallInnerPatcher()
-    {
-        // Arrange
-        var innerMock = new Mock<ICrdtPatcher>();
-        var adapter = new AsyncCrdtPatcherAdapter(innerMock.Object);
-
-        var document = new CrdtDocument<TestModel>(new TestModel());
-        Expression<Func<TestModel, string?>> expression = m => m.Property;
-        var timestampMock = new Mock<ICrdtTimestamp>();
-        var expectedBuilder = new Mock<IIntentBuilder<string?>>().Object;
-
-        innerMock.Setup(m => m.BuildOperation(document, expression, timestampMock.Object)).Returns(expectedBuilder);
-
-        // Act
-        var result = await adapter.BuildOperationAsync(document, expression, timestampMock.Object);
-
-        // Assert
-        result.ShouldBe(expectedBuilder);
-        innerMock.Verify(m => m.BuildOperation(document, expression, timestampMock.Object), Times.Once);
-    }
-
-    [Fact]
     public async Task GenerateOperationAsync_WithoutTimestamp_ShouldCallInnerPatcher()
     {
         // Arrange

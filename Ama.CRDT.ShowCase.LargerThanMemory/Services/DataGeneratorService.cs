@@ -2,6 +2,7 @@ namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
@@ -67,7 +68,7 @@ public sealed class DataGeneratorService(
             var tagsOperations = new List<CrdtOperation>(tags.Count);
             foreach (var tag in tags)
             {
-                var op = patcher.BuildOperation(fromDocForTags, x => x.Tags).Add(tag);
+                var op = patcher.GenerateOperation(fromDocForTags, x => x.Tags, new AddIntent(tag));
                 metadataManager.AdvanceVersionVector(metadata!, op);
                 tagsOperations.Add(op);
             }
@@ -95,7 +96,7 @@ public sealed class DataGeneratorService(
                     currentCommentDate = currentCommentDate.AddMinutes(-random.Next(1, 60)); // Make each comment older than the previous one
                     var finalComment = comment with { CreatedAt = currentCommentDate };
                     
-                    var op = patcher.BuildOperation(fromDocument, x => x.Comments).Set(finalComment.CreatedAt, finalComment);
+                    var op = patcher.GenerateOperation(fromDocument, x => x.Comments, new MapSetIntent(finalComment.CreatedAt, finalComment));
                     metadataManager.AdvanceVersionVector(metadata!, op);
                     operations.Add(op);
                 }
