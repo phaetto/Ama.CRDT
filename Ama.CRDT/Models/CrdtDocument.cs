@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Ama.CRDT.Models;
 
 /// <summary>
@@ -10,18 +12,19 @@ public readonly record struct CrdtDocument<T> where T : class
     /// <summary>
     /// Gets the data model instance.
     /// </summary>
-    public T? Data { get; }
+    public T? Data { get; init; }
 
     /// <summary>
     /// Gets the CRDT metadata associated with the data.
     /// </summary>
-    public CrdtMetadata? Metadata { get; }
+    public CrdtMetadata? Metadata { get; init; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CrdtDocument{T}"/> struct.
     /// </summary>
     /// <param name="data">The data model instance.</param>
     /// <param name="metadata">The CRDT metadata associated with the data.</param>
+    [JsonConstructor]
     public CrdtDocument(T? data, CrdtMetadata? metadata)
     {
         Data = data;

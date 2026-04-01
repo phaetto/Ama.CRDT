@@ -136,4 +136,67 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
 
         return gmvv;
     }
+
+    /// <inheritdoc/>
+    public DottedVersionVector CalculateGlobalMaximumVersionVector(IEnumerable<DottedVersionVector> clusterVectors)
+    {
+        ArgumentNullException.ThrowIfNull(clusterVectors);
+
+        var mergedVersions = new Dictionary<string, long>();
+        var mergedDots = new Dictionary<string, ISet<long>>();
+
+        foreach (var state in clusterVectors)
+        {
+            if (state == null) continue;
+
+            foreach (var kvp in state.Versions)
+            {
+                if (!mergedVersions.TryGetValue(kvp.Key, out var val) || kvp.Value > val)
+                {
+                    mergedVersions[kvp.Key] = kvp.Value;
+                }
+            }
+
+            if (state.Dots != null)
+            {
+                foreach (var kvp in state.Dots)
+                {
+                    if (!mergedDots.TryGetValue(kvp.Key, out var dotSet))
+                    {
+                        dotSet = new HashSet<long>();
+                        mergedDots[kvp.Key] = dotSet;
+                    }
+                    foreach (var dot in kvp.Value)
+                    {
+                        dotSet.Add(dot);
+                    }
+                }
+            }
+        }
+
+        // Prune any dots that are safely covered by the max contiguous version
+        var originsToPrune = new List<string>();
+        foreach (var kvp in mergedDots)
+        {
+            if (mergedVersions.TryGetValue(kvp.Key, out var maxContiguous))
+            {
+                var prunedSet = new HashSet<long>(kvp.Value.Where(d => d > maxContiguous));
+                if (prunedSet.Count > 0)
+                {
+                    mergedDots[kvp.Key] = prunedSet;
+                }
+                else
+                {
+                    originsToPrune.Add(kvp.Key);
+                }
+            }
+        }
+
+        foreach (var origin in originsToPrune)
+        {
+            mergedDots.Remove(origin);
+        }
+
+        return new DottedVersionVector(mergedVersions, mergedDots);
+    }
 }
