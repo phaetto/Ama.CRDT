@@ -131,7 +131,7 @@ public sealed class FwwMapStrategyProperties
                 0);
         }).ToList();
 
-        var random = new System.Random(opsData.Count);
+        var random = new Random(opsData.Count);
         var permutation1 = ops.OrderBy(_ => random.Next()).ToList();
         var permutation2 = ops.OrderBy(_ => random.Next()).ToList();
 

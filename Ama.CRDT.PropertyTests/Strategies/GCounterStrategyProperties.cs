@@ -87,7 +87,7 @@ public sealed class GCounterStrategyProperties
             new EpochTimestamp(i),
             0)).ToList();
 
-        var random = new System.Random(rawIncrements.Count);
+        var random = new Random(rawIncrements.Count);
         var permutation1 = ops.OrderBy(_ => random.Next()).ToList();
         var permutation2 = ops.OrderBy(_ => random.Next()).ToList();
 

@@ -24,7 +24,7 @@ public interface IAsyncCrdtPatcher
     /// <param name="changed">The modified document data.</param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the work.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains a <see cref="CrdtPatch"/> with the operations required to transform the "from" state to the "changed" state.</returns>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="from"/>.Metadata or <paramref name="changed"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="from"/>.Metadata or <paramref name="changed"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -56,7 +56,7 @@ public interface IAsyncCrdtPatcher
     /// <param name="changeTimestamp">The specific timestamp to assign to all operations in the generated patch.</param>
     /// <param name="cancellationToken">A cancellation token that can be used to cancel the work.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains a <see cref="CrdtPatch"/> with the operations required to transform the "from" state to the "changed" state.</returns>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="from"/>.Metadata, <paramref name="changed"/>, or <paramref name="changeTimestamp"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="from"/>.Metadata, <paramref name="changed"/>, or <paramref name="changeTimestamp"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[

@@ -41,7 +41,7 @@ public sealed class CrdtPropertyBuilder<T, TProperty> where T : class
     /// <summary>
     /// Adds a CRDT decorator strategy to the property. Decorators are applied in the order they are registered.
     /// </summary>
-    /// <typeparam name="TDecorator">The CRDT decorator type to apply (e.g., <see cref="Ama.CRDT.Services.Strategies.Decorators.ApprovalQuorumStrategy"/>).</typeparam>
+    /// <typeparam name="TDecorator">The CRDT decorator type to apply (e.g., <see cref="Strategies.Decorators.ApprovalQuorumStrategy"/>).</typeparam>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     public CrdtPropertyBuilder<T, TProperty> HasDecorator<TDecorator>() where TDecorator : class, ICrdtStrategy
     {

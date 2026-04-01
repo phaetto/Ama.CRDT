@@ -56,7 +56,7 @@ internal static class PocoPathHelper
         var type = obj.GetType();
         var prop = DocumentIdPropertyCache.GetOrAdd(type, t =>
         {
-            var attr = t.GetCustomAttribute<Ama.CRDT.Attributes.PartitionKeyAttribute>();
+            var attr = t.GetCustomAttribute<Attributes.PartitionKeyAttribute>();
             if (attr != null)
             {
                 return t.GetProperty(attr.PropertyName, BindingFlags.Public | BindingFlags.Instance);

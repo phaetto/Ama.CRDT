@@ -145,7 +145,7 @@ public sealed class LseqStrategyProperties
             }
         }).ToList();
 
-        var random = new System.Random(rawOps.Count);
+        var random = new Random(rawOps.Count);
         var permutation1 = ops.OrderBy(_ => random.Next()).ToList();
         var permutation2 = ops.OrderBy(_ => random.Next()).ToList();
 

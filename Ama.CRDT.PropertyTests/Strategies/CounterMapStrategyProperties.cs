@@ -99,7 +99,7 @@ public sealed class CounterMapStrategyProperties
             new EpochTimestamp(i),
             0)).ToList();
 
-        var random = new System.Random(opsData.Count);
+        var random = new Random(opsData.Count);
         var permutation1 = ops.OrderBy(_ => random.Next()).ToList();
         var permutation2 = ops.OrderBy(_ => random.Next()).ToList();
 

@@ -111,7 +111,7 @@ public sealed class AverageRegisterStrategyProperties
             new EpochTimestamp(x.Item1),
             0)).ToList();
 
-        var random = new System.Random(rawOps.Count);
+        var random = new Random(rawOps.Count);
         var permutation1 = ops.OrderBy(_ => random.Next()).ToList();
         var permutation2 = ops.OrderBy(_ => random.Next()).ToList();
 

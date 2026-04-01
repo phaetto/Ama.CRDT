@@ -85,6 +85,18 @@
 | `$/Ama.CRDT.PropertyTests/Strategies/TwoPhaseGraphStrategyProperties.cs` | Contains property-based tests for `TwoPhaseGraphStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
 | `$/Ama.CRDT.PropertyTests/Strategies/TwoPhaseSetStrategyProperties.cs` | Contains property-based tests for `TwoPhaseSetStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
 | `$/Ama.CRDT.PropertyTests/Strategies/VoteCounterStrategyProperties.cs` | Contains property-based tests for `VoteCounterStrategy` validating convergence, commutativity, and idempotence using `FsCheck`. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/Ama.CRDT.ShowCase.CollaborativeEditing.csproj` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/EditorForm.cs` | An editor GUI capable of syncing its local state and incoming patches correctly using timers. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/EditorForm.resx` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/Form1.Designer.cs` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/Form1.cs` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/Form1.resx` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.Designer.cs` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.cs` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.resx` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/Models/SharedDocument.cs` | Model representing a shared document of strings synced across replicas using ArrayLcsStrategy. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/Program.cs` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/Services/NetworkBroker.cs` | Simulates a network passing CRDT patches to different editors in real-time. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/BlogPost.cs` | The root data model for the showcase, representing a blog post. It is decorated with `[PartitionKey]` and its `Comments` list uses `[CrdtArrayLcsStrategy]` to enable partitioning. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/Comment.cs` | A simple record representing a comment in the blog post. |
@@ -122,6 +134,7 @@
 | `$/Ama.CRDT.UnitTests/Services/CrdtComposableArchitectureTests.cs` | Contains integration tests for the CRDT composable architecture, verifying that the Patcher and Applicator correctly handle deep nesting, complex model traversal, intent-based operation generation, and resolution across multiple nested CRDT strategies (LSEQ, Min-Wins Map, State Machine, Graph, etc.). |
 | `$/Ama.CRDT.UnitTests/Services/CrdtMetadataManagerTests.cs` | Contains unit tests for the `CrdtMetadataManager`, verifying LWW pruning and version vector advancement logic. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtPatcherTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Decorators/CompactingApplicatorDecoratorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/JournalingApplicatorDecoratorTests.cs` | Contains unit tests for `JournalingApplicatorDecorator`, validating that only successfully applied CRDT operations are dispatched to the operation journal. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/JournalingPatcherDecoratorTests.cs` | Contains unit tests for `JournalingPatcherDecorator`, verifying that generated patches, intents, and explicit operations are properly captured and journaled. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/PartitioningApplicatorDecoratorTests.cs` | Contains unit tests for `PartitioningApplicatorDecorator`, validating the patch interception logic, partition splitting and merging, and ensuring operations are properly delegated to the inner `IAsyncCrdtApplicator`. |
@@ -167,7 +180,6 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseGraphStrategyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseSetStrategyTests.cs` | Contains unit tests for the `TwoPhaseSetStrategy`, verifying that elements can be added and removed, but not re-added after removal. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTests.cs` | Contains unit tests for the `VoteCounterStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent voting scenarios. |
-| `$/Ama.CRDT.UnitTests/Services/VersionVectorSyncServiceTests.cs` | Contains comprehensive unit tests for `VersionVectorSyncService`, validating synchronization requirements calculations between different `DottedVersionVector` states. |
 | `$/Ama.CRDT.UnitTests/Services/Versioning/VersionVectorSyncServiceTests.cs` | No description provided. |
 | `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |
 | `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging and to automatically include its associated Roslyn analyzers. |

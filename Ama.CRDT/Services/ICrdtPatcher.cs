@@ -21,7 +21,7 @@ public interface ICrdtPatcher
     /// <param name="from">The original document state, including its data and metadata.</param>
     /// <param name="changed">The modified document data.</param>
     /// <returns>A <see cref="CrdtPatch"/> containing the operations required to transform the "from" state to the "changed" state.</returns>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="from"/>.Metadata or <paramref name="changed"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="from"/>.Metadata or <paramref name="changed"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
@@ -52,7 +52,7 @@ public interface ICrdtPatcher
     /// <param name="changed">The modified document data.</param>
     /// <param name="changeTimestamp">The specific timestamp to assign to all operations in the generated patch.</param>
     /// <returns>A <see cref="CrdtPatch"/> containing the operations required to transform the "from" state to the "changed" state.</returns>
-    /// <exception cref="System.ArgumentNullException">Thrown if <paramref name="from"/>.Metadata, <paramref name="changed"/>, or <paramref name="changeTimestamp"/> is null.</exception>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="from"/>.Metadata, <paramref name="changed"/>, or <paramref name="changeTimestamp"/> is null.</exception>
     /// <example>
     /// <code>
     /// <![CDATA[
