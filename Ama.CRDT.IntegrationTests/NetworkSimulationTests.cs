@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Decorators;
 using Ama.CRDT.Services.Journaling;
@@ -168,7 +169,7 @@ public sealed class NetworkSimulationTests
 
         // B performs Intent-Based Update on Counter
         var patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-        var opB = patcherB.BuildOperation(crdtDocB, d => d.ViewCount).Increment(5);
+        var opB = patcherB.GenerateOperation(crdtDocB, d => d.ViewCount, new IncrementIntent(5));
         var patchB1 = new CrdtPatch(new CrdtOperation[] { opB });
         ApplyTo(scopeB, ref crdtDocB, patchB1);
         ApplyTo(scopeA, ref crdtDocA, patchB1);
@@ -176,7 +177,7 @@ public sealed class NetworkSimulationTests
 
         // A performs Set Addition via Intent
         var patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-        var opA2 = patcherA.BuildOperation(crdtDocA, d => d.Tags).Add("Tag-P1");
+        var opA2 = patcherA.GenerateOperation(crdtDocA, d => d.Tags, new AddIntent("Tag-P1"));
         var patchA2 = new CrdtPatch(new CrdtOperation[] { opA2 });
         ApplyTo(scopeA, ref crdtDocA, patchA2);
         ApplyTo(scopeB, ref crdtDocB, patchA2);
@@ -192,7 +193,7 @@ public sealed class NetworkSimulationTests
 
         // D performs Intent-Based Update on Counter
         var patcherD = scopeD.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-        var opD = patcherD.BuildOperation(crdtDocD, d => d.ViewCount).Increment(10);
+        var opD = patcherD.GenerateOperation(crdtDocD, d => d.ViewCount, new IncrementIntent(10));
         var patchD1 = new CrdtPatch(new CrdtOperation[] { opD });
         ApplyTo(scopeD, ref crdtDocD, patchD1);
         ApplyTo(scopeC, ref crdtDocC, patchD1);
@@ -200,7 +201,7 @@ public sealed class NetworkSimulationTests
 
         // C performs Set Addition via Intent
         var patcherC = scopeC.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-        var opC2 = patcherC.BuildOperation(crdtDocC, d => d.Tags).Add("Tag-P2");
+        var opC2 = patcherC.GenerateOperation(crdtDocC, d => d.Tags, new AddIntent("Tag-P2"));
         var patchC2 = new CrdtPatch(new CrdtOperation[] { opC2 });
         ApplyTo(scopeC, ref crdtDocC, patchC2);
         ApplyTo(scopeD, ref crdtDocD, patchC2);
@@ -339,8 +340,8 @@ public sealed class NetworkSimulationTests
         
         // Establish some shared initial state
         var patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-        var opTag = patcherA.BuildOperation(crdtDocA, d => d.Tags).Add("SharedTag");
-        var opPref = patcherA.BuildOperation(crdtDocA, d => d.Preferences).Set("SharedKey", "InitialValue"); // Fixed to .Set()
+        var opTag = patcherA.GenerateOperation(crdtDocA, d => d.Tags, new AddIntent("SharedTag"));
+        var opPref = patcherA.GenerateOperation(crdtDocA, d => d.Preferences, new MapSetIntent("SharedKey", "InitialValue"));
         var initialPatch = new CrdtPatch(new[] { opTag, opPref });
         
         ApplyTo(scopeA, ref crdtDocA, initialPatch);
@@ -351,16 +352,16 @@ public sealed class NetworkSimulationTests
 
         // Act
         // Node A concurrently removes the tag and updates the preference
-        var opTagRemA = patcherA.BuildOperation(crdtDocA, d => d.Tags).Remove("SharedTag");
-        var opPrefUpdA = patcherA.BuildOperation(crdtDocA, d => d.Preferences).Set("SharedKey", "ValueFromA"); // Fixed to .Set()
+        var opTagRemA = patcherA.GenerateOperation(crdtDocA, d => d.Tags, new RemoveValueIntent("SharedTag"));
+        var opPrefUpdA = patcherA.GenerateOperation(crdtDocA, d => d.Preferences, new MapSetIntent("SharedKey", "ValueFromA"));
         var patchA = new CrdtPatch(new[] { opTagRemA, opPrefUpdA });
         ApplyTo(scopeA, ref crdtDocA, patchA);
 
         // Node B concurrently removes the *same* tag (idempotent remove), adds a new tag, and updates the same preference
         var patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-        var opTagRemB = patcherB.BuildOperation(crdtDocB, d => d.Tags).Remove("SharedTag");
-        var opTagAddB = patcherB.BuildOperation(crdtDocB, d => d.Tags).Add("TagFromB");
-        var opPrefUpdB = patcherB.BuildOperation(crdtDocB, d => d.Preferences).Set("SharedKey", "ValueFromB"); // Fixed to .Set()
+        var opTagRemB = patcherB.GenerateOperation(crdtDocB, d => d.Tags, new RemoveValueIntent("SharedTag"));
+        var opTagAddB = patcherB.GenerateOperation(crdtDocB, d => d.Tags, new AddIntent("TagFromB"));
+        var opPrefUpdB = patcherB.GenerateOperation(crdtDocB, d => d.Preferences, new MapSetIntent("SharedKey", "ValueFromB"));
         var patchB = new CrdtPatch(new[] { opTagRemB, opTagAddB, opPrefUpdB });
         ApplyTo(scopeB, ref crdtDocB, patchB);
 
@@ -438,7 +439,7 @@ public sealed class NetworkSimulationTests
         // Act
         // 1. Node A adds an item
         var patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-        var addOp = patcherA.BuildOperation(docA, d => d.Tags).Add("GhostItem");
+        var addOp = patcherA.GenerateOperation(docA, d => d.Tags, new AddIntent("GhostItem"));
         var addPatch = new CrdtPatch(new[] { addOp });
         ApplyTo(scopeA, ref docA, addPatch);
 
@@ -448,7 +449,7 @@ public sealed class NetworkSimulationTests
 
         // 3. Node B immediately removes the item
         var patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-        var removeOp = patcherB.BuildOperation(docB, d => d.Tags).Remove("GhostItem");
+        var removeOp = patcherB.GenerateOperation(docB, d => d.Tags, new RemoveValueIntent("GhostItem"));
         var removePatch = new CrdtPatch(new[] { removeOp });
         ApplyTo(scopeB, ref docB, removePatch);
         docB.Data.Tags.ShouldNotContain("GhostItem");
@@ -496,8 +497,7 @@ public sealed class NetworkSimulationTests
         // (which are automatically decorated to save to the local journal).
         for (int i = 0; i < 5; i++)
         {
-            var builder = await patcherA.BuildOperationAsync(docA, d => d.ViewCount);
-            var op = builder.Increment(1);
+            var op = await patcherA.GenerateOperationAsync(docA, d => d.ViewCount, new IncrementIntent(1));
             var patch = new CrdtPatch(new[] { op });
             
             var result = await applicatorA.ApplyPatchAsync(docA, patch);
@@ -636,12 +636,12 @@ public sealed class NetworkSimulationTests
             patches.Add(diffPatch);
             
             // Intent-based generation - Apply immediately to advance the logical clock sequentially
-            var tagsOp = patcher.BuildOperation(crdtDoc, d => d.Tags).Add($"{prefix}-Tag-{i}");
+            var tagsOp = patcher.GenerateOperation(crdtDoc, d => d.Tags, new AddIntent($"{prefix}-Tag-{i}"));
             var tagsPatch = new CrdtPatch(new CrdtOperation[] { tagsOp });
             ApplyTo(scope, ref crdtDoc, tagsPatch);
             patches.Add(tagsPatch);
 
-            var viewCountOp = patcher.BuildOperation(crdtDoc, d => d.ViewCount).Increment(1);
+            var viewCountOp = patcher.GenerateOperation(crdtDoc, d => d.ViewCount, new IncrementIntent(1));
             var viewCountPatch = new CrdtPatch(new CrdtOperation[] { viewCountOp });
             ApplyTo(scope, ref crdtDoc, viewCountPatch);
             patches.Add(viewCountPatch);

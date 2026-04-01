@@ -42,24 +42,6 @@ internal sealed class AsyncCrdtPatcherAdapter : IAsyncCrdtPatcher
     }
 
     /// <inheritdoc/>
-    public Task<IIntentBuilder<TProp>> BuildOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, CancellationToken cancellationToken = default) where T : class
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        
-        var result = _innerPatcher.BuildOperation(document, propertyExpression);
-        return Task.FromResult(result);
-    }
-
-    /// <inheritdoc/>
-    public Task<IIntentBuilder<TProp>> BuildOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, [DisallowNull] ICrdtTimestamp timestamp, CancellationToken cancellationToken = default) where T : class
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        
-        var result = _innerPatcher.BuildOperation(document, propertyExpression, timestamp);
-        return Task.FromResult(result);
-    }
-
-    /// <inheritdoc/>
     public Task<CrdtOperation> GenerateOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CancellationToken cancellationToken = default) where T : class
     {
         cancellationToken.ThrowIfCancellationRequested();

@@ -88,7 +88,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
     {
         var doc = new CrdtDocument<ProposalDocument>(new ProposalDocument(), new CrdtMetadata());
 
-        var op = patcher.BuildOperation(doc, x => x.ConfigValue).Build(new SetIntent("Proposed"));
+        var op = patcher.GenerateOperation(doc, x => x.ConfigValue, new SetIntent("Proposed"));
 
         op.Type.ShouldBe(OperationType.Upsert);
         op.JsonPath.ShouldBe("$.configValue");

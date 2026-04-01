@@ -71,58 +71,6 @@ public interface IAsyncCrdtPatcher
     Task<CrdtPatch> GeneratePatchAsync<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, [DisallowNull] ICrdtTimestamp changeTimestamp, CancellationToken cancellationToken = default) where T : class;
 
     /// <summary>
-    /// Asynchronously creates a strongly-typed intent builder for a specific property, allowing you to generate operations
-    /// using fluent extension methods like <c>.AddAsync()</c>, <c>.RemoveAsync()</c>, or <c>.IncrementAsync()</c> 
-    /// without manually boxing values into intent structs.
-    /// </summary>
-    /// <typeparam name="T">The type of the document.</typeparam>
-    /// <typeparam name="TProp">The type of the property being targeted.</typeparam>
-    /// <param name="document">The original document state, including its data and metadata.</param>
-    /// <param name="propertyExpression">An expression pinpointing the target property for the explicit intent.</param>
-    /// <param name="cancellationToken">A cancellation token that can be used to cancel the work.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains an <see cref="IIntentBuilder{TProperty}"/> that can be used to fluently build the operation.</returns>
-    /// <example>
-    /// <code>
-    /// <![CDATA[
-    /// var doc = new CrdtDocument<MyDataObject>(new MyDataObject(), metadata);
-    /// 
-    /// // Uses async extension methods from Ama.CRDT.Extensions (e.g., .SetAsync())
-    /// // You can chain the task directly:
-    /// var operation = await patcher.BuildOperationAsync(doc, x => x.Name, cancellationToken)
-    ///                              .SetAsync("Alice", cancellationToken);
-    /// ]]>
-    /// </code>
-    /// </example>
-    Task<IIntentBuilder<TProp>> BuildOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, CancellationToken cancellationToken = default) where T : class;
-
-    /// <summary>
-    /// Asynchronously creates a strongly-typed intent builder for a specific property with a specified timestamp, allowing you to generate operations
-    /// using fluent extension methods like <c>.AddAsync()</c>, <c>.RemoveAsync()</c>, or <c>.IncrementAsync()</c> 
-    /// without manually boxing values into intent structs.
-    /// </summary>
-    /// <typeparam name="T">The type of the document.</typeparam>
-    /// <typeparam name="TProp">The type of the property being targeted.</typeparam>
-    /// <param name="document">The original document state, including its data and metadata.</param>
-    /// <param name="propertyExpression">An expression pinpointing the target property for the explicit intent.</param>
-    /// <param name="timestamp">The specific timestamp to assign to the generated operation.</param>
-    /// <param name="cancellationToken">A cancellation token that can be used to cancel the work.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains an <see cref="IIntentBuilder{TProperty}"/> that can be used to fluently build the operation.</returns>
-    /// <example>
-    /// <code>
-    /// <![CDATA[
-    /// var doc = new CrdtDocument<MyDataObject>(new MyDataObject(), metadata);
-    /// var customTs = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-    /// 
-    /// // Uses async extension methods from Ama.CRDT.Extensions (e.g., .SetAsync())
-    /// // You can chain the task directly:
-    /// var operation = await patcher.BuildOperationAsync(doc, x => x.Name, customTs, cancellationToken)
-    ///                              .SetAsync("Alice", cancellationToken);
-    /// ]]>
-    /// </code>
-    /// </example>
-    Task<IIntentBuilder<TProp>> BuildOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, [DisallowNull] ICrdtTimestamp timestamp, CancellationToken cancellationToken = default) where T : class;
-
-    /// <summary>
     /// Asynchronously generates a single CRDT operation explicitly based on a provided operation intent, bypassing the state diffing process.
     /// Uses an expression tree to strongly type and identify the targeted property.
     /// </summary>

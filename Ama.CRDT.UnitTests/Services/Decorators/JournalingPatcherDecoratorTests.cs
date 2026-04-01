@@ -113,27 +113,6 @@ public sealed class JournalingPatcherDecoratorTests
     }
 
     [Fact]
-    public async Task BuildOperationAsync_ShouldReturnJournalingIntentBuilderDecorator()
-    {
-        // Arrange
-        var patcherMock = new Mock<IAsyncCrdtPatcher>();
-        var journalMock = new Mock<ICrdtOperationJournal>();
-        var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object);
-
-        var document = new CrdtDocument<TestModel>(new TestModel());
-        Expression<Func<TestModel, string?>> expression = m => m.Property;
-        var builderMock = new Mock<IIntentBuilder<string?>>();
-
-        patcherMock.Setup(m => m.BuildOperationAsync(document, expression, It.IsAny<CancellationToken>())).ReturnsAsync(builderMock.Object);
-
-        // Act
-        var result = await decorator.BuildOperationAsync(document, expression);
-
-        // Assert
-        result.ShouldBeOfType<JournalingIntentBuilderDecorator<string?>>();
-    }
-
-    [Fact]
     public async Task GenerateOperationAsync_ShouldJournalTheOperation()
     {
         // Arrange

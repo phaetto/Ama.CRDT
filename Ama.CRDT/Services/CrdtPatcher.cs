@@ -79,23 +79,6 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
     }
 
     /// <inheritdoc/>
-    public IIntentBuilder<TProp> BuildOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression) where T : class
-    {
-        ArgumentNullException.ThrowIfNull(propertyExpression);
-
-        return new IntentBuilder<T, TProp>(this, document, propertyExpression, null);
-    }
-
-    /// <inheritdoc/>
-    public IIntentBuilder<TProp> BuildOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, ICrdtTimestamp timestamp) where T : class
-    {
-        ArgumentNullException.ThrowIfNull(propertyExpression);
-        ArgumentNullException.ThrowIfNull(timestamp);
-
-        return new IntentBuilder<T, TProp>(this, document, propertyExpression, timestamp);
-    }
-
-    /// <inheritdoc/>
     public CrdtOperation GenerateOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent) where T : class
     {
         var changeTimestamp = timestampProvider.Now();
@@ -198,30 +181,6 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
                     }
                 }
             }
-        }
-    }
-
-    private sealed class IntentBuilder<TModel, TProp>(
-        ICrdtPatcher patcher,
-        CrdtDocument<TModel> document,
-        Expression<Func<TModel, TProp>> propertyExpression,
-        ICrdtTimestamp? timestamp) : IIntentBuilder<TProp>
-        where TModel : class
-    {
-        public CrdtOperation Build(IOperationIntent intent)
-        {
-            if (timestamp is not null)
-            {
-                return patcher.GenerateOperation(document, propertyExpression, intent, timestamp);
-            }
-
-            return patcher.GenerateOperation(document, propertyExpression, intent);
-        }
-
-        public Task<CrdtOperation> BuildAsync(IOperationIntent intent, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(Build(intent));
         }
     }
 }
