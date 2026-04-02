@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Ama.CRDT.Models.Aot;
@@ -436,16 +436,51 @@ internal static class PocoPathHelper
         return obj == null ? default! : (T)obj;
     }
 
-    public static object InstantiateCollection(Type propertyType, IEnumerable<CrdtContext>? aotContexts = null)
+    public static object Instantiate(Type type, IEnumerable<CrdtContext>? aotContexts = null)
     {
-        var typeInfo = GetTypeInfo(propertyType, aotContexts);
-        
+        var typeInfo = GetTypeInfo(type, aotContexts);
         if (typeInfo.CreateInstance != null)
         {
             return typeInfo.CreateInstance();
         }
 
-        throw new InvalidOperationException($"Cannot instantiate collection type {propertyType.Name}. Ensure it is supported by the AOT source generator.");
+        if (type.IsValueType)
+        {
+            return RuntimeHelpers.GetUninitializedObject(type);
+        }
+
+        throw new InvalidOperationException($"Cannot instantiate type {type.Name}. Ensure it has a parameterless constructor and is registered in the AOT context.");
+    }
+
+    public static object? GetDefaultValue(Type type, IEnumerable<CrdtContext>? aotContexts = null)
+    {
+        if (!type.IsValueType) return null;
+        
+        if (type == typeof(int)) return 0;
+        if (type == typeof(long)) return 0L;
+        if (type == typeof(bool)) return false;
+        if (type == typeof(double)) return 0D;
+        if (type == typeof(float)) return 0F;
+        if (type == typeof(decimal)) return 0M;
+        if (type == typeof(short)) return (short)0;
+        if (type == typeof(byte)) return (byte)0;
+        if (type == typeof(Guid)) return Guid.Empty;
+        if (type == typeof(DateTime)) return DateTime.MinValue;
+        if (type == typeof(DateTimeOffset)) return DateTimeOffset.MinValue;
+        if (type == typeof(char)) return '\0';
+
+        var typeInfo = GetTypeInfo(type, aotContexts);
+        if (typeInfo.CreateInstance != null)
+        {
+            return typeInfo.CreateInstance.Invoke();
+        }
+
+        return RuntimeHelpers.GetUninitializedObject(type);
+    }
+
+    public static object InstantiateCollection(Type propertyType, IEnumerable<CrdtContext>? aotContexts = null)
+    {
+        return Instantiate(propertyType, aotContexts);
     }
 
     public static void AddToCollection(object collection, object? item, IEnumerable<CrdtContext>? aotContexts = null)
@@ -567,13 +602,16 @@ internal static class PocoPathHelper
             current = unary.Operand;
         }
 
-        PropertyInfo? targetReflectionProperty = null;
-        if (current is MemberExpression initialMe && initialMe.Member is PropertyInfo pi)
+        string? targetPropertyName = null;
+        Type? declaringType = null;
+        
+        if (current is MemberExpression initialMe)
         {
-            targetReflectionProperty = pi;
+            targetPropertyName = initialMe.Member.Name;
+            declaringType = initialMe.Member.DeclaringType;
         }
 
-        if (targetReflectionProperty is null)
+        if (targetPropertyName is null)
         {
             throw new ArgumentException(
                 "Expression must end in a property access. " +
@@ -582,15 +620,15 @@ internal static class PocoPathHelper
         }
 
         var jsonPath = BuildJsonPath(current);
+        declaringType ??= typeof(T);
 
-        var declaringType = targetReflectionProperty.DeclaringType ?? typeof(T);
         var typeInfo = GetTypeInfo(declaringType, aotContexts);
-        if (typeInfo.Properties.TryGetValue(targetReflectionProperty.Name, out var crdtProperty))
+        if (typeInfo.Properties.TryGetValue(targetPropertyName, out var crdtProperty))
         {
             return new ParseResult(jsonPath, crdtProperty, declaringType);
         }
 
-        throw new InvalidOperationException($"Could not resolve AOT property info for {targetReflectionProperty.Name}");
+        throw new InvalidOperationException($"Could not resolve AOT property info for {targetPropertyName}");
     }
 
     private static string BuildJsonPath(Expression expression)

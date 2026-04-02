@@ -1,41 +1,49 @@
 namespace Ama.CRDT.Services.Providers;
 
-using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Models.Aot;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Reflection;
 
 /// <inheritdoc/>
 internal sealed class ElementComparerProvider : IElementComparerProvider
 {
     private readonly IEnumerable<IElementComparer> comparers;
-    private readonly ObjectDeepEqualityComparer defaultComparer = new();
+    private readonly ObjectDeepEqualityComparer defaultComparer;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ElementComparerProvider"/> class.
     /// </summary>
     /// <param name="comparers">An enumerable of registered <see cref="IElementComparer"/> instances.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="comparers"/> is null.</exception>
-    public ElementComparerProvider(IEnumerable<IElementComparer> comparers)
+    /// <param name="aotContexts">An enumerable of registered <see cref="CrdtContext"/> instances.</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="comparers"/> or <paramref name="aotContexts"/> is null.</exception>
+    public ElementComparerProvider(IEnumerable<IElementComparer> comparers, IEnumerable<CrdtContext> aotContexts)
     {
         this.comparers = comparers ?? throw new ArgumentNullException(nameof(comparers));
+        defaultComparer = new ObjectDeepEqualityComparer(aotContexts ?? throw new ArgumentNullException(nameof(aotContexts)));
     }
 
     /// <inheritdoc/>
     public IEqualityComparer<object> GetComparer([DisallowNull] Type elementType)
     {
         ArgumentNullException.ThrowIfNull(elementType);
-        return comparers.FirstOrDefault(c => c.CanCompare(elementType)) ?? defaultComparer as IEqualityComparer<object>;
+        return (IEqualityComparer<object>?)comparers.FirstOrDefault(c => c.CanCompare(elementType)) ?? defaultComparer;
     }
     
     private sealed class ObjectDeepEqualityComparer : IEqualityComparer<object>
     {
+        private readonly IEnumerable<CrdtContext> aotContexts;
+
+        public ObjectDeepEqualityComparer(IEnumerable<CrdtContext> aotContexts)
+        {
+            this.aotContexts = aotContexts;
+        }
+
         public new bool Equals(object? x, object? y)
         {
-            return DeepEquals(x, y, new HashSet<Tuple<object, object>>());
+            return DeepEquals(x, y, new HashSet<ObjectPair>());
         }
 
         public int GetHashCode(object obj)
@@ -44,16 +52,18 @@ internal sealed class ElementComparerProvider : IElementComparerProvider
             return DeepGetHashCode(obj, new HashSet<object>());
         }
 
-        private bool DeepEquals(object? x, object? y, ISet<Tuple<object, object>> comparedPairs)
+        private bool DeepEquals(object? x, object? y, ISet<ObjectPair> comparedPairs)
         {
             if (ReferenceEquals(x, y)) return true;
             if (x is null || y is null) return false;
             
-            if (comparedPairs.Contains(Tuple.Create(x, y)) || comparedPairs.Contains(Tuple.Create(y, x)))
+            var pair = new ObjectPair(x, y);
+            var reversePair = new ObjectPair(y, x);
+            if (comparedPairs.Contains(pair) || comparedPairs.Contains(reversePair))
             {
                 return true;
             }
-            comparedPairs.Add(Tuple.Create(x, y));
+            comparedPairs.Add(pair);
 
             var typeX = x.GetType();
             if (typeX != y.GetType()) return false;
@@ -65,31 +75,47 @@ internal sealed class ElementComparerProvider : IElementComparerProvider
 
             if (x is IEnumerable enumerableX && y is IEnumerable enumerableY)
             {
-                var listX = enumerableX.Cast<object>().ToList();
-                var listY = enumerableY.Cast<object>().ToList();
-
-                if (listX.Count != listY.Count) return false;
-
-                for (var i = 0; i < listX.Count; i++)
+                var enumX = enumerableX.GetEnumerator();
+                var enumY = enumerableY.GetEnumerator();
+                try
                 {
-                    if (!DeepEquals(listX[i], listY[i], comparedPairs))
+                    while (true)
                     {
-                        return false;
+                        var hasNextX = enumX.MoveNext();
+                        var hasNextY = enumY.MoveNext();
+
+                        if (hasNextX != hasNextY) return false;
+                        if (!hasNextX) break;
+
+                        if (!DeepEquals(enumX.Current, enumY.Current, comparedPairs))
+                        {
+                            return false;
+                        }
                     }
+                    return true;
                 }
-                
-                return true;
+                finally
+                {
+                    if (enumX is IDisposable dispX) dispX.Dispose();
+                    if (enumY is IDisposable dispY) dispY.Dispose();
+                }
             }
             
-            if (typeX.IsClass || typeX.IsValueType && !typeX.IsEnum)
+            CrdtTypeInfo? typeInfo = null;
+            foreach (var context in aotContexts)
             {
-                var properties = typeX.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                    .Where(p => p.CanRead && p.GetIndexParameters().Length == 0);
-                
-                foreach (var property in properties)
+                typeInfo = context.GetTypeInfo(typeX);
+                if (typeInfo != null) break;
+            }
+
+            if (typeInfo != null)
+            {
+                foreach (var property in typeInfo.Properties.Values)
                 {
-                    var valueX = PocoPathHelper.GetAccessor(property).Getter(x);
-                    var valueY = PocoPathHelper.GetAccessor(property).Getter(y);
+                    if (!property.CanRead) continue;
+                    
+                    var valueX = property.Getter!(x);
+                    var valueY = property.Getter!(y);
 
                     if (!DeepEquals(valueX, valueY, comparedPairs))
                     {
@@ -131,16 +157,23 @@ internal sealed class ElementComparerProvider : IElementComparerProvider
                 return hashCode.ToHashCode();
             }
             
-            if (type.IsClass || type.IsValueType && !type.IsEnum)
+            CrdtTypeInfo? typeInfo = null;
+            foreach (var context in aotContexts)
             {
-                var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                    .Where(p => p.CanRead && p.GetIndexParameters().Length == 0)
-                    .OrderBy(p => p.Name);
+                typeInfo = context.GetTypeInfo(type);
+                if (typeInfo != null) break;
+            }
+
+            if (typeInfo != null)
+            {
+                var properties = typeInfo.Properties.Values
+                    .Where(p => p.CanRead)
+                    .OrderBy(p => p.Name, StringComparer.Ordinal);
             
                 var combinedHashCode = new HashCode();
                 foreach (var property in properties)
                 {
-                    var value = PocoPathHelper.GetAccessor(property).Getter(obj);
+                    var value = property.Getter!(obj);
                     combinedHashCode.Add(value is not null ? DeepGetHashCode(value, visited) : 0);
                 }
 
@@ -149,5 +182,7 @@ internal sealed class ElementComparerProvider : IElementComparerProvider
             
             return obj.GetHashCode();
         }
+
+        private readonly record struct ObjectPair(object Left, object Right);
     }
 }

@@ -57,7 +57,7 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
 
         // Re-apply core converters for polymorphic objects manually for the new options instance
         serializerOptions.Converters.Add(Ama.CRDT.Models.Serialization.Converters.CrdtPayloadJsonConverterFactory.Instance);
-        serializerOptions.Converters.Add(new Ama.CRDT.Models.Serialization.Converters.ObjectKeyDictionaryJsonConverter());
+        serializerOptions.Converters.Add(new CRDT.Models.Serialization.Converters.ObjectKeyDictionaryJsonConverter());
     }
 
     /// <inheritdoc/>

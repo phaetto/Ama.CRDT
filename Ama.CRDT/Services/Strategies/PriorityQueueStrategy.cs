@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
@@ -12,7 +13,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 /// <inheritdoc/>
 [CrdtSupportedType(typeof(IList))]
@@ -24,7 +24,8 @@ using System.Reflection;
 [StateBased]
 public sealed class PriorityQueueStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext) : ICrdtStrategy
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -36,9 +37,10 @@ public sealed class PriorityQueueStrategy(
         var originalList = originalValue as IEnumerable;
         var modifiedList = modifiedValue as IEnumerable;
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
 
-        if (property.GetCustomAttribute<CrdtPriorityQueueStrategyAttribute>() is not { } attr) return;
+        if (property.StrategyAttribute is not CrdtPriorityQueueStrategyAttribute attr) return;
+        var priorityPropertyName = attr.PriorityPropertyName ?? "Priority";
 
         var comparer = comparerProvider.GetComparer(elementType);
 
@@ -69,8 +71,8 @@ public sealed class PriorityQueueStrategy(
                 // Use reflection accessor to compare the priority property's value.
                 // This detects changes in priority for an existing item, which is necessary
                 // when the equality comparer for the item type only considers identity.
-                var originalPriority = PocoPathHelper.GetValue(originalItem, attr.PriorityPropertyName);
-                var modifiedPriority = PocoPathHelper.GetValue(modifiedItem, attr.PriorityPropertyName);
+                var originalPriority = PocoPathHelper.GetValue(originalItem, priorityPropertyName, aotContexts);
+                var modifiedPriority = PocoPathHelper.GetValue(modifiedItem, priorityPropertyName, aotContexts);
 
                 if (!Equals(originalPriority, modifiedPriority))
                 {
@@ -100,12 +102,12 @@ public sealed class PriorityQueueStrategy(
     {
         var (_, _, jsonPath, property, intent, timestamp, clock) = context;
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
 
         return intent switch
         {
-            AddIntent addIntent => new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Upsert, PocoPathHelper.ConvertValue(addIntent.Value, elementType), timestamp, clock),
-            RemoveValueIntent removeIntent => new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Remove, PocoPathHelper.ConvertValue(removeIntent.Value, elementType), timestamp, clock),
+            AddIntent addIntent => new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Upsert, PocoPathHelper.ConvertValue(addIntent.Value, elementType, aotContexts), timestamp, clock),
+            RemoveValueIntent removeIntent => new CrdtOperation(Guid.NewGuid(), replicaId, jsonPath, OperationType.Remove, PocoPathHelper.ConvertValue(removeIntent.Value, elementType, aotContexts), timestamp, clock),
             _ => throw new NotSupportedException($"Intent {intent.GetType().Name} is not supported for {nameof(PriorityQueueStrategy)}.")
         };
     }
@@ -115,13 +117,13 @@ public sealed class PriorityQueueStrategy(
     {
         var (root, metadata, operation) = context;
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
+        if (parent is null || property is null || property.Getter!(parent) is not IList list)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
         
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         
         var comparer = comparerProvider.GetComparer(elementType);
         
@@ -133,7 +135,7 @@ public sealed class PriorityQueueStrategy(
         var adds = meta.Adds;
         var removes = meta.Removes;
 
-        var value = PocoPathHelper.ConvertValue(operation.Value, elementType);
+        var value = PocoPathHelper.ConvertValue(operation.Value, elementType, aotContexts);
         if (value is null)
         {
             return CrdtOperationStatus.StrategyApplicationFailed;
@@ -250,12 +252,13 @@ public sealed class PriorityQueueStrategy(
         return true;
     }
     
-    private void SortList(IList list, PropertyInfo property)
+    private void SortList(IList list, CrdtPropertyInfo property)
     {
-        if (property.GetCustomAttribute<CrdtPriorityQueueStrategyAttribute>() is not { } attr) return;
+        var attr = property.StrategyAttribute as CrdtPriorityQueueStrategyAttribute;
+        var priorityPropertyName = attr?.PriorityPropertyName ?? "Priority";
 
         var sortedItems = list.Cast<object>()
-            .OrderByDescending(i => PocoPathHelper.GetValue(i!, attr.PriorityPropertyName))
+            .OrderByDescending(i => PocoPathHelper.GetValue(i!, priorityPropertyName, aotContexts))
             .ToList();
 
         list.Clear();

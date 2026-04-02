@@ -2,15 +2,16 @@ namespace Ama.CRDT.Services.Strategies;
 
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using Ama.CRDT.Services;
-using Ama.CRDT.Attributes.Strategies.Semantic;
 
 /// <inheritdoc/>
 [CrdtSupportedType(typeof(IList))]
@@ -20,20 +21,21 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 [Idempotent]
 [StateBased]
 public sealed class FixedSizeArrayStrategy(
-    ReplicaContext replicaContext) : ICrdtStrategy
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp, clock) = context;
 
         ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(property);
         ArgumentNullException.ThrowIfNull(originalMeta);
 
-        if (property.GetCustomAttribute<CrdtFixedSizeArrayStrategyAttribute>() is not { } attr)
+        if (property.StrategyAttribute is not CrdtFixedSizeArrayStrategyAttribute attr)
         {
             return;
         }
@@ -62,7 +64,7 @@ public sealed class FixedSizeArrayStrategy(
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        if (context.Property.GetCustomAttribute<CrdtFixedSizeArrayStrategyAttribute>() is not { } attr)
+        if (context.Property.StrategyAttribute is not CrdtFixedSizeArrayStrategyAttribute attr)
         {
             throw new InvalidOperationException($"Property {context.Property.Name} is missing CrdtFixedSizeArrayStrategyAttribute.");
         }
@@ -86,9 +88,12 @@ public sealed class FixedSizeArrayStrategy(
     {
         var (root, metadata, operation) = context;
 
-        var (parent, property, index) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        var resolution = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
+        var parent = resolution.Parent;
+        var property = resolution.Property;
+        var index = resolution.FinalSegment;
 
-        if (parent is null || property is null || index is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        if (parent is null || property is null || index is null || property.Getter!(parent) is not IList list)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
@@ -99,7 +104,7 @@ public sealed class FixedSizeArrayStrategy(
             return CrdtOperationStatus.Obsolete;
         }
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         if (elementType is null)
         {
             return CrdtOperationStatus.StrategyApplicationFailed;
@@ -107,12 +112,12 @@ public sealed class FixedSizeArrayStrategy(
 
         metadata.Lww[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
 
-        var value = PocoPathHelper.ConvertValue(operation.Value, elementType);
+        var value = PocoPathHelper.ConvertValue(operation.Value, elementType, aotContexts);
         var elementIndex = (int)index;
 
         while (list.Count <= elementIndex)
         {
-            list.Add(elementType.IsValueType ? Activator.CreateInstance(elementType) : null);
+            list.Add(PocoPathHelper.GetDefaultValue(elementType, aotContexts));
         }
 
         list[elementIndex] = value;

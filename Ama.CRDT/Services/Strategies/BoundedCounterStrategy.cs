@@ -1,10 +1,11 @@
 namespace Ama.CRDT.Services.Strategies;
 
 using System;
-using System.Reflection;
+using System.Collections.Generic;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services;
@@ -23,7 +24,7 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 [Associative]
 [Idempotent]
 [StateBased]
-public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrdtStrategy
+public sealed class BoundedCounterStrategy(ReplicaContext replicaContext, IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -45,8 +46,8 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
     {
         var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
-        var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue);
-        var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue);
+        var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue, aotContexts);
+        var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue, aotContexts);
 
         var delta = modifiedNumeric - originalNumeric;
 
@@ -91,7 +92,7 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        var attribute = property.GetCustomAttribute<CrdtBoundedCounterStrategyAttribute>();
+        var attribute = property.StrategyAttribute as CrdtBoundedCounterStrategyAttribute;
         if (attribute is null)
         {
             return CrdtOperationStatus.StrategyApplicationFailed;
@@ -104,17 +105,17 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext) : ICrd
         }
         else
         {
-            unboundedValue = PocoPathHelper.GetValue<decimal>(root, operation.JsonPath);
+            unboundedValue = PocoPathHelper.GetValue<decimal>(root, operation.JsonPath, aotContexts);
         }
 
-        var increment = PocoPathHelper.ConvertTo<decimal>(operation.Value);
+        var increment = PocoPathHelper.ConvertTo<decimal>(operation.Value, aotContexts);
         var newUnboundedValue = unboundedValue + increment;
 
         metadata.Lww[operation.JsonPath] = new CausalTimestamp(new UnboundedCounterValue(newUnboundedValue), operation.ReplicaId, operation.Clock);
 
         var clampedValue = Math.Max(attribute.Min, Math.Min(attribute.Max, newUnboundedValue));
 
-        PocoPathHelper.SetValue(root, operation.JsonPath, clampedValue);
+        PocoPathHelper.SetValue(root, operation.JsonPath, clampedValue, aotContexts);
 
         return CrdtOperationStatus.Success;
     }

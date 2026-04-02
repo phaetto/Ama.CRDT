@@ -69,8 +69,8 @@ namespace TestNamespace
         generatedSyntax.ShouldContain("[\"Name\"] = new global::Ama.CRDT.Models.Aot.CrdtPropertyInfo(");
         generatedSyntax.ShouldContain("getter: obj => ((global::TestNamespace.User)obj).Name");
         generatedSyntax.ShouldContain("setter: (obj, val) => ((global::TestNamespace.User)obj).Name = val == null ? default! : (string)val");
-        generatedSyntax.ShouldContain("strategyType: null");
-        generatedSyntax.ShouldContain("decoratorTypes: global::System.Array.Empty<global::System.Type>()");
+        generatedSyntax.ShouldContain("strategyAttribute: null");
+        generatedSyntax.ShouldContain("decoratorAttributes: global::System.Array.Empty<global::Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>()");
     }
 
     [Fact]
@@ -207,7 +207,7 @@ namespace TestNamespace
         [CrdtCounterStrategy]
         public int Number { get; set; }
         
-        [CrdtApprovalQuorum(RequiredQuorum = 2)]
+        [CrdtApprovalQuorum(QuorumSize = 2)]
         [CrdtEpochBound]
         [CrdtLwwStrategy]
         public string Text { get; set; }
@@ -249,12 +249,12 @@ namespace TestNamespace
 
         // Verify Number property mapping
         generatedSyntax.ShouldContain("[\"Number\"] = new global::Ama.CRDT.Models.Aot.CrdtPropertyInfo(");
-        generatedSyntax.ShouldContain("strategyType: new global::Ama.CRDT.Attributes.Strategies.CrdtCounterStrategyAttribute().StrategyType");
-        generatedSyntax.ShouldContain("decoratorTypes: new global::System.Type[] { new global::Ama.CRDT.Attributes.Decorators.CrdtEpochBoundAttribute().StrategyType }");
+        generatedSyntax.ShouldContain("strategyAttribute: new global::Ama.CRDT.Attributes.Strategies.CrdtCounterStrategyAttribute()");
+        generatedSyntax.ShouldContain("decoratorAttributes: new global::Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute[] { new global::Ama.CRDT.Attributes.Decorators.CrdtEpochBoundAttribute() }");
 
         // Verify Text property mapping (including arguments)
         generatedSyntax.ShouldContain("[\"Text\"] = new global::Ama.CRDT.Models.Aot.CrdtPropertyInfo(");
-        generatedSyntax.ShouldContain("strategyType: new global::Ama.CRDT.Attributes.Strategies.CrdtLwwStrategyAttribute().StrategyType");
-        generatedSyntax.ShouldContain("decoratorTypes: new global::System.Type[] { new global::Ama.CRDT.Attributes.Decorators.CrdtApprovalQuorumAttribute(RequiredQuorum = 2).StrategyType, new global::Ama.CRDT.Attributes.Decorators.CrdtEpochBoundAttribute().StrategyType }");
+        generatedSyntax.ShouldContain("strategyAttribute: new global::Ama.CRDT.Attributes.Strategies.CrdtLwwStrategyAttribute()");
+        generatedSyntax.ShouldContain("decoratorAttributes: new global::Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute[] { new global::Ama.CRDT.Attributes.Decorators.CrdtApprovalQuorumAttribute(QuorumSize = 2), new global::Ama.CRDT.Attributes.Decorators.CrdtEpochBoundAttribute() }");
     }
 }

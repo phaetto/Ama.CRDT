@@ -4,7 +4,6 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
-using Ama.CRDT.Services.Helpers;
 using System;
 using System.Linq;
 
@@ -60,9 +59,14 @@ public sealed class GraphStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, _, operation) = context;
+        var operation = context.Operation;
         
-        var graphObj = PocoPathHelper.GetValue(root, operation.JsonPath);
+        if (context.Target is null || context.Property is null || !context.Property.CanRead)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
+
+        var graphObj = context.Property.Getter!(context.Target);
         if (graphObj is not CrdtGraph graph)
         {
             return CrdtOperationStatus.PathResolutionFailed;

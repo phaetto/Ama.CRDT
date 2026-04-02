@@ -2,6 +2,7 @@ namespace Ama.CRDT.Services.Strategies;
 
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
@@ -10,7 +11,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Ama.CRDT.Services;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Services.GarbageCollection;
@@ -21,7 +21,9 @@ using Ama.CRDT.Services.GarbageCollection;
 [Associative]
 [Idempotent]
 [StateBased]
-public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartitionableCrdtStrategy
+public sealed class VoteCounterStrategy(
+    ReplicaContext replicaContext, 
+    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -84,7 +86,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
     {
         var (root, metadata, operation) = context;
 
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(VotePayload)) is not VotePayload payload)
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(VotePayload), aotContexts) is not VotePayload payload)
         {
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
@@ -95,32 +97,33 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
             return CrdtOperationStatus.Obsolete;
         }
 
-        var (parentNode, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        var (parentNode, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
         
         if (property is null || parentNode is null)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
         
-        if (PocoPathHelper.GetAccessor(property).Getter(parentNode) is not IDictionary dictionary)
+        if (property.Getter!(parentNode) is not IDictionary dictionary)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        var dictKeyType = PocoPathHelper.GetDictionaryKeyType(property);
-        var dictValueType = PocoPathHelper.GetDictionaryValueType(property);
-        var voterType = dictValueType.GetGenericArguments()[0];
+        var propTypeInfo = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts);
+        var dictKeyType = propTypeInfo.DictionaryKeyType ?? typeof(object);
+        var dictValueType = propTypeInfo.DictionaryValueType ?? typeof(object);
+        var voterType = PocoPathHelper.GetTypeInfo(dictValueType, aotContexts).CollectionElementType ?? typeof(object);
 
-        var voter = PocoPathHelper.ConvertValue(payload.Voter, voterType);
-        var newOption = PocoPathHelper.ConvertValue(payload.Option, dictKeyType);
+        var voter = PocoPathHelper.ConvertValue(payload.Voter, voterType, aotContexts);
+        var newOption = PocoPathHelper.ConvertValue(payload.Option, dictKeyType, aotContexts);
 
         if (voter is null || newOption is null)
         {
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        RemoveVoterFromAllOptions(dictionary, voter);
-        AddVoterToOption(dictionary, voter, newOption, dictValueType);
+        RemoveVoterFromAllOptions(dictionary, voter, aotContexts);
+        AddVoterToOption(dictionary, voter, newOption, dictValueType, aotContexts);
         
         metadata.Lww[voterMetaPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
 
@@ -131,8 +134,8 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
     {
         if (context.Document is null) return;
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict)
+        var (parent, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath, aotContexts);
+        if (parent is null || property is null || property.Getter!(parent) is not IDictionary dict)
         {
             return;
         }
@@ -175,9 +178,9 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
     }
 
     /// <inheritdoc/>
-    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
-        var dict = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IDictionary;
+        var dict = partitionableProperty.Getter!(data) as IDictionary;
         if (dict == null) return null;
 
         var voters = new HashSet<IComparable>();
@@ -200,7 +203,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
     {
         if (!operation.JsonPath.StartsWith(partitionablePropertyPath, StringComparison.Ordinal)) return null;
 
-        var payloadObj = PocoPathHelper.ConvertValue(operation.Value, typeof(VotePayload));
+        var payloadObj = PocoPathHelper.ConvertValue(operation.Value, typeof(VotePayload), aotContexts);
         if (payloadObj is VotePayload vote)
         {
             return vote.Voter as IComparable ?? vote.Voter?.ToString() as IComparable;
@@ -209,20 +212,21 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
     }
 
     /// <inheritdoc/>
-    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    public IComparable GetMinimumKey(CrdtPropertyInfo partitionableProperty)
     {
-        var dictValueType = PocoPathHelper.GetDictionaryValueType(partitionableProperty);
-        var voterType = dictValueType.GetGenericArguments()[0];
-        return GetMinimumKeyForType(voterType);
+        var typeInfo = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts);
+        var dictValueType = typeInfo.DictionaryValueType ?? typeof(object);
+        var voterType = PocoPathHelper.GetTypeInfo(dictValueType, aotContexts).CollectionElementType ?? typeof(object);
+        return GetMinimumKeyForType(voterType, aotContexts);
     }
 
     /// <inheritdoc/>
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var dict = PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData) as IDictionary;
+        var dict = partitionableProperty.Getter!(originalData) as IDictionary;
         var allVoters = new HashSet<IComparable>();
         
         if (dict != null)
@@ -252,8 +256,8 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
         var voters1 = sortedVoters.Take(splitIndex).ToHashSet();
         var voters2 = sortedVoters.Skip(splitIndex).ToHashSet();
 
-        var doc1 = Activator.CreateInstance(documentType)!;
-        var doc2 = Activator.CreateInstance(documentType)!;
+        var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
+        var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
 
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
@@ -278,38 +282,34 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
 
         if (dict != null)
         {
-            ReconstructDictionaryForSplitMerge(doc1, path, dict, voters1, partitionableProperty);
-            ReconstructDictionaryForSplitMerge(doc2, path, dict, voters2, partitionableProperty);
+            ReconstructDictionaryForSplitMerge(doc1, path, dict, voters1, partitionableProperty, aotContexts);
+            ReconstructDictionaryForSplitMerge(doc2, path, dict, voters2, partitionableProperty, aotContexts);
         }
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
 
     /// <inheritdoc/>
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = data1.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var mergedDoc = Activator.CreateInstance(documentType)!;
+        var mergedDoc = PocoPathHelper.Instantiate(documentType, aotContexts)!;
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var dict1 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1) as IDictionary;
-        var dict2 = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2) as IDictionary;
+        var dict1 = partitionableProperty.Getter!(data1) as IDictionary;
+        var dict2 = partitionableProperty.Getter!(data2) as IDictionary;
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(mergedDoc, path);
+        var (parent, property, _) = PocoPathHelper.ResolvePath(mergedDoc, path, aotContexts);
         if (parent is not null && property is not null)
         {
-            Type dictType = property.PropertyType;
-            if (dictType.IsInterface)
-            {
-                dictType = typeof(Dictionary<,>).MakeGenericType(
-                    PocoPathHelper.GetDictionaryKeyType(partitionableProperty),
-                    PocoPathHelper.GetDictionaryValueType(partitionableProperty)
-                );
-            }
-            var mergedDict = (IDictionary)Activator.CreateInstance(dictType)!;
-            var dictValueType = PocoPathHelper.GetDictionaryValueType(partitionableProperty);
+            var propTypeInfo = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts);
+            var dictValueType = propTypeInfo.DictionaryValueType ?? typeof(object);
+            
+            var existingDict = property.Getter!(parent) as IDictionary;
+            var concreteDictType = existingDict?.GetType() ?? dict1?.GetType() ?? dict2?.GetType() ?? property.PropertyType;
+            var mergedDict = existingDict ?? (IDictionary)PocoPathHelper.Instantiate(concreteDictType, aotContexts);
 
             if (dict1 != null)
             {
@@ -317,7 +317,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
                 {
                     if (entry.Value is IEnumerable vList)
                     {
-                        foreach (var v in vList) AddVoterToOption(mergedDict, v, entry.Key, dictValueType);
+                        foreach (var v in vList) AddVoterToOption(mergedDict, v, entry.Key, dictValueType, aotContexts);
                     }
                 }
             }
@@ -327,31 +327,27 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
                 {
                     if (entry.Value is IEnumerable vList)
                     {
-                        foreach (var v in vList) AddVoterToOption(mergedDict, v, entry.Key, dictValueType);
+                        foreach (var v in vList) AddVoterToOption(mergedDict, v, entry.Key, dictValueType, aotContexts);
                     }
                 }
             }
-            PocoPathHelper.GetAccessor(property).Setter(parent, mergedDict);
+            property.Setter!(parent, mergedDict);
         }
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructDictionaryForSplitMerge(object root, string path, IDictionary sourceDict, HashSet<IComparable> votersToKeep, PropertyInfo partitionableProperty)
+    private void ReconstructDictionaryForSplitMerge(object root, string path, IDictionary sourceDict, HashSet<IComparable> votersToKeep, CrdtPropertyInfo partitionableProperty, IEnumerable<CrdtContext> aotContexts)
     {
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);
         if (parent is null || property is null) return;
 
-        Type dictType = property.PropertyType;
-        if (dictType.IsInterface)
-        {
-            dictType = typeof(Dictionary<,>).MakeGenericType(
-                PocoPathHelper.GetDictionaryKeyType(partitionableProperty),
-                PocoPathHelper.GetDictionaryValueType(partitionableProperty)
-            );
-        }
-        var dict = (IDictionary)Activator.CreateInstance(dictType)!;
-        var dictValueType = PocoPathHelper.GetDictionaryValueType(partitionableProperty);
+        var existingDict = property.Getter!(parent) as IDictionary;
+        var concreteDictType = existingDict?.GetType() ?? sourceDict.GetType();
+        var dict = existingDict ?? (IDictionary)PocoPathHelper.Instantiate(concreteDictType, aotContexts);
+
+        var propTypeInfo = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts);
+        var dictValueType = propTypeInfo.DictionaryValueType ?? typeof(object);
 
         foreach (DictionaryEntry entry in sourceDict)
         {
@@ -362,15 +358,15 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
                     var comparableVoter = v as IComparable ?? v?.ToString() as IComparable;
                     if (comparableVoter != null && votersToKeep.Contains(comparableVoter))
                     {
-                        AddVoterToOption(dict, v!, entry.Key, dictValueType);
+                        AddVoterToOption(dict, v!, entry.Key, dictValueType, aotContexts);
                     }
                 }
             }
         }
-        PocoPathHelper.GetAccessor(property).Setter(parent, dict);
+        property.Setter!(parent, dict);
     }
 
-    private static void RemoveVoterFromAllOptions(IDictionary dictionary, object voter)
+    private static void RemoveVoterFromAllOptions(IDictionary dictionary, object voter, IEnumerable<CrdtContext> aotContexts)
     {
         var keys = dictionary.Keys.Cast<object>().ToList();
         foreach (var key in keys)
@@ -391,35 +387,29 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
                     removed = true;
                 }
             }
-            else // For other collections (like HashSet<T>), use reflection.
+            else // Let PocoPathHelper handle AOT collection removal
             {
-                var collectionType = voterCollection.GetType();
-                var removeMethod = collectionType.GetMethod("Remove", [voter.GetType()]);
-                if (removeMethod is null)
+                if (voterCollection is IEnumerable enumCol && enumCol.Cast<object>().Contains(voter))
                 {
-                    removeMethod = collectionType.GetMethods().FirstOrDefault(m =>
-                        m.Name == "Remove" &&
-                        m.GetParameters().Length == 1 &&
-                        m.GetParameters()[0].ParameterType.IsAssignableFrom(voter.GetType()));
-                }
-
-                if (removeMethod is not null)
-                {
-                    var result = removeMethod.Invoke(voterCollection, [voter]);
-                    if (result is bool b)
-                    {
-                        removed = b;
-                    }
+                    PocoPathHelper.RemoveFromCollection(voterCollection, voter, aotContexts);
+                    removed = true;
                 }
             }
             
             if (removed)
             {
-                var countProperty = voterCollection.GetType().GetProperty("Count");
                 var count = -1;
-                if (countProperty?.CanRead == true && countProperty.PropertyType == typeof(int))
+                if (voterCollection is ICollection col)
                 {
-                    count = (int)(PocoPathHelper.GetAccessor(countProperty).Getter(voterCollection) ?? -1);
+                    count = col.Count;
+                }
+                else
+                {
+                    var typeInfo = PocoPathHelper.GetTypeInfo(voterCollection.GetType(), aotContexts);
+                    if (typeInfo.Properties.TryGetValue("Count", out var countProp) && countProp.CanRead && countProp.PropertyType == typeof(int))
+                    {
+                        count = (int)(countProp.Getter!(voterCollection) ?? -1);
+                    }
                 }
 
                 if (count == 0 || (count == -1 && !voterCollection.Cast<object>().Any()))
@@ -432,11 +422,11 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
         }
     }
 
-    private static void AddVoterToOption(IDictionary dictionary, object voter, object newOption, Type dictValueType)
+    private static void AddVoterToOption(IDictionary dictionary, object voter, object newOption, Type dictValueType, IEnumerable<CrdtContext> aotContexts)
     {
         if (!dictionary.Contains(newOption))
         {
-            dictionary[newOption] = Activator.CreateInstance(dictValueType);
+            dictionary[newOption] = PocoPathHelper.Instantiate(dictValueType, aotContexts);
         }
 
         var voterCollection = dictionary[newOption];
@@ -448,24 +438,9 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
             list.Add(voter);
             return;
         }
-        
-        // For other collections (like HashSet<T>), use reflection to find and invoke the Add method.
-        // First, try for an exact match on the voter's type.
-        var addMethod = voterCollection.GetType().GetMethod("Add", [voter.GetType()]);
-        if (addMethod is not null)
-        {
-            addMethod.Invoke(voterCollection, [voter]);
-            return;
-        }
 
-        // As a fallback, search for an Add method where the parameter is assignable from the voter's type.
-        // This handles cases like adding a concrete type to a collection of a base type.
-        addMethod = voterCollection.GetType().GetMethods().FirstOrDefault(m =>
-            m.Name == "Add" &&
-            m.GetParameters().Length == 1 &&
-            m.GetParameters()[0].ParameterType.IsAssignableFrom(voter.GetType()));
-        
-        addMethod?.Invoke(voterCollection, [voter]);
+        // Delegate to PocoPathHelper for AOT collection adding
+        PocoPathHelper.AddToCollection(voterCollection, voter, aotContexts);
     }
     
     private IDictionary<object, object> FlattenVotes(object? value)
@@ -492,7 +467,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
         return voter.ToString() ?? "";
     }
 
-    private static IComparable GetMinimumKeyForType(Type keyType)
+    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtContext> aotContexts)
     {
         if (keyType == typeof(string)) return string.Empty;
         if (keyType == typeof(int)) return int.MinValue;
@@ -509,7 +484,7 @@ public sealed class VoteCounterStrategy(ReplicaContext replicaContext) : IPartit
 
         if (keyType.IsValueType)
         {
-            return (IComparable)Activator.CreateInstance(keyType)!;
+            return (IComparable)PocoPathHelper.GetDefaultValue(keyType, aotContexts)!;
         }
 
         throw new InvalidOperationException($"Cannot determine minimum key for type {keyType}.");

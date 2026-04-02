@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models.Aot;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Attributes;
 
 /// <summary>
 /// Contains AOT-compatible metadata and fast accessors for a single property, eliminating the need for <see cref="System.Reflection.PropertyInfo"/>.
@@ -44,6 +45,16 @@ public sealed class CrdtPropertyInfo
     public Action<object, object?>? Setter { get; }
 
     /// <summary>
+    /// Gets the explicitly configured base CRDT strategy attribute for this property, if one was provided.
+    /// </summary>
+    public CrdtStrategyAttribute? StrategyAttribute { get; }
+
+    /// <summary>
+    /// Gets the list of explicitly configured decorator CRDT strategy attributes for this property, if any were provided.
+    /// </summary>
+    public IReadOnlyList<CrdtStrategyDecoratorAttribute> DecoratorAttributes { get; }
+
+    /// <summary>
     /// Gets the explicitly configured base CRDT strategy type for this property, if one was provided via attributes.
     /// </summary>
     public Type? StrategyType { get; }
@@ -64,8 +75,8 @@ public sealed class CrdtPropertyInfo
         bool canWrite,
         Func<object, object?>? getter,
         Action<object, object?>? setter,
-        Type? strategyType,
-        IReadOnlyList<Type> decoratorTypes)
+        CrdtStrategyAttribute? strategyAttribute,
+        IReadOnlyList<CrdtStrategyDecoratorAttribute> decoratorAttributes)
     {
         Name = name;
         JsonName = jsonName;
@@ -74,7 +85,15 @@ public sealed class CrdtPropertyInfo
         CanWrite = canWrite;
         Getter = getter;
         Setter = setter;
-        StrategyType = strategyType;
+        StrategyAttribute = strategyAttribute;
+        DecoratorAttributes = decoratorAttributes;
+
+        StrategyType = strategyAttribute?.StrategyType;
+        var decoratorTypes = new Type[decoratorAttributes.Count];
+        for (int i = 0; i < decoratorAttributes.Count; i++)
+        {
+            decoratorTypes[i] = decoratorAttributes[i].StrategyType;
+        }
         DecoratorTypes = decoratorTypes;
     }
 }

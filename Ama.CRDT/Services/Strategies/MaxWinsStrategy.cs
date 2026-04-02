@@ -4,7 +4,6 @@ using System;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
-using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 
@@ -72,8 +71,13 @@ public sealed class MaxWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
             // This strategy only handles value assignments.
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
+
+        if (context.Target is null || context.Property is null)
+        {
+            return CrdtOperationStatus.PathResolutionFailed;
+        }
         
-        var currentValue = PocoPathHelper.GetValue(root, operation.JsonPath);
+        var currentValue = context.Property.Getter!(context.Target);
         var incomingValue = operation.Value;
 
         if (incomingValue is null)
@@ -84,7 +88,7 @@ public sealed class MaxWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
 
         if (currentValue is null || ((IComparable)currentValue).CompareTo(incomingValue) < 0)
         {
-            PocoPathHelper.SetValue(root, operation.JsonPath, incomingValue);
+            context.Property.Setter!(context.Target, incomingValue);
         }
 
         return CrdtOperationStatus.Success;

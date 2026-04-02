@@ -4,13 +4,14 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
+using System.Linq;
 
 /// <summary>
 /// A decorator strategy that tracks pending proposals and requires a quorum of replicas 
@@ -21,13 +22,16 @@ using System.Reflection;
 [Associative]
 [Idempotent]
 [OperationBased]
-public sealed class ApprovalQuorumStrategy(IServiceProvider serviceProvider, IElementComparerProvider comparerProvider) : ICrdtStrategy
+public sealed class ApprovalQuorumStrategy(
+    IServiceProvider serviceProvider, 
+    IElementComparerProvider comparerProvider, 
+    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
 {
-    private ICrdtStrategy GetInnerStrategy(PropertyInfo property)
+    private ICrdtStrategy GetInnerStrategy(Type declaringType, CrdtPropertyInfo property)
     {
         // Use IServiceProvider to break circular DI dependency
         var provider = serviceProvider.GetRequiredService<ICrdtStrategyProvider>();
-        return provider.GetInnerStrategy(property, typeof(ApprovalQuorumStrategy));
+        return provider.GetInnerStrategy(declaringType, property, typeof(ApprovalQuorumStrategy));
     }
 
     /// <inheritdoc/>
@@ -36,7 +40,11 @@ public sealed class ApprovalQuorumStrategy(IServiceProvider serviceProvider, IEl
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(context.Property);
 
-        var innerStrategy = GetInnerStrategy(context.Property);
+        var root = context.OriginalRoot ?? context.ModifiedRoot;
+        var (target, _, _) = PocoPathHelper.ResolvePath(root, context.Path, aotContexts);
+        var declaringType = target?.GetType() ?? typeof(object);
+
+        var innerStrategy = GetInnerStrategy(declaringType, context.Property);
         var innerOps = new List<CrdtOperation>();
         var innerContext = context with { Operations = innerOps };
         
@@ -53,7 +61,10 @@ public sealed class ApprovalQuorumStrategy(IServiceProvider serviceProvider, IEl
     {
         ArgumentNullException.ThrowIfNull(context.Property);
 
-        var innerStrategy = GetInnerStrategy(context.Property);
+        var (target, _, _) = PocoPathHelper.ResolvePath(context.DocumentRoot, context.JsonPath, aotContexts);
+        var declaringType = target?.GetType() ?? typeof(object);
+
+        var innerStrategy = GetInnerStrategy(declaringType, context.Property);
         var innerOp = innerStrategy.GenerateOperation(context);
         
         return innerOp with { Value = new QuorumPayload(innerOp.Value) };
@@ -75,7 +86,7 @@ public sealed class ApprovalQuorumStrategy(IServiceProvider serviceProvider, IEl
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        var quorumAttr = context.Property.GetCustomAttribute<CrdtApprovalQuorumAttribute>();
+        var quorumAttr = context.Property.DecoratorAttributes.OfType<CrdtApprovalQuorumAttribute>().FirstOrDefault();
         var requiredQuorum = quorumAttr?.QuorumSize ?? 1;
 
         var path = context.Operation.JsonPath;
@@ -100,7 +111,8 @@ public sealed class ApprovalQuorumStrategy(IServiceProvider serviceProvider, IEl
         if (voters.Count >= requiredQuorum)
         {
             // Quorum met. Apply inner operation.
-            var innerStrategy = GetInnerStrategy(context.Property);
+            var declaringType = context.Target?.GetType() ?? typeof(object);
+            var innerStrategy = GetInnerStrategy(declaringType, context.Property);
             var innerOp = context.Operation with { Value = payload.ProposedValue };
             var innerContext = context with { Operation = innerOp };
             
@@ -125,10 +137,11 @@ public sealed class ApprovalQuorumStrategy(IServiceProvider serviceProvider, IEl
         // For decorators, we must delegate the compaction request down the chain to the inner strategy.
         if (context.Document is null) return;
         
-        var (_, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath);
+        var (target, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath, aotContexts);
         if (property is not null)
         {
-            var innerStrategy = GetInnerStrategy(property);
+            var declaringType = target?.GetType() ?? typeof(object);
+            var innerStrategy = GetInnerStrategy(declaringType, property);
             innerStrategy.Compact(context);
         }
     }

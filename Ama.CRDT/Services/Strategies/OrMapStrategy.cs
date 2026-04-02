@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.GarbageCollection;
@@ -13,7 +14,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 /// <summary>
 /// Implements the OR-Map (Observed-Remove Map) CRDT strategy.
@@ -28,7 +28,8 @@ using System.Reflection;
 [StateBased]
 public sealed class OrMapStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -41,7 +42,7 @@ public sealed class OrMapStrategy(
         var modifiedDict = modifiedValue as IDictionary;
         if (originalDict is null && modifiedDict is null) return;
 
-        var keyType = PocoPathHelper.GetDictionaryKeyType(property);
+        var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
         var originalKeys = originalDict?.Keys.Cast<object>().ToHashSet(comparer) ?? new HashSet<object>(comparer);
@@ -74,7 +75,7 @@ public sealed class OrMapStrategy(
             var itemPath = $"{path}['{key.ToString()?.Replace("'", "\\'")}']";
             nestedDiffs.Add(new DifferentiateObjectContext(
                 Path: itemPath,
-                Type: PocoPathHelper.GetDictionaryValueType(property),
+                Type: PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryValueType ?? typeof(object),
                 FromObj: originalItem,
                 ToObj: modifiedItem,
                 FromRoot: originalRoot,
@@ -92,18 +93,18 @@ public sealed class OrMapStrategy(
 
         if (intent is MapSetIntent setIntent)
         {
-            var keyType = PocoPathHelper.GetDictionaryKeyType(property);
-            var valueType = PocoPathHelper.GetDictionaryValueType(property);
-            var itemKey = PocoPathHelper.ConvertValue(setIntent.Key, keyType) ?? throw new ArgumentException($"Key cannot be null or incompatible for type {keyType.Name}.");
-            var itemValue = PocoPathHelper.ConvertValue(setIntent.Value, valueType);
+            var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
+            var valueType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryValueType ?? typeof(object);
+            var itemKey = PocoPathHelper.ConvertValue(setIntent.Key, keyType, aotContexts) ?? throw new ArgumentException($"Key cannot be null or incompatible for type {keyType.Name}.");
+            var itemValue = PocoPathHelper.ConvertValue(setIntent.Value, valueType, aotContexts);
 
             return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new OrMapAddItem(itemKey, itemValue, Guid.NewGuid()), timestamp, clock);
         }
 
         if (intent is MapRemoveIntent removeIntent)
         {
-            var keyType = PocoPathHelper.GetDictionaryKeyType(property);
-            var itemKey = PocoPathHelper.ConvertValue(removeIntent.Key, keyType) ?? throw new ArgumentException($"Key cannot be null or incompatible for type {keyType.Name}.");
+            var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
+            var itemKey = PocoPathHelper.ConvertValue(removeIntent.Key, keyType, aotContexts) ?? throw new ArgumentException($"Key cannot be null or incompatible for type {keyType.Name}.");
 
             ISet<Guid> tags = new HashSet<Guid>();
             if (metadata.OrMaps.TryGetValue(path, out var state) && state.Adds.TryGetValue(itemKey, out var existingTags))
@@ -122,14 +123,14 @@ public sealed class OrMapStrategy(
     {
         var (root, metadata, operation) = context;
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict)
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
+        if (parent is null || property is null || property.Getter!(parent) is not IDictionary dict)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        var keyType = PocoPathHelper.GetDictionaryKeyType(property);
-        var valueType = PocoPathHelper.GetDictionaryValueType(property);
+        var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
+        var valueType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryValueType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
         if (!metadata.OrMaps.TryGetValue(operation.JsonPath, out var state))
@@ -173,8 +174,8 @@ public sealed class OrMapStrategy(
     {
         if (context.Document is null) return;
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict)
+        var (parent, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath, aotContexts);
+        if (parent is null || property is null || property.Getter!(parent) is not IDictionary dict)
         {
             return;
         }
@@ -278,8 +279,8 @@ public sealed class OrMapStrategy(
         object? key = null;
         if (operation.Value is OrMapAddItem mapAdd) key = mapAdd.Key;
         else if (operation.Value is OrMapRemoveItem mapRemove) key = mapRemove.Key;
-        else if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapAddItem)) is OrMapAddItem convertedAdd) key = convertedAdd.Key;
-        else if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapRemoveItem)) is OrMapRemoveItem convertedRemove) key = convertedRemove.Key;
+        else if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapAddItem), aotContexts) is OrMapAddItem convertedAdd) key = convertedAdd.Key;
+        else if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapRemoveItem), aotContexts) is OrMapRemoveItem convertedRemove) key = convertedRemove.Key;
         else 
         {
             var relativePath = operation.JsonPath[partitionablePropertyPath.Length..];
@@ -296,9 +297,9 @@ public sealed class OrMapStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
-        var dict = (IDictionary?)PocoPathHelper.GetAccessor(partitionableProperty).Getter(data);
+        var dict = (IDictionary?)partitionableProperty.Getter!(data);
         var key = dict is not null && dict.Count > 0 ? dict.Keys.Cast<object>().Min() : null;
         if (key is null) return null;
         if (key is IComparable comparableKey) return comparableKey;
@@ -307,9 +308,9 @@ public sealed class OrMapStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    public IComparable GetMinimumKey(CrdtPropertyInfo partitionableProperty)
     {
-        var keyType = PocoPathHelper.GetDictionaryKeyType(partitionableProperty);
+        var keyType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
 
         if (keyType == typeof(string))
         {
@@ -323,11 +324,8 @@ public sealed class OrMapStrategy(
 
         if (keyType.IsValueType)
         {
-            var minValueField = keyType.GetField("MinValue", BindingFlags.Public | BindingFlags.Static);
-            if (minValueField != null && minValueField.GetValue(null) is IComparable comparable)
-            {
-                return comparable;
-            }
+            var defaultVal = PocoPathHelper.GetDefaultValue(keyType, aotContexts);
+            if (defaultVal is IComparable comparable) return comparable;
         }
 
         throw new NotSupportedException($"Cannot determine a minimum value for partition key type '{keyType.Name}'. " +
@@ -337,18 +335,18 @@ public sealed class OrMapStrategy(
     }
 
     /// <inheritdoc/>
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var dict = (IDictionary)PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData)!;
+        var dict = (IDictionary)partitionableProperty.Getter!(originalData)!;
         if (dict.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
         }
         
-        var keyType = PocoPathHelper.GetDictionaryKeyType(partitionableProperty);
+        var keyType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
         var sortedKeys = dict.Keys.Cast<object>().OrderBy(k => k).ToList();
@@ -363,15 +361,15 @@ public sealed class OrMapStrategy(
         var keys1 = sortedKeys.Take(splitIndex).ToHashSet(comparer);
         var keys2 = sortedKeys.Skip(splitIndex).ToHashSet(comparer);
 
-        var doc1 = Activator.CreateInstance(documentType)!;
-        var dict1 = (IDictionary)Activator.CreateInstance(dict.GetType())!;
+        var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts);
+        var dict1 = (IDictionary)PocoPathHelper.InstantiateCollection(partitionableProperty.PropertyType, aotContexts);
         foreach (var key in keys1) dict1.Add(key, dict[key]);
-        PocoPathHelper.GetAccessor(partitionableProperty).Setter(doc1, dict1);
+        partitionableProperty.Setter!(doc1, dict1);
 
-        var doc2 = Activator.CreateInstance(documentType)!;
-        var dict2 = (IDictionary)Activator.CreateInstance(dict.GetType())!;
+        var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts);
+        var dict2 = (IDictionary)PocoPathHelper.InstantiateCollection(partitionableProperty.PropertyType, aotContexts);
         foreach (var key in keys2) dict2.Add(key, dict[key]);
-        PocoPathHelper.GetAccessor(partitionableProperty).Setter(doc2, dict2);
+        partitionableProperty.Setter!(doc2, dict2);
 
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
@@ -415,18 +413,18 @@ public sealed class OrMapStrategy(
     }
 
     /// <inheritdoc/>
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
         
-        var keyType = PocoPathHelper.GetDictionaryKeyType(partitionableProperty);
+        var keyType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
-        var dict1 = (IDictionary)PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1)!;
-        var dict2 = (IDictionary)PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2)!;
+        var dict1 = (IDictionary)partitionableProperty.Getter!(data1)!;
+        var dict2 = (IDictionary)partitionableProperty.Getter!(data2)!;
 
-        var mergedDoc = Activator.CreateInstance(partitionableProperty.DeclaringType!)!;
-        var mergedDict = (IDictionary)Activator.CreateInstance(dict1.GetType())!;
+        var mergedDoc = PocoPathHelper.Instantiate(data1.GetType(), aotContexts);
+        var mergedDict = (IDictionary)PocoPathHelper.InstantiateCollection(partitionableProperty.PropertyType, aotContexts);
 
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
@@ -521,16 +519,16 @@ public sealed class OrMapStrategy(
             }
         }
     
-        PocoPathHelper.GetAccessor(partitionableProperty).Setter(mergedDoc, mergedDict);
+        partitionableProperty.Setter!(mergedDoc, mergedDict);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
     
     private bool ApplyUpsert(IDictionary dict, CrdtMetadata metadata, OrSetState state, CrdtOperation operation, Type keyType, Type valueType)
     {
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapAddItem)) is not OrMapAddItem payload) return false;
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapAddItem), aotContexts) is not OrMapAddItem payload) return false;
 
-        var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
+        var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType, aotContexts);
         if (itemKey is null) return false;
 
         if (!state.Adds.TryGetValue(itemKey, out var addTags))
@@ -545,18 +543,18 @@ public sealed class OrMapStrategy(
         if (!metadata.Lww.TryGetValue(valuePath, out var currentTimestamp) || causalOpTs.CompareTo(currentTimestamp) > 0)
         {
             metadata.Lww[valuePath] = causalOpTs;
-            var itemValue = PocoPathHelper.ConvertValue(payload.Value, valueType);
+            var itemValue = PocoPathHelper.ConvertValue(payload.Value, valueType, aotContexts);
             dict[itemKey] = itemValue;
         }
 
         return true;
     }
 
-    private static object? ApplyRemove(OrSetState state, CrdtOperation operation, Type keyType)
+    private object? ApplyRemove(OrSetState state, CrdtOperation operation, Type keyType)
     {
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapRemoveItem)) is not OrMapRemoveItem payload) return null;
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrMapRemoveItem), aotContexts) is not OrMapRemoveItem payload) return null;
 
-        var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
+        var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType, aotContexts);
         if (itemKey is null) return null;
 
         if (!state.Removes.TryGetValue(itemKey, out var removeDict))

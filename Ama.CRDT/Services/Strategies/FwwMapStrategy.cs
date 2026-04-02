@@ -1,9 +1,12 @@
 namespace Ama.CRDT.Services.Strategies;
 
 using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -12,9 +15,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using Ama.CRDT.Services;
-using Ama.CRDT.Attributes.Strategies.Semantic;
 
 /// <summary>
 /// Implements the FWW-Map (First-Writer-Wins Map) CRDT strategy.
@@ -31,7 +31,8 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 [StateBased]
 public sealed class FwwMapStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -45,7 +46,7 @@ public sealed class FwwMapStrategy(
 
         if (originalDict is null && modifiedDict is null) return;
 
-        var keyType = PocoPathHelper.GetDictionaryKeyType(property);
+        var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
         var originalKeys = originalDict?.Keys.Cast<object>().ToHashSet(comparer) ?? new HashSet<object>(comparer);
@@ -106,8 +107,10 @@ public sealed class FwwMapStrategy(
     {
         var (root, metadata, operation) = context;
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict)
+        var resolution = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
+        var parent = resolution.Parent;
+        var property = resolution.Property;
+        if (parent is null || property is null || property.Getter!(parent) is not IDictionary dict)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
@@ -120,8 +123,9 @@ public sealed class FwwMapStrategy(
             return CrdtOperationStatus.Success;
         }
 
-        var keyType = PocoPathHelper.GetDictionaryKeyType(property);
-        var valueType = PocoPathHelper.GetDictionaryValueType(property);
+        var typeInfo = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts);
+        var keyType = typeInfo.DictionaryKeyType ?? typeof(object);
+        var valueType = typeInfo.DictionaryValueType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
         if (!metadata.FwwMaps.TryGetValue(operation.JsonPath, out var timestamps))
@@ -130,12 +134,12 @@ public sealed class FwwMapStrategy(
             metadata.FwwMaps[operation.JsonPath] = timestamps;
         }
 
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>)) is not KeyValuePair<object, object?> payload)
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>), aotContexts) is not KeyValuePair<object, object?> payload)
         {
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
+        var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType, aotContexts);
         if (itemKey is null)
         {
             return CrdtOperationStatus.StrategyApplicationFailed;
@@ -151,7 +155,7 @@ public sealed class FwwMapStrategy(
         switch (operation.Type)
         {
             case OperationType.Upsert:
-                var itemValue = PocoPathHelper.ConvertValue(payload.Value, valueType);
+                var itemValue = PocoPathHelper.ConvertValue(payload.Value, valueType, aotContexts);
                 dict[itemKey] = itemValue;
                 break;
             case OperationType.Remove:
@@ -170,8 +174,10 @@ public sealed class FwwMapStrategy(
         if (context.Document is null) return;
         if (!context.Metadata.FwwMaps.TryGetValue(context.PropertyPath, out var timestamps)) return;
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict)
+        var resolution = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath, aotContexts);
+        var parent = resolution.Parent;
+        var property = resolution.Property;
+        if (parent is null || property is null || property.Getter!(parent) is not IDictionary dict)
         {
             return;
         }
@@ -194,11 +200,11 @@ public sealed class FwwMapStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
         if (data is null || partitionableProperty is null) return null;
 
-        if (PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) is IDictionary dict && dict.Count > 0)
+        if (partitionableProperty.Getter!(data) is IDictionary dict && dict.Count > 0)
         {
             var keys = dict.Keys.Cast<object>().ToList();
             if (keys.FirstOrDefault() is not IComparable)
@@ -230,14 +236,14 @@ public sealed class FwwMapStrategy(
             return compFast;
         }
 
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>)) is KeyValuePair<object, object?> payload)
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>), aotContexts) is KeyValuePair<object, object?> payload)
         {
             if (payload.Key is IComparable comparableKey)
             {
                 return comparableKey;
             }
 
-            if (PocoPathHelper.ConvertValue(payload.Key, typeof(IComparable)) is IComparable convertedKey)
+            if (PocoPathHelper.ConvertValue(payload.Key, typeof(IComparable), aotContexts) is IComparable convertedKey)
             {
                 return convertedKey;
             }
@@ -247,11 +253,11 @@ public sealed class FwwMapStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    public IComparable GetMinimumKey(CrdtPropertyInfo partitionableProperty)
     {
         if (partitionableProperty is null) throw new ArgumentNullException(nameof(partitionableProperty));
 
-        var keyType = PocoPathHelper.GetDictionaryKeyType(partitionableProperty);
+        var keyType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
 
         if (keyType == typeof(string)) return string.Empty;
         if (keyType == typeof(int)) return int.MinValue;
@@ -264,7 +270,7 @@ public sealed class FwwMapStrategy(
 
         if (keyType.IsValueType)
         {
-            var defaultVal = Activator.CreateInstance(keyType);
+            var defaultVal = PocoPathHelper.GetDefaultValue(keyType, aotContexts);
             if (defaultVal is IComparable comp) return comp;
         }
 
@@ -272,13 +278,13 @@ public sealed class FwwMapStrategy(
     }
 
     /// <inheritdoc/>
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
         if (originalData is null) throw new ArgumentNullException(nameof(originalData));
         if (originalMetadata is null) throw new ArgumentNullException(nameof(originalMetadata));
         if (partitionableProperty is null) throw new ArgumentNullException(nameof(partitionableProperty));
 
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
         if (!originalMetadata.FwwMaps.TryGetValue(path, out var fwwMap) || fwwMap.Count < 2)
@@ -295,10 +301,10 @@ public sealed class FwwMapStrategy(
         var items1 = sortedEntries.Take(splitIndex).ToList();
         var items2 = sortedEntries.Skip(splitIndex).ToList();
 
-        var doc1 = Activator.CreateInstance(documentType)!;
-        var doc2 = Activator.CreateInstance(documentType)!;
+        var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
+        var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
 
-        var comparer = comparerProvider.GetComparer(PocoPathHelper.GetDictionaryKeyType(partitionableProperty));
+        var comparer = comparerProvider.GetComparer(PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object));
         
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
@@ -306,14 +312,14 @@ public sealed class FwwMapStrategy(
         meta1.FwwMaps[path] = items1.ToDictionary(k => k.Key, v => v.Value, comparer);
         meta2.FwwMaps[path] = items2.ToDictionary(k => k.Key, v => v.Value, comparer);
 
-        ReconstructDictionaryForSplitMerge(doc1, path, items1, originalData);
-        ReconstructDictionaryForSplitMerge(doc2, path, items2, originalData);
+        ReconstructDictionaryForSplitMerge(doc1, path, items1, originalData, aotContexts);
+        ReconstructDictionaryForSplitMerge(doc2, path, items2, originalData, aotContexts);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
 
     /// <inheritdoc/>
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         if (data1 is null) throw new ArgumentNullException(nameof(data1));
         if (meta1 is null) throw new ArgumentNullException(nameof(meta1));
@@ -321,11 +327,11 @@ public sealed class FwwMapStrategy(
         if (meta2 is null) throw new ArgumentNullException(nameof(meta2));
         if (partitionableProperty is null) throw new ArgumentNullException(nameof(partitionableProperty));
 
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = data1.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var mergedDoc = Activator.CreateInstance(documentType)!;
-        var keyType = PocoPathHelper.GetDictionaryKeyType(partitionableProperty);
+        var mergedDoc = PocoPathHelper.Instantiate(documentType, aotContexts)!;
+        var keyType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
         
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
@@ -348,31 +354,40 @@ public sealed class FwwMapStrategy(
         var sortedItems = mergedItems.ToList();
         sortedItems.Sort((a, b) => ((IComparable)a.Key).CompareTo((IComparable)b.Key));
         
-        ReconstructDictionaryForMerge(mergedDoc, path, sortedItems, data1, meta1, data2, meta2);
+        ReconstructDictionaryForMerge(mergedDoc, path, sortedItems, data1, meta1, data2, meta2, aotContexts);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructDictionaryForSplitMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object originalData)
+    private static void ReconstructDictionaryForSplitMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object originalData, IEnumerable<CrdtContext> aotContexts)
     {
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
-        var (origParent, origProperty, _) = PocoPathHelper.ResolvePath(originalData, path);
+        var resolution = PocoPathHelper.ResolvePath(root, path, aotContexts);
+        var parent = resolution.Parent;
+        var property = resolution.Property;
+
+        var origResolution = PocoPathHelper.ResolvePath(originalData, path, aotContexts);
+        var origParent = origResolution.Parent;
+        var origProperty = origResolution.Property;
         
         if (parent is null || property is null || origParent is null || origProperty is null) return;
 
-        var origDict = PocoPathHelper.GetAccessor(origProperty).Getter(origParent) as IDictionary;
+        var origDict = origProperty.Getter!(origParent) as IDictionary;
 
-        var keyType = PocoPathHelper.GetDictionaryKeyType(property);
-        var valueType = PocoPathHelper.GetDictionaryValueType(property);
-        var dictType = typeof(Dictionary<,>).MakeGenericType(keyType, valueType);
-        var dict = (IDictionary)Activator.CreateInstance(dictType)!;
-        PocoPathHelper.GetAccessor(property).Setter(parent, dict);
+        var typeInfo = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts);
+        var keyType = typeInfo.DictionaryKeyType ?? typeof(object);
+        
+        var dict = property.Getter!(parent) as IDictionary;
+        if (dict == null)
+        {
+            dict = (IDictionary)PocoPathHelper.Instantiate(property.PropertyType, aotContexts)!;
+            property.Setter!(parent, dict);
+        }
 
         if (origDict is null) return;
 
         foreach (var item in items)
         {
-            var typedKey = PocoPathHelper.ConvertValue(item.Key, keyType);
+            var typedKey = PocoPathHelper.ConvertValue(item.Key, keyType, aotContexts);
             if (typedKey != null && origDict.Contains(typedKey))
             {
                 dict[typedKey] = origDict[typedKey];
@@ -380,29 +395,41 @@ public sealed class FwwMapStrategy(
         }
     }
 
-    private static void ReconstructDictionaryForMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2)
+    private static void ReconstructDictionaryForMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, IEnumerable<CrdtContext> aotContexts)
     {
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
-        var (parent1, property1, _) = PocoPathHelper.ResolvePath(data1, path);
-        var (parent2, property2, _) = PocoPathHelper.ResolvePath(data2, path);
+        var resolution = PocoPathHelper.ResolvePath(root, path, aotContexts);
+        var parent = resolution.Parent;
+        var property = resolution.Property;
+
+        var resolution1 = PocoPathHelper.ResolvePath(data1, path, aotContexts);
+        var parent1 = resolution1.Parent;
+        var property1 = resolution1.Property;
+
+        var resolution2 = PocoPathHelper.ResolvePath(data2, path, aotContexts);
+        var parent2 = resolution2.Parent;
+        var property2 = resolution2.Property;
 
         if (parent is null || property is null) return;
 
-        var dict1 = property1 != null ? PocoPathHelper.GetAccessor(property1).Getter(parent1) as IDictionary : null;
-        var dict2 = property2 != null ? PocoPathHelper.GetAccessor(property2).Getter(parent2) as IDictionary : null;
+        var dict1 = property1 != null && parent1 != null ? property1.Getter!(parent1) as IDictionary : null;
+        var dict2 = property2 != null && parent2 != null ? property2.Getter!(parent2) as IDictionary : null;
 
-        var keyType = PocoPathHelper.GetDictionaryKeyType(property);
-        var valueType = PocoPathHelper.GetDictionaryValueType(property);
-        var dictType = typeof(Dictionary<,>).MakeGenericType(keyType, valueType);
-        var dict = (IDictionary)Activator.CreateInstance(dictType)!;
-        PocoPathHelper.GetAccessor(property).Setter(parent, dict);
+        var typeInfo = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts);
+        var keyType = typeInfo.DictionaryKeyType ?? typeof(object);
+        
+        var dict = property.Getter!(parent) as IDictionary;
+        if (dict == null)
+        {
+            dict = (IDictionary)PocoPathHelper.Instantiate(property.PropertyType, aotContexts)!;
+            property.Setter!(parent, dict);
+        }
 
         meta1.FwwMaps.TryGetValue(path, out var items1);
         meta2.FwwMaps.TryGetValue(path, out var items2);
 
         foreach (var item in items)
         {
-            var typedKey = PocoPathHelper.ConvertValue(item.Key, keyType);
+            var typedKey = PocoPathHelper.ConvertValue(item.Key, keyType, aotContexts);
             if (typedKey is null) continue;
 
             bool inDict1 = dict1 != null && dict1.Contains(typedKey);

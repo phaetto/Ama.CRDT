@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
@@ -13,7 +14,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Reflection;
 
 /// <summary>
 /// Implements the LSEQ (Log-structured Sequence) strategy. LSEQ assigns dense, ordered identifiers
@@ -31,7 +31,8 @@ using System.Reflection;
 public sealed class LseqStrategy(
     IElementComparerProvider elementComparerProvider,
     ICrdtTimestampProvider timestampProvider,
-    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     private const int Base = 32;
@@ -46,7 +47,7 @@ public sealed class LseqStrategy(
 
         if (originalList.Count == 0 && modifiedList.Count == 0) return;
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = elementComparerProvider.GetComparer(elementType);
         
         if (!originalMeta.LseqTrackers.TryGetValue(path, out var originalItems))
@@ -234,26 +235,25 @@ public sealed class LseqStrategy(
             metadata.LseqTrackers[operation.JsonPath] = lseqItems;
         }
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
         if (parent is null || property is null)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
-        var list = PocoPathHelper.GetAccessor(property).Getter(parent) as IList;
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+        var list = property.Getter!(parent) as IList;
 
         if (list is null)
         {
-            var listType = typeof(List<>).MakeGenericType(elementType);
-            list = (IList)Activator.CreateInstance(listType)!;
-            PocoPathHelper.GetAccessor(property).Setter(parent, list);
+            list = (IList)PocoPathHelper.InstantiateCollection(property.PropertyType, aotContexts);
+            property.Setter!(parent, list);
         }
 
         switch (operation.Type)
         {
             case OperationType.Upsert:
-                if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqItem)) is LseqItem newItem)
+                if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqItem), aotContexts) is LseqItem newItem)
                 {
                     // O(1) Check for existing to ensure idempotency
                     var existingIdx = lseqItems.FindIndex(i => i.Identifier.Equals(newItem.Identifier));
@@ -268,7 +268,7 @@ public sealed class LseqStrategy(
 
                     // Incrementally update both tracker and list without full reconstruction
                     lseqItems.Insert(insertPos, newItem);
-                    list.Insert(insertPos, PocoPathHelper.ConvertValue(newItem.Value, elementType));
+                    list.Insert(insertPos, PocoPathHelper.ConvertValue(newItem.Value, elementType, aotContexts));
                 }
                 else
                 {
@@ -276,7 +276,7 @@ public sealed class LseqStrategy(
                 }
                 break;
             case OperationType.Remove:
-                if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqIdentifier)) is LseqIdentifier idToRemove)
+                if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqIdentifier), aotContexts) is LseqIdentifier idToRemove)
                 {
                     var removeIdx = lseqItems.FindIndex(i => i.Identifier.Equals(idToRemove));
                     if (removeIdx >= 0)
@@ -310,7 +310,7 @@ public sealed class LseqStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
         return null;
     }
@@ -326,8 +326,8 @@ public sealed class LseqStrategy(
         object? key = null;
         if (operation.Value is LseqItem item) key = item.Identifier;
         else if (operation.Value is LseqIdentifier id) key = id;
-        else if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqItem)) is LseqItem convItem) key = convItem.Identifier;
-        else if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqIdentifier)) is LseqIdentifier convId) key = convId;
+        else if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqItem), aotContexts) is LseqItem convItem) key = convItem.Identifier;
+        else if (PocoPathHelper.ConvertValue(operation.Value, typeof(LseqIdentifier), aotContexts) is LseqIdentifier convId) key = convId;
 
         if (key is null) return null;
         if (key is IComparable comparableKey) return comparableKey;
@@ -336,15 +336,15 @@ public sealed class LseqStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    public IComparable GetMinimumKey(CrdtPropertyInfo partitionableProperty)
     {
         return new LseqIdentifier(ImmutableList<LseqPathSegment>.Empty);
     }
 
     /// <inheritdoc/>
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
         if (!originalMetadata.LseqTrackers.TryGetValue(path, out var lseqItems) || lseqItems.Count < 2)
@@ -358,8 +358,8 @@ public sealed class LseqStrategy(
         var items1 = lseqItems.Take(splitIndex).ToList();
         var items2 = lseqItems.Skip(splitIndex).ToList();
 
-        var doc1 = Activator.CreateInstance(documentType)!;
-        var doc2 = Activator.CreateInstance(documentType)!;
+        var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
+        var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
 
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
@@ -367,18 +367,18 @@ public sealed class LseqStrategy(
         meta1.LseqTrackers[path] = items1;
         meta2.LseqTrackers[path] = items2;
 
-        ReconstructListForSplitMerge(doc1, path, items1);
-        ReconstructListForSplitMerge(doc2, path, items2);
+        ReconstructListForSplitMerge(doc1, path, items1, aotContexts);
+        ReconstructListForSplitMerge(doc2, path, items2, aotContexts);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
 
     /// <inheritdoc/>
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var mergedDoc = Activator.CreateInstance(partitionableProperty.DeclaringType!)!;
+        var mergedDoc = PocoPathHelper.Instantiate(data1.GetType(), aotContexts)!;
         
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
@@ -394,7 +394,7 @@ public sealed class LseqStrategy(
 
         mergedMeta.LseqTrackers[path] = mergedItems;
 
-        ReconstructListForSplitMerge(mergedDoc, path, mergedItems);
+        ReconstructListForSplitMerge(mergedDoc, path, mergedItems, aotContexts);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
@@ -428,25 +428,24 @@ public sealed class LseqStrategy(
         return new LseqIdentifier(newPath.ToImmutable());
     }
 
-    private static void ReconstructListForSplitMerge(object root, string path, List<LseqItem> lseqItems)
+    private static void ReconstructListForSplitMerge(object root, string path, List<LseqItem> lseqItems, IEnumerable<CrdtContext> aotContexts)
     {
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);
         if (parent is null || property is null) return;
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
-        var list = PocoPathHelper.GetAccessor(property).Getter(parent) as IList;
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+        var list = property.Getter!(parent) as IList;
         
         if (list is null)
         {
-            var listType = typeof(List<>).MakeGenericType(elementType);
-            list = (IList)Activator.CreateInstance(listType)!;
-            PocoPathHelper.GetAccessor(property).Setter(parent, list);
+            list = (IList)PocoPathHelper.InstantiateCollection(property.PropertyType, aotContexts);
+            property.Setter!(parent, list);
         }
 
         list.Clear();
         foreach (var item in lseqItems)
         {
-            list.Add(PocoPathHelper.ConvertValue(item.Value, elementType));
+            list.Add(PocoPathHelper.ConvertValue(item.Value, elementType, aotContexts));
         }
     }
 }
