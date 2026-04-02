@@ -1,19 +1,23 @@
 namespace Ama.CRDT.UnitTests.Services.Helpers;
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Services.Helpers;
 using Shouldly;
 using Xunit;
 
 public sealed class PocoPathHelperTests
 {
+    private readonly IEnumerable<CrdtContext> _aotContexts;
     private readonly TestRoot rootObject;
 
     public PocoPathHelperTests()
     {
+        // Supply the Source Generator context specific to these test models
+        _aotContexts = [new HelpersTestCrdtContext()];
+        
         rootObject = new TestRoot
         {
             Id = Guid.Parse("12345678-1234-1234-1234-123456789012"),
@@ -38,8 +42,7 @@ public sealed class PocoPathHelperTests
             UsersMap = new Dictionary<string, TestUser> 
             { 
                 { "u1", new TestUser { Name = "Charlie", Age = 40 } } 
-            },
-            UntypedList = ["one", 2]
+            }
         };
     }
 
@@ -74,7 +77,7 @@ public sealed class PocoPathHelperTests
         var path = "$.simpleProp";
 
         // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path, _aotContexts);
 
         // Assert
         parent.ShouldBe(rootObject);
@@ -90,7 +93,7 @@ public sealed class PocoPathHelperTests
         var path = "$.user.name";
 
         // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path, _aotContexts);
 
         // Assert
         parent.ShouldBe(rootObject.User);
@@ -106,7 +109,7 @@ public sealed class PocoPathHelperTests
         var path = "$.users[1]";
 
         // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path, _aotContexts);
 
         // Assert
         parent.ShouldBe(rootObject);
@@ -122,7 +125,7 @@ public sealed class PocoPathHelperTests
         var path = "$.users[0].age";
 
         // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path, _aotContexts);
 
         // Assert
         parent.ShouldBe(rootObject.Users![0]);
@@ -138,7 +141,7 @@ public sealed class PocoPathHelperTests
         var path = "$.settings";
 
         // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path, _aotContexts);
 
         // Assert
         parent.ShouldBe(rootObject);
@@ -154,7 +157,7 @@ public sealed class PocoPathHelperTests
         var path = "$.settings['theme']";
 
         // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path, _aotContexts);
 
         // Assert
         parent.ShouldBe(rootObject);
@@ -170,7 +173,7 @@ public sealed class PocoPathHelperTests
         var path = "$.usersMap['u1'].name";
 
         // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path, _aotContexts);
 
         // Assert
         parent.ShouldBe(rootObject.UsersMap!["u1"]);
@@ -186,7 +189,7 @@ public sealed class PocoPathHelperTests
         var path = "$.SimpleProp";
 
         // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path, _aotContexts);
 
         // Assert
         parent.ShouldBe(rootObject);
@@ -202,7 +205,7 @@ public sealed class PocoPathHelperTests
         var path = "$.nonExistent";
 
         // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path, _aotContexts);
 
         // Assert
         parent.ShouldBeNull();
@@ -217,7 +220,7 @@ public sealed class PocoPathHelperTests
         var path = "$.users[99]";
 
         // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path, _aotContexts);
 
         // Assert
         parent.ShouldNotBeNull();
@@ -232,7 +235,7 @@ public sealed class PocoPathHelperTests
         var path = "$.user[0]";
 
         // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path, _aotContexts);
 
         // Assert
         parent.ShouldBeNull();
@@ -247,7 +250,7 @@ public sealed class PocoPathHelperTests
         var path = "$";
 
         // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path);
+        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path, _aotContexts);
 
         // Assert
         parent.ShouldBeNull();
@@ -259,7 +262,7 @@ public sealed class PocoPathHelperTests
     public void ConvertValue_ShouldReturnNull_WhenValueIsNull()
     {
         // Act
-        var result = PocoPathHelper.ConvertValue(null, typeof(int));
+        var result = PocoPathHelper.ConvertValue(null, typeof(int), _aotContexts);
 
         // Assert
         result.ShouldBeNull();
@@ -272,7 +275,7 @@ public sealed class PocoPathHelperTests
         var value = "test";
 
         // Act
-        var result = PocoPathHelper.ConvertValue(value, typeof(string));
+        var result = PocoPathHelper.ConvertValue(value, typeof(string), _aotContexts);
 
         // Assert
         result.ShouldBe(value);
@@ -285,7 +288,7 @@ public sealed class PocoPathHelperTests
         long value = 123L;
 
         // Act
-        var result = PocoPathHelper.ConvertValue(value, typeof(int));
+        var result = PocoPathHelper.ConvertValue(value, typeof(int), _aotContexts);
 
         // Assert
         result.ShouldBe(123);
@@ -298,7 +301,7 @@ public sealed class PocoPathHelperTests
         int value = 42;
 
         // Act
-        var result = PocoPathHelper.ConvertValue(value, typeof(int?));
+        var result = PocoPathHelper.ConvertValue(value, typeof(int?), _aotContexts);
 
         // Assert
         result.ShouldBe(42);
@@ -311,7 +314,7 @@ public sealed class PocoPathHelperTests
         var value = "not-a-number";
 
         // Act
-        var result = PocoPathHelper.ConvertValue(value, typeof(int));
+        var result = PocoPathHelper.ConvertValue(value, typeof(int), _aotContexts);
 
         // Assert
         result.ShouldBe(value);
@@ -324,7 +327,7 @@ public sealed class PocoPathHelperTests
         var value = "Pending";
 
         // Act
-        var result = PocoPathHelper.ConvertValue(value, typeof(TestStatus));
+        var result = PocoPathHelper.ConvertValue(value, typeof(TestStatus), _aotContexts);
 
         // Assert
         result.ShouldBe(TestStatus.Pending);
@@ -337,7 +340,7 @@ public sealed class PocoPathHelperTests
         var guidString = "12345678-1234-1234-1234-123456789012";
 
         // Act
-        var result = PocoPathHelper.ConvertValue(guidString, typeof(Guid));
+        var result = PocoPathHelper.ConvertValue(guidString, typeof(Guid), _aotContexts);
 
         // Assert
         result.ShouldBe(Guid.Parse(guidString));
@@ -354,7 +357,7 @@ public sealed class PocoPathHelperTests
         };
 
         // Act
-        var result = PocoPathHelper.ConvertValue(dict, typeof(TestUser));
+        var result = PocoPathHelper.ConvertValue(dict, typeof(TestUser), _aotContexts);
 
         // Assert
         var user = result.ShouldBeOfType<TestUser>();
@@ -373,7 +376,7 @@ public sealed class PocoPathHelperTests
         };
 
         // Act
-        var result = PocoPathHelper.ConvertValue(dict, typeof(KeyValuePair<string, int>));
+        var result = PocoPathHelper.ConvertValue(dict, typeof(KeyValuePair<string, int>), _aotContexts);
 
         // Assert
         var kvp = result.ShouldBeOfType<KeyValuePair<string, int>>();
@@ -385,7 +388,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_ShouldReturnSimplePropertyValue()
     {
         // Act
-        var value = PocoPathHelper.GetValue(rootObject, "$.simpleProp");
+        var value = PocoPathHelper.GetValue(rootObject, "$.simpleProp", _aotContexts);
 
         // Assert
         value.ShouldBe("value");
@@ -395,7 +398,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_ShouldReturnNestedPropertyValue()
     {
         // Act
-        var value = PocoPathHelper.GetValue(rootObject, "$.user.name");
+        var value = PocoPathHelper.GetValue(rootObject, "$.user.name", _aotContexts);
 
         // Assert
         value.ShouldBe("John");
@@ -405,7 +408,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_ShouldReturnArrayElementObject()
     {
         // Act
-        var value = PocoPathHelper.GetValue(rootObject, "$.users[1]");
+        var value = PocoPathHelper.GetValue(rootObject, "$.users[1]", _aotContexts);
 
         // Assert
         value.ShouldBe(rootObject.Users![1]);
@@ -416,7 +419,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_ShouldReturnArrayElementPrimitive()
     {
         // Act
-        var value = PocoPathHelper.GetValue(rootObject, "$.tags[0]");
+        var value = PocoPathHelper.GetValue(rootObject, "$.tags[0]", _aotContexts);
 
         // Assert
         value.ShouldBe("tag1");
@@ -426,7 +429,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_ShouldReturnDictionaryItself()
     {
         // Act
-        var value = PocoPathHelper.GetValue(rootObject, "$.settings");
+        var value = PocoPathHelper.GetValue(rootObject, "$.settings", _aotContexts);
 
         // Assert
         value.ShouldBe(rootObject.Settings);
@@ -438,7 +441,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_ShouldReturnDictionaryElementValue()
     {
         // Act
-        var value = PocoPathHelper.GetValue(rootObject, "$.settings['theme']");
+        var value = PocoPathHelper.GetValue(rootObject, "$.settings['theme']", _aotContexts);
 
         // Assert
         value.ShouldBe("dark");
@@ -448,7 +451,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_ShouldReturnPropertyOfDictionaryElement()
     {
         // Act
-        var value = PocoPathHelper.GetValue(rootObject, "$.usersMap['u1'].name");
+        var value = PocoPathHelper.GetValue(rootObject, "$.usersMap['u1'].name", _aotContexts);
 
         // Assert
         value.ShouldBe("Charlie");
@@ -458,7 +461,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_ShouldReturnNullForInvalidProperty()
     {
         // Act
-        var value = PocoPathHelper.GetValue(rootObject, "$.user.invalidProp");
+        var value = PocoPathHelper.GetValue(rootObject, "$.user.invalidProp", _aotContexts);
 
         // Assert
         value.ShouldBeNull();
@@ -468,7 +471,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_ShouldReturnNullForIndexOutOfBounds()
     {
         // Act
-        var value = PocoPathHelper.GetValue(rootObject, "$.users[99]");
+        var value = PocoPathHelper.GetValue(rootObject, "$.users[99]", _aotContexts);
 
         // Assert
         value.ShouldBeNull();
@@ -478,7 +481,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_ShouldReturnNullForInvalidDictionaryKey()
     {
         // Act
-        var value = PocoPathHelper.GetValue(rootObject, "$.settings['missing-key']");
+        var value = PocoPathHelper.GetValue(rootObject, "$.settings['missing-key']", _aotContexts);
 
         // Assert
         value.ShouldBeNull();
@@ -488,7 +491,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_Generic_ShouldReturnSimpleProperty()
     {
         // Act
-        var value = PocoPathHelper.GetValue<string>(rootObject, "$.simpleProp");
+        var value = PocoPathHelper.GetValue<string>(rootObject, "$.simpleProp", _aotContexts);
 
         // Assert
         value.ShouldBe("value");
@@ -498,7 +501,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_Generic_ShouldReturnArrayElement()
     {
         // Act
-        var value = PocoPathHelper.GetValue<string>(rootObject, "$.tags[0]");
+        var value = PocoPathHelper.GetValue<string>(rootObject, "$.tags[0]", _aotContexts);
 
         // Assert
         value.ShouldBe("tag1");
@@ -508,18 +511,18 @@ public sealed class PocoPathHelperTests
     public void GetValue_Generic_ShouldReturnDictionaryItself()
     {
         // Act
-        var value = PocoPathHelper.GetValue<IDictionary<string, string>>(rootObject, "$.settings");
+        var value = PocoPathHelper.GetValue<IDictionary<string, string>>(rootObject, "$.settings", _aotContexts);
 
         // Assert
         value.ShouldBe(rootObject.Settings);
-        value["theme"].ShouldBe("dark");
+        value!["theme"].ShouldBe("dark");
     }
 
     [Fact]
     public void GetValue_Generic_ShouldReturnDictionaryElement()
     {
         // Act
-        var value = PocoPathHelper.GetValue<string>(rootObject, "$.settings['theme']");
+        var value = PocoPathHelper.GetValue<string>(rootObject, "$.settings['theme']", _aotContexts);
 
         // Assert
         value.ShouldBe("dark");
@@ -529,7 +532,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_Generic_ShouldReturnPropertyOfDictionaryElement()
     {
         // Act
-        var value = PocoPathHelper.GetValue<int>(rootObject, "$.usersMap['u1'].age");
+        var value = PocoPathHelper.GetValue<int>(rootObject, "$.usersMap['u1'].age", _aotContexts);
 
         // Assert
         value.ShouldBe(40);
@@ -539,7 +542,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_Generic_ShouldReturnEnumProperty()
     {
         // Act
-        var value = PocoPathHelper.GetValue<TestStatus>(rootObject, "$.status");
+        var value = PocoPathHelper.GetValue<TestStatus>(rootObject, "$.status", _aotContexts);
 
         // Assert
         value.ShouldBe(TestStatus.Active);
@@ -549,7 +552,7 @@ public sealed class PocoPathHelperTests
     public void GetValue_Generic_ShouldReturnDefault_OnInvalidPath()
     {
         // Act
-        var value = PocoPathHelper.GetValue<int>(rootObject, "$.invalidProp");
+        var value = PocoPathHelper.GetValue<int>(rootObject, "$.invalidProp", _aotContexts);
 
         // Assert
         value.ShouldBe(0);
@@ -563,7 +566,7 @@ public sealed class PocoPathHelperTests
         var newValue = "new value";
 
         // Act
-        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue, _aotContexts);
 
         // Assert
         success.ShouldBeTrue();
@@ -578,7 +581,7 @@ public sealed class PocoPathHelperTests
         var newValue = 35;
 
         // Act
-        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue, _aotContexts);
 
         // Assert
         success.ShouldBeTrue();
@@ -593,7 +596,7 @@ public sealed class PocoPathHelperTests
         var newValue = "new-tag";
 
         // Act
-        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue, _aotContexts);
 
         // Assert
         success.ShouldBeTrue();
@@ -608,7 +611,7 @@ public sealed class PocoPathHelperTests
         var newDict = new Dictionary<string, string> { { "theme", "light" }, { "mode", "auto" } };
 
         // Act
-        var success = PocoPathHelper.SetValue(rootObject, path, newDict);
+        var success = PocoPathHelper.SetValue(rootObject, path, newDict, _aotContexts);
 
         // Assert
         success.ShouldBeTrue();
@@ -624,7 +627,7 @@ public sealed class PocoPathHelperTests
         var newValue = "light";
 
         // Act
-        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue, _aotContexts);
 
         // Assert
         success.ShouldBeTrue();
@@ -639,7 +642,7 @@ public sealed class PocoPathHelperTests
         var newValue = "newVal";
 
         // Act
-        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue, _aotContexts);
 
         // Assert
         success.ShouldBeTrue();
@@ -654,7 +657,7 @@ public sealed class PocoPathHelperTests
         var newValue = 55;
 
         // Act
-        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue, _aotContexts);
 
         // Assert
         success.ShouldBeTrue();
@@ -669,7 +672,7 @@ public sealed class PocoPathHelperTests
         var newValue = "40"; // string
 
         // Act
-        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue, _aotContexts);
 
         // Assert
         success.ShouldBeTrue();
@@ -684,7 +687,7 @@ public sealed class PocoPathHelperTests
         var newValue = "test";
 
         // Act
-        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue, _aotContexts);
 
         // Assert
         success.ShouldBeFalse();
@@ -699,7 +702,7 @@ public sealed class PocoPathHelperTests
         var newValue = "new";
 
         // Act
-        var success = PocoPathHelper.SetValue(obj, path, newValue);
+        var success = PocoPathHelper.SetValue(obj, path, newValue, _aotContexts);
 
         // Assert
         success.ShouldBeFalse();
@@ -714,7 +717,7 @@ public sealed class PocoPathHelperTests
         var newValue = "new generic value";
 
         // Act
-        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue, _aotContexts);
 
         // Assert
         success.ShouldBeTrue();
@@ -729,7 +732,7 @@ public sealed class PocoPathHelperTests
         var newValue = "updated-tag";
 
         // Act
-        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue, _aotContexts);
 
         // Assert
         success.ShouldBeTrue();
@@ -744,7 +747,7 @@ public sealed class PocoPathHelperTests
         var newDict = new Dictionary<string, string> { { "font", "arial" } };
 
         // Act
-        var success = PocoPathHelper.SetValue(rootObject, path, newDict);
+        var success = PocoPathHelper.SetValue(rootObject, path, newDict, _aotContexts);
 
         // Assert
         success.ShouldBeTrue();
@@ -760,7 +763,7 @@ public sealed class PocoPathHelperTests
         var newValue = "blue";
 
         // Act
-        var success = PocoPathHelper.SetValue(rootObject, path, newValue);
+        var success = PocoPathHelper.SetValue(rootObject, path, newValue, _aotContexts);
 
         // Assert
         success.ShouldBeTrue();
@@ -771,7 +774,7 @@ public sealed class PocoPathHelperTests
     public void ConvertTo_ShouldReturnDefault_WhenNull()
     {
         // Act
-        var result = PocoPathHelper.ConvertTo<string>(null);
+        var result = PocoPathHelper.ConvertTo<string>(null, _aotContexts);
 
         // Assert
         result.ShouldBeNull();
@@ -784,7 +787,7 @@ public sealed class PocoPathHelperTests
         object val = 100;
 
         // Act
-        var result = PocoPathHelper.ConvertTo<int>(val);
+        var result = PocoPathHelper.ConvertTo<int>(val, _aotContexts);
 
         // Assert
         result.ShouldBe(100);
@@ -797,49 +800,33 @@ public sealed class PocoPathHelperTests
         object val = "100";
 
         // Act
-        var result = PocoPathHelper.ConvertTo<int>(val);
+        var result = PocoPathHelper.ConvertTo<int>(val, _aotContexts);
 
         // Assert
         result.ShouldBe(100);
     }
 
     [Fact]
-    public void GetCollectionElementType_ShouldReturnCorrectTypeForGenericList()
+    public void GetTypeInfo_ShouldIdentifyCollectionAndElementType()
     {
-        // Arrange
-        var property = typeof(TestRoot).GetProperty(nameof(TestRoot.Users));
-
         // Act
-        var elementType = PocoPathHelper.GetCollectionElementType(property!);
+        var typeInfo = PocoPathHelper.GetTypeInfo(typeof(List<TestUser>), _aotContexts);
 
         // Assert
-        elementType.ShouldBe(typeof(TestUser));
+        typeInfo.IsCollection.ShouldBeTrue();
+        typeInfo.CollectionElementType.ShouldBe(typeof(TestUser));
     }
 
     [Fact]
-    public void GetCollectionElementType_ShouldReturnCorrectTypeForArray()
+    public void GetTypeInfo_ShouldIdentifyDictionaryAndKeyTypes()
     {
-        // Arrange
-        var property = typeof(TestRoot).GetProperty(nameof(TestRoot.Scores));
-
         // Act
-        var elementType = PocoPathHelper.GetCollectionElementType(property!);
+        var typeInfo = PocoPathHelper.GetTypeInfo(typeof(Dictionary<string, TestUser>), _aotContexts);
 
         // Assert
-        elementType.ShouldBe(typeof(int));
-    }
-
-    [Fact]
-    public void GetCollectionElementType_ShouldReturnObjectTypeForNonGenericList()
-    {
-        // Arrange
-        var property = typeof(TestRoot).GetProperty(nameof(TestRoot.UntypedList));
-
-        // Act
-        var elementType = PocoPathHelper.GetCollectionElementType(property!);
-
-        // Assert
-        elementType.ShouldBe(typeof(object));
+        typeInfo.IsDictionary.ShouldBeTrue();
+        typeInfo.DictionaryKeyType.ShouldBe(typeof(string));
+        typeInfo.DictionaryValueType.ShouldBe(typeof(TestUser));
     }
 
     [Fact]
@@ -849,7 +836,7 @@ public sealed class PocoPathHelperTests
         var propType = typeof(IEnumerable<string>);
 
         // Act
-        var collection = PocoPathHelper.InstantiateCollection(propType);
+        var collection = PocoPathHelper.InstantiateCollection(propType, _aotContexts);
 
         // Assert
         collection.ShouldBeOfType<List<string>>();
@@ -862,7 +849,7 @@ public sealed class PocoPathHelperTests
         var propType = typeof(ISet<string>);
 
         // Act
-        var collection = PocoPathHelper.InstantiateCollection(propType);
+        var collection = PocoPathHelper.InstantiateCollection(propType, _aotContexts);
 
         // Assert
         collection.ShouldBeOfType<HashSet<string>>();
@@ -875,7 +862,7 @@ public sealed class PocoPathHelperTests
         var propType = typeof(List<int>);
 
         // Act
-        var collection = PocoPathHelper.InstantiateCollection(propType);
+        var collection = PocoPathHelper.InstantiateCollection(propType, _aotContexts);
 
         // Assert
         collection.ShouldBeOfType<List<int>>();
@@ -888,7 +875,7 @@ public sealed class PocoPathHelperTests
         var list = new List<string> { "a" };
 
         // Act
-        PocoPathHelper.AddToCollection(list, "b");
+        PocoPathHelper.AddToCollection(list, "b", _aotContexts);
 
         // Assert
         list.ShouldContain("a");
@@ -903,7 +890,7 @@ public sealed class PocoPathHelperTests
         var list = new List<int> { 1 };
 
         // Act
-        PocoPathHelper.AddToCollection(list, "2");
+        PocoPathHelper.AddToCollection(list, "2", _aotContexts);
 
         // Assert
         list.ShouldContain(1);
@@ -918,7 +905,7 @@ public sealed class PocoPathHelperTests
         var list = new List<string> { "a", "b", "c" };
 
         // Act
-        PocoPathHelper.RemoveFromCollection(list, "b");
+        PocoPathHelper.RemoveFromCollection(list, "b", _aotContexts);
 
         // Assert
         list.ShouldNotContain("b");
@@ -932,36 +919,10 @@ public sealed class PocoPathHelperTests
         var list = new List<string> { "a", "b", "c" };
 
         // Act
-        PocoPathHelper.ClearCollection(list);
+        PocoPathHelper.ClearCollection(list, _aotContexts);
 
         // Assert
         list.ShouldBeEmpty();
-    }
-
-    [Fact]
-    public void GetDictionaryKeyType_ShouldReturnCorrectType()
-    {
-        // Arrange
-        var property = typeof(TestRoot).GetProperty(nameof(TestRoot.Settings));
-
-        // Act
-        var keyType = PocoPathHelper.GetDictionaryKeyType(property!);
-
-        // Assert
-        keyType.ShouldBe(typeof(string));
-    }
-
-    [Fact]
-    public void GetDictionaryValueType_ShouldReturnCorrectType()
-    {
-        // Arrange
-        var property = typeof(TestRoot).GetProperty(nameof(TestRoot.Settings));
-
-        // Act
-        var valueType = PocoPathHelper.GetDictionaryValueType(property!);
-
-        // Assert
-        valueType.ShouldBe(typeof(string));
     }
 
     [Fact]
@@ -971,7 +932,7 @@ public sealed class PocoPathHelperTests
         Expression<Func<TestRoot, string>> expression = x => x.SimpleProp!;
 
         // Act
-        var result = PocoPathHelper.ParseExpression(expression);
+        var result = PocoPathHelper.ParseExpression(expression, _aotContexts);
 
         // Assert
         result.JsonPath.ShouldBe("$.simpleProp");
@@ -985,7 +946,7 @@ public sealed class PocoPathHelperTests
         Expression<Func<TestRoot, int>> expression = x => x.User!.Age;
 
         // Act
-        var result = PocoPathHelper.ParseExpression(expression);
+        var result = PocoPathHelper.ParseExpression(expression, _aotContexts);
 
         // Assert
         result.JsonPath.ShouldBe("$.user.age");
@@ -999,7 +960,7 @@ public sealed class PocoPathHelperTests
         Expression<Func<TestRoot, int>> expression = x => x.Users![0].Age;
 
         // Act
-        var result = PocoPathHelper.ParseExpression(expression);
+        var result = PocoPathHelper.ParseExpression(expression, _aotContexts);
 
         // Assert
         result.JsonPath.ShouldBe("$.users[0].age");
@@ -1013,7 +974,7 @@ public sealed class PocoPathHelperTests
         Expression<Func<TestRoot, int>> expression = x => x.Scores![0];
 
         // Act & Assert
-        var ex = Should.Throw<ArgumentException>(() => PocoPathHelper.ParseExpression(expression));
+        var ex = Should.Throw<ArgumentException>(() => PocoPathHelper.ParseExpression(expression, _aotContexts));
         ex.Message.ShouldContain("Expression must end in a property access");
     }
 
@@ -1024,7 +985,7 @@ public sealed class PocoPathHelperTests
         Expression<Func<TestRoot, string>> expression = x => x.Settings!["theme"];
 
         // Act & Assert
-        var ex = Should.Throw<ArgumentException>(() => PocoPathHelper.ParseExpression(expression));
+        var ex = Should.Throw<ArgumentException>(() => PocoPathHelper.ParseExpression(expression, _aotContexts));
         ex.Message.ShouldContain("Expression must end in a property access");
     }
 
@@ -1035,19 +996,7 @@ public sealed class PocoPathHelperTests
         Expression<Func<TestRoot, string>> expression = x => x.ToString()!;
 
         // Act & Assert
-        Should.Throw<ArgumentException>(() => PocoPathHelper.ParseExpression(expression));
-    }
-
-    [Fact]
-    public void GetCachedProperties_ShouldReturnPublicReadableProperties()
-    {
-        // Act
-        var properties = PocoPathHelper.GetCachedProperties(typeof(TestUser));
-
-        // Assert
-        properties.ShouldNotBeEmpty();
-        properties.ShouldContain(p => p.Property.Name == nameof(TestUser.Name));
-        properties.ShouldContain(p => p.Property.Name == nameof(TestUser.Age));
+        Should.Throw<ArgumentException>(() => PocoPathHelper.ParseExpression(expression, _aotContexts));
     }
 
     [Fact]
@@ -1068,50 +1017,5 @@ public sealed class PocoPathHelperTests
 
         // Assert
         result.ShouldBeFalse();
-    }
-
-    private enum TestStatus
-    {
-        Pending,
-        Active,
-        Closed
-    }
-
-    private sealed class TestAddress
-    {
-        public string? Street { get; set; }
-    }
-
-    private sealed class TestUser
-    {
-        public string? Name { get; set; }
-        public int Age { get; set; }
-        public TestAddress? Address { get; set; }
-    }
-
-    private sealed class TestRootWithReadOnly
-    {
-        public string? ReadOnlyProp { get; }
-
-        public TestRootWithReadOnly(string? readOnlyProp)
-        {
-            ReadOnlyProp = readOnlyProp;
-        }
-    }
-
-    private sealed class TestRoot
-    {
-        public Guid Id { get; set; }
-        public TestStatus Status { get; set; }
-        public string? SimpleProp { get; set; }
-        public TestUser? User { get; set; }
-        public List<TestUser>? Users { get; set; }
-        public List<string>? Tags { get; set; }
-        public ISet<string>? UniqueTags { get; set; }
-        public string? SpecialNameProp { get; set; }
-        public int[]? Scores { get; set; }
-        public IDictionary<string, string>? Settings { get; set; }
-        public Dictionary<string, TestUser>? UsersMap { get; set; }
-        public ArrayList? UntypedList { get; set; }
     }
 }
