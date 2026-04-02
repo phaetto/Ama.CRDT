@@ -120,9 +120,9 @@
 | `$/Ama.CRDT.ShowCase/Services/InMemoryDatabaseService.cs` | An implementation of `IInMemoryDatabaseService` using `ConcurrentDictionary` to simulate a database for CRDT documents and metadata. |
 | `$/Ama.CRDT.ShowCase/SimulationRunner.cs` | Orchestrates the distributed map-reduce simulation using concurrent producers, mappers, and convergers communicating via channels to demonstrate CRDT convergence. |
 | `$/Ama.CRDT.SourceGenerators.UnitTests/Ama.CRDT.SourceGenerators.UnitTests.csproj` | No description provided. |
-| `$/Ama.CRDT.SourceGenerators.UnitTests/CrdtContextGeneratorTests.cs` | Tests the C# code output emitted by the `CrdtContextGenerator`. |
+| `$/Ama.CRDT.SourceGenerators.UnitTests/CrdtContextGeneratorTests.cs` | Tests the C# code output emitted by the `CrdtContextGenerator`, validating the new reflection-free attribute strategy bindings. |
 | `$/Ama.CRDT.SourceGenerators/Ama.CRDT.SourceGenerators.csproj` | No description provided. |
-| `$/Ama.CRDT.SourceGenerators/CrdtContextGenerator.cs` | The Roslyn Source Generator that implements `CrdtContext` and generates explicit code to avoid Native AOT trim warnings. |
+| `$/Ama.CRDT.SourceGenerators/CrdtContextGenerator.cs` | The Roslyn Source Generator that implements `CrdtContext` and generates explicit code to avoid Native AOT trim warnings, now precalculating CRDT strategies directly from attributes. |
 | `$/Ama.CRDT.UnitTests/Ama.CRDT.UnitTests.csproj` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Architecture/ModelConventionTests.cs` | An architecture convention unit test that reflects over all data models to enforce the presence of serialization tests by scanning the test source files. |
 | `$/Ama.CRDT.UnitTests/Architecture/StrategyConventionTests.cs` | An architecture convention unit test that reflects over all strategies to enforce the presence of unit tests, property tests, benchmarks, and documentation. |
@@ -242,7 +242,7 @@
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods for easy library setup, unifying `AddCrdt`, applicator/patcher pipeline decoration (`AddCrdtApplicatorDecorator`, `AddCrdtJournaling`), comparers, timestamp providers, and serialization polymorphism. |
 | `$/Ama.CRDT/Models/Aot/CrdtContext.cs` | An abstract base class used to define Native AOT reflection contexts that are populated by the Source Generator. |
-| `$/Ama.CRDT/Models/Aot/CrdtPropertyInfo.cs` | Contains AOT-compatible, strongly-typed property accessors (getters/setters) to eliminate reflection overhead. |
+| `$/Ama.CRDT/Models/Aot/CrdtPropertyInfo.cs` | Contains AOT-compatible metadata, now natively including pre-extracted array of strategy type configurations mapped via attribute. |
 | `$/Ama.CRDT/Models/Aot/CrdtTypeInfo.cs` | Contains AOT-compatible metadata and factory methods for a specific type, including logic for lists and dictionaries. |
 | `$/Ama.CRDT/Models/Aot/InternalCrdtContext.cs` | An internal, source-generated AOT context containing metadata for all core library CRDT models (e.g., CrdtOperation, CrdtPatch, Intents, and Partitioning states), registered by default in the DI container. |
 | `$/Ama.CRDT/Models/ApplyPatchResult.cs` | Data structure containing the result of a patch application, including the document and any unapplied operations. |
@@ -255,6 +255,7 @@
 | `$/Ama.CRDT/Models/CrdtOperation.cs` | Represents a single CRDT operation. For serialization, use the recommended options from `CrdtJsonContext`. |
 | `$/Ama.CRDT/Models/CrdtOperationStatus.cs` | Enum representing the status or failure reason of a CRDT operation during application. |
 | `$/Ama.CRDT/Models/CrdtPatch.cs` | Encapsulates a list of CRDT operations, now with a logical key of type `IComparable?` to support strongly-typed, sortable partition keys. |
+| `$/Ama.CRDT/Models/CrdtPropertyKey.cs` | A unique identifier representing a property without relying on `System.Reflection.PropertyInfo`, used for AOT-friendly mapping. |
 | `$/Ama.CRDT/Models/CrdtTree.cs` | A data model for a tree data structure with nodes that can be added, removed, and moved, suitable for CRDT management. |
 | `$/Ama.CRDT/Models/Decorators/EpochPayload.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Decorators/QuorumPayload.cs` | A data structure for the payload of a quorum-bound operation. |
@@ -329,7 +330,7 @@
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtPatcherAdapter.cs` | An adapter that bridges the synchronous `ICrdtPatcher` to the asynchronous `IAsyncCrdtPatcher` pipeline, acting as the base layer in the patcher decorator chain. |
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | No description provided. |
 | `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implements the `ICrdtMetadataManager` for managing and compacting CRDT metadata. It provides helper methods like Initialize(document) to create a metadata object from a POCO by reflecting on its properties, and Reset(metadata, document) to clear and re-initialize an existing metadata object. The initialization logic correctly traverses nested objects and collections. |
-| `$/Ama.CRDT/Services/CrdtPatcher.cs` | Implements the logic to recursively compare two objects and generate a CRDT patch by delegating to property-specific strategies. It now also supports generating operations based on explicit intents via expression trees. |
+| `$/Ama.CRDT/Services/CrdtPatcher.cs` | Generates CRDT operations dynamically utilizing AOT context and `CrdtPropertyKey` identifiers. |
 | `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext` holding the unique replica ID. |
 | `$/Ama.CRDT/Services/Decorators/CompactingApplicatorDecorator.cs` | A decorator for `IAsyncCrdtApplicator` that seamlessly applies registered garbage collection policies to a document's metadata immediately after a patch is successfully applied. |
 | `$/Ama.CRDT/Services/Decorators/JournalingApplicatorDecorator.cs` | A decorator for `IAsyncCrdtApplicator` that intercepts patch applications and forwards successfully applied operations to an `ICrdtOperationJournal`. |
@@ -343,7 +344,7 @@
 | `$/Ama.CRDT/Services/GarbageCollection/ICompactionPolicyFactory.cs` | Defines a factory that dynamically generates a compaction policy. Useful for long-running scopes that need policies evaluated relative to the current time. |
 | `$/Ama.CRDT/Services/GarbageCollection/ThresholdCompactionPolicy.cs` | Implements a heuristic-based compaction policy (TTL) that considers any timestamp or version older than a specified threshold as safe to compact. |
 | `$/Ama.CRDT/Services/GarbageCollection/ThresholdCompactionPolicyFactory.cs` | Factory for creating instances of `ThresholdCompactionPolicy` dynamically based on time-to-live (`TimeSpan`) or dynamic threshold providers. |
-| `$/Ama.CRDT/Services/Helpers/PocoPathHelper.cs` | A utility class that centralizes reflection-based logic for CRDT strategies. It handles parsing JSON paths, resolving them against POCOs, getting and setting property values, and retrieving type information for collections and dictionaries. |
+| `$/Ama.CRDT/Services/Helpers/PocoPathHelper.cs` | A utility class managing JSON paths mapped against the Source Generator AOT Contexts. |
 | `$/Ama.CRDT/Services/IAsyncCrdtApplicator.cs` | Defines the asynchronous contract for a service that applies a CRDT patch to a document. |
 | `$/Ama.CRDT/Services/IAsyncCrdtPatcher.cs` | Defines the asynchronous contract for a service that compares two versions of a data model and generates a CRDT patch. |
 | `$/Ama.CRDT/Services/ICrdtApplicator.cs` | No description provided. |
@@ -359,15 +360,15 @@
 | `$/Ama.CRDT/Services/Partitioning/IPartitionStorageService.cs` | Defines a high-level abstraction for saving and loading partitioned CRDT data and metadata, hiding underlying stream operations. |
 | `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning. It defines methods for splitting and merging partition data and metadata, and for extracting partition keys from operations and data models. |
 | `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a partitioned CRDT document, allowing it to scale beyond memory. It now explicitly separates logic for header and property partitions, using dedicated stream providers and strategy methods to avoid ambiguity. |
-| `$/Ama.CRDT/Services/Providers/CrdtEntityBuilder.cs` | A generic scope builder mapping CRDT strategy selections to a specific type. |
-| `$/Ama.CRDT/Services/Providers/CrdtModelBuilder.cs` | A fluent builder used to define CRDT mapping configurations across different models during service setup. |
-| `$/Ama.CRDT/Services/Providers/CrdtModelRegistry.cs` | Implements `ICrdtModelRegistry` acting as a fast read-only dictionary for the Fluent API configuration mapping. |
-| `$/Ama.CRDT/Services/Providers/CrdtPropertyBuilder.cs` | A generic scope builder defining strategies and decorators for a specific target property. |
-| `$/Ama.CRDT/Services/Providers/CrdtStrategyProvider.cs` | No description provided. |
+| `$/Ama.CRDT/Services/Providers/CrdtEntityBuilder.cs` | A fluent builder to configure CRDT strategies for a specific entity type, avoiding reflections by directly evaluating Expression trees in an AOT-friendly way. |
+| `$/Ama.CRDT/Services/Providers/CrdtModelBuilder.cs` | A fluent builder used to configure CRDT strategies and decorators for C# types mapping to `CrdtPropertyKey`. |
+| `$/Ama.CRDT/Services/Providers/CrdtModelRegistry.cs` | A registry that holds the configurations of CRDT strategies, operating on `CrdtPropertyKey`. |
+| `$/Ama.CRDT/Services/Providers/CrdtPropertyBuilder.cs` | A fluent builder to configure CRDT strategies and decorators for a specific `CrdtPropertyKey`. |
+| `$/Ama.CRDT/Services/Providers/CrdtStrategyProvider.cs` | Resolves strategies based exclusively on the new AOT compiled metadata mappings instead of risky runtime reflection. |
 | `$/Ama.CRDT/Services/Providers/ElementComparerProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `EpochTimestamp` based on Unix milliseconds. |
-| `$/Ama.CRDT/Services/Providers/ICrdtModelRegistry.cs` | Defines an interface for a registry that maps POCO properties to their explicit CRDT strategies and decorators, bypassing attributes. |
-| `$/Ama.CRDT/Services/Providers/ICrdtStrategyProvider.cs` | No description provided. |
+| `$/Ama.CRDT/Services/Providers/ICrdtModelRegistry.cs` | Interface for retrieving configurations using the AOT-friendly `CrdtPropertyKey`. |
+| `$/Ama.CRDT/Services/Providers/ICrdtStrategyProvider.cs` | A contract for a service that resolves CRDT strategies, refactored to consume AOT structs like `CrdtPropertyInfo`. |
 | `$/Ama.CRDT/Services/Providers/ICrdtTimestampProvider.cs` | Defines a service for generating CRDT timestamps, allowing for custom timestamp implementations. |
 | `$/Ama.CRDT/Services/Providers/IElementComparer.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/IElementComparerProvider.cs` | No description provided. |

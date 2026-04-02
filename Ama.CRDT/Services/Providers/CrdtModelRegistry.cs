@@ -1,22 +1,22 @@
 namespace Ama.CRDT.Services.Providers;
 
+using Ama.CRDT.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 
 /// <inheritdoc/>
 internal sealed class CrdtModelRegistry : ICrdtModelRegistry
 {
-    private readonly IReadOnlyDictionary<PropertyInfo, Type> strategies;
-    private readonly IReadOnlyDictionary<PropertyInfo, IReadOnlyList<Type>> decorators;
+    private readonly IReadOnlyDictionary<CrdtPropertyKey, Type> strategies;
+    private readonly IReadOnlyDictionary<CrdtPropertyKey, IReadOnlyList<Type>> decorators;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CrdtModelRegistry"/> class.
     /// </summary>
     public CrdtModelRegistry(
-        IReadOnlyDictionary<PropertyInfo, Type> strategies, 
-        IReadOnlyDictionary<PropertyInfo, IReadOnlyList<Type>> decorators)
+        IReadOnlyDictionary<CrdtPropertyKey, Type> strategies, 
+        IReadOnlyDictionary<CrdtPropertyKey, IReadOnlyList<Type>> decorators)
     {
         ArgumentNullException.ThrowIfNull(strategies);
         ArgumentNullException.ThrowIfNull(decorators);
@@ -26,16 +26,14 @@ internal sealed class CrdtModelRegistry : ICrdtModelRegistry
     }
 
     /// <inheritdoc/>
-    public bool TryGetStrategy(PropertyInfo propertyInfo, [NotNullWhen(true)] out Type? strategyType)
+    public bool TryGetStrategy(CrdtPropertyKey propertyKey, [NotNullWhen(true)] out Type? strategyType)
     {
-        ArgumentNullException.ThrowIfNull(propertyInfo);
-        return this.strategies.TryGetValue(propertyInfo, out strategyType);
+        return this.strategies.TryGetValue(propertyKey, out strategyType);
     }
 
     /// <inheritdoc/>
-    public bool TryGetDecorators(PropertyInfo propertyInfo, [NotNullWhen(true)] out IReadOnlyList<Type>? decoratorTypes)
+    public bool TryGetDecorators(CrdtPropertyKey propertyKey, [NotNullWhen(true)] out IReadOnlyList<Type>? decoratorTypes)
     {
-        ArgumentNullException.ThrowIfNull(propertyInfo);
-        return this.decorators.TryGetValue(propertyInfo, out decoratorTypes);
+        return this.decorators.TryGetValue(propertyKey, out decoratorTypes);
     }
 }

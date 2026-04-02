@@ -1,8 +1,9 @@
 namespace Ama.CRDT.Services.Providers;
 
+using Ama.CRDT.Models;
 using System;
 using System.Linq.Expressions;
-using Ama.CRDT.Services.Helpers;
+using System.Reflection;
 
 /// <summary>
 /// A fluent builder to configure CRDT strategies for a specific entity type.
@@ -28,8 +29,18 @@ public sealed class CrdtEntityBuilder<T> where T : class
     {
         ArgumentNullException.ThrowIfNull(expression);
         
-        var parseResult = PocoPathHelper.ParseExpression(expression);
-        
-        return new CrdtPropertyBuilder<T, TProperty>(this.builder, this, parseResult.Property);
+        MemberExpression? me = expression.Body as MemberExpression;
+        if (me == null && expression.Body is UnaryExpression ue)
+        {
+            me = ue.Operand as MemberExpression;
+        }
+
+        if (me == null || me.Member.MemberType != MemberTypes.Property)
+        {
+            throw new ArgumentException("Expression must be a property access.", nameof(expression));
+        }
+
+        var key = new CrdtPropertyKey(me.Member.DeclaringType ?? typeof(T), me.Member.Name);
+        return new CrdtPropertyBuilder<T, TProperty>(this.builder, this, key);
     }
 }

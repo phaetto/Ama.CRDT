@@ -1,9 +1,9 @@
 namespace Ama.CRDT.Services.Providers;
 
+using Ama.CRDT.Models;
+using Ama.CRDT.Services.Strategies;
 using System;
 using System.Linq.Expressions;
-using System.Reflection;
-using Ama.CRDT.Services.Strategies;
 
 /// <summary>
 /// A fluent builder to configure CRDT strategies and decorators for a specific property.
@@ -14,17 +14,16 @@ public sealed class CrdtPropertyBuilder<T, TProperty> where T : class
 {
     private readonly CrdtModelBuilder builder;
     private readonly CrdtEntityBuilder<T> entityBuilder;
-    private readonly PropertyInfo propertyInfo;
+    private readonly CrdtPropertyKey propertyKey;
 
-    internal CrdtPropertyBuilder(CrdtModelBuilder builder, CrdtEntityBuilder<T> entityBuilder, PropertyInfo propertyInfo)
+    internal CrdtPropertyBuilder(CrdtModelBuilder builder, CrdtEntityBuilder<T> entityBuilder, CrdtPropertyKey propertyKey)
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(entityBuilder);
-        ArgumentNullException.ThrowIfNull(propertyInfo);
 
         this.builder = builder;
         this.entityBuilder = entityBuilder;
-        this.propertyInfo = propertyInfo;
+        this.propertyKey = propertyKey;
     }
 
     /// <summary>
@@ -34,7 +33,7 @@ public sealed class CrdtPropertyBuilder<T, TProperty> where T : class
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     public CrdtPropertyBuilder<T, TProperty> HasStrategy<TStrategy>() where TStrategy : class, ICrdtStrategy
     {
-        this.builder.AddStrategy(this.propertyInfo, typeof(TStrategy));
+        this.builder.AddStrategy(this.propertyKey, typeof(TStrategy));
         return this;
     }
 
@@ -45,7 +44,7 @@ public sealed class CrdtPropertyBuilder<T, TProperty> where T : class
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     public CrdtPropertyBuilder<T, TProperty> HasDecorator<TDecorator>() where TDecorator : class, ICrdtStrategy
     {
-        this.builder.AddDecorator(this.propertyInfo, typeof(TDecorator));
+        this.builder.AddDecorator(this.propertyKey, typeof(TDecorator));
         return this;
     }
 
