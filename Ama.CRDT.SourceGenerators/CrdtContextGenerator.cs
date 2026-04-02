@@ -34,7 +34,8 @@ public class CrdtContextGenerator : IIncrementalGenerator
         foreach (var contextClass in distinctClasses)
         {
             var attributes = contextClass.GetAttributes()
-                .Where(a => a.AttributeClass?.ToDisplayString() == "Ama.CRDT.Attributes.CrdtSerializableAttribute")
+                .Where(a => a.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Ama.CRDT.Attributes.CrdtSerializableAttribute" ||
+                            a.AttributeClass?.ToDisplayString() == "Ama.CRDT.Attributes.CrdtSerializableAttribute")
                 .ToList();
 
             var typesToGenerate = new List<ITypeSymbol>();
@@ -161,8 +162,8 @@ public class CrdtContextGenerator : IIncrementalGenerator
             allInterfaces.Add((INamedTypeSymbol)type);
         }
 
-        var collectionInterface = allInterfaces.FirstOrDefault(i => i.IsGenericType && i.ConstructedFrom.ToDisplayString() == "System.Collections.Generic.ICollection<T>");
-        var dictInterface = allInterfaces.FirstOrDefault(i => i.IsGenericType && i.ConstructedFrom.ToDisplayString() == "System.Collections.Generic.IDictionary<TKey, TValue>");
+        var collectionInterface = allInterfaces.FirstOrDefault(i => i.IsGenericType && (i.ConstructedFrom.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::System.Collections.Generic.ICollection<T>" || i.ConstructedFrom.ToDisplayString() == "System.Collections.Generic.ICollection<T>"));
+        var dictInterface = allInterfaces.FirstOrDefault(i => i.IsGenericType && (i.ConstructedFrom.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::System.Collections.Generic.IDictionary<TKey, TValue>" || i.ConstructedFrom.ToDisplayString() == "System.Collections.Generic.IDictionary<TKey, TValue>"));
 
         if (collectionInterface != null)
         {
@@ -205,7 +206,11 @@ public class CrdtContextGenerator : IIncrementalGenerator
     {
         while (symbol != null)
         {
-            if (symbol.ToDisplayString() == baseName) return true;
+            if (symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == $"global::{baseName}" || 
+                symbol.ToDisplayString() == baseName) 
+            {
+                return true;
+            }
             symbol = symbol.BaseType;
         }
         return false;
@@ -213,6 +218,52 @@ public class CrdtContextGenerator : IIncrementalGenerator
 
     private static string GetAttributeCreationExpression(AttributeData attr)
     {
+        // Intersect raw syntax tree to capture exact text when Semantic Model fails to bind arguments
+        if (attr.ApplicationSyntaxReference?.GetSyntax() is AttributeSyntax attrSyntax && attrSyntax.ArgumentList != null)
+        {
+            var argsStr = new List<string>();
+            var constructorArgsIndex = 0;
+
+            foreach (var argSyntax in attrSyntax.ArgumentList.Arguments)
+            {
+                if (argSyntax.NameEquals != null) // Property assignment (e.g. QuorumSize = 2)
+                {
+                    var name = argSyntax.NameEquals.Name.Identifier.Text;
+                    var semanticArg = attr.NamedArguments.FirstOrDefault(na => na.Key == name);
+                    
+                    if (semanticArg.Key != null)
+                    {
+                        argsStr.Add($"{name} = {FormatTypedConstant(semanticArg.Value)}");
+                    }
+                    else
+                    {
+                        // Semantic Model dropped it (likely a compilation error or incorrect test setup), copy exact syntax
+                        argsStr.Add(argSyntax.ToString());
+                    }
+                }
+                else if (argSyntax.NameColon != null) // Named constructor param (e.g. quorumSize: 2)
+                {
+                    argsStr.Add(argSyntax.ToString());
+                    constructorArgsIndex++;
+                }
+                else // Positional parameter
+                {
+                    if (constructorArgsIndex < attr.ConstructorArguments.Length)
+                    {
+                        argsStr.Add(FormatTypedConstant(attr.ConstructorArguments[constructorArgsIndex]));
+                    }
+                    else
+                    {
+                        argsStr.Add(argSyntax.ToString());
+                    }
+                    constructorArgsIndex++;
+                }
+            }
+
+            return $"new {attr.AttributeClass!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}({string.Join(", ", argsStr)})";
+        }
+
+        // Fallback for dynamically added attributes missing source syntax
         var args = new List<string>();
         foreach (var arg in attr.ConstructorArguments)
         {
@@ -226,7 +277,7 @@ public class CrdtContextGenerator : IIncrementalGenerator
         }
         
         var allArgs = string.Join(", ", args.Concat(namedArgs));
-        return $"new global::{attr.AttributeClass!.ToDisplayString()}({allArgs})";
+        return $"new {attr.AttributeClass!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}({allArgs})";
     }
 
     private static string FormatTypedConstant(TypedConstant constant)
@@ -238,18 +289,18 @@ public class CrdtContextGenerator : IIncrementalGenerator
 
         if (constant.Kind == TypedConstantKind.Type && constant.Value is ITypeSymbol typeSymbol)
         {
-            return $"typeof(global::{typeSymbol.ToDisplayString()})";
+            return $"typeof({typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)})";
         }
 
         if (constant.Kind == TypedConstantKind.Enum && constant.Value != null)
         {
-            return $"({constant.Type!.ToDisplayString()}){constant.Value}";
+            return $"({constant.Type!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}){constant.Value}";
         }
 
         if (constant.Kind == TypedConstantKind.Array)
         {
             var elements = constant.Values.Select(FormatTypedConstant);
-            return $"new {constant.Type!.ToDisplayString()} {{ {string.Join(", ", elements)} }}";
+            return $"new {constant.Type!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)} {{ {string.Join(", ", elements)} }}";
         }
 
         if (constant.Value is string strValue)

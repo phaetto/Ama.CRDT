@@ -11,11 +11,9 @@ using Ama.CRDT.Models.Partitioning;
 /// An internal AOT-generated context containing metadata for all core CRDT models.
 /// This is automatically registered into the DI container by <see cref="Extensions.ServiceCollectionExtensions.AddCrdt"/>.
 /// </summary>
-[CrdtSerializable(typeof(ApplyPatchResult<object>))]
 [CrdtSerializable(typeof(AverageRegisterValue))]
 [CrdtSerializable(typeof(BidirectionalSyncRequirements))]
 [CrdtSerializable(typeof(CausalTimestamp))]
-[CrdtSerializable(typeof(CrdtDocument<object>))]
 [CrdtSerializable(typeof(CrdtGraph))]
 [CrdtSerializable(typeof(CrdtMetadata))]
 [CrdtSerializable(typeof(CrdtOperation))]
