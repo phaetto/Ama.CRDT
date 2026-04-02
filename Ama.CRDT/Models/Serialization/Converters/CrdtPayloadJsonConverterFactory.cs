@@ -6,9 +6,8 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 /// <summary>
-/// A unified, high-performance factory that generates polymorphic converters for weakly typed properties
+/// A unified, AOT-friendly factory that generates polymorphic converters for weakly typed properties
 /// (like <see cref="object"/> or <see cref="IComparable"/>) which might contain primitives.
-/// By explicitly mapping to these types globally, it catches inner array/dictionary elements flawlessly.
 /// </summary>
 public sealed class CrdtPayloadJsonConverterFactory : JsonConverterFactory
 {
@@ -19,8 +18,12 @@ public sealed class CrdtPayloadJsonConverterFactory : JsonConverterFactory
 
     public override JsonConverter CreateConverter(Type typeToConvert, JsonSerializerOptions options)
     {
-        var converterType = typeof(CrdtPayloadJsonConverterInner<>).MakeGenericType(typeToConvert);
-        return (JsonConverter)Activator.CreateInstance(converterType)!;
+        // By returning explicitly typed converters instead of using MakeGenericType,
+        // we ensure this factory is fully AOT compatible.
+        if (typeToConvert == typeof(object)) return new CrdtPayloadJsonConverterInner<object>();
+        if (typeToConvert == typeof(IComparable)) return new CrdtPayloadJsonConverterInner<IComparable>();
+        
+        throw new NotSupportedException($"Type '{typeToConvert}' is not supported by {nameof(CrdtPayloadJsonConverterFactory)}.");
     }
 
     private sealed class CrdtPayloadJsonConverterInner<T> : JsonConverter<T>
@@ -46,22 +49,21 @@ public sealed class CrdtPayloadJsonConverterFactory : JsonConverterFactory
             var typeDiscriminatorValue = typeNode.GetValue<string>();
             if (!CrdtTypeRegistry.TryGetType(typeDiscriminatorValue!, out var targetType))
             {
-                targetType = Type.GetType(typeDiscriminatorValue!);
-                if (targetType is null)
-                {
-                    throw new NotSupportedException($"Type with discriminator '{typeDiscriminatorValue}' is not registered.");
-                }
+                throw new NotSupportedException($"Type with discriminator '{typeDiscriminatorValue}' is not registered in CrdtTypeRegistry. Explicit type registration is required for AOT compatibility.");
             }
 
+            // Fetch TypeInfo for AOT safety rather than relying on reflection deserialization
+            var typeInfo = options.GetTypeInfo(targetType);
             object? value;
+
             if (jsonObject.TryGetPropertyValue(ValueProperty, out var valueNode))
             {
-                value = valueNode?.Deserialize(targetType, options);
+                value = valueNode?.Deserialize(typeInfo);
             }
             else
             {
                 jsonObject.Remove(TypeDiscriminator);
-                value = jsonObject.Deserialize(targetType, options);
+                value = jsonObject.Deserialize(typeInfo);
             }
 
             return (T?)value;
@@ -76,11 +78,16 @@ public sealed class CrdtPayloadJsonConverterFactory : JsonConverterFactory
             }
 
             var type = value.GetType();
-            var discriminator = CrdtTypeRegistry.GetDiscriminator(type) ?? type.AssemblyQualifiedName!;
+            var discriminator = CrdtTypeRegistry.GetDiscriminator(type);
 
-            // Serializing with the explicit concrete runtime type completely bypasses this generic converter
-            // preventing infinite recursion natively. No cloned options needed.
-            var node = JsonSerializer.SerializeToNode(value, type, options);
+            if (discriminator is null)
+            {
+                throw new NotSupportedException($"Type '{type}' is not registered in CrdtTypeRegistry. Explicit type registration is required for AOT compatibility.");
+            }
+
+            // Fetch TypeInfo for AOT safety
+            var typeInfo = options.GetTypeInfo(type);
+            var node = JsonSerializer.SerializeToNode(value, typeInfo);
 
             if (node is JsonObject jsonObject)
             {

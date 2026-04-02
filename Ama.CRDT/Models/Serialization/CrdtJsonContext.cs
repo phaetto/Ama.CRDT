@@ -1,23 +1,71 @@
 namespace Ama.CRDT.Models.Serialization;
 
+using Ama.CRDT.Models;
+using Ama.CRDT.Models.Decorators;
+using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Models.Serialization.Converters;
+using System;
+using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 
 /// <summary>
-/// Provides pre-configured <see cref="JsonSerializerOptions"/> for serializing CRDT models like <see cref="CrdtPatch"/> and <see cref="CrdtMetadata"/>.
+/// Provides pre-configured, AOT-compatible <see cref="JsonSerializerOptions"/> for serializing CRDT models.
+/// For generic data models like <c>CrdtDocument&lt;MyClass&gt;</c>, ensure you create a custom <see cref="JsonSerializerContext"/> 
+/// that derives from your custom types and register it in your application.
 /// </summary>
-public static class CrdtJsonContext
+[JsonSourceGenerationOptions(
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    WriteIndented = false)]
+[JsonSerializable(typeof(CrdtPatch))]
+[JsonSerializable(typeof(CrdtMetadata))]
+[JsonSerializable(typeof(CrdtDocument<object>))]
+[JsonSerializable(typeof(ApplyPatchResult<object>))]
+[JsonSerializable(typeof(JournaledOperation))]
+[JsonSerializable(typeof(UnappliedOperation))]
+[JsonSerializable(typeof(DottedVersionVector))]
+[JsonSerializable(typeof(CompositePartitionKey))]
+[JsonSerializable(typeof(PartitionContent))]
+[JsonSerializable(typeof(HeaderPartition))]
+[JsonSerializable(typeof(DataPartition))]
+[JsonSerializable(typeof(EpochTimestamp))]
+[JsonSerializable(typeof(AverageRegisterValue))]
+[JsonSerializable(typeof(KeyValuePair<object, object>))]
+[JsonSerializable(typeof(CrdtOperation))]
+[JsonSerializable(typeof(Edge))]
+[JsonSerializable(typeof(GraphEdgePayload))]
+[JsonSerializable(typeof(GraphVertexPayload))]
+[JsonSerializable(typeof(LseqIdentifier))]
+[JsonSerializable(typeof(LseqItem))]
+[JsonSerializable(typeof(LseqPathSegment))]
+[JsonSerializable(typeof(OrMapAddItem))]
+[JsonSerializable(typeof(OrMapRemoveItem))]
+[JsonSerializable(typeof(OrSetAddItem))]
+[JsonSerializable(typeof(OrSetRemoveItem))]
+[JsonSerializable(typeof(PositionalIdentifier))]
+[JsonSerializable(typeof(PositionalItem))]
+[JsonSerializable(typeof(RgaIdentifier))]
+[JsonSerializable(typeof(RgaItem))]
+[JsonSerializable(typeof(TreeAddNodePayload))]
+[JsonSerializable(typeof(TreeRemoveNodePayload))]
+[JsonSerializable(typeof(TreeMoveNodePayload))]
+[JsonSerializable(typeof(VotePayload))]
+[JsonSerializable(typeof(EpochPayload))]
+[JsonSerializable(typeof(QuorumPayload))]
+public partial class CrdtJsonContext : JsonSerializerContext
 {
-    public static JsonSerializerOptions DefaultOptions { get; } = CreateDefaultOptions();
+    private static readonly Lazy<JsonSerializerOptions> _defaultOptions = new(CreateDefaultOptions);
+    public static JsonSerializerOptions DefaultOptions => _defaultOptions.Value;
 
-    public static JsonSerializerOptions MetadataCompactOptions { get; } = CreateMetadataCompactOptions();
+    private static readonly Lazy<JsonSerializerOptions> _metadataCompactOptions = new(CreateMetadataCompactOptions);
+    public static JsonSerializerOptions MetadataCompactOptions => _metadataCompactOptions.Value;
 
     private static JsonSerializerOptions CreateDefaultOptions()
     {
         var options = new JsonSerializerOptions
         {
-            TypeInfoResolver = CrdtJsonTypeInfoResolver.Instance
+            TypeInfoResolver = Default.WithAddedModifier(CrdtJsonTypeInfoResolver.ApplyCrdtModifiers)
         };
         AddCrdtConverters(options);
         return options;
@@ -25,13 +73,11 @@ public static class CrdtJsonContext
 
     private static JsonSerializerOptions CreateMetadataCompactOptions()
     {
-        var resolver = new DefaultJsonTypeInfoResolver();
-        resolver.Modifiers.Add(CrdtJsonTypeInfoResolver.ApplyCrdtModifiers);
-        resolver.Modifiers.Add(CrdtMetadataJsonResolver.ApplyMetadataModifiers);
-
         var options = new JsonSerializerOptions
         {
-            TypeInfoResolver = resolver
+            TypeInfoResolver = Default
+                .WithAddedModifier(CrdtJsonTypeInfoResolver.ApplyCrdtModifiers)
+                .WithAddedModifier(CrdtMetadataJsonResolver.ApplyMetadataModifiers)
         };
         AddCrdtConverters(options);
         return options;

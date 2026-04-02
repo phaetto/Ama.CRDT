@@ -36,6 +36,7 @@
 | `$/Ama.CRDT.Partitioning.Streams/Models/BTreeHeader.cs` | No description provided. |
 | `$/Ama.CRDT.Partitioning.Streams/Models/DataStreamHeader.cs` | No description provided. |
 | `$/Ama.CRDT.Partitioning.Streams/Models/FreeSpaceState.cs` | No description provided. |
+| `$/Ama.CRDT.Partitioning.Streams/Models/Serialization/StreamsJsonContext.cs` | Provides AOT-compatible source generation context for Stream Partitioning internal models. |
 | `$/Ama.CRDT.Partitioning.Streams/PublicAPI.Shipped.txt` | No description provided. |
 | `$/Ama.CRDT.Partitioning.Streams/PublicAPI.Unshipped.txt` | No description provided. |
 | `$/Ama.CRDT.Partitioning.Streams/README.md` | Details the features and provides usage examples for setting up dependency injection and integrating stream providers for partition persistence. |
@@ -89,10 +90,6 @@
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Controls/IntentTextBox.cs` | A custom TextBox control that behaves like a standard multiline text editor, but internally uses linear diffing to calculate and emit explicit CRDT intents (Insert, SetIndex, Remove) during typing. It directly integrates `IAsyncCrdtPatcher` enabling Roslyn analyzers to validate its intent operations against the model strategies. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/EditorForm.cs` | An editor GUI capable of syncing its local state and incoming patches correctly using timers. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/EditorForm.resx` | No description provided. |
-| `$/Ama.CRDT.ShowCase.CollaborativeEditing/Form1.Designer.cs` | No description provided. |
-| `$/Ama.CRDT.ShowCase.CollaborativeEditing/Form1.cs` | No description provided. |
-| `$/Ama.CRDT.ShowCase.CollaborativeEditing/Form1.resx` | No description provided. |
-| `$/Ama.CRDT.ShowCase.CollaborativeEditing/LineControl.cs` | A WinForms UserControl that represents a single text line with its unique ID and handles intent-based text updates and deletions. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.Designer.cs` | No description provided. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.cs` | No description provided. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.resx` | No description provided. |
@@ -120,6 +117,8 @@
 | `$/Ama.CRDT.ShowCase/Services/IInMemoryDatabaseService.cs` | Defines the contract for a simple in-memory key-value store to simulate persistence for each replica's state (document and metadata). |
 | `$/Ama.CRDT.ShowCase/Services/InMemoryDatabaseService.cs` | An implementation of `IInMemoryDatabaseService` using `ConcurrentDictionary` to simulate a database for CRDT documents and metadata. |
 | `$/Ama.CRDT.ShowCase/SimulationRunner.cs` | Orchestrates the distributed map-reduce simulation using concurrent producers, mappers, and convergers communicating via channels to demonstrate CRDT convergence. |
+| `$/Ama.CRDT.SourceGenerators.UnitTests/Ama.CRDT.SourceGenerators.UnitTests.csproj` | No description provided. |
+| `$/Ama.CRDT.SourceGenerators/Ama.CRDT.SourceGenerators.csproj` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Ama.CRDT.UnitTests.csproj` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Architecture/ModelConventionTests.cs` | An architecture convention unit test that reflects over all data models to enforce the presence of serialization tests by scanning the test source files. |
 | `$/Ama.CRDT.UnitTests/Architecture/StrategyConventionTests.cs` | An architecture convention unit test that reflects over all strategies to enforce the presence of unit tests, property tests, benchmarks, and documentation. |
@@ -134,6 +133,8 @@
 | `$/Ama.CRDT.UnitTests/Models/Serialization/IntentModelSerializationTests.cs` | Contains unit tests for serializing all explicit intent models to ensure they map successfully to JSON. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/PartitioningModelSerializationTests.cs` | Contains unit tests for serializing partitioning models including `CompositePartitionKey`, `DataPartition`, `HeaderPartition`, `PartitionContent`, and `SplitResult`. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/SyncRequirementSerializationTests.cs` | Contains unit tests for serializing synchronization requirement models like `ReplicaSyncRequirement`, `OriginSyncRequirement`, and `BidirectionalSyncRequirements`. |
+| `$/Ama.CRDT.UnitTests/Models/Serialization/TestJsonSerializerContext.cs` | Provides test-specific `JsonSerializerContext` to enable AOT-compatible testing for internal mock classes and test-defined generics. |
+| `$/Ama.CRDT.UnitTests/Models/Serialization/TestOptionsHelper.cs` | Helper for tests to initialize `JsonSerializerOptions` that merge the core library `CrdtJsonContext` with `TestJsonSerializerContext`. |
 | `$/Ama.CRDT.UnitTests/Services/Adapters/AsyncCrdtApplicatorAdapterTests.cs` | Contains unit tests for `AsyncCrdtApplicatorAdapter`, verifying its bridging of synchronous execution to asynchronous interfaces and cancellation handling. |
 | `$/Ama.CRDT.UnitTests/Services/Adapters/AsyncCrdtPatcherAdapterTests.cs` | Contains unit tests for `AsyncCrdtPatcherAdapter`, validating proper adaptation of patch and operation generation with cancellation checks. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtApplicatorTests.cs` | No description provided. |
@@ -234,7 +235,6 @@
 | `$/Ama.CRDT/Attributes/Strategies/Semantic/StateBasedAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/AsyncCrdtApplicatorExtensions.cs` | Provides extension methods for `IAsyncCrdtApplicator` to streamline common synchronization tasks, such as directly applying an asynchronous stream of missing operations. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
-| `$/Ama.CRDT/Extensions/IntentBuilderExtensions.cs` | Provides strongly-typed extension methods for `IIntentBuilder<TProperty>` to fluent build CRDT operations without boxing. |
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods for easy library setup, unifying `AddCrdt`, applicator/patcher pipeline decoration (`AddCrdtApplicatorDecorator`, `AddCrdtJournaling`), comparers, timestamp providers, and serialization polymorphism. |
 | `$/Ama.CRDT/Models/ApplyPatchResult.cs` | Data structure containing the result of a patch application, including the document and any unapplied operations. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
@@ -261,7 +261,6 @@
 | `$/Ama.CRDT/Models/Intents/AddVertexIntent.cs` | Represents the intent to explicitly add a vertex to a graph. |
 | `$/Ama.CRDT/Models/Intents/ClearIntent.cs` | Represents the intent to explicitly clear a property, collection, or state, effectively resetting it for FWW and other strategies. |
 | `$/Ama.CRDT/Models/Intents/Decorators/EpochClearIntent.cs` | Represents the intent to explicitly clear the state within an Epoch-bound decorator, incrementing the epoch and effectively clearing all local data for that path without clashing with base strategy intents. |
-| `$/Ama.CRDT/Models/Intents/IIntentBuilder.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Intents/IOperationIntent.cs` | A marker interface for defining explicit CRDT operations intent directly triggered by user actions, bypassing diff generation. |
 | `$/Ama.CRDT/Models/Intents/IncrementIntent.cs` | Represents the intent to explicitly increment or decrement a numeric value or counter. |
 | `$/Ama.CRDT/Models/Intents/InsertIntent.cs` | Defines an explicit intention to insert a value into an ordered sequence at a specific index. |
@@ -300,12 +299,7 @@
 | `$/Ama.CRDT/Models/RgaIdentifier.cs` | Readonly record struct containing logical timestamp and replicaId used as a unique identifier for each RGA node. |
 | `$/Ama.CRDT/Models/RgaItem.cs` | Data structure representing an RGA node with a pointer to its predecessor, its payload value, and a tombstone flag. |
 | `$/Ama.CRDT/Models/Serialization/Converters/CrdtPayloadJsonConverterFactory.cs` | A unified, high-performance JSON converter factory for handling type discriminators on weakly-typed (`object`, `IComparable`) properties. Avoids options cloning. |
-| `$/Ama.CRDT/Models/Serialization/Converters/CrdtPolymorphicConverterBase.cs` | Internal base class for polymorphic JSON converters (handling `object` and `IComparable` primitive wrapping), avoiding `JsonSerializerOptions` cloning. |
-| `$/Ama.CRDT/Models/Serialization/Converters/CrdtTimestampJsonConverter.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Serialization/Converters/ObjectKeyDictionaryJsonConverter.cs` | A `JsonConverterFactory` that creates converters for dictionaries with non-string keys. It serializes them as a JSON array of [key, value] pairs to work around `System.Text.Json` limitations. |
-| `$/Ama.CRDT/Models/Serialization/Converters/PolymorphicComparableJsonConverter.cs` | A custom `JsonConverter` for `IComparable` that enables polymorphic serialization by embedding a `$type` discriminator. It uses the same shared type registry as `PolymorphicObjectJsonConverter`. |
-| `$/Ama.CRDT/Models/Serialization/Converters/PolymorphicObjectJsonConverter.cs` | A powerful `JsonConverter` for `object` types that enables robust polymorphic serialization by embedding a `$type` discriminator. It maintains a registry of known types for clean, short identifiers. |
-| `$/Ama.CRDT/Models/Serialization/Converters/PolymorphicPartitionJsonConverter.cs` | A custom `JsonConverter` for `IPartition` that enables polymorphic serialization by embedding a `$type` discriminator. It uses the same shared type registry as `PolymorphicObjectJsonConverter`. |
 | `$/Ama.CRDT/Models/Serialization/Converters/SeenExceptionsJsonConverter.cs` | A specialized `JsonConverter` for `CrdtMetadata.SeenExceptions` that ensures `CrdtOperation` elements are serialized and deserialized with polymorphism enabled for their `Value` property. |
 | `$/Ama.CRDT/Models/Serialization/CrdtJsonContext.cs` | Provides centralized, pre-configured `JsonSerializerOptions` for CRDT models, establishing a best practice for serialization. |
 | `$/Ama.CRDT/Models/Serialization/CrdtJsonTypeInfoResolver.cs` | A custom `IJsonTypeInfoResolver` that applies the `PolymorphicObjectJsonConverter` to all properties of type `object`, enabling robust polymorphic serialization. |
@@ -329,7 +323,6 @@
 | `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext` holding the unique replica ID. |
 | `$/Ama.CRDT/Services/Decorators/CompactingApplicatorDecorator.cs` | A decorator for `IAsyncCrdtApplicator` that seamlessly applies registered garbage collection policies to a document's metadata immediately after a patch is successfully applied. |
 | `$/Ama.CRDT/Services/Decorators/JournalingApplicatorDecorator.cs` | A decorator for `IAsyncCrdtApplicator` that intercepts patch applications and forwards successfully applied operations to an `ICrdtOperationJournal`. |
-| `$/Ama.CRDT/Services/Decorators/JournalingIntentBuilderDecorator.cs` | A decorator for `IIntentBuilder` that ensures operations generated via fluent intents are recorded to the journal. |
 | `$/Ama.CRDT/Services/Decorators/JournalingPatcherDecorator.cs` | A decorator for `IAsyncCrdtPatcher` that intercepts patch generation and explicitly created operations, forwarding them to an `ICrdtOperationJournal`. |
 | `$/Ama.CRDT/Services/Decorators/PartitioningApplicatorDecorator.cs` | A global decorator implementation of `IAsyncCrdtApplicator` that intercepts patch application, skips non-partitionable types, handles partition streaming, and delegates internal CRDT operations to the inner applicator. |
 | `$/Ama.CRDT/Services/DifferentiateObjectContext.cs` | Defines the context object for the `ICrdtPatcher.DifferentiateObject` method, encapsulating all necessary parameters. |

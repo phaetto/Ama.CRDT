@@ -3,7 +3,6 @@ namespace Ama.CRDT.UnitTests.Models.Serialization;
 using System.Collections.Generic;
 using System.Text.Json;
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Serialization;
 using Shouldly;
 using Xunit;
 
@@ -20,8 +19,9 @@ public sealed class SyncRequirementSerializationTests
             SourceMissingDots = new HashSet<long> { 12 }
         };
 
-        var json = JsonSerializer.Serialize(req, CrdtJsonContext.DefaultOptions);
-        var deserialized = JsonSerializer.Deserialize<OriginSyncRequirement>(json, CrdtJsonContext.DefaultOptions);
+        var options = TestOptionsHelper.GetDefaultOptions();
+        var json = JsonSerializer.Serialize(req, options);
+        var deserialized = JsonSerializer.Deserialize<OriginSyncRequirement>(json, options);
 
         deserialized.ShouldBe(req);
     }
@@ -47,8 +47,9 @@ public sealed class SyncRequirementSerializationTests
             }
         };
 
-        var json = JsonSerializer.Serialize(req, CrdtJsonContext.DefaultOptions);
-        var deserialized = JsonSerializer.Deserialize<ReplicaSyncRequirement>(json, CrdtJsonContext.DefaultOptions);
+        var options = TestOptionsHelper.GetDefaultOptions();
+        var json = JsonSerializer.Serialize(req, options);
+        var deserialized = JsonSerializer.Deserialize<ReplicaSyncRequirement>(json, options);
 
         deserialized.ShouldBe(req);
     }
@@ -76,8 +77,9 @@ public sealed class SyncRequirementSerializationTests
             ReplicaBNeedsFromA = reqB
         };
 
-        var json = JsonSerializer.Serialize(bidi, CrdtJsonContext.DefaultOptions);
-        var deserialized = JsonSerializer.Deserialize<BidirectionalSyncRequirements>(json, CrdtJsonContext.DefaultOptions);
+        var options = TestOptionsHelper.GetDefaultOptions();
+        var json = JsonSerializer.Serialize(bidi, options);
+        var deserialized = JsonSerializer.Deserialize<BidirectionalSyncRequirements>(json, options);
 
         deserialized.ShouldBe(bidi);
     }

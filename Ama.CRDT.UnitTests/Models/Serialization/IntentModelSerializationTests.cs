@@ -4,7 +4,6 @@ using System.Text.Json;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Intents.Decorators;
-using Ama.CRDT.Models.Serialization;
 using Shouldly;
 using Xunit;
 
@@ -12,8 +11,9 @@ public sealed class IntentModelSerializationTests
 {
     private T SerializeAndDeserialize<T>(T intent)
     {
-        var json = JsonSerializer.Serialize(intent, CrdtJsonContext.DefaultOptions);
-        return JsonSerializer.Deserialize<T>(json, CrdtJsonContext.DefaultOptions)!;
+        var options = TestOptionsHelper.GetDefaultOptions();
+        var json = JsonSerializer.Serialize(intent, options);
+        return JsonSerializer.Deserialize<T>(json, options)!;
     }
 
     [Fact]

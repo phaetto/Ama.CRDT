@@ -1,28 +1,17 @@
 namespace Ama.CRDT.Models.Serialization;
 
-using System;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
 
 /// <summary>
-/// A custom <see cref="IJsonTypeInfoResolver"/> that configures JSON serialization for CRDT types.
+/// A static class that configures JSON serialization modifiers for CRDT types.
 /// It applies Native System.Text.Json Polymorphism for purely object-oriented interfaces 
-/// (<see cref="ICrdtTimestamp"/>, <see cref="IPartition"/>). Weak types are handled globally.
+/// (<see cref="ICrdtTimestamp"/>, <see cref="IPartition"/>) making it fully AOT compatible.
 /// </summary>
-public sealed class CrdtJsonTypeInfoResolver : DefaultJsonTypeInfoResolver
+public static class CrdtJsonTypeInfoResolver
 {
-    /// <summary>
-    /// Gets a singleton instance of the resolver.
-    /// </summary>
-    public static CrdtJsonTypeInfoResolver Instance { get; } = new();
-
-    private CrdtJsonTypeInfoResolver()
-    {
-        Modifiers.Add(ApplyCrdtModifiers);
-    }
-
     /// <summary>
     /// A modifier that wires up native polymorphism.
     /// </summary>
