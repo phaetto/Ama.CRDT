@@ -1,9 +1,11 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies.Decorators;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Intents.Decorators;
@@ -19,8 +21,23 @@ using System;
 using System.Collections.Generic;
 using Xunit;
 
+[CrdtSerializable(typeof(EpochBoundStrategyTests.ShoppingCart))]
+[CrdtSerializable(typeof(Dictionary<string, string>))]
+internal partial class EpochBoundTestCrdtContext : CrdtContext { }
+
 public sealed class EpochBoundStrategyTests : IDisposable
 {
+    private static readonly CrdtPropertyInfo StatusProperty = new(
+        nameof(ShoppingCart.Status),
+        "status",
+        typeof(string),
+        true,
+        true,
+        obj => ((ShoppingCart)obj).Status,
+        (obj, val) => ((ShoppingCart)obj).Status = (string)val!,
+        new CrdtLwwStrategyAttribute(),
+        new CrdtStrategyDecoratorAttribute[] { new CrdtEpochBoundAttribute() });
+
     private readonly IServiceScope scope;
     private readonly ICrdtStrategyProvider strategyProvider;
     private readonly ICrdtPatcher patcher;
@@ -31,6 +48,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<EpochBoundTestCrdtContext>()
             .BuildServiceProvider();
 
         scope = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("TestReplica");
@@ -60,13 +78,13 @@ public sealed class EpochBoundStrategyTests : IDisposable
     [Fact]
     public void Provider_ShouldResolve_DecoratorAndBaseStrategy()
     {
-        var property = typeof(ShoppingCart).GetProperty(nameof(ShoppingCart.Status));
+        var property = StatusProperty;
         property.ShouldNotBeNull();
 
-        var strategy = strategyProvider.GetStrategy(property);
+        var strategy = strategyProvider.GetStrategy(typeof(ShoppingCart), property);
         strategy.ShouldBeOfType<EpochBoundStrategy>();
 
-        var baseStrategy = strategyProvider.GetBaseStrategy(property);
+        var baseStrategy = strategyProvider.GetBaseStrategy(typeof(ShoppingCart), property);
         baseStrategy.ShouldBeOfType<LwwStrategy>();
     }
 
@@ -251,8 +269,8 @@ public sealed class EpochBoundStrategyTests : IDisposable
     public void Compact_ShouldNotModifyDecoratorMetadata_AndDelegateToInnerStrategy()
     {
         // Arrange
-        var property = typeof(ShoppingCart).GetProperty(nameof(ShoppingCart.Status))!;
-        var strategy = strategyProvider.GetStrategy(property);
+        var property = StatusProperty;
+        var strategy = strategyProvider.GetStrategy(typeof(ShoppingCart), property);
         
         var metadata = new CrdtMetadata();
         metadata.Epochs["$.status"] = 5;

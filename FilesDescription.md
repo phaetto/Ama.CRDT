@@ -178,22 +178,35 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/GraphStrategyTests.cs` | Contains unit tests for `GraphStrategy`, verifying convergence and correct patch generation for concurrent additions of vertices and edges. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LseqStrategyTests.cs` | Contains unit tests for the `LseqStrategy`, verifying convergence, idempotence, and the new partitioning interface methods (`Split`, `Merge`, `GetMinimumKey`, etc.). |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LwwMapStrategyTests.cs` | Contains unit tests for the `LwwMapStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent dictionary operations. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/LwwSetStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `LwwSetStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LwwSetStrategyTests.cs` | Contains unit tests for the `LwwSetStrategy`, verifying that conflicts are resolved based on the last-write-wins rule, allowing elements to be re-added after removal. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/LwwStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `LwwStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/LwwStrategyTests.cs` | Contains unit tests for the `LwwStrategy` implementation, verifying both patch generation and its simplified, unconditional data application logic. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/MaxWinsMapStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `MaxWinsMapStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/MaxWinsMapStrategyTests.cs` | Contains unit tests for `MaxWinsMapStrategy`, verifying value-based convergence for concurrent dictionary operations. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/MaxWinsStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `MaxWinsStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/MaxWinsStrategyTests.cs` | Contains unit tests for the `MaxWinsStrategy`, verifying that conflicts are resolved by choosing the highest value. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/MinWinsMapStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `MinWinsMapStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/MinWinsMapStrategyTests.cs` | Contains unit tests for `MinWinsMapStrategy`, verifying value-based convergence for concurrent dictionary operations. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/MinWinsStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `MinWinsStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/MinWinsStrategyTests.cs` | Contains unit tests for the `MinWinsStrategy`, verifying that conflicts are resolved by choosing the lowest value. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/OrMapStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `OrMapStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/OrMapStrategyTests.cs` | Contains unit tests for the `OrMapStrategy`, verifying convergence, LWW-based conflict resolution, re-addition of elements, and correct behavior for partitioning (split/merge). |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/OrSetStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `OrSetStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/OrSetStrategyTests.cs` | Contains unit tests for the `OrSetStrategy`, verifying that it correctly handles concurrent additions and removals without anomalies, allowing for proper re-addition of elements. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/PriorityQueueStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `PriorityQueueStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/PriorityQueueStrategyTests.cs` | Contains unit tests for the `PriorityQueueStrategy`, verifying that concurrent updates converge and the list remains sorted by priority. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/ReplicatedTreeStrategyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/RgaStrategyTests.cs` | Contains unit tests for `RgaStrategy`, verifying correct calculation of tombstones, insertions and tree based flattening. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/Serialization/StrategyPayloadSerializationTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/SortedSetStrategyTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/StateMachineStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `StateMachineStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/StateMachineStrategyTests.cs` | Contains unit tests for `StateMachineStrategy`, verifying valid/invalid transitions and LWW-based conflict resolution. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseGraphStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `TwoPhaseGraphStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseGraphStrategyTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseSetStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `TwoPhaseSetStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseSetStrategyTests.cs` | Contains unit tests for the `TwoPhaseSetStrategy`, verifying that elements can be added and removed, but not re-added after removal. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `VoteCounterStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTests.cs` | Contains unit tests for the `VoteCounterStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent voting scenarios. |
 | `$/Ama.CRDT.UnitTests/Services/Versioning/VersionVectorSyncServiceTests.cs` | No description provided. |
 | `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |

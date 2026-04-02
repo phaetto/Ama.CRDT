@@ -29,9 +29,7 @@ public sealed class GraphStrategyProperties
     {
         if (vertex is null) return;
 
-        // Use Activator to instantiate the payload defensively without hardcoding its exact struct/class signature
-        var payload = Activator.CreateInstance(typeof(GraphVertexPayload), vertex);
-        if (payload is null) return;
+        var payload = new GraphVertexPayload(vertex);
 
         var op = new CrdtOperation(
             Guid.NewGuid(),
@@ -60,8 +58,8 @@ public sealed class GraphStrategyProperties
     {
         if (vertex1 is null || vertex2 is null) return;
 
-        var payload1 = Activator.CreateInstance(typeof(GraphVertexPayload), vertex1);
-        var payload2 = Activator.CreateInstance(typeof(GraphVertexPayload), vertex2);
+        var payload1 = new GraphVertexPayload(vertex1);
+        var payload2 = new GraphVertexPayload(vertex2);
 
         var op1 = new CrdtOperation(
             Guid.NewGuid(),
@@ -101,7 +99,7 @@ public sealed class GraphStrategyProperties
         if (opsData.Count == 0) return;
 
         var ops = opsData.Select((x, i) => {
-            var payload = Activator.CreateInstance(typeof(GraphVertexPayload), x.Item2);
+            var payload = new GraphVertexPayload(x.Item2);
             return new CrdtOperation(
                 Guid.NewGuid(),
                 $"replica-{i}",

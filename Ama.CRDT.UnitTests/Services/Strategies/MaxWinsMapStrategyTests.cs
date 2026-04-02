@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -24,10 +25,17 @@ public sealed class MaxWinsMapStrategyTests
     private readonly ICrdtMetadataManager metadataManager;
     private readonly ICrdtScopeFactory scopeFactory;
 
+    private readonly CrdtPropertyInfo mapPropInfo = new CrdtPropertyInfo(
+        "Map", "map", typeof(Dictionary<string, int>), true, true,
+        obj => ((TestModel)obj).Map,
+        (obj, val) => ((TestModel)obj).Map = (Dictionary<string, int>)val!,
+        null, []);
+
     public MaxWinsMapStrategyTests()
     {
         var services = new ServiceCollection();
         services.AddCrdt()
+            .AddCrdtAotContext<MaxWinsMapStrategyTestCrdtContext>()
             .AddSingleton(comparerProviderMock.Object)
             .AddCrdtTimestampProvider<EpochTimestampProvider>();
 
@@ -157,10 +165,9 @@ public sealed class MaxWinsMapStrategyTests
     {
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
 
-        strategy.GetStartKey(new TestModel(), propInfo).ShouldBeNull();
-        strategy.GetStartKey(new TestModel { Map = { ["c"] = 1, ["a"] = 2, ["b"] = 3 } }, propInfo).ShouldBe("a");
+        strategy.GetStartKey(new TestModel(), mapPropInfo).ShouldBeNull();
+        strategy.GetStartKey(new TestModel { Map = { ["c"] = 1, ["a"] = 2, ["b"] = 3 } }, mapPropInfo).ShouldBe("a");
     }
 
     [Fact]
@@ -179,9 +186,8 @@ public sealed class MaxWinsMapStrategyTests
     {
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
-        var stringMapProp = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
 
-        strategy.GetMinimumKey(stringMapProp).ShouldBe(string.Empty);
+        strategy.GetMinimumKey(mapPropInfo).ShouldBe(string.Empty);
     }
 
     [Fact]
@@ -189,7 +195,6 @@ public sealed class MaxWinsMapStrategyTests
     {
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
 
         var doc = CreateDocument(new Dictionary<string, int>());
         
@@ -198,7 +203,7 @@ public sealed class MaxWinsMapStrategyTests
         strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now(), 0)));
         strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now(), 0)));
 
-        var result = strategy.Split(doc.Data, doc.Metadata, propInfo);
+        var result = strategy.Split(doc.Data, doc.Metadata, mapPropInfo);
 
         result.SplitKey.ShouldBe("c");
 
@@ -214,7 +219,6 @@ public sealed class MaxWinsMapStrategyTests
     {
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
 
         var doc1 = CreateDocument(new Dictionary<string, int>());
         var doc2 = CreateDocument(new Dictionary<string, int>());
@@ -225,7 +229,7 @@ public sealed class MaxWinsMapStrategyTests
         strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 50), timestampProvider.Now(), 0))); // higher value
         strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now(), 0)));
 
-        var merged = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo);
+        var merged = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapPropInfo);
 
         var mergedDoc = (TestModel)merged.Data;
         mergedDoc.Map.Keys.ShouldBe(["a", "b", "c"], ignoreOrder: true);
@@ -241,9 +245,8 @@ public sealed class MaxWinsMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
         var intent = new MapSetIntent("a", 15);
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", propInfo, intent, timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", mapPropInfo, intent, timestampProvider.Now(), 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -266,9 +269,8 @@ public sealed class MaxWinsMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
         var intent = new SetIntent(15); // Unsupported intent
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", propInfo, intent, timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", mapPropInfo, intent, timestampProvider.Now(), 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
@@ -294,7 +296,7 @@ public sealed class MaxWinsMapStrategyTests
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
 
-    private sealed class TestModel
+    internal sealed class TestModel
     {
         [CrdtMaxWinsMapStrategy]
         public Dictionary<string, int> Map { get; set; } = [];

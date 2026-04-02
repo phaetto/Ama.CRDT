@@ -15,15 +15,28 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Attributes.Strategies;
 using Moq;
 using Ama.CRDT.Services.GarbageCollection;
+using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Attributes;
+
+[CrdtSerializable(typeof(BoundedCounterTestModel))]
+[CrdtSerializable(typeof(BoundedCounterNoAttributeModel))]
+internal partial class BoundedCounterStrategyTestCrdtContext : CrdtContext
+{
+}
+
+internal sealed class BoundedCounterTestModel
+{
+    [CrdtBoundedCounterStrategy(0, 100)]
+    public int Level { get; set; }
+}
+
+internal sealed class BoundedCounterNoAttributeModel
+{
+    public int Value { get; set; }
+}
 
 public sealed class BoundedCounterStrategyTests : IDisposable
 {
-    private sealed class TestModel
-    {
-        [CrdtBoundedCounterStrategy(0, 100)]
-        public int Level { get; set; }
-    }
-
     private readonly IServiceScope scopeA;
     private readonly BoundedCounterStrategy strategy;
     private readonly ICrdtApplicator applicatorA;
@@ -34,6 +47,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<BoundedCounterStrategyTestCrdtContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -55,9 +69,19 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     {
         // Arrange
         var operations = new List<CrdtOperation>();
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Level))!;
-        var originalRoot = new TestModel { Level = 50 };
-        var modifiedRoot = new TestModel { Level = 60 };
+        var property = new CrdtPropertyInfo(
+            "Level",
+            "level",
+            typeof(int),
+            true,
+            true,
+            obj => ((BoundedCounterTestModel)obj).Level,
+            (obj, val) => ((BoundedCounterTestModel)obj).Level = (int)val!,
+            new CrdtBoundedCounterStrategyAttribute(0, 100),
+            []);
+            
+        var originalRoot = new BoundedCounterTestModel { Level = 50 };
+        var modifiedRoot = new BoundedCounterTestModel { Level = 60 };
         var context = new GeneratePatchContext(
             operations,
             new List<DifferentiateObjectContext>(),
@@ -86,10 +110,20 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     {
         // Arrange
         var intent = new IncrementIntent(15m);
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Level))!;
+        var property = new CrdtPropertyInfo(
+            "Level",
+            "level",
+            typeof(int),
+            true,
+            true,
+            obj => ((BoundedCounterTestModel)obj).Level,
+            (obj, val) => ((BoundedCounterTestModel)obj).Level = (int)val!,
+            new CrdtBoundedCounterStrategyAttribute(0, 100),
+            []);
+            
         var metadata = new CrdtMetadata();
         var context = new GenerateOperationContext(
-            new TestModel(),
+            new BoundedCounterTestModel(),
             metadata,
             "$.Level",
             property,
@@ -113,10 +147,20 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     {
         // Arrange
         var intent = new SetIntent(100);
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Level))!;
+        var property = new CrdtPropertyInfo(
+            "Level",
+            "level",
+            typeof(int),
+            true,
+            true,
+            obj => ((BoundedCounterTestModel)obj).Level,
+            (obj, val) => ((BoundedCounterTestModel)obj).Level = (int)val!,
+            new CrdtBoundedCounterStrategyAttribute(0, 100),
+            []);
+            
         var metadata = new CrdtMetadata();
         var context = new GenerateOperationContext(
-            new TestModel(),
+            new BoundedCounterTestModel(),
             metadata,
             "$.Level",
             property,
@@ -139,8 +183,18 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     public void ApplyOperation_ShouldClampValue_WithinBounds(int initial, int delta, int expected)
     {
         // Arrange
-        var model = new TestModel { Level = initial };
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Level))!;
+        var model = new BoundedCounterTestModel { Level = initial };
+        var property = new CrdtPropertyInfo(
+            "Level",
+            "level",
+            typeof(int),
+            true,
+            true,
+            obj => ((BoundedCounterTestModel)obj).Level,
+            (obj, val) => ((BoundedCounterTestModel)obj).Level = (int)val!,
+            new CrdtBoundedCounterStrategyAttribute(0, 100),
+            []);
+            
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.level", OperationType.Increment, (decimal)delta, timestampProvider.Create(2L), 1);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
         {
@@ -160,8 +214,18 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     public void ApplyOperation_ShouldReturnFailure_WhenAttributeIsMissing()
     {
         // Arrange
-        var model = new NoAttributeModel { Value = 50 };
-        var property = typeof(NoAttributeModel).GetProperty(nameof(NoAttributeModel.Value))!;
+        var model = new BoundedCounterNoAttributeModel { Value = 50 };
+        var property = new CrdtPropertyInfo(
+            "Value",
+            "value",
+            typeof(int),
+            true,
+            true,
+            obj => ((BoundedCounterNoAttributeModel)obj).Value,
+            (obj, val) => ((BoundedCounterNoAttributeModel)obj).Value = (int)val!,
+            null,
+            []);
+            
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.value", OperationType.Increment, 10m, timestampProvider.Create(2L), 1);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
         {
@@ -181,9 +245,9 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     public void ApplyPatch_IsIdempotent()
     {
         // Arrange
-        var model = new TestModel { Level = 50 };
+        var model = new BoundedCounterTestModel { Level = 50 };
         var meta = metadataManagerA.Initialize(model);
-        var document = new CrdtDocument<TestModel>(model, meta);
+        var document = new CrdtDocument<BoundedCounterTestModel>(model, meta);
         var patch = new CrdtPatch(new List<CrdtOperation>
         {
             new(Guid.NewGuid(), "r1", "$.Level", OperationType.Increment, 10m, timestampProvider.Create(1L), 1)
@@ -214,9 +278,9 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         // Act
         foreach (var p in permutations)
         {
-            var model = new TestModel { Level = 50 };
+            var model = new BoundedCounterTestModel { Level = 50 };
             var meta = metadataManagerA.Initialize(model);
-            var document = new CrdtDocument<TestModel>(model, meta);
+            var document = new CrdtDocument<BoundedCounterTestModel>(model, meta);
             foreach (var patch in p)
             {
                 applicatorA.ApplyPatch(document, patch);
@@ -240,7 +304,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
 
-        var context = new CompactionContext(metadata, mockPolicy.Object, "Level", "$.level", new TestModel());
+        var context = new CompactionContext(metadata, mockPolicy.Object, "Level", "$.level", new BoundedCounterTestModel());
 
         // Act
         strategy.Compact(context);
@@ -258,6 +322,4 @@ public sealed class BoundedCounterStrategyTests : IDisposable
             .SelectMany(t => enumerable.Where(e => !t.Contains(e)),
                 (t1, t2) => t1.Concat(new T[] { t2 }));
     }
-    
-    private sealed class NoAttributeModel { public int Value { get; set; } }
 }

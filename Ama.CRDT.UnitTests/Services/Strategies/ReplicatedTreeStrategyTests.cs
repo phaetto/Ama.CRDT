@@ -17,7 +17,7 @@ using Xunit;
 
 public sealed class ReplicatedTreeStrategyTests : IDisposable
 {
-    private sealed class TestModel
+    internal sealed class TestModel
     {
         [CrdtReplicatedTreeStrategy]
         public CrdtTree Tree { get; set; } = new();
@@ -35,6 +35,7 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<ReplicatedTreeStrategyTestCrdtContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

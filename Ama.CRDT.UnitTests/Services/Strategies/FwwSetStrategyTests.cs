@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -17,14 +19,20 @@ using System.Linq;
 using System.Threading;
 using Xunit;
 
+[CrdtSerializable(typeof(FwwSetTestModel))]
+[CrdtSerializable(typeof(List<string>))]
+internal partial class FwwSetTestCrdtContext : CrdtContext
+{
+}
+
+internal sealed class FwwSetTestModel
+{
+    [CrdtFwwSetStrategy]
+    public List<string> Tags { get; set; } = new();
+}
+
 public sealed class FwwSetStrategyTests : IDisposable
 {
-    private sealed class TestModel
-    {
-        [CrdtFwwSetStrategy]
-        public List<string> Tags { get; set; } = new();
-    }
-    
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
     private readonly IServiceScope scopeC;
@@ -42,6 +50,7 @@ public sealed class FwwSetStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<FwwSetTestCrdtContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -71,12 +80,12 @@ public sealed class FwwSetStrategyTests : IDisposable
     public void GeneratePatch_ShouldCreateUpsertAndRemoveOps()
     {
         // Arrange
-        var doc1 = new TestModel { Tags = { "A", "B" } };
+        var doc1 = new FwwSetTestModel { Tags = { "A", "B" } };
         var meta1 = metadataManagerA.Initialize(doc1);
-        var doc2 = new TestModel { Tags = { "B", "C" } };
+        var doc2 = new FwwSetTestModel { Tags = { "B", "C" } };
         
         // Act
-        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), doc2);
+        var patch = patcherA.GeneratePatch(new CrdtDocument<FwwSetTestModel>(doc1, meta1), doc2);
         
         // Assert
         patch.Operations.Count.ShouldBe(2);
@@ -88,8 +97,13 @@ public sealed class FwwSetStrategyTests : IDisposable
     public void GenerateOperation_WithAddIntent_ShouldReturnUpsertOperation()
     {
         // Arrange
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
-        var doc = new TestModel();
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FwwSetTestModel.Tags), "tags", typeof(List<string>), true, true,
+            obj => ((FwwSetTestModel)obj).Tags,
+            (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
+            new CrdtFwwSetStrategyAttribute(), []);
+
+        var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
         var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("NewTag"), timestampProvider.Now(), 0);
 
@@ -107,8 +121,13 @@ public sealed class FwwSetStrategyTests : IDisposable
     public void GenerateOperation_WithRemoveValueIntent_ShouldReturnRemoveOperation()
     {
         // Arrange
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
-        var doc = new TestModel();
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FwwSetTestModel.Tags), "tags", typeof(List<string>), true, true,
+            obj => ((FwwSetTestModel)obj).Tags,
+            (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
+            new CrdtFwwSetStrategyAttribute(), []);
+
+        var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
         var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new RemoveValueIntent("OldTag"), timestampProvider.Now(), 0);
 
@@ -126,8 +145,13 @@ public sealed class FwwSetStrategyTests : IDisposable
     public void GenerateOperation_WithClearIntent_ShouldReturnRemoveOperation()
     {
         // Arrange
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
-        var doc = new TestModel();
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FwwSetTestModel.Tags), "tags", typeof(List<string>), true, true,
+            obj => ((FwwSetTestModel)obj).Tags,
+            (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
+            new CrdtFwwSetStrategyAttribute(), []);
+
+        var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
         var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new ClearIntent(), timestampProvider.Now(), 0);
 
@@ -145,8 +169,13 @@ public sealed class FwwSetStrategyTests : IDisposable
     public void GenerateOperation_WithUnsupportedIntent_ShouldThrow()
     {
         // Arrange
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
-        var doc = new TestModel();
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FwwSetTestModel.Tags), "tags", typeof(List<string>), true, true,
+            obj => ((FwwSetTestModel)obj).Tags,
+            (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
+            new CrdtFwwSetStrategyAttribute(), []);
+
+        var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
         var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new IncrementIntent(1), timestampProvider.Now(), 0);
 
@@ -158,7 +187,7 @@ public sealed class FwwSetStrategyTests : IDisposable
     public void ApplyOperation_Reset_ShouldClearListAndMetadata()
     {
         // Arrange
-        var doc = new TestModel { Tags = { "A" } };
+        var doc = new FwwSetTestModel { Tags = { "A" } };
         var meta = metadataManagerA.Initialize(doc);
         var op = new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Remove, null, timestampProvider.Now(), 0);
 
@@ -174,14 +203,14 @@ public sealed class FwwSetStrategyTests : IDisposable
     public void ApplyPatch_IsTrulyIdempotent()
     {
         // Arrange
-        var doc1 = new TestModel { Tags = { "A" } };
+        var doc1 = new FwwSetTestModel { Tags = { "A" } };
         var meta1 = metadataManagerA.Initialize(doc1);
-        var doc2 = new TestModel { Tags = { "A", "B" } };
-        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), doc2);
+        var doc2 = new FwwSetTestModel { Tags = { "A", "B" } };
+        var patch = patcherA.GeneratePatch(new CrdtDocument<FwwSetTestModel>(doc1, meta1), doc2);
 
-        var target = new TestModel { Tags = { "A" } };
+        var target = new FwwSetTestModel { Tags = { "A" } };
         var targetMeta = metadataManagerA.Initialize(target);
-        var targetDocument = new CrdtDocument<TestModel>(target, targetMeta);
+        var targetDocument = new CrdtDocument<FwwSetTestModel>(target, targetMeta);
         
         // Act
         applicatorA.ApplyPatch(targetDocument, patch);
@@ -200,10 +229,14 @@ public sealed class FwwSetStrategyTests : IDisposable
     public void Converge_FirstWriteWins_OnAddRemoveConflict_KeepsAdd()
     {
         // Arrange
-        var ancestor = new TestModel();
+        var ancestor = new FwwSetTestModel();
         var metaAncestor = metadataManagerA.Initialize(ancestor);
         
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FwwSetTestModel.Tags), "tags", typeof(List<string>), true, true,
+            obj => ((FwwSetTestModel)obj).Tags,
+            (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
+            new CrdtFwwSetStrategyAttribute(), []);
         
         var contextAdd = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new AddIntent("A"), timestampProvider.Create(100), 0);
         var opAdd = strategyA.GenerateOperation(contextAdd);
@@ -212,13 +245,13 @@ public sealed class FwwSetStrategyTests : IDisposable
         var opRemove = strategyA.GenerateOperation(contextRemove);
 
         // Scenario 1: Add (t=100), then Remove (t=200) -> Add wins
-        var model1 = new TestModel();
+        var model1 = new FwwSetTestModel();
         var meta1 = metadataManagerA.Initialize(model1);
         strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, opAdd));
         strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, opRemove));
         
         // Scenario 2: Remove (t=200), then Add (t=100) -> Add wins
-        var model2 = new TestModel();
+        var model2 = new FwwSetTestModel();
         var meta2 = metadataManagerA.Initialize(model2);
         strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, opRemove));
         strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, opAdd));
@@ -232,10 +265,14 @@ public sealed class FwwSetStrategyTests : IDisposable
     public void Converge_FirstWriteWins_OnRemoveAddConflict_KeepsRemove()
     {
         // Arrange
-        var ancestor = new TestModel();
+        var ancestor = new FwwSetTestModel();
         var metaAncestor = metadataManagerA.Initialize(ancestor);
         
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FwwSetTestModel.Tags), "tags", typeof(List<string>), true, true,
+            obj => ((FwwSetTestModel)obj).Tags,
+            (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
+            new CrdtFwwSetStrategyAttribute(), []);
         
         var contextRemove = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new RemoveValueIntent("A"), timestampProvider.Create(100), 0);
         var opRemove = strategyA.GenerateOperation(contextRemove);
@@ -244,13 +281,13 @@ public sealed class FwwSetStrategyTests : IDisposable
         var opAdd = strategyA.GenerateOperation(contextAdd);
 
         // Scenario 1: Remove (t=100), then Add (t=200) -> Remove wins
-        var model1 = new TestModel();
+        var model1 = new FwwSetTestModel();
         var meta1 = metadataManagerA.Initialize(model1);
         strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, opRemove));
         strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, opAdd));
         
         // Scenario 2: Add (t=200), then Remove (t=100) -> Remove wins
-        var model2 = new TestModel();
+        var model2 = new FwwSetTestModel();
         var meta2 = metadataManagerA.Initialize(model2);
         strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, opAdd));
         strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, opRemove));
@@ -264,12 +301,12 @@ public sealed class FwwSetStrategyTests : IDisposable
     public void Converge_WhenApplyingConcurrentOps_ShouldBeAssociative()
     {
         // Arrange
-        var ancestor = new TestModel { Tags = { "A", "B" } };
+        var ancestor = new FwwSetTestModel { Tags = { "A", "B" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
-        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
-        var model1 = new TestModel { Tags = { "A", "C" } };
-        var model2 = new TestModel { Tags = { "B", "D" } };
-        var model3 = new TestModel { Tags = { "A", "B", "E" } };
+        var docAncestor = new CrdtDocument<FwwSetTestModel>(ancestor, metaAncestor);
+        var model1 = new FwwSetTestModel { Tags = { "A", "C" } };
+        var model2 = new FwwSetTestModel { Tags = { "B", "D" } };
+        var model3 = new FwwSetTestModel { Tags = { "A", "B", "E" } };
 
         Thread.Sleep(5);
         var patch1 = patcherA.GeneratePatch(docAncestor, model1); // Remove B, Add C
@@ -287,9 +324,9 @@ public sealed class FwwSetStrategyTests : IDisposable
         // Act
         foreach (var permutation in permutations)
         {
-            var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
+            var model = new FwwSetTestModel { Tags = new List<string>(ancestor.Tags) };
             var meta = metaAncestor.DeepClone();
-            var document = new CrdtDocument<TestModel>(model, meta);
+            var document = new CrdtDocument<FwwSetTestModel>(model, meta);
             foreach (var patch in permutation)
             {
                 applicatorA.ApplyPatch(document, patch);
@@ -312,10 +349,14 @@ public sealed class FwwSetStrategyTests : IDisposable
     [Fact]
     public void GetStartKey_ShouldReturnSmallestKeyOrNull()
     {
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FwwSetTestModel.Tags), "tags", typeof(List<string>), true, true,
+            obj => ((FwwSetTestModel)obj).Tags,
+            (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
+            new CrdtFwwSetStrategyAttribute(), []);
         
-        strategyA.GetStartKey(new TestModel(), propInfo).ShouldBeNull();
-        strategyA.GetStartKey(new TestModel { Tags = { "c", "a", "b" } }, propInfo).ShouldBe("a");
+        strategyA.GetStartKey(new FwwSetTestModel(), propInfo).ShouldBeNull();
+        strategyA.GetStartKey(new FwwSetTestModel { Tags = { "c", "a", "b" } }, propInfo).ShouldBe("a");
     }
 
     [Fact]
@@ -330,16 +371,26 @@ public sealed class FwwSetStrategyTests : IDisposable
     [Fact]
     public void GetMinimumKey_ShouldReturnCorrectMinValue()
     {
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FwwSetTestModel.Tags), "tags", typeof(List<string>), true, true,
+            obj => ((FwwSetTestModel)obj).Tags,
+            (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
+            new CrdtFwwSetStrategyAttribute(), []);
+            
         strategyA.GetMinimumKey(propInfo).ShouldBe(string.Empty);
     }
 
     [Fact]
     public void Split_ShouldDivideDataAndMetadataEqually()
     {
-        var doc = new TestModel();
+        var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FwwSetTestModel.Tags), "tags", typeof(List<string>), true, true,
+            obj => ((FwwSetTestModel)obj).Tags,
+            (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
+            new CrdtFwwSetStrategyAttribute(), []);
 
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0)));
@@ -350,8 +401,8 @@ public sealed class FwwSetStrategyTests : IDisposable
 
         result.SplitKey.ShouldBe("c");
 
-        var doc1 = (TestModel)result.Partition1.Data;
-        var doc2 = (TestModel)result.Partition2.Data;
+        var doc1 = (FwwSetTestModel)result.Partition1.Data;
+        var doc2 = (FwwSetTestModel)result.Partition2.Data;
 
         doc1.Tags.ShouldBe(["a", "b"], ignoreOrder: true);
         doc2.Tags.ShouldBe(["c", "d"], ignoreOrder: true);
@@ -363,11 +414,16 @@ public sealed class FwwSetStrategyTests : IDisposable
     [Fact]
     public void Merge_ShouldCombineDataAndMetadata()
     {
-        var doc1 = new TestModel();
+        var doc1 = new FwwSetTestModel();
         var meta1 = metadataManagerA.Initialize(doc1);
-        var doc2 = new TestModel();
+        var doc2 = new FwwSetTestModel();
         var meta2 = metadataManagerA.Initialize(doc2);
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FwwSetTestModel.Tags), "tags", typeof(List<string>), true, true,
+            obj => ((FwwSetTestModel)obj).Tags,
+            (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
+            new CrdtFwwSetStrategyAttribute(), []);
 
         strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0)));
@@ -377,7 +433,7 @@ public sealed class FwwSetStrategyTests : IDisposable
 
         var result = strategyA.Merge(doc1, meta1, doc2, meta2, propInfo);
 
-        var mergedDoc = (TestModel)result.Data;
+        var mergedDoc = (FwwSetTestModel)result.Data;
         mergedDoc.Tags.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
         result.Metadata.FwwSets["$.tags"].Adds.Keys.Count.ShouldBeGreaterThanOrEqualTo(4);
     }
@@ -386,7 +442,7 @@ public sealed class FwwSetStrategyTests : IDisposable
     public void Compact_ShouldRemoveDeadItems_WhenPolicyAllows()
     {
         // Arrange
-        var doc = new TestModel();
+        var doc = new FwwSetTestModel();
         var meta = new CrdtMetadata();
         
         var safeTs1 = timestampProvider.Create(10);
