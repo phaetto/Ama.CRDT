@@ -13,7 +13,8 @@ using Xunit;
 
 public sealed class DefaultPartitionSerializationServiceTests
 {
-    private readonly DefaultPartitionSerializationService service = new();
+    // Pass an empty collection for the custom resolvers since we don't need any additional ones for these tests
+    private readonly DefaultPartitionSerializationService service = new([]);
 
     [Fact]
     public async Task WriteHeaderAndReadHeader_ShouldSucceed()

@@ -2,6 +2,7 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Partitioning.Streams.Extensions;
 using Ama.CRDT.Services.Decorators;
 using Ama.CRDT.ShowCase.LargerThanMemory;
+using Ama.CRDT.ShowCase.LargerThanMemory.Models;
 using Ama.CRDT.ShowCase.LargerThanMemory.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -11,6 +12,7 @@ var builder = Host.CreateDefaultBuilder(args);
 builder.ConfigureServices((context, services) =>
 {
     services.AddCrdt()
+        .AddCrdtJsonTypeInfoResolver(LargerThanMemoryJsonContext.Default)
         .AddCrdtJournaling<FileSystemOperationJournal>()
         .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()
         .AddCrdtPatcherDecorator<JournalingPatcherDecorator>()

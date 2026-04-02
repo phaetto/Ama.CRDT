@@ -93,6 +93,7 @@
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.Designer.cs` | No description provided. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.cs` | No description provided. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.resx` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/Models/CollaborativeEditingJsonContext.cs` | AOT JSON serialization context for the collaborative editing showcase models. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Models/NetworkMessage.cs` | DTO representing a network message containing a patch and sender ID. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Models/SharedDocument.cs` | Model representing a shared document of strings synced across replicas using ArrayLcsStrategy. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Program.cs` | No description provided. |
@@ -101,6 +102,7 @@
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/BlogPost.cs` | The root data model for the showcase, representing a blog post. It is decorated with `[PartitionKey]` and its `Comments` list uses `[CrdtArrayLcsStrategy]` to enable partitioning. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/Comment.cs` | A simple record representing a comment in the blog post. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/LargerThanMemoryJsonContext.cs` | AOT JSON serialization context for the larger-than-memory showcase models. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Program.cs` | The main entry point for the showcase application, responsible for setting up dependency injection and starting the simulation. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/README.md` | Provides an overview of the larger-than-memory showcase, explaining how to run it, the features it demonstrates (partitioning, journaling, disconnected sync), and how to interact with the terminal UI. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/DataGeneratorService.cs` | A service responsible for programmatically generating a configurable number of blog posts, each with a random number of comments, to demonstrate the system's ability to handle large, partitioned datasets. |
@@ -302,6 +304,7 @@
 | `$/Ama.CRDT/Models/Serialization/Converters/ObjectKeyDictionaryJsonConverter.cs` | A `JsonConverterFactory` that creates converters for dictionaries with non-string keys. It serializes them as a JSON array of [key, value] pairs to work around `System.Text.Json` limitations. |
 | `$/Ama.CRDT/Models/Serialization/Converters/SeenExceptionsJsonConverter.cs` | A specialized `JsonConverter` for `CrdtMetadata.SeenExceptions` that ensures `CrdtOperation` elements are serialized and deserialized with polymorphism enabled for their `Value` property. |
 | `$/Ama.CRDT/Models/Serialization/CrdtJsonContext.cs` | Provides centralized, pre-configured `JsonSerializerOptions` for CRDT models, establishing a best practice for serialization. |
+| `$/Ama.CRDT/Models/Serialization/CrdtJsonResolverRegistration.cs` | A readonly record struct that wraps custom `IJsonTypeInfoResolver` instances added via DI. This enables consumers to supply their own AOT JSON contexts for custom CRDT payloads. |
 | `$/Ama.CRDT/Models/Serialization/CrdtJsonTypeInfoResolver.cs` | A custom `IJsonTypeInfoResolver` that applies the `PolymorphicObjectJsonConverter` to all properties of type `object`, enabling robust polymorphic serialization. |
 | `$/Ama.CRDT/Models/Serialization/CrdtMetadataJsonResolver.cs` | A custom `IJsonTypeInfoResolver` that modifies the serialization contract for `CrdtMetadata` to omit empty collections, resulting in a more compact JSON output. |
 | `$/Ama.CRDT/Models/Serialization/CrdtTypeRegistry.cs` | Centralized registry mapping discriminator strings to CRDT serialization types, powering both native STJ polymorphism and custom payload wrappers. |

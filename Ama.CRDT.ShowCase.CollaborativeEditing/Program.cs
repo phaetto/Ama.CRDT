@@ -7,6 +7,7 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.Services.Decorators;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Journaling;
+using Ama.CRDT.ShowCase.CollaborativeEditing.Models;
 using Ama.CRDT.ShowCase.CollaborativeEditing.Services;
 
 internal static class Program
@@ -24,7 +25,8 @@ internal static class Program
         var services = new ServiceCollection();
         
         // Register the core CRDT infrastructure
-        services.AddCrdt();
+        services.AddCrdt()
+                .AddCrdtJsonTypeInfoResolver(CollaborativeEditingJsonContext.Default);
 
         // Register Memory Journal as Singleton so all replicas share it (simulating a central DB or shared bus)
         services.AddSingleton<MemoryJournal>();
