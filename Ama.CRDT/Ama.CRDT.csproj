@@ -38,6 +38,7 @@
   <ItemGroup>
 	  <ProjectReference Include="..\Ama.CRDT.Analyzers\Ama.CRDT.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 	  <ProjectReference Include="..\Ama.CRDT.Project.Analyzers\Ama.CRDT.Project.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+	  <ProjectReference Include="..\Ama.CRDT.SourceGenerators\Ama.CRDT.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
@@ -54,7 +55,8 @@
   </ItemGroup>
 
   <ItemGroup>
-	<None Include="$(TargetDir)..\Ama.CRDT.Analyzers\bin\Release\netstandard2.0\*" pack="true" PackagePath="analyzers/dotnet/cs"></None>
+	  <None Include="$(TargetDir)..\Ama.CRDT.Analyzers\bin\Release\netstandard2.0\*" pack="true" PackagePath="analyzers/dotnet/cs"></None>
+	  <None Include="$(TargetDir)..\Ama.CRDT.SourceGenerators\bin\Release\netstandard2.0\*" pack="true" PackagePath="analyzers/dotnet/cs"></None>
   </ItemGroup>
 
 </Project>
