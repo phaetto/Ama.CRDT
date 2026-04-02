@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -15,6 +17,11 @@ using System.Text.Json;
 public sealed class TwoPhaseGraphTestPoco
 {
     public CrdtGraph Graph { get; set; } = new();
+}
+
+[CrdtSerializable(typeof(TwoPhaseGraphTestPoco))]
+internal partial class TwoPhaseGraphTestContext : CrdtContext
+{
 }
 
 public sealed class TwoPhaseGraphStrategyProperties
@@ -136,8 +143,19 @@ public sealed class TwoPhaseGraphStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new TwoPhaseGraphStrategy(mockComparerProvider.Object, replicaContext);
-        var propertyInfo = typeof(TwoPhaseGraphTestPoco).GetProperty(nameof(TwoPhaseGraphTestPoco.Graph));
+        var strategy = new TwoPhaseGraphStrategy(mockComparerProvider.Object, replicaContext, [ new TwoPhaseGraphTestContext() ]);
+        
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(TwoPhaseGraphTestPoco.Graph),
+            "graph",
+            typeof(CrdtGraph),
+            true,
+            true,
+            obj => ((TwoPhaseGraphTestPoco)obj).Graph,
+            (obj, val) => ((TwoPhaseGraphTestPoco)obj).Graph = (CrdtGraph)val!,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {

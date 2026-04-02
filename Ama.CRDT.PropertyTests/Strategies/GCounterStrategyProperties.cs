@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
@@ -8,6 +10,11 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(GCounterTestPoco))]
+public partial class GCounterTestContext : CrdtContext
+{
+}
 
 public sealed class GCounterTestPoco : IEquatable<GCounterTestPoco>
 {
@@ -105,8 +112,18 @@ public sealed class GCounterStrategyProperties
     private static void ApplyOperations(GCounterTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new GCounterStrategy(replicaContext);
-        var propertyInfo = typeof(GCounterTestPoco).GetProperty(nameof(GCounterTestPoco.Value));
+        var strategy = new GCounterStrategy(replicaContext, [ new GCounterTestContext() ]);
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(GCounterTestPoco.Value),
+            "value",
+            typeof(decimal),
+            true,
+            true,
+            obj => ((GCounterTestPoco)obj).Value,
+            (obj, val) => ((GCounterTestPoco)obj).Value = (decimal)(val ?? 0m),
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {

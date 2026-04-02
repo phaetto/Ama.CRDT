@@ -1,13 +1,22 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(AverageRegisterTestPoco))]
+public partial class AverageRegisterTestContext : CrdtContext
+{
+}
 
 public sealed class AverageRegisterTestPoco : IEquatable<AverageRegisterTestPoco>
 {
@@ -128,9 +137,25 @@ public sealed class AverageRegisterStrategyProperties
 
     private static void ApplyOperations(AverageRegisterTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new AverageRegisterStrategy(replicaContext);
-        var propertyInfo = typeof(AverageRegisterTestPoco).GetProperty(nameof(AverageRegisterTestPoco.Value));
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .AddCrdtAotContext<AverageRegisterTestContext>()
+            .BuildServiceProvider();
+
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("property-test-replica");
+        var strategy = scope.ServiceProvider.GetRequiredService<AverageRegisterStrategy>();
+
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(AverageRegisterTestPoco.Value),
+            "value",
+            typeof(decimal),
+            true,
+            true,
+            obj => ((AverageRegisterTestPoco)obj).Value,
+            (obj, val) => ((AverageRegisterTestPoco)obj).Value = (decimal)val!,
+            null,
+            []);
 
         foreach (var op in operations)
         {

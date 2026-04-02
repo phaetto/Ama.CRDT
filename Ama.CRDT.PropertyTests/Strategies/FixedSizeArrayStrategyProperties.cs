@@ -1,7 +1,9 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
@@ -33,6 +35,12 @@ public sealed class FixedSizeArrayTestPoco : IEquatable<FixedSizeArrayTestPoco>
     public override bool Equals(object? obj) => Equals(obj as FixedSizeArrayTestPoco);
     
     public override int GetHashCode() => Items.Count.GetHashCode();
+}
+
+[CrdtSerializable(typeof(FixedSizeArrayTestPoco))]
+[CrdtSerializable(typeof(List<string?>))]
+public partial class FixedSizeArrayTestContext : CrdtContext
+{
 }
 
 public sealed class FixedSizeArrayStrategyProperties
@@ -138,8 +146,17 @@ public sealed class FixedSizeArrayStrategyProperties
     private static void ApplyOperations(FixedSizeArrayTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new FixedSizeArrayStrategy(replicaContext);
-        var propertyInfo = typeof(FixedSizeArrayTestPoco).GetProperty(nameof(FixedSizeArrayTestPoco.Items));
+        var strategy = new FixedSizeArrayStrategy(replicaContext, [new FixedSizeArrayTestContext()]);
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(FixedSizeArrayTestPoco.Items),
+            "items",
+            typeof(List<string?>),
+            true,
+            true,
+            obj => ((FixedSizeArrayTestPoco)obj).Items,
+            (obj, val) => ((FixedSizeArrayTestPoco)obj).Items = (List<string?>)val!,
+            new CrdtFixedSizeArrayStrategyAttribute(5),
+            []);
 
         foreach (var op in operations)
         {

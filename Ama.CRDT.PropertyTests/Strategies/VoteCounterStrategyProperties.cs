@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
@@ -8,6 +10,13 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(VoteCounterTestPoco))]
+[CrdtSerializable(typeof(Dictionary<string, List<string>>))]
+[CrdtSerializable(typeof(List<string>))]
+public partial class VoteCounterTestContext : CrdtContext
+{
+}
 
 public sealed class VoteCounterTestPoco : IEquatable<VoteCounterTestPoco>
 {
@@ -136,8 +145,10 @@ public sealed class VoteCounterStrategyProperties
     private static void ApplyOperations(VoteCounterTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new VoteCounterStrategy(replicaContext);
-        var propertyInfo = typeof(VoteCounterTestPoco).GetProperty(nameof(VoteCounterTestPoco.Votes));
+        var aotContexts = new CrdtContext[] { new VoteCounterTestContext() };
+        var strategy = new VoteCounterStrategy(replicaContext, aotContexts);
+        
+        var propertyInfo = aotContexts[0].GetTypeInfo(typeof(VoteCounterTestPoco))!.Properties[nameof(VoteCounterTestPoco.Votes)];
 
         foreach (var op in operations)
         {

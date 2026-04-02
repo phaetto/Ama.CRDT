@@ -1,7 +1,9 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -11,6 +13,11 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(PqItem))]
+[CrdtSerializable(typeof(PriorityQueueTestPoco))]
+[CrdtSerializable(typeof(List<PqItem>))]
+public partial class PriorityQueueTestContext : CrdtContext { }
 
 public sealed class PqItem : IEquatable<PqItem>
 {
@@ -173,8 +180,20 @@ public sealed class PriorityQueueStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new PriorityQueueStrategy(mockComparerProvider.Object, replicaContext);
-        var propertyInfo = typeof(PriorityQueueTestPoco).GetProperty(nameof(PriorityQueueTestPoco.Queue));
+        var aotContexts = new CrdtContext[] { new PriorityQueueTestContext(), new InternalCrdtContext() };
+        var strategy = new PriorityQueueStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
+        
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(PriorityQueueTestPoco.Queue),
+            "queue",
+            typeof(List<PqItem>),
+            true,
+            true,
+            obj => ((PriorityQueueTestPoco)obj).Queue,
+            (obj, val) => ((PriorityQueueTestPoco)obj).Queue = (List<PqItem>)val!,
+            new CrdtPriorityQueueStrategyAttribute(nameof(PqItem.Priority)),
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {

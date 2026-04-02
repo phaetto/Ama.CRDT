@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -21,7 +22,9 @@ using System.Collections.Generic;
 [Associative]
 [Idempotent]
 [StateBased]
-public sealed class FwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
+public sealed class FwwStrategy(
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -98,17 +101,17 @@ public sealed class FwwStrategy(ReplicaContext replicaContext) : ICrdtStrategy
         
         if (isReset)
         {
-            PocoPathHelper.SetValue(root, operation.JsonPath, null);
+            PocoPathHelper.SetValue(root, operation.JsonPath, null, aotContexts);
             metadata.Fww.Remove(operation.JsonPath);
         }
         else if (operation.Type == OperationType.Remove)
         {
-            PocoPathHelper.SetValue(root, operation.JsonPath, null);
+            PocoPathHelper.SetValue(root, operation.JsonPath, null, aotContexts );
             metadata.Fww[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
         }
         else if (operation.Type == OperationType.Upsert)
         {
-            PocoPathHelper.SetValue(root, operation.JsonPath, operation.Value);
+            PocoPathHelper.SetValue(root, operation.JsonPath, operation.Value, aotContexts);
             metadata.Fww[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
         }
         else

@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -10,6 +12,10 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(OrSetTestPoco))]
+[CrdtSerializable(typeof(List<string>))]
+public partial class OrSetTestContext : CrdtContext { }
 
 public sealed class OrSetTestPoco : IEquatable<OrSetTestPoco>
 {
@@ -150,8 +156,20 @@ public sealed class OrSetStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new OrSetStrategy(mockComparerProvider.Object, replicaContext);
-        var propertyInfo = typeof(OrSetTestPoco).GetProperty(nameof(OrSetTestPoco.Items));
+        var aotContexts = new CrdtContext[] { new OrSetTestContext(), new InternalCrdtContext() };
+        var strategy = new OrSetStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
+        
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(OrSetTestPoco.Items),
+            "items",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((OrSetTestPoco)obj).Items,
+            (obj, val) => ((OrSetTestPoco)obj).Items = (List<string>)val!,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {

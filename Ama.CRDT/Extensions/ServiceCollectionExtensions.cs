@@ -17,6 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 [assembly: InternalsVisibleTo("Ama.CRDT.UnitTests")]
+[assembly: InternalsVisibleTo("Ama.CRDT.PropertyTests")]
 [assembly: InternalsVisibleTo("Ama.CRDT.Benchmarks")]
 
 namespace Ama.CRDT.Extensions;
