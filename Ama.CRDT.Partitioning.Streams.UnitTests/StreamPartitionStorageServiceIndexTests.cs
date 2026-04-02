@@ -19,7 +19,7 @@ using Xunit;
 
 public sealed class StreamPartitionStorageServiceIndexTests
 {
-    private readonly DefaultPartitionSerializationService serializationService = new();
+    private readonly DefaultPartitionSerializationService serializationService = new([]);
     private readonly StreamsCrdtMetrics treeMetrics;
     private readonly PartitionManagerCrdtMetrics partitionMetrics;
     private readonly StreamPartitionStorageService strategy;

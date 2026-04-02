@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Services;
@@ -388,6 +389,33 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtSerializableType<T>(this IServiceCollection services, string discriminator)
     {
         CrdtTypeRegistry.Register(discriminator, typeof(T));
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a custom <see cref="IJsonTypeInfoResolver"/> (such as a <see cref="System.Text.Json.Serialization.JsonSerializerContext"/>)
+    /// to be included in the internal CRDT serialization pipelines as a Keyed Service. 
+    /// This is required for Native AOT environments when using custom payloads or custom timestamps.
+    /// </summary>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <param name="resolver">The custom type info resolver to register.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// // In your DI setup:
+    /// builder.Services.AddCrdtJsonTypeInfoResolver(MyCustomJsonContext.Default);
+    /// ]]>
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddCrdtJsonTypeInfoResolver(this IServiceCollection services, IJsonTypeInfoResolver resolver)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(resolver);
+
+        // Registering as a Keyed Service ensures we don't pollute the host application's default JSON resolvers 
+        // while allowing our internal serialization pipeline to uniquely retrieve it.
+        services.AddKeyedSingleton<IJsonTypeInfoResolver>("Ama.CRDT", resolver);
         return services;
     }
 

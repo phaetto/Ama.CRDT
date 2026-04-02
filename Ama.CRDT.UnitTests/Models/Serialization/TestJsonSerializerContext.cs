@@ -2,6 +2,8 @@ namespace Ama.CRDT.UnitTests.Models.Serialization;
 
 using System.Text.Json.Serialization;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Models.Intents.Decorators;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.UnitTests.Services.Strategies.Serialization;
 
@@ -25,26 +27,26 @@ using Ama.CRDT.UnitTests.Services.Strategies.Serialization;
 [JsonSerializable(typeof(BidirectionalSyncRequirements))]
 [JsonSerializable(typeof(SplitResult))]
 // Intent Test Registrations
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.AddIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.AddEdgeIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.AddNodeIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.AddVertexIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.ClearIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.IncrementIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.InsertIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.MapIncrementIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.MapRemoveIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.MapSetIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.MoveNodeIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.RemoveEdgeIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.RemoveIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.RemoveNodeIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.RemoveValueIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.RemoveVertexIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.SetIndexIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.SetIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.VoteIntent))]
-[JsonSerializable(typeof(Ama.CRDT.Models.Intents.Decorators.EpochClearIntent))]
+[JsonSerializable(typeof(AddIntent))]
+[JsonSerializable(typeof(AddEdgeIntent))]
+[JsonSerializable(typeof(AddNodeIntent))]
+[JsonSerializable(typeof(AddVertexIntent))]
+[JsonSerializable(typeof(ClearIntent))]
+[JsonSerializable(typeof(IncrementIntent))]
+[JsonSerializable(typeof(InsertIntent))]
+[JsonSerializable(typeof(MapIncrementIntent))]
+[JsonSerializable(typeof(MapRemoveIntent))]
+[JsonSerializable(typeof(MapSetIntent))]
+[JsonSerializable(typeof(MoveNodeIntent))]
+[JsonSerializable(typeof(RemoveEdgeIntent))]
+[JsonSerializable(typeof(RemoveIntent))]
+[JsonSerializable(typeof(RemoveNodeIntent))]
+[JsonSerializable(typeof(RemoveValueIntent))]
+[JsonSerializable(typeof(RemoveVertexIntent))]
+[JsonSerializable(typeof(SetIndexIntent))]
+[JsonSerializable(typeof(SetIntent))]
+[JsonSerializable(typeof(VoteIntent))]
+[JsonSerializable(typeof(EpochClearIntent))]
 // Strategy Payload Test Registrations
 [JsonSerializable(typeof(StrategyPayloadSerializationTests.LwwModel))]
 [JsonSerializable(typeof(CrdtDocument<StrategyPayloadSerializationTests.LwwModel>))]
