@@ -2,6 +2,7 @@ namespace Ama.CRDT.Services.Decorators;
 
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
@@ -31,30 +32,34 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
     private readonly IPartitionStorageService storageService;
     private readonly ICrdtStrategyProvider strategyProvider;
     private readonly PartitionManagerCrdtMetrics metrics;
+    private readonly IEnumerable<CrdtContext> aotContexts;
 
     private record TypePartitionInfo(
-        PropertyInfo? PartitionKeyProperty,
-        IReadOnlyDictionary<string, (PropertyInfo Property, IPartitionableCrdtStrategy Strategy)> PartitionableProperties,
+        CrdtPropertyInfo? PartitionKeyProperty,
+        IReadOnlyDictionary<string, (CrdtPropertyInfo Property, IPartitionableCrdtStrategy Strategy)> PartitionableProperties,
         IReadOnlyDictionary<string, string> PropertyNameToPathCache
     );
 
-    private static readonly ConcurrentDictionary<Type, TypePartitionInfo> typeCache = new();
+    private readonly ConcurrentDictionary<Type, TypePartitionInfo> typeCache = new();
 
     public PartitioningApplicatorDecorator(
         IAsyncCrdtApplicator innerApplicator,
         IPartitionStorageService storageService,
         ICrdtStrategyProvider strategyProvider,
-        PartitionManagerCrdtMetrics metrics)
+        PartitionManagerCrdtMetrics metrics,
+        IEnumerable<CrdtContext> aotContexts)
     {
         ArgumentNullException.ThrowIfNull(innerApplicator);
         ArgumentNullException.ThrowIfNull(storageService);
         ArgumentNullException.ThrowIfNull(strategyProvider);
         ArgumentNullException.ThrowIfNull(metrics);
+        ArgumentNullException.ThrowIfNull(aotContexts);
 
         this.innerApplicator = innerApplicator;
         this.storageService = storageService;
         this.strategyProvider = strategyProvider;
         this.metrics = metrics;
+        this.aotContexts = aotContexts;
     }
 
     /// <inheritdoc/>
@@ -197,12 +202,12 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
         return typeInfo.PartitionableProperties.TryGetValue(fullPath, out var val) ? val.Property.Name : null;
     }
 
-    private async Task<Dictionary<IPartition, List<CrdtOperation>>> GroupOperationsByPartitionAsync(IComparable logicalKey, string propertyName, IPartitionableCrdtStrategy strategy, PropertyInfo prop, IEnumerable<CrdtOperation> operations, CancellationToken cancellationToken)
+    private async Task<Dictionary<IPartition, List<CrdtOperation>>> GroupOperationsByPartitionAsync(IComparable logicalKey, string propertyName, IPartitionableCrdtStrategy strategy, CrdtPropertyInfo prop, IEnumerable<CrdtOperation> operations, CancellationToken cancellationToken)
     {
         using var _ = new MetricTimer(metrics.GroupOperationsDuration);
         var opsByPartition = new Dictionary<IPartition, List<CrdtOperation>>();
         
-        var propertyPath = ToPropertyPath(propertyName, GetTypeInfo(prop.DeclaringType!));
+        var propertyPath = ToPropertyPath(propertyName, GetTypeInfo(prop.PropertyType.DeclaringType ?? prop.PropertyType)); // Fallback in case of top level structs
 
         foreach (var op in operations)
         {
@@ -224,7 +229,7 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
         return opsByPartition;
     }
 
-    private async Task SplitPartitionAsync<TDoc>(DataPartition dataPartitionToSplit, string propertyName, IPartitionableCrdtStrategy strategy, PropertyInfo prop, CancellationToken cancellationToken) where TDoc : class
+    private async Task SplitPartitionAsync<TDoc>(DataPartition dataPartitionToSplit, string propertyName, IPartitionableCrdtStrategy strategy, CrdtPropertyInfo prop, CancellationToken cancellationToken) where TDoc : class
     {
         using var _ = new MetricTimer(metrics.SplitPartitionDuration);
         metrics.PartitionsSplit.Add(1);
@@ -262,7 +267,7 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
         }
     }
 
-    private async Task MergePartitionIfNeededAsync<TDoc>(DataPartition dataPartitionToMerge, string propertyName, IPartitionableCrdtStrategy strategy, PropertyInfo prop, CancellationToken cancellationToken) where TDoc : class
+    private async Task MergePartitionIfNeededAsync<TDoc>(DataPartition dataPartitionToMerge, string propertyName, IPartitionableCrdtStrategy strategy, CrdtPropertyInfo prop, CancellationToken cancellationToken) where TDoc : class
     {
         using var _ = new MetricTimer(metrics.MergePartitionDuration);
         var logicalKey = dataPartitionToMerge.StartKey.LogicalKey;
@@ -327,9 +332,9 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
         }
     }
 
-    private IComparable GetLogicalKey<TDoc>(TDoc obj, PropertyInfo partitionKeyProperty)
+    private IComparable GetLogicalKey<TDoc>(TDoc obj, CrdtPropertyInfo partitionKeyProperty)
     {
-        var logicalKeyObj = PocoPathHelper.GetAccessor(partitionKeyProperty).Getter(obj) 
+        var logicalKeyObj = partitionKeyProperty.Getter?.Invoke(obj!) 
             ?? throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' cannot be null.");
         if (logicalKeyObj is not IComparable logicalKey)
         {
@@ -342,15 +347,17 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
     {
         return typeCache.GetOrAdd(type, t =>
         {
+            var crdtTypeInfo = PocoPathHelper.GetTypeInfo(t, aotContexts);
+            
             var attr = t.GetCustomAttribute<PartitionKeyAttribute>();
-            PropertyInfo? partitionKey = null;
+            CrdtPropertyInfo? partitionKey = null;
             if (attr != null)
             {
-                partitionKey = t.GetProperty(attr.PropertyName, BindingFlags.Public | BindingFlags.Instance);
+                crdtTypeInfo.Properties.TryGetValue(attr.PropertyName, out partitionKey);
             }
 
-            var properties = t.GetProperties()
-                .Select(p => new { Property = p, Strategy = strategyProvider.GetStrategy(p) })
+            var properties = crdtTypeInfo.Properties.Values
+                .Select(p => new { Property = p, Strategy = strategyProvider.GetStrategy(t, p) })
                 .Where(x => x.Strategy is IPartitionableCrdtStrategy)
                 .ToDictionary(
                     x => $"$.{char.ToLowerInvariant(x.Property.Name[0])}{x.Property.Name[1..]}",
