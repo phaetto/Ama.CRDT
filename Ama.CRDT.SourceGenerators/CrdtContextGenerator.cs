@@ -82,6 +82,11 @@ public class CrdtContextGenerator : IIncrementalGenerator
         sb.AppendLine("        {");
         sb.AppendLine("            return _typeInfos.TryGetValue(type, out var info) ? info : null;");
         sb.AppendLine("        }");
+        sb.AppendLine();
+        sb.AppendLine("        public override global::System.Collections.Generic.IEnumerable<global::Ama.CRDT.Models.Aot.CrdtTypeInfo> GetRegisteredTypes()");
+        sb.AppendLine("        {");
+        sb.AppendLine("            return _typeInfos.Values;");
+        sb.AppendLine("        }");
         sb.AppendLine("    }");
         sb.AppendLine("}");
 

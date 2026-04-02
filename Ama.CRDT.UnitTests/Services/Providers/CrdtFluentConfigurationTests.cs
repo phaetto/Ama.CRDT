@@ -2,9 +2,12 @@ namespace Ama.CRDT.UnitTests.Services.Providers;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
+using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -53,13 +56,13 @@ public sealed class CrdtFluentConfigurationTests
             .HasDecorator<ApprovalQuorumStrategy>();
 
         var registry = builder.Build();
-        var propInfo = typeof(FluentTestModel).GetProperty(nameof(FluentTestModel.DynamicCounter))!;
+        var propertyKey = new CrdtPropertyKey(typeof(FluentTestModel), nameof(FluentTestModel.DynamicCounter));
 
         // Assert
-        registry.TryGetStrategy(propInfo, out var strategyType).ShouldBeTrue();
+        registry.TryGetStrategy(propertyKey, out var strategyType).ShouldBeTrue();
         strategyType.ShouldBe(typeof(CounterStrategy));
 
-        registry.TryGetDecorators(propInfo, out var decorators).ShouldBeTrue();
+        registry.TryGetDecorators(propertyKey, out var decorators).ShouldBeTrue();
         decorators.ShouldNotBeNull();
         decorators.Count.ShouldBe(2);
         decorators[0].ShouldBe(typeof(EpochBoundStrategy));
@@ -78,7 +81,7 @@ public sealed class CrdtFluentConfigurationTests
 
         // Assert
         action.ShouldThrow<ArgumentException>()
-              .Message.ShouldContain("Expression must end in a property access");
+              .Message.ShouldContain("Expression must be a property access");
     }
 
     [Fact]
@@ -96,10 +99,19 @@ public sealed class CrdtFluentConfigurationTests
         using var scope = provider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test");
         var strategyProvider = scope.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
 
-        var propInfo = typeof(FluentTestModel).GetProperty(nameof(FluentTestModel.OverriddenProperty))!;
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FluentTestModel.OverriddenProperty), 
+            "overriddenProperty", 
+            typeof(int), 
+            true, 
+            true, 
+            null, 
+            null, 
+            new CrdtMaxWinsStrategyAttribute(), 
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
         
         // Act
-        var strategy = strategyProvider.GetBaseStrategy(propInfo);
+        var strategy = strategyProvider.GetBaseStrategy(typeof(FluentTestModel), propInfo);
 
         // Assert
         strategy.ShouldBeOfType<MinWinsStrategy>();
@@ -120,10 +132,19 @@ public sealed class CrdtFluentConfigurationTests
         using var scope = provider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test");
         var strategyProvider = scope.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
 
-        var propInfo = typeof(FluentTestModel).GetProperty(nameof(FluentTestModel.OverriddenProperty))!;
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FluentTestModel.OverriddenProperty), 
+            "overriddenProperty", 
+            typeof(int), 
+            true, 
+            true, 
+            null, 
+            null, 
+            new CrdtMaxWinsStrategyAttribute(), 
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
         
         // Act
-        var strategy = strategyProvider.GetBaseStrategy(propInfo);
+        var strategy = strategyProvider.GetBaseStrategy(typeof(FluentTestModel), propInfo);
 
         // Assert
         strategy.ShouldBeOfType<MaxWinsStrategy>();
@@ -146,10 +167,19 @@ public sealed class CrdtFluentConfigurationTests
         using var scope = provider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test");
         var strategyProvider = scope.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
 
-        var propInfo = typeof(FluentTestModel).GetProperty(nameof(FluentTestModel.DecoratedProperty))!;
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FluentTestModel.DecoratedProperty), 
+            "decoratedProperty", 
+            typeof(string), 
+            true, 
+            true, 
+            null, 
+            null, 
+            null, 
+            new CrdtStrategyDecoratorAttribute[] { new CrdtApprovalQuorumAttribute(2) });
         
         // Act
-        var topStrategy = strategyProvider.GetStrategy(propInfo);
+        var topStrategy = strategyProvider.GetStrategy(typeof(FluentTestModel), propInfo);
 
         // Assert
         // Should get the EpochBoundStrategy decorator, ignoring the ApprovalQuorum attribute
@@ -167,10 +197,19 @@ public sealed class CrdtFluentConfigurationTests
         using var scope = provider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test");
         var strategyProvider = scope.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
 
-        var propInfo = typeof(FluentTestModel).GetProperty(nameof(FluentTestModel.DynamicCounter))!;
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FluentTestModel.DynamicCounter), 
+            "dynamicCounter", 
+            typeof(int), 
+            true, 
+            true, 
+            null, 
+            null, 
+            null, 
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
         
         // Act
-        var strategy = strategyProvider.GetBaseStrategy(propInfo);
+        var strategy = strategyProvider.GetBaseStrategy(typeof(FluentTestModel), propInfo);
 
         // Assert
         strategy.ShouldBeOfType<LwwStrategy>(); // Default fallback for primitive properties
@@ -194,11 +233,20 @@ public sealed class CrdtFluentConfigurationTests
         using var scope = provider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test");
         var strategyProvider = scope.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
 
-        var propInfo = typeof(FluentTestModel).GetProperty(nameof(FluentTestModel.DecoratedProperty))!;
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FluentTestModel.DecoratedProperty), 
+            "decoratedProperty", 
+            typeof(string), 
+            true, 
+            true, 
+            null, 
+            null, 
+            null, 
+            new CrdtStrategyDecoratorAttribute[] { new CrdtApprovalQuorumAttribute(2) });
         
         // Act
-        var topStrategy = strategyProvider.GetStrategy(propInfo);
-        var baseStrategy = strategyProvider.GetBaseStrategy(propInfo);
+        var topStrategy = strategyProvider.GetStrategy(typeof(FluentTestModel), propInfo);
+        var baseStrategy = strategyProvider.GetBaseStrategy(typeof(FluentTestModel), propInfo);
 
         // Assert
         topStrategy.ShouldNotBeNull();
@@ -236,18 +284,54 @@ public sealed class CrdtFluentConfigurationTests
         var strategyProvider = scope.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
 
         // Act & Assert - Validate Root Object configuration
-        var metricsProp = typeof(FluentComplexDocument).GetProperty(nameof(FluentComplexDocument.Metrics))!;
-        strategyProvider.GetBaseStrategy(metricsProp).ShouldBeOfType<MinWinsMapStrategy>();
+        var metricsProp = new CrdtPropertyInfo(
+            nameof(FluentComplexDocument.Metrics), 
+            "metrics", 
+            typeof(Dictionary<string, int>), 
+            true, 
+            true, 
+            null, 
+            null, 
+            null, 
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
+        strategyProvider.GetBaseStrategy(typeof(FluentComplexDocument), metricsProp).ShouldBeOfType<MinWinsMapStrategy>();
 
-        var logProp = typeof(FluentComplexDocument).GetProperty(nameof(FluentComplexDocument.Log))!;
-        strategyProvider.GetBaseStrategy(logProp).ShouldBeOfType<LseqStrategy>();
+        var logProp = new CrdtPropertyInfo(
+            nameof(FluentComplexDocument.Log), 
+            "log", 
+            typeof(List<string>), 
+            true, 
+            true, 
+            null, 
+            null, 
+            null, 
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
+        strategyProvider.GetBaseStrategy(typeof(FluentComplexDocument), logProp).ShouldBeOfType<LseqStrategy>();
 
         // Act & Assert - Validate Nested Object configuration 
-        var settingAProp = typeof(FluentNestedConfig).GetProperty(nameof(FluentNestedConfig.SettingA))!;
-        strategyProvider.GetBaseStrategy(settingAProp).ShouldBeOfType<LwwStrategy>();
-        strategyProvider.GetStrategy(settingAProp).ShouldBeOfType<EpochBoundStrategy>();
+        var settingAProp = new CrdtPropertyInfo(
+            nameof(FluentNestedConfig.SettingA), 
+            "settingA", 
+            typeof(string), 
+            true, 
+            true, 
+            null, 
+            null, 
+            null, 
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
+        strategyProvider.GetBaseStrategy(typeof(FluentNestedConfig), settingAProp).ShouldBeOfType<LwwStrategy>();
+        strategyProvider.GetStrategy(typeof(FluentNestedConfig), settingAProp).ShouldBeOfType<EpochBoundStrategy>();
 
-        var subLogProp = typeof(FluentNestedConfig).GetProperty(nameof(FluentNestedConfig.SubLog))!;
-        strategyProvider.GetBaseStrategy(subLogProp).ShouldBeOfType<ArrayLcsStrategy>();
+        var subLogProp = new CrdtPropertyInfo(
+            nameof(FluentNestedConfig.SubLog), 
+            "subLog", 
+            typeof(List<string>), 
+            true, 
+            true, 
+            null, 
+            null, 
+            null, 
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
+        strategyProvider.GetBaseStrategy(typeof(FluentNestedConfig), subLogProp).ShouldBeOfType<ArrayLcsStrategy>();
     }
 }

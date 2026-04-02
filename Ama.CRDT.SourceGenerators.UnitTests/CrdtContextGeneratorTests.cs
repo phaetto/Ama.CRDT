@@ -71,6 +71,8 @@ namespace TestNamespace
         generatedSyntax.ShouldContain("setter: (obj, val) => ((global::TestNamespace.User)obj).Name = val == null ? default! : (string)val");
         generatedSyntax.ShouldContain("strategyAttribute: null");
         generatedSyntax.ShouldContain("decoratorAttributes: global::System.Array.Empty<global::Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>()");
+        generatedSyntax.ShouldContain("public override global::System.Collections.Generic.IEnumerable<global::Ama.CRDT.Models.Aot.CrdtTypeInfo> GetRegisteredTypes()");
+        generatedSyntax.ShouldContain("return _typeInfos.Values;");
     }
 
     [Fact]

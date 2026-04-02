@@ -14,6 +14,8 @@ using Ama.CRDT.Models.Aot;
 [CrdtSerializable(typeof(Dictionary<string, List<string>>))]
 [CrdtSerializable(typeof(HashSet<string>))]
 [CrdtSerializable(typeof(List<string>))]
+[CrdtSerializable(typeof(IDictionary<string, HashSet<string>>))]
+[CrdtSerializable(typeof(IDictionary<string, List<string>>))]
 internal partial class VoteCounterStrategyTestCrdtContext : CrdtContext
 {
 }

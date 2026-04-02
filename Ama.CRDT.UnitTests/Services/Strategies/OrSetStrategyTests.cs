@@ -36,6 +36,7 @@ public sealed class OrSetStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<OrSetStrategyTestCrdtContext>()
             .AddSingleton<ICrdtTimestampProvider, TestTimestampProvider>()
             .BuildServiceProvider();
 

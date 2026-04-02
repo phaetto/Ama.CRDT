@@ -1,9 +1,11 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies.Decorators;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
@@ -15,17 +17,20 @@ using Shouldly;
 using System;
 using Xunit;
 
+[CrdtSerializable(typeof(ChainedDecoratorsTests.ChainedDocument))]
+internal partial class ChainedDecoratorsTestCrdtContext : CrdtContext { }
+
 public sealed class ChainedDecoratorsTests : IDisposable
 {
     private readonly IServiceScope scope;
     private readonly ICrdtPatcher patcher;
     private readonly ICrdtApplicator applicator;
-    private readonly ICrdtTimestampProvider timestampProvider;
 
     public ChainedDecoratorsTests()
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<ChainedDecoratorsTestCrdtContext>()
             .AddScoped<ICrdtStrategy, ApprovalQuorumStrategy>()
             .BuildServiceProvider();
 
@@ -33,7 +38,6 @@ public sealed class ChainedDecoratorsTests : IDisposable
 
         patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         applicator = scope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
-        timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
 
     public void Dispose()

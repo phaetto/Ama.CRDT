@@ -20,11 +20,16 @@ using Ama.CRDT.Models.Aot;
 [CrdtSerializable(typeof(CrdtComposableArchitectureTests.ComplexItem))]
 [CrdtSerializable(typeof(CrdtPatcherTests.TestModel))]
 [CrdtSerializable(typeof(CrdtPatcherTests.NestedModel))]
+[CrdtSerializable(typeof(CrdtMetadataManagerTests.OuterDoc))]
+[CrdtSerializable(typeof(CrdtMetadataManagerTests.InnerDoc))]
 [CrdtSerializable(typeof(List<CrdtComposableArchitectureTests.TestTag>))]
 [CrdtSerializable(typeof(List<string>))]
 [CrdtSerializable(typeof(List<CrdtComposableArchitectureTests.ComplexItem>))]
+[CrdtSerializable(typeof(List<CrdtMetadataManagerTests.InnerDoc>))]
 [CrdtSerializable(typeof(Dictionary<string, int>))]
 [CrdtSerializable(typeof(Dictionary<string, CrdtComposableArchitectureTests.ComplexItem>))]
+[CrdtSerializable(typeof(Dictionary<string, CrdtMetadataManagerTests.InnerDoc>))]
+[CrdtSerializable(typeof(object))]
 internal partial class ServicesTestCrdtContext : CrdtContext
 {
 }

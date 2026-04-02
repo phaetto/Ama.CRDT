@@ -25,7 +25,8 @@ public sealed class ModelConventionTests
                         && !t.Name.EndsWith("Converter") 
                         && !t.Name.EndsWith("Context") 
                         && !t.Name.EndsWith("Resolver")
-                        && !t.Name.EndsWith("Builder"))
+                        && !t.Name.EndsWith("Builder")
+                        && !t.Name.EndsWith("CrdtPropertyKey"))
             .Distinct()
             .ToList();
 

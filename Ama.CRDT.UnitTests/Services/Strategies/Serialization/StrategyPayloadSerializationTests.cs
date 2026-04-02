@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -166,7 +167,8 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     {
         var services = new ServiceCollection()
             .AddCrdt()
-            .AddSingleton<ICrdtTimestampProvider, TestTimestampProvider>()
+            .AddCrdtAotContext<SerializationTestCrdtContext>()
+            .AddCrdtTimestampProvider<TestTimestampProvider>()
             .AddCrdtComparer<ItemComparer>()
             .AddSingleton<OrderStatusStateMachine>()
             .AddCrdtSerializableType<User>("test-user")
@@ -224,7 +226,17 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     [Fact] public void OrSetStrategy_Payload_ShouldBeSerializable() => TestStrategy(new OrSetModel { Items = { "A" } }, new OrSetModel { Items = { "A", "B" } });
     [Fact] public void LseqStrategy_Payload_ShouldBeSerializable() => TestStrategy(new LseqModel { Items = { "A", "C" } }, new LseqModel { Items = { "A", "B", "C" } });
     [Fact] public void RgaStrategy_Payload_ShouldBeSerializable() => TestStrategy(new RgaModel { Items = { "A", "C" } }, new RgaModel { Items = { "A", "B", "C" } });
-    [Fact] public void SortedSetStrategy_Payload_ShouldBeSerializable() => TestStrategy(new SortedSetModel { Users = { new User(Guid.NewGuid(), "A") } }, new SortedSetModel { Users = { new User(Guid.NewGuid(), "A"), new User(Guid.NewGuid(), "B") } });
+    
+    [Fact]
+    public void SortedSetStrategy_Payload_ShouldBeSerializable()
+    {
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        TestStrategy(
+            new SortedSetModel { Users = { new User(id1, "A") } }, 
+            new SortedSetModel { Users = { new User(id1, "A"), new User(id2, "B") } });
+    }
+    
     [Fact] public void LwwMapStrategy_Payload_ShouldBeSerializable() => TestStrategy(new LwwMapModel { Map = { { "A", 1 } } }, new LwwMapModel { Map = { { "A", 2 } } });
     
     [Fact]

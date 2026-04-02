@@ -1,9 +1,11 @@
 namespace Ama.CRDT.UnitTests.Models.Serialization;
 
-using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Models.Serialization.Converters;
+using Ama.CRDT.UnitTests.Services.Strategies.Serialization;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 
 /// <summary>
 /// Helper to construct AOT-safe JsonSerializerOptions for unit tests by combining 
@@ -20,7 +22,7 @@ public static class TestOptionsHelper
 
         var options = new JsonSerializerOptions { TypeInfoResolver = resolver };
         options.Converters.Add(CrdtPayloadJsonConverterFactory.Instance);
-        options.Converters.Add(new ObjectKeyDictionaryJsonConverter());
+        options.Converters.Add(new ObjectKeyDictionaryJsonConverter([new InternalCrdtContext(), new SerializationTestCrdtContext()]));
         return options;
     }
 
@@ -34,7 +36,7 @@ public static class TestOptionsHelper
 
         var options = new JsonSerializerOptions { TypeInfoResolver = resolver };
         options.Converters.Add(CrdtPayloadJsonConverterFactory.Instance);
-        options.Converters.Add(new ObjectKeyDictionaryJsonConverter());
+        options.Converters.Add(new ObjectKeyDictionaryJsonConverter([new InternalCrdtContext(), new SerializationTestCrdtContext()]));
         return options;
     }
 }
