@@ -1,7 +1,7 @@
 namespace Ama.CRDT.Services.Strategies;
 
-using System.Reflection;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 
 /// <summary>
 /// Defines the context for an <see cref="ICrdtStrategy.ApplyOperation"/> call, encapsulating all necessary parameters for applying a single CRDT operation to a document.
@@ -22,10 +22,10 @@ public sealed record ApplyOperationContext(
     public object? Target { get; init; }
 
     /// <summary>
-    /// The resolved property to be modified.
+    /// The resolved AOT-compatible property to be modified.
     /// Resolved automatically by the CrdtApplicator.
     /// </summary>
-    public PropertyInfo? Property { get; init; }
+    public CrdtPropertyInfo? Property { get; init; }
 
     /// <summary>
     /// The final segment of the path (e.g., an integer index for an array, or a string key for a dictionary).
