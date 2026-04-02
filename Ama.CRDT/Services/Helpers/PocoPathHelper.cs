@@ -18,7 +18,7 @@ internal static class PocoPathHelper
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 
-    internal readonly record struct ParseResult(string JsonPath, CrdtPropertyInfo Property);
+    internal readonly record struct ParseResult(string JsonPath, CrdtPropertyInfo Property, Type DeclaringType);
     
     internal readonly record struct PathResolutionResult(object? Parent, CrdtPropertyInfo? Property, object? FinalSegment);
 
@@ -583,10 +583,11 @@ internal static class PocoPathHelper
 
         var jsonPath = BuildJsonPath(current);
 
-        var typeInfo = GetTypeInfo(targetReflectionProperty.DeclaringType ?? typeof(T), aotContexts);
+        var declaringType = targetReflectionProperty.DeclaringType ?? typeof(T);
+        var typeInfo = GetTypeInfo(declaringType, aotContexts);
         if (typeInfo.Properties.TryGetValue(targetReflectionProperty.Name, out var crdtProperty))
         {
-            return new ParseResult(jsonPath, crdtProperty);
+            return new ParseResult(jsonPath, crdtProperty, declaringType);
         }
 
         throw new InvalidOperationException($"Could not resolve AOT property info for {targetReflectionProperty.Name}");

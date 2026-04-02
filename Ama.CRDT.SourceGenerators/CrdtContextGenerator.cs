@@ -1,5 +1,6 @@
 namespace Ama.CRDT.SourceGenerators;
 
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -122,11 +123,22 @@ public class CrdtContextGenerator : IIncrementalGenerator
             var propType = prop.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 
             var hasGetter = prop.GetMethod != null;
-            // Ensure we do not generate a setter lambda for init-only properties.
             var hasSetter = prop.SetMethod != null && !prop.SetMethod.IsInitOnly;
 
             var getter = hasGetter ? $"obj => (({fullyQualifiedTypeName})obj).{propName}" : "null";
             var setter = hasSetter ? $"(obj, val) => (({fullyQualifiedTypeName})obj).{propName} = val == null ? default! : ({propType})val" : "null";
+
+            // Extract Strategy Attributes to be compiled into AOT
+            var attributes = prop.GetAttributes();
+            var strategyAttr = attributes.FirstOrDefault(a => InheritsFrom(a.AttributeClass, "Ama.CRDT.Attributes.CrdtStrategyAttribute"));
+            var decoratorAttrs = attributes.Where(a => InheritsFrom(a.AttributeClass, "Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute"))
+                                           .OrderBy(a => a.AttributeClass?.Name, System.StringComparer.Ordinal)
+                                           .ToList();
+
+            var strategyTypeExpr = strategyAttr != null ? $"{GetAttributeCreationExpression(strategyAttr)}.StrategyType" : "null";
+            var decoratorTypesExpr = decoratorAttrs.Count > 0 
+                ? $"new global::System.Type[] {{ {string.Join(", ", decoratorAttrs.Select(a => $"{GetAttributeCreationExpression(a)}.StrategyType"))} }}" 
+                : "global::System.Array.Empty<global::System.Type>()";
 
             sb.AppendLine($"                    [\"{propName}\"] = new global::Ama.CRDT.Models.Aot.CrdtPropertyInfo(");
             sb.AppendLine($"                        name: \"{propName}\",");
@@ -135,7 +147,9 @@ public class CrdtContextGenerator : IIncrementalGenerator
             sb.AppendLine($"                        canRead: {(hasGetter ? "true" : "false")},");
             sb.AppendLine($"                        canWrite: {(hasSetter ? "true" : "false")},");
             sb.AppendLine($"                        getter: {getter},");
-            sb.AppendLine($"                        setter: {setter}");
+            sb.AppendLine($"                        setter: {setter},");
+            sb.AppendLine($"                        strategyType: {strategyTypeExpr},");
+            sb.AppendLine($"                        decoratorTypes: {decoratorTypesExpr}");
             sb.AppendLine("                    ),");
         }
 
@@ -186,5 +200,70 @@ public class CrdtContextGenerator : IIncrementalGenerator
 
         sb.Append("            )");
         return sb.ToString();
+    }
+
+    private static bool InheritsFrom(INamedTypeSymbol? symbol, string baseName)
+    {
+        while (symbol != null)
+        {
+            if (symbol.ToDisplayString() == baseName) return true;
+            symbol = symbol.BaseType;
+        }
+        return false;
+    }
+
+    private static string GetAttributeCreationExpression(AttributeData attr)
+    {
+        var args = new List<string>();
+        foreach (var arg in attr.ConstructorArguments)
+        {
+            args.Add(FormatTypedConstant(arg));
+        }
+        
+        var namedArgs = new List<string>();
+        foreach (var arg in attr.NamedArguments)
+        {
+            namedArgs.Add($"{arg.Key} = {FormatTypedConstant(arg.Value)}");
+        }
+        
+        var allArgs = string.Join(", ", args.Concat(namedArgs));
+        return $"new global::{attr.AttributeClass!.ToDisplayString()}({allArgs})";
+    }
+
+    private static string FormatTypedConstant(TypedConstant constant)
+    {
+        if (constant.IsNull)
+        {
+            return "null";
+        }
+
+        if (constant.Kind == TypedConstantKind.Type && constant.Value is ITypeSymbol typeSymbol)
+        {
+            return $"typeof(global::{typeSymbol.ToDisplayString()})";
+        }
+
+        if (constant.Kind == TypedConstantKind.Enum && constant.Value != null)
+        {
+            return $"({constant.Type!.ToDisplayString()}){constant.Value}";
+        }
+
+        if (constant.Kind == TypedConstantKind.Array)
+        {
+            var elements = constant.Values.Select(FormatTypedConstant);
+            return $"new {constant.Type!.ToDisplayString()} {{ {string.Join(", ", elements)} }}";
+        }
+
+        if (constant.Value is string strValue)
+        {
+            // Escape literal strings properly for generated code
+            return $"\"{strValue.Replace("\"", "\\\"")}\"";
+        }
+        
+        if (constant.Value is bool b)
+        {
+             return b ? "true" : "false";
+        }
+
+        return constant.Value!.ToString();
     }
 }

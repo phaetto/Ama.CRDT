@@ -69,6 +69,8 @@ namespace TestNamespace
         generatedSyntax.ShouldContain("[\"Name\"] = new global::Ama.CRDT.Models.Aot.CrdtPropertyInfo(");
         generatedSyntax.ShouldContain("getter: obj => ((global::TestNamespace.User)obj).Name");
         generatedSyntax.ShouldContain("setter: (obj, val) => ((global::TestNamespace.User)obj).Name = val == null ? default! : (string)val");
+        generatedSyntax.ShouldContain("strategyType: null");
+        generatedSyntax.ShouldContain("decoratorTypes: global::System.Array.Empty<global::System.Type>()");
     }
 
     [Fact]
@@ -184,5 +186,75 @@ namespace TestNamespace
         // Verify that a class with a required member has a null createInstance method to avoid compile errors
         generatedSyntax.ShouldContain("createInstance: null");
         generatedSyntax.ShouldNotContain("createInstance: () => new global::TestNamespace.TreeNode()");
+    }
+
+    [Fact]
+    public void Generator_ShouldPrecalculateStrategyAndDecoratorTypes_WhenAttributesAreUsed()
+    {
+        // Arrange
+        var source = @"
+using System;
+using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Attributes.Decorators;
+using Ama.CRDT.Models.Aot;
+
+namespace TestNamespace
+{
+    public class StrategyModel
+    {
+        [CrdtEpochBound]
+        [CrdtCounterStrategy]
+        public int Number { get; set; }
+        
+        [CrdtApprovalQuorum(RequiredQuorum = 2)]
+        [CrdtEpochBound]
+        [CrdtLwwStrategy]
+        public string Text { get; set; }
+    }
+
+    [CrdtSerializable(typeof(StrategyModel))]
+    public partial class StrategyAotContext : CrdtContext
+    {
+    }
+}";
+
+        var syntaxTree = CSharpSyntaxTree.ParseText(source);
+        var references = AppDomain.CurrentDomain.GetAssemblies()
+            .Where(a => !a.IsDynamic && !string.IsNullOrWhiteSpace(a.Location))
+            .Select(a => MetadataReference.CreateFromFile(a.Location))
+            .Cast<MetadataReference>()
+            .ToList();
+
+        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtSerializableAttribute).Assembly.Location));
+
+        var compilation = CSharpCompilation.Create(
+            "TestCompilation",
+            [syntaxTree],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var generator = new CrdtContextGenerator();
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
+
+        // Act
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);
+
+        // Assert
+        diagnostics.ShouldBeEmpty();
+        var runResult = driver.GetRunResult();
+        runResult.GeneratedTrees.Length.ShouldBe(1);
+
+        var generatedSyntax = runResult.GeneratedTrees[0].GetText().ToString();
+
+        // Verify Number property mapping
+        generatedSyntax.ShouldContain("[\"Number\"] = new global::Ama.CRDT.Models.Aot.CrdtPropertyInfo(");
+        generatedSyntax.ShouldContain("strategyType: new global::Ama.CRDT.Attributes.Strategies.CrdtCounterStrategyAttribute().StrategyType");
+        generatedSyntax.ShouldContain("decoratorTypes: new global::System.Type[] { new global::Ama.CRDT.Attributes.Decorators.CrdtEpochBoundAttribute().StrategyType }");
+
+        // Verify Text property mapping (including arguments)
+        generatedSyntax.ShouldContain("[\"Text\"] = new global::Ama.CRDT.Models.Aot.CrdtPropertyInfo(");
+        generatedSyntax.ShouldContain("strategyType: new global::Ama.CRDT.Attributes.Strategies.CrdtLwwStrategyAttribute().StrategyType");
+        generatedSyntax.ShouldContain("decoratorTypes: new global::System.Type[] { new global::Ama.CRDT.Attributes.Decorators.CrdtApprovalQuorumAttribute(RequiredQuorum = 2).StrategyType, new global::Ama.CRDT.Attributes.Decorators.CrdtEpochBoundAttribute().StrategyType }");
     }
 }

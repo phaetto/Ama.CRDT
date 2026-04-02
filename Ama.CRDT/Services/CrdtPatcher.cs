@@ -94,7 +94,7 @@ public sealed class CrdtPatcher(
         ArgumentNullException.ThrowIfNull(timestamp);
 
         var parseResult = PocoPathHelper.ParseExpression(propertyExpression, aotContexts);
-        var strategy = strategyProvider.GetStrategy(parseResult.Property);
+        var strategy = strategyProvider.GetStrategy(parseResult.DeclaringType, parseResult.Property);
 
         var replicaId = replicaContext.ReplicaId;
         var currentVectorClock = document.Metadata.VersionVector.TryGetValue(replicaId, out var currentClock) ? currentClock : 0L;
@@ -152,7 +152,7 @@ public sealed class CrdtPatcher(
                 var toValue = toObj is not null && propertyInfo.CanRead ? propertyInfo.Getter!(toObj) : null;
 
                 var propertyType = propertyInfo.PropertyType;
-                var strategy = strategyProvider.GetStrategy(propertyInfo);
+                var strategy = strategyProvider.GetStrategy(type, propertyInfo);
 
                 var isComplexLww = strategy is LwwStrategy 
                                    && propertyType.IsClass 

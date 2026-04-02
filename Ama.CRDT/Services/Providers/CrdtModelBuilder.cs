@@ -1,17 +1,17 @@
 namespace Ama.CRDT.Services.Providers;
 
+using Ama.CRDT.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 /// <summary>
 /// A fluent builder used to configure CRDT strategies and decorators for C# types without using attributes.
 /// </summary>
 public sealed class CrdtModelBuilder
 {
-    private readonly Dictionary<PropertyInfo, Type> strategies = new();
-    private readonly Dictionary<PropertyInfo, List<Type>> decorators = new();
+    private readonly Dictionary<CrdtPropertyKey, Type> strategies = new();
+    private readonly Dictionary<CrdtPropertyKey, List<Type>> decorators = new();
 
     /// <summary>
     /// Starts configuring the CRDT model for a specific entity type.
@@ -23,17 +23,17 @@ public sealed class CrdtModelBuilder
         return new CrdtEntityBuilder<T>(this);
     }
 
-    internal void AddStrategy(PropertyInfo property, Type strategyType)
+    internal void AddStrategy(CrdtPropertyKey propertyKey, Type strategyType)
     {
-        this.strategies[property] = strategyType;
+        this.strategies[propertyKey] = strategyType;
     }
 
-    internal void AddDecorator(PropertyInfo property, Type decoratorType)
+    internal void AddDecorator(CrdtPropertyKey propertyKey, Type decoratorType)
     {
-        if (!this.decorators.TryGetValue(property, out var list))
+        if (!this.decorators.TryGetValue(propertyKey, out var list))
         {
             list = new List<Type>();
-            this.decorators[property] = list;
+            this.decorators[propertyKey] = list;
         }
         
         list.Add(decoratorType);

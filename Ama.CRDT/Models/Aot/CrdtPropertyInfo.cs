@@ -1,6 +1,7 @@
 namespace Ama.CRDT.Models.Aot;
 
 using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// Contains AOT-compatible metadata and fast accessors for a single property, eliminating the need for <see cref="System.Reflection.PropertyInfo"/>.
@@ -43,6 +44,16 @@ public sealed class CrdtPropertyInfo
     public Action<object, object?>? Setter { get; }
 
     /// <summary>
+    /// Gets the explicitly configured base CRDT strategy type for this property, if one was provided via attributes.
+    /// </summary>
+    public Type? StrategyType { get; }
+
+    /// <summary>
+    /// Gets the list of explicitly configured decorator CRDT strategy types for this property, if any were provided via attributes.
+    /// </summary>
+    public IReadOnlyList<Type> DecoratorTypes { get; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="CrdtPropertyInfo"/> class.
     /// </summary>
     public CrdtPropertyInfo(
@@ -52,7 +63,9 @@ public sealed class CrdtPropertyInfo
         bool canRead,
         bool canWrite,
         Func<object, object?>? getter,
-        Action<object, object?>? setter)
+        Action<object, object?>? setter,
+        Type? strategyType,
+        IReadOnlyList<Type> decoratorTypes)
     {
         Name = name;
         JsonName = jsonName;
@@ -61,5 +74,7 @@ public sealed class CrdtPropertyInfo
         CanWrite = canWrite;
         Getter = getter;
         Setter = setter;
+        StrategyType = strategyType;
+        DecoratorTypes = decoratorTypes;
     }
 }
