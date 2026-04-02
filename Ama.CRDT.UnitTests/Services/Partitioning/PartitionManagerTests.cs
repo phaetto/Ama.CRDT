@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -41,6 +42,7 @@ public sealed class PartitionManagerTests
 
         var services = new ServiceCollection()
             .AddCrdt()
+            .AddSingleton<CrdtContext, PartitioningTestCrdtContext>()
             .AddSingleton(meterFactoryMock.Object)
             .AddSingleton(mockStorage.Object); // Inject the mock instead of StreamPartitionStorageService
 

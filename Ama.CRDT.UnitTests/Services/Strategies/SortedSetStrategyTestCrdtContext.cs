@@ -19,6 +19,7 @@ using Ama.CRDT.Models.Aot;
 [CrdtSerializable(typeof(List<string>))]
 [CrdtSerializable(typeof(List<SortedSetStrategyTests.Item>))]
 [CrdtSerializable(typeof(List<SortedSetStrategyTests.TestUser>))]
+[CrdtSerializable(typeof(string))]
 internal partial class SortedSetStrategyTestCrdtContext : CrdtContext
 {
 }

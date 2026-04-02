@@ -5,6 +5,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using Ama.CRDT.Models.Aot;
 
 /// <summary>
 /// A custom <see cref="JsonConverterFactory"/> for creating converters that can handle
@@ -13,6 +15,13 @@ using System.Text.Json.Serialization;
 /// </summary>
 public sealed class ObjectKeyDictionaryJsonConverter : JsonConverterFactory
 {
+    private readonly IEnumerable<CrdtContext>? crdtContexts;
+
+    public ObjectKeyDictionaryJsonConverter(IEnumerable<CrdtContext>? crdtContexts = null)
+    {
+        this.crdtContexts = crdtContexts;
+    }
+
     public override bool CanConvert(Type typeToConvert)
     {
         if (typeToConvert == null)
@@ -44,18 +53,20 @@ public sealed class ObjectKeyDictionaryJsonConverter : JsonConverterFactory
         Type keyType = typeToConvert.GetGenericArguments()[0];
         Type valueType = typeToConvert.GetGenericArguments()[1];
 
-        return new ObjectKeyDictionaryConverterInner(keyType, valueType);
+        return new ObjectKeyDictionaryConverterInner(keyType, valueType, crdtContexts);
     }
 
     private sealed class ObjectKeyDictionaryConverterInner : JsonConverter<object>
     {
         private readonly Type keyType;
         private readonly Type valueType;
+        private readonly IEnumerable<CrdtContext>? crdtContexts;
 
-        public ObjectKeyDictionaryConverterInner(Type keyType, Type valueType)
+        public ObjectKeyDictionaryConverterInner(Type keyType, Type valueType, IEnumerable<CrdtContext>? crdtContexts)
         {
             this.keyType = keyType ?? throw new ArgumentNullException(nameof(keyType));
             this.valueType = valueType ?? throw new ArgumentNullException(nameof(valueType));
+            this.crdtContexts = crdtContexts;
         }
 
         public override bool CanConvert(Type typeToConvert) => true;
@@ -77,17 +88,59 @@ public sealed class ObjectKeyDictionaryJsonConverter : JsonConverterFactory
                 throw new JsonException("Expected start of array for dictionary with non-string keys.");
             }
 
-            System.Text.Json.Serialization.Metadata.JsonTypeInfo keyTypeInfo = options.GetTypeInfo(this.keyType);
-            System.Text.Json.Serialization.Metadata.JsonTypeInfo valueTypeInfo = options.GetTypeInfo(this.valueType);
-            System.Text.Json.Serialization.Metadata.JsonTypeInfo typeInfo = options.GetTypeInfo(typeToConvert);
+            JsonTypeInfo keyTypeInfo = options.GetTypeInfo(this.keyType);
+            JsonTypeInfo valueTypeInfo = options.GetTypeInfo(this.valueType);
+            JsonTypeInfo typeInfo = options.GetTypeInfo(typeToConvert);
 
-            if (typeInfo.CreateObject == null)
+            Func<object>? createInstance = typeInfo.CreateObject;
+
+            if (createInstance == null)
             {
-                throw new NotSupportedException($"Cannot create instance of {typeToConvert}. Ensure it is explicitly registered in the active JsonSerializerContext.");
+                // Fallback: If STJ cannot instantiate the type directly (e.g. interfaces), we use our new AOT core
+                if (crdtContexts != null)
+                {
+                    foreach (var context in crdtContexts)
+                    {
+                        var crdtInfo = context.GetTypeInfo(typeToConvert);
+                        if (crdtInfo?.CreateInstance != null)
+                        {
+                            createInstance = crdtInfo.CreateInstance;
+                            break;
+                        }
+
+                        // If typeToConvert is an interface (e.g., IDictionary<TKey, TValue>), 
+                        // search through registered types for a concrete dictionary with matching key/value types.
+                        if (typeToConvert.IsInterface || typeToConvert.IsAbstract)
+                        {
+                            foreach (var registeredType in context.GetRegisteredTypes())
+                            {
+                                if (registeredType.IsDictionary && 
+                                    registeredType.DictionaryKeyType == this.keyType && 
+                                    registeredType.DictionaryValueType == this.valueType &&
+                                    registeredType.CreateInstance != null &&
+                                    typeToConvert.IsAssignableFrom(registeredType.Type))
+                                {
+                                    createInstance = registeredType.CreateInstance;
+                                    break;
+                                }
+                            }
+
+                            if (createInstance != null)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (createInstance == null)
+                {
+                    throw new NotSupportedException($"Cannot create instance of {typeToConvert}. Ensure the type is explicitly registered in the provided AOT CrdtContexts.");
+                }
             }
 
             // AOT safety: utilizing the non-generic IDictionary allows us to add entries dynamically without knowing TKey and TValue
-            IDictionary dictionary = (IDictionary)typeInfo.CreateObject()!;
+            IDictionary dictionary = (IDictionary)createInstance();
 
             while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
             {
@@ -138,8 +191,8 @@ public sealed class ObjectKeyDictionaryJsonConverter : JsonConverterFactory
 
             writer.WriteStartArray();
 
-            System.Text.Json.Serialization.Metadata.JsonTypeInfo keyTypeInfo = options.GetTypeInfo(this.keyType);
-            System.Text.Json.Serialization.Metadata.JsonTypeInfo valueTypeInfo = options.GetTypeInfo(this.valueType);
+            JsonTypeInfo keyTypeInfo = options.GetTypeInfo(this.keyType);
+            JsonTypeInfo valueTypeInfo = options.GetTypeInfo(this.valueType);
 
             // AOT safety: utilizing the non-generic IDictionary avoids generic reflection while iterating over the dictionary
             IDictionary dictionary = (IDictionary)value;

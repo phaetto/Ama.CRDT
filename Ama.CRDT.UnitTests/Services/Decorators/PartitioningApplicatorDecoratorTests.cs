@@ -2,6 +2,7 @@ namespace Ama.CRDT.UnitTests.Services.Decorators;
 
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Decorators;
@@ -40,6 +41,8 @@ public sealed class PartitioningApplicatorDecoratorTests
 
         var services = new ServiceCollection()
             .AddCrdt()
+            .AddSingleton<CrdtContext, DecoratorsTestCrdtContext>()
+            .AddSingleton<CrdtContext, PartitioningTestCrdtContext>()
             .AddSingleton(meterFactoryMock.Object)
             .BuildServiceProvider();
 
@@ -51,12 +54,14 @@ public sealed class PartitioningApplicatorDecoratorTests
         
         var strategyProvider = scope.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
         var metrics = scope.ServiceProvider.GetRequiredService<PartitionManagerCrdtMetrics>();
+        var aotContexts = new CrdtContext[] { new DecoratorsTestCrdtContext(), new PartitioningTestCrdtContext() };
 
         decorator = new PartitioningApplicatorDecorator(
             mockInnerApplicator.Object,
             mockStorage.Object,
             strategyProvider,
-            metrics);
+            metrics,
+            aotContexts);
     }
 
     [Fact]
