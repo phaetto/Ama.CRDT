@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models.Serialization.Converters;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -24,11 +25,15 @@ public sealed class ObjectKeyDictionaryJsonConverter : JsonConverterFactory
         return typeToConvert.GetGenericArguments()[0] != typeof(string);
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2055:MakeGenericType", Justification = "Reference types share generic code in AOT. Value types must be explicitly included in the active JsonSerializerContext.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050:RequiresDynamicCode", Justification = "Reference types share generic code in AOT. Value types must be explicitly included in the active JsonSerializerContext.")]
     public override JsonConverter CreateConverter(Type typeToConvert, JsonSerializerOptions options)
     {
         var keyType = typeToConvert.GetGenericArguments()[0];
         var valueType = typeToConvert.GetGenericArguments()[1];
 
+        // This utilizes MakeGenericType but is considered safe in an AOT environment ONLY if the specific 
+        // dictionary types used at runtime have been statically registered via the JsonSerializerContext.
         var converterType = typeof(ObjectKeyDictionaryConverterInner<,>).MakeGenericType(keyType, valueType);
 
         return (JsonConverter)Activator.CreateInstance(converterType)!;
@@ -43,21 +48,25 @@ public sealed class ObjectKeyDictionaryJsonConverter : JsonConverterFactory
 
             var dictionary = new Dictionary<TKey, TValue>();
 
+            // Resolve TypeInfo once upfront for AOT safety during the inner loops
+            var keyTypeInfo = options.GetTypeInfo(typeof(TKey));
+            var valueTypeInfo = options.GetTypeInfo(typeof(TValue));
+
             while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
             {
                 if (reader.TokenType != JsonTokenType.StartArray)
                     throw new JsonException("Expected start of key-value pair array.");
 
                 reader.Read();
-                var key = JsonSerializer.Deserialize<TKey>(ref reader, options)!;
+                var key = (TKey)JsonSerializer.Deserialize(ref reader, keyTypeInfo)!;
 
                 reader.Read();
-                var value = JsonSerializer.Deserialize<TValue>(ref reader, options);
+                var value = (TValue)JsonSerializer.Deserialize(ref reader, valueTypeInfo)!;
 
                 if (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
                     throw new JsonException("Expected end of key-value pair array.");
 
-                dictionary[key] = value!;
+                dictionary[key] = value;
             }
 
             return dictionary;
@@ -67,11 +76,14 @@ public sealed class ObjectKeyDictionaryJsonConverter : JsonConverterFactory
         {
             writer.WriteStartArray();
 
-            foreach (var (key, val) in value)
+            var keyTypeInfo = options.GetTypeInfo(typeof(TKey));
+            var valueTypeInfo = options.GetTypeInfo(typeof(TValue));
+
+            foreach (var kvp in value)
             {
                 writer.WriteStartArray();
-                JsonSerializer.Serialize(writer, key, options);
-                JsonSerializer.Serialize(writer, val, options);
+                JsonSerializer.Serialize(writer, kvp.Key, keyTypeInfo);
+                JsonSerializer.Serialize(writer, kvp.Value, valueTypeInfo);
                 writer.WriteEndArray();
             }
 

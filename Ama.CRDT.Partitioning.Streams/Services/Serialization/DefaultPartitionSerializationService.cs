@@ -2,14 +2,16 @@ namespace Ama.CRDT.Partitioning.Streams.Services.Serialization;
 
 using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Partitioning.Streams.Models;
+using Ama.CRDT.Partitioning.Streams.Models.Serialization;
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
-/// The default implementation of <see cref="IPartitionSerializationService"/>, using System.Text.Json for serialization.
+/// The default implementation of <see cref="IPartitionSerializationService"/>, fully Native AOT compatible.
 /// </summary>
 public sealed class DefaultPartitionSerializationService : IPartitionSerializationService
 {
@@ -27,11 +29,21 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
 
     public DefaultPartitionSerializationService()
     {
-        // We need to ensure that 'object' properties are handled polymorphically.
-        // CrdtJsonContext.DefaultOptions uses a resolver, which may not apply to types
-        // outside its source-generated graph. By adding the converter directly, we ensure
-        // it's used for BPlusTreeNode's 'Keys' property.
-        serializerOptions = new JsonSerializerOptions(CrdtJsonContext.MetadataCompactOptions);
+        // Combine the core CRDT AOT context with the local Streams context cleanly
+        var combinedResolver = JsonTypeInfoResolver.Combine(
+            StreamsJsonContext.Default,
+            CrdtJsonContext.Default
+        ).WithAddedModifier(CrdtJsonTypeInfoResolver.ApplyCrdtModifiers)
+         .WithAddedModifier(CrdtMetadataJsonResolver.ApplyMetadataModifiers);
+
+        serializerOptions = new JsonSerializerOptions
+        {
+            TypeInfoResolver = combinedResolver
+        };
+
+        // Re-apply core converters for polymorphic objects manually for the new options instance
+        serializerOptions.Converters.Add(Ama.CRDT.Models.Serialization.Converters.CrdtPayloadJsonConverterFactory.Instance);
+        serializerOptions.Converters.Add(new Ama.CRDT.Models.Serialization.Converters.ObjectKeyDictionaryJsonConverter());
     }
 
     /// <inheritdoc/>
@@ -41,7 +53,9 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
 
         stream.Seek(0, SeekOrigin.Begin);
         var buffer = new byte[headerSize];
-        var jsonData = JsonSerializer.SerializeToUtf8Bytes(header, serializerOptions);
+        var typeInfo = serializerOptions.GetTypeInfo(typeof(BTreeHeader));
+        
+        var jsonData = JsonSerializer.SerializeToUtf8Bytes(header, typeInfo);
         if (jsonData.Length > headerSize) throw new InvalidOperationException("Header size is too large.");
 
         jsonData.CopyTo(buffer, 0);
@@ -61,7 +75,8 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         int endOfJson = Array.FindLastIndex(buffer, b => b != 0) + 1;
         if (endOfJson == 0) endOfJson = headerSize;
 
-        return JsonSerializer.Deserialize<BTreeHeader>(buffer.AsSpan(0, endOfJson), serializerOptions)!;
+        var typeInfo = serializerOptions.GetTypeInfo(typeof(BTreeHeader));
+        return (BTreeHeader)JsonSerializer.Deserialize(buffer.AsSpan(0, endOfJson), typeInfo)!;
     }
 
     /// <inheritdoc/>
@@ -90,7 +105,8 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         await stream.ReadExactlyAsync(jsonBuffer, cancellationToken).ConfigureAwait(false);
 
         using var memStream = new MemoryStream(jsonBuffer);
-        return (await JsonSerializer.DeserializeAsync<BPlusTreeNode>(memStream, serializerOptions, cancellationToken).ConfigureAwait(false))!;
+        var typeInfo = serializerOptions.GetTypeInfo(typeof(BPlusTreeNode));
+        return (BPlusTreeNode)(await JsonSerializer.DeserializeAsync(memStream, typeInfo, cancellationToken).ConfigureAwait(false))!;
     }
 
     /// <inheritdoc/>
@@ -99,7 +115,8 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(content);
 
-        await JsonSerializer.SerializeAsync(stream, content, content.GetType(), serializerOptions, cancellationToken).ConfigureAwait(false);
+        var typeInfo = serializerOptions.GetTypeInfo(content.GetType());
+        await JsonSerializer.SerializeAsync(stream, content, typeInfo, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -107,7 +124,8 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
     {
         ArgumentNullException.ThrowIfNull(stream);
 
-        return await JsonSerializer.DeserializeAsync<T>(stream, serializerOptions, cancellationToken).ConfigureAwait(false);
+        var typeInfo = serializerOptions.GetTypeInfo(typeof(T));
+        return (T?)await JsonSerializer.DeserializeAsync(stream, typeInfo, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -115,8 +133,9 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
     {
         ArgumentNullException.ThrowIfNull(original);
 
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(original, serializerOptions);
-        return JsonSerializer.Deserialize<T>(bytes, serializerOptions);
+        var typeInfo = serializerOptions.GetTypeInfo(typeof(T));
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(original, typeInfo);
+        return (T?)JsonSerializer.Deserialize(bytes, typeInfo);
     }
 
     /// <inheritdoc/>
@@ -125,7 +144,8 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         ArgumentNullException.ThrowIfNull(node);
 
         using var memStream = new MemoryStream();
-        await JsonSerializer.SerializeAsync(memStream, node, typeof(BPlusTreeNode), serializerOptions, cancellationToken).ConfigureAwait(false);
+        var typeInfo = serializerOptions.GetTypeInfo(typeof(BPlusTreeNode));
+        await JsonSerializer.SerializeAsync(memStream, node, typeInfo, cancellationToken).ConfigureAwait(false);
         var jsonBytes = memStream.ToArray();
 
         var lengthPrefix = BitConverter.GetBytes(jsonBytes.Length);

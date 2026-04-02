@@ -1,8 +1,9 @@
 namespace Ama.CRDT.UnitTests.Models.Serialization;
 
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Serialization;
 using Shouldly;
+using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -17,8 +18,9 @@ public sealed class CrdtMetadataSerializationTests
         var originalMetadata = CreatePopulatedMetadata();
 
         // Act
-        var json = JsonSerializer.Serialize(originalMetadata, CrdtJsonContext.DefaultOptions);
-        var deserializedMetadata = JsonSerializer.Deserialize<CrdtMetadata>(json, CrdtJsonContext.DefaultOptions);
+        var options = TestOptionsHelper.GetDefaultOptions();
+        var json = JsonSerializer.Serialize(originalMetadata, options);
+        var deserializedMetadata = JsonSerializer.Deserialize<CrdtMetadata>(json, options);
 
         // Assert
         deserializedMetadata.ShouldNotBeNull();
@@ -32,8 +34,9 @@ public sealed class CrdtMetadataSerializationTests
         var originalMetadata = CreatePopulatedMetadata();
 
         // Act
-        var json = JsonSerializer.Serialize(originalMetadata, CrdtJsonContext.MetadataCompactOptions);
-        var deserializedMetadata = JsonSerializer.Deserialize<CrdtMetadata>(json, CrdtJsonContext.MetadataCompactOptions);
+        var options = TestOptionsHelper.GetCompactOptions();
+        var json = JsonSerializer.Serialize(originalMetadata, options);
+        var deserializedMetadata = JsonSerializer.Deserialize<CrdtMetadata>(json, options);
 
         // Assert
         deserializedMetadata.ShouldNotBeNull();
@@ -50,7 +53,8 @@ public sealed class CrdtMetadataSerializationTests
         metadata.VersionVector.Add("replica1", 100L);
 
         // Act
-        var json = JsonSerializer.Serialize(metadata, CrdtJsonContext.MetadataCompactOptions);
+        var options = TestOptionsHelper.GetCompactOptions();
+        var json = JsonSerializer.Serialize(metadata, options);
         var jsonNode = JsonNode.Parse(json)!.AsObject();
 
         // Assert
@@ -79,15 +83,17 @@ public sealed class CrdtMetadataSerializationTests
         var emptyMetadata = new CrdtMetadata();
 
         // Act & Assert for DefaultOptions
-        var defaultJson = JsonSerializer.Serialize(emptyMetadata, CrdtJsonContext.DefaultOptions);
-        var deserializedDefault = JsonSerializer.Deserialize<CrdtMetadata>(defaultJson, CrdtJsonContext.DefaultOptions);
+        var defaultOptions = TestOptionsHelper.GetDefaultOptions();
+        var defaultJson = JsonSerializer.Serialize(emptyMetadata, defaultOptions);
+        var deserializedDefault = JsonSerializer.Deserialize<CrdtMetadata>(defaultJson, defaultOptions);
         deserializedDefault.ShouldNotBeNull();
         AssertAllCollectionsAreEmpty(deserializedDefault);
 
         // Act & Assert for MetadataCompactOptions
-        var compactJson = JsonSerializer.Serialize(emptyMetadata, CrdtJsonContext.MetadataCompactOptions);
+        var compactOptions = TestOptionsHelper.GetCompactOptions();
+        var compactJson = JsonSerializer.Serialize(emptyMetadata, compactOptions);
         compactJson.ShouldBe("{}");
-        var deserializedCompact = JsonSerializer.Deserialize<CrdtMetadata>(compactJson, CrdtJsonContext.MetadataCompactOptions);
+        var deserializedCompact = JsonSerializer.Deserialize<CrdtMetadata>(compactJson, compactOptions);
         deserializedCompact.ShouldNotBeNull();
         AssertAllCollectionsAreEmpty(deserializedCompact);
     }

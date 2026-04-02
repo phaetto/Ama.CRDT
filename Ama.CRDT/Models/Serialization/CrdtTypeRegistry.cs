@@ -38,6 +38,7 @@ public static class CrdtTypeRegistry
         Register("datetimeoffset", typeof(DateTimeOffset));
 
         // Core CRDT Models
+        Register("kvp", typeof(KeyValuePair<object, object>));
         Register("avg-reg", typeof(AverageRegisterValue));
         Register("patch", typeof(CrdtPatch));
         Register("op", typeof(CrdtOperation));

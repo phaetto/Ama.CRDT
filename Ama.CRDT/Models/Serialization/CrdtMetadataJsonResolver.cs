@@ -6,22 +6,11 @@ using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models.Serialization.Converters;
 
 /// <summary>
-/// A custom JSON type info resolver for <see cref="CrdtMetadata"/>.
-/// It modifies the serialization contract to omit any collection properties that are empty.
-/// This results in a more compact JSON output, which is efficient for sparse metadata objects.
+/// A static class providing a modifier that omits empty collection properties
+/// when serializing <see cref="CrdtMetadata"/>, resulting in a more compact JSON output.
 /// </summary>
-public sealed class CrdtMetadataJsonResolver : DefaultJsonTypeInfoResolver
+public static class CrdtMetadataJsonResolver
 {
-    /// <summary>
-    /// Gets a singleton instance of the resolver.
-    /// </summary>
-    public static CrdtMetadataJsonResolver Instance { get; } = new();
-
-    private CrdtMetadataJsonResolver()
-    {
-        Modifiers.Add(ApplyMetadataModifiers);
-    }
-
     /// <summary>
     /// A modifier that omits empty collection properties when serializing <see cref="CrdtMetadata"/>.
     /// </summary>
