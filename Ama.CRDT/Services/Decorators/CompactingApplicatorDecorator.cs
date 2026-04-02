@@ -38,7 +38,7 @@ public sealed class CompactingApplicatorDecorator : IAsyncCrdtApplicator
     /// <inheritdoc/>
     public async Task<ApplyPatchResult<T>> ApplyPatchAsync<T>(CrdtDocument<T> document, CrdtPatch patch, CancellationToken cancellationToken = default) where T : class
     {
-        var result = await inner.ApplyPatchAsync(document, patch, cancellationToken);
+        var result = await inner.ApplyPatchAsync(document, patch, cancellationToken).ConfigureAwait(false);
 
         if (compactionPolicyFactories.Any())
         {

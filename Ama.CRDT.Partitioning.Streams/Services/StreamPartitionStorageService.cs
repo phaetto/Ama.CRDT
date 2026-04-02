@@ -74,11 +74,11 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(partition);
 
         var streamLock = GetLock(GetDataLockKey(logicalKey, propertyName));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
         using var timer = new MetricTimer(metrics.StreamReadDuration);
-        var dataStream = await streamProvider.GetPropertyDataStreamAsync(logicalKey, propertyName, cancellationToken);
-        return await LoadContentInternalAsync<TData>(partition, dataStream, cancellationToken);
+        var dataStream = await streamProvider.GetPropertyDataStreamAsync(logicalKey, propertyName, cancellationToken).ConfigureAwait(false);
+        return await LoadContentInternalAsync<TData>(partition, dataStream, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -87,26 +87,26 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(logicalKey);
 
         var streamLock = GetLock(GetDataLockKey(logicalKey, HeaderIdentifier));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
         using var timer = new MetricTimer(metrics.StreamReadDuration);
-        var dataStream = await streamProvider.GetHeaderDataStreamAsync(logicalKey, cancellationToken);
-        return await LoadContentInternalAsync<TData>(partition, dataStream, cancellationToken);
+        var dataStream = await streamProvider.GetHeaderDataStreamAsync(logicalKey, cancellationToken).ConfigureAwait(false);
+        return await LoadContentInternalAsync<TData>(partition, dataStream, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<CrdtDocument<TData>> LoadContentInternalAsync<TData>(IPartition partition, Stream dataStream, CancellationToken cancellationToken) where TData : class
     {
         var docBuffer = new byte[partition.DataLength];
         dataStream.Seek(partition.DataOffset, SeekOrigin.Begin);
-        await dataStream.ReadExactlyAsync(docBuffer, cancellationToken);
+        await dataStream.ReadExactlyAsync(docBuffer, cancellationToken).ConfigureAwait(false);
         using var docStream = new MemoryStream(docBuffer);
-        var doc = await serializationService.DeserializeObjectAsync<TData>(docStream, cancellationToken);
+        var doc = await serializationService.DeserializeObjectAsync<TData>(docStream, cancellationToken).ConfigureAwait(false);
         
         var metaBuffer = new byte[partition.MetadataLength];
         dataStream.Seek(partition.MetadataOffset, SeekOrigin.Begin);
-        await dataStream.ReadExactlyAsync(metaBuffer, cancellationToken);
+        await dataStream.ReadExactlyAsync(metaBuffer, cancellationToken).ConfigureAwait(false);
         using var metaStream = new MemoryStream(metaBuffer);
-        var meta = await serializationService.DeserializeObjectAsync<CrdtMetadata>(metaStream, cancellationToken);
+        var meta = await serializationService.DeserializeObjectAsync<CrdtMetadata>(metaStream, cancellationToken).ConfigureAwait(false);
 
         return new CrdtDocument<TData>(doc!, meta!);
     }
@@ -121,24 +121,24 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(metadata);
 
         var streamLock = GetLock(GetDataLockKey(logicalKey, propertyName));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
         using var timer = new MetricTimer(metrics.StreamWriteDuration);
-        var dataStream = await streamProvider.GetPropertyDataStreamAsync(logicalKey, propertyName, cancellationToken);
-        var header = await ReadOrCreateDataHeaderAsync(dataStream, cancellationToken);
+        var dataStream = await streamProvider.GetPropertyDataStreamAsync(logicalKey, propertyName, cancellationToken).ConfigureAwait(false);
+        var header = await ReadOrCreateDataHeaderAsync(dataStream, cancellationToken).ConfigureAwait(false);
         
         long oldDataOffset = partitionToUpdate is DataPartition dp1 && dp1.DataOffset > 0 ? dp1.DataOffset : -1;
         long oldDataLength = partitionToUpdate.DataLength;
         long oldMetaOffset = partitionToUpdate is DataPartition dp2 && dp2.MetadataOffset > 0 ? dp2.MetadataOffset : -1;
         long oldMetaLength = partitionToUpdate.MetadataLength;
 
-        var newDataWriteResult = await WriteToStreamAsync(dataStream, data, header, oldDataOffset, oldDataLength, cancellationToken);
+        var newDataWriteResult = await WriteToStreamAsync(dataStream, data, header, oldDataOffset, oldDataLength, cancellationToken).ConfigureAwait(false);
         header = newDataWriteResult.Header;
 
-        var newMetaWriteResult = await WriteToStreamAsync(dataStream, metadata, header, oldMetaOffset, oldMetaLength, cancellationToken);
+        var newMetaWriteResult = await WriteToStreamAsync(dataStream, metadata, header, oldMetaOffset, oldMetaLength, cancellationToken).ConfigureAwait(false);
         header = newMetaWriteResult.Header;
 
-        await WriteDataHeaderAsync(dataStream, header, cancellationToken);
+        await WriteDataHeaderAsync(dataStream, header, cancellationToken).ConfigureAwait(false);
 
         return partitionToUpdate switch
         {
@@ -155,24 +155,24 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(metadata);
 
         var streamLock = GetLock(GetDataLockKey(logicalKey, HeaderIdentifier));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
         using var timer = new MetricTimer(metrics.StreamWriteDuration);
-        var dataStream = await streamProvider.GetHeaderDataStreamAsync(logicalKey, cancellationToken);
-        var header = await ReadOrCreateDataHeaderAsync(dataStream, cancellationToken);
+        var dataStream = await streamProvider.GetHeaderDataStreamAsync(logicalKey, cancellationToken).ConfigureAwait(false);
+        var header = await ReadOrCreateDataHeaderAsync(dataStream, cancellationToken).ConfigureAwait(false);
         
         long oldDataOffset = partitionToUpdate.DataOffset > 0 ? partitionToUpdate.DataOffset : -1;
         long oldDataLength = partitionToUpdate.DataLength;
         long oldMetaOffset = partitionToUpdate.MetadataOffset > 0 ? partitionToUpdate.MetadataOffset : -1;
         long oldMetaLength = partitionToUpdate.MetadataLength;
 
-        var newDataWriteResult = await WriteToStreamAsync(dataStream, data, header, oldDataOffset, oldDataLength, cancellationToken);
+        var newDataWriteResult = await WriteToStreamAsync(dataStream, data, header, oldDataOffset, oldDataLength, cancellationToken).ConfigureAwait(false);
         header = newDataWriteResult.Header;
 
-        var newMetaWriteResult = await WriteToStreamAsync(dataStream, metadata, header, oldMetaOffset, oldMetaLength, cancellationToken);
+        var newMetaWriteResult = await WriteToStreamAsync(dataStream, metadata, header, oldMetaOffset, oldMetaLength, cancellationToken).ConfigureAwait(false);
         header = newMetaWriteResult.Header;
 
-        await WriteDataHeaderAsync(dataStream, header, cancellationToken);
+        await WriteDataHeaderAsync(dataStream, header, cancellationToken).ConfigureAwait(false);
 
         return partitionToUpdate with { DataOffset = newDataWriteResult.Offset, DataLength = newDataWriteResult.Length, MetadataOffset = newMetaWriteResult.Offset, MetadataLength = newMetaWriteResult.Length };
     }
@@ -181,7 +181,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         Stream dataStream, object content, DataStreamHeader header, long oldOffset, long oldLength, CancellationToken cancellationToken)
     {
         using var ms = new MemoryStream();
-        await serializationService.SerializeObjectAsync(ms, content, cancellationToken);
+        await serializationService.SerializeObjectAsync(ms, content, cancellationToken).ConfigureAwait(false);
         var requiredSize = ms.Length;
 
         var freeState = new FreeSpaceState(header.NextAvailableOffset, header.FreeBlocks);
@@ -191,8 +191,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
         dataStream.Seek(offsetToUse, SeekOrigin.Begin);
         ms.Seek(0, SeekOrigin.Begin);
-        await ms.CopyToAsync(dataStream, cancellationToken);
-        await dataStream.FlushAsync(cancellationToken);
+        await ms.CopyToAsync(dataStream, cancellationToken).ConfigureAwait(false);
+        await dataStream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
         // Safe to logically free the old space now. Will be committed when header is written.
         if (oldOffset != -1)
@@ -209,19 +209,19 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         if (stream.Length < HeaderSize)
         {
             var newHeader = new DataStreamHeader();
-            await WriteDataHeaderAsync(stream, newHeader, cancellationToken);
+            await WriteDataHeaderAsync(stream, newHeader, cancellationToken).ConfigureAwait(false);
             return newHeader;
         }
 
         var buffer = new byte[HeaderSize];
         stream.Seek(0, SeekOrigin.Begin);
-        await stream.ReadExactlyAsync(buffer, cancellationToken);
+        await stream.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
         var jsonString = Encoding.UTF8.GetString(buffer).TrimEnd();
         
         if (string.IsNullOrWhiteSpace(jsonString)) 
         {
             var newHeader = new DataStreamHeader();
-            await WriteDataHeaderAsync(stream, newHeader, cancellationToken);
+            await WriteDataHeaderAsync(stream, newHeader, cancellationToken).ConfigureAwait(false);
             return newHeader;
         }
 
@@ -239,11 +239,11 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         Array.Copy(buffer, padded, buffer.Length);
 
         // Ensure payload flushes are on disk before updating the pointer.
-        await stream.FlushAsync(cancellationToken);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
         stream.Seek(0, SeekOrigin.Begin);
-        await stream.WriteAsync(padded, cancellationToken);
-        await stream.FlushAsync(cancellationToken);
+        await stream.WriteAsync(padded, cancellationToken).ConfigureAwait(false);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -253,11 +253,11 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
 
         var streamLock = GetLock(GetDataLockKey(logicalKey, propertyName));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        var stream = await streamProvider.GetPropertyDataStreamAsync(logicalKey, propertyName, cancellationToken);
+        var stream = await streamProvider.GetPropertyDataStreamAsync(logicalKey, propertyName, cancellationToken).ConfigureAwait(false);
         stream.SetLength(0);
-        await ReadOrCreateDataHeaderAsync(stream, cancellationToken);
+        await ReadOrCreateDataHeaderAsync(stream, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -266,11 +266,11 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(logicalKey);
 
         var streamLock = GetLock(GetDataLockKey(logicalKey, HeaderIdentifier));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        var stream = await streamProvider.GetHeaderDataStreamAsync(logicalKey, cancellationToken);
+        var stream = await streamProvider.GetHeaderDataStreamAsync(logicalKey, cancellationToken).ConfigureAwait(false);
         stream.SetLength(0);
-        await ReadOrCreateDataHeaderAsync(stream, cancellationToken);
+        await ReadOrCreateDataHeaderAsync(stream, cancellationToken).ConfigureAwait(false);
     }
 
     #endregion
@@ -282,18 +282,18 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
         var streamLock = GetLock(GetIndexLockKey(propertyName));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        await InitializeInternalAsync(propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken);
+        await InitializeInternalAsync(propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public async Task InitializeHeaderIndexAsync(CancellationToken cancellationToken = default)
     {
         var streamLock = GetLock(GetIndexLockKey(HeaderIdentifier));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        await InitializeInternalAsync(HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken);
+        await InitializeInternalAsync(HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -303,9 +303,9 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(partition);
 
         var streamLock = GetLock(GetIndexLockKey(propertyName));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        await InsertPartitionInternalAsync(partition, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken);
+        await InsertPartitionInternalAsync(partition, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -314,9 +314,9 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(logicalKey);
 
         var streamLock = GetLock(GetIndexLockKey(HeaderIdentifier));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        await InsertPartitionInternalAsync(headerPartition, HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken);
+        await InsertPartitionInternalAsync(headerPartition, HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -326,9 +326,9 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(partition);
 
         var streamLock = GetLock(GetIndexLockKey(propertyName));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        await UpdatePartitionInternalAsync(partition, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken);
+        await UpdatePartitionInternalAsync(partition, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -337,9 +337,9 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(logicalKey);
 
         var streamLock = GetLock(GetIndexLockKey(HeaderIdentifier));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        await UpdatePartitionInternalAsync(headerPartition, HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken);
+        await UpdatePartitionInternalAsync(headerPartition, HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -349,9 +349,9 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(partition);
 
         var streamLock = GetLock(GetIndexLockKey(propertyName));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        await DeletePartitionInternalAsync(partition, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken);
+        await DeletePartitionInternalAsync(partition, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -368,9 +368,9 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
 
         var streamLock = GetLock(GetIndexLockKey(propertyName));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        return await FindPartitionInternalAsync(key, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken);
+        return await FindPartitionInternalAsync(key, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -380,9 +380,9 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
 
         var streamLock = GetLock(GetIndexLockKey(propertyName));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        return await GetPartitionCountInternalAsync(propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), logicalKey, cancellationToken);
+        return await GetPartitionCountInternalAsync(propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), logicalKey, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -392,9 +392,9 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
 
         var streamLock = GetLock(GetIndexLockKey(propertyName));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        return await GetDataPartitionByIndexInternalAsync(logicalKey, index, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken);
+        return await GetDataPartitionByIndexInternalAsync(logicalKey, index, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -403,9 +403,9 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         ArgumentNullException.ThrowIfNull(logicalKey);
 
         var streamLock = GetLock(GetIndexLockKey(HeaderIdentifier));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        var result = await FindPartitionInternalAsync(new CompositePartitionKey(logicalKey, null), HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken);
+        var result = await FindPartitionInternalAsync(new CompositePartitionKey(logicalKey, null), HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken).ConfigureAwait(false);
         return result is HeaderPartition hp ? hp : null;
     }
 
@@ -420,11 +420,11 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     private async Task InitializeInternalAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
         using var timer = new MetricTimer(treeMetrics.InitializationDuration);
-        var indexStream = await getIndexStream(cancellationToken);
+        var indexStream = await getIndexStream(cancellationToken).ConfigureAwait(false);
         
         if (indexStream.Length > 0)
         {
-            await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken);
+            await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken).ConfigureAwait(false);
         }
         else
         {
@@ -432,102 +432,102 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             indexStream.SetLength(HeaderSize);
 
             var root = new BPlusTreeNode { IsLeaf = true };
-            var rootWriteResult = await AllocateAndWriteNodeAsync(indexStream, header, root, propertyName, -1, cancellationToken);
+            var rootWriteResult = await AllocateAndWriteNodeAsync(indexStream, header, root, propertyName, -1, cancellationToken).ConfigureAwait(false);
         
             header = rootWriteResult.Header with { RootNodeOffset = rootWriteResult.Offset };
-            await serializationService.WriteHeaderAsync(indexStream, header, HeaderSize, cancellationToken);
+            await serializationService.WriteHeaderAsync(indexStream, header, HeaderSize, cancellationToken).ConfigureAwait(false);
         }
     }
     
     private async Task<IPartition?> FindPartitionInternalAsync(CompositePartitionKey key, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
         using var timer = new MetricTimer(treeMetrics.FindDuration);
-        var indexStream = await getIndexStream(cancellationToken);
+        var indexStream = await getIndexStream(cancellationToken).ConfigureAwait(false);
         
         if (indexStream.Length <= HeaderSize) return null;
         
-        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken);
+        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken).ConfigureAwait(false);
         if (header.RootNodeOffset == -1) return null;
         
-        return await FindInNodeAsync(indexStream, header.RootNodeOffset, key, propertyName, cancellationToken);
+        return await FindInNodeAsync(indexStream, header.RootNodeOffset, key, propertyName, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task InsertPartitionInternalAsync(IPartition partition, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
         using var timer = new MetricTimer(treeMetrics.InsertDuration);
-        var indexStream = await getIndexStream(cancellationToken);
+        var indexStream = await getIndexStream(cancellationToken).ConfigureAwait(false);
         
-        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken);
+        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken).ConfigureAwait(false);
         if (header.RootNodeOffset == -1) throw new InvalidOperationException("Index strategy has not been initialized correctly, root node is missing.");
 
-        var root = await ReadNodeAsync(indexStream, header.RootNodeOffset, propertyName, cancellationToken);
+        var root = await ReadNodeAsync(indexStream, header.RootNodeOffset, propertyName, cancellationToken).ConfigureAwait(false);
         if (root.Keys.Count == (2 * header.Degree - 1)) // Root is full
         {
             var oldRootOffset = header.RootNodeOffset;
             var newRoot = new BPlusTreeNode();
             newRoot.ChildrenOffsets.Add(oldRootOffset);
 
-            header = await SplitChildAsync(indexStream, header, newRoot, 0, root, oldRootOffset, propertyName, cancellationToken);
+            header = await SplitChildAsync(indexStream, header, newRoot, 0, root, oldRootOffset, propertyName, cancellationToken).ConfigureAwait(false);
             
-            var newRootWriteResult = await AllocateAndWriteNodeAsync(indexStream, header, newRoot, propertyName, -1, cancellationToken);
+            var newRootWriteResult = await AllocateAndWriteNodeAsync(indexStream, header, newRoot, propertyName, -1, cancellationToken).ConfigureAwait(false);
             header = newRootWriteResult.Header;
             header = header with { RootNodeOffset = newRootWriteResult.Offset };
             
-            var finalRootWriteResult = await InsertNonFullAsync(indexStream, header, newRoot, newRootWriteResult.Offset, partition, propertyName, cancellationToken);
+            var finalRootWriteResult = await InsertNonFullAsync(indexStream, header, newRoot, newRootWriteResult.Offset, partition, propertyName, cancellationToken).ConfigureAwait(false);
             header = finalRootWriteResult.Header with { RootNodeOffset = finalRootWriteResult.Offset };
         }
         else
         {
-            var newRootWriteResult = await InsertNonFullAsync(indexStream, header, root, header.RootNodeOffset, partition, propertyName, cancellationToken);
+            var newRootWriteResult = await InsertNonFullAsync(indexStream, header, root, header.RootNodeOffset, partition, propertyName, cancellationToken).ConfigureAwait(false);
             header = newRootWriteResult.Header with { RootNodeOffset = newRootWriteResult.Offset };
         }
-        await serializationService.WriteHeaderAsync(indexStream, header, HeaderSize, cancellationToken);
+        await serializationService.WriteHeaderAsync(indexStream, header, HeaderSize, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task UpdatePartitionInternalAsync(IPartition partition, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
         using var timer = new MetricTimer(treeMetrics.UpdateDuration);
-        var indexStream = await getIndexStream(cancellationToken);
+        var indexStream = await getIndexStream(cancellationToken).ConfigureAwait(false);
         
-        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken);
+        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken).ConfigureAwait(false);
         if (header.RootNodeOffset == -1) throw new InvalidOperationException("Index strategy has not been initialized correctly, root node is missing.");
         
-        var rootWriteResult = await UpdateInNodeAsync(indexStream, header, header.RootNodeOffset, partition, propertyName, cancellationToken);
+        var rootWriteResult = await UpdateInNodeAsync(indexStream, header, header.RootNodeOffset, partition, propertyName, cancellationToken).ConfigureAwait(false);
         var headerToWrite = rootWriteResult.Header with { RootNodeOffset = rootWriteResult.Offset };
-        await serializationService.WriteHeaderAsync(indexStream, headerToWrite, HeaderSize, cancellationToken);
+        await serializationService.WriteHeaderAsync(indexStream, headerToWrite, HeaderSize, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task DeletePartitionInternalAsync(IPartition partition, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
         using var timer = new MetricTimer(treeMetrics.DeleteDuration);
-        var indexStream = await getIndexStream(cancellationToken);
+        var indexStream = await getIndexStream(cancellationToken).ConfigureAwait(false);
 
-        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken);
+        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken).ConfigureAwait(false);
         if (header.RootNodeOffset == -1) throw new InvalidOperationException("Cannot delete from an empty tree.");
         
-        var rootWriteResult = await DeleteRecursiveAsync(indexStream, header, header.RootNodeOffset, partition, propertyName, cancellationToken);
+        var rootWriteResult = await DeleteRecursiveAsync(indexStream, header, header.RootNodeOffset, partition, propertyName, cancellationToken).ConfigureAwait(false);
         var newRootOffset = rootWriteResult.Offset;
         var finalHeader = rootWriteResult.Header;
 
-        var root = await ReadNodeAsync(indexStream, newRootOffset, propertyName, cancellationToken);
+        var root = await ReadNodeAsync(indexStream, newRootOffset, propertyName, cancellationToken).ConfigureAwait(false);
 
         // If root becomes an internal node with no keys and one child, the child becomes the new root.
         if (!root.IsLeaf && root.Keys.Count == 0 && root.ChildrenOffsets.Count == 1)
         {
             long obsoleteRootOffset = newRootOffset;
             newRootOffset = root.ChildrenOffsets[0];
-            finalHeader = await FreeNodeAsync(indexStream, finalHeader, obsoleteRootOffset, cancellationToken);
+            finalHeader = await FreeNodeAsync(indexStream, finalHeader, obsoleteRootOffset, cancellationToken).ConfigureAwait(false);
             RemoveFromCache(new CacheKey(propertyName, obsoleteRootOffset));
         }
 
         var headerToWrite = finalHeader with { RootNodeOffset = newRootOffset };
-        await serializationService.WriteHeaderAsync(indexStream, headerToWrite, HeaderSize, cancellationToken);
+        await serializationService.WriteHeaderAsync(indexStream, headerToWrite, HeaderSize, cancellationToken).ConfigureAwait(false);
     }
     
     private async IAsyncEnumerable<IPartition> GetAllPartitionsInternalAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, IComparable? logicalKey = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var streamLock = GetLock(GetIndexLockKey(propertyName));
-        using var releaser = await streamLock.LockAsync(cancellationToken);
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
         await foreach (var partition in GetAllPartitionsNoLockAsync(propertyName, getIndexStream, logicalKey, cancellationToken).WithCancellation(cancellationToken))
         {
@@ -538,11 +538,11 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     private async IAsyncEnumerable<IPartition> GetAllPartitionsNoLockAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, IComparable? logicalKey = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         using var timer = new MetricTimer(treeMetrics.GetAllDuration);
-        var indexStream = await getIndexStream(cancellationToken);
+        var indexStream = await getIndexStream(cancellationToken).ConfigureAwait(false);
 
         if (indexStream.Length <= HeaderSize) yield break;
 
-        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken);
+        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken).ConfigureAwait(false);
         if (header.RootNodeOffset == -1) yield break;
         
         await foreach (var partition in TraverseAndYieldPartitionsAsync(indexStream, header.RootNodeOffset, propertyName, logicalKey, cancellationToken).WithCancellation(cancellationToken))
@@ -554,10 +554,10 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     private async Task<long> GetPartitionCountInternalAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, IComparable? logicalKey = null, CancellationToken cancellationToken = default)
     {
         using var timer = new MetricTimer(treeMetrics.GetPartitionCountDuration);
-        var indexStream = await getIndexStream(cancellationToken);
+        var indexStream = await getIndexStream(cancellationToken).ConfigureAwait(false);
         if (indexStream.Length == 0) return 0;
 
-        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken);
+        var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken).ConfigureAwait(false);
         if (logicalKey is null) return header.PartitionCount;
 
         long count = 0;
@@ -586,7 +586,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     {
         if (nodeOffset == -1) yield break;
 
-        var node = await ReadNodeAsync(indexStream, nodeOffset, propertyName, cancellationToken);
+        var node = await ReadNodeAsync(indexStream, nodeOffset, propertyName, cancellationToken).ConfigureAwait(false);
 
         if (node.IsLeaf)
         {
@@ -657,7 +657,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
     private async Task<NodeWriteResult> DeleteRecursiveAsync(Stream indexStream, BTreeHeader header, long nodeOffset, IPartition partitionToDelete, string propertyName, CancellationToken cancellationToken)
     {
-        var node = await ReadNodeAsync(indexStream, nodeOffset, propertyName, cancellationToken);
+        var node = await ReadNodeAsync(indexStream, nodeOffset, propertyName, cancellationToken).ConfigureAwait(false);
         int t = header.Degree;
         bool nodeModified = false;
         var currentHeader = header;
@@ -673,24 +673,24 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             node.Keys.RemoveAt(keyIndex);
             node.Partitions.RemoveAt(keyIndex);
             currentHeader = currentHeader with { PartitionCount = currentHeader.PartitionCount - 1 };
-            return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken);
+            return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken).ConfigureAwait(false);
         }
 
         int childIndex = 0;
         while (childIndex < node.Keys.Count && key.CompareTo(node.Keys[childIndex]) >= 0) childIndex++;
 
         var childOffset = node.ChildrenOffsets[childIndex];
-        var childNode = await ReadNodeAsync(indexStream, childOffset, propertyName, cancellationToken);
+        var childNode = await ReadNodeAsync(indexStream, childOffset, propertyName, cancellationToken).ConfigureAwait(false);
         
         if (childNode.Keys.Count < t)
         {
             if (childIndex > 0)
             {
                 var leftSiblingOffset = node.ChildrenOffsets[childIndex - 1];
-                var leftSibling = await ReadNodeAsync(indexStream, leftSiblingOffset, propertyName, cancellationToken);
+                var leftSibling = await ReadNodeAsync(indexStream, leftSiblingOffset, propertyName, cancellationToken).ConfigureAwait(false);
                 if (leftSibling.Keys.Count >= t)
                 {
-                    var borrowResult = await BorrowFromSiblingAsync(indexStream, currentHeader, node, childIndex, childNode, childOffset, leftSibling, leftSiblingOffset, isLeftSibling: true, propertyName, cancellationToken);
+                    var borrowResult = await BorrowFromSiblingAsync(indexStream, currentHeader, node, childIndex, childNode, childOffset, leftSibling, leftSiblingOffset, isLeftSibling: true, propertyName, cancellationToken).ConfigureAwait(false);
                     currentHeader = borrowResult.Header;
                     node.ChildrenOffsets[childIndex - 1] = borrowResult.SiblingOffset;
                     childOffset = borrowResult.ChildOffset;
@@ -698,7 +698,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
                 }
                 else
                 {
-                    var mergeResult = await MergeWithSiblingAsync(indexStream, currentHeader, node, childIndex, childNode, childOffset, leftSibling, leftSiblingOffset, isLeftSibling: true, propertyName, cancellationToken);
+                    var mergeResult = await MergeWithSiblingAsync(indexStream, currentHeader, node, childIndex, childNode, childOffset, leftSibling, leftSiblingOffset, isLeftSibling: true, propertyName, cancellationToken).ConfigureAwait(false);
                     currentHeader = mergeResult.Header;
                     childIndex--;
                     childOffset = mergeResult.MergedOffset;
@@ -710,10 +710,10 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             else if (childIndex + 1 < node.ChildrenOffsets.Count)
             {
                 var rightSiblingOffset = node.ChildrenOffsets[childIndex + 1];
-                var rightSibling = await ReadNodeAsync(indexStream, rightSiblingOffset, propertyName, cancellationToken);
+                var rightSibling = await ReadNodeAsync(indexStream, rightSiblingOffset, propertyName, cancellationToken).ConfigureAwait(false);
                 if (rightSibling.Keys.Count >= t)
                 {
-                    var borrowResult = await BorrowFromSiblingAsync(indexStream, currentHeader, node, childIndex, childNode, childOffset, rightSibling, rightSiblingOffset, isLeftSibling: false, propertyName, cancellationToken);
+                    var borrowResult = await BorrowFromSiblingAsync(indexStream, currentHeader, node, childIndex, childNode, childOffset, rightSibling, rightSiblingOffset, isLeftSibling: false, propertyName, cancellationToken).ConfigureAwait(false);
                     currentHeader = borrowResult.Header;
                     node.ChildrenOffsets[childIndex + 1] = borrowResult.SiblingOffset;
                     childOffset = borrowResult.ChildOffset;
@@ -721,7 +721,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
                 }
                 else
                 {
-                    var mergeResult = await MergeWithSiblingAsync(indexStream, currentHeader, node, childIndex, childNode, childOffset, rightSibling, rightSiblingOffset, isLeftSibling: false, propertyName, cancellationToken);
+                    var mergeResult = await MergeWithSiblingAsync(indexStream, currentHeader, node, childIndex, childNode, childOffset, rightSibling, rightSiblingOffset, isLeftSibling: false, propertyName, cancellationToken).ConfigureAwait(false);
                     currentHeader = mergeResult.Header;
                     childOffset = mergeResult.MergedOffset;
                     node.ChildrenOffsets[childIndex] = childOffset;
@@ -731,7 +731,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             }
         }
 
-        var newChildWriteResult = await DeleteRecursiveAsync(indexStream, currentHeader, childOffset, partitionToDelete, propertyName, cancellationToken);
+        var newChildWriteResult = await DeleteRecursiveAsync(indexStream, currentHeader, childOffset, partitionToDelete, propertyName, cancellationToken).ConfigureAwait(false);
         currentHeader = newChildWriteResult.Header;
         if (newChildWriteResult.Offset != childOffset)
         {
@@ -741,7 +741,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         
         if (childIndex > 0)
         {
-            var firstKeyInChildSubtree = await GetFirstKeyOfSubtree(indexStream, node.ChildrenOffsets[childIndex], propertyName, cancellationToken);
+            var firstKeyInChildSubtree = await GetFirstKeyOfSubtree(indexStream, node.ChildrenOffsets[childIndex], propertyName, cancellationToken).ConfigureAwait(false);
             if (firstKeyInChildSubtree != null && node.Keys[childIndex - 1].CompareTo(firstKeyInChildSubtree) != 0)
             {
                 node.Keys[childIndex - 1] = firstKeyInChildSubtree;
@@ -751,7 +751,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
         if (nodeModified)
         {
-            return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken);
+            return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken).ConfigureAwait(false);
         }
 
         return new NodeWriteResult(nodeOffset, currentHeader);
@@ -805,8 +805,8 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             }
         }
         
-        var siblingWriteResult = await AllocateAndWriteNodeAsync(stream, currentHeader, sibling, propertyName, siblingOffset, cancellationToken);
-        var childWriteResult = await AllocateAndWriteNodeAsync(stream, siblingWriteResult.Header, child, propertyName, childOffset, cancellationToken);
+        var siblingWriteResult = await AllocateAndWriteNodeAsync(stream, currentHeader, sibling, propertyName, siblingOffset, cancellationToken).ConfigureAwait(false);
+        var childWriteResult = await AllocateAndWriteNodeAsync(stream, siblingWriteResult.Header, child, propertyName, childOffset, cancellationToken).ConfigureAwait(false);
         return new BorrowResult(childWriteResult.Header, siblingWriteResult.Offset, childWriteResult.Offset);
     }
 
@@ -863,10 +863,10 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             offsetToFree = siblingOffset;
         }
 
-        currentHeader = await FreeNodeAsync(stream, currentHeader, offsetToFree, cancellationToken);
+        currentHeader = await FreeNodeAsync(stream, currentHeader, offsetToFree, cancellationToken).ConfigureAwait(false);
         RemoveFromCache(new CacheKey(propertyName, offsetToFree));
 
-        var mergedWriteResult = await AllocateAndWriteNodeAsync(stream, currentHeader, mergedNode, propertyName, offsetToKeep, cancellationToken);
+        var mergedWriteResult = await AllocateAndWriteNodeAsync(stream, currentHeader, mergedNode, propertyName, offsetToKeep, cancellationToken).ConfigureAwait(false);
         return new MergeResult(mergedWriteResult.Header, mergedWriteResult.Offset, mergedNode);
     }
 
@@ -883,7 +883,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             node.Partitions.Insert(i, partition);
             
             currentHeader = currentHeader with { PartitionCount = currentHeader.PartitionCount + 1 };
-            return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken);
+            return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken).ConfigureAwait(false);
         }
         else
         {
@@ -891,20 +891,20 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             while (i < node.Keys.Count && key.CompareTo(node.Keys[i]) >= 0) i++;
             
             var childOffset = node.ChildrenOffsets[i];
-            var childNode = await ReadNodeAsync(indexStream, childOffset, propertyName, cancellationToken);
+            var childNode = await ReadNodeAsync(indexStream, childOffset, propertyName, cancellationToken).ConfigureAwait(false);
             bool parentNeedsReallocation = false;
 
             if (childNode.Keys.Count == (2 * currentHeader.Degree - 1))
             {
-                currentHeader = await SplitChildAsync(indexStream, currentHeader, node, i, childNode, childOffset, propertyName, cancellationToken);
+                currentHeader = await SplitChildAsync(indexStream, currentHeader, node, i, childNode, childOffset, propertyName, cancellationToken).ConfigureAwait(false);
                 parentNeedsReallocation = true;
 
                 if (key.CompareTo(node.Keys[i]) >= 0) i++;
             }
             
             var childToInsertInOffset = node.ChildrenOffsets[i];
-            var childToInsertIn = await ReadNodeAsync(indexStream, childToInsertInOffset, propertyName, cancellationToken);
-            var childWriteResult = await InsertNonFullAsync(indexStream, currentHeader, childToInsertIn, childToInsertInOffset, partition, propertyName, cancellationToken);
+            var childToInsertIn = await ReadNodeAsync(indexStream, childToInsertInOffset, propertyName, cancellationToken).ConfigureAwait(false);
+            var childWriteResult = await InsertNonFullAsync(indexStream, currentHeader, childToInsertIn, childToInsertInOffset, partition, propertyName, cancellationToken).ConfigureAwait(false);
             currentHeader = childWriteResult.Header;
 
             if (childWriteResult.Offset != childToInsertInOffset)
@@ -915,7 +915,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
             if (parentNeedsReallocation)
             {
-                return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken);
+                return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken).ConfigureAwait(false);
             }
             
             return new NodeWriteResult(nodeOffset, currentHeader);
@@ -950,10 +950,10 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             fullChildNode.ChildrenOffsets.RemoveRange(medianIndex + 1, fullChildNode.ChildrenOffsets.Count - (medianIndex + 1));
         }
 
-        var rightWriteResult = await AllocateAndWriteNodeAsync(indexStream, currentHeader, rightNode, propertyName, -1, cancellationToken);
+        var rightWriteResult = await AllocateAndWriteNodeAsync(indexStream, currentHeader, rightNode, propertyName, -1, cancellationToken).ConfigureAwait(false);
         currentHeader = rightWriteResult.Header;
 
-        var leftWriteResult = await AllocateAndWriteNodeAsync(indexStream, currentHeader, fullChildNode, propertyName, fullChildNodeOffset, cancellationToken);
+        var leftWriteResult = await AllocateAndWriteNodeAsync(indexStream, currentHeader, fullChildNode, propertyName, fullChildNodeOffset, cancellationToken).ConfigureAwait(false);
         currentHeader = leftWriteResult.Header;
 
         parentNode.Keys.Insert(childIndex, keyToPromote);
@@ -965,7 +965,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
     private async Task<IPartition?> FindInNodeAsync(Stream indexStream, long nodeOffset, CompositePartitionKey key, string propertyName, CancellationToken cancellationToken)
     {
-        var node = await ReadNodeAsync(indexStream, nodeOffset, propertyName, cancellationToken);
+        var node = await ReadNodeAsync(indexStream, nodeOffset, propertyName, cancellationToken).ConfigureAwait(false);
 
         if (node.IsLeaf)
         {
@@ -991,12 +991,12 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         int childIndex = 0;
         while (childIndex < node.Keys.Count && key.CompareTo(node.Keys[childIndex]) >= 0) childIndex++;
         
-        return await FindInNodeAsync(indexStream, node.ChildrenOffsets[childIndex], key, propertyName, cancellationToken);
+        return await FindInNodeAsync(indexStream, node.ChildrenOffsets[childIndex], key, propertyName, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<NodeWriteResult> UpdateInNodeAsync(Stream indexStream, BTreeHeader header, long nodeOffset, IPartition partition, string propertyName, CancellationToken cancellationToken)
     {
-        var node = await ReadNodeAsync(indexStream, nodeOffset, propertyName, cancellationToken);
+        var node = await ReadNodeAsync(indexStream, nodeOffset, propertyName, cancellationToken).ConfigureAwait(false);
         var key = partition.GetPartitionKey();
         var currentHeader = header;
 
@@ -1008,7 +1008,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             if (indexToUpdate != -1)
             {
                 node.Partitions[indexToUpdate] = partition;
-                return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken);
+                return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -1021,13 +1021,13 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             while (childIndex < node.Keys.Count && key.CompareTo(node.Keys[childIndex]) >= 0) childIndex++;
 
             long childOffset = node.ChildrenOffsets[childIndex];
-            var childWriteResult = await UpdateInNodeAsync(indexStream, currentHeader, childOffset, partition, propertyName, cancellationToken);
+            var childWriteResult = await UpdateInNodeAsync(indexStream, currentHeader, childOffset, partition, propertyName, cancellationToken).ConfigureAwait(false);
             currentHeader = childWriteResult.Header;
 
             if (childWriteResult.Offset != childOffset)
             {
                 node.ChildrenOffsets[childIndex] = childWriteResult.Offset;
-                return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken);
+                return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken).ConfigureAwait(false);
             }
             
             return new NodeWriteResult(nodeOffset, currentHeader);
@@ -1037,7 +1037,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     private async Task<NodeWriteResult> AllocateAndWriteNodeAsync(Stream indexStream, BTreeHeader header, BPlusTreeNode node, string propertyName, long oldOffset, CancellationToken cancellationToken)
     {
         treeMetrics.NodeWrites.Add(1);
-        var nodeData = await serializationService.SerializeNodeToBytesAsync(node, cancellationToken);
+        var nodeData = await serializationService.SerializeNodeToBytesAsync(node, cancellationToken).ConfigureAwait(false);
         long requiredSize = nodeData.Length;
         
         long oldSize = -1;
@@ -1045,7 +1045,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         {
             indexStream.Seek(oldOffset, SeekOrigin.Begin);
             var lengthBuffer = new byte[sizeof(int)];
-            await indexStream.ReadExactlyAsync(lengthBuffer, cancellationToken);
+            await indexStream.ReadExactlyAsync(lengthBuffer, cancellationToken).ConfigureAwait(false);
             oldSize = BitConverter.ToInt32(lengthBuffer) + 4; // Include length prefix size
         }
 
@@ -1062,10 +1062,10 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
         var currentHeader = header with { NextAvailableOffset = newState.NextAvailableOffset, FreeBlocks = newState.FreeBlocks?.ToList() };
 
-        await serializationService.WriteNodeBytesAsync(indexStream, nodeData, offsetToUse, cancellationToken);
+        await serializationService.WriteNodeBytesAsync(indexStream, nodeData, offsetToUse, cancellationToken).ConfigureAwait(false);
 
         // Ensure nodes are flushed safely before any header pointer updates.
-        await indexStream.FlushAsync(cancellationToken);
+        await indexStream.FlushAsync(cancellationToken).ConfigureAwait(false);
         
         AddToCache(new CacheKey(propertyName, offsetToUse), node);
         if (oldOffset != -1 && oldOffset != offsetToUse)
@@ -1080,7 +1080,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     {
         stream.Seek(offset, SeekOrigin.Begin);
         var lengthBuffer = new byte[sizeof(int)];
-        await stream.ReadExactlyAsync(lengthBuffer, cancellationToken);
+        await stream.ReadExactlyAsync(lengthBuffer, cancellationToken).ConfigureAwait(false);
         long size = BitConverter.ToInt32(lengthBuffer) + 4;
 
         var freeState = new FreeSpaceState(header.NextAvailableOffset, header.FreeBlocks);
@@ -1092,11 +1092,11 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
     private async Task<IComparable?> GetFirstKeyOfSubtree(Stream stream, long nodeOffset, string propertyName, CancellationToken cancellationToken)
     {
-        var node = await ReadNodeAsync(stream, nodeOffset, propertyName, cancellationToken);
+        var node = await ReadNodeAsync(stream, nodeOffset, propertyName, cancellationToken).ConfigureAwait(false);
         if (node.IsLeaf) return node.Keys.Count > 0 ? node.Keys[0] : null;
         
         return node.ChildrenOffsets.Count > 0 
-            ? await GetFirstKeyOfSubtree(stream, node.ChildrenOffsets[0], propertyName, cancellationToken) 
+            ? await GetFirstKeyOfSubtree(stream, node.ChildrenOffsets[0], propertyName, cancellationToken).ConfigureAwait(false)
             : null;
     }
     
@@ -1151,7 +1151,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         }
 
         treeMetrics.NodeReads.Add(1);
-        var node = await serializationService.ReadNodeAsync(indexStream, nodeOffset, cancellationToken);
+        var node = await serializationService.ReadNodeAsync(indexStream, nodeOffset, cancellationToken).ConfigureAwait(false);
         AddToCache(new CacheKey(propertyName, nodeOffset), node);
         return node;
     }
@@ -1178,7 +1178,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
         public async Task<IDisposable> LockAsync(CancellationToken ct)
         {
-            await semaphore.WaitAsync(ct);
+            await semaphore.WaitAsync(ct).ConfigureAwait(false);
             return new Releaser(this);
         }
 

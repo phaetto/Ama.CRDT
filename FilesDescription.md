@@ -1,6 +1,6 @@
 | File Path | Description |
 | --- | --- |
-| `$/.editorconfig` | No description provided. |
+| `$/.editorconfig` | Configures coding standards, formatting rules, and enables specific .NET analyzer rules such as CA2007 for enforcing `ConfigureAwait` usage. |
 | `$/.github/workflows/ci.yml` | GitHub Actions workflow for building and testing the project on pushes to non-master branches and on pull requests to master. This ensures code quality before merging. |
 | `$/.github/workflows/publish-nuget-manual.yml` | GitHub Actions workflow for manually building, testing, and publishing a stable, non-prerelease version of the `Ama.CRDT` NuGet package. It includes a check to ensure no unshipped public APIs are present in a stable release. |
 | `$/.github/workflows/publish-nuget.yml` | GitHub Actions workflow for building, testing, and publishing the `Ama.CRDT` NuGet package (including its Roslyn analyzers) on pushes to the `master` branch. |

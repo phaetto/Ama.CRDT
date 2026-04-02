@@ -76,8 +76,8 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
 
         var logicalKey = GetLogicalKey(initialObject);
 
-        await InitializeHeaderAsync(logicalKey, initialObject, cancellationToken);
-        await InitializePropertiesAsync(logicalKey, initialObject, cancellationToken);
+        await InitializeHeaderAsync(logicalKey, initialObject, cancellationToken).ConfigureAwait(false);
+        await InitializePropertiesAsync(logicalKey, initialObject, cancellationToken).ConfigureAwait(false);
     }
     
     /// <inheritdoc/>
@@ -86,7 +86,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         ArgumentNullException.ThrowIfNull(logicalKey);
         using var _ = new MetricTimer(metrics.GetFullObjectDuration);
 
-        var headerDoc = await GetHeaderPartitionContentAsync(logicalKey, cancellationToken);
+        var headerDoc = await GetHeaderPartitionContentAsync(logicalKey, cancellationToken).ConfigureAwait(false);
         if (headerDoc is null)
         {
             return null;
@@ -108,7 +108,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
 
             await foreach(var partition in GetAllDataPartitionsAsync(logicalKey, prop.Name, cancellationToken).WithCancellation(cancellationToken))
             {
-                var partitionDoc = await storageService.LoadPartitionContentAsync<T>(logicalKey, prop.Name, partition, cancellationToken);
+                var partitionDoc = await storageService.LoadPartitionContentAsync<T>(logicalKey, prop.Name, partition, cancellationToken).ConfigureAwait(false);
 
                 var partitionCollection = PocoPathHelper.GetAccessor(prop).Getter(partitionDoc.Data!);
                 
@@ -137,7 +137,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
         using var _ = new MetricTimer(metrics.GetPartitionDuration);
-        return await storageService.GetHeaderPartitionAsync(logicalKey, cancellationToken);
+        return await storageService.GetHeaderPartitionAsync(logicalKey, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -146,13 +146,13 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         ArgumentNullException.ThrowIfNull(logicalKey);
         using var _ = new MetricTimer(metrics.GetPartitionContentDuration);
 
-        var headerPartition = await GetHeaderPartitionAsync(logicalKey, cancellationToken);
+        var headerPartition = await GetHeaderPartitionAsync(logicalKey, cancellationToken).ConfigureAwait(false);
         if (headerPartition is null)
         {
             return null;
         }
 
-        return await storageService.LoadHeaderPartitionContentAsync<T>(logicalKey, (HeaderPartition)headerPartition, cancellationToken);
+        return await storageService.LoadHeaderPartitionContentAsync<T>(logicalKey, (HeaderPartition)headerPartition, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -161,7 +161,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
         using var _ = new MetricTimer(metrics.GetPartitionDuration);
         
-        return await storageService.GetPropertyPartitionAsync(key, propertyName, cancellationToken);
+        return await storageService.GetPropertyPartitionAsync(key, propertyName, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -170,16 +170,16 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
         using var _ = new MetricTimer(metrics.GetPartitionContentDuration);
         
-        var partition = await storageService.GetPropertyPartitionAsync(key, propertyName, cancellationToken);
+        var partition = await storageService.GetPropertyPartitionAsync(key, propertyName, cancellationToken).ConfigureAwait(false);
 
         if (partition is not DataPartition)
         {
             return null;
         }
 
-        var dataDoc = await storageService.LoadPartitionContentAsync<T>(key.LogicalKey, propertyName, partition, cancellationToken);
+        var dataDoc = await storageService.LoadPartitionContentAsync<T>(key.LogicalKey, propertyName, partition, cancellationToken).ConfigureAwait(false);
 
-        var headerDoc = await GetHeaderPartitionContentAsync(key.LogicalKey, cancellationToken);
+        var headerDoc = await GetHeaderPartitionContentAsync(key.LogicalKey, cancellationToken).ConfigureAwait(false);
         if (headerDoc is null)
         {
             throw new InvalidOperationException($"Could not find header partition for logical key '{key.LogicalKey}'.");
@@ -219,7 +219,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
         using var _ = new MetricTimer(metrics.GetDataPartitionCountDuration);
         
-        return await storageService.GetPropertyPartitionCountAsync(logicalKey, propertyName, cancellationToken);
+        return await storageService.GetPropertyPartitionCountAsync(logicalKey, propertyName, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -231,14 +231,14 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         
         if (index < 0) return null;
         
-        return await storageService.GetPropertyPartitionByIndexAsync(logicalKey, index, propertyName, cancellationToken);
+        return await storageService.GetPropertyPartitionByIndexAsync(logicalKey, index, propertyName, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public async Task<IEnumerable<IComparable>> GetAllLogicalKeysAsync(CancellationToken cancellationToken = default)
     {
         using var _ = new MetricTimer(metrics.GetAllLogicalKeysDuration);
-        await storageService.InitializeHeaderIndexAsync(cancellationToken);
+        await storageService.InitializeHeaderIndexAsync(cancellationToken).ConfigureAwait(false);
         
         var logicalKeys = new HashSet<IComparable>();
         await foreach (var partition in storageService.GetAllHeaderPartitionsAsync(cancellationToken).WithCancellation(cancellationToken))
@@ -256,23 +256,23 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
             return;
         }
 
-        var logicalKeys = await GetAllLogicalKeysAsync(cancellationToken);
+        var logicalKeys = await GetAllLogicalKeysAsync(cancellationToken).ConfigureAwait(false);
 
         foreach (var logicalKey in logicalKeys)
         {
             // Compact the Header Partition
-            var headerPartition = await GetHeaderPartitionAsync(logicalKey, cancellationToken);
+            var headerPartition = await GetHeaderPartitionAsync(logicalKey, cancellationToken).ConfigureAwait(false);
             if (headerPartition is HeaderPartition hp)
             {
-                var headerDoc = await storageService.LoadHeaderPartitionContentAsync<T>(logicalKey, hp, cancellationToken);
+                var headerDoc = await storageService.LoadHeaderPartitionContentAsync<T>(logicalKey, hp, cancellationToken).ConfigureAwait(false);
                 foreach (var factory in compactionPolicyFactories)
                 {
                     var policy = factory.CreatePolicy();
                     metadataManager.Compact(headerDoc, policy);
                 }
 
-                var compactedHeader = await storageService.SaveHeaderPartitionContentAsync(logicalKey, hp, headerDoc.Data!, headerDoc.Metadata!, cancellationToken);
-                await storageService.InsertHeaderPartitionAsync(logicalKey, compactedHeader, cancellationToken);
+                var compactedHeader = await storageService.SaveHeaderPartitionContentAsync(logicalKey, hp, headerDoc.Data!, headerDoc.Metadata!, cancellationToken).ConfigureAwait(false);
+                await storageService.InsertHeaderPartitionAsync(logicalKey, compactedHeader, cancellationToken).ConfigureAwait(false);
             }
 
             // Compact the Property Data Partitions
@@ -289,7 +289,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
 
                 foreach (var dataPartition in partitionsToCompact)
                 {
-                    var crdtDoc = await storageService.LoadPartitionContentAsync<T>(logicalKey, prop.Name, dataPartition, cancellationToken);
+                    var crdtDoc = await storageService.LoadPartitionContentAsync<T>(logicalKey, prop.Name, dataPartition, cancellationToken).ConfigureAwait(false);
                     
                     foreach (var factory in compactionPolicyFactories)
                     {
@@ -303,10 +303,10 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
                         dataPartition,
                         crdtDoc.Data!,
                         crdtDoc.Metadata!,
-                        cancellationToken);
+                        cancellationToken).ConfigureAwait(false);
 
-                    await storageService.DeletePropertyPartitionAsync(prop.Name, dataPartition, cancellationToken);
-                    await storageService.InsertPropertyPartitionAsync(prop.Name, compactedPartition, cancellationToken);
+                    await storageService.DeletePropertyPartitionAsync(prop.Name, dataPartition, cancellationToken).ConfigureAwait(false);
+                    await storageService.InsertPropertyPartitionAsync(prop.Name, compactedPartition, cancellationToken).ConfigureAwait(false);
                 }
             }
         }
@@ -336,23 +336,23 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
             }
         }
 
-        await storageService.ClearHeaderDataAsync(logicalKey, cancellationToken);
-        await storageService.InitializeHeaderIndexAsync(cancellationToken);
+        await storageService.ClearHeaderDataAsync(logicalKey, cancellationToken).ConfigureAwait(false);
+        await storageService.InitializeHeaderIndexAsync(cancellationToken).ConfigureAwait(false);
 
         var headerMetadata = metadataManager.Initialize(headerObject);
         var headerPartitionKey = new CompositePartitionKey(logicalKey, null);
         var headerPartition = new HeaderPartition(headerPartitionKey, 0, 0, 0, 0);
 
-        headerPartition = await storageService.SaveHeaderPartitionContentAsync(logicalKey, headerPartition, headerObject, headerMetadata, cancellationToken);
-        await storageService.InsertHeaderPartitionAsync(logicalKey, headerPartition, cancellationToken);
+        headerPartition = await storageService.SaveHeaderPartitionContentAsync(logicalKey, headerPartition, headerObject, headerMetadata, cancellationToken).ConfigureAwait(false);
+        await storageService.InsertHeaderPartitionAsync(logicalKey, headerPartition, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task InitializePropertiesAsync(IComparable logicalKey, T initialObject, CancellationToken cancellationToken)
     {
         foreach (var (_, (prop, strategy)) in partitionableProperties)
         {
-            await storageService.InitializePropertyIndexAsync(prop.Name, cancellationToken);
-            await storageService.ClearPropertyDataAsync(logicalKey, prop.Name, cancellationToken);
+            await storageService.InitializePropertyIndexAsync(prop.Name, cancellationToken).ConfigureAwait(false);
+            await storageService.ClearPropertyDataAsync(logicalKey, prop.Name, cancellationToken).ConfigureAwait(false);
 
             var initialCollection = PocoPathHelper.GetAccessor(prop).Getter(initialObject);
             var dataObject = new T();
@@ -365,12 +365,12 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
             var dataPartitionKey = new CompositePartitionKey(logicalKey, startRangeKey);
             var dataPartition = new DataPartition(dataPartitionKey, null, 0, 0, 0, 0);
 
-            dataPartition = (DataPartition)await storageService.SavePartitionContentAsync(logicalKey, prop.Name, dataPartition, dataObject, dataMetadata, cancellationToken);
-            await storageService.InsertPropertyPartitionAsync(prop.Name, dataPartition, cancellationToken);
+            dataPartition = (DataPartition)await storageService.SavePartitionContentAsync(logicalKey, prop.Name, dataPartition, dataObject, dataMetadata, cancellationToken).ConfigureAwait(false);
+            await storageService.InsertPropertyPartitionAsync(prop.Name, dataPartition, cancellationToken).ConfigureAwait(false);
 
             if (dataPartition.DataLength > MaxPartitionDataSize)
             {
-                await SplitPartitionAsync(dataPartition, prop.Name, strategy, prop, cancellationToken);
+                await SplitPartitionAsync(dataPartition, prop.Name, strategy, prop, cancellationToken).ConfigureAwait(false);
             }
         }
     }
@@ -382,7 +382,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         
         metrics.PartitionsSplit.Add(1);
 
-        var crdtDoc = await storageService.LoadPartitionContentAsync<T>(dataPartitionToSplit.StartKey.LogicalKey, propertyName, dataPartitionToSplit, cancellationToken);
+        var crdtDoc = await storageService.LoadPartitionContentAsync<T>(dataPartitionToSplit.StartKey.LogicalKey, propertyName, dataPartitionToSplit, cancellationToken).ConfigureAwait(false);
         
         // 1. Attempt Piggybacked Compaction to avoid the split entirely
         if (compactionPolicyFactories.Any())
@@ -399,12 +399,12 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
                 dataPartitionToSplit,
                 crdtDoc.Data!,
                 crdtDoc.Metadata!,
-                cancellationToken);
+                cancellationToken).ConfigureAwait(false);
 
             if (compactedPartition is DataPartition dp && dp.DataLength <= MaxPartitionDataSize)
             {
-                await storageService.DeletePropertyPartitionAsync(propertyName, dataPartitionToSplit, cancellationToken);
-                await storageService.InsertPropertyPartitionAsync(propertyName, dp, cancellationToken);
+                await storageService.DeletePropertyPartitionAsync(propertyName, dataPartitionToSplit, cancellationToken).ConfigureAwait(false);
+                await storageService.InsertPropertyPartitionAsync(propertyName, dp, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -425,21 +425,21 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         var p1Empty = new DataPartition(p1Key, p2Key, 0, 0, 0, 0);
         var p2Empty = new DataPartition(p2Key, dataPartitionToSplit.EndKey, 0, 0, 0, 0);
 
-        var p1 = await storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p1Empty, (T)splitResult.Partition1.Data, splitResult.Partition1.Metadata, cancellationToken);
-        var p2 = await storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p2Empty, (T)splitResult.Partition2.Data, splitResult.Partition2.Metadata, cancellationToken);
+        var p1 = await storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p1Empty, (T)splitResult.Partition1.Data, splitResult.Partition1.Metadata, cancellationToken).ConfigureAwait(false);
+        var p2 = await storageService.SavePartitionContentAsync(originalKey.LogicalKey, propertyName, p2Empty, (T)splitResult.Partition2.Data, splitResult.Partition2.Metadata, cancellationToken).ConfigureAwait(false);
 
-        await storageService.DeletePropertyPartitionAsync(propertyName, dataPartitionToSplit, cancellationToken);
-        await storageService.InsertPropertyPartitionAsync(propertyName, p1, cancellationToken);
-        await storageService.InsertPropertyPartitionAsync(propertyName, p2, cancellationToken);
+        await storageService.DeletePropertyPartitionAsync(propertyName, dataPartitionToSplit, cancellationToken).ConfigureAwait(false);
+        await storageService.InsertPropertyPartitionAsync(propertyName, p1, cancellationToken).ConfigureAwait(false);
+        await storageService.InsertPropertyPartitionAsync(propertyName, p2, cancellationToken).ConfigureAwait(false);
 
         if (p1 is DataPartition dp1 && dp1.DataLength > MaxPartitionDataSize && dp1.DataLength < dataPartitionToSplit.DataLength)
         {
-            await SplitPartitionAsync(dp1, propertyName, strategy, prop, cancellationToken);
+            await SplitPartitionAsync(dp1, propertyName, strategy, prop, cancellationToken).ConfigureAwait(false);
         }
 
         if (p2 is DataPartition dp2 && dp2.DataLength > MaxPartitionDataSize && dp2.DataLength < dataPartitionToSplit.DataLength)
         {
-            await SplitPartitionAsync(dp2, propertyName, strategy, prop, cancellationToken);
+            await SplitPartitionAsync(dp2, propertyName, strategy, prop, cancellationToken).ConfigureAwait(false);
         }
     }
 

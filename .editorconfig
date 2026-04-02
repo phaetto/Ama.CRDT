@@ -1,10 +1,17 @@
-﻿[*.cs]
+root = true
+
+[*.cs]
+
+# CA2007: Consider calling ConfigureAwait on the awaited task
+# Turned OFF by default globally so Tests, Benchmarks, and ShowCases do not trigger it.
+dotnet_diagnostic.CA2007.severity = none
 
 # RS0036: Annotate nullability of public types and members in the declared API
 dotnet_diagnostic.RS0036.severity = none
 
 # RS0016: Add public types and members to the declared API
 dotnet_diagnostic.RS0016.severity = error
+
 csharp_indent_labels = one_less_than_current
 csharp_using_directive_placement = inside_namespace:silent
 csharp_prefer_simple_using_statement = true:suggestion
@@ -22,6 +29,20 @@ csharp_style_expression_bodied_indexers = true:silent
 csharp_style_expression_bodied_accessors = true:silent
 csharp_style_expression_bodied_lambdas = true:silent
 csharp_style_expression_bodied_local_functions = false:silent
+
+# === EXPLICITLY ENABLE CA2007 STRICTLY FOR SHIPPED LIBRARY PROJECTS ===
+[Ama.CRDT/**/*.cs]
+dotnet_diagnostic.CA2007.severity = error
+
+[Ama.CRDT.Partitioning.Streams/**/*.cs]
+dotnet_diagnostic.CA2007.severity = error
+
+[Ama.CRDT.Analyzers/**/*.cs]
+dotnet_diagnostic.CA2007.severity = error
+
+[Ama.CRDT.Project.Analyzers/**/*.cs]
+dotnet_diagnostic.CA2007.severity = error
+# ======================================================================
 
 [*.{cs,vb}]
 #### Naming styles ####

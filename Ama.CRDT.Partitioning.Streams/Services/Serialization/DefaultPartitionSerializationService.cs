@@ -51,8 +51,8 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         if (jsonData.Length > headerSize) throw new InvalidOperationException("Header size is too large.");
 
         jsonData.CopyTo(buffer, 0);
-        await stream.WriteAsync(buffer.AsMemory(0, headerSize), cancellationToken);
-        await stream.FlushAsync(cancellationToken);
+        await stream.WriteAsync(buffer.AsMemory(0, headerSize), cancellationToken).ConfigureAwait(false);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -62,7 +62,7 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
 
         stream.Seek(0, SeekOrigin.Begin);
         var buffer = new byte[headerSize];
-        await stream.ReadExactlyAsync(buffer.AsMemory(0, headerSize), cancellationToken);
+        await stream.ReadExactlyAsync(buffer.AsMemory(0, headerSize), cancellationToken).ConfigureAwait(false);
 
         int endOfJson = Array.FindLastIndex(buffer, b => b != 0) + 1;
         if (endOfJson == 0) endOfJson = headerSize;
@@ -76,8 +76,8 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(node);
 
-        var nodeBytes = await SerializeNodeToBytesAsync(node, cancellationToken);
-        await WriteNodeBytesAsync(stream, nodeBytes, offset, cancellationToken);
+        var nodeBytes = await SerializeNodeToBytesAsync(node, cancellationToken).ConfigureAwait(false);
+        await WriteNodeBytesAsync(stream, nodeBytes, offset, cancellationToken).ConfigureAwait(false);
         return nodeBytes.Length;
     }
 
@@ -89,14 +89,14 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         stream.Seek(offset, SeekOrigin.Begin);
 
         var lengthBuffer = new byte[sizeof(int)];
-        await stream.ReadExactlyAsync(lengthBuffer, cancellationToken);
+        await stream.ReadExactlyAsync(lengthBuffer, cancellationToken).ConfigureAwait(false);
         var length = BitConverter.ToInt32(lengthBuffer);
 
         var jsonBuffer = new byte[length];
-        await stream.ReadExactlyAsync(jsonBuffer, cancellationToken);
+        await stream.ReadExactlyAsync(jsonBuffer, cancellationToken).ConfigureAwait(false);
 
         using var memStream = new MemoryStream(jsonBuffer);
-        return (await JsonSerializer.DeserializeAsync<BPlusTreeNode>(memStream, serializerOptions, cancellationToken))!;
+        return (await JsonSerializer.DeserializeAsync<BPlusTreeNode>(memStream, serializerOptions, cancellationToken).ConfigureAwait(false))!;
     }
 
     /// <inheritdoc/>
@@ -105,7 +105,7 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(content);
 
-        await JsonSerializer.SerializeAsync(stream, content, content.GetType(), serializerOptions, cancellationToken);
+        await JsonSerializer.SerializeAsync(stream, content, content.GetType(), serializerOptions, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -113,7 +113,7 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
     {
         ArgumentNullException.ThrowIfNull(stream);
 
-        return await JsonSerializer.DeserializeAsync<T>(stream, serializerOptions, cancellationToken);
+        return await JsonSerializer.DeserializeAsync<T>(stream, serializerOptions, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -131,7 +131,7 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         ArgumentNullException.ThrowIfNull(node);
 
         using var memStream = new MemoryStream();
-        await JsonSerializer.SerializeAsync(memStream, node, typeof(BPlusTreeNode), serializerOptions, cancellationToken);
+        await JsonSerializer.SerializeAsync(memStream, node, typeof(BPlusTreeNode), serializerOptions, cancellationToken).ConfigureAwait(false);
         var jsonBytes = memStream.ToArray();
 
         var lengthPrefix = BitConverter.GetBytes(jsonBytes.Length);
@@ -149,7 +149,7 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         ArgumentNullException.ThrowIfNull(nodeBytes);
 
         stream.Seek(offset, SeekOrigin.Begin);
-        await stream.WriteAsync(nodeBytes.AsMemory(), cancellationToken);
-        await stream.FlushAsync(cancellationToken);
+        await stream.WriteAsync(nodeBytes.AsMemory(), cancellationToken).ConfigureAwait(false);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 }
