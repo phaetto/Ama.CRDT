@@ -67,7 +67,7 @@ public class TestClass
     }
 
     [Fact]
-    public async Task WhenPropertyInfoNameIsAccessed_ShouldReportDiagnostic()
+    public async Task WhenPropertyInfoNameIsAccessed_ShouldNotReportDiagnostic()
     {
         var source = @"
 using System.Reflection;
@@ -77,16 +77,14 @@ public class TestClass
     public void DoWork(PropertyInfo prop)
     {
         _ = prop.Name;
+        _ = prop.PropertyType;
+        _ = prop.DeclaringType;
     }
 }
 ";
-        var expected = new DiagnosticResult("CRDTPROJ0001", DiagnosticSeverity.Error)
-            .WithLocation(8, 13)
-            .WithArguments("Name");
-
+        // .Name, .PropertyType, and .DeclaringType are metadata access and completely AOT-safe
         var test = CreateTest();
         test.TestCode = source;
-        test.ExpectedDiagnostics.Add(expected);
         await test.RunAsync();
     }
 
