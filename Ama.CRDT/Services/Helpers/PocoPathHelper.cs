@@ -2,9 +2,7 @@ namespace Ama.CRDT.Services.Helpers;
 
 using System;
 using System.Collections;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
@@ -14,14 +12,11 @@ using System.Text.Json.Serialization;
 using Ama.CRDT.Models.Aot;
 
 /// <summary>
-/// A utility class containing helper methods for parsing JSON paths and resolving them against POCOs using Source Generator AOT Contexts or Reflection.
+/// A utility class containing helper methods for parsing JSON paths and resolving them against POCOs using Source Generator AOT Contexts.
 /// </summary>
 internal static class PocoPathHelper
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
-
-    // Fallback cache used only when Native AOT Contexts are not provided
-    private static readonly ConcurrentDictionary<Type, CrdtTypeInfo> ReflectionCache = new();
 
     internal readonly record struct ParseResult(string JsonPath, CrdtPropertyInfo Property);
     
@@ -33,7 +28,7 @@ internal static class PocoPathHelper
     internal readonly record struct DictionaryKeyPathSegment(string Key);
 
     /// <summary>
-    /// Retrieves AOT metadata for the specified type. If not found in the provided contexts, builds it safely using reflection.
+    /// Retrieves AOT metadata for the specified type strictly from the provided contexts.
     /// </summary>
     public static CrdtTypeInfo GetTypeInfo(Type type, IEnumerable<CrdtContext>? aotContexts = null)
     {
@@ -46,64 +41,7 @@ internal static class PocoPathHelper
             }
         }
 
-        return ReflectionCache.GetOrAdd(type, BuildReflectionTypeInfo);
-    }
-
-    [RequiresUnreferencedCode("Reflection fallback requires unreferenced code. Mark models with [CrdtSerializable] to use the AOT Source Generator.")]
-    [RequiresDynamicCode("Reflection fallback requires dynamic code. Mark models with [CrdtSerializable] to use the AOT Source Generator.")]
-    private static CrdtTypeInfo BuildReflectionTypeInfo(Type type)
-    {
-        Func<object>? createInstance = null;
-        if (type.IsClass && !type.IsAbstract)
-        {
-            var ctor = type.GetConstructor(Type.EmptyTypes);
-            if (ctor != null)
-            {
-                createInstance = () => ctor.Invoke(null);
-            }
-        }
-        else if (type.IsValueType)
-        {
-            createInstance = () => Activator.CreateInstance(type)!;
-        }
-
-        var properties = new Dictionary<string, CrdtPropertyInfo>(StringComparer.OrdinalIgnoreCase);
-        foreach (var p in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
-        {
-            if (!p.CanRead || p.GetIndexParameters().Length > 0 || p.GetCustomAttribute<JsonIgnoreAttribute>() != null)
-                continue;
-
-            var jsonName = SerializerOptions.PropertyNamingPolicy?.ConvertName(p.Name) ?? p.Name;
-            
-            Func<object, object?>? getter = p.CanRead ? obj => p.GetValue(obj) : null;
-            Action<object, object?>? setter = p.CanWrite ? (obj, val) => p.SetValue(obj, val) : null;
-
-            properties[p.Name] = new CrdtPropertyInfo(p.Name, jsonName, p.PropertyType, p.CanRead, p.CanWrite, getter, setter);
-        }
-
-        bool isCollection = IsCollection(type);
-        Type? collectionElementType = isCollection ? GetCollectionElementTypeReflect(type) : null;
-        Action<object, object?>? collectionAdd = null;
-        Action<object, object?>? collectionRemove = null;
-        Action<object>? collectionClear = null;
-
-        if (isCollection)
-        {
-            var addMethod = type.GetMethod("Add") ?? type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))?.GetMethod("Add");
-            if (addMethod != null) collectionAdd = (col, item) => addMethod.Invoke(col, new[] { item });
-
-            var removeMethod = type.GetMethod("Remove") ?? type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))?.GetMethod("Remove");
-            if (removeMethod != null) collectionRemove = (col, item) => removeMethod.Invoke(col, new[] { item });
-
-            var clearMethod = type.GetMethod("Clear") ?? type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))?.GetMethod("Clear");
-            if (clearMethod != null) collectionClear = col => clearMethod.Invoke(col, null);
-        }
-
-        bool isDictionary = typeof(IDictionary).IsAssignableFrom(type) || type.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
-        Type? dictKeyType = isDictionary ? GetDictionaryKeyTypeReflect(type) : null;
-        Type? dictValType = isDictionary ? GetDictionaryValueTypeReflect(type) : null;
-
-        return new CrdtTypeInfo(type, createInstance, properties, isCollection, collectionElementType, collectionAdd, collectionRemove, collectionClear, isDictionary, dictKeyType, dictValType);
+        throw new InvalidOperationException($"Type '{type.Name}' is not registered in any provided AOT context. Please ensure the type is decorated with [CrdtSerializable] and the context is registered via DI.");
     }
 
     /// <summary>
@@ -323,7 +261,6 @@ internal static class PocoPathHelper
             {
                 var currentSegmentStr = currentSegment.ToString();
 
-                // Simple fallback to locate by JSON name or exact C# property name
                 var propertyInfo = currentTypeInfo.Properties.Values.FirstOrDefault(p => 
                     p.JsonName.Equals(currentSegmentStr, StringComparison.OrdinalIgnoreCase) || 
                     p.Name.Equals(currentSegmentStr, StringComparison.OrdinalIgnoreCase));
@@ -502,33 +439,13 @@ internal static class PocoPathHelper
     public static object InstantiateCollection(Type propertyType, IEnumerable<CrdtContext>? aotContexts = null)
     {
         var typeInfo = GetTypeInfo(propertyType, aotContexts);
-        var elementType = typeInfo.CollectionElementType ?? typeof(object);
-        Type concreteType;
-
-        if (propertyType.IsInterface)
+        
+        if (typeInfo.CreateInstance != null)
         {
-            var genericDef = propertyType.IsGenericType ? propertyType.GetGenericTypeDefinition() : null;
-            if (genericDef == typeof(ISet<>) || genericDef == typeof(IReadOnlySet<>))
-                concreteType = typeof(HashSet<>).MakeGenericType(elementType);
-            else
-                concreteType = typeof(List<>).MakeGenericType(elementType);
-        }
-        else if (propertyType.IsAbstract)
-        {
-            concreteType = typeof(List<>).MakeGenericType(elementType);
-        }
-        else
-        {
-            concreteType = propertyType;
+            return typeInfo.CreateInstance();
         }
 
-        var concreteTypeInfo = GetTypeInfo(concreteType, aotContexts);
-        if (concreteTypeInfo.CreateInstance != null)
-        {
-            return concreteTypeInfo.CreateInstance();
-        }
-
-        throw new InvalidOperationException($"Cannot instantiate collection type {concreteType.Name}");
+        throw new InvalidOperationException($"Cannot instantiate collection type {propertyType.Name}. Ensure it is supported by the AOT source generator.");
     }
 
     public static void AddToCollection(object collection, object? item, IEnumerable<CrdtContext>? aotContexts = null)
@@ -594,20 +511,6 @@ internal static class PocoPathHelper
 
         if (value is IDictionary<string, object> dictionary)
         {
-            if (underlyingType.IsGenericType && underlyingType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
-            {
-                var keyType = underlyingType.GetGenericArguments()[0];
-                var valueType = underlyingType.GetGenericArguments()[1];
-
-                dictionary.TryGetValue("Key", out var keyObj);
-                dictionary.TryGetValue("Value", out var valueObj);
-
-                var key = ConvertValue(keyObj, keyType, aotContexts);
-                var val = ConvertValue(valueObj, valueType, aotContexts);
-
-                return Activator.CreateInstance(underlyingType, key, val);
-            }
-
             if (!underlyingType.IsPrimitive && underlyingType != typeof(string) && !typeof(IEnumerable).IsAssignableFrom(underlyingType))
             {
                 var typeInfo = GetTypeInfo(underlyingType, aotContexts);
@@ -748,36 +651,5 @@ internal static class PocoPathHelper
             return $"'{s}'";
         }
         return index?.ToString() ?? string.Empty;
-    }
-
-    private static Type GetCollectionElementTypeReflect(Type collectionType)
-    {
-        var iEnumerableOfT = collectionType.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
-        if (iEnumerableOfT != null)
-        {
-            return iEnumerableOfT.GetGenericArguments()[0];
-        }
-
-        return collectionType.IsGenericType
-            ? collectionType.GetGenericArguments()[0]
-            : collectionType.GetElementType() ?? typeof(object);
-    }
-
-    private static Type GetDictionaryKeyTypeReflect(Type type)
-    {
-        var genericDictionaryInterface = (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IDictionary<,>))
-            ? type
-            : type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
-
-        return genericDictionaryInterface?.GetGenericArguments()[0] ?? typeof(object);
-    }
-
-    private static Type GetDictionaryValueTypeReflect(Type type)
-    {
-        var genericDictionaryInterface = (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IDictionary<,>))
-            ? type
-            : type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
-
-        return genericDictionaryInterface?.GetGenericArguments()[1] ?? typeof(object);
     }
 }
