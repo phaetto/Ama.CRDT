@@ -96,7 +96,11 @@ public class CrdtContextGenerator : IIncrementalGenerator
         bool hasParameterlessCtor = type.TypeKind == TypeKind.Class && !type.IsAbstract && 
                                     type.GetMembers(".ctor").OfType<IMethodSymbol>().Any(m => m.Parameters.Length == 0);
         
-        if (hasParameterlessCtor)
+        bool hasRequiredMembers = type.GetMembers().Any(m => 
+            (m is IPropertySymbol prop && prop.IsRequired) || 
+            (m is IFieldSymbol field && field.IsRequired));
+        
+        if (hasParameterlessCtor && !hasRequiredMembers)
         {
             sb.AppendLine($"                createInstance: () => new {fullyQualifiedTypeName}(),");
         }
@@ -117,15 +121,19 @@ public class CrdtContextGenerator : IIncrementalGenerator
             var jsonName = char.ToLowerInvariant(propName[0]) + propName.Substring(1); // Basic camelCase
             var propType = prop.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 
-            var getter = prop.GetMethod != null ? $"obj => (({fullyQualifiedTypeName})obj).{propName}" : "null";
-            var setter = prop.SetMethod != null ? $"(obj, val) => (({fullyQualifiedTypeName})obj).{propName} = val == null ? default! : ({propType})val" : "null";
+            var hasGetter = prop.GetMethod != null;
+            // Ensure we do not generate a setter lambda for init-only properties.
+            var hasSetter = prop.SetMethod != null && !prop.SetMethod.IsInitOnly;
+
+            var getter = hasGetter ? $"obj => (({fullyQualifiedTypeName})obj).{propName}" : "null";
+            var setter = hasSetter ? $"(obj, val) => (({fullyQualifiedTypeName})obj).{propName} = val == null ? default! : ({propType})val" : "null";
 
             sb.AppendLine($"                    [\"{propName}\"] = new global::Ama.CRDT.Models.Aot.CrdtPropertyInfo(");
             sb.AppendLine($"                        name: \"{propName}\",");
             sb.AppendLine($"                        jsonName: \"{jsonName}\",");
             sb.AppendLine($"                        propertyType: typeof({propType}),");
-            sb.AppendLine($"                        canRead: {(prop.GetMethod != null ? "true" : "false")},");
-            sb.AppendLine($"                        canWrite: {(prop.SetMethod != null ? "true" : "false")},");
+            sb.AppendLine($"                        canRead: {(hasGetter ? "true" : "false")},");
+            sb.AppendLine($"                        canWrite: {(hasSetter ? "true" : "false")},");
             sb.AppendLine($"                        getter: {getter},");
             sb.AppendLine($"                        setter: {setter}");
             sb.AppendLine("                    ),");
