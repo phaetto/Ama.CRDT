@@ -3,14 +3,17 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
-using System.Reflection;
+using System.Linq;
 
 /// <inheritdoc/>
 [CrdtSupportedType(typeof(IList))]
@@ -23,7 +26,8 @@ using System.Reflection;
 [OperationBased]
 public sealed class ArrayLcsStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -40,7 +44,7 @@ public sealed class ArrayLcsStrategy(
             return;
         }
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         
         var comparer = comparerProvider.GetComparer(elementType);
 
@@ -91,8 +95,8 @@ public sealed class ArrayLcsStrategy(
         var intent = context.Intent;
         var timestamp = context.Timestamp;
 
-        var (parent, resolvedProperty, _) = PocoPathHelper.ResolvePath(root, path);
-        var list = (parent != null && resolvedProperty != null ? PocoPathHelper.GetAccessor(resolvedProperty).Getter(parent) as IList : null) ?? new List<object>();
+        var (parent, resolvedProperty, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);
+        var list = (parent != null && resolvedProperty != null && resolvedProperty.CanRead ? resolvedProperty.Getter!(parent) as IList : null) ?? new List<object>();
 
         var positions = GetOrInitializePositions(list, metadata, path);
 
@@ -140,8 +144,8 @@ public sealed class ArrayLcsStrategy(
     {
         var (root, metadata, operation) = context;
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
+        if (parent is null || property is null || !property.CanRead || property.Getter!(parent) is not IList list)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
@@ -183,9 +187,9 @@ public sealed class ArrayLcsStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
-        var list = (IList?)PocoPathHelper.GetAccessor(partitionableProperty).Getter(data);
+        var list = partitionableProperty.CanRead ? (IList?)partitionableProperty.Getter!(data) : null;
         if (list is null || list.Count == 0) return null;
         
         return new PositionalIdentifier("1", Guid.Empty);
@@ -202,11 +206,11 @@ public sealed class ArrayLcsStrategy(
         if (operation.Value is PositionalItem item) return new PositionalIdentifier(item.Position, operation.Id);
         if (operation.Value is PositionalIdentifier identifier) return identifier;
 
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalItem)) is PositionalItem convertedItem)
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalItem), aotContexts) is PositionalItem convertedItem)
         {
             return new PositionalIdentifier(convertedItem.Position, operation.Id);
         }
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalIdentifier)) is PositionalIdentifier convertedIdentifier)
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalIdentifier), aotContexts) is PositionalIdentifier convertedIdentifier)
         {
             return convertedIdentifier;
         }
@@ -215,7 +219,7 @@ public sealed class ArrayLcsStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    public IComparable GetMinimumKey(CrdtPropertyInfo partitionableProperty)
     {
         // For ArrayLcsStrategy, the key type is always PositionalIdentifier, which is internal to the strategy.
         // The provided property is not used because the key is strategy-defined.
@@ -224,12 +228,12 @@ public sealed class ArrayLcsStrategy(
     }
 
     /// <inheritdoc/>
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var list = (IList)PocoPathHelper.GetAccessor(partitionableProperty).Getter(originalData)!;
+        var list = (IList)partitionableProperty.Getter!(originalData)!;
         if (list.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
@@ -243,18 +247,26 @@ public sealed class ArrayLcsStrategy(
         var splitIndex = list.Count / 2;
         var splitKey = positions[splitIndex];
 
-        var doc1 = Activator.CreateInstance(documentType)!;
-        var list1 = (IList)Activator.CreateInstance(list.GetType())!;
+        var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
+        var list1 = partitionableProperty.Getter!(doc1) as IList;
+        if (list1 == null)
+        {
+            list1 = (IList)PocoPathHelper.Instantiate(partitionableProperty.PropertyType, aotContexts)!;
+            partitionableProperty.Setter!(doc1, list1);
+        }
         for (int i = 0; i < splitIndex; i++) list1.Add(list[i]);
-        PocoPathHelper.GetAccessor(partitionableProperty).Setter(doc1, list1);
         
         var meta1 = originalMetadata.DeepClone();
         meta1.PositionalTrackers[path] = positions.Take(splitIndex).ToList();
 
-        var doc2 = Activator.CreateInstance(documentType)!;
-        var list2 = (IList)Activator.CreateInstance(list.GetType())!;
+        var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
+        var list2 = partitionableProperty.Getter!(doc2) as IList;
+        if (list2 == null)
+        {
+            list2 = (IList)PocoPathHelper.Instantiate(partitionableProperty.PropertyType, aotContexts)!;
+            partitionableProperty.Setter!(doc2, list2);
+        }
         for (int i = splitIndex; i < list.Count; i++) list2.Add(list[i]);
-        PocoPathHelper.GetAccessor(partitionableProperty).Setter(doc2, list2);
         
         var meta2 = originalMetadata.DeepClone();
         meta2.PositionalTrackers[path] = positions.Skip(splitIndex).ToList();
@@ -263,21 +275,24 @@ public sealed class ArrayLcsStrategy(
     }
 
     /// <inheritdoc/>
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = data1.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var list1 = (IList)PocoPathHelper.GetAccessor(partitionableProperty).Getter(data1)!;
-        var list2 = (IList)PocoPathHelper.GetAccessor(partitionableProperty).Getter(data2)!;
+        var list1 = (IList)partitionableProperty.Getter!(data1)!;
+        var list2 = (IList)partitionableProperty.Getter!(data2)!;
 
-        var mergedDoc = Activator.CreateInstance(documentType)!;
-        var mergedList = (IList)Activator.CreateInstance(list1.GetType())!;
+        var mergedDoc = PocoPathHelper.Instantiate(documentType, aotContexts)!;
+        var mergedList = partitionableProperty.Getter!(mergedDoc) as IList;
+        if (mergedList == null)
+        {
+            mergedList = (IList)PocoPathHelper.Instantiate(partitionableProperty.PropertyType, aotContexts)!;
+            partitionableProperty.Setter!(mergedDoc, mergedList);
+        }
 
         foreach (var item in list1) mergedList.Add(item);
         foreach (var item in list2) mergedList.Add(item);
-        
-        PocoPathHelper.GetAccessor(partitionableProperty).Setter(mergedDoc, mergedList);
         
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
         
@@ -289,12 +304,12 @@ public sealed class ArrayLcsStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private void ApplyUpsert(IList list, List<PositionalIdentifier> positions, CrdtOperation operation, PropertyInfo collectionProperty)
+    private void ApplyUpsert(IList list, List<PositionalIdentifier> positions, CrdtOperation operation, CrdtPropertyInfo collectionProperty)
     {
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalItem)) is not PositionalItem item) return;
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalItem), aotContexts) is not PositionalItem item) return;
 
-        var elementType = PocoPathHelper.GetCollectionElementType(collectionProperty);
-        var itemValue = PocoPathHelper.ConvertValue(item.Value, elementType);
+        var elementType = PocoPathHelper.GetTypeInfo(collectionProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+        var itemValue = PocoPathHelper.ConvertValue(item.Value, elementType, aotContexts);
 
         var newIdentifier = new PositionalIdentifier(item.Position, operation.Id);
 
@@ -321,7 +336,7 @@ public sealed class ArrayLcsStrategy(
     
     private void ApplyRemove(IList list, List<PositionalIdentifier> positions, CrdtOperation operation)
     {
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalIdentifier)) is not PositionalIdentifier identifier) return;
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalIdentifier), aotContexts) is not PositionalIdentifier identifier) return;
         
         var index = positions.IndexOf(identifier);
 

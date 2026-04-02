@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.GarbageCollection;
@@ -13,7 +14,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 /// <summary>
 /// Implements the OR-Set (Observed-Remove Set) CRDT strategy.
@@ -30,7 +30,8 @@ using System.Reflection;
 [StateBased]
 public sealed class OrSetStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     
@@ -42,7 +43,7 @@ public sealed class OrSetStrategy(
         var originalSet = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedSet = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
         var added = modifiedSet.Except(originalSet, comparer);
@@ -77,24 +78,24 @@ public sealed class OrSetStrategy(
         if (string.IsNullOrEmpty(context.JsonPath)) throw new ArgumentException("JsonPath cannot be null or empty.", nameof(context));
         if (context.Timestamp is null) throw new ArgumentException("Timestamp cannot be null.", nameof(context));
 
-        var elementType = PocoPathHelper.GetCollectionElementType(context.Property);
+        var elementType = PocoPathHelper.GetTypeInfo(context.Property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
 
         if (context.Intent is AddIntent addIntent)
         {
-            var value = PocoPathHelper.ConvertValue(addIntent.Value, elementType);
+            var value = PocoPathHelper.ConvertValue(addIntent.Value, elementType, aotContexts);
             var payload = new OrSetAddItem(value!, Guid.NewGuid());
             return new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Upsert, payload, context.Timestamp, context.Clock);
         }
 
         if (context.Intent is RemoveValueIntent removeValueIntent)
         {
-            var value = PocoPathHelper.ConvertValue(removeValueIntent.Value, elementType);
+            var value = PocoPathHelper.ConvertValue(removeValueIntent.Value, elementType, aotContexts);
             return GenerateRemoveOperation(context, value);
         }
 
         if (context.Intent is RemoveIntent removeIntent)
         {
-            var collection = PocoPathHelper.GetValue<IEnumerable>(context.DocumentRoot, context.JsonPath);
+            var collection = PocoPathHelper.GetValue<IEnumerable>(context.DocumentRoot, context.JsonPath, aotContexts);
             if (collection is IList list)
             {
                 if (removeIntent.Index >= 0 && removeIntent.Index < list.Count)
@@ -115,13 +116,13 @@ public sealed class OrSetStrategy(
     {
         var (root, metadata, operation) = context;
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IEnumerable collection)
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
+        if (parent is null || property is null || property.Getter!(parent) is not IEnumerable collection)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
         if (!metadata.OrSets.TryGetValue(operation.JsonPath, out var state))
@@ -227,9 +228,9 @@ public sealed class OrSetStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
-        var collection = PocoPathHelper.GetValue<IEnumerable>(data, partitionableProperty.Name);
+        var collection = PocoPathHelper.GetValue<IEnumerable>(data, partitionableProperty.Name, aotContexts);
         if (collection == null) return null;
 
         var items = new List<IComparable>();
@@ -250,12 +251,12 @@ public sealed class OrSetStrategy(
 
         if (operation.Type == OperationType.Upsert)
         {
-            var payload = PocoPathHelper.ConvertValue(operation.Value, typeof(OrSetAddItem));
+            var payload = PocoPathHelper.ConvertValue(operation.Value, typeof(OrSetAddItem), aotContexts);
             if (payload is OrSetAddItem addItem) return addItem.Value as IComparable ?? addItem.Value?.ToString() as IComparable;
         }
         else if (operation.Type == OperationType.Remove)
         {
-            var payload = PocoPathHelper.ConvertValue(operation.Value, typeof(OrSetRemoveItem));
+            var payload = PocoPathHelper.ConvertValue(operation.Value, typeof(OrSetRemoveItem), aotContexts);
             if (payload is OrSetRemoveItem remItem) return remItem.Value as IComparable ?? remItem.Value?.ToString() as IComparable;
         }
 
@@ -263,16 +264,16 @@ public sealed class OrSetStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    public IComparable GetMinimumKey(CrdtPropertyInfo partitionableProperty)
     {
-        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         return GetMinimumKeyForType(elementType);
     }
 
     /// <inheritdoc/>
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
         if (!originalMetadata.OrSets.TryGetValue(path, out var state) || state.Adds.Count + state.Removes.Count < 2)
@@ -290,7 +291,7 @@ public sealed class OrSetStrategy(
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
 
-        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
         var adds1 = new Dictionary<object, ISet<Guid>>(comparer);
@@ -312,8 +313,8 @@ public sealed class OrSetStrategy(
         meta1.OrSets[path] = new OrSetState(adds1, rems1);
         meta2.OrSets[path] = new OrSetState(adds2, rems2);
 
-        var doc1 = Activator.CreateInstance(documentType)!;
-        var doc2 = Activator.CreateInstance(documentType)!;
+        var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts);
+        var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts);
 
         ReconstructListForSplitMerge(doc1, path, meta1.OrSets[path], elementType, partitionableProperty.PropertyType);
         ReconstructListForSplitMerge(doc2, path, meta2.OrSets[path], elementType, partitionableProperty.PropertyType);
@@ -322,15 +323,15 @@ public sealed class OrSetStrategy(
     }
 
     /// <inheritdoc/>
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = data1.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var mergedDoc = Activator.CreateInstance(documentType)!;
+        var mergedDoc = PocoPathHelper.Instantiate(documentType, aotContexts);
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
         var adds = new Dictionary<object, ISet<Guid>>(comparer);
@@ -369,16 +370,16 @@ public sealed class OrSetStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructListForSplitMerge(object root, string path, OrSetState state, Type elementType, Type propertyType)
+    private void ReconstructListForSplitMerge(object root, string path, OrSetState state, Type elementType, Type propertyType)
     {
-        var collection = PocoPathHelper.GetValue<object>(root, path);
+        var collection = PocoPathHelper.GetValue<object>(root, path, aotContexts);
         if (collection is null)
         {
-            collection = PocoPathHelper.InstantiateCollection(propertyType);
-            PocoPathHelper.SetValue(root, path, collection);
+            collection = PocoPathHelper.InstantiateCollection(propertyType, aotContexts);
+            PocoPathHelper.SetValue(root, path, collection, aotContexts);
         }
 
-        PocoPathHelper.ClearCollection(collection);
+        PocoPathHelper.ClearCollection(collection, aotContexts);
         var liveItems = new List<object>();
 
         foreach (var kvp in state.Adds)
@@ -387,20 +388,20 @@ public sealed class OrSetStrategy(
             var addTags = kvp.Value;
             if (!state.Removes.TryGetValue(item, out var rmTags) || addTags.Except(rmTags.Keys).Any())
             {
-                var converted = PocoPathHelper.ConvertValue(item, elementType);
+                var converted = PocoPathHelper.ConvertValue(item, elementType, aotContexts);
                 if (converted != null) liveItems.Add(converted);
             }
         }
 
         liveItems.Sort((x, y) => string.CompareOrdinal(x.ToString(), y.ToString()));
-        foreach (var item in liveItems) PocoPathHelper.AddToCollection(collection, item);
+        foreach (var item in liveItems) PocoPathHelper.AddToCollection(collection, item, aotContexts);
     }
     
-    private static object? ApplyUpsert(OrSetState state, object? opValue, Type elementType)
+    private object? ApplyUpsert(OrSetState state, object? opValue, Type elementType)
     {
-        if (PocoPathHelper.ConvertValue(opValue, typeof(OrSetAddItem)) is not OrSetAddItem payload) return null;
+        if (PocoPathHelper.ConvertValue(opValue, typeof(OrSetAddItem), aotContexts) is not OrSetAddItem payload) return null;
         
-        var itemValue = PocoPathHelper.ConvertValue(payload.Value, elementType);
+        var itemValue = PocoPathHelper.ConvertValue(payload.Value, elementType, aotContexts);
         if (itemValue is null) return null;
         
         if (!state.Adds.TryGetValue(itemValue, out var addTags))
@@ -413,11 +414,11 @@ public sealed class OrSetStrategy(
         return itemValue;
     }
 
-    private static object? ApplyRemove(OrSetState state, CrdtOperation operation, Type elementType)
+    private object? ApplyRemove(OrSetState state, CrdtOperation operation, Type elementType)
     {
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrSetRemoveItem)) is not OrSetRemoveItem payload) return null;
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(OrSetRemoveItem), aotContexts) is not OrSetRemoveItem payload) return null;
 
-        var itemValue = PocoPathHelper.ConvertValue(payload.Value, elementType);
+        var itemValue = PocoPathHelper.ConvertValue(payload.Value, elementType, aotContexts);
         if (itemValue is null) return null;
 
         if (!state.Removes.TryGetValue(itemValue, out var removeDict))
@@ -437,7 +438,7 @@ public sealed class OrSetStrategy(
         return itemValue;
     }
 
-    private static void InsertSorted(object collection, object item, IEqualityComparer<object> comparer)
+    private void InsertSorted(object collection, object item, IEqualityComparer<object> comparer)
     {
         if (collection is IList list)
         {
@@ -463,12 +464,12 @@ public sealed class OrSetStrategy(
             var enumCol = ((IEnumerable)collection).Cast<object>();
             if (!enumCol.Contains(item, comparer))
             {
-                PocoPathHelper.AddToCollection(collection, item);
+                PocoPathHelper.AddToCollection(collection, item, aotContexts);
             }
         }
     }
 
-    private static void RemoveFromCollection(object collection, object item, IEqualityComparer<object> comparer)
+    private void RemoveFromCollection(object collection, object item, IEqualityComparer<object> comparer)
     {
         if (collection is IList list)
         {
@@ -483,11 +484,11 @@ public sealed class OrSetStrategy(
         }
         else
         {
-            PocoPathHelper.RemoveFromCollection(collection, item);
+            PocoPathHelper.RemoveFromCollection(collection, item, aotContexts);
         }
     }
 
-    private static IComparable GetMinimumKeyForType(Type keyType)
+    private IComparable GetMinimumKeyForType(Type keyType)
     {
         if (keyType == typeof(string)) return string.Empty;
         if (keyType == typeof(int)) return int.MinValue;
@@ -504,7 +505,8 @@ public sealed class OrSetStrategy(
 
         if (keyType.IsValueType)
         {
-            return (IComparable)Activator.CreateInstance(keyType)!;
+            var defaultVal = PocoPathHelper.GetDefaultValue(keyType, aotContexts);
+            if (defaultVal is IComparable comparable) return comparable;
         }
 
         throw new InvalidOperationException($"Cannot determine minimum key for type {keyType}.");

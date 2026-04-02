@@ -2,6 +2,7 @@ namespace Ama.CRDT.Services.Strategies;
 
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
@@ -11,7 +12,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Ama.CRDT.Services;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 
@@ -27,7 +27,8 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 [StateBased]
 public sealed class CounterMapStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -41,7 +42,8 @@ public sealed class CounterMapStrategy(
 
         if (originalDict is null && modifiedDict is null) return;
 
-        var keyType = PocoPathHelper.GetDictionaryKeyType(property);
+        var typeInfo = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts);
+        var keyType = typeInfo.DictionaryKeyType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
         var originalKeys = originalDict?.Keys.Cast<object>().ToHashSet(comparer) ?? new HashSet<object>(comparer);
@@ -54,8 +56,8 @@ public sealed class CounterMapStrategy(
             var originalExists = originalKeys.Contains(key);
             var modifiedExists = modifiedKeys.Contains(key);
 
-            var originalNumeric = originalExists ? PocoPathHelper.ConvertTo<decimal>(originalDict![key] ?? 0m) : 0m;
-            var modifiedNumeric = modifiedExists ? PocoPathHelper.ConvertTo<decimal>(modifiedDict![key] ?? 0m) : 0m;
+            var originalNumeric = originalExists ? PocoPathHelper.ConvertTo<decimal>(originalDict![key] ?? 0m, aotContexts) : 0m;
+            var modifiedNumeric = modifiedExists ? PocoPathHelper.ConvertTo<decimal>(modifiedDict![key] ?? 0m, aotContexts) : 0m;
 
             var delta = modifiedNumeric - originalNumeric;
 
@@ -102,14 +104,15 @@ public sealed class CounterMapStrategy(
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IDictionary dict)
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
+        if (parent is null || property is null || property.Getter!(parent) is not IDictionary dict)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        var keyType = PocoPathHelper.GetDictionaryKeyType(property);
-        var valueType = PocoPathHelper.GetDictionaryValueType(property);
+        var typeInfo = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts);
+        var keyType = typeInfo.DictionaryKeyType ?? typeof(object);
+        var valueType = typeInfo.DictionaryValueType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
         
         if (!metadata.CounterMaps.TryGetValue(operation.JsonPath, out var counters))
@@ -118,12 +121,12 @@ public sealed class CounterMapStrategy(
             metadata.CounterMaps[operation.JsonPath] = counters;
         }
 
-        if (PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>)) is not KeyValuePair<object, object?> payload)
+        if (PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>), aotContexts) is not KeyValuePair<object, object?> payload)
         {
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
         
-        var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType);
+        var itemKey = PocoPathHelper.ConvertValue(payload.Key, keyType, aotContexts);
         if (itemKey is null) return CrdtOperationStatus.StrategyApplicationFailed;
 
         if (!counters.TryGetValue(itemKey, out var counter))
@@ -131,7 +134,7 @@ public sealed class CounterMapStrategy(
             counter = new PnCounterState(0, 0);
         }
         
-        var delta = PocoPathHelper.ConvertTo<decimal>(payload.Value ?? 0m);
+        var delta = PocoPathHelper.ConvertTo<decimal>(payload.Value ?? 0m, aotContexts);
 
         if (delta > 0)
         {
@@ -145,7 +148,7 @@ public sealed class CounterMapStrategy(
         counters[itemKey] = counter;
         
         var newValue = counter.P - counter.N;
-        dict[itemKey] = PocoPathHelper.ConvertValue(newValue, valueType);
+        dict[itemKey] = PocoPathHelper.ConvertValue(newValue, valueType, aotContexts);
 
         return CrdtOperationStatus.Success;
     }
@@ -158,9 +161,9 @@ public sealed class CounterMapStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
-        var dict = PocoPathHelper.GetAccessor(partitionableProperty).Getter(data) as IDictionary;
+        var dict = partitionableProperty.Getter!(data) as IDictionary;
         if (dict == null || dict.Count == 0) return null;
 
         var sortedKeys = dict.Keys.Cast<IComparable>().OrderBy(k => k).ToList();
@@ -175,7 +178,7 @@ public sealed class CounterMapStrategy(
             return null;
         }
 
-        var payloadObj = PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>));
+        var payloadObj = PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>), aotContexts);
         if (payloadObj is KeyValuePair<object, object?> payload)
         {
             if (payload.Key is IComparable comparableKey)
@@ -193,9 +196,9 @@ public sealed class CounterMapStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    public IComparable GetMinimumKey(CrdtPropertyInfo partitionableProperty)
     {
-        var keyType = PocoPathHelper.GetDictionaryKeyType(partitionableProperty);
+        var keyType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
 
         if (keyType == typeof(string)) return string.Empty;
         if (keyType == typeof(int)) return int.MinValue;
@@ -212,16 +215,16 @@ public sealed class CounterMapStrategy(
 
         if (keyType.IsValueType)
         {
-            return (IComparable)Activator.CreateInstance(keyType)!;
+            return (IComparable)PocoPathHelper.GetDefaultValue(keyType, aotContexts)!;
         }
 
         throw new InvalidOperationException($"Cannot determine minimum key for type {keyType}.");
     }
 
     /// <inheritdoc/>
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
         if (!originalMetadata.CounterMaps.TryGetValue(path, out var counters) || counters.Count < 2)
@@ -236,14 +239,15 @@ public sealed class CounterMapStrategy(
         var keys1 = sortedKeys.Take(splitIndex).ToHashSet();
         var keys2 = sortedKeys.Skip(splitIndex).ToHashSet();
 
-        var doc1 = Activator.CreateInstance(documentType)!;
-        var doc2 = Activator.CreateInstance(documentType)!;
+        var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
+        var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
 
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
 
-        var keyType = PocoPathHelper.GetDictionaryKeyType(partitionableProperty);
-        var valueType = PocoPathHelper.GetDictionaryValueType(partitionableProperty);
+        var typeInfo = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts);
+        var keyType = typeInfo.DictionaryKeyType ?? typeof(object);
+        var valueType = typeInfo.DictionaryValueType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
         var counters1 = new Dictionary<object, PnCounterState>(comparer);
@@ -261,23 +265,24 @@ public sealed class CounterMapStrategy(
         }
         meta2.CounterMaps[path] = counters2;
 
-        ReconstructDictionaryForSplitMerge(doc1, path, counters1, keyType, valueType);
-        ReconstructDictionaryForSplitMerge(doc2, path, counters2, keyType, valueType);
+        ReconstructDictionaryForSplitMerge(doc1, path, counters1, keyType, valueType, aotContexts);
+        ReconstructDictionaryForSplitMerge(doc2, path, counters2, keyType, valueType, aotContexts);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
 
     /// <inheritdoc/>
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = data1.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var mergedDoc = Activator.CreateInstance(documentType)!;
+        var mergedDoc = PocoPathHelper.Instantiate(documentType, aotContexts)!;
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var keyType = PocoPathHelper.GetDictionaryKeyType(partitionableProperty);
-        var valueType = PocoPathHelper.GetDictionaryValueType(partitionableProperty);
+        var typeInfo = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts);
+        var keyType = typeInfo.DictionaryKeyType ?? typeof(object);
+        var valueType = typeInfo.DictionaryValueType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
         var mergedCounters = new Dictionary<object, PnCounterState>(comparer);
@@ -294,34 +299,33 @@ public sealed class CounterMapStrategy(
 
         mergedMeta.CounterMaps[path] = mergedCounters;
 
-        ReconstructDictionaryForSplitMerge(mergedDoc, path, mergedCounters, keyType, valueType);
+        ReconstructDictionaryForSplitMerge(mergedDoc, path, mergedCounters, keyType, valueType, aotContexts);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructDictionaryForSplitMerge(object root, string path, IDictionary<object, PnCounterState> counters, Type keyType, Type valueType)
+    private static void ReconstructDictionaryForSplitMerge(object root, string path, IDictionary<object, PnCounterState> counters, Type keyType, Type valueType, IEnumerable<CrdtContext> aotContexts)
     {
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);
         if (parent is null || property is null) return;
 
-        var dict = PocoPathHelper.GetAccessor(property).Getter(parent) as IDictionary;
+        var dict = property.Getter!(parent) as IDictionary;
         
         if (dict is null)
         {
-            var dictType = typeof(Dictionary<,>).MakeGenericType(keyType, valueType);
-            dict = (IDictionary)Activator.CreateInstance(dictType)!;
-            PocoPathHelper.GetAccessor(property).Setter(parent, dict);
+            dict = (IDictionary)PocoPathHelper.Instantiate(property.PropertyType, aotContexts)!;
+            property.Setter!(parent, dict);
         }
 
         dict.Clear();
         foreach (var kvp in counters)
         {
             var newValue = kvp.Value.P - kvp.Value.N;
-            var convertedKey = PocoPathHelper.ConvertValue(kvp.Key, keyType);
+            var convertedKey = PocoPathHelper.ConvertValue(kvp.Key, keyType, aotContexts);
             
             if (convertedKey is not null)
             {
-                dict[convertedKey] = PocoPathHelper.ConvertValue(newValue, valueType);
+                dict[convertedKey] = PocoPathHelper.ConvertValue(newValue, valueType, aotContexts);
             }
         }
     }

@@ -374,7 +374,7 @@
 | `$/Ama.CRDT/Services/Providers/IElementComparerProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/ReplicaContext.cs` | A scoped service that holds the unique identifier for a CRDT replica, making it available to other scoped services within the same `IServiceScope`. |
 | `$/Ama.CRDT/Services/Strategies/ApplyOperationContext.cs` | Defines the context for an <see cref="ICrdtStrategy.ApplyOperation"/> call, encapsulating all necessary parameters for applying a single CRDT operation to a document. This context is now simplified as strategies use centralized helpers for reflection. |
-| `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements a CRDT strategy for arrays using LCS. It supports type-specific element comparers and partitioning, using centralized reflection helpers. |
+| `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements a CRDT strategy for arrays using LCS. Refactored to eliminate reflection and rely purely on AOT contexts. |
 | `$/Ama.CRDT/Services/Strategies/AverageRegisterStrategy.cs` | Implements the Average Register strategy. It now uses centralized reflection helpers from `PocoPathHelper` to apply the calculated average value. |
 | `$/Ama.CRDT/Services/Strategies/BoundedCounterStrategy.cs` | Implements a counter that is clamped within a specified minimum and maximum value. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/CompactionContext.cs` | Defines the context for an `ICrdtStrategy.Compact` call, encapsulating parameters for garbage collection. |
@@ -383,8 +383,8 @@
 | `$/Ama.CRDT/Services/Strategies/Decorators/ApprovalQuorumStrategy.cs` | A decorator strategy that tracks pending proposals and requires a quorum of replicas to propose the exact same operation before it is applied. |
 | `$/Ama.CRDT/Services/Strategies/Decorators/EpochBoundStrategy.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Strategies/FixedSizeArrayStrategy.cs` | Implements a strategy for fixed-size arrays where each index is an LWW-Register. It now uses centralized reflection helpers from `PocoPathHelper`. |
-| `$/Ama.CRDT/Services/Strategies/FwwMapStrategy.cs` | Implements the FWW-Map strategy, a partitioned dictionary where each key-value pair resolves conflicts by picking the value with the lowest timestamp. |
-| `$/Ama.CRDT/Services/Strategies/FwwSetStrategy.cs` | Implements the FWW-Set strategy, a partitioned collection where conflicts are resolved by retaining the state of the earliest operation. |
+| `$/Ama.CRDT/Services/Strategies/FwwMapStrategy.cs` | Implements the FWW-Map strategy, a partitioned dictionary resolving conflicts by timestamp. Refactored to eliminate reflection and rely purely on AOT contexts. |
+| `$/Ama.CRDT/Services/Strategies/FwwSetStrategy.cs` | Implements the FWW-Set strategy, a partitioned collection resolving conflicts by timestamp. Refactored to eliminate reflection and rely purely on AOT contexts. |
 | `$/Ama.CRDT/Services/Strategies/FwwStrategy.cs` | Implements the First-Writer-Wins (FWW) strategy for conflict resolution, resolving concurrent modifications by selecting the value with the lowest timestamp. |
 | `$/Ama.CRDT/Services/Strategies/GCounterStrategy.cs` | Implements the G-Counter (Grow-Only Counter) strategy, which only allows for positive increments. |
 | `$/Ama.CRDT/Services/Strategies/GSetStrategy.cs` | Implements the G-Set (Grow-Only Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get collection element types. |
