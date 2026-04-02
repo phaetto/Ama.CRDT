@@ -1,11 +1,8 @@
-using System;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Serialization.Converters;
+using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Adapters;
-using Ama.CRDT.Services.Decorators;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Journaling;
 using Ama.CRDT.Services.Metrics;
@@ -366,7 +363,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtTimestampType<TTimestamp>(this IServiceCollection services, string discriminator)
         where TTimestamp : ICrdtTimestamp
     {
-        CrdtTimestampJsonConverter.Register(discriminator, typeof(TTimestamp));
+        CrdtTypeRegistry.Register(discriminator, typeof(TTimestamp));
         return services;
     }
 
@@ -390,7 +387,7 @@ public static class ServiceCollectionExtensions
     /// </example>
     public static IServiceCollection AddCrdtSerializableType<T>(this IServiceCollection services, string discriminator)
     {
-        PolymorphicObjectJsonConverter.Register(discriminator, typeof(T));
+        CrdtTypeRegistry.Register(discriminator, typeof(T));
         return services;
     }
 

@@ -25,7 +25,6 @@ public sealed class CrdtMetadataJsonResolver : DefaultJsonTypeInfoResolver
     /// <summary>
     /// A modifier that omits empty collection properties when serializing <see cref="CrdtMetadata"/>.
     /// </summary>
-    /// <param name="jsonTypeInfo">The type info to modify.</param>
     public static void ApplyMetadataModifiers(JsonTypeInfo jsonTypeInfo)
     {
         if (jsonTypeInfo.Type == typeof(CrdtMetadata))

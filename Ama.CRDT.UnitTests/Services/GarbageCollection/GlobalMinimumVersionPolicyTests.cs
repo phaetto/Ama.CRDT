@@ -2,7 +2,6 @@ namespace Ama.CRDT.UnitTests.Services.GarbageCollection;
 
 using System;
 using System.Collections.Generic;
-using Ama.CRDT.Models;
 using Ama.CRDT.Services.GarbageCollection;
 using Shouldly;
 using Xunit;

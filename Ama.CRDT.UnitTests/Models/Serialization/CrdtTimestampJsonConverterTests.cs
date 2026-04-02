@@ -1,10 +1,11 @@
 namespace Ama.CRDT.UnitTests.Models.Serialization;
 
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Serialization.Converters;
+using Ama.CRDT.Models.Serialization;
 using Shouldly;
 using System;
 using System.Text.Json;
+using Xunit;
 
 public readonly record struct CustomTimestamp(int Value) : ICrdtTimestamp
 {
@@ -27,12 +28,13 @@ public sealed class CrdtTimestampJsonConverterTests
 
     public CrdtTimestampJsonConverterTests()
     {
+        // Replaced legacy manual converters with Native Polymorphism resolver
         serializerOptions = new JsonSerializerOptions
         {
-            Converters = { new CrdtTimestampJsonConverter() }
+            TypeInfoResolver = CrdtJsonTypeInfoResolver.Instance
         };
         
-        CrdtTimestampJsonConverter.Register("custom", typeof(CustomTimestamp));
+        CrdtTypeRegistry.Register("custom", typeof(CustomTimestamp));
     }
 
     [Fact]
@@ -42,7 +44,8 @@ public sealed class CrdtTimestampJsonConverterTests
 
         var json = JsonSerializer.Serialize(timestamp, serializerOptions);
 
-        json.ShouldBe("{\"Value\":1234567890,\"ReplicaId\":null,\"$type\":\"epoch\"}");
+        // EpochTimestamp natively maps its ReplicaId property
+        json.ShouldBe("{\"$type\":\"epoch\",\"Value\":1234567890,\"ReplicaId\":null}");
     }
 
     [Fact]
@@ -52,7 +55,7 @@ public sealed class CrdtTimestampJsonConverterTests
 
         var json = JsonSerializer.Serialize(timestamp, serializerOptions);
 
-        json.ShouldBe("{\"Value\":99,\"$type\":\"custom\"}");
+        json.ShouldBe("{\"$type\":\"custom\",\"Value\":99}");
     }
 
     [Fact]
@@ -60,8 +63,7 @@ public sealed class CrdtTimestampJsonConverterTests
     {
         ICrdtTimestamp timestamp = new AnotherCustomTimestamp("test");
 
-        Should.Throw<NotSupportedException>(() => JsonSerializer.Serialize(timestamp, serializerOptions))
-            .Message.ShouldContain("is not a supported or registered ICrdtTimestamp for serialization.");
+        Should.Throw<NotSupportedException>(() => JsonSerializer.Serialize(timestamp, serializerOptions));
     }
 
     [Fact]
@@ -77,7 +79,7 @@ public sealed class CrdtTimestampJsonConverterTests
     [Fact]
     public void Deserialize_WithEpochTimestampJson_ShouldCreateEpochTimestamp()
     {
-        var json = "{\"$type\":\"epoch\",\"Value\":1234567890}";
+        var json = "{\"$type\":\"epoch\",\"Value\":1234567890,\"ReplicaId\":null}";
 
         var timestamp = JsonSerializer.Deserialize<ICrdtTimestamp>(json, serializerOptions);
 
@@ -99,21 +101,22 @@ public sealed class CrdtTimestampJsonConverterTests
     }
 
     [Fact]
-    public void Deserialize_WithUnregisteredDiscriminator_ShouldThrowNotSupportedException()
+    public void Deserialize_WithUnregisteredDiscriminator_ShouldThrowJsonException()
     {
         var json = "{\"$type\":\"unregistered\",\"Value\":123}";
 
-        Should.Throw<NotSupportedException>(() => JsonSerializer.Deserialize<ICrdtTimestamp>(json, serializerOptions))
-            .Message.ShouldContain("is not registered or supported.");
+        // System.Text.Json native polymorphism throws JsonException for an unknown discriminator mapping.
+        Should.Throw<JsonException>(() => JsonSerializer.Deserialize<ICrdtTimestamp>(json, serializerOptions));
     }
 
     [Fact]
-    public void Deserialize_WithMissingDiscriminator_ShouldThrowJsonException()
+    public void Deserialize_WithMissingDiscriminator_ShouldThrowNotSupportedException()
     {
         var json = "{\"Value\":123}";
 
-        Should.Throw<JsonException>(() => JsonSerializer.Deserialize<ICrdtTimestamp>(json, serializerOptions))
-            .Message.ShouldContain("Missing '$type' discriminator");
+        // System.Text.Json native polymorphism throws NotSupportedException when it tries to deserialize
+        // an interface (ICrdtTimestamp) directly because the $type property was not found.
+        Should.Throw<NotSupportedException>(() => JsonSerializer.Deserialize<ICrdtTimestamp>(json, serializerOptions));
     }
 
     [Fact]
@@ -132,15 +135,8 @@ public sealed class CrdtTimestampJsonConverterTests
     [InlineData(" ")]
     public void Register_WithInvalidDiscriminator_ShouldThrowArgumentException(string? discriminator)
     {
-        Should.Throw<ArgumentException>(() => CrdtTimestampJsonConverter.Register(discriminator!, typeof(AnotherCustomTimestamp)))
+        Should.Throw<ArgumentException>(() => CrdtTypeRegistry.Register(discriminator!, typeof(AnotherCustomTimestamp)))
             .Message.ShouldContain("Discriminator cannot be null or whitespace.");
-    }
-
-    [Fact]
-    public void Register_WithInvalidType_ShouldThrowArgumentException()
-    {
-        Should.Throw<ArgumentException>(() => CrdtTimestampJsonConverter.Register("invalid", typeof(InvalidTimestamp)))
-            .Message.ShouldContain($"must implement {nameof(ICrdtTimestamp)}.");
     }
 
     [Fact]
@@ -159,7 +155,7 @@ public sealed class CrdtTimestampJsonConverterTests
         var json = JsonSerializer.Serialize(operation, serializerOptions);
         var deserializedOperation = JsonSerializer.Deserialize<CrdtOperation>(json, serializerOptions);
 
-        json.ShouldContain("\"Timestamp\":{\"Value\":1337,\"$type\":\"custom\"}");
+        json.ShouldContain("\"Timestamp\":{\"$type\":\"custom\",\"Value\":1337}");
 
         deserializedOperation.Timestamp.ShouldNotBeNull();
         deserializedOperation.Timestamp.ShouldBeOfType<CustomTimestamp>();

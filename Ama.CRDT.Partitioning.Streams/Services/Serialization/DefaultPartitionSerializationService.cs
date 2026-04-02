@@ -1,11 +1,9 @@
 namespace Ama.CRDT.Partitioning.Streams.Services.Serialization;
 
 using Ama.CRDT.Models.Serialization;
-using Ama.CRDT.Models.Serialization.Converters;
 using Ama.CRDT.Partitioning.Streams.Models;
 using System;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,10 +19,10 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
     {
         // Dynamically register our external stream-specific models to the polymorphic converter 
         // without introducing circular dependencies into the core Ama.CRDT logic.
-        PolymorphicObjectJsonConverter.Register("bplus-tree-node", typeof(BPlusTreeNode));
-        PolymorphicObjectJsonConverter.Register("bplus-tree-header", typeof(BTreeHeader));
-        PolymorphicObjectJsonConverter.Register("data-stream-header", typeof(DataStreamHeader));
-        PolymorphicObjectJsonConverter.Register("free-space-state", typeof(FreeSpaceState));
+        CrdtTypeRegistry.Register("bplus-tree-node", typeof(BPlusTreeNode));
+        CrdtTypeRegistry.Register("bplus-tree-header", typeof(BTreeHeader));
+        CrdtTypeRegistry.Register("data-stream-header", typeof(DataStreamHeader));
+        CrdtTypeRegistry.Register("free-space-state", typeof(FreeSpaceState));
     }
 
     public DefaultPartitionSerializationService()
@@ -34,10 +32,6 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         // outside its source-generated graph. By adding the converter directly, we ensure
         // it's used for BPlusTreeNode's 'Keys' property.
         serializerOptions = new JsonSerializerOptions(CrdtJsonContext.MetadataCompactOptions);
-        if (!serializerOptions.Converters.Any(c => c is PolymorphicObjectJsonConverter))
-        {
-            serializerOptions.Converters.Add(PolymorphicObjectJsonConverter.Instance);
-        }
     }
 
     /// <inheritdoc/>

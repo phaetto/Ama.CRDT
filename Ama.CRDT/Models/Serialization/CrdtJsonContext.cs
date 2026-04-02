@@ -6,32 +6,11 @@ using System.Text.Json.Serialization.Metadata;
 
 /// <summary>
 /// Provides pre-configured <see cref="JsonSerializerOptions"/> for serializing CRDT models like <see cref="CrdtPatch"/> and <see cref="CrdtMetadata"/>.
-/// This class centralizes the setup of required converters and resolvers for correct and efficient serialization.
 /// </summary>
-/// <example>
-/// <code>
-/// <![CDATA[
-/// // For serializing a CRDT patch
-/// var patchJson = JsonSerializer.Serialize(myCrdtPatch, CrdtJsonContext.DefaultOptions);
-/// var deserializedPatch = JsonSerializer.Deserialize<CrdtPatch>(patchJson, CrdtJsonContext.DefaultOptions);
-///
-/// // For serializing CRDT metadata with optimized, compact output
-/// var metadataJson = JsonSerializer.Serialize(myCrdtMetadata, CrdtJsonContext.MetadataCompactOptions);
-/// ]]>
-/// </code>
-/// </example>
 public static class CrdtJsonContext
 {
-    /// <summary>
-    /// Gets a pre-configured <see cref="JsonSerializerOptions"/> instance suitable for general CRDT serialization,
-    /// including <see cref="CrdtPatch"/> and its operation payloads. It supports polymorphic types and custom CRDT models.
-    /// </summary>
     public static JsonSerializerOptions DefaultOptions { get; } = CreateDefaultOptions();
 
-    /// <summary>
-    /// Gets a pre-configured <see cref="JsonSerializerOptions"/> instance specifically for serializing <see cref="CrdtMetadata"/>.
-    /// It includes all default converters and a custom resolver that omits empty collections for a more compact JSON output.
-    /// </summary>
     public static JsonSerializerOptions MetadataCompactOptions { get; } = CreateMetadataCompactOptions();
 
     private static JsonSerializerOptions CreateDefaultOptions()
@@ -60,10 +39,9 @@ public static class CrdtJsonContext
 
     private static void AddCrdtConverters(JsonSerializerOptions options)
     {
-        options.Converters.Add(PolymorphicObjectJsonConverter.Instance);
-        options.Converters.Add(PolymorphicComparableJsonConverter.Instance);
-        options.Converters.Add(PolymorphicPartitionJsonConverter.Instance);
-        options.Converters.Add(new CrdtTimestampJsonConverter());
+        // The Payload converter factory strictly handles polymorphism for 'object' and 'IComparable' globally.
+        // This acts as a net to catch deep values inside collections like List<IComparable> and Dictionary<object, ...>
+        options.Converters.Add(CrdtPayloadJsonConverterFactory.Instance);
         options.Converters.Add(new ObjectKeyDictionaryJsonConverter());
     }
 }

@@ -5,7 +5,6 @@ using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
-using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
 using Microsoft.Extensions.DependencyInjection;
