@@ -1,18 +1,17 @@
 namespace Ama.CRDT.Services;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using System.Collections;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using System;
 using System.Collections.Generic;
 using Ama.CRDT.Services.Helpers;
-using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Services.GarbageCollection;
 
 /// <inheritdoc/>
@@ -20,7 +19,8 @@ public sealed class CrdtMetadataManager(
     ICrdtStrategyProvider strategyProvider,
     ICrdtTimestampProvider timestampProvider,
     IElementComparerProvider elementComparerProvider,
-    ReplicaContext replicaContext) : ICrdtMetadataManager
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> crdtContexts) : ICrdtMetadataManager
 {
     private static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new()
     {
@@ -194,9 +194,6 @@ public sealed class CrdtMetadataManager(
 
         if (metadata.SeenExceptions.Count > 0)
         {
-            // Now that all operations have strict monotonically increasing clocks and Applicator checks `<=`,
-            // we no longer need to keep the "current clock" inside SeenExceptions. 
-            // We can prune everything less than or equal to the advanced contiguous clock safely.
             var exceptionsToRemove = metadata.SeenExceptions
                 .Where(op => op.ReplicaId == replicaId && op.Clock <= advancedClock)
                 .ToList();
@@ -251,23 +248,27 @@ public sealed class CrdtMetadataManager(
             return;
         }
 
-        var properties = PocoPathHelper.GetCachedProperties(obj.GetType());
-        foreach (var cached in properties)
+        var typeInfo = PocoPathHelper.GetTypeInfo(obj.GetType(), crdtContexts);
+        foreach (var property in typeInfo.Properties.Values)
         {
-            var propertyInfo = cached.Property;
-            var propertyValue = cached.Accessor.Getter(obj);
+            if (!property.CanRead)
+            {
+                continue;
+            }
+
+            var propertyValue = property.Getter!(obj);
             if (propertyValue is null)
             {
                 continue;
             }
 
-            var propertyPath = path == "$" ? cached.RootedPath : path + cached.PathSuffix;
+            var propertyPath = path == "$" ? $"$.{property.JsonName}" : $"{path}.{property.JsonName}";
 
-            var strategy = strategyProvider.GetStrategy(propertyInfo);
+            var strategy = strategyProvider.GetStrategy(typeInfo.Type, property);
 
-            InitializeStrategyMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp, root);
+            InitializeStrategyMetadata(metadata, property, strategy, propertyPath, propertyValue, timestamp, root);
 
-            var propertyType = propertyInfo.PropertyType;
+            var propertyType = property.PropertyType;
             if (propertyValue is IEnumerable and not string || propertyType.IsClass && propertyType != typeof(string))
             {
                 PopulateMetadataRecursive(metadata, propertyValue, propertyPath, timestamp, root);
@@ -318,22 +319,26 @@ public sealed class CrdtMetadataManager(
             return;
         }
 
-        var properties = PocoPathHelper.GetCachedProperties(obj.GetType());
-        foreach (var cached in properties)
+        var typeInfo = PocoPathHelper.GetTypeInfo(obj.GetType(), crdtContexts);
+        foreach (var property in typeInfo.Properties.Values)
         {
-            var propertyInfo = cached.Property;
-            var propertyValue = cached.Accessor.Getter(obj);
+            if (!property.CanRead)
+            {
+                continue;
+            }
+
+            var propertyValue = property.Getter!(obj);
             if (propertyValue is null)
             {
                 continue;
             }
 
-            var propertyPath = path == "$" ? cached.RootedPath : path + cached.PathSuffix;
-            var strategy = strategyProvider.GetStrategy(propertyInfo);
+            var propertyPath = path == "$" ? $"$.{property.JsonName}" : $"{path}.{property.JsonName}";
+            var strategy = strategyProvider.GetStrategy(typeInfo.Type, property);
 
-            strategy.Compact(new CompactionContext(metadata, policy, propertyInfo.Name, propertyPath, root));
+            strategy.Compact(new CompactionContext(metadata, policy, property.Name, propertyPath, root));
 
-            var propertyType = propertyInfo.PropertyType;
+            var propertyType = property.PropertyType;
             if (propertyValue is IEnumerable and not string || propertyType.IsClass && propertyType != typeof(string))
             {
                 CompactRecursive(metadata, propertyValue, propertyPath, policy, root);
@@ -341,7 +346,7 @@ public sealed class CrdtMetadataManager(
         }
     }
 
-    private void InitializeStrategyMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, object root)
+    private void InitializeStrategyMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, object root)
     {
         var replicaId = replicaContext.ReplicaId ?? string.Empty;
         var causalTimestamp = new CausalTimestamp(timestamp, replicaId, 0);
@@ -362,9 +367,9 @@ public sealed class CrdtMetadataManager(
                 }
                 break;
             case FixedSizeArrayStrategy:
-                if (propertyValue is IList fixedList && propertyInfo.GetCustomAttribute<CrdtFixedSizeArrayStrategyAttribute>() is { } fixedSizeAttr)
+                if (propertyValue is IList fixedList)
                 {
-                    for (var i = 0; i < Math.Min(fixedList.Count, fixedSizeAttr.Size); i++)
+                    for (var i = 0; i < fixedList.Count; i++)
                     {
                         metadata.Lww[$"{propertyPath}[{i}]"] = causalTimestamp;
                     }
@@ -428,13 +433,12 @@ public sealed class CrdtMetadataManager(
         }
     }
 
-    private void InitializeSetMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, string replicaId)
+    private void InitializeSetMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, string replicaId)
     {
         if (propertyValue is not IEnumerable collection) return;
 
-        var elementType = propertyInfo.PropertyType.IsGenericType
-            ? propertyInfo.PropertyType.GetGenericArguments()[0]
-            : propertyInfo.PropertyType.GetElementType() ?? typeof(object);
+        var typeInfo = PocoPathHelper.GetTypeInfo(propertyValue.GetType(), crdtContexts);
+        var elementType = typeInfo.CollectionElementType ?? typeof(object);
         var comparer = elementComparerProvider.GetComparer(elementType);
         var collectionAsObjects = collection.Cast<object>().ToList();
 
@@ -473,11 +477,12 @@ public sealed class CrdtMetadataManager(
         }
     }
 
-    private void InitializeMapMetadata(CrdtMetadata metadata, PropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, string replicaId)
+    private void InitializeMapMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, string replicaId)
     {
         if (propertyValue is not IDictionary dictionary) return;
 
-        var keyType = propertyInfo.PropertyType.IsGenericType ? propertyInfo.PropertyType.GetGenericArguments()[0] : typeof(object);
+        var typeInfo = PocoPathHelper.GetTypeInfo(propertyValue.GetType(), crdtContexts);
+        var keyType = typeInfo.DictionaryKeyType ?? typeof(object);
         var comparer = elementComparerProvider.GetComparer(keyType);
 
         switch (strategy)
@@ -528,7 +533,7 @@ public sealed class CrdtMetadataManager(
                 {
                     if (entry.Key is not null)
                     {
-                        var value = PocoPathHelper.ConvertTo<decimal>(entry.Value ?? 0m);
+                        var value = PocoPathHelper.ConvertTo<decimal>(entry.Value ?? 0m, crdtContexts);
                         counterMap[entry.Key] = new PnCounterState(P: value > 0 ? value : 0, N: value < 0 ? -value : 0);
                     }
                 }
@@ -564,14 +569,12 @@ public sealed class CrdtMetadataManager(
     
     private void InitializeTwoPhaseGraphMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue)
     {
-        var cachedProps = PocoPathHelper.GetCachedProperties(propertyValue.GetType());
-        var verticesProp = cachedProps.FirstOrDefault(p => p.Property.Name == "Vertices");
-        var edgesProp = cachedProps.FirstOrDefault(p => p.Property.Name == "Edges");
+        var typeInfo = PocoPathHelper.GetTypeInfo(propertyValue.GetType(), crdtContexts);
+        if (!typeInfo.Properties.TryGetValue("Vertices", out var verticesProp) || !verticesProp.CanRead) return;
+        if (!typeInfo.Properties.TryGetValue("Edges", out var edgesProp) || !edgesProp.CanRead) return;
 
-        if (verticesProp is null || edgesProp is null) return;
-
-        var vertices = verticesProp.Accessor.Getter(propertyValue) as IEnumerable;
-        var edges = edgesProp.Accessor.Getter(propertyValue) as IEnumerable;
+        var vertices = verticesProp.Getter!(propertyValue) as IEnumerable;
+        var edges = edgesProp.Getter!(propertyValue) as IEnumerable;
 
         if (vertices is null || edges is null) return;
         
@@ -588,11 +591,10 @@ public sealed class CrdtMetadataManager(
     
     private void InitializeReplicatedTreeMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, string replicaId)
     {
-        var cachedProps = PocoPathHelper.GetCachedProperties(propertyValue.GetType());
-        var nodesProp = cachedProps.FirstOrDefault(p => p.Property.Name == "Nodes");
-        if (nodesProp is null) return;
+        var typeInfo = PocoPathHelper.GetTypeInfo(propertyValue.GetType(), crdtContexts);
+        if (!typeInfo.Properties.TryGetValue("Nodes", out var nodesProp) || !nodesProp.CanRead) return;
 
-        if (nodesProp.Accessor.Getter(propertyValue) is not IDictionary nodesDictionary) return;
+        if (nodesProp.Getter!(propertyValue) is not IDictionary nodesDictionary) return;
 
         var idComparer = elementComparerProvider.GetComparer(typeof(object));
 
