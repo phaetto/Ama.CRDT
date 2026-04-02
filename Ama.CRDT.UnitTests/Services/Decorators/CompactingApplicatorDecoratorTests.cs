@@ -14,11 +14,6 @@ using Xunit;
 
 public sealed class CompactingApplicatorDecoratorTests
 {
-    private sealed class TestModel
-    {
-        public string? Property { get; set; }
-    }
-
     [Fact]
     public void Constructor_ShouldThrowArgumentNullException_WhenArgumentsAreNull()
     {

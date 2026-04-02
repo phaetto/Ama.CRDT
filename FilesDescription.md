@@ -149,9 +149,11 @@
 | `$/Ama.CRDT.UnitTests/Services/CrdtMetadataManagerTests.cs` | Contains unit tests for the `CrdtMetadataManager`, verifying LWW pruning and version vector advancement logic. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtPatcherTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/CompactingApplicatorDecoratorTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Decorators/DecoratorsTestCrdtContext.cs` | A dedicated AOT context for the decorators unit tests to provide reflection-free property metadata for test-specific models. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/JournalingApplicatorDecoratorTests.cs` | Contains unit tests for `JournalingApplicatorDecorator`, validating that only successfully applied CRDT operations are dispatched to the operation journal. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/JournalingPatcherDecoratorTests.cs` | Contains unit tests for `JournalingPatcherDecorator`, verifying that generated patches, intents, and explicit operations are properly captured and journaled. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/PartitioningApplicatorDecoratorTests.cs` | Contains unit tests for `PartitioningApplicatorDecorator`, validating the patch interception logic, partition splitting and merging, and ensuring operations are properly delegated to the inner `IAsyncCrdtApplicator`. |
+| `$/Ama.CRDT.UnitTests/Services/Decorators/TestModel.cs` | A simple data model used for unit testing decorator services. |
 | `$/Ama.CRDT.UnitTests/Services/GarbageCollection/GlobalMinimumVersionPolicyTests.cs` | Contains unit tests for `GlobalMinimumVersionPolicy`, verifying correct GMVV-based causal evaluation for safe compaction of candidates. |
 | `$/Ama.CRDT.UnitTests/Services/GarbageCollection/ThresholdCompactionPolicyTests.cs` | Contains unit tests for `ThresholdCompactionPolicy`, testing time-to-live logic using wall-clock timestamps and logical version thresholds. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/Models.cs` | Contains simple data models for unit testing path conversion and resolution helpers. |
@@ -159,6 +161,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Journaling/JournalManagerTests.cs` | Contains unit tests for `JournalManager`, verifying the retrieval of missing operations based on synchronization requirements, range bounds, and missing dots. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionManagerTests.cs` | Contains unit tests for `PartitionManager`, focusing on verifying storage initialization, partition querying, and index management via `IPartitionStorageService`. |
 | `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionStorageServiceContractTests.cs` | Contains mock unit tests to verify the `IPartitionStorageService` interface contract. |
+| `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitioningTestCrdtContext.cs` | A dedicated CrdtContext for `Partitioning` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Providers/CrdtFluentConfigurationTests.cs` | Contains unit tests verifying the Fluent Builder API (`CrdtModelBuilder`) correctly maps CRDT strategies and that the `CrdtStrategyProvider` prioritizes these mappings over attributes. |
 | `$/Ama.CRDT.UnitTests/Services/ServicesTestCrdtContext.cs` | A dedicated AOT context for the services unit tests, providing reflection-free metadata for test-specific models and collections. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/ArrayLcsStrategyTests.cs` | Contains unit tests for `ArrayLcsStrategy`, focusing on convergence properties under concurrent operations. This file includes a test that specifically reproduces a known bug related to the non-commutative application of array insertion patches. |
@@ -198,6 +201,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/PriorityQueueStrategyTests.cs` | Contains unit tests for the `PriorityQueueStrategy`, verifying that concurrent updates converge and the list remains sorted by priority. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/ReplicatedTreeStrategyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/RgaStrategyTests.cs` | Contains unit tests for `RgaStrategy`, verifying correct calculation of tombstones, insertions and tree based flattening. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/Serialization/SerializationTestCrdtContext.cs` | A dedicated AOT context for the `StrategyPayloadSerializationTests` to provide metadata for test-specific models and collections without relying on reflection. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/Serialization/StrategyPayloadSerializationTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/SortedSetStrategyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/StateMachineStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `StateMachineStrategy` unit tests to provide AOT-compatible property metadata. |

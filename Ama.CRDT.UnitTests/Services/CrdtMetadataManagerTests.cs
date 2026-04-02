@@ -30,7 +30,7 @@ public sealed class CrdtMetadataManagerTests
             timestampProviderMock.Object, 
             elementComparerProviderMock.Object,
             new ReplicaContext { ReplicaId = "replica" },
-            Array.Empty<CrdtContext>());
+            [new ServicesTestCrdtContext()]);
             
         timestampProviderMock.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(v => new EpochTimestamp(v));
     }
@@ -292,14 +292,14 @@ public sealed class CrdtMetadataManagerTests
         => new(Guid.NewGuid(), replicaId, "path", OperationType.Upsert, null, timestampProviderMock.Object.Create(clockValue), clockValue);
 
     // Dummy classes for traversal testing
-    private class OuterDoc
+    internal class OuterDoc
     {
         public InnerDoc Inner { get; set; } = new();
         public List<InnerDoc> List { get; set; } = [new InnerDoc(), new InnerDoc()];
         public Dictionary<string, InnerDoc> Dict { get; set; } = new() { { "k1", new InnerDoc() } };
     }
 
-    private class InnerDoc
+    internal class InnerDoc
     {
         public string Value { get; set; } = "v";
     }

@@ -28,6 +28,7 @@ public sealed class OrMapStrategyTests
     {
         var services = new ServiceCollection();
         services.AddCrdt()
+            .AddCrdtAotContext<OrMapStrategyTestCrdtContext>()
             .AddSingleton(comparerProviderMock.Object);
         
         serviceProvider = services.BuildServiceProvider();

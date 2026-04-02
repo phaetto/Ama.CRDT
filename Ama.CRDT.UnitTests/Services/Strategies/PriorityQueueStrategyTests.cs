@@ -56,6 +56,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<PriorityQueueStrategyTestCrdtContext>()
             .AddCrdtComparer<ItemComparer>()
             .BuildServiceProvider();
 
