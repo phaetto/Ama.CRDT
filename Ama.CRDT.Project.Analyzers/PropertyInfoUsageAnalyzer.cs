@@ -10,9 +10,9 @@ public sealed class PropertyInfoUsageAnalyzer : DiagnosticAnalyzer
 {
     public const string DiagnosticId = "CRDTPROJ0001";
 
-    private static readonly LocalizableString Title = "Avoid reflection to ensure AOT compatibility";
-    private static readonly LocalizableString MessageFormat = "Do not use '{0}'. Reflection breaks AOT compilation. Use AOT-compatible alternatives.";
-    private static readonly LocalizableString Description = "Avoid using reflection types (PropertyInfo, MethodInfo, etc.) and reflection methods (Type.GetProperty, etc.) as they are not Native AOT compatible.";
+    private static readonly LocalizableString Title = "Avoid dynamic reflection to ensure AOT compatibility";
+    private static readonly LocalizableString MessageFormat = "Do not use '{0}'. Dynamic reflection breaks AOT compilation. Use AOT-compatible alternatives.";
+    private static readonly LocalizableString Description = "Avoid using dynamic reflection methods (GetValue, SetValue, Invoke, GetProperty, etc.) as they are not Native AOT compatible. Reading metadata like .Name or .PropertyType is safe.";
     private const string Category = "Performance";
 
     private static readonly DiagnosticDescriptor Rule = new(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Error, isEnabledByDefault: true, description: Description);
@@ -46,14 +46,24 @@ public sealed class PropertyInfoUsageAnalyzer : DiagnosticAnalyzer
 
         var containingType = symbol.ContainingType;
 
-        if (IsBannedReflectionType(containingType))
+        if (IsReflectionMemberInfoType(containingType))
         {
-            ReportDiagnostic(context, symbol.Name);
+            // Only ban methods that dynamically execute or invoke code. 
+            // Reading properties like .Name, .PropertyType, or .DeclaringType is safe in AOT.
+            if (symbol.Name is "GetValue" or "SetValue" 
+                            or "GetValueDirect" or "SetValueDirect" 
+                            or "Invoke" 
+                            or "MakeGenericMethod")
+            {
+                ReportDiagnostic(context, symbol.Name);
+            }
             return;
         }
 
         if (IsTypeOrTypeInfo(containingType))
         {
+            // Discovering members by string name or dynamically is generally unsafe in AOT
+            // unless heavily annotated, so we blanket ban it for this project.
             if (symbol.Name is "GetProperty" or "GetProperties"
                             or "GetMethod" or "GetMethods"
                             or "GetField" or "GetFields"
@@ -88,7 +98,7 @@ public sealed class PropertyInfoUsageAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(diagnostic);
     }
 
-    private static bool IsBannedReflectionType(ITypeSymbol type)
+    private static bool IsReflectionMemberInfoType(ITypeSymbol type)
     {
         var current = type;
         while (current is not null)
@@ -96,11 +106,11 @@ public sealed class PropertyInfoUsageAnalyzer : DiagnosticAnalyzer
             var name = current.ToDisplayString();
             if (name is "System.Type" or "System.Reflection.TypeInfo")
             {
-                // Handled specifically for exact banned methods. We don't blanket ban all Type usage.
                 return false;
             }
 
             if (name is "System.Reflection.PropertyInfo"
+                     or "System.Reflection.MethodBase"
                      or "System.Reflection.MethodInfo"
                      or "System.Reflection.FieldInfo"
                      or "System.Reflection.EventInfo"
