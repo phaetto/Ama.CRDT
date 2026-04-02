@@ -99,21 +99,63 @@ public class CrdtContextGenerator : IIncrementalGenerator
         sb.AppendLine("new global::Ama.CRDT.Models.Aot.CrdtTypeInfo(");
         sb.AppendLine($"                type: typeof({fullyQualifiedTypeName}),");
 
+        string createInstanceExpr = "null";
+        string createWithArgsExpr = "null";
+
         bool hasParameterlessCtor = type.TypeKind == TypeKind.Class && !type.IsAbstract && 
                                     type.GetMembers(".ctor").OfType<IMethodSymbol>().Any(m => m.Parameters.Length == 0);
         
         bool hasRequiredMembers = type.GetMembers().Any(m => 
             (m is IPropertySymbol prop && prop.IsRequired) || 
             (m is IFieldSymbol field && field.IsRequired));
-        
-        if (hasParameterlessCtor && !hasRequiredMembers)
+
+        var constructedFrom = type is INamedTypeSymbol nts && nts.IsGenericType ? nts.ConstructedFrom.ToDisplayString() : "";
+
+        if (type.TypeKind == TypeKind.Interface && type is INamedTypeSymbol namedInterface && namedInterface.IsGenericType)
         {
-            sb.AppendLine($"                createInstance: () => new {fullyQualifiedTypeName}(),");
+            var typeArgs = string.Join(", ", namedInterface.TypeArguments.Select(t => t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)));
+            
+            if (constructedFrom == "System.Collections.Generic.IEnumerable<T>" ||
+                constructedFrom == "System.Collections.Generic.ICollection<T>" ||
+                constructedFrom == "System.Collections.Generic.IList<T>" ||
+                constructedFrom == "System.Collections.Generic.IReadOnlyCollection<T>" ||
+                constructedFrom == "System.Collections.Generic.IReadOnlyList<T>")
+            {
+                createInstanceExpr = $"() => new global::System.Collections.Generic.List<{typeArgs}>()";
+            }
+            else if (constructedFrom == "System.Collections.Generic.ISet<T>" ||
+                     constructedFrom == "System.Collections.Generic.IReadOnlySet<T>")
+            {
+                createInstanceExpr = $"() => new global::System.Collections.Generic.HashSet<{typeArgs}>()";
+            }
+            else if (constructedFrom == "System.Collections.Generic.IDictionary<TKey, TValue>" ||
+                     constructedFrom == "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>")
+            {
+                createInstanceExpr = $"() => new global::System.Collections.Generic.Dictionary<{typeArgs}>()";
+            }
         }
-        else
+        else if (constructedFrom == "System.Collections.Generic.KeyValuePair<TKey, TValue>")
         {
-            sb.AppendLine("                createInstance: null,");
+            var keyType = ((INamedTypeSymbol)type).TypeArguments[0].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            var valType = ((INamedTypeSymbol)type).TypeArguments[1].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            
+            createWithArgsExpr = $"args => new {fullyQualifiedTypeName}(args[0] == null ? default! : ({keyType})args[0], args[1] == null ? default! : ({valType})args[1])";
+            createInstanceExpr = $"() => default({fullyQualifiedTypeName})"; // Default struct for parameterless
         }
+        else if (!hasRequiredMembers)
+        {
+            if (hasParameterlessCtor)
+            {
+                createInstanceExpr = $"() => new {fullyQualifiedTypeName}()";
+            }
+            else if (type.IsValueType)
+            {
+                createInstanceExpr = $"() => default({fullyQualifiedTypeName})";
+            }
+        }
+
+        sb.AppendLine($"                createInstance: {createInstanceExpr},");
+        sb.AppendLine($"                createWithArgs: {createWithArgsExpr},");
 
         sb.AppendLine("                properties: new global::System.Collections.Generic.Dictionary<string, global::Ama.CRDT.Models.Aot.CrdtPropertyInfo>(global::System.StringComparer.OrdinalIgnoreCase)");
         sb.AppendLine("                {");

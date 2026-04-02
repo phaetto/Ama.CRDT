@@ -259,4 +259,106 @@ namespace TestNamespace
         generatedSyntax.ShouldContain("strategyAttribute: new global::Ama.CRDT.Attributes.Strategies.CrdtLwwStrategyAttribute()");
         generatedSyntax.ShouldContain("decoratorAttributes: new global::Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute[] { new global::Ama.CRDT.Attributes.Decorators.CrdtApprovalQuorumAttribute(QuorumSize = 2), new global::Ama.CRDT.Attributes.Decorators.CrdtEpochBoundAttribute() }");
     }
+
+    [Fact]
+    public void Generator_ShouldGenerateConcreteCollectionInstantiation_ForInterfaces()
+    {
+        // Arrange
+        var source = @"
+using System;
+using System.Collections.Generic;
+using Ama.CRDT.Attributes;
+using Ama.CRDT.Models.Aot;
+
+namespace TestNamespace
+{
+    [CrdtSerializable(typeof(IEnumerable<string>))]
+    [CrdtSerializable(typeof(ISet<int>))]
+    [CrdtSerializable(typeof(IDictionary<string, long>))]
+    public partial class CollectionAotContext : CrdtContext
+    {
+    }
+}";
+
+        var syntaxTree = CSharpSyntaxTree.ParseText(source);
+        var references = AppDomain.CurrentDomain.GetAssemblies()
+            .Where(a => !a.IsDynamic && !string.IsNullOrWhiteSpace(a.Location))
+            .Select(a => MetadataReference.CreateFromFile(a.Location))
+            .Cast<MetadataReference>()
+            .ToList();
+
+        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtSerializableAttribute).Assembly.Location));
+
+        var compilation = CSharpCompilation.Create(
+            "TestCompilation",
+            [syntaxTree],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var generator = new CrdtContextGenerator();
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
+
+        // Act
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);
+
+        // Assert
+        diagnostics.ShouldBeEmpty();
+        var runResult = driver.GetRunResult();
+        runResult.GeneratedTrees.Length.ShouldBe(1);
+
+        var generatedSyntax = runResult.GeneratedTrees[0].GetText().ToString();
+
+        generatedSyntax.ShouldContain("createInstance: () => new global::System.Collections.Generic.List<string>()");
+        generatedSyntax.ShouldContain("createInstance: () => new global::System.Collections.Generic.HashSet<int>()");
+        generatedSyntax.ShouldContain("createInstance: () => new global::System.Collections.Generic.Dictionary<string, long>()");
+    }
+
+    [Fact]
+    public void Generator_ShouldGenerateCreateWithArgs_ForKeyValuePair()
+    {
+        // Arrange
+        var source = @"
+using System;
+using System.Collections.Generic;
+using Ama.CRDT.Attributes;
+using Ama.CRDT.Models.Aot;
+
+namespace TestNamespace
+{
+    [CrdtSerializable(typeof(KeyValuePair<string, int>))]
+    public partial class KvpAotContext : CrdtContext
+    {
+    }
+}";
+
+        var syntaxTree = CSharpSyntaxTree.ParseText(source);
+        var references = AppDomain.CurrentDomain.GetAssemblies()
+            .Where(a => !a.IsDynamic && !string.IsNullOrWhiteSpace(a.Location))
+            .Select(a => MetadataReference.CreateFromFile(a.Location))
+            .Cast<MetadataReference>()
+            .ToList();
+
+        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtSerializableAttribute).Assembly.Location));
+
+        var compilation = CSharpCompilation.Create(
+            "TestCompilation",
+            [syntaxTree],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var generator = new CrdtContextGenerator();
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
+
+        // Act
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);
+
+        // Assert
+        diagnostics.ShouldBeEmpty();
+        var runResult = driver.GetRunResult();
+        runResult.GeneratedTrees.Length.ShouldBe(1);
+
+        var generatedSyntax = runResult.GeneratedTrees[0].GetText().ToString();
+
+        generatedSyntax.ShouldContain("createWithArgs: args => new global::System.Collections.Generic.KeyValuePair<string, int>(args[0] == null ? default! : (string)args[0], args[1] == null ? default! : (int)args[1])");
+    }
 }
