@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Ama.CRDT.Benchmarks.Models;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -132,6 +133,7 @@ public class StrategyApplyBenchmarks
     {
         var services = new ServiceCollection();
         services.AddCrdt();
+        services.AddCrdtAotContext<BenchmarkCrdtContext>();
         services.AddScoped<MyStateMachine>();
         var serviceProvider = services.BuildServiceProvider();
         var serviceScopeFactory = serviceProvider.GetService<ICrdtScopeFactory>();
@@ -314,17 +316,31 @@ public class StrategyApplyBenchmarks
         }
     }
 
+    private CrdtPropertyInfo GetPropertyInfo(string propertyName)
+    {
+        var crdtContexts = scope.ServiceProvider.GetServices<CrdtContext>();
+        foreach (var ctx in crdtContexts)
+        {
+            var typeInfo = ctx.GetTypeInfo(typeof(StrategyPoco));
+            if (typeInfo != null && typeInfo.Properties.TryGetValue(propertyName, out var p))
+            {
+                return p;
+            }
+        }
+        throw new InvalidOperationException($"Property {propertyName} not found in AOT contexts.");
+    }
+
     private IReadOnlyList<CrdtOperation> SetupStrategyAndOps(
         string propertyName, 
         StrategyPoco toPoco, 
         out ICrdtStrategy strategy)
     {
-        var prop = typeof(StrategyPoco).GetProperty(propertyName)!;
-        strategy = strategyProvider.GetStrategy(prop);
+        var prop = GetPropertyInfo(propertyName);
+        strategy = strategyProvider.GetStrategy(typeof(StrategyPoco), prop);
         var path = $"$.{char.ToLowerInvariant(propertyName[0])}{propertyName.Substring(1)}";
         
-        var fromValue = prop.GetValue(basePoco);
-        var toValue = prop.GetValue(toPoco);
+        var fromValue = prop.Getter!(basePoco);
+        var toValue = prop.Getter!(toPoco);
 
         var ops = new List<CrdtOperation>();
         var ctx = new GeneratePatchContext(ops, new List<DifferentiateObjectContext>(), path, prop, fromValue, toValue, basePoco, toPoco, fromDoc.Metadata, timestamp, 0);

@@ -18,6 +18,7 @@
 | `$/Ama.CRDT.Benchmarks/Benchmarks/StrategyApplyBenchmarks.cs` | Contains benchmarks for `ApplyOperation` for every individual CRDT strategy in isolation. |
 | `$/Ama.CRDT.Benchmarks/Benchmarks/StrategyGenerateBenchmarks.cs` | Contains benchmarks for `GeneratePatch` for every individual CRDT strategy in isolation. |
 | `$/Ama.CRDT.Benchmarks/Benchmarks/StrategyGenerateOperationBenchmarks.cs` | Contains benchmarks for `GenerateOperation` for every individual CRDT strategy in isolation using explicit operation intents. |
+| `$/Ama.CRDT.Benchmarks/Models/BenchmarkCrdtContext.cs` | AOT JSON serialization and CrdtContext for the benchmark models. |
 | `$/Ama.CRDT.Benchmarks/Models/ComplexPoco.cs` | A complex data model with nested objects and arrays for benchmarking recursive and collection-based scenarios. |
 | `$/Ama.CRDT.Benchmarks/Models/SimplePoco.cs` | A simple data model for benchmarking basic scenarios. |
 | `$/Ama.CRDT.Benchmarks/Models/StrategyPoco.cs` | A data model containing properties decorated with attributes for each supported CRDT strategy, used for isolated strategy benchmarking. |
