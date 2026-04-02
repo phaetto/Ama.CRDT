@@ -3,8 +3,10 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Partitioning;
@@ -12,7 +14,6 @@ using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 
 /// <summary>
 /// Implements the FWW-Set (First-Writer-Wins Set) CRDT strategy.
@@ -29,7 +30,8 @@ using System.Reflection;
 public sealed class FwwSetStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,
-    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     
@@ -41,7 +43,7 @@ public sealed class FwwSetStrategy(
         var originalSet = originalValue as IEnumerable;
         var modifiedSet = modifiedValue as IEnumerable;
         
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
         var originalHashSet = new HashSet<object>(comparer);
@@ -96,8 +98,10 @@ public sealed class FwwSetStrategy(
     {
         var (root, metadata, operation) = context;
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        var resolution = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
+        var parent = resolution.Parent;
+        var property = resolution.Property;
+        if (parent is null || property is null || property.Getter!(parent) is not IList list)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
@@ -110,7 +114,7 @@ public sealed class FwwSetStrategy(
             return CrdtOperationStatus.Success;
         }
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
         if (!metadata.FwwSets.TryGetValue(operation.JsonPath, out var state))
@@ -125,7 +129,7 @@ public sealed class FwwSetStrategy(
             metadata.FwwSets[operation.JsonPath] = state;
         }
 
-        var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType);
+        var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType, aotContexts);
         if (itemValue is null)
         {
             return CrdtOperationStatus.StrategyApplicationFailed;
@@ -213,9 +217,9 @@ public sealed class FwwSetStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
-        var list = PocoPathHelper.GetValue<IList>(data, partitionableProperty.Name);
+        var list = partitionableProperty.Getter!(data) as IList;
         if (list == null || list.Count == 0) return null;
 
         IComparable? minKey = null;
@@ -245,16 +249,16 @@ public sealed class FwwSetStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    public IComparable GetMinimumKey(CrdtPropertyInfo partitionableProperty)
     {
-        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
-        return GetMinimumKeyForType(elementType);
+        var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+        return GetMinimumKeyForType(elementType, aotContexts);
     }
 
     /// <inheritdoc/>
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
         if (!originalMetadata.FwwSets.TryGetValue(path, out var state) || state.Adds.Count + state.Removes.Count < 2)
@@ -281,7 +285,7 @@ public sealed class FwwSetStrategy(
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
 
-        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
         var adds1 = new Dictionary<object, ICrdtTimestamp>(comparer);
@@ -303,25 +307,25 @@ public sealed class FwwSetStrategy(
         meta1.FwwSets[path] = new LwwSetState(adds1, rems1);
         meta2.FwwSets[path] = new LwwSetState(adds2, rems2);
 
-        var doc1 = Activator.CreateInstance(documentType)!;
-        var doc2 = Activator.CreateInstance(documentType)!;
+        var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
+        var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
 
-        ReconstructListForSplitMerge(doc1, path, meta1.FwwSets[path], elementType);
-        ReconstructListForSplitMerge(doc2, path, meta2.FwwSets[path], elementType);
+        ReconstructListForSplitMerge(doc1, path, meta1.FwwSets[path], elementType, aotContexts);
+        ReconstructListForSplitMerge(doc2, path, meta2.FwwSets[path], elementType, aotContexts);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
 
     /// <inheritdoc/>
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
+        var documentType = data1.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        var mergedDoc = Activator.CreateInstance(documentType)!;
+        var mergedDoc = PocoPathHelper.Instantiate(documentType, aotContexts)!;
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
         var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
@@ -349,19 +353,21 @@ public sealed class FwwSetStrategy(
         var mergedState = new LwwSetState(adds, rems);
         mergedMeta.FwwSets[path] = mergedState;
 
-        ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType);
+        ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType, aotContexts);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructListForSplitMerge(object root, string path, LwwSetState state, Type elementType)
+    private static void ReconstructListForSplitMerge(object root, string path, LwwSetState state, Type elementType, IEnumerable<CrdtContext> aotContexts)
     {
-        var list = PocoPathHelper.GetValue<IList>(root, path);
+        var resolution = PocoPathHelper.ResolvePath(root, path, aotContexts);
+        if (resolution.Parent == null || resolution.Property == null) return;
+        
+        var list = resolution.Property.Getter!(resolution.Parent) as IList;
         if (list is null)
         {
-            var listType = typeof(List<>).MakeGenericType(elementType);
-            list = (IList)Activator.CreateInstance(listType)!;
-            PocoPathHelper.SetValue(root, path, list);
+            list = (IList)PocoPathHelper.Instantiate(resolution.Property.PropertyType, aotContexts)!;
+            resolution.Property.Setter!(resolution.Parent, list);
         }
 
         list.Clear();
@@ -373,7 +379,7 @@ public sealed class FwwSetStrategy(
             var addTs = kvp.Value;
             if (!state.Removes.TryGetValue(item, out var rmTs) || addTs.CompareTo(rmTs.Timestamp) <= 0)
             {
-                var converted = PocoPathHelper.ConvertValue(item, elementType);
+                var converted = PocoPathHelper.ConvertValue(item, elementType, aotContexts);
                 if (converted != null) liveItems.Add(converted);
             }
         }
@@ -429,7 +435,7 @@ public sealed class FwwSetStrategy(
         }
     }
 
-    private static IComparable GetMinimumKeyForType(Type keyType)
+    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtContext> aotContexts)
     {
         if (keyType == typeof(string)) return string.Empty;
         if (keyType == typeof(int)) return int.MinValue;
@@ -446,7 +452,7 @@ public sealed class FwwSetStrategy(
 
         if (keyType.IsValueType)
         {
-            return (IComparable)Activator.CreateInstance(keyType)!;
+            return (IComparable)PocoPathHelper.GetDefaultValue(keyType, aotContexts)!;
         }
 
         throw new InvalidOperationException($"Cannot determine minimum key for type {keyType}.");

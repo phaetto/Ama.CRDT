@@ -2,15 +2,15 @@ namespace Ama.CRDT.Services.Strategies;
 
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
-using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using System;
-using System.Linq;
-using System.Reflection;
 using Ama.CRDT.Services;
 using Ama.CRDT.Attributes.Strategies.Semantic;
+using System.Collections.Generic;
+using Ama.CRDT.Extensions;
 
 /// <summary>
 /// Implements a State Machine strategy. This strategy enforces valid state transitions
@@ -22,7 +22,10 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 [Associative]
 [Idempotent]
 [StateBased]
-public sealed class StateMachineStrategy(ReplicaContext replicaContext, IServiceProvider serviceProvider) : ICrdtStrategy
+public sealed class StateMachineStrategy(
+    ReplicaContext replicaContext, 
+    IServiceProvider serviceProvider, 
+    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -36,10 +39,10 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
             return;
         }
 
-        var attribute = property.GetCustomAttribute<CrdtStateMachineStrategyAttribute>();
+        var attribute = property.StrategyAttribute as CrdtStateMachineStrategyAttribute;
         if (attribute is null) return;
 
-        if (!IsValidTransition(attribute.ValidatorType, originalValue, modifiedValue))
+        if (!IsValidTransition(attribute.ValidatorType, property.PropertyType, originalValue, modifiedValue))
         {
             return;
         }
@@ -63,16 +66,16 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
             throw new NotSupportedException($"Intent {intent.GetType().Name} is not supported by {nameof(StateMachineStrategy)}.");
         }
 
-        var attribute = property.GetCustomAttribute<CrdtStateMachineStrategyAttribute>();
+        var attribute = property.StrategyAttribute as CrdtStateMachineStrategyAttribute;
         if (attribute is null)
         {
             throw new InvalidOperationException($"Property {property.Name} is missing the {nameof(CrdtStateMachineStrategyAttribute)}.");
         }
 
-        var currentValue = PocoPathHelper.GetValue(root, path);
-        var incomingValue = PocoPathHelper.ConvertValue(setIntent.Value, property.PropertyType);
+        var currentValue = PocoPathHelper.GetValue(root, path, aotContexts);
+        var incomingValue = PocoPathHelper.ConvertValue(setIntent.Value, property.PropertyType, aotContexts);
 
-        if (!IsValidTransition(attribute.ValidatorType, currentValue, incomingValue))
+        if (!IsValidTransition(attribute.ValidatorType, property.PropertyType, currentValue, incomingValue))
         {
             throw new InvalidOperationException($"Invalid state transition from '{currentValue}' to '{incomingValue}'.");
         }
@@ -90,22 +93,22 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        var (_, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
         if (property is null || !property.CanWrite)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
         
-        var attribute = property.GetCustomAttribute<CrdtStateMachineStrategyAttribute>();
+        var attribute = property.StrategyAttribute as CrdtStateMachineStrategyAttribute;
         if (attribute is null)
         {
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        var currentValue = PocoPathHelper.GetValue(root, operation.JsonPath);
-        var incomingValue = PocoPathHelper.ConvertValue(operation.Value, property.PropertyType);
+        var currentValue = PocoPathHelper.GetValue(root, operation.JsonPath, aotContexts);
+        var incomingValue = PocoPathHelper.ConvertValue(operation.Value, property.PropertyType, aotContexts);
 
-        if (!IsValidTransition(attribute.ValidatorType, currentValue, incomingValue))
+        if (!IsValidTransition(attribute.ValidatorType, property.PropertyType, currentValue, incomingValue))
         {
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
@@ -115,7 +118,7 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
             return CrdtOperationStatus.Obsolete;
         }
         
-        PocoPathHelper.SetValue(root, operation.JsonPath, incomingValue);
+        PocoPathHelper.SetValue(root, operation.JsonPath, incomingValue, aotContexts);
         metadata.Lww[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
 
         return CrdtOperationStatus.Success;
@@ -128,7 +131,7 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
         // Therefore, there is no metadata to prune safely.
     }
 
-    private bool IsValidTransition(Type validatorType, object? from, object? to)
+    private bool IsValidTransition(Type validatorType, Type propertyType, object? from, object? to)
     {
         var validator = serviceProvider.GetService(validatorType);
         if (validator is null)
@@ -136,31 +139,26 @@ public sealed class StateMachineStrategy(ReplicaContext replicaContext, IService
             return false;
         }
 
-        var stateMachineInterface = validatorType.GetInterfaces()
-            .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IStateMachine<>));
-        
-        if (stateMachineInterface is null) return false;
-
-        var method = stateMachineInterface.GetMethod("IsValidTransition");
-        if (method is null) return false;
-
-        var stateType = stateMachineInterface.GetGenericArguments()[0];
-
-        try
+        if (validator is IStateMachine stateMachine)
         {
-            var fromState = from is null ? GetDefault(stateType) : PocoPathHelper.ConvertValue(from, stateType);
-            var toState = to is null ? GetDefault(stateType) : PocoPathHelper.ConvertValue(to, stateType);
-            
-            return method.Invoke(validator, [fromState, toState]) is true;
+            try
+            {
+                var fromState = from is null ? GetDefault(propertyType) : PocoPathHelper.ConvertValue(from, propertyType, aotContexts);
+                var toState = to is null ? GetDefault(propertyType) : PocoPathHelper.ConvertValue(to, propertyType, aotContexts);
+                
+                return stateMachine.IsValidTransition(fromState, toState);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
-        catch (Exception)
-        {
-            return false;
-        }
+
+        return false;
     }
 
-    private static object? GetDefault(Type t)
+    private object? GetDefault(Type t)
     {
-        return t.IsValueType ? Activator.CreateInstance(t) : null;
+        return PocoPathHelper.GetDefaultValue(t, aotContexts);
     }
 }

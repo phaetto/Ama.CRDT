@@ -1,6 +1,5 @@
 namespace Ama.CRDT.SourceGenerators;
 
-using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -135,10 +134,10 @@ public class CrdtContextGenerator : IIncrementalGenerator
                                            .OrderBy(a => a.AttributeClass?.Name, System.StringComparer.Ordinal)
                                            .ToList();
 
-            var strategyTypeExpr = strategyAttr != null ? $"{GetAttributeCreationExpression(strategyAttr)}.StrategyType" : "null";
-            var decoratorTypesExpr = decoratorAttrs.Count > 0 
-                ? $"new global::System.Type[] {{ {string.Join(", ", decoratorAttrs.Select(a => $"{GetAttributeCreationExpression(a)}.StrategyType"))} }}" 
-                : "global::System.Array.Empty<global::System.Type>()";
+            var strategyAttributeExpr = strategyAttr != null ? GetAttributeCreationExpression(strategyAttr) : "null";
+            var decoratorAttributesExpr = decoratorAttrs.Count > 0 
+                ? $"new global::Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute[] {{ {string.Join(", ", decoratorAttrs.Select(a => GetAttributeCreationExpression(a)))} }}" 
+                : "global::System.Array.Empty<global::Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>()";
 
             sb.AppendLine($"                    [\"{propName}\"] = new global::Ama.CRDT.Models.Aot.CrdtPropertyInfo(");
             sb.AppendLine($"                        name: \"{propName}\",");
@@ -148,8 +147,8 @@ public class CrdtContextGenerator : IIncrementalGenerator
             sb.AppendLine($"                        canWrite: {(hasSetter ? "true" : "false")},");
             sb.AppendLine($"                        getter: {getter},");
             sb.AppendLine($"                        setter: {setter},");
-            sb.AppendLine($"                        strategyType: {strategyTypeExpr},");
-            sb.AppendLine($"                        decoratorTypes: {decoratorTypesExpr}");
+            sb.AppendLine($"                        strategyAttribute: {strategyAttributeExpr},");
+            sb.AppendLine($"                        decoratorAttributes: {decoratorAttributesExpr}");
             sb.AppendLine("                    ),");
         }
 

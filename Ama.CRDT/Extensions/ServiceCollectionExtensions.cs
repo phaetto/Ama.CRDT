@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models;
@@ -480,7 +478,7 @@ public static class ServiceCollectionExtensions
 
         // Registering as a Keyed Service ensures we don't pollute the host application's default JSON resolvers 
         // while allowing our internal serialization pipeline to uniquely retrieve it.
-        services.AddKeyedSingleton<IJsonTypeInfoResolver>("Ama.CRDT", resolver);
+        services.AddKeyedSingleton("Ama.CRDT", resolver);
         return services;
     }
 

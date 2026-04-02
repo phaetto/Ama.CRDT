@@ -5,7 +5,6 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
-using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.UnitTests.Models.Serialization;

@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
@@ -13,7 +14,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 /// <summary>
 /// Implements the 2P-Set (Two-Phase Set) CRDT strategy.
@@ -28,7 +28,8 @@ using System.Reflection;
 [StateBased]
 public sealed class TwoPhaseSetStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     
@@ -40,7 +41,7 @@ public sealed class TwoPhaseSetStrategy(
         var originalSet = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedSet = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
         var added = modifiedSet.Except(originalSet, comparer);
@@ -75,13 +76,13 @@ public sealed class TwoPhaseSetStrategy(
     {
         var (root, metadata, operation) = context;
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
-        if (parent is null || property is null || PocoPathHelper.GetAccessor(property).Getter(parent) is not IList list)
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
+        if (parent is null || property is null || property.Getter?.Invoke(parent) is not IList list)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
         if (!metadata.TwoPhaseSets.TryGetValue(operation.JsonPath, out var state))
@@ -90,7 +91,7 @@ public sealed class TwoPhaseSetStrategy(
             metadata.TwoPhaseSets[operation.JsonPath] = state;
         }
 
-        var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType);
+        var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType, aotContexts);
         if (itemValue is null)
         {
             return CrdtOperationStatus.StrategyApplicationFailed;
@@ -153,9 +154,9 @@ public sealed class TwoPhaseSetStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
-        var list = PocoPathHelper.GetValue<IList>(data, partitionableProperty.Name);
+        var list = PocoPathHelper.GetValue<IList>(data, partitionableProperty.Name, aotContexts);
         if (list == null || list.Count == 0) return null;
 
         var items = new List<IComparable>();
@@ -176,17 +177,17 @@ public sealed class TwoPhaseSetStrategy(
     }
 
     /// <inheritdoc/>
-    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    public IComparable GetMinimumKey(CrdtPropertyInfo partitionableProperty)
     {
-        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         return GetMinimumKeyForType(elementType);
     }
 
     /// <inheritdoc/>
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
-        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+        var documentType = originalData.GetType();
+        var path = $"$.{partitionableProperty.JsonName}";
 
         if (!originalMetadata.TwoPhaseSets.TryGetValue(path, out var state) || state.Adds.Count + state.Tombstones.Count < 2)
         {
@@ -203,7 +204,7 @@ public sealed class TwoPhaseSetStrategy(
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
 
-        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
         var adds1 = new HashSet<object>(comparer);
@@ -225,25 +226,25 @@ public sealed class TwoPhaseSetStrategy(
         meta1.TwoPhaseSets[path] = new TwoPhaseSetState(adds1, toms1);
         meta2.TwoPhaseSets[path] = new TwoPhaseSetState(adds2, toms2);
 
-        var doc1 = Activator.CreateInstance(documentType)!;
-        var doc2 = Activator.CreateInstance(documentType)!;
+        var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts);
+        var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts);
 
-        ReconstructListForSplitMerge(doc1, path, meta1.TwoPhaseSets[path], elementType);
-        ReconstructListForSplitMerge(doc2, path, meta2.TwoPhaseSets[path], elementType);
+        ReconstructListForSplitMerge(doc1, path, meta1.TwoPhaseSets[path], elementType, partitionableProperty.PropertyType);
+        ReconstructListForSplitMerge(doc2, path, meta2.TwoPhaseSets[path], elementType, partitionableProperty.PropertyType);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
 
     /// <inheritdoc/>
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
-        var documentType = partitionableProperty.DeclaringType!;
-        var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
+        var documentType = data1.GetType();
+        var path = $"$.{partitionableProperty.JsonName}";
 
-        var mergedDoc = Activator.CreateInstance(documentType)!;
+        var mergedDoc = PocoPathHelper.Instantiate(documentType, aotContexts);
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var elementType = PocoPathHelper.GetCollectionElementType(partitionableProperty);
+        var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
         var adds = new HashSet<object>(comparer);
@@ -269,19 +270,18 @@ public sealed class TwoPhaseSetStrategy(
         var mergedState = new TwoPhaseSetState(adds, toms);
         mergedMeta.TwoPhaseSets[path] = mergedState;
 
-        ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType);
+        ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType, partitionableProperty.PropertyType);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructListForSplitMerge(object root, string path, TwoPhaseSetState state, Type elementType)
+    private void ReconstructListForSplitMerge(object root, string path, TwoPhaseSetState state, Type elementType, Type propertyType)
     {
-        var list = PocoPathHelper.GetValue<IList>(root, path);
+        var list = PocoPathHelper.GetValue<IList>(root, path, aotContexts);
         if (list is null)
         {
-            var listType = typeof(List<>).MakeGenericType(elementType);
-            list = (IList)Activator.CreateInstance(listType)!;
-            PocoPathHelper.SetValue(root, path, list);
+            list = (IList)PocoPathHelper.InstantiateCollection(propertyType, aotContexts);
+            PocoPathHelper.SetValue(root, path, list, aotContexts);
         }
 
         list.Clear();
@@ -291,7 +291,7 @@ public sealed class TwoPhaseSetStrategy(
         {
             if (!state.Tombstones.ContainsKey(item))
             {
-                var converted = PocoPathHelper.ConvertValue(item, elementType);
+                var converted = PocoPathHelper.ConvertValue(item, elementType, aotContexts);
                 if (converted != null) liveItems.Add(converted);
             }
         }
@@ -332,7 +332,7 @@ public sealed class TwoPhaseSetStrategy(
         }
     }
 
-    private static IComparable GetMinimumKeyForType(Type keyType)
+    private IComparable GetMinimumKeyForType(Type keyType)
     {
         if (keyType == typeof(string)) return string.Empty;
         if (keyType == typeof(int)) return int.MinValue;
@@ -349,7 +349,8 @@ public sealed class TwoPhaseSetStrategy(
 
         if (keyType.IsValueType)
         {
-            return (IComparable)Activator.CreateInstance(keyType)!;
+            var defaultVal = PocoPathHelper.GetDefaultValue(keyType, aotContexts);
+            if (defaultVal is IComparable comparable) return comparable;
         }
 
         throw new InvalidOperationException($"Cannot determine minimum key for type {keyType}.");

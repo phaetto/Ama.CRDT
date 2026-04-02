@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies.Decorators;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Intents.Decorators;
 using Ama.CRDT.Services;
@@ -12,7 +13,6 @@ using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 /// <summary>
 /// A decorator strategy that wraps another strategy with an epoch generation counter.
@@ -25,15 +25,15 @@ using System.Reflection;
 [Associative]
 [Idempotent]
 [OperationBased]
-public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, ReplicaContext replicaContext) : ICrdtStrategy
+public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, ReplicaContext replicaContext, IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
 {
-    private ICrdtStrategy GetInnerStrategy(PropertyInfo property)
+    private ICrdtStrategy GetInnerStrategy(Type declaringType, CrdtPropertyInfo property)
     {
         // We use IServiceProvider directly here to break a circular DI dependency
         // where EpochBoundStrategy requires ICrdtStrategyProvider, but ICrdtStrategyProvider 
         // constructs a dictionary of all registered ICrdtStrategy implementations.
         var provider = serviceProvider.GetRequiredService<ICrdtStrategyProvider>();
-        return provider.GetInnerStrategy(property, typeof(EpochBoundStrategy));
+        return provider.GetInnerStrategy(declaringType, property, typeof(EpochBoundStrategy));
     }
 
     /// <inheritdoc/>
@@ -41,7 +41,11 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
     {
         ArgumentNullException.ThrowIfNull(context.Property);
 
-        var innerStrategy = GetInnerStrategy(context.Property);
+        var root = context.OriginalRoot ?? context.ModifiedRoot;
+        var (target, _, _) = PocoPathHelper.ResolvePath(root, context.Path, aotContexts);
+        var declaringType = target?.GetType() ?? typeof(object);
+
+        var innerStrategy = GetInnerStrategy(declaringType, context.Property);
         var localEpoch = GetEpochForPath(context.OriginalMeta, context.Path, out _);
         
         var innerOps = new List<CrdtOperation>();
@@ -74,7 +78,10 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
                 context.Clock);
         }
         
-        var innerStrategy = GetInnerStrategy(context.Property);
+        var (target, _, _) = PocoPathHelper.ResolvePath(context.DocumentRoot, context.JsonPath, aotContexts);
+        var declaringType = target?.GetType() ?? typeof(object);
+
+        var innerStrategy = GetInnerStrategy(declaringType, context.Property);
         var innerOp = innerStrategy.GenerateOperation(context);
         
         return innerOp with { Value = new EpochPayload(localEpoch, innerOp.Value) };
@@ -87,7 +94,8 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         {
             if (context.Property is not null)
             {
-                var inner = GetInnerStrategy(context.Property);
+                var declaringType = context.Target?.GetType() ?? typeof(object);
+                var inner = GetInnerStrategy(declaringType, context.Property);
                 return inner.ApplyOperation(context);
             }
             return CrdtOperationStatus.PathResolutionFailed;
@@ -108,7 +116,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
             ClearMetadataForPath(context.Metadata, basePath);
             context.Metadata.Epochs[basePath] = payload.Epoch;
 
-            var propVal = PocoPathHelper.GetValue(context.Root, basePath);
+            var propVal = PocoPathHelper.GetValue(context.Root, basePath, aotContexts);
             if (propVal is System.Collections.IList list && !list.IsFixedSize)
             {
                 list.Clear();
@@ -119,10 +127,10 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
             }
             else
             {
-                var (_, bProperty, _) = PocoPathHelper.ResolvePath(context.Root, basePath, createMissing: false);
+                var (_, bProperty, _) = PocoPathHelper.ResolvePath(context.Root, basePath, aotContexts, createMissing: false);
                 if (bProperty?.CanWrite == true)
                 {
-                    PocoPathHelper.SetValue(context.Root, basePath, null);
+                    PocoPathHelper.SetValue(context.Root, basePath, null, aotContexts);
                 }
             }
         }
@@ -134,7 +142,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         }
 
         // We must re-resolve the target property because we might have cleared it and it needs recreation
-        var (target, property, finalSegment) = PocoPathHelper.ResolvePath(context.Root, context.Operation.JsonPath, createMissing: true);
+        var (target, property, finalSegment) = PocoPathHelper.ResolvePath(context.Root, context.Operation.JsonPath, aotContexts, createMissing: true);
         
         // Use context.Property, as `property` will be null if we resolved an element of a collection
         if (context.Property is null)
@@ -142,7 +150,8 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        var innerStrategy = GetInnerStrategy(context.Property);
+        var newDeclaringType = target?.GetType() ?? typeof(object);
+        var innerStrategy = GetInnerStrategy(newDeclaringType, context.Property);
         var innerOp = context.Operation with { Value = payload.Value };
         
         var innerContext = context with 
@@ -162,10 +171,11 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         // For decorators, we must delegate the compaction request down the chain to the inner strategy.
         if (context.Document is null) return;
         
-        var (_, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath);
+        var (target, property, _) = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath, aotContexts);
         if (property is not null)
         {
-            var innerStrategy = GetInnerStrategy(property);
+            var declaringType = target?.GetType() ?? typeof(object);
+            var innerStrategy = GetInnerStrategy(declaringType, property);
             innerStrategy.Compact(context);
         }
     }

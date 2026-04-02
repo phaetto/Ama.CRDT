@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.GarbageCollection;
@@ -13,7 +14,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 /// <summary>
 /// Implements the RGA (Replicated Growable Array) strategy.
@@ -30,12 +30,13 @@ using System.Reflection;
 public sealed class RgaStrategy(
     IElementComparerProvider elementComparerProvider,
     ICrdtTimestampProvider timestampProvider,
-    ReplicaContext replicaContext) : IPartitionableCrdtStrategy
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
     /// <inheritdoc />
-    public IComparable? GetStartKey(object data, PropertyInfo partitionableProperty)
+    public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
         return GetMinimumKey(partitionableProperty);
     }
@@ -45,11 +46,11 @@ public sealed class RgaStrategy(
     {
         if (operation.JsonPath != partitionablePropertyPath) return null;
 
-        if (operation.Type == OperationType.Upsert && PocoPathHelper.ConvertValue(operation.Value, typeof(RgaItem)) is RgaItem item)
+        if (operation.Type == OperationType.Upsert && PocoPathHelper.ConvertValue(operation.Value, typeof(RgaItem), aotContexts) is RgaItem item)
         {
             return item.Identifier;
         }
-        if (operation.Type == OperationType.Remove && PocoPathHelper.ConvertValue(operation.Value, typeof(RgaIdentifier)) is RgaIdentifier id)
+        if (operation.Type == OperationType.Remove && PocoPathHelper.ConvertValue(operation.Value, typeof(RgaIdentifier), aotContexts) is RgaIdentifier id)
         {
             return id;
         }
@@ -58,13 +59,13 @@ public sealed class RgaStrategy(
     }
 
     /// <inheritdoc />
-    public IComparable GetMinimumKey(PropertyInfo partitionableProperty)
+    public IComparable GetMinimumKey(CrdtPropertyInfo partitionableProperty)
     {
         return new RgaIdentifier(0, string.Empty);
     }
 
     /// <inheritdoc />
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty)
+    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
         
@@ -89,8 +90,8 @@ public sealed class RgaStrategy(
         leftMeta.RgaTrackers[path] = leftItems;
         rightMeta.RgaTrackers[path] = rightItems;
 
-        var leftData = Activator.CreateInstance(originalData.GetType())!;
-        var rightData = Activator.CreateInstance(originalData.GetType())!;
+        var leftData = PocoPathHelper.Instantiate(originalData.GetType(), aotContexts);
+        var rightData = PocoPathHelper.Instantiate(originalData.GetType(), aotContexts);
 
         ReconstructList(leftData, path, RebuildRgaOrder(leftItems));
         ReconstructList(rightData, path, RebuildRgaOrder(rightItems));
@@ -103,7 +104,7 @@ public sealed class RgaStrategy(
     }
 
     /// <inheritdoc />
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty)
+    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
@@ -119,7 +120,7 @@ public sealed class RgaStrategy(
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
         mergedMeta.RgaTrackers[path] = mergedItems;
 
-        var mergedData = Activator.CreateInstance(data1.GetType())!;
+        var mergedData = PocoPathHelper.Instantiate(data1.GetType(), aotContexts);
         ReconstructList(mergedData, path, mergedItems);
 
         return new PartitionContent(mergedData, mergedMeta);
@@ -132,7 +133,7 @@ public sealed class RgaStrategy(
 
         if (originalValue is not IList originalList || modifiedValue is not IList modifiedList) return;
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = elementComparerProvider.GetComparer(elementType);
 
         if (!originalMeta.RgaTrackers.TryGetValue(path, out var originalItems))
@@ -303,25 +304,24 @@ public sealed class RgaStrategy(
             metadata.RgaTrackers[operation.JsonPath] = items;
         }
 
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath);
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
         if (parent is null || property is null)
         {
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
-        var list = PocoPathHelper.GetAccessor(property).Getter(parent) as IList;
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+        var list = property.Getter!(parent) as IList;
 
         if (list is null)
         {
-            var listType = typeof(List<>).MakeGenericType(elementType);
-            list = (IList)Activator.CreateInstance(listType)!;
-            PocoPathHelper.GetAccessor(property).Setter(parent, list);
+            list = (IList)PocoPathHelper.InstantiateCollection(property.PropertyType, aotContexts);
+            property.Setter!(parent, list);
         }
 
         if (operation.Type == OperationType.Upsert)
         {
-            if (PocoPathHelper.ConvertValue(operation.Value, typeof(RgaItem)) is RgaItem newItem)
+            if (PocoPathHelper.ConvertValue(operation.Value, typeof(RgaItem), aotContexts) is RgaItem newItem)
             {
                 if (items.Any(x => x.Identifier.Equals(newItem.Identifier)))
                 {
@@ -332,7 +332,7 @@ public sealed class RgaStrategy(
                 if (items.Count == 0 || (newItem.LeftIdentifier.HasValue && items[^1].Identifier.Equals(newItem.LeftIdentifier.Value)))
                 {
                     items.Add(newItem);
-                    list.Add(PocoPathHelper.ConvertValue(newItem.Value, elementType));
+                    list.Add(PocoPathHelper.ConvertValue(newItem.Value, elementType, aotContexts));
                 }
                 else
                 {
@@ -347,7 +347,7 @@ public sealed class RgaStrategy(
                         if (!item.IsDeleted) visibleIdx++;
                     }
                     
-                    list.Insert(visibleIdx, PocoPathHelper.ConvertValue(newItem.Value, elementType));
+                    list.Insert(visibleIdx, PocoPathHelper.ConvertValue(newItem.Value, elementType, aotContexts));
                 }
             }
             else
@@ -357,7 +357,7 @@ public sealed class RgaStrategy(
         }
         else if (operation.Type == OperationType.Remove)
         {
-            if (PocoPathHelper.ConvertValue(operation.Value, typeof(RgaIdentifier)) is RgaIdentifier idToRemove)
+            if (PocoPathHelper.ConvertValue(operation.Value, typeof(RgaIdentifier), aotContexts) is RgaIdentifier idToRemove)
             {
                 int visibleIdx = 0;
                 for (var i = 0; i < items.Count; i++)
@@ -528,19 +528,18 @@ public sealed class RgaStrategy(
         return result;
     }
 
-    private static void ReconstructList(object root, string path, List<RgaItem> rgaItems)
+    private void ReconstructList(object root, string path, List<RgaItem> rgaItems)
     {
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path);
+        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);
         if (parent is null || property is null) return;
 
-        var elementType = PocoPathHelper.GetCollectionElementType(property);
-        var list = PocoPathHelper.GetAccessor(property).Getter(parent) as IList;
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+        var list = property.Getter!(parent) as IList;
 
         if (list is null)
         {
-            var listType = typeof(List<>).MakeGenericType(elementType);
-            list = (IList)Activator.CreateInstance(listType)!;
-            PocoPathHelper.GetAccessor(property).Setter(parent, list);
+            list = (IList)PocoPathHelper.InstantiateCollection(property.PropertyType, aotContexts);
+            property.Setter!(parent, list);
         }
 
         list.Clear();
@@ -548,7 +547,7 @@ public sealed class RgaStrategy(
         {
             if (!item.IsDeleted)
             {
-                list.Add(PocoPathHelper.ConvertValue(item.Value, elementType));
+                list.Add(PocoPathHelper.ConvertValue(item.Value, elementType, aotContexts));
             }
         }
     }
