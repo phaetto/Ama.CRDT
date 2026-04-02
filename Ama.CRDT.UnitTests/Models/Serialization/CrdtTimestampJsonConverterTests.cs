@@ -104,7 +104,7 @@ public sealed class CrdtTimestampJsonConverterTests
         var json = "{\"$type\":\"unregistered\",\"Value\":123}";
 
         Should.Throw<NotSupportedException>(() => JsonSerializer.Deserialize<ICrdtTimestamp>(json, serializerOptions))
-            .Message.ShouldContain("is not supported or not registered.");
+            .Message.ShouldContain("is not registered or supported.");
     }
 
     [Fact]
