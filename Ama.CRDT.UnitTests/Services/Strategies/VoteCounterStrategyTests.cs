@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -29,13 +31,13 @@ public sealed class VoteCounterStrategyTests : IDisposable
         public ICrdtTimestamp Create(long value) => defaultProvider.Create(value);
     }
 
-    private sealed class Poll
+    internal sealed class Poll
     {
         [CrdtVoteCounterStrategy]
         public IDictionary<string, HashSet<string>> Votes { get; set; } = new Dictionary<string, HashSet<string>>();
     }
 
-    private sealed class PollWithList
+    internal sealed class PollWithList
     {
         [CrdtVoteCounterStrategy]
         public IDictionary<string, List<string>> Votes { get; set; } = new Dictionary<string, List<string>>();
@@ -52,6 +54,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<VoteCounterStrategyTestCrdtContext>()
             .AddSingleton<ICrdtTimestampProvider, TestTimestampProvider>()
             .BuildServiceProvider();
 
@@ -71,6 +74,18 @@ public sealed class VoteCounterStrategyTests : IDisposable
         scopeB.Dispose();
     }
 
+    private static CrdtPropertyInfo GetPollVotesPropertyInfo() => new CrdtPropertyInfo(
+        nameof(Poll.Votes),
+        "votes",
+        typeof(IDictionary<string, HashSet<string>>),
+        true,
+        true,
+        obj => ((Poll)obj).Votes,
+        (obj, val) => ((Poll)obj).Votes = (IDictionary<string, HashSet<string>>)val!,
+        null,
+        Array.Empty<CrdtStrategyDecoratorAttribute>()
+    );
+
     [Fact]
     public void GeneratePatch_ShouldCreateUpsertForNewVote()
     {
@@ -80,7 +95,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
 
         var operations = new List<CrdtOperation>();
         var context = new GeneratePatchContext(
-            operations, new List<DifferentiateObjectContext>(), "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now(), 0);
+            operations, new List<DifferentiateObjectContext>(), "$.votes", GetPollVotesPropertyInfo(), original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now(), 0);
         
         strategyA.GeneratePatch(context);
 
@@ -101,7 +116,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
 
         var operations = new List<CrdtOperation>();
         var context = new GeneratePatchContext(
-            operations, new List<DifferentiateObjectContext>(), "$.votes", typeof(Poll).GetProperty(nameof(Poll.Votes))!, original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now(), 0);
+            operations, new List<DifferentiateObjectContext>(), "$.votes", GetPollVotesPropertyInfo(), original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now(), 0);
         
         strategyA.GeneratePatch(context);
 
@@ -119,13 +134,12 @@ public sealed class VoteCounterStrategyTests : IDisposable
         var original = new Poll();
         var originalMeta = metadataManagerA.Initialize(original);
         var intent = new VoteIntent("Voter1", "OptionA");
-        var propertyInfo = typeof(Poll).GetProperty(nameof(Poll.Votes))!;
         
         var context = new GenerateOperationContext(
             original, 
             originalMeta, 
             "$.votes", 
-            propertyInfo, 
+            GetPollVotesPropertyInfo(), 
             intent, 
             timestampProvider.Now(), 
             0);
@@ -146,13 +160,12 @@ public sealed class VoteCounterStrategyTests : IDisposable
         var original = new Poll();
         var originalMeta = metadataManagerA.Initialize(original);
         var intent = new AddIntent("Voter1");
-        var propertyInfo = typeof(Poll).GetProperty(nameof(Poll.Votes))!;
         
         var context = new GenerateOperationContext(
             original, 
             originalMeta, 
             "$.votes", 
-            propertyInfo, 
+            GetPollVotesPropertyInfo(), 
             intent, 
             timestampProvider.Now(), 
             0);
@@ -297,7 +310,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
     [Fact]
     public void GetStartKey_ShouldReturnSmallestVoterOrNull()
     {
-        var propInfo = typeof(Poll).GetProperty(nameof(Poll.Votes))!;
+        var propInfo = GetPollVotesPropertyInfo();
         
         strategyA.GetStartKey(new Poll(), propInfo).ShouldBeNull();
         
@@ -317,7 +330,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
     [Fact]
     public void GetMinimumKey_ShouldReturnCorrectMinValueForVoterType()
     {
-        var propInfo = typeof(Poll).GetProperty(nameof(Poll.Votes))!;
+        var propInfo = GetPollVotesPropertyInfo();
         strategyA.GetMinimumKey(propInfo).ShouldBe(string.Empty);
     }
 
@@ -326,7 +339,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
     {
         var doc = new Poll();
         var meta = metadataManagerA.Initialize(doc);
-        var propInfo = typeof(Poll).GetProperty(nameof(Poll.Votes))!;
+        var propInfo = GetPollVotesPropertyInfo();
 
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("a", "O1"), timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("b", "O1"), timestampProvider.Now(), 0)));
@@ -354,7 +367,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
         var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new Poll();
         var meta2 = metadataManagerA.Initialize(doc2);
-        var propInfo = typeof(Poll).GetProperty(nameof(Poll.Votes))!;
+        var propInfo = GetPollVotesPropertyInfo();
 
         strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("a", "O1"), timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("b", "O1"), timestampProvider.Now(), 0)));

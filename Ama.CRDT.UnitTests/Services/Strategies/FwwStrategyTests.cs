@@ -1,7 +1,9 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -15,11 +17,15 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
+[CrdtSerializable(typeof(FwwStrategyTests.TestModel))]
+[CrdtSerializable(typeof(FwwStrategyTests.NullableTestModel))]
+internal partial class FwwTestCrdtContext : CrdtContext { }
+
 public sealed class FwwStrategyTests : IDisposable
 {
-    private sealed class TestModel { public int Value { get; set; } }
+    internal sealed class TestModel { public int Value { get; set; } }
     
-    private sealed class NullableTestModel { public int? Value { get; set; } }
+    internal sealed class NullableTestModel { public int? Value { get; set; } }
 
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
@@ -33,6 +39,7 @@ public sealed class FwwStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<FwwTestCrdtContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -51,6 +58,34 @@ public sealed class FwwStrategyTests : IDisposable
         scopeB.Dispose();
     }
 
+    private CrdtPropertyInfo GetValuePropertyInfo()
+    {
+        return new CrdtPropertyInfo(
+            nameof(TestModel.Value),
+            "value",
+            typeof(int),
+            true,
+            true,
+            obj => ((TestModel)obj).Value,
+            (obj, val) => ((TestModel)obj).Value = (int)val!,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
+    }
+
+    private CrdtPropertyInfo GetNullableValuePropertyInfo()
+    {
+        return new CrdtPropertyInfo(
+            nameof(NullableTestModel.Value),
+            "value",
+            typeof(int?),
+            true,
+            true,
+            obj => ((NullableTestModel)obj).Value,
+            (obj, val) => ((NullableTestModel)obj).Value = (int?)val,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
+    }
+
     [Fact]
     public void GeneratePatch_WhenValueChanges_ShouldGenerateUpsert()
     {
@@ -58,7 +93,7 @@ public sealed class FwwStrategyTests : IDisposable
         var originalValue = 10;
         var modifiedValue = 20;
         var originalMeta = new CrdtMetadata { Fww = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(300L), "r1", 1) } };
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
+        var property = GetValuePropertyInfo();
         var changeTimestamp = timestampProvider.Create(200L); // Older timestamp, should be accepted in FWW
         var context = new GeneratePatchContext(
             operations, new List<DifferentiateObjectContext>(), "$.value", property, originalValue, modifiedValue, null, null, originalMeta, changeTimestamp, 0);
@@ -82,7 +117,7 @@ public sealed class FwwStrategyTests : IDisposable
         var originalValue = 10;
         var modifiedValue = 20;
         var originalMeta = new CrdtMetadata { Fww = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(100L), "r1", 1) } };
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
+        var property = GetValuePropertyInfo();
         var changeTimestamp = timestampProvider.Create(200L); // Newer timestamp, should be rejected in FWW
         var context = new GeneratePatchContext(
             operations, new List<DifferentiateObjectContext>(), "$.value", property, originalValue, modifiedValue, null, null, originalMeta, changeTimestamp, 0);
@@ -98,7 +133,7 @@ public sealed class FwwStrategyTests : IDisposable
     public void GenerateOperation_WithSetIntent_ShouldGenerateUpsert()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
+        var property = GetValuePropertyInfo();
         var changeTimestamp = timestampProvider.Create(200L);
         var intent = new SetIntent(42);
         var context = new GenerateOperationContext(
@@ -119,7 +154,7 @@ public sealed class FwwStrategyTests : IDisposable
     public void GenerateOperation_WithNullSetIntent_ShouldGenerateRemove()
     {
         // Arrange
-        var property = typeof(NullableTestModel).GetProperty(nameof(NullableTestModel.Value))!;
+        var property = GetNullableValuePropertyInfo();
         var changeTimestamp = timestampProvider.Create(200L);
         var intent = new SetIntent(null);
         var context = new GenerateOperationContext(
@@ -140,7 +175,7 @@ public sealed class FwwStrategyTests : IDisposable
     public void GenerateOperation_WithClearIntent_ShouldGenerateRemove()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
+        var property = GetValuePropertyInfo();
         var changeTimestamp = timestampProvider.Create(200L);
         var intent = new ClearIntent();
         var context = new GenerateOperationContext(
@@ -161,7 +196,7 @@ public sealed class FwwStrategyTests : IDisposable
     public void GenerateOperation_WithUnsupportedIntent_ShouldThrowNotSupportedException()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
+        var property = GetValuePropertyInfo();
         var changeTimestamp = timestampProvider.Create(200L);
         var intent = new IncrementIntent(1);
         var context = new GenerateOperationContext(

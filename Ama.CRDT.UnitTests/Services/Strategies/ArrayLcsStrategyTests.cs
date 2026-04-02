@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -16,9 +18,15 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
+[CrdtSerializable(typeof(ArrayLcsStrategyTests.TestModel))]
+[CrdtSerializable(typeof(List<string>))]
+internal partial class ArrayLcsTestCrdtContext : CrdtContext
+{
+}
+
 public sealed class ArrayLcsStrategyTests : IDisposable
 {
-    private sealed class TestModel
+    internal sealed class TestModel
     {
         [CrdtArrayLcsStrategy]
         public List<string> Tags { get; set; } = new();
@@ -37,6 +45,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<ArrayLcsTestCrdtContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -85,13 +94,23 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         // Arrange
         var doc = new TestModel { Tags = new List<string> { "A", "C" } };
         var meta = metadataManagerA.Initialize(doc);
-        var propertyInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags));
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(TestModel.Tags),
+            "tags",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((TestModel)obj).Tags,
+            (obj, val) => ((TestModel)obj).Tags = (List<string>)val!,
+            new CrdtArrayLcsStrategyAttribute(),
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
         var timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
         
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
 
         var intent = new InsertIntent(1, "B");
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo!, intent, timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo, intent, timestampProvider.Now(), 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -110,13 +129,23 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         // Arrange
         var doc = new TestModel { Tags = new List<string> { "A", "B", "C" } };
         var meta = metadataManagerA.Initialize(doc);
-        var propertyInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags));
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(TestModel.Tags),
+            "tags",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((TestModel)obj).Tags,
+            (obj, val) => ((TestModel)obj).Tags = (List<string>)val!,
+            new CrdtArrayLcsStrategyAttribute(),
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
         var timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
 
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
 
         var intent = new RemoveIntent(1); // Intent to remove "B"
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo!, intent, timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo, intent, timestampProvider.Now(), 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -134,13 +163,23 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         // Arrange
         var doc = new TestModel { Tags = new List<string> { "A" } };
         var meta = metadataManagerA.Initialize(doc);
-        var propertyInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags));
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(TestModel.Tags),
+            "tags",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((TestModel)obj).Tags,
+            (obj, val) => ((TestModel)obj).Tags = (List<string>)val!,
+            new CrdtArrayLcsStrategyAttribute(),
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
         var timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
 
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
 
         var intent = new InvalidIntent();
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo!, intent, timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo, intent, timestampProvider.Now(), 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));

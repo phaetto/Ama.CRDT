@@ -2,6 +2,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -17,18 +18,20 @@ using Xunit;
 
 public sealed class MaxWinsStrategyTests : IDisposable
 {
-    private sealed class TestModel { public int HighScore { get; set; } }
+    internal sealed class TestModel { public int HighScore { get; set; } }
     
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
     private readonly MaxWinsStrategy strategyA;
     private readonly MaxWinsStrategy strategyB;
     private readonly ICrdtTimestampProvider timestampProvider;
+    private readonly CrdtPropertyInfo property;
 
     public MaxWinsStrategyTests()
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<MaxWinsStrategyTestCrdtContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -39,6 +42,18 @@ public sealed class MaxWinsStrategyTests : IDisposable
         strategyA = scopeA.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
         strategyB = scopeB.ServiceProvider.GetRequiredService<MaxWinsStrategy>();
         timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+
+        property = new CrdtPropertyInfo(
+            nameof(TestModel.HighScore),
+            "highScore",
+            typeof(int),
+            true,
+            true,
+            obj => ((TestModel)obj).HighScore,
+            (obj, val) => ((TestModel)obj).HighScore = (int)val!,
+            null,
+            []
+        );
     }
 
     public void Dispose()
@@ -52,7 +67,6 @@ public sealed class MaxWinsStrategyTests : IDisposable
     {
         // Arrange
         var operations = new List<CrdtOperation>();
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.HighScore))!;
         var context = new GeneratePatchContext(
             operations,
             new List<DifferentiateObjectContext>(),
@@ -80,7 +94,6 @@ public sealed class MaxWinsStrategyTests : IDisposable
     public void GenerateOperation_ShouldCreateUpsert_WhenIntentIsSetIntent()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.HighScore))!;
         var intent = new SetIntent(300);
         var timestamp = timestampProvider.Now();
         var context = new GenerateOperationContext(
@@ -107,7 +120,6 @@ public sealed class MaxWinsStrategyTests : IDisposable
     public void GenerateOperation_ShouldThrowNotSupportedException_WhenIntentIsInvalid()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.HighScore))!;
         var intent = new RemoveIntent(0); // Invalid intent for MaxWinsStrategy
         var context = new GenerateOperationContext(
             new TestModel(),
@@ -135,7 +147,11 @@ public sealed class MaxWinsStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { HighScore = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L), 0);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = property
+        };
         
         // Act
         strategyA.ApplyOperation(context);
@@ -150,7 +166,11 @@ public sealed class MaxWinsStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { HighScore = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 100, timestampProvider.Create(2L), 0);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = property
+        };
         
         // Act
         strategyA.ApplyOperation(context);
@@ -165,7 +185,11 @@ public sealed class MaxWinsStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { HighScore = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L), 0);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = property
+        };
     
         // Act
         strategyA.ApplyOperation(context);
@@ -188,12 +212,12 @@ public sealed class MaxWinsStrategyTests : IDisposable
 
         // Act
         // op1 then op2
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1));
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1) { Target = model1, Property = property });
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2) { Target = model1, Property = property });
 
         // op2 then op1
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2));
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2) { Target = model2, Property = property });
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1) { Target = model2, Property = property });
     
         // Assert
         model1.HighScore.ShouldBe(200); // max(100, 200, 150)
@@ -220,7 +244,7 @@ public sealed class MaxWinsStrategyTests : IDisposable
             var meta = new CrdtMetadata();
             foreach (var op in p)
             {
-                strategyA.ApplyOperation(new ApplyOperationContext(model, meta, op));
+                strategyA.ApplyOperation(new ApplyOperationContext(model, meta, op) { Target = model, Property = property });
             }
             finalScores.Add(model.HighScore);
         }

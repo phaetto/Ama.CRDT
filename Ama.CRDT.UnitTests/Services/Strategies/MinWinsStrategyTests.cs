@@ -2,6 +2,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -17,18 +18,20 @@ using Xunit;
 
 public sealed class MinWinsStrategyTests : IDisposable
 {
-    private sealed class TestModel { public int BestTime { get; set; } }
+    internal sealed class TestModel { public int BestTime { get; set; } }
     
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
     private readonly MinWinsStrategy strategyA;
     private readonly MinWinsStrategy strategyB;
     private readonly ICrdtTimestampProvider timestampProvider;
+    private readonly CrdtPropertyInfo property;
 
     public MinWinsStrategyTests()
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<MinWinsStrategyTestCrdtContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -39,6 +42,18 @@ public sealed class MinWinsStrategyTests : IDisposable
         strategyA = scopeA.ServiceProvider.GetRequiredService<MinWinsStrategy>();
         strategyB = scopeB.ServiceProvider.GetRequiredService<MinWinsStrategy>();
         timestampProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+
+        property = new CrdtPropertyInfo(
+            nameof(TestModel.BestTime),
+            "bestTime",
+            typeof(int),
+            true,
+            true,
+            obj => ((TestModel)obj).BestTime,
+            (obj, val) => ((TestModel)obj).BestTime = (int)val!,
+            null,
+            []
+        );
     }
 
     public void Dispose()
@@ -52,7 +67,6 @@ public sealed class MinWinsStrategyTests : IDisposable
     {
         // Arrange
         var operations = new List<CrdtOperation>();
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.BestTime))!;
         var context = new GeneratePatchContext(
             operations,
             new List<DifferentiateObjectContext>(),
@@ -80,7 +94,6 @@ public sealed class MinWinsStrategyTests : IDisposable
     public void GenerateOperation_ShouldCreateUpsert_WhenIntentIsSetIntent()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.BestTime))!;
         var context = new GenerateOperationContext(
             new TestModel(),
             new CrdtMetadata(),
@@ -105,7 +118,6 @@ public sealed class MinWinsStrategyTests : IDisposable
     public void GenerateOperation_ShouldThrowArgumentException_WhenValueIsNotComparable()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.BestTime))!;
         var context = new GenerateOperationContext(
             new TestModel(),
             new CrdtMetadata(),
@@ -124,7 +136,6 @@ public sealed class MinWinsStrategyTests : IDisposable
     public void GenerateOperation_ShouldThrowNotSupportedException_WhenIntentIsInvalid()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.BestTime))!;
         var context = new GenerateOperationContext(
             new TestModel(),
             new CrdtMetadata(),
@@ -145,7 +156,11 @@ public sealed class MinWinsStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { BestTime = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 100, timestampProvider.Create(2L), 0);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = property
+        };
         
         // Act
         strategyA.ApplyOperation(context);
@@ -160,7 +175,11 @@ public sealed class MinWinsStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { BestTime = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 200, timestampProvider.Create(2L), 0);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = property
+        };
         
         // Act
         strategyA.ApplyOperation(context);
@@ -175,7 +194,11 @@ public sealed class MinWinsStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { BestTime = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 100, timestampProvider.Create(2L), 0);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation);
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        {
+            Target = model,
+            Property = property
+        };
     
         // Act
         strategyA.ApplyOperation(context);
@@ -198,12 +221,12 @@ public sealed class MinWinsStrategyTests : IDisposable
 
         // Act
         // op1 then op2
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1));
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1) { Target = model1, Property = property });
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2) { Target = model1, Property = property });
 
         // op2 then op1
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2));
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2) { Target = model2, Property = property });
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1) { Target = model2, Property = property });
     
         // Assert
         model1.BestTime.ShouldBe(200); // min(300, 200, 250)
@@ -230,7 +253,7 @@ public sealed class MinWinsStrategyTests : IDisposable
             var meta = new CrdtMetadata();
             foreach (var op in p)
             {
-                strategyA.ApplyOperation(new ApplyOperationContext(model, meta, op));
+                strategyA.ApplyOperation(new ApplyOperationContext(model, meta, op) { Target = model, Property = property });
             }
             finalTimes.Add(model.BestTime);
         }

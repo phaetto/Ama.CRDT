@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -16,6 +18,18 @@ using System.Collections.Generic;
 using System.Threading;
 using Xunit;
 
+[CrdtSerializable(typeof(FwwMapTestModel))]
+[CrdtSerializable(typeof(Dictionary<string, int>))]
+internal partial class FwwMapTestCrdtContext : CrdtContext
+{
+}
+
+internal sealed class FwwMapTestModel
+{
+    [CrdtFwwMapStrategy]
+    public Dictionary<string, int> Map { get; set; } = [];
+}
+
 public sealed class FwwMapStrategyTests
 {
     private readonly IServiceProvider serviceProvider;
@@ -28,6 +42,7 @@ public sealed class FwwMapStrategyTests
     {
         var services = new ServiceCollection();
         services.AddCrdt()
+            .AddCrdtAotContext<FwwMapTestCrdtContext>()
             .AddSingleton(comparerProviderMock.Object)
             .AddCrdtTimestampProvider<EpochTimestampProvider>();
 
@@ -41,11 +56,11 @@ public sealed class FwwMapStrategyTests
         comparerProviderMock.Setup(p => p.GetComparer(It.IsAny<Type>())).Returns(EqualityComparer<object>.Default);
     }
 
-    private CrdtDocument<TestModel> CreateDocument(Dictionary<string, int> map)
+    private CrdtDocument<FwwMapTestModel> CreateDocument(Dictionary<string, int> map)
     {
-        var model = new TestModel { Map = map };
+        var model = new FwwMapTestModel { Map = map };
         var metadata = metadataManager.Initialize(model);
-        return new CrdtDocument<TestModel>(model, metadata);
+        return new CrdtDocument<FwwMapTestModel>(model, metadata);
     }
 
     [Fact]
@@ -140,7 +155,13 @@ public sealed class FwwMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        
+        var prop = new CrdtPropertyInfo(
+            nameof(FwwMapTestModel.Map), "map", typeof(Dictionary<string, int>), true, true,
+            obj => ((FwwMapTestModel)obj).Map,
+            (obj, val) => ((FwwMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtFwwMapStrategyAttribute(), []);
+            
         var intent = new MapSetIntent("myKey", 42);
         var timestamp = timestampProvider.Now();
         
@@ -167,7 +188,13 @@ public sealed class FwwMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int> { { "myKey", 42 } });
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        var prop = new CrdtPropertyInfo(
+            nameof(FwwMapTestModel.Map), "map", typeof(Dictionary<string, int>), true, true,
+            obj => ((FwwMapTestModel)obj).Map,
+            (obj, val) => ((FwwMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtFwwMapStrategyAttribute(), []);
+
         var intent = new MapRemoveIntent("myKey");
         var timestamp = timestampProvider.Now();
         
@@ -194,7 +221,13 @@ public sealed class FwwMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int> { { "myKey", 42 } });
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        var prop = new CrdtPropertyInfo(
+            nameof(FwwMapTestModel.Map), "map", typeof(Dictionary<string, int>), true, true,
+            obj => ((FwwMapTestModel)obj).Map,
+            (obj, val) => ((FwwMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtFwwMapStrategyAttribute(), []);
+
         var intent = new ClearIntent();
         var timestamp = timestampProvider.Now();
         
@@ -218,7 +251,13 @@ public sealed class FwwMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        var prop = new CrdtPropertyInfo(
+            nameof(FwwMapTestModel.Map), "map", typeof(Dictionary<string, int>), true, true,
+            obj => ((FwwMapTestModel)obj).Map,
+            (obj, val) => ((FwwMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtFwwMapStrategyAttribute(), []);
+
         var intent = new AddIntent(42);
         var timestamp = timestampProvider.Now();
         
@@ -257,8 +296,13 @@ public sealed class FwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
-        var doc = new TestModel { Map = new Dictionary<string, int> { { "c", 3 }, { "a", 1 }, { "b", 2 } } };
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var doc = new FwwMapTestModel { Map = new Dictionary<string, int> { { "c", 3 }, { "a", 1 }, { "b", 2 } } };
+
+        var prop = new CrdtPropertyInfo(
+            nameof(FwwMapTestModel.Map), "map", typeof(Dictionary<string, int>), true, true,
+            obj => ((FwwMapTestModel)obj).Map,
+            (obj, val) => ((FwwMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtFwwMapStrategyAttribute(), []);
 
         // Act
         var startKey = strategy.GetStartKey(doc, prop);
@@ -273,8 +317,13 @@ public sealed class FwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
-        var doc = new TestModel { Map = new Dictionary<string, int>() };
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var doc = new FwwMapTestModel { Map = new Dictionary<string, int>() };
+
+        var prop = new CrdtPropertyInfo(
+            nameof(FwwMapTestModel.Map), "map", typeof(Dictionary<string, int>), true, true,
+            obj => ((FwwMapTestModel)obj).Map,
+            (obj, val) => ((FwwMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtFwwMapStrategyAttribute(), []);
 
         // Act
         var startKey = strategy.GetStartKey(doc, prop);
@@ -319,7 +368,12 @@ public sealed class FwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+
+        var prop = new CrdtPropertyInfo(
+            nameof(FwwMapTestModel.Map), "map", typeof(Dictionary<string, int>), true, true,
+            obj => ((FwwMapTestModel)obj).Map,
+            (obj, val) => ((FwwMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtFwwMapStrategyAttribute(), []);
 
         // Act
         var minKey = strategy.GetMinimumKey(prop);
@@ -334,7 +388,13 @@ public sealed class FwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        
+        var prop = new CrdtPropertyInfo(
+            nameof(FwwMapTestModel.Map), "map", typeof(Dictionary<string, int>), true, true,
+            obj => ((FwwMapTestModel)obj).Map,
+            (obj, val) => ((FwwMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtFwwMapStrategyAttribute(), []);
+
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "b", 2 }, { "c", 3 }, { "d", 4 } });
         
         doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
@@ -351,7 +411,7 @@ public sealed class FwwMapStrategyTests
         // Assert
         result.SplitKey.ShouldBe("c");
         
-        var doc1 = (TestModel)result.Partition1.Data;
+        var doc1 = (FwwMapTestModel)result.Partition1.Data;
         var meta1 = result.Partition1.Metadata;
         doc1.Map.Count.ShouldBe(2);
         doc1.Map.ShouldContainKey("a");
@@ -361,7 +421,7 @@ public sealed class FwwMapStrategyTests
         meta1.FwwMaps["$.map"].ShouldContainKey("a");
         meta1.FwwMaps["$.map"].ShouldContainKey("b");
 
-        var doc2 = (TestModel)result.Partition2.Data;
+        var doc2 = (FwwMapTestModel)result.Partition2.Data;
         var meta2 = result.Partition2.Metadata;
         doc2.Map.Count.ShouldBe(2);
         doc2.Map.ShouldContainKey("c");
@@ -378,7 +438,13 @@ public sealed class FwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        
+        var prop = new CrdtPropertyInfo(
+            nameof(FwwMapTestModel.Map), "map", typeof(Dictionary<string, int>), true, true,
+            obj => ((FwwMapTestModel)obj).Map,
+            (obj, val) => ((FwwMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtFwwMapStrategyAttribute(), []);
+
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         
         doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
@@ -396,7 +462,12 @@ public sealed class FwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        
+        var prop = new CrdtPropertyInfo(
+            nameof(FwwMapTestModel.Map), "map", typeof(Dictionary<string, int>), true, true,
+            obj => ((FwwMapTestModel)obj).Map,
+            (obj, val) => ((FwwMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtFwwMapStrategyAttribute(), []);
 
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "overlap", 100 } });
         doc1.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
@@ -416,7 +487,7 @@ public sealed class FwwMapStrategyTests
         var result = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, prop);
 
         // Assert
-        var mergedDoc = (TestModel)result.Data;
+        var mergedDoc = (FwwMapTestModel)result.Data;
         var mergedMeta = result.Metadata;
 
         mergedDoc.Map.Count.ShouldBe(3);
@@ -435,7 +506,7 @@ public sealed class FwwMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
         
-        var doc = new TestModel { Map = new Dictionary<string, int> { { "alive", 1 } } };
+        var doc = new FwwMapTestModel { Map = new Dictionary<string, int> { { "alive", 1 } } };
         var meta = new CrdtMetadata();
 
         var tsAlive = timestampProvider.Create(1);
@@ -462,11 +533,5 @@ public sealed class FwwMapStrategyTests
         meta.FwwMaps["$.map"].ShouldContainKey("alive");
         meta.FwwMaps["$.map"].ShouldContainKey("dead_unsafe");
         meta.FwwMaps["$.map"].ShouldNotContainKey("dead_safe");
-    }
-
-    private sealed class TestModel
-    {
-        [CrdtFwwMapStrategy]
-        public Dictionary<string, int> Map { get; set; } = [];
     }
 }
