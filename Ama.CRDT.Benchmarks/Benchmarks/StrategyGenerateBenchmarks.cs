@@ -1,10 +1,10 @@
 namespace Ama.CRDT.Benchmarks.Benchmarks;
 
 using System.Collections.Generic;
-using System.Reflection;
 using Ama.CRDT.Benchmarks.Models;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
@@ -29,163 +29,163 @@ public class StrategyGenerateBenchmarks
 
     #region Per-strategy context fields
     private StrategyPoco toPocoForLww = default!;
-    private PropertyInfo lwwProp = null!;
+    private CrdtPropertyInfo lwwProp = null!;
     private ICrdtStrategy lwwStrategy = null!;
     private string lwwPath = null!;
 
     private StrategyPoco toPocoForFww = default!;
-    private PropertyInfo fwwProp = null!;
+    private CrdtPropertyInfo fwwProp = null!;
     private ICrdtStrategy fwwStrategy = null!;
     private string fwwPath = null!;
 
     private StrategyPoco toPocoForCounter = default!;
-    private PropertyInfo counterProp = null!;
+    private CrdtPropertyInfo counterProp = null!;
     private ICrdtStrategy counterStrategy = null!;
     private string counterPath = null!;
 
     private StrategyPoco toPocoForGCounter = default!;
-    private PropertyInfo gCounterProp = null!;
+    private CrdtPropertyInfo gCounterProp = null!;
     private ICrdtStrategy gCounterStrategy = null!;
     private string gCounterPath = null!;
 
     private StrategyPoco toPocoForBoundedCounter = default!;
-    private PropertyInfo boundedCounterProp = null!;
+    private CrdtPropertyInfo boundedCounterProp = null!;
     private ICrdtStrategy boundedCounterStrategy = null!;
     private string boundedCounterPath = null!;
 
     private StrategyPoco toPocoForMaxWins = default!;
-    private PropertyInfo maxWinsProp = null!;
+    private CrdtPropertyInfo maxWinsProp = null!;
     private ICrdtStrategy maxWinsStrategy = null!;
     private string maxWinsPath = null!;
 
     private StrategyPoco toPocoForMinWins = default!;
-    private PropertyInfo minWinsProp = null!;
+    private CrdtPropertyInfo minWinsProp = null!;
     private ICrdtStrategy minWinsStrategy = null!;
     private string minWinsPath = null!;
 
     private StrategyPoco toPocoForAverageRegister = default!;
-    private PropertyInfo averageProp = null!;
+    private CrdtPropertyInfo averageProp = null!;
     private ICrdtStrategy averageStrategy = null!;
     private string averagePath = null!;
 
     private StrategyPoco toPocoForGSet = default!;
-    private PropertyInfo gSetProp = null!;
+    private CrdtPropertyInfo gSetProp = null!;
     private ICrdtStrategy gSetStrategy = null!;
     private string gSetPath = null!;
 
     private StrategyPoco toPocoForTwoPhaseSet = default!;
-    private PropertyInfo twoPhaseSetProp = null!;
+    private CrdtPropertyInfo twoPhaseSetProp = null!;
     private ICrdtStrategy twoPhaseSetStrategy = null!;
     private string twoPhaseSetPath = null!;
 
     private StrategyPoco toPocoForLwwSet = default!;
-    private PropertyInfo lwwSetProp = null!;
+    private CrdtPropertyInfo lwwSetProp = null!;
     private ICrdtStrategy lwwSetStrategy = null!;
     private string lwwSetPath = null!;
 
     private StrategyPoco toPocoForFwwSet = default!;
-    private PropertyInfo fwwSetProp = null!;
+    private CrdtPropertyInfo fwwSetProp = null!;
     private ICrdtStrategy fwwSetStrategy = null!;
     private string fwwSetPath = null!;
 
     private StrategyPoco toPocoForOrSet = default!;
-    private PropertyInfo orSetProp = null!;
+    private CrdtPropertyInfo orSetProp = null!;
     private ICrdtStrategy orSetStrategy = null!;
     private string orSetPath = null!;
 
     private StrategyPoco toPocoForArrayLcs = default!;
-    private PropertyInfo arrayLcsProp = null!;
+    private CrdtPropertyInfo arrayLcsProp = null!;
     private ICrdtStrategy arrayLcsStrategy = null!;
     private string arrayLcsPath = null!;
 
     private StrategyPoco toPocoForFixedSizeArray = default!;
-    private PropertyInfo fixedSizeArrayProp = null!;
+    private CrdtPropertyInfo fixedSizeArrayProp = null!;
     private ICrdtStrategy fixedSizeArrayStrategy = null!;
     private string fixedSizeArrayPath = null!;
 
     private StrategyPoco toPocoForLseq = default!;
-    private PropertyInfo lseqProp = null!;
+    private CrdtPropertyInfo lseqProp = null!;
     private ICrdtStrategy lseqStrategy = null!;
     private string lseqPath = null!;
 
     private StrategyPoco toPocoForVoteCounter = default!;
-    private PropertyInfo voteCounterProp = null!;
+    private CrdtPropertyInfo voteCounterProp = null!;
     private ICrdtStrategy voteCounterStrategy = null!;
     private string voteCounterPath = null!;
 
     private StrategyPoco toPocoForStateMachine = default!;
-    private PropertyInfo stateMachineProp = null!;
+    private CrdtPropertyInfo stateMachineProp = null!;
     private ICrdtStrategy stateMachineStrategy = null!;
     private string stateMachinePath = null!;
 
     private StrategyPoco toPocoForPriorityQueue = default!;
-    private PropertyInfo priorityQueueProp = null!;
+    private CrdtPropertyInfo priorityQueueProp = null!;
     private ICrdtStrategy priorityQueueStrategy = null!;
     private string priorityQueuePath = null!;
 
     private StrategyPoco toPocoForSortedSet = default!;
-    private PropertyInfo sortedSetProp = null!;
+    private CrdtPropertyInfo sortedSetProp = null!;
     private ICrdtStrategy sortedSetStrategy = null!;
     private string sortedSetPath = null!;
 
     private StrategyPoco toPocoForRga = default!;
-    private PropertyInfo rgaProp = null!;
+    private CrdtPropertyInfo rgaProp = null!;
     private ICrdtStrategy rgaStrategy = null!;
     private string rgaPath = null!;
 
     // Missing strategies
     private StrategyPoco toPocoForCounterMap = default!;
-    private PropertyInfo counterMapProp = null!;
+    private CrdtPropertyInfo counterMapProp = null!;
     private ICrdtStrategy counterMapStrategy = null!;
     private string counterMapPath = null!;
 
     private StrategyPoco toPocoForLwwMap = default!;
-    private PropertyInfo lwwMapProp = null!;
+    private CrdtPropertyInfo lwwMapProp = null!;
     private ICrdtStrategy lwwMapStrategy = null!;
     private string lwwMapPath = null!;
 
     private StrategyPoco toPocoForFwwMap = default!;
-    private PropertyInfo fwwMapProp = null!;
+    private CrdtPropertyInfo fwwMapProp = null!;
     private ICrdtStrategy fwwMapStrategy = null!;
     private string fwwMapPath = null!;
 
     private StrategyPoco toPocoForMaxWinsMap = default!;
-    private PropertyInfo maxWinsMapProp = null!;
+    private CrdtPropertyInfo maxWinsMapProp = null!;
     private ICrdtStrategy maxWinsMapStrategy = null!;
     private string maxWinsMapPath = null!;
 
     private StrategyPoco toPocoForMinWinsMap = default!;
-    private PropertyInfo minWinsMapProp = null!;
+    private CrdtPropertyInfo minWinsMapProp = null!;
     private ICrdtStrategy minWinsMapStrategy = null!;
     private string minWinsMapPath = null!;
 
     private StrategyPoco toPocoForOrMap = default!;
-    private PropertyInfo orMapProp = null!;
+    private CrdtPropertyInfo orMapProp = null!;
     private ICrdtStrategy orMapStrategy = null!;
     private string orMapPath = null!;
 
     private StrategyPoco toPocoForGraph = default!;
-    private PropertyInfo graphProp = null!;
+    private CrdtPropertyInfo graphProp = null!;
     private ICrdtStrategy graphStrategy = null!;
     private string graphPath = null!;
 
     private StrategyPoco toPocoForTwoPhaseGraph = default!;
-    private PropertyInfo twoPhaseGraphProp = null!;
+    private CrdtPropertyInfo twoPhaseGraphProp = null!;
     private ICrdtStrategy twoPhaseGraphStrategy = null!;
     private string twoPhaseGraphPath = null!;
 
     private StrategyPoco toPocoForReplicatedTree = default!;
-    private PropertyInfo replicatedTreeProp = null!;
+    private CrdtPropertyInfo replicatedTreeProp = null!;
     private ICrdtStrategy replicatedTreeStrategy = null!;
     private string replicatedTreePath = null!;
 
     private StrategyPoco toPocoForEpochBound = default!;
-    private PropertyInfo epochBoundProp = null!;
+    private CrdtPropertyInfo epochBoundProp = null!;
     private ICrdtStrategy epochBoundStrategy = null!;
     private string epochBoundPath = null!;
 
     private StrategyPoco toPocoForApprovalQuorum = default!;
-    private PropertyInfo approvalQuorumProp = null!;
+    private CrdtPropertyInfo approvalQuorumProp = null!;
     private ICrdtStrategy approvalQuorumStrategy = null!;
     private string approvalQuorumPath = null!;
     #endregion
@@ -195,6 +195,7 @@ public class StrategyGenerateBenchmarks
     {
         var services = new ServiceCollection();
         services.AddCrdt();
+        services.AddCrdtAotContext<BenchmarkCrdtContext>();
         services.AddScoped<MyStateMachine>();
         var serviceProvider = services.BuildServiceProvider();
         var serviceScopeFactory = serviceProvider.GetService<ICrdtScopeFactory>();
@@ -349,14 +350,28 @@ public class StrategyGenerateBenchmarks
         #endregion
     }
 
+    private CrdtPropertyInfo GetPropertyInfo(string propertyName)
+    {
+        var crdtContexts = scope.ServiceProvider.GetServices<CrdtContext>();
+        foreach (var ctx in crdtContexts)
+        {
+            var typeInfo = ctx.GetTypeInfo(typeof(StrategyPoco));
+            if (typeInfo != null && typeInfo.Properties.TryGetValue(propertyName, out var p))
+            {
+                return p;
+            }
+        }
+        throw new InvalidOperationException($"Property {propertyName} not found in AOT contexts.");
+    }
+
     private void SetupStrategyContext(
         string propertyName, 
-        out PropertyInfo prop, 
+        out CrdtPropertyInfo prop, 
         out ICrdtStrategy strategy, 
         out string path)
     {
-        prop = typeof(StrategyPoco).GetProperty(propertyName)!;
-        strategy = strategyProvider.GetStrategy(prop);
+        prop = GetPropertyInfo(propertyName);
+        strategy = strategyProvider.GetStrategy(typeof(StrategyPoco), prop);
         path = $"$.{char.ToLowerInvariant(propertyName[0])}{propertyName.Substring(1)}";
     }
 

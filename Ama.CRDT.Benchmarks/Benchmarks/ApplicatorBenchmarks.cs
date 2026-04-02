@@ -3,6 +3,7 @@ namespace Ama.CRDT.Benchmarks.Benchmarks;
 using Ama.CRDT.Benchmarks.Models;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Services;
 using BenchmarkDotNet.Attributes;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,7 @@ public class ApplicatorBenchmarks
     {
         var services = new ServiceCollection();
         services.AddCrdt();
+        services.AddCrdtAotContext<BenchmarkCrdtContext>();
         var serviceProvider = services.BuildServiceProvider();
         var serviceScopeFactory = serviceProvider.GetService<ICrdtScopeFactory>();
         scope = serviceScopeFactory.CreateScope("replica-id");
