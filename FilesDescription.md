@@ -244,6 +244,7 @@
 | `$/Ama.CRDT/Models/Aot/CrdtContext.cs` | An abstract base class used to define Native AOT reflection contexts that are populated by the Source Generator. |
 | `$/Ama.CRDT/Models/Aot/CrdtPropertyInfo.cs` | Contains AOT-compatible, strongly-typed property accessors (getters/setters) to eliminate reflection overhead. |
 | `$/Ama.CRDT/Models/Aot/CrdtTypeInfo.cs` | Contains AOT-compatible metadata and factory methods for a specific type, including logic for lists and dictionaries. |
+| `$/Ama.CRDT/Models/Aot/InternalCrdtContext.cs` | An internal, source-generated AOT context containing metadata for all core library CRDT models (e.g., CrdtOperation, CrdtPatch, Intents, and Partitioning states), registered by default in the DI container. |
 | `$/Ama.CRDT/Models/ApplyPatchResult.cs` | Data structure containing the result of a patch application, including the document and any unapplied operations. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
 | `$/Ama.CRDT/Models/BidirectionalSyncRequirements.cs` | A data structure containing the synchronization requirements for two replicas to fully catch up with each other. |
