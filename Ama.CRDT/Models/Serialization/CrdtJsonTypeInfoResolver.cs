@@ -1,13 +1,15 @@
 namespace Ama.CRDT.Models.Serialization;
 
 using System;
+using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
-using Ama.CRDT.Models.Serialization.Converters;
 
 /// <summary>
 /// A custom <see cref="IJsonTypeInfoResolver"/> that configures JSON serialization for CRDT types.
-/// It applies the required polymorphic converters for properties of type <see cref="object"/>, <see cref="IComparable"/>, and <see cref="IPartition"/>.
+/// It applies Native System.Text.Json Polymorphism for purely object-oriented interfaces 
+/// (<see cref="ICrdtTimestamp"/>, <see cref="IPartition"/>). Weak types are handled globally.
 /// </summary>
 public sealed class CrdtJsonTypeInfoResolver : DefaultJsonTypeInfoResolver
 {
@@ -22,28 +24,25 @@ public sealed class CrdtJsonTypeInfoResolver : DefaultJsonTypeInfoResolver
     }
 
     /// <summary>
-    /// A modifier that applies the polymorphic converters to interfaces and object properties.
-    /// This ensures that values are serialized with type information, which is crucial for deserializing payloads correctly.
+    /// A modifier that wires up native polymorphism.
     /// </summary>
-    /// <param name="jsonTypeInfo">The type info to modify.</param>
     public static void ApplyCrdtModifiers(JsonTypeInfo jsonTypeInfo)
     {
-        if (jsonTypeInfo.Kind != JsonTypeInfoKind.Object)
-            return;
-
-        foreach (var property in jsonTypeInfo.Properties)
+        // Leverage Native System.Text.Json Polymorphism for pure object interfaces
+        if (jsonTypeInfo.Type == typeof(ICrdtTimestamp) || jsonTypeInfo.Type == typeof(IPartition))
         {
-            if (property.PropertyType == typeof(object))
+            jsonTypeInfo.PolymorphismOptions = new JsonPolymorphismOptions
             {
-                property.CustomConverter = PolymorphicObjectJsonConverter.Instance;
-            }
-            else if (property.PropertyType == typeof(IComparable))
+                TypeDiscriminatorPropertyName = "$type",
+                UnknownDerivedTypeHandling = JsonUnknownDerivedTypeHandling.FailSerialization
+            };
+
+            foreach (var kvp in CrdtTypeRegistry.GetAll())
             {
-                property.CustomConverter = PolymorphicComparableJsonConverter.Instance;
-            }
-            else if (property.PropertyType == typeof(IPartition))
-            {
-                property.CustomConverter = PolymorphicPartitionJsonConverter.Instance;
+                if (jsonTypeInfo.Type.IsAssignableFrom(kvp.Value))
+                {
+                    jsonTypeInfo.PolymorphismOptions.DerivedTypes.Add(new JsonDerivedType(kvp.Value, kvp.Key));
+                }
             }
         }
     }

@@ -2,11 +2,16 @@ namespace Ama.CRDT.Models.Serialization;
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Partitioning;
 
-internal static class CrdtTypeRegistry
+/// <summary>
+/// A centralized registry mapping discriminator strings to CRDT serialization types.
+/// This registry feeds the native System.Text.Json polymorphism engine and custom payload wrappers.
+/// </summary>
+public static class CrdtTypeRegistry
 {
     private static readonly ConcurrentDictionary<string, Type> TypeMap = new();
     private static readonly ConcurrentDictionary<Type, string> DiscriminatorMap = new();
@@ -66,12 +71,22 @@ internal static class CrdtTypeRegistry
         Register("epoch", typeof(EpochTimestamp));
     }
 
+    /// <summary>
+    /// Registers a type with a unique discriminator for polymorphic serialization.
+    /// Exposing this publicly allows plugin packages (like Streams) to inject their own specific model types.
+    /// </summary>
     public static void Register(string discriminator, Type type)
     {
+        if (string.IsNullOrWhiteSpace(discriminator))
+        {
+            throw new ArgumentException("Discriminator cannot be null or whitespace.", nameof(discriminator));
+        }
+
         TypeMap[discriminator] = type;
         DiscriminatorMap[type] = discriminator;
     }
 
-    public static bool TryGetType(string discriminator, out Type type) => TypeMap.TryGetValue(discriminator, out type!);
-    public static string? GetDiscriminator(Type type) => DiscriminatorMap.TryGetValue(type, out var discriminator) ? discriminator : null;
+    internal static bool TryGetType(string discriminator, out Type type) => TypeMap.TryGetValue(discriminator, out type!);
+    internal static string? GetDiscriminator(Type type) => DiscriminatorMap.TryGetValue(type, out var discriminator) ? discriminator : null;
+    internal static IEnumerable<KeyValuePair<string, Type>> GetAll() => TypeMap;
 }

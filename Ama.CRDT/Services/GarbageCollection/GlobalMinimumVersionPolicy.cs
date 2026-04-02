@@ -2,7 +2,6 @@ namespace Ama.CRDT.Services.GarbageCollection;
 
 using System;
 using System.Collections.Generic;
-using Ama.CRDT.Models;
 
 /// <summary>
 /// A mathematically safe compaction policy based on the Global Minimum Version Vector (GMVV).
