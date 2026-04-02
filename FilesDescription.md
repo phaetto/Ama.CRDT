@@ -299,6 +299,7 @@
 | `$/Ama.CRDT/Models/ReplicaSyncRequirement.cs` | A data structure representing the data a target replica needs to request from a source replica to catch up with its causal history. |
 | `$/Ama.CRDT/Models/RgaIdentifier.cs` | Readonly record struct containing logical timestamp and replicaId used as a unique identifier for each RGA node. |
 | `$/Ama.CRDT/Models/RgaItem.cs` | Data structure representing an RGA node with a pointer to its predecessor, its payload value, and a tombstone flag. |
+| `$/Ama.CRDT/Models/Serialization/Converters/CrdtPolymorphicConverterBase.cs` | Internal base class for polymorphic JSON converters, avoiding `JsonSerializerOptions` cloning to eliminate severe performance bottlenecks and garbage collection pressure. |
 | `$/Ama.CRDT/Models/Serialization/Converters/CrdtTimestampJsonConverter.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Serialization/Converters/ObjectKeyDictionaryJsonConverter.cs` | A `JsonConverterFactory` that creates converters for dictionaries with non-string keys. It serializes them as a JSON array of [key, value] pairs to work around `System.Text.Json` limitations. |
 | `$/Ama.CRDT/Models/Serialization/Converters/PolymorphicComparableJsonConverter.cs` | A custom `JsonConverter` for `IComparable` that enables polymorphic serialization by embedding a `$type` discriminator. It uses the same shared type registry as `PolymorphicObjectJsonConverter`. |
@@ -308,6 +309,7 @@
 | `$/Ama.CRDT/Models/Serialization/CrdtJsonContext.cs` | Provides centralized, pre-configured `JsonSerializerOptions` for CRDT models, establishing a best practice for serialization. |
 | `$/Ama.CRDT/Models/Serialization/CrdtJsonTypeInfoResolver.cs` | A custom `IJsonTypeInfoResolver` that applies the `PolymorphicObjectJsonConverter` to all properties of type `object`, enabling robust polymorphic serialization. |
 | `$/Ama.CRDT/Models/Serialization/CrdtMetadataJsonResolver.cs` | A custom `IJsonTypeInfoResolver` that modifies the serialization contract for `CrdtMetadata` to omit empty collections, resulting in a more compact JSON output. |
+| `$/Ama.CRDT/Models/Serialization/CrdtTypeRegistry.cs` | Internal centralized registry mapping discriminator strings to CRDT serialization types, replacing isolated maps in individual JSON converters. |
 | `$/Ama.CRDT/Models/TreeAddNodePayload.cs` | A data structure for the payload of a tree 'add' operation. |
 | `$/Ama.CRDT/Models/TreeMoveNodePayload.cs` | A data structure for the payload of a tree 'move' operation. |
 | `$/Ama.CRDT/Models/TreeNode.cs` | No description provided. |

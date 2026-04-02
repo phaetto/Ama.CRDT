@@ -1,5 +1,7 @@
 namespace Ama.CRDT.Models.Serialization.Converters;
 
+using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -17,7 +19,6 @@ internal sealed class SeenExceptionsJsonConverter : JsonConverter<ISet<CrdtOpera
         }
 
         var set = new HashSet<CrdtOperation>();
-        var operationOptions = CrdtJsonContext.DefaultOptions;
 
         while (reader.Read())
         {
@@ -26,7 +27,7 @@ internal sealed class SeenExceptionsJsonConverter : JsonConverter<ISet<CrdtOpera
                 return set;
             }
 
-            var operation = JsonSerializer.Deserialize<CrdtOperation>(ref reader, operationOptions);
+            var operation = JsonSerializer.Deserialize<CrdtOperation>(ref reader, options);
             set.Add(operation);
         }
 
@@ -35,11 +36,10 @@ internal sealed class SeenExceptionsJsonConverter : JsonConverter<ISet<CrdtOpera
 
     public override void Write(Utf8JsonWriter writer, ISet<CrdtOperation> value, JsonSerializerOptions options)
     {
-        var operationOptions = CrdtJsonContext.DefaultOptions;
         writer.WriteStartArray();
         foreach (var operation in value)
         {
-            JsonSerializer.Serialize(writer, operation, operationOptions);
+            JsonSerializer.Serialize(writer, operation, options);
         }
         writer.WriteEndArray();
     }
