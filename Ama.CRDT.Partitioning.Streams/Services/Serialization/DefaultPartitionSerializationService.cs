@@ -3,7 +3,9 @@ namespace Ama.CRDT.Partitioning.Streams.Services.Serialization;
 using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Partitioning.Streams.Models;
 using Ama.CRDT.Partitioning.Streams.Models.Serialization;
+using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
@@ -27,13 +29,25 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         CrdtTypeRegistry.Register("free-space-state", typeof(FreeSpaceState));
     }
 
-    public DefaultPartitionSerializationService()
+    public DefaultPartitionSerializationService(
+        [FromKeyedServices("Ama.CRDT")] IEnumerable<IJsonTypeInfoResolver> customResolvers)
     {
-        // Combine the core CRDT AOT context with the local Streams context cleanly
-        var combinedResolver = JsonTypeInfoResolver.Combine(
+        ArgumentNullException.ThrowIfNull(customResolvers);
+
+        var resolvers = new List<IJsonTypeInfoResolver>
+        {
             StreamsJsonContext.Default,
             CrdtJsonContext.Default
-        ).WithAddedModifier(CrdtJsonTypeInfoResolver.ApplyCrdtModifiers)
+        };
+
+        foreach (var custom in customResolvers)
+        {
+            resolvers.Add(custom);
+        }
+
+        // Combine the core CRDT AOT context with the local Streams context cleanly
+        var combinedResolver = JsonTypeInfoResolver.Combine([.. resolvers])
+         .WithAddedModifier(CrdtJsonTypeInfoResolver.ApplyCrdtModifiers)
          .WithAddedModifier(CrdtMetadataJsonResolver.ApplyMetadataModifiers);
 
         serializerOptions = new JsonSerializerOptions
