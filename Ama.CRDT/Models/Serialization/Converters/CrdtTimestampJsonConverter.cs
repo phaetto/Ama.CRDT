@@ -1,26 +1,15 @@
 namespace Ama.CRDT.Models.Serialization.Converters;
+
 using Ama.CRDT.Models;
-using System.Collections.Concurrent;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
+using System;
 
 /// <summary>
-/// A custom <see cref="JsonConverter"/> for serializing and deserializing the <see cref="ICrdtTimestamp"/> interface.
+/// A custom <see cref="System.Text.Json.Serialization.JsonConverter"/> for serializing and deserializing the <see cref="ICrdtTimestamp"/> interface.
 /// This converter handles polymorphism by adding a "$type" discriminator to the JSON output. It is extensible,
 /// allowing custom timestamp types to be registered for serialization.
 /// </summary>
-public sealed class CrdtTimestampJsonConverter : JsonConverter<ICrdtTimestamp>
+public sealed class CrdtTimestampJsonConverter : CrdtPolymorphicConverterBase<ICrdtTimestamp>
 {
-    private const string TypeDiscriminator = "$type";
-    private static readonly ConcurrentDictionary<string, Type> TypeMap = new();
-    private static readonly ConcurrentDictionary<Type, string> DiscriminatorMap = new();
-
-    static CrdtTimestampJsonConverter()
-    {
-        Register("epoch", typeof(EpochTimestamp));
-    }
-
     /// <summary>
     /// Registers a custom <see cref="ICrdtTimestamp"/> implementation for polymorphic serialization.
     /// This method is thread-safe and can be called during application startup to extend the converter.
@@ -40,67 +29,17 @@ public sealed class CrdtTimestampJsonConverter : JsonConverter<ICrdtTimestamp>
             throw new ArgumentException($"Type {type.FullName} must implement {nameof(ICrdtTimestamp)}.", nameof(type));
         }
 
-        TypeMap[discriminator] = type;
-        DiscriminatorMap[type] = discriminator;
-    }
-
-
-    /// <inheritdoc />
-    public override ICrdtTimestamp? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    {
-        var jsonObject = JsonNode.Parse(ref reader)?.AsObject();
-        if (jsonObject is null)
-        {
-            return null;
-        }
-
-        if (!jsonObject.TryGetPropertyValue(TypeDiscriminator, out var typeNode) || typeNode is null)
-        {
-            throw new JsonException($"Missing '{TypeDiscriminator}' discriminator property for ICrdtTimestamp deserialization.");
-        }
-
-        var typeDiscriminatorValue = typeNode.GetValue<string>();
-        jsonObject.Remove(TypeDiscriminator);
-
-        if (!TypeMap.TryGetValue(typeDiscriminatorValue!, out var targetType))
-        {
-            throw new NotSupportedException($"ICrdtTimestamp with type '{typeDiscriminatorValue}' is not supported or not registered.");
-        }
-
-        var tempOptions = new JsonSerializerOptions(options);
-        if (tempOptions.Converters.FirstOrDefault(c => c is CrdtTimestampJsonConverter) is { } converter)
-        {
-            tempOptions.Converters.Remove(converter);
-        }
-
-        return (ICrdtTimestamp?)jsonObject.Deserialize(targetType, tempOptions);
+        CrdtTypeRegistry.Register(discriminator, type);
     }
 
     /// <inheritdoc />
-    public override void Write(Utf8JsonWriter writer, ICrdtTimestamp value, JsonSerializerOptions options)
+    protected override string GetDiscriminatorOrThrow(Type type)
     {
-        var type = value.GetType();
-
-        if (!DiscriminatorMap.TryGetValue(type, out var typeDiscriminatorValue))
+        var discriminator = CrdtTypeRegistry.GetDiscriminator(type);
+        if (discriminator is null)
         {
             throw new NotSupportedException($"Type {type.FullName} is not a supported or registered ICrdtTimestamp for serialization.");
         }
-
-        var tempOptions = new JsonSerializerOptions(options);
-        if (tempOptions.Converters.FirstOrDefault(c => c is CrdtTimestampJsonConverter) is { } converter)
-        {
-            tempOptions.Converters.Remove(converter);
-        }
-
-        var jsonObject = JsonSerializer.SerializeToNode(value, type, tempOptions)?.AsObject();
-        if (jsonObject is null)
-        {
-            writer.WriteNullValue();
-            return;
-        }
-        
-        jsonObject.Add(TypeDiscriminator, typeDiscriminatorValue);
-
-        jsonObject.WriteTo(writer);
+        return discriminator;
     }
 }

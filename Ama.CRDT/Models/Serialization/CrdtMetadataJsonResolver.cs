@@ -1,5 +1,7 @@
 namespace Ama.CRDT.Models.Serialization;
+
 using System.Collections;
+using System.Collections.Generic;
 using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models.Serialization.Converters;
 
@@ -35,14 +37,8 @@ public sealed class CrdtMetadataJsonResolver : DefaultJsonTypeInfoResolver
                     propertyInfo.CustomConverter = SeenExceptionsJsonConverter.Instance;
                     propertyInfo.ShouldSerialize = static (obj, value) => value is ISet<CrdtOperation> collection && collection.Count > 0;
                 }
-                // We check for IEnumerable to identify collection-like properties, as interface types like
-                // IDictionary<,> or ISet<> don't implement the non-generic ICollection.
-                // We exclude strings, which are also IEnumerable.
                 else if (typeof(IEnumerable).IsAssignableFrom(propertyInfo.PropertyType) && propertyInfo.PropertyType != typeof(string))
                 {
-                    // At runtime, the actual value (e.g., Dictionary<,>, HashSet<>) will implement
-                    // the non-generic ICollection, so we can cast to it and check its Count.
-                    // This predicate also correctly handles null values, as 'null is ICollection' is false.
                     propertyInfo.ShouldSerialize = static (obj, value) => value is ICollection collection && collection.Count > 0;
                 }
             }
