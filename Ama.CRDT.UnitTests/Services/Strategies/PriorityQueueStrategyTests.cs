@@ -20,13 +20,13 @@ using Xunit;
 
 public sealed class PriorityQueueStrategyTests : IDisposable
 {
-    private sealed class Item(string id, int priority)
+    internal sealed class Item(string id, int priority)
     {
         public string Id { get; set; } = id;
         public int Priority { get; set; } = priority;
     }
 
-    private sealed class ItemComparer : IElementComparer
+    internal sealed class ItemComparer : IElementComparer
     {
         public bool CanCompare([DisallowNull] Type type)
         {
@@ -37,7 +37,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         public int GetHashCode(object obj) => (obj as Item)?.Id?.GetHashCode() ?? 0;
     }
 
-    private sealed class TestModel
+    internal sealed class TestModel
     {
         [CrdtPriorityQueueStrategy(nameof(Item.Priority))]
         public List<Item> Items { get; set; } = new();
@@ -297,8 +297,8 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         var context = new GenerateOperationContext(
             model,
             meta,
-            nameof(TestModel.Items),
-            typeof(TestModel).GetProperty(nameof(TestModel.Items))!,
+            "$.Items",
+            new PriorityQueueStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
             new AddIntent(itemToAdd),
             timestampProvider.Now(),
             0);
@@ -325,8 +325,8 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         var context = new GenerateOperationContext(
             model,
             meta,
-            nameof(TestModel.Items),
-            typeof(TestModel).GetProperty(nameof(TestModel.Items))!,
+            "$.Items",
+            new PriorityQueueStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
             new RemoveValueIntent(itemToRemove),
             timestampProvider.Now(),
             0);
@@ -352,8 +352,8 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         var context = new GenerateOperationContext(
             model,
             meta,
-            nameof(TestModel.Items),
-            typeof(TestModel).GetProperty(nameof(TestModel.Items))!,
+            "$.Items",
+            new PriorityQueueStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
             new IncrementIntent(1),
             timestampProvider.Now(),
             0);

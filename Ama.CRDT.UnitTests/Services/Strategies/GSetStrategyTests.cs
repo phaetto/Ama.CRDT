@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -16,9 +18,13 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
+[CrdtSerializable(typeof(GSetStrategyTests.TestModel))]
+[CrdtSerializable(typeof(List<string>))]
+internal partial class GSetTestCrdtContext : CrdtContext { }
+
 public sealed class GSetStrategyTests : IDisposable
 {
-    private sealed class TestModel
+    internal sealed class TestModel
     {
         [CrdtGSetStrategy]
         public List<string> Tags { get; set; } = new();
@@ -39,6 +45,7 @@ public sealed class GSetStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<GSetTestCrdtContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -61,6 +68,20 @@ public sealed class GSetStrategyTests : IDisposable
         scopeA.Dispose();
         scopeB.Dispose();
         scopeC.Dispose();
+    }
+
+    private CrdtPropertyInfo GetTagsPropertyInfo()
+    {
+        return new CrdtPropertyInfo(
+            nameof(TestModel.Tags),
+            "tags",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((TestModel)obj).Tags,
+            (obj, val) => ((TestModel)obj).Tags = (List<string>)val!,
+            new CrdtGSetStrategyAttribute(),
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
     }
 
     [Fact]
@@ -227,7 +248,7 @@ public sealed class GSetStrategyTests : IDisposable
     [Fact]
     public void GetStartKey_ShouldReturnSmallestKeyOrNull()
     {
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = GetTagsPropertyInfo();
         
         strategyA.GetStartKey(new TestModel(), propInfo).ShouldBeNull();
         strategyA.GetStartKey(new TestModel { Tags = { "c", "a", "b" } }, propInfo).ShouldBe("a");
@@ -245,7 +266,7 @@ public sealed class GSetStrategyTests : IDisposable
     [Fact]
     public void GetMinimumKey_ShouldReturnCorrectMinValue()
     {
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = GetTagsPropertyInfo();
         strategyA.GetMinimumKey(propInfo).ShouldBe(string.Empty);
     }
 
@@ -254,7 +275,7 @@ public sealed class GSetStrategyTests : IDisposable
     {
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = GetTagsPropertyInfo();
 
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0)));
@@ -279,7 +300,7 @@ public sealed class GSetStrategyTests : IDisposable
         var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel();
         var meta2 = metadataManagerA.Initialize(doc2);
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = GetTagsPropertyInfo();
 
         strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0)));
@@ -299,7 +320,7 @@ public sealed class GSetStrategyTests : IDisposable
         // Arrange
         var doc = new TestModel { Tags = { "A" } };
         var meta = metadataManagerA.Initialize(doc);
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = GetTagsPropertyInfo();
         var context = new GenerateOperationContext(
             doc,
             meta,
@@ -325,7 +346,7 @@ public sealed class GSetStrategyTests : IDisposable
         // Arrange
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = GetTagsPropertyInfo();
         var context = new GenerateOperationContext(
             doc,
             meta,

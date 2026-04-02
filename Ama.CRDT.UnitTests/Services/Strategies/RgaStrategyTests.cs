@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -30,6 +31,7 @@ public sealed class RgaStrategyTests : IDisposable
     {
         var services = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<RgaStrategyTestCrdtContext>()
             .BuildServiceProvider();
 
         var factory = services.GetRequiredService<ICrdtScopeFactory>();
@@ -52,7 +54,7 @@ public sealed class RgaStrategyTests : IDisposable
         scopeC.Dispose();
     }
 
-    private class RgaTestModel
+    internal class RgaTestModel
     {
         [CrdtRgaStrategy]
         public List<string> Items { get; set; } = new();
@@ -217,7 +219,17 @@ public sealed class RgaStrategyTests : IDisposable
         // Arrange
         var doc = new RgaTestModel { Items = ["A", "B", "C", "D", "E"] };
         var meta = metadataManagerA.Initialize(doc);
-        var property = typeof(RgaTestModel).GetProperty(nameof(RgaTestModel.Items))!;
+        var property = new CrdtPropertyInfo(
+            "Items",
+            "items",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((RgaTestModel)obj).Items,
+            (obj, val) => ((RgaTestModel)obj).Items = (List<string>)val!,
+            new CrdtRgaStrategyAttribute(),
+            Array.Empty<Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>());
+
         var strategy = scopeA.ServiceProvider.GetRequiredService<IEnumerable<ICrdtStrategy>>()
             .OfType<RgaStrategy>()
             .First();
@@ -251,7 +263,6 @@ public sealed class RgaStrategyTests : IDisposable
     public void Partitioning_GetKeyFromOperation_ShouldReturnIdentifier()
     {
         // Arrange
-        var property = typeof(RgaTestModel).GetProperty(nameof(RgaTestModel.Items))!;
         var strategy = scopeA.ServiceProvider.GetRequiredService<IEnumerable<ICrdtStrategy>>()
             .OfType<RgaStrategy>()
             .First();

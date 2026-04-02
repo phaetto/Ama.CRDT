@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -16,8 +18,19 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Reflection;
 using Xunit;
+
+[CrdtSerializable(typeof(LseqTestModel))]
+[CrdtSerializable(typeof(List<string>))]
+internal partial class LseqTestCrdtContext : CrdtContext
+{
+}
+
+internal class LseqTestModel
+{
+    [CrdtLseqStrategy]
+    public List<string> Items { get; set; } = new();
+}
 
 public sealed class LseqStrategyTests : IDisposable
 {
@@ -30,12 +43,13 @@ public sealed class LseqStrategyTests : IDisposable
     private readonly IServiceScope scopeB;
     private readonly IServiceScope scopeC;
     private readonly IPartitionableCrdtStrategy lseqStrategy;
-    private readonly PropertyInfo itemsProperty;
+    private readonly CrdtPropertyInfo itemsProperty;
 
     public LseqStrategyTests()
     {
         var services = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<LseqTestCrdtContext>()
             .BuildServiceProvider();
 
         var factory = services.GetRequiredService<ICrdtScopeFactory>();
@@ -51,8 +65,18 @@ public sealed class LseqStrategyTests : IDisposable
         metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         
         var strategyProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
-        itemsProperty = typeof(LseqTestModel).GetProperty(nameof(LseqTestModel.Items))!;
-        lseqStrategy = (IPartitionableCrdtStrategy)strategyProvider.GetStrategy(itemsProperty);
+        itemsProperty = new CrdtPropertyInfo(
+            nameof(LseqTestModel.Items),
+            "items",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((LseqTestModel)obj).Items,
+            (obj, val) => ((LseqTestModel)obj).Items = (List<string>)val!,
+            new CrdtLseqStrategyAttribute(),
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
+        lseqStrategy = (IPartitionableCrdtStrategy)strategyProvider.GetStrategy(typeof(LseqTestModel), itemsProperty);
     }
 
     public void Dispose()
@@ -60,12 +84,6 @@ public sealed class LseqStrategyTests : IDisposable
         scopeA.Dispose();
         scopeB.Dispose();
         scopeC.Dispose();
-    }
-
-    private class LseqTestModel
-    {
-        [CrdtLseqStrategy]
-        public List<string> Items { get; set; } = new();
     }
 
     [Fact]

@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -15,30 +17,29 @@ using System;
 using System.Collections.Generic;
 using Xunit;
 
+internal sealed class OrderStatusStateMachine : IStateMachine<string>
+{
+    public bool IsValidTransition(string from, string to)
+    {
+        if (from is null && to == "PENDING") return true; // Initial transition
+
+        return (from, to) switch
+        {
+            ("PENDING", "PROCESSING") => true,
+            ("PROCESSING", "SHIPPED") => true,
+            _ => false
+        };
+    }
+}
+
+internal sealed class StateMachineTestModel
+{
+    [CrdtStateMachineStrategy(typeof(OrderStatusStateMachine))]
+    public string Status { get; set; } = string.Empty;
+}
+
 public sealed class StateMachineStrategyTests : IDisposable
 {
-    // Test validator for order status transitions
-    private sealed class OrderStatusStateMachine : IStateMachine<string>
-    {
-        public bool IsValidTransition(string from, string to)
-        {
-            if (from is null && to == "PENDING") return true; // Initial transition
-
-            return (from, to) switch
-            {
-                ("PENDING", "PROCESSING") => true,
-                ("PROCESSING", "SHIPPED") => true,
-                _ => false
-            };
-        }
-    }
-
-    private sealed class TestModel
-    {
-        [CrdtStateMachineStrategy(typeof(OrderStatusStateMachine))]
-        public string Status { get; set; }
-    }
-    
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
     private readonly StateMachineStrategy strategyA;
@@ -51,6 +52,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<StateMachineStrategyTestCrdtContext>()
             .AddSingleton<OrderStatusStateMachine>()
             .BuildServiceProvider();
 
@@ -70,15 +72,29 @@ public sealed class StateMachineStrategyTests : IDisposable
         scopeB.Dispose();
     }
     
+    private static CrdtPropertyInfo CreatePropertyInfo()
+    {
+        return new CrdtPropertyInfo(
+            "Status", 
+            "status", 
+            typeof(string), 
+            true, 
+            true,
+            obj => ((StateMachineTestModel)obj).Status,
+            (obj, val) => ((StateMachineTestModel)obj).Status = (string)val!,
+            new CrdtStateMachineStrategyAttribute(typeof(OrderStatusStateMachine)),
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
+    }
+
     [Fact]
     public void GeneratePatch_WithValidTransition_ShouldCreateUpsertOperation()
     {
         // Arrange
         var originalMeta = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
+        var property = CreatePropertyInfo();
         var changeTimestamp = timestampProvider.Create(200);
         var context = new GeneratePatchContext(
-            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "PROCESSING", new TestModel { Status = "PENDING" }, new TestModel { Status = "PROCESSING" }, originalMeta, changeTimestamp, 0);
+            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "PROCESSING", new StateMachineTestModel { Status = "PENDING" }, new StateMachineTestModel { Status = "PROCESSING" }, originalMeta, changeTimestamp, 0);
 
         // Act
         strategyA.GeneratePatch(context);
@@ -97,9 +113,9 @@ public sealed class StateMachineStrategyTests : IDisposable
     {
         // Arrange
         var originalMeta = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Status));
+        var property = CreatePropertyInfo();
         var context = new GeneratePatchContext(
-            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "SHIPPED", new TestModel { Status = "PENDING" }, new TestModel { Status = "SHIPPED" }, originalMeta, timestampProvider.Create(200), 0);
+            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "SHIPPED", new StateMachineTestModel { Status = "PENDING" }, new StateMachineTestModel { Status = "SHIPPED" }, originalMeta, timestampProvider.Create(200), 0);
 
         // Act
         strategyA.GeneratePatch(context);
@@ -112,9 +128,9 @@ public sealed class StateMachineStrategyTests : IDisposable
     public void GenerateOperation_WithValidSetIntent_ShouldReturnUpsertOperation()
     {
         // Arrange
-        var model = new TestModel { Status = "PENDING" };
+        var model = new StateMachineTestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Status))!;
+        var property = CreatePropertyInfo();
         var timestamp = timestampProvider.Create(200);
         var intent = new SetIntent("PROCESSING");
         var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, 0);
@@ -134,9 +150,9 @@ public sealed class StateMachineStrategyTests : IDisposable
     public void GenerateOperation_WithInvalidStateTransition_ShouldThrowInvalidOperationException()
     {
         // Arrange
-        var model = new TestModel { Status = "PENDING" };
+        var model = new StateMachineTestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Status))!;
+        var property = CreatePropertyInfo();
         var timestamp = timestampProvider.Create(200);
         var intent = new SetIntent("SHIPPED"); // Invalid transition directly from PENDING
         var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, 0);
@@ -149,9 +165,9 @@ public sealed class StateMachineStrategyTests : IDisposable
     public void GenerateOperation_WithUnsupportedIntent_ShouldThrowNotSupportedException()
     {
         // Arrange
-        var model = new TestModel { Status = "PENDING" };
+        var model = new StateMachineTestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata();
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Status))!;
+        var property = CreatePropertyInfo();
         var timestamp = timestampProvider.Create(200);
         var intent = new IncrementIntent(1); // Not supported intent type
         var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, 0);
@@ -164,7 +180,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     public void ApplyOperation_WithValidTransitionAndNewerTimestamp_ShouldUpdateModel()
     {
         // Arrange
-        var model = new TestModel { Status = "PENDING" };
+        var model = new StateMachineTestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200), 0);
         var context = new ApplyOperationContext(model, metadata, operation);
@@ -181,7 +197,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     public void ApplyOperation_WithInvalidTransition_ShouldNotUpdateModel()
     {
         // Arrange
-        var model = new TestModel { Status = "PENDING" };
+        var model = new StateMachineTestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(200), 0);
         var context = new ApplyOperationContext(model, metadata, operation);
@@ -198,7 +214,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     public void ApplyOperation_WithOlderTimestamp_ShouldNotUpdateModel()
     {
         // Arrange
-        var model = new TestModel { Status = "PROCESSING" };
+        var model = new StateMachineTestModel { Status = "PROCESSING" };
         var metadata = new CrdtMetadata { Lww = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(300), "A", 1) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(200), 0);
         var context = new ApplyOperationContext(model, metadata, operation);
@@ -215,7 +231,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     public void ApplyOperation_IsIdempotent()
     {
         // Arrange
-        var model = new TestModel { Status = "PENDING" };
+        var model = new StateMachineTestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200), 0);
         var context = new ApplyOperationContext(model, metadata, operation);
@@ -238,12 +254,12 @@ public sealed class StateMachineStrategyTests : IDisposable
         var op1 = new CrdtOperation(Guid.NewGuid(), "r1", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200), 0);
         var op2 = new CrdtOperation(Guid.NewGuid(), "r2", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(300), 0);
 
-        var model1 = new TestModel { Status = "PROCESSING" };
+        var model1 = new StateMachineTestModel { Status = "PROCESSING" };
         var meta1 = new CrdtMetadata();
         strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op1));
         strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op2));
 
-        var model2 = new TestModel { Status = "PROCESSING" };
+        var model2 = new StateMachineTestModel { Status = "PROCESSING" };
         var meta2 = new CrdtMetadata();
         strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op2));
         strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op1));
@@ -263,7 +279,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
         var metadata = new CrdtMetadata();
 
-        var context = new CompactionContext(metadata, mockPolicy.Object, "Status", "$.status", new TestModel());
+        var context = new CompactionContext(metadata, mockPolicy.Object, "Status", "$.status", new StateMachineTestModel());
 
         // Act
         strategyA.Compact(context);

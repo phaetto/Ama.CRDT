@@ -1,9 +1,11 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies.Decorators;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
@@ -18,8 +20,22 @@ using System;
 using System.Collections.Generic;
 using Xunit;
 
+[CrdtSerializable(typeof(ApprovalQuorumStrategyTests.ProposalDocument))]
+internal partial class ApprovalQuorumTestCrdtContext : CrdtContext { }
+
 public sealed class ApprovalQuorumStrategyTests : IDisposable
 {
+    private static readonly CrdtPropertyInfo ConfigValueProperty = new(
+        nameof(ProposalDocument.ConfigValue),
+        "configValue",
+        typeof(string),
+        true,
+        true,
+        obj => ((ProposalDocument)obj).ConfigValue,
+        (obj, val) => ((ProposalDocument)obj).ConfigValue = (string)val!,
+        new CrdtLwwStrategyAttribute(),
+        new CrdtStrategyDecoratorAttribute[] { new CrdtApprovalQuorumAttribute(2) });
+
     private readonly IServiceScope scope;
     private readonly ICrdtStrategyProvider strategyProvider;
     private readonly ICrdtPatcher patcher;
@@ -30,6 +46,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<ApprovalQuorumTestCrdtContext>()
             .BuildServiceProvider();
 
         scope = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("TestReplica");
@@ -55,13 +72,13 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
     [Fact]
     public void Provider_ShouldResolve_DecoratorAndBaseStrategy()
     {
-        var property = typeof(ProposalDocument).GetProperty(nameof(ProposalDocument.ConfigValue));
+        var property = ConfigValueProperty;
         property.ShouldNotBeNull();
 
-        var strategy = strategyProvider.GetStrategy(property);
+        var strategy = strategyProvider.GetStrategy(typeof(ProposalDocument), property);
         strategy.ShouldBeOfType<ApprovalQuorumStrategy>();
 
-        var baseStrategy = strategyProvider.GetBaseStrategy(property);
+        var baseStrategy = strategyProvider.GetBaseStrategy(typeof(ProposalDocument), property);
         baseStrategy.ShouldBeOfType<LwwStrategy>();
     }
 
@@ -223,8 +240,8 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
     public void Compact_ShouldNotModifyDecoratorMetadata_AndDelegateToInnerStrategy()
     {
         // Arrange
-        var property = typeof(ProposalDocument).GetProperty(nameof(ProposalDocument.ConfigValue))!;
-        var strategy = strategyProvider.GetStrategy(property);
+        var property = ConfigValueProperty;
+        var strategy = strategyProvider.GetStrategy(typeof(ProposalDocument), property);
         
         var metadata = new CrdtMetadata();
         metadata.QuorumApprovals["$.configValue"] = new Dictionary<object, ISet<string>>();

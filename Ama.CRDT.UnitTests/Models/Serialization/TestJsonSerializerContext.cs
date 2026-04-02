@@ -26,7 +26,6 @@ using Ama.CRDT.UnitTests.Services.Strategies.Serialization;
 [JsonSerializable(typeof(ReplicaSyncRequirement))]
 [JsonSerializable(typeof(BidirectionalSyncRequirements))]
 [JsonSerializable(typeof(SplitResult))]
-// Intent Test Registrations
 [JsonSerializable(typeof(AddIntent))]
 [JsonSerializable(typeof(AddEdgeIntent))]
 [JsonSerializable(typeof(AddNodeIntent))]
@@ -47,7 +46,6 @@ using Ama.CRDT.UnitTests.Services.Strategies.Serialization;
 [JsonSerializable(typeof(SetIntent))]
 [JsonSerializable(typeof(VoteIntent))]
 [JsonSerializable(typeof(EpochClearIntent))]
-// Strategy Payload Test Registrations
 [JsonSerializable(typeof(StrategyPayloadSerializationTests.LwwModel))]
 [JsonSerializable(typeof(CrdtDocument<StrategyPayloadSerializationTests.LwwModel>))]
 [JsonSerializable(typeof(StrategyPayloadSerializationTests.FwwModel))]

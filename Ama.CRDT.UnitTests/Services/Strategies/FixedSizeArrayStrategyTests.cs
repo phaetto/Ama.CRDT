@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -17,14 +19,20 @@ using System.Linq;
 using System.Threading;
 using Xunit;
 
+[CrdtSerializable(typeof(FixedSizeArrayTestModel))]
+[CrdtSerializable(typeof(List<int>))]
+internal partial class FixedSizeArrayTestCrdtContext : CrdtContext
+{
+}
+
+internal sealed class FixedSizeArrayTestModel
+{
+    [CrdtFixedSizeArrayStrategy(3)]
+    public List<int> Values { get; set; } = new();
+}
+
 public sealed class FixedSizeArrayStrategyTests : IDisposable
 {
-    private sealed class TestModel
-    {
-        [CrdtFixedSizeArrayStrategy(3)]
-        public List<int> Values { get; set; } = new();
-    }
-
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
     private readonly IServiceScope scopeC;
@@ -38,6 +46,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<FixedSizeArrayTestCrdtContext>()
             .AddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>()
             .BuildServiceProvider();
 
@@ -65,11 +74,11 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
     public void GeneratePatch_ShouldCreateUpsertForChangedElement()
     {
         // Arrange
-        var doc1 = new TestModel { Values = [1, 2, 3] };
+        var doc1 = new FixedSizeArrayTestModel { Values = [1, 2, 3] };
         var meta1 = metadataManagerA.Initialize(doc1);
-        var doc2 = new TestModel { Values = [1, 99, 3] };
+        var doc2 = new FixedSizeArrayTestModel { Values = [1, 99, 3] };
         
-        var crdtDoc1 = new CrdtDocument<TestModel>(doc1, meta1);
+        var crdtDoc1 = new CrdtDocument<FixedSizeArrayTestModel>(doc1, meta1);
 
         // Act
         var patch = patcherA.GeneratePatch(crdtDoc1, doc2);
@@ -86,19 +95,19 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
     public void ApplyPatch_IsIdempotent()
     {
         // Arrange
-        var initialModel = new TestModel { Values = [1, 2, 3] };
+        var initialModel = new FixedSizeArrayTestModel { Values = [1, 2, 3] };
         var initialMeta = metadataManagerA.Initialize(initialModel);
 
-        var modifiedModel = new TestModel { Values = [1, 99, 3] };
+        var modifiedModel = new FixedSizeArrayTestModel { Values = [1, 99, 3] };
         
         Thread.Sleep(5);
         var patch = patcherA.GeneratePatch(
-            new CrdtDocument<TestModel>(initialModel, initialMeta),
+            new CrdtDocument<FixedSizeArrayTestModel>(initialModel, initialMeta),
             modifiedModel);
 
-        var targetModel = new TestModel { Values = new List<int>(initialModel.Values) };
+        var targetModel = new FixedSizeArrayTestModel { Values = new List<int>(initialModel.Values) };
         var targetMeta = initialMeta.DeepClone();
-        var targetDocument = new CrdtDocument<TestModel>(targetModel, targetMeta);
+        var targetDocument = new CrdtDocument<FixedSizeArrayTestModel>(targetModel, targetMeta);
 
         // Act
         patch.Operations.ShouldHaveSingleItem();
@@ -116,36 +125,36 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
     public void Converge_WhenApplyingConcurrentUpdates_ShouldBeCommutative()
     {
         // Arrange
-        var ancestor = new TestModel { Values = [10, 20, 30] };
+        var ancestor = new FixedSizeArrayTestModel { Values = [10, 20, 30] };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
-        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
+        var docAncestor = new CrdtDocument<FixedSizeArrayTestModel>(ancestor, metaAncestor);
 
         // Replica A updates index 0
         Thread.Sleep(5);
         var patchA = patcherA.GeneratePatch(
             docAncestor,
-            new TestModel { Values = [11, 20, 30] });
+            new FixedSizeArrayTestModel { Values = [11, 20, 30] });
 
         // Replica B updates index 2
         Thread.Sleep(5);
         var patchB = patcherB.GeneratePatch(
             docAncestor,
-            new TestModel { Values = [10, 20, 33] });
+            new FixedSizeArrayTestModel { Values = [10, 20, 33] });
         
         patchA.Operations.ShouldHaveSingleItem();
         patchB.Operations.ShouldHaveSingleItem();
 
         // Scenario 1: A then B
-        var model1 = new TestModel { Values = new List<int>(ancestor.Values) };
+        var model1 = new FixedSizeArrayTestModel { Values = new List<int>(ancestor.Values) };
         var meta1 = metaAncestor.DeepClone();
-        var doc1 = new CrdtDocument<TestModel>(model1, meta1);
+        var doc1 = new CrdtDocument<FixedSizeArrayTestModel>(model1, meta1);
         applicatorA.ApplyPatch(doc1, patchA);
         applicatorA.ApplyPatch(doc1, patchB);
 
         // Scenario 2: B then A
-        var model2 = new TestModel { Values = new List<int>(ancestor.Values) };
+        var model2 = new FixedSizeArrayTestModel { Values = new List<int>(ancestor.Values) };
         var meta2 = metaAncestor.DeepClone();
-        var doc2 = new CrdtDocument<TestModel>(model2, meta2);
+        var doc2 = new CrdtDocument<FixedSizeArrayTestModel>(model2, meta2);
         applicatorA.ApplyPatch(doc2, patchB);
         applicatorA.ApplyPatch(doc2, patchA);
 
@@ -159,25 +168,25 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
     public void Converge_WhenApplyingConcurrentUpdates_ShouldBeAssociative()
     {
         // Arrange
-        var ancestor = new TestModel { Values = [10, 20, 30] };
+        var ancestor = new FixedSizeArrayTestModel { Values = [10, 20, 30] };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
-        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
+        var docAncestor = new CrdtDocument<FixedSizeArrayTestModel>(ancestor, metaAncestor);
 
         // Replicas generate patches
         Thread.Sleep(5);
         var patchA = patcherA.GeneratePatch(
             docAncestor,
-            new TestModel { Values = [11, 20, 30] });
+            new FixedSizeArrayTestModel { Values = [11, 20, 30] });
         
         Thread.Sleep(5);
         var patchB = patcherB.GeneratePatch(
             docAncestor,
-            new TestModel { Values = [10, 22, 30] });
+            new FixedSizeArrayTestModel { Values = [10, 22, 30] });
 
         Thread.Sleep(5);
         var patchC = patcherC.GeneratePatch(
             docAncestor,
-            new TestModel { Values = [10, 20, 33] });
+            new FixedSizeArrayTestModel { Values = [10, 20, 33] });
 
         var patches = new[] { patchA, patchB, patchC };
         var permutations = GetPermutations(patches, patches.Length);
@@ -186,9 +195,9 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         // Act
         foreach (var p in permutations)
         {
-            var model = new TestModel { Values = new List<int>(ancestor.Values) };
+            var model = new FixedSizeArrayTestModel { Values = new List<int>(ancestor.Values) };
             var meta = metaAncestor.DeepClone();
-            var document = new CrdtDocument<TestModel>(model, meta);
+            var document = new CrdtDocument<FixedSizeArrayTestModel>(model, meta);
             foreach (var patch in p)
             {
                 applicatorA.ApplyPatch(document, patch);
@@ -211,21 +220,21 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
     public void Converge_OnConflictingUpdate_LwwShouldWin()
     {
         // Arrange
-        var ancestor = new TestModel { Values = [0, 0, 0] };
+        var ancestor = new FixedSizeArrayTestModel { Values = [0, 0, 0] };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
-        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
+        var docAncestor = new CrdtDocument<FixedSizeArrayTestModel>(ancestor, metaAncestor);
         
         // Replica A updates index 1
         Thread.Sleep(5);
         var patchA = patcherA.GeneratePatch(
             docAncestor,
-            new TestModel { Values = [0, 1, 0] });
+            new FixedSizeArrayTestModel { Values = [0, 1, 0] });
 
         // Replica B updates index 1 later in time
         Thread.Sleep(5);
         var patchB = patcherB.GeneratePatch(
             docAncestor,
-            new TestModel { Values = [0, 2, 0] });
+            new FixedSizeArrayTestModel { Values = [0, 2, 0] });
 
         patchA.Operations.ShouldHaveSingleItem();
         patchB.Operations.ShouldHaveSingleItem();
@@ -237,9 +246,9 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         var winningValue = Convert.ToInt32(winningOp.Value);
         
         // Act
-        var model = new TestModel { Values = new List<int>(ancestor.Values) };
+        var model = new FixedSizeArrayTestModel { Values = new List<int>(ancestor.Values) };
         var meta = metaAncestor.DeepClone();
-        var document = new CrdtDocument<TestModel>(model, meta);
+        var document = new CrdtDocument<FixedSizeArrayTestModel>(model, meta);
         applicatorA.ApplyPatch(document, patchA);
         applicatorA.ApplyPatch(document, patchB);
         
@@ -251,9 +260,9 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
     public void GenerateOperation_SetIndexIntent_ShouldGenerateUpsertForSpecificIndex()
     {
         // Arrange
-        var doc1 = new TestModel { Values = [1, 2, 3] };
+        var doc1 = new FixedSizeArrayTestModel { Values = [1, 2, 3] };
         var meta1 = metadataManagerA.Initialize(doc1);
-        var crdtDoc1 = new CrdtDocument<TestModel>(doc1, meta1);
+        var crdtDoc1 = new CrdtDocument<FixedSizeArrayTestModel>(doc1, meta1);
         var intent = new SetIndexIntent(1, 99);
 
         // Act
@@ -269,9 +278,9 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
     public void GenerateOperation_SetIndexIntent_OutOfBounds_ShouldThrow()
     {
         // Arrange
-        var doc1 = new TestModel { Values = [1, 2, 3] };
+        var doc1 = new FixedSizeArrayTestModel { Values = [1, 2, 3] };
         var meta1 = metadataManagerA.Initialize(doc1);
-        var crdtDoc1 = new CrdtDocument<TestModel>(doc1, meta1);
+        var crdtDoc1 = new CrdtDocument<FixedSizeArrayTestModel>(doc1, meta1);
         var intent = new SetIndexIntent(5, 99); // Array size is fixed at 3
 
         // Act & Assert
@@ -282,9 +291,9 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
     public void GenerateOperation_UnsupportedIntent_ShouldThrow()
     {
         // Arrange
-        var doc1 = new TestModel { Values = [1, 2, 3] };
+        var doc1 = new FixedSizeArrayTestModel { Values = [1, 2, 3] };
         var meta1 = metadataManagerA.Initialize(doc1);
-        var crdtDoc1 = new CrdtDocument<TestModel>(doc1, meta1);
+        var crdtDoc1 = new CrdtDocument<FixedSizeArrayTestModel>(doc1, meta1);
         var intent = new RemoveIntent(1);
 
         // Act & Assert
@@ -298,7 +307,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
 
-        var doc = new TestModel { Values = [1, 2, 3] };
+        var doc = new FixedSizeArrayTestModel { Values = [1, 2, 3] };
         var meta = metadataManagerA.Initialize(doc);
 
         var context = new CompactionContext(meta, mockPolicy.Object, "Values", "$.values", doc);

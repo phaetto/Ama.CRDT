@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -16,14 +18,14 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
+internal sealed class TwoPhaseSetTestModel
+{
+    [CrdtTwoPhaseSetStrategy]
+    public List<string> Tags { get; set; } = new();
+}
+
 public sealed class TwoPhaseSetStrategyTests : IDisposable
 {
-    private sealed class TestModel
-    {
-        [CrdtTwoPhaseSetStrategy]
-        public List<string> Tags { get; set; } = new();
-    }
-    
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
     private readonly IServiceScope scopeC;
@@ -39,6 +41,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<TwoPhaseSetStrategyTestCrdtContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -62,16 +65,30 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         scopeC.Dispose();
     }
     
+    private static CrdtPropertyInfo CreatePropertyInfo()
+    {
+        return new CrdtPropertyInfo(
+            "Tags", 
+            "tags", 
+            typeof(List<string>), 
+            true, 
+            true,
+            obj => ((TwoPhaseSetTestModel)obj).Tags,
+            (obj, val) => ((TwoPhaseSetTestModel)obj).Tags = (List<string>)val!,
+            new CrdtTwoPhaseSetStrategyAttribute(),
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
+    }
+
     [Fact]
     public void GeneratePatch_ShouldCreateUpsertAndRemoveOps()
     {
         // Arrange
-        var doc1 = new TestModel { Tags = { "A", "B" } };
+        var doc1 = new TwoPhaseSetTestModel { Tags = { "A", "B" } };
         var meta1 = metadataManagerA.Initialize(doc1);
-        var doc2 = new TestModel { Tags = { "B", "C" } };
+        var doc2 = new TwoPhaseSetTestModel { Tags = { "B", "C" } };
         
         // Act
-        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), doc2);
+        var patch = patcherA.GeneratePatch(new CrdtDocument<TwoPhaseSetTestModel>(doc1, meta1), doc2);
         
         // Assert
         patch.Operations.Count.ShouldBe(2);
@@ -83,14 +100,14 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     public void ApplyPatch_IsTrulyIdempotent()
     {
         // Arrange
-        var doc1 = new TestModel { Tags = { "A" } };
+        var doc1 = new TwoPhaseSetTestModel { Tags = { "A" } };
         var meta1 = metadataManagerA.Initialize(doc1);
-        var doc2 = new TestModel { Tags = { "A", "B" } };
-        var patch = patcherA.GeneratePatch(new CrdtDocument<TestModel>(doc1, meta1), doc2);
+        var doc2 = new TwoPhaseSetTestModel { Tags = { "A", "B" } };
+        var patch = patcherA.GeneratePatch(new CrdtDocument<TwoPhaseSetTestModel>(doc1, meta1), doc2);
 
-        var target = new TestModel { Tags = { "A" } };
+        var target = new TwoPhaseSetTestModel { Tags = { "A" } };
         var targetMeta = metadataManagerA.Initialize(target);
-        var targetDocument = new CrdtDocument<TestModel>(target, targetMeta);
+        var targetDocument = new CrdtDocument<TwoPhaseSetTestModel>(target, targetMeta);
         
         // Act
         applicatorA.ApplyPatch(targetDocument, patch);
@@ -109,17 +126,17 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     public void Converge_WhenItemIsRemoved_ItCannotBeReAdded()
     {
         // Arrange
-        var model = new TestModel { Tags = { "A" } };
+        var model = new TwoPhaseSetTestModel { Tags = { "A" } };
         var meta = metadataManagerA.Initialize(model);
-        var document = new CrdtDocument<TestModel>(model, meta);
+        var document = new CrdtDocument<TwoPhaseSetTestModel>(model, meta);
         
         // Remove "A"
-        var patchRemove = patcherA.GeneratePatch(document, new TestModel());
+        var patchRemove = patcherA.GeneratePatch(document, new TwoPhaseSetTestModel());
         applicatorA.ApplyPatch(document, patchRemove);
         model.Tags.ShouldBeEmpty();
         
         // Try to add "A" back
-        var patchAdd = patcherA.GeneratePatch(new CrdtDocument<TestModel>(new TestModel(), meta), new TestModel { Tags = { "A" } });
+        var patchAdd = patcherA.GeneratePatch(new CrdtDocument<TwoPhaseSetTestModel>(new TwoPhaseSetTestModel(), meta), new TwoPhaseSetTestModel { Tags = { "A" } });
         
         // Act
         applicatorA.ApplyPatch(document, patchAdd);
@@ -132,31 +149,31 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     public void Converge_WhenApplyingConcurrentAddsAndRemoves_ShouldBeCommutative()
     {
         // Arrange
-        var ancestor = new TestModel { Tags = { "A", "B" } };
+        var ancestor = new TwoPhaseSetTestModel { Tags = { "A", "B" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
-        var ancestorDocument = new CrdtDocument<TestModel>(ancestor, metaAncestor);
+        var ancestorDocument = new CrdtDocument<TwoPhaseSetTestModel>(ancestor, metaAncestor);
 
         // Replica A removes "B"
         var patchRemoveB = patcherA.GeneratePatch(
             ancestorDocument,
-            new TestModel { Tags = { "A" } });
+            new TwoPhaseSetTestModel { Tags = { "A" } });
 
         // Replica B adds "C"
         var patchAddC = patcherB.GeneratePatch(
             ancestorDocument,
-            new TestModel { Tags = { "A", "B", "C" } });
+            new TwoPhaseSetTestModel { Tags = { "A", "B", "C" } });
         
         // Scenario 1: Remove then Add
-        var model1 = new TestModel { Tags = new List<string>(ancestor.Tags) };
+        var model1 = new TwoPhaseSetTestModel { Tags = new List<string>(ancestor.Tags) };
         var meta1 = metadataManagerA.Initialize(model1);
-        var doc1 = new CrdtDocument<TestModel>(model1, meta1);
+        var doc1 = new CrdtDocument<TwoPhaseSetTestModel>(model1, meta1);
         applicatorA.ApplyPatch(doc1, patchRemoveB);
         applicatorA.ApplyPatch(doc1, patchAddC);
 
         // Scenario 2: Add then Remove
-        var model2 = new TestModel { Tags = new List<string>(ancestor.Tags) };
+        var model2 = new TwoPhaseSetTestModel { Tags = new List<string>(ancestor.Tags) };
         var meta2 = metadataManagerA.Initialize(model2);
-        var doc2 = new CrdtDocument<TestModel>(model2, meta2);
+        var doc2 = new CrdtDocument<TwoPhaseSetTestModel>(model2, meta2);
         applicatorA.ApplyPatch(doc2, patchAddC);
         applicatorA.ApplyPatch(doc2, patchRemoveB);
 
@@ -170,24 +187,24 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     public void Converge_WhenApplyingConcurrentOps_ShouldBeAssociative()
     {
         // Arrange
-        var ancestor = new TestModel { Tags = { "A", "B" } };
+        var ancestor = new TwoPhaseSetTestModel { Tags = { "A", "B" } };
         var metaAncestor = metadataManagerA.Initialize(ancestor);
-        var ancestorDocument = new CrdtDocument<TestModel>(ancestor, metaAncestor);
+        var ancestorDocument = new CrdtDocument<TwoPhaseSetTestModel>(ancestor, metaAncestor);
 
         // Replica A removes B
         var patch1 = patcherA.GeneratePatch(
             ancestorDocument,
-            new TestModel { Tags = { "A" } });
+            new TwoPhaseSetTestModel { Tags = { "A" } });
         
         // Replica B adds C
         var patch2 = patcherB.GeneratePatch(
             ancestorDocument,
-            new TestModel { Tags = { "A", "B", "C" } });
+            new TwoPhaseSetTestModel { Tags = { "A", "B", "C" } });
         
         // Replica C removes A
         var patch3 = patcherC.GeneratePatch(
             ancestorDocument,
-            new TestModel { Tags = { "B" } });
+            new TwoPhaseSetTestModel { Tags = { "B" } });
 
         var patches = new[] { patch1, patch2, patch3 };
         var permutations = GetPermutations(patches, patches.Length);
@@ -196,9 +213,9 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         // Act
         foreach (var permutation in permutations)
         {
-            var model = new TestModel { Tags = new List<string>(ancestor.Tags) };
+            var model = new TwoPhaseSetTestModel { Tags = new List<string>(ancestor.Tags) };
             var meta = metadataManagerA.Initialize(model);
-            var document = new CrdtDocument<TestModel>(model, meta);
+            var document = new CrdtDocument<TwoPhaseSetTestModel>(model, meta);
             foreach (var patch in permutation)
             {
                 applicatorA.ApplyPatch(document, patch);
@@ -221,10 +238,10 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     [Fact]
     public void GetStartKey_ShouldReturnSmallestKeyOrNull()
     {
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = CreatePropertyInfo();
         
-        strategyA.GetStartKey(new TestModel(), propInfo).ShouldBeNull();
-        strategyA.GetStartKey(new TestModel { Tags = { "c", "a", "b" } }, propInfo).ShouldBe("a");
+        strategyA.GetStartKey(new TwoPhaseSetTestModel(), propInfo).ShouldBeNull();
+        strategyA.GetStartKey(new TwoPhaseSetTestModel { Tags = { "c", "a", "b" } }, propInfo).ShouldBe("a");
     }
 
     [Fact]
@@ -239,16 +256,16 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     [Fact]
     public void GetMinimumKey_ShouldReturnCorrectMinValue()
     {
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = CreatePropertyInfo();
         strategyA.GetMinimumKey(propInfo).ShouldBe(string.Empty);
     }
 
     [Fact]
     public void Split_ShouldDivideDataAndMetadataEqually()
     {
-        var doc = new TestModel();
+        var doc = new TwoPhaseSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = CreatePropertyInfo();
 
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0)));
@@ -259,8 +276,8 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
 
         result.SplitKey.ShouldBe("c");
 
-        var doc1 = (TestModel)result.Partition1.Data;
-        var doc2 = (TestModel)result.Partition2.Data;
+        var doc1 = (TwoPhaseSetTestModel)result.Partition1.Data;
+        var doc2 = (TwoPhaseSetTestModel)result.Partition2.Data;
 
         doc1.Tags.ShouldBe(["a", "b"], ignoreOrder: true);
         doc2.Tags.ShouldBe(["c", "d"], ignoreOrder: true);
@@ -272,11 +289,11 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     [Fact]
     public void Merge_ShouldCombineDataAndMetadata()
     {
-        var doc1 = new TestModel();
+        var doc1 = new TwoPhaseSetTestModel();
         var meta1 = metadataManagerA.Initialize(doc1);
-        var doc2 = new TestModel();
+        var doc2 = new TwoPhaseSetTestModel();
         var meta2 = metadataManagerA.Initialize(doc2);
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
+        var propInfo = CreatePropertyInfo();
 
         strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0)));
@@ -286,7 +303,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
 
         var result = strategyA.Merge(doc1, meta1, doc2, meta2, propInfo);
 
-        var mergedDoc = (TestModel)result.Data;
+        var mergedDoc = (TwoPhaseSetTestModel)result.Data;
         mergedDoc.Tags.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
         result.Metadata.TwoPhaseSets["$.tags"].Adds.Count.ShouldBeGreaterThanOrEqualTo(4);
     }
@@ -338,9 +355,9 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     public void IntentBuilder_ShouldGenerateAndApplyOperationsCorrectly()
     {
         // Arrange
-        var doc1 = new TestModel { Tags = { "A" } };
+        var doc1 = new TwoPhaseSetTestModel { Tags = { "A" } };
         var meta1 = metadataManagerA.Initialize(doc1);
-        var document = new CrdtDocument<TestModel>(doc1, meta1);
+        var document = new CrdtDocument<TwoPhaseSetTestModel>(doc1, meta1);
 
         // Act
         // Create and apply the first operation to increment the local clock
@@ -379,7 +396,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
 
         metadata.TwoPhaseSets["$.tags"] = state;
 
-        var context = new CompactionContext(metadata, mockPolicy.Object, "Tags", "$.tags", new TestModel());
+        var context = new CompactionContext(metadata, mockPolicy.Object, "Tags", "$.tags", new TwoPhaseSetTestModel());
 
         // Act
         strategyA.Compact(context);

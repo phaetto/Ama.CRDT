@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -19,7 +20,7 @@ using Xunit;
 
 public sealed class LwwSetStrategyTests : IDisposable
 {
-    private sealed class TestModel
+    internal sealed class TestModel
     {
         [CrdtLwwSetStrategy]
         public List<string> Tags { get; set; } = new();
@@ -38,10 +39,17 @@ public sealed class LwwSetStrategyTests : IDisposable
     private readonly LwwSetStrategy strategyA;
     private readonly ICrdtTimestampProvider timestampProvider;
 
+    private readonly CrdtPropertyInfo tagsPropInfo = new CrdtPropertyInfo(
+        "Tags", "tags", typeof(List<string>), true, true,
+        obj => ((TestModel)obj).Tags,
+        (obj, val) => ((TestModel)obj).Tags = (List<string>)val!,
+        null, []);
+
     public LwwSetStrategyTests()
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<LwwSetStrategyTestCrdtContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -88,10 +96,9 @@ public sealed class LwwSetStrategyTests : IDisposable
     public void GenerateOperation_WithAddIntent_ShouldReturnUpsertOperation()
     {
         // Arrange
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("NewTag"), timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", tagsPropInfo, new AddIntent("NewTag"), timestampProvider.Now(), 0);
 
         // Act
         var op = strategyA.GenerateOperation(context);
@@ -107,10 +114,9 @@ public sealed class LwwSetStrategyTests : IDisposable
     public void GenerateOperation_WithRemoveValueIntent_ShouldReturnRemoveOperation()
     {
         // Arrange
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new RemoveValueIntent("OldTag"), timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", tagsPropInfo, new RemoveValueIntent("OldTag"), timestampProvider.Now(), 0);
 
         // Act
         var op = strategyA.GenerateOperation(context);
@@ -126,10 +132,9 @@ public sealed class LwwSetStrategyTests : IDisposable
     public void GenerateOperation_WithUnsupportedIntent_ShouldThrow()
     {
         // Arrange
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new IncrementIntent(1), timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", tagsPropInfo, new IncrementIntent(1), timestampProvider.Now(), 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
@@ -282,10 +287,8 @@ public sealed class LwwSetStrategyTests : IDisposable
     [Fact]
     public void GetStartKey_ShouldReturnSmallestKeyOrNull()
     {
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
-        
-        strategyA.GetStartKey(new TestModel(), propInfo).ShouldBeNull();
-        strategyA.GetStartKey(new TestModel { Tags = { "c", "a", "b" } }, propInfo).ShouldBe("a");
+        strategyA.GetStartKey(new TestModel(), tagsPropInfo).ShouldBeNull();
+        strategyA.GetStartKey(new TestModel { Tags = { "c", "a", "b" } }, tagsPropInfo).ShouldBe("a");
     }
 
     [Fact]
@@ -300,8 +303,7 @@ public sealed class LwwSetStrategyTests : IDisposable
     [Fact]
     public void GetMinimumKey_ShouldReturnCorrectMinValue()
     {
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
-        strategyA.GetMinimumKey(propInfo).ShouldBe(string.Empty);
+        strategyA.GetMinimumKey(tagsPropInfo).ShouldBe(string.Empty);
     }
 
     [Fact]
@@ -309,14 +311,13 @@ public sealed class LwwSetStrategyTests : IDisposable
     {
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
 
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0)));
 
-        var result = strategyA.Split(doc, meta, propInfo);
+        var result = strategyA.Split(doc, meta, tagsPropInfo);
 
         result.SplitKey.ShouldBe("c");
 
@@ -337,7 +338,6 @@ public sealed class LwwSetStrategyTests : IDisposable
         var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel();
         var meta2 = metadataManagerA.Initialize(doc2);
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Tags))!;
 
         strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0)));
@@ -345,7 +345,7 @@ public sealed class LwwSetStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0)));
 
-        var result = strategyA.Merge(doc1, meta1, doc2, meta2, propInfo);
+        var result = strategyA.Merge(doc1, meta1, doc2, meta2, tagsPropInfo);
 
         var mergedDoc = (TestModel)result.Data;
         mergedDoc.Tags.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);

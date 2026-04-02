@@ -2,6 +2,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -17,9 +18,9 @@ using Xunit;
 
 public sealed class LwwStrategyTests : IDisposable
 {
-    private sealed class TestModel { public int Value { get; set; } }
+    internal sealed class TestModel { public int Value { get; set; } }
     
-    private sealed class NullableTestModel { public int? Value { get; set; } }
+    internal sealed class NullableTestModel { public int? Value { get; set; } }
 
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
@@ -29,10 +30,23 @@ public sealed class LwwStrategyTests : IDisposable
     private readonly Mock<ICrdtPatcher> mockPatcher = new();
     private readonly List<CrdtOperation> operations = new();
 
+    private readonly CrdtPropertyInfo valueProperty = new CrdtPropertyInfo(
+        "Value", "value", typeof(int), true, true,
+        obj => ((TestModel)obj).Value,
+        (obj, val) => ((TestModel)obj).Value = (int)val!,
+        null, []);
+
+    private readonly CrdtPropertyInfo nullableValueProperty = new CrdtPropertyInfo(
+        "Value", "value", typeof(int?), true, true,
+        obj => ((NullableTestModel)obj).Value,
+        (obj, val) => ((NullableTestModel)obj).Value = (int?)val,
+        null, []);
+
     public LwwStrategyTests()
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<LwwStrategyTestCrdtContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -58,10 +72,9 @@ public sealed class LwwStrategyTests : IDisposable
         var originalValue = 10;
         var modifiedValue = 20;
         var originalMeta = new CrdtMetadata { Lww = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(100L), "A", 1) } };
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
         var changeTimestamp = timestampProvider.Create(200L);
         var context = new GeneratePatchContext(
-            operations, new List<DifferentiateObjectContext>(), "$.value", property, originalValue, modifiedValue, null, null, originalMeta, changeTimestamp, 0);
+            operations, new List<DifferentiateObjectContext>(), "$.value", valueProperty, originalValue, modifiedValue, null, null, originalMeta, changeTimestamp, 0);
 
         // Act
         strategyA.GeneratePatch(context);
@@ -79,11 +92,10 @@ public sealed class LwwStrategyTests : IDisposable
     public void GenerateOperation_WithSetIntent_ShouldGenerateUpsert()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
         var changeTimestamp = timestampProvider.Create(200L);
         var intent = new SetIntent(42);
         var context = new GenerateOperationContext(
-            new TestModel(), new CrdtMetadata(), "$.Value", property, intent, changeTimestamp, 0);
+            new TestModel(), new CrdtMetadata(), "$.Value", valueProperty, intent, changeTimestamp, 0);
 
         // Act
         var operation = strategyA.GenerateOperation(context);
@@ -100,11 +112,10 @@ public sealed class LwwStrategyTests : IDisposable
     public void GenerateOperation_WithNullSetIntent_ShouldGenerateRemove()
     {
         // Arrange
-        var property = typeof(NullableTestModel).GetProperty(nameof(NullableTestModel.Value))!;
         var changeTimestamp = timestampProvider.Create(200L);
         var intent = new SetIntent(null);
         var context = new GenerateOperationContext(
-            new NullableTestModel(), new CrdtMetadata(), "$.Value", property, intent, changeTimestamp, 0);
+            new NullableTestModel(), new CrdtMetadata(), "$.Value", nullableValueProperty, intent, changeTimestamp, 0);
 
         // Act
         var operation = strategyA.GenerateOperation(context);
@@ -121,11 +132,10 @@ public sealed class LwwStrategyTests : IDisposable
     public void GenerateOperation_WithUnsupportedIntent_ShouldThrowNotSupportedException()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Value))!;
         var changeTimestamp = timestampProvider.Create(200L);
         var intent = new IncrementIntent(1);
         var context = new GenerateOperationContext(
-            new TestModel(), new CrdtMetadata(), "$.Value", property, intent, changeTimestamp, 0);
+            new TestModel(), new CrdtMetadata(), "$.Value", valueProperty, intent, changeTimestamp, 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));

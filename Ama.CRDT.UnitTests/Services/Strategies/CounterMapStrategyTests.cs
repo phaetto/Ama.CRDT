@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -16,6 +18,26 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
+[CrdtSerializable(typeof(CounterMapTestModel))]
+[CrdtSerializable(typeof(CounterMapTestModelInt))]
+[CrdtSerializable(typeof(Dictionary<string, int>))]
+[CrdtSerializable(typeof(Dictionary<int, int>))]
+internal partial class CounterMapStrategyTestCrdtContext : CrdtContext
+{
+}
+
+internal sealed class CounterMapTestModel
+{
+    [CrdtCounterMapStrategy]
+    public Dictionary<string, int> Map { get; set; } = [];
+}
+
+internal sealed class CounterMapTestModelInt
+{
+    [CrdtCounterMapStrategy]
+    public Dictionary<int, int> Map { get; set; } = [];
+}
+
 public sealed class CounterMapStrategyTests
 {
     private readonly IServiceProvider serviceProvider;
@@ -28,6 +50,7 @@ public sealed class CounterMapStrategyTests
     {
         var services = new ServiceCollection();
         services.AddCrdt()
+            .AddCrdtAotContext<CounterMapStrategyTestCrdtContext>()
             .AddSingleton(comparerProviderMock.Object);
 
         serviceProvider = services.BuildServiceProvider();
@@ -40,11 +63,11 @@ public sealed class CounterMapStrategyTests
         comparerProviderMock.Setup(p => p.GetComparer(It.IsAny<Type>())).Returns(EqualityComparer<object>.Default);
     }
 
-    private CrdtDocument<TestModel> CreateDocument(Dictionary<string, int> map)
+    private CrdtDocument<CounterMapTestModel> CreateDocument(Dictionary<string, int> map)
     {
-        var model = new TestModel { Map = map };
+        var model = new CounterMapTestModel { Map = map };
         var metadata = metadataManager.Initialize(model);
-        return new CrdtDocument<TestModel>(model, metadata);
+        return new CrdtDocument<CounterMapTestModel>(model, metadata);
     }
 
     [Fact]
@@ -53,10 +76,21 @@ public sealed class CounterMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        
+        var propInfo = new CrdtPropertyInfo(
+            "Map",
+            "map",
+            typeof(Dictionary<string, int>),
+            true,
+            true,
+            obj => ((CounterMapTestModel)obj).Map,
+            (obj, val) => ((CounterMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtCounterMapStrategyAttribute(),
+            []);
+            
         var metadata = new CrdtMetadata();
         var intent = new MapIncrementIntent("a", 5);
-        var context = new GenerateOperationContext(new TestModel(), metadata, "$.map", propInfo, intent, timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(new CounterMapTestModel(), metadata, "$.map", propInfo, intent, timestampProvider.Now(), 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -76,10 +110,21 @@ public sealed class CounterMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        
+        var propInfo = new CrdtPropertyInfo(
+            "Map",
+            "map",
+            typeof(Dictionary<string, int>),
+            true,
+            true,
+            obj => ((CounterMapTestModel)obj).Map,
+            (obj, val) => ((CounterMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtCounterMapStrategyAttribute(),
+            []);
+            
         var metadata = new CrdtMetadata();
         var intent = new SetIntent(5);
-        var context = new GenerateOperationContext(new TestModel(), metadata, "$.map", propInfo, intent, timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(new CounterMapTestModel(), metadata, "$.map", propInfo, intent, timestampProvider.Now(), 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
@@ -180,7 +225,7 @@ public sealed class CounterMapStrategyTests
         var patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 10 }, { "b", 5 } });
-        var modifiedModel = new TestModel { Map = new Dictionary<string, int> { { "a", 12 }, { "c", 3 } } }; // a changed, b removed, c added
+        var modifiedModel = new CounterMapTestModel { Map = new Dictionary<string, int> { { "a", 12 }, { "c", 3 } } }; // a changed, b removed, c added
 
         // Act
         var patch = patcherA.GeneratePatch(doc, modifiedModel);
@@ -207,11 +252,21 @@ public sealed class CounterMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        
+        var propInfo = new CrdtPropertyInfo(
+            "Map",
+            "map",
+            typeof(Dictionary<string, int>),
+            true,
+            true,
+            obj => ((CounterMapTestModel)obj).Map,
+            (obj, val) => ((CounterMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtCounterMapStrategyAttribute(),
+            []);
 
         // Act & Assert
-        strategy.GetStartKey(new TestModel(), propInfo).ShouldBeNull();
-        strategy.GetStartKey(new TestModel { Map = { ["c"] = 1, ["a"] = 2, ["b"] = 3 } }, propInfo).ShouldBe("a");
+        strategy.GetStartKey(new CounterMapTestModel(), propInfo).ShouldBeNull();
+        strategy.GetStartKey(new CounterMapTestModel { Map = { ["c"] = 1, ["a"] = 2, ["b"] = 3 } }, propInfo).ShouldBe("a");
     }
 
     [Fact]
@@ -233,8 +288,28 @@ public sealed class CounterMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
-        var stringMapProp = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
-        var intMapProp = typeof(TestModelInt).GetProperty(nameof(TestModelInt.Map))!;
+        
+        var stringMapProp = new CrdtPropertyInfo(
+            "Map",
+            "map",
+            typeof(Dictionary<string, int>),
+            true,
+            true,
+            obj => ((CounterMapTestModel)obj).Map,
+            (obj, val) => ((CounterMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtCounterMapStrategyAttribute(),
+            []);
+
+        var intMapProp = new CrdtPropertyInfo(
+            "Map",
+            "map",
+            typeof(Dictionary<int, int>),
+            true,
+            true,
+            obj => ((CounterMapTestModelInt)obj).Map,
+            (obj, val) => ((CounterMapTestModelInt)obj).Map = (Dictionary<int, int>)val!,
+            new CrdtCounterMapStrategyAttribute(),
+            []);
 
         // Act & Assert
         strategy.GetMinimumKey(stringMapProp).ShouldBe(string.Empty);
@@ -247,7 +322,17 @@ public sealed class CounterMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        
+        var propInfo = new CrdtPropertyInfo(
+            "Map",
+            "map",
+            typeof(Dictionary<string, int>),
+            true,
+            true,
+            obj => ((CounterMapTestModel)obj).Map,
+            (obj, val) => ((CounterMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtCounterMapStrategyAttribute(),
+            []);
 
         var doc = CreateDocument(new Dictionary<string, int>());
         
@@ -271,8 +356,8 @@ public sealed class CounterMapStrategyTests
         // Assert
         result.SplitKey.ShouldBe("c");
 
-        var doc1 = (TestModel)result.Partition1.Data;
-        var doc2 = (TestModel)result.Partition2.Data;
+        var doc1 = (CounterMapTestModel)result.Partition1.Data;
+        var doc2 = (CounterMapTestModel)result.Partition2.Data;
 
         doc1.Map.Keys.ShouldBe(["a", "b"], ignoreOrder: true);
         doc1.Map["a"].ShouldBe(10);
@@ -292,7 +377,17 @@ public sealed class CounterMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
-        var propInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        
+        var propInfo = new CrdtPropertyInfo(
+            "Map",
+            "map",
+            typeof(Dictionary<string, int>),
+            true,
+            true,
+            obj => ((CounterMapTestModel)obj).Map,
+            (obj, val) => ((CounterMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtCounterMapStrategyAttribute(),
+            []);
 
         var doc1 = CreateDocument(new Dictionary<string, int>());
         var doc2 = CreateDocument(new Dictionary<string, int>());
@@ -313,7 +408,7 @@ public sealed class CounterMapStrategyTests
         var merged = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo);
 
         // Assert
-        var mergedDoc = (TestModel)merged.Data;
+        var mergedDoc = (CounterMapTestModel)merged.Data;
         mergedDoc.Map.Keys.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
         mergedDoc.Map["a"].ShouldBe(10);
         mergedDoc.Map["b"].ShouldBe(20);
@@ -339,7 +434,7 @@ public sealed class CounterMapStrategyTests
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
 
-        var context = new CompactionContext(metadata, mockPolicy.Object, "Map", "$.map", new TestModel());
+        var context = new CompactionContext(metadata, mockPolicy.Object, "Map", "$.map", new CounterMapTestModel());
 
         // Act
         strategy.Compact(context);
@@ -348,17 +443,5 @@ public sealed class CounterMapStrategyTests
         metadata.CounterMaps["$.map"].ShouldContainKey("a");
         metadata.CounterMaps["$.map"]["a"].P.ShouldBe(10);
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
-    }
-
-    private sealed class TestModel
-    {
-        [CrdtCounterMapStrategy]
-        public Dictionary<string, int> Map { get; set; } = [];
-    }
-
-    private sealed class TestModelInt
-    {
-        [CrdtCounterMapStrategy]
-        public Dictionary<int, int> Map { get; set; } = [];
     }
 }

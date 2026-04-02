@@ -1,7 +1,9 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -15,9 +17,14 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
+[CrdtSerializable(typeof(AverageRegisterStrategyTests.TestModel))]
+internal partial class AverageRegisterTestCrdtContext : CrdtContext
+{
+}
+
 public sealed class AverageRegisterStrategyTests : IDisposable
 {
-    private sealed class TestModel { public decimal Rating { get; set; } }
+    internal sealed class TestModel { public decimal Rating { get; set; } }
 
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
@@ -30,6 +37,7 @@ public sealed class AverageRegisterStrategyTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddCrdt();
+        services.AddCrdtAotContext<AverageRegisterTestCrdtContext>();
 
         var serviceProvider = services.BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -53,7 +61,17 @@ public sealed class AverageRegisterStrategyTests : IDisposable
     {
         // Arrange
         var operations = new List<CrdtOperation>();
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Rating))!;
+        var property = new CrdtPropertyInfo(
+            nameof(TestModel.Rating),
+            "rating",
+            typeof(decimal),
+            true,
+            true,
+            obj => ((TestModel)obj).Rating,
+            (obj, val) => ((TestModel)obj).Rating = (decimal)val!,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
         var originalRoot = new TestModel { Rating = 3.5m };
         var modifiedRoot = new TestModel { Rating = 4.0m };
         var context = new GeneratePatchContext(
@@ -84,7 +102,17 @@ public sealed class AverageRegisterStrategyTests : IDisposable
     {
         // Arrange
         var intent = new SetIntent(5.5m);
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Rating))!;
+        var property = new CrdtPropertyInfo(
+            nameof(TestModel.Rating),
+            "rating",
+            typeof(decimal),
+            true,
+            true,
+            obj => ((TestModel)obj).Rating,
+            (obj, val) => ((TestModel)obj).Rating = (decimal)val!,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
         var metadata = new CrdtMetadata();
         var context = new GenerateOperationContext(
             new TestModel(),
@@ -111,7 +139,17 @@ public sealed class AverageRegisterStrategyTests : IDisposable
     {
         // Arrange
         var intent = new RemoveIntent(0);
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Rating))!;
+        var property = new CrdtPropertyInfo(
+            nameof(TestModel.Rating),
+            "rating",
+            typeof(decimal),
+            true,
+            true,
+            obj => ((TestModel)obj).Rating,
+            (obj, val) => ((TestModel)obj).Rating = (decimal)val!,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
         var metadata = new CrdtMetadata();
         var context = new GenerateOperationContext(
             new TestModel(),

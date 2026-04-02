@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -16,6 +18,18 @@ using System.Collections.Generic;
 using System.Threading;
 using Xunit;
 
+[CrdtSerializable(typeof(LwwMapTestModel))]
+[CrdtSerializable(typeof(Dictionary<string, int>))]
+internal partial class LwwMapTestCrdtContext : CrdtContext
+{
+}
+
+internal sealed class LwwMapTestModel
+{
+    [CrdtLwwMapStrategy]
+    public Dictionary<string, int> Map { get; set; } = [];
+}
+
 public sealed class LwwMapStrategyTests
 {
     private readonly IServiceProvider serviceProvider;
@@ -24,10 +38,23 @@ public sealed class LwwMapStrategyTests
     private readonly ICrdtMetadataManager metadataManager;
     private readonly ICrdtScopeFactory scopeFactory;
 
+    private readonly CrdtPropertyInfo mapProperty = new CrdtPropertyInfo(
+        nameof(LwwMapTestModel.Map),
+        "map",
+        typeof(Dictionary<string, int>),
+        true,
+        true,
+        obj => ((LwwMapTestModel)obj).Map,
+        (obj, val) => ((LwwMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+        new CrdtLwwMapStrategyAttribute(),
+        Array.Empty<CrdtStrategyDecoratorAttribute>()
+    );
+
     public LwwMapStrategyTests()
     {
         var services = new ServiceCollection();
         services.AddCrdt()
+            .AddCrdtAotContext<LwwMapTestCrdtContext>()
             .AddSingleton(comparerProviderMock.Object)
             .AddCrdtTimestampProvider<EpochTimestampProvider>();
 
@@ -41,11 +68,11 @@ public sealed class LwwMapStrategyTests
         comparerProviderMock.Setup(p => p.GetComparer(It.IsAny<Type>())).Returns(EqualityComparer<object>.Default);
     }
 
-    private CrdtDocument<TestModel> CreateDocument(Dictionary<string, int> map)
+    private CrdtDocument<LwwMapTestModel> CreateDocument(Dictionary<string, int> map)
     {
-        var model = new TestModel { Map = map };
+        var model = new LwwMapTestModel { Map = map };
         var metadata = metadataManager.Initialize(model);
-        return new CrdtDocument<TestModel>(model, metadata);
+        return new CrdtDocument<LwwMapTestModel>(model, metadata);
     }
 
     [Fact]
@@ -133,11 +160,10 @@ public sealed class LwwMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
         var intent = new MapSetIntent("myKey", 42);
         var timestamp = timestampProvider.Now();
         
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", mapProperty, intent, timestamp, 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -160,11 +186,10 @@ public sealed class LwwMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int> { { "myKey", 42 } });
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
         var intent = new MapRemoveIntent("myKey");
         var timestamp = timestampProvider.Now();
         
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", mapProperty, intent, timestamp, 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -187,11 +212,10 @@ public sealed class LwwMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
         var intent = new AddIntent(42);
         var timestamp = timestampProvider.Now();
         
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", mapProperty, intent, timestamp, 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
@@ -203,11 +227,10 @@ public sealed class LwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
-        var doc = new TestModel { Map = new Dictionary<string, int> { { "c", 3 }, { "a", 1 }, { "b", 2 } } };
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var doc = new LwwMapTestModel { Map = new Dictionary<string, int> { { "c", 3 }, { "a", 1 }, { "b", 2 } } };
 
         // Act
-        var startKey = strategy.GetStartKey(doc, prop);
+        var startKey = strategy.GetStartKey(doc, mapProperty);
 
         // Assert
         startKey.ShouldBe("a");
@@ -219,11 +242,10 @@ public sealed class LwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
-        var doc = new TestModel { Map = new Dictionary<string, int>() };
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var doc = new LwwMapTestModel { Map = new Dictionary<string, int>() };
 
         // Act
-        var startKey = strategy.GetStartKey(doc, prop);
+        var startKey = strategy.GetStartKey(doc, mapProperty);
 
         // Assert
         startKey.ShouldBeNull();
@@ -265,10 +287,9 @@ public sealed class LwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
 
         // Act
-        var minKey = strategy.GetMinimumKey(prop);
+        var minKey = strategy.GetMinimumKey(mapProperty);
 
         // Assert
         minKey.ShouldBe(string.Empty);
@@ -280,7 +301,6 @@ public sealed class LwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "b", 2 }, { "c", 3 }, { "d", 4 } });
         
         doc.Metadata.LwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
@@ -292,12 +312,12 @@ public sealed class LwwMapStrategyTests
         };
 
         // Act
-        var result = strategy.Split(doc.Data, doc.Metadata, prop);
+        var result = strategy.Split(doc.Data, doc.Metadata, mapProperty);
 
         // Assert
         result.SplitKey.ShouldBe("c");
         
-        var doc1 = (TestModel)result.Partition1.Data;
+        var doc1 = (LwwMapTestModel)result.Partition1.Data;
         var meta1 = result.Partition1.Metadata;
         doc1.Map.Count.ShouldBe(2);
         doc1.Map.ShouldContainKey("a");
@@ -307,7 +327,7 @@ public sealed class LwwMapStrategyTests
         meta1.LwwMaps["$.map"].ShouldContainKey("a");
         meta1.LwwMaps["$.map"].ShouldContainKey("b");
 
-        var doc2 = (TestModel)result.Partition2.Data;
+        var doc2 = (LwwMapTestModel)result.Partition2.Data;
         var meta2 = result.Partition2.Metadata;
         doc2.Map.Count.ShouldBe(2);
         doc2.Map.ShouldContainKey("c");
@@ -324,7 +344,6 @@ public sealed class LwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         
         doc.Metadata.LwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
@@ -333,7 +352,7 @@ public sealed class LwwMapStrategyTests
         };
 
         // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.Split(doc.Data, doc.Metadata, prop));
+        Should.Throw<InvalidOperationException>(() => strategy.Split(doc.Data, doc.Metadata, mapProperty));
     }
 
     [Fact]
@@ -342,7 +361,6 @@ public sealed class LwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
-        var prop = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
 
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "overlap", 100 } });
         doc1.Metadata.LwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
@@ -359,10 +377,10 @@ public sealed class LwwMapStrategyTests
         };
 
         // Act
-        var result = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, prop);
+        var result = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapProperty);
 
         // Assert
-        var mergedDoc = (TestModel)result.Data;
+        var mergedDoc = (LwwMapTestModel)result.Data;
         var mergedMeta = result.Metadata;
 
         mergedDoc.Map.Count.ShouldBe(3);
@@ -381,7 +399,7 @@ public sealed class LwwMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
         
-        var doc = new TestModel { Map = new Dictionary<string, int> { { "alive", 1 } } };
+        var doc = new LwwMapTestModel { Map = new Dictionary<string, int> { { "alive", 1 } } };
         var meta = new CrdtMetadata();
 
         var tsAlive = new CausalTimestamp(timestampProvider.Create(1), "replica-1", 1);
@@ -412,11 +430,5 @@ public sealed class LwwMapStrategyTests
         
         // Verify alive was not checked
         mockPolicy.Verify(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version == 1)), Times.Never);
-    }
-
-    private sealed class TestModel
-    {
-        [CrdtLwwMapStrategy]
-        public Dictionary<string, int> Map { get; set; } = [];
     }
 }

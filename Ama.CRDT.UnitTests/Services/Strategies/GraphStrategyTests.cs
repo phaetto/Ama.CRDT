@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -15,9 +17,14 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
+[CrdtSerializable(typeof(GraphStrategyTests.TestModel))]
+internal partial class GraphStrategyTestCrdtContext : CrdtContext
+{
+}
+
 public sealed class GraphStrategyTests : IDisposable
 {
-    private sealed class TestModel
+    internal sealed class TestModel
     {
         [CrdtGraphStrategy]
         public CrdtGraph Graph { get; set; } = new();
@@ -36,6 +43,7 @@ public sealed class GraphStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<GraphStrategyTestCrdtContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -179,7 +187,8 @@ public sealed class GraphStrategyTests : IDisposable
         // Arrange
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
         var intent = new AddVertexIntent("C");
-        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", null!, intent, new EpochTimestamp(123), 0);
+        var propertyInfo = new CrdtPropertyInfo("Graph", "graph", typeof(CrdtGraph), true, true, obj => ((TestModel)obj).Graph, (obj, val) => ((TestModel)obj).Graph = (CrdtGraph)val!, new CrdtGraphStrategyAttribute(), Array.Empty<CrdtStrategyDecoratorAttribute>());
+        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", propertyInfo, intent, new EpochTimestamp(123), 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -198,7 +207,8 @@ public sealed class GraphStrategyTests : IDisposable
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
         var edge = new Edge("C", "D", "connects");
         var intent = new AddEdgeIntent(edge);
-        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", null!, intent, new EpochTimestamp(123), 0);
+        var propertyInfo = new CrdtPropertyInfo("Graph", "graph", typeof(CrdtGraph), true, true, obj => ((TestModel)obj).Graph, (obj, val) => ((TestModel)obj).Graph = (CrdtGraph)val!, new CrdtGraphStrategyAttribute(), Array.Empty<CrdtStrategyDecoratorAttribute>());
+        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", propertyInfo, intent, new EpochTimestamp(123), 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -216,7 +226,8 @@ public sealed class GraphStrategyTests : IDisposable
         // Arrange
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
         var intent = new SetIntent("Invalid");
-        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", null!, intent, new EpochTimestamp(123), 0);
+        var propertyInfo = new CrdtPropertyInfo("Graph", "graph", typeof(CrdtGraph), true, true, obj => ((TestModel)obj).Graph, (obj, val) => ((TestModel)obj).Graph = (CrdtGraph)val!, new CrdtGraphStrategyAttribute(), Array.Empty<CrdtStrategyDecoratorAttribute>());
+        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", propertyInfo, intent, new EpochTimestamp(123), 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));

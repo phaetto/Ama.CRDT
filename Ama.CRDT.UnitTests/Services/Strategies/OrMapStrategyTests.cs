@@ -159,7 +159,7 @@ public sealed class OrMapStrategyTests
         originalDoc.Metadata.Lww["$.map['a']"] = new CausalTimestamp(timestampProvider.Create(1), "A", 1);
         originalDoc.Metadata.Lww["$.map['d']"] = new CausalTimestamp(timestampProvider.Create(1), "A", 1);
 
-        var propertyInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map));
+        var propertyInfo = new OrMapStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))?.Properties[nameof(TestModel.Map)];
         propertyInfo.ShouldNotBeNull();
 
         // Act
@@ -175,8 +175,8 @@ public sealed class OrMapStrategyTests
         doc2.ShouldNotBeNull();
         result.SplitKey.ShouldBe("c");
 
-        doc1.Map.Keys.OrderBy(k => k).ShouldBe(new[] { "a", "b" });
-        doc2.Map.Keys.OrderBy(k => k).ShouldBe(new[] { "c", "d", "e" });
+        doc1!.Map.Keys.OrderBy(k => k).ShouldBe(new[] { "a", "b" });
+        doc2!.Map.Keys.OrderBy(k => k).ShouldBe(new[] { "c", "d", "e" });
 
         meta1.Lww.ShouldContainKey("$.map['a']");
         meta2.Lww.ShouldContainKey("$.map['d']");
@@ -197,7 +197,7 @@ public sealed class OrMapStrategyTests
         var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "b", 0 } }); // Conflict on "b"
         doc2.Metadata.Lww["$.map['b']"] = new CausalTimestamp(timestampProvider.Create(5), "A", 1); // Older timestamp
 
-        var propertyInfo = typeof(TestModel).GetProperty(nameof(TestModel.Map));
+        var propertyInfo = new OrMapStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))?.Properties[nameof(TestModel.Map)];
         propertyInfo.ShouldNotBeNull();
 
         // Act
@@ -208,7 +208,7 @@ public sealed class OrMapStrategyTests
         var mergedMeta = result.Metadata;
         mergedDoc.ShouldNotBeNull();
 
-        mergedDoc.Map.Keys.OrderBy(k => k).ShouldBe(new[] { "a", "b", "c" });
+        mergedDoc!.Map.Keys.OrderBy(k => k).ShouldBe(new[] { "a", "b", "c" });
         mergedDoc.Map["a"].ShouldBe(1);
         mergedDoc.Map["b"].ShouldBe(2); // From doc1, as it has the higher LWW value
         mergedDoc.Map["c"].ShouldBe(3);
@@ -224,7 +224,7 @@ public sealed class OrMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var property = new OrMapStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Map)];
         var intent = new MapSetIntent("a", 42);
         var timestamp = timestampProvider.Create(1);
         var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestamp, 0);
@@ -251,7 +251,7 @@ public sealed class OrMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var property = new OrMapStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Map)];
         var intent = new MapRemoveIntent("a");
         var timestamp = timestampProvider.Create(2);
         var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestamp, 0);
@@ -279,7 +279,7 @@ public sealed class OrMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Map))!;
+        var property = new OrMapStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Map)];
         var intent = new SetIntent("test");
         var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestampProvider.Create(1), 0);
 
@@ -374,7 +374,7 @@ public sealed class OrMapStrategyTests
         state.Removes.ShouldContainKey("dead_unsafe");
     }
 
-    private sealed class TestModel
+    internal sealed class TestModel
     {
         [CrdtOrMapStrategy]
         public Dictionary<string, int> Map { get; set; } = [];

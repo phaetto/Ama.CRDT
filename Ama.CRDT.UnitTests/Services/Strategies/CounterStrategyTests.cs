@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -16,10 +18,27 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
+[CrdtSerializable(typeof(CounterStrategyTests.TestModel))]
+[CrdtSerializable(typeof(CounterStrategyTests.TestModelWithNoScore))]
+internal partial class CounterTestCrdtContext : CrdtContext { }
+
 public sealed class CounterStrategyTests : IDisposable
 {
-    private sealed class TestModel { [CrdtCounterStrategy] public int Score { get; set; } }
+    public sealed class TestModel { [CrdtCounterStrategy] public int Score { get; set; } }
     
+    public sealed class TestModelWithNoScore { public string? Name { get; set; } }
+
+    private static readonly CrdtPropertyInfo ScoreProperty = new(
+        nameof(TestModel.Score),
+        "score",
+        typeof(int),
+        true,
+        true,
+        obj => ((TestModel)obj).Score,
+        (obj, val) => ((TestModel)obj).Score = (int)val!,
+        new CrdtCounterStrategyAttribute(),
+        Array.Empty<CrdtStrategyDecoratorAttribute>());
+
     private readonly Mock<ICrdtPatcher> mockPatcher = new();
 
     private readonly IServiceScope scopeA;
@@ -32,6 +51,7 @@ public sealed class CounterStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<CounterTestCrdtContext>()
             .BuildServiceProvider();
 
         scopeA = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("A");
@@ -56,12 +76,12 @@ public sealed class CounterStrategyTests : IDisposable
         // Arrange
         var operations = new List<CrdtOperation>();
         var path = "$.score";
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
+        var property = ScoreProperty;
         
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
         var expectedTimestamp = new EpochTimestampProvider(new ReplicaContext { ReplicaId = "replica-A" }).Create(12345);
         mockTimestampProvider.Setup(p => p.Now()).Returns(expectedTimestamp);
-        var localStrategy = new CounterStrategy(new ReplicaContext { ReplicaId = "replica-A" });
+        var localStrategy = new CounterStrategy(new ReplicaContext { ReplicaId = "replica-A" }, new[] { new CounterTestCrdtContext() });
         var context = new GeneratePatchContext(
             operations,
             new List<DifferentiateObjectContext>(),
@@ -96,7 +116,7 @@ public sealed class CounterStrategyTests : IDisposable
             new TestModel { Score = 10 },
             new CrdtMetadata(),
             "$.Score",
-            typeof(TestModel).GetProperty(nameof(TestModel.Score))!,
+            ScoreProperty,
             new IncrementIntent(5m),
             timestampProvider.Create(123),
             0);
@@ -119,7 +139,7 @@ public sealed class CounterStrategyTests : IDisposable
             new TestModel { Score = 10 },
             new CrdtMetadata(),
             "$.Score",
-            typeof(TestModel).GetProperty(nameof(TestModel.Score))!,
+            ScoreProperty,
             new SetIntent(15m), // Target is 15, Current is 10 => Expected delta is 5
             timestampProvider.Create(123),
             0);
@@ -142,7 +162,7 @@ public sealed class CounterStrategyTests : IDisposable
             new TestModel { Score = 10 },
             new CrdtMetadata(),
             "$.Score",
-            typeof(TestModel).GetProperty(nameof(TestModel.Score))!,
+            ScoreProperty,
             new RemoveIntent(0),
             timestampProvider.Create(123),
             0);
@@ -159,7 +179,7 @@ public sealed class CounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Score = initial };
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
+        var property = ScoreProperty;
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Increment, (decimal)increment, timestampProvider.Create(2L), 1);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
         {
@@ -192,15 +212,13 @@ public sealed class CounterStrategyTests : IDisposable
         // The helper will return nulls and the strategy will exit gracefully.
         Should.NotThrow(() => strategy.ApplyOperation(context));
     }
-    
-    private sealed class TestModelWithNoScore { public string? Name { get; set; } }
 
     [Fact]
     public void ApplyOperation_ShouldReturnFailure_WhenOperationTypeIsNotIncrement()
     {
         // Arrange
         var model = new TestModel();
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Score))!;
+        var property = ScoreProperty;
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.score", OperationType.Upsert, 5m, timestampProvider.Create(1L), 1);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
         {

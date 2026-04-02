@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -16,9 +18,12 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
+[CrdtSerializable(typeof(GCounterStrategyTests.TestModel))]
+internal partial class GCounterTestCrdtContext : CrdtContext { }
+
 public sealed class GCounterStrategyTests : IDisposable
 {
-    private sealed class TestModel { [CrdtGCounterStrategy] public int Count { get; set; } }
+    internal sealed class TestModel { [CrdtGCounterStrategy] public int Count { get; set; } }
 
     private readonly Mock<ICrdtPatcher> mockPatcher = new();
     private readonly List<CrdtOperation> operations = new();
@@ -33,6 +38,7 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
+            .AddCrdtAotContext<GCounterTestCrdtContext>()
             .BuildServiceProvider();
 
         scopeA = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("A");
@@ -48,11 +54,25 @@ public sealed class GCounterStrategyTests : IDisposable
         scopeA.Dispose();
     }
 
+    private CrdtPropertyInfo GetCountPropertyInfo()
+    {
+        return new CrdtPropertyInfo(
+            nameof(TestModel.Count),
+            "count",
+            typeof(int),
+            true,
+            true,
+            obj => ((TestModel)obj).Count,
+            (obj, val) => ((TestModel)obj).Count = (int)val!,
+            new CrdtGCounterStrategyAttribute(),
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
+    }
+
     [Fact]
     public void GeneratePatch_ShouldCreateIncrement_WhenValueIncreases()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
+        var property = GetCountPropertyInfo();
         var context = new GeneratePatchContext(
             operations,
             new List<DifferentiateObjectContext>(),
@@ -79,7 +99,7 @@ public sealed class GCounterStrategyTests : IDisposable
     public void GeneratePatch_ShouldDoNothing_WhenValueDecreases()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
+        var property = GetCountPropertyInfo();
         var context = new GeneratePatchContext(
             operations,
             new List<DifferentiateObjectContext>(),
@@ -103,7 +123,7 @@ public sealed class GCounterStrategyTests : IDisposable
     public void GenerateOperation_ShouldCreateIncrementOperation_WhenIntentIsPositive()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
+        var property = GetCountPropertyInfo();
         var intent = new IncrementIntent(5m);
         var timestamp = timestampProvider.Now();
         var context = new GenerateOperationContext(
@@ -123,7 +143,7 @@ public sealed class GCounterStrategyTests : IDisposable
     public void GenerateOperation_ShouldThrowArgumentOutOfRangeException_WhenIntentIsNegativeOrZero()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
+        var property = GetCountPropertyInfo();
         var intent = new IncrementIntent(-5m);
         var context = new GenerateOperationContext(
             new TestModel(), new CrdtMetadata(), "$.count", property, intent, timestampProvider.Now(), 0);
@@ -136,7 +156,7 @@ public sealed class GCounterStrategyTests : IDisposable
     public void GenerateOperation_ShouldThrowNotSupportedException_ForInvalidIntent()
     {
         // Arrange
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
+        var property = GetCountPropertyInfo();
         var intent = new SetIntent(5);
         var context = new GenerateOperationContext(
             new TestModel(), new CrdtMetadata(), "$.count", property, intent, timestampProvider.Now(), 0);
@@ -150,7 +170,7 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Count = 10 };
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
+        var property = GetCountPropertyInfo();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, 5m, timestampProvider.Create(2L), 1);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
         {
@@ -171,7 +191,7 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Count = 10 };
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
+        var property = GetCountPropertyInfo();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Increment, -5m, timestampProvider.Create(2L), 1);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
         {
@@ -192,7 +212,7 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var model = new TestModel { Count = 10 };
-        var property = typeof(TestModel).GetProperty(nameof(TestModel.Count))!;
+        var property = GetCountPropertyInfo();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.count", OperationType.Upsert, 15, timestampProvider.Create(2L), 1);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
         {
