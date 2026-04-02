@@ -6,9 +6,11 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Decorators;
@@ -17,6 +19,15 @@ using Ama.CRDT.Services.Versioning;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
+
+[CrdtSerializable(typeof(SimulationDocument))]
+[CrdtSerializable(typeof(IList<string>))]
+[CrdtSerializable(typeof(List<string>))]
+[CrdtSerializable(typeof(IDictionary<string, string>))]
+[CrdtSerializable(typeof(Dictionary<string, string>))]
+public partial class NetworkSimulationTestContext : CrdtContext
+{
+}
 
 public sealed record SimulationDocument : IEquatable<SimulationDocument>
 {
@@ -475,6 +486,7 @@ public sealed class NetworkSimulationTests
         // Arrange
         var services = new ServiceCollection();
         services.AddCrdt()
+                .AddCrdtAotContext<NetworkSimulationTestContext>()
                 .AddCrdtJournaling<InMemoryJournal>()
                 .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()
                 .AddCrdtPatcherDecorator<JournalingPatcherDecorator>();
@@ -541,6 +553,7 @@ public sealed class NetworkSimulationTests
         // Arrange
         var services = new ServiceCollection();
         services.AddCrdt()
+                .AddCrdtAotContext<NetworkSimulationTestContext>()
                 .AddCrdtJournaling<InMemoryJournal>()
                 .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()
                 .AddCrdtPatcherDecorator<JournalingPatcherDecorator>();
@@ -606,7 +619,8 @@ public sealed class NetworkSimulationTests
     private IServiceProvider CreateServiceProvider()
     {
         var services = new ServiceCollection();
-        services.AddCrdt();
+        services.AddCrdt()
+                .AddCrdtAotContext<NetworkSimulationTestContext>();
         return services.BuildServiceProvider();
     }
 
