@@ -8,6 +8,7 @@ using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
+using Ama.CRDT.UnitTests.Models.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
@@ -20,7 +21,7 @@ using Xunit;
 public sealed class StrategyPayloadSerializationTests : IDisposable
 {
     // Local test provider to guarantee strictly increasing timestamps during rapid test execution
-    private sealed class TestTimestampProvider : ICrdtTimestampProvider
+    internal sealed class TestTimestampProvider : ICrdtTimestampProvider
     {
         private long current = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         private readonly EpochTimestampProvider defaultProvider = new(new ReplicaContext { ReplicaId = "test" });
@@ -32,58 +33,58 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     #region Models and Helpers
 
     // LwwStrategy
-    private sealed class LwwModel { [CrdtLwwStrategy] public int Value { get; set; } }
+    internal sealed class LwwModel { [CrdtLwwStrategy] public int Value { get; set; } }
 
     // FwwStrategy
-    private sealed class FwwModel { [CrdtFwwStrategy] public int Value { get; set; } }
+    internal sealed class FwwModel { [CrdtFwwStrategy] public int Value { get; set; } }
 
     // CounterStrategy
-    private sealed class CounterModel { [CrdtCounterStrategy] public int Value { get; set; } }
+    internal sealed class CounterModel { [CrdtCounterStrategy] public int Value { get; set; } }
 
     // GCounterStrategy
-    private sealed class GCounterModel { [CrdtGCounterStrategy] public int Value { get; set; } }
+    internal sealed class GCounterModel { [CrdtGCounterStrategy] public int Value { get; set; } }
 
     // BoundedCounterStrategy
-    private sealed class BoundedCounterModel { [CrdtBoundedCounterStrategy(0, 100)] public int Value { get; set; } }
+    internal sealed class BoundedCounterModel { [CrdtBoundedCounterStrategy(0, 100)] public int Value { get; set; } }
 
     // MaxWinsStrategy
-    private sealed class MaxWinsModel { [CrdtMaxWinsStrategy] public int Value { get; set; } }
+    internal sealed class MaxWinsModel { [CrdtMaxWinsStrategy] public int Value { get; set; } }
 
     // MinWinsStrategy
-    private sealed class MinWinsModel { [CrdtMinWinsStrategy] public int Value { get; set; } }
+    internal sealed class MinWinsModel { [CrdtMinWinsStrategy] public int Value { get; set; } }
 
     // AverageRegisterStrategy
-    private sealed class AverageRegisterModel { [CrdtAverageRegisterStrategy] public decimal Value { get; set; } }
+    internal sealed class AverageRegisterModel { [CrdtAverageRegisterStrategy] public decimal Value { get; set; } }
 
     // ArrayLcsStrategy
-    private sealed class ArrayLcsModel { [CrdtArrayLcsStrategy] public List<string> Items { get; set; } = new(); }
+    internal sealed class ArrayLcsModel { [CrdtArrayLcsStrategy] public List<string> Items { get; set; } = new(); }
 
     // FixedSizeArrayStrategy
-    private sealed class FixedSizeArrayModel { [CrdtFixedSizeArrayStrategy(3)] public List<int> Items { get; set; } = new(); }
+    internal sealed class FixedSizeArrayModel { [CrdtFixedSizeArrayStrategy(3)] public List<int> Items { get; set; } = new(); }
 
     // GSetStrategy
-    private sealed class GSetModel { [CrdtGSetStrategy] public List<string> Items { get; set; } = new(); }
+    internal sealed class GSetModel { [CrdtGSetStrategy] public List<string> Items { get; set; } = new(); }
 
     // TwoPhaseSetStrategy
-    private sealed class TwoPhaseSetModel { [CrdtTwoPhaseSetStrategy] public List<string> Items { get; set; } = new(); }
+    internal sealed class TwoPhaseSetModel { [CrdtTwoPhaseSetStrategy] public List<string> Items { get; set; } = new(); }
 
     // LwwSetStrategy
-    private sealed class LwwSetModel { [CrdtLwwSetStrategy] public List<string> Items { get; set; } = new(); }
+    internal sealed class LwwSetModel { [CrdtLwwSetStrategy] public List<string> Items { get; set; } = new(); }
 
     // FwwSetStrategy
-    private sealed class FwwSetModel { [CrdtFwwSetStrategy] public List<string> Items { get; set; } = new(); }
+    internal sealed class FwwSetModel { [CrdtFwwSetStrategy] public List<string> Items { get; set; } = new(); }
 
     // OrSetStrategy
-    private sealed class OrSetModel { [CrdtOrSetStrategy] public List<string> Items { get; set; } = new(); }
+    internal sealed class OrSetModel { [CrdtOrSetStrategy] public List<string> Items { get; set; } = new(); }
 
     // LseqStrategy
-    private sealed class LseqModel { [CrdtLseqStrategy] public List<string> Items { get; set; } = new(); }
+    internal sealed class LseqModel { [CrdtLseqStrategy] public List<string> Items { get; set; } = new(); }
 
     // RgaStrategy
-    private sealed class RgaModel { [CrdtRgaStrategy] public List<string> Items { get; set; } = new(); }
+    internal sealed class RgaModel { [CrdtRgaStrategy] public List<string> Items { get; set; } = new(); }
 
     // SortedSetStrategy
-    private sealed record User(Guid Id, string Name) : IComparable<User>
+    internal sealed record User(Guid Id, string Name) : IComparable<User>
     {
         public int CompareTo(User? other)
         {
@@ -94,41 +95,41 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
             return string.Compare(Name, other.Name, StringComparison.Ordinal);
         }
     }
-    private sealed class SortedSetModel { [CrdtSortedSetStrategy(nameof(User.Name))] public List<User> Users { get; set; } = new(); }
+    internal sealed class SortedSetModel { [CrdtSortedSetStrategy(nameof(User.Name))] public List<User> Users { get; set; } = new(); }
 
     // LwwMapStrategy
-    private sealed class LwwMapModel { [CrdtLwwMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
+    internal sealed class LwwMapModel { [CrdtLwwMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
 
     // FwwMapStrategy
-    private sealed class FwwMapModel { [CrdtFwwMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
+    internal sealed class FwwMapModel { [CrdtFwwMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
 
     // OrMapStrategy
-    private sealed class OrMapModel { [CrdtOrMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
+    internal sealed class OrMapModel { [CrdtOrMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
 
     // CounterMapStrategy
-    private sealed class CounterMapModel { [CrdtCounterMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
+    internal sealed class CounterMapModel { [CrdtCounterMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
 
     // MaxWinsMapStrategy
-    private sealed class MaxWinsMapModel { [CrdtMaxWinsMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
+    internal sealed class MaxWinsMapModel { [CrdtMaxWinsMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
 
     // MinWinsMapStrategy
-    private sealed class MinWinsMapModel { [CrdtMinWinsMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
+    internal sealed class MinWinsMapModel { [CrdtMinWinsMapStrategy] public Dictionary<string, int> Map { get; set; } = new(); }
 
     // VoteCounterStrategy
-    private sealed class VoteCounterModel { [CrdtVoteCounterStrategy] public Dictionary<string, HashSet<string>> Votes { get; set; } = new(); }
+    internal sealed class VoteCounterModel { [CrdtVoteCounterStrategy] public Dictionary<string, HashSet<string>> Votes { get; set; } = new(); }
 
     // PriorityQueueStrategy
-    private sealed record Item(string Id, int Priority);
-    private sealed class ItemComparer : IElementComparer
+    internal sealed record Item(string Id, int Priority);
+    internal sealed class ItemComparer : IElementComparer
     {
         public bool CanCompare([DisallowNull] Type type) => type == typeof(Item);
         public new bool Equals(object? x, object? y) => (x as Item)?.Id == (y as Item)?.Id;
         public int GetHashCode(object obj) => (obj as Item)?.Id?.GetHashCode() ?? 0;
     }
-    private sealed class PriorityQueueModel { [CrdtPriorityQueueStrategy(nameof(Item.Priority))] public List<Item> Items { get; set; } = new(); }
+    internal sealed class PriorityQueueModel { [CrdtPriorityQueueStrategy(nameof(Item.Priority))] public List<Item> Items { get; set; } = new(); }
 
     // StateMachineStrategy
-    private sealed class OrderStatusStateMachine : IStateMachine<string>
+    internal sealed class OrderStatusStateMachine : IStateMachine<string>
     {
         public bool IsValidTransition(string from, string to) => (from, to) switch
         {
@@ -137,22 +138,22 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
             _ => false
         };
     }
-    private sealed class StateMachineModel { [CrdtStateMachineStrategy(typeof(OrderStatusStateMachine))] public string Status { get; set; } }
+    internal sealed class StateMachineModel { [CrdtStateMachineStrategy(typeof(OrderStatusStateMachine))] public string Status { get; set; } }
 
     // GraphStrategy
-    private sealed class GraphModel { [CrdtGraphStrategy] public CrdtGraph Graph { get; set; } = new(); }
+    internal sealed class GraphModel { [CrdtGraphStrategy] public CrdtGraph Graph { get; set; } = new(); }
 
     // TwoPhaseGraphStrategy
-    private sealed class TwoPhaseGraphModel { [CrdtTwoPhaseGraphStrategy] public CrdtGraph Graph { get; set; } = new(); }
+    internal sealed class TwoPhaseGraphModel { [CrdtTwoPhaseGraphStrategy] public CrdtGraph Graph { get; set; } = new(); }
 
     // ReplicatedTreeStrategy
-    private sealed class ReplicatedTreeModel { [CrdtReplicatedTreeStrategy] public CrdtTree Tree { get; set; } = new(); }
+    internal sealed class ReplicatedTreeModel { [CrdtReplicatedTreeStrategy] public CrdtTree Tree { get; set; } = new(); }
 
     // EpochBoundStrategy
-    private sealed class EpochBoundModel { [CrdtEpochBound] [CrdtLwwStrategy] public int Value { get; set; } }
+    internal sealed class EpochBoundModel { [CrdtEpochBound] [CrdtLwwStrategy] public int Value { get; set; } }
 
     // ApprovalQuorumStrategy
-    private sealed class ApprovalQuorumModel { [CrdtApprovalQuorum(2)] [CrdtLwwStrategy] public int Value { get; set; } }
+    internal sealed class ApprovalQuorumModel { [CrdtApprovalQuorum(2)] [CrdtLwwStrategy] public int Value { get; set; } }
 
     #endregion
 
@@ -179,7 +180,7 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
         applicator = scope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
 
-        jsonSerializerOptions = new JsonSerializerOptions(CrdtJsonContext.DefaultOptions);
+        jsonSerializerOptions = TestOptionsHelper.GetDefaultOptions();
     }
 
     public void Dispose() => scope.Dispose();

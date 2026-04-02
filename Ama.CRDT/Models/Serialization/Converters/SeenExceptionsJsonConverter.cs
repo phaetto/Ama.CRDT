@@ -19,6 +19,7 @@ internal sealed class SeenExceptionsJsonConverter : JsonConverter<ISet<CrdtOpera
         }
 
         var set = new HashSet<CrdtOperation>();
+        var operationTypeInfo = options.GetTypeInfo(typeof(CrdtOperation));
 
         while (reader.Read())
         {
@@ -27,7 +28,7 @@ internal sealed class SeenExceptionsJsonConverter : JsonConverter<ISet<CrdtOpera
                 return set;
             }
 
-            var operation = JsonSerializer.Deserialize<CrdtOperation>(ref reader, options);
+            var operation = (CrdtOperation)JsonSerializer.Deserialize(ref reader, operationTypeInfo)!;
             set.Add(operation);
         }
 
@@ -37,9 +38,11 @@ internal sealed class SeenExceptionsJsonConverter : JsonConverter<ISet<CrdtOpera
     public override void Write(Utf8JsonWriter writer, ISet<CrdtOperation> value, JsonSerializerOptions options)
     {
         writer.WriteStartArray();
+        var operationTypeInfo = options.GetTypeInfo(typeof(CrdtOperation));
+
         foreach (var operation in value)
         {
-            JsonSerializer.Serialize(writer, operation, options);
+            JsonSerializer.Serialize(writer, operation, operationTypeInfo);
         }
         writer.WriteEndArray();
     }

@@ -1,26 +1,26 @@
 namespace Ama.CRDT.UnitTests.Models.Serialization;
 
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Serialization;
 using Shouldly;
 using System.Text.Json;
 using Xunit;
 
+internal sealed record DocumentSerializationTestModel(string Name, int Value);
+
 public sealed class CrdtDocumentSerializationTests
 {
-    private sealed record TestModel(string Name, int Value);
-
     [Fact]
     public void ShouldSerializeAndDeserialize_WithPopulatedDataAndMetadata()
     {
         // Arrange
-        var data = new TestModel("Test", 42);
+        var data = new DocumentSerializationTestModel("Test", 42);
         var metadata = CreatePopulatedMetadata();
-        var document = new CrdtDocument<TestModel>(data, metadata);
+        var document = new CrdtDocument<DocumentSerializationTestModel>(data, metadata);
 
         // Act
-        var json = JsonSerializer.Serialize(document, CrdtJsonContext.DefaultOptions);
-        var deserialized = JsonSerializer.Deserialize<CrdtDocument<TestModel>>(json, CrdtJsonContext.DefaultOptions);
+        var options = TestOptionsHelper.GetDefaultOptions();
+        var json = JsonSerializer.Serialize(document, options);
+        var deserialized = JsonSerializer.Deserialize<CrdtDocument<DocumentSerializationTestModel>>(json, options);
 
         // Assert
         deserialized.Data.ShouldNotBeNull();
@@ -37,11 +37,12 @@ public sealed class CrdtDocumentSerializationTests
     {
         // Arrange
         var metadata = CreatePopulatedMetadata();
-        var document = new CrdtDocument<TestModel>(null, metadata);
+        var document = new CrdtDocument<DocumentSerializationTestModel>(null, metadata);
 
         // Act
-        var json = JsonSerializer.Serialize(document, CrdtJsonContext.DefaultOptions);
-        var deserialized = JsonSerializer.Deserialize<CrdtDocument<TestModel>>(json, CrdtJsonContext.DefaultOptions);
+        var options = TestOptionsHelper.GetDefaultOptions();
+        var json = JsonSerializer.Serialize(document, options);
+        var deserialized = JsonSerializer.Deserialize<CrdtDocument<DocumentSerializationTestModel>>(json, options);
 
         // Assert
         deserialized.Data.ShouldBeNull();
@@ -54,12 +55,13 @@ public sealed class CrdtDocumentSerializationTests
     public void ShouldSerializeAndDeserialize_WithNullMetadata()
     {
         // Arrange
-        var data = new TestModel("Test", 42);
-        var document = new CrdtDocument<TestModel>(data, null);
+        var data = new DocumentSerializationTestModel("Test", 42);
+        var document = new CrdtDocument<DocumentSerializationTestModel>(data, null);
 
         // Act
-        var json = JsonSerializer.Serialize(document, CrdtJsonContext.DefaultOptions);
-        var deserialized = JsonSerializer.Deserialize<CrdtDocument<TestModel>>(json, CrdtJsonContext.DefaultOptions);
+        var options = TestOptionsHelper.GetDefaultOptions();
+        var json = JsonSerializer.Serialize(document, options);
+        var deserialized = JsonSerializer.Deserialize<CrdtDocument<DocumentSerializationTestModel>>(json, options);
 
         // Assert
         deserialized.Data.ShouldNotBeNull();
@@ -73,13 +75,14 @@ public sealed class CrdtDocumentSerializationTests
     public void ShouldSerializeAndDeserialize_UsingCompactOptions()
     {
         // Arrange
-        var data = new TestModel("TestCompact", 99);
+        var data = new DocumentSerializationTestModel("TestCompact", 99);
         var metadata = CreatePopulatedMetadata();
-        var document = new CrdtDocument<TestModel>(data, metadata);
+        var document = new CrdtDocument<DocumentSerializationTestModel>(data, metadata);
 
         // Act
-        var json = JsonSerializer.Serialize(document, CrdtJsonContext.MetadataCompactOptions);
-        var deserialized = JsonSerializer.Deserialize<CrdtDocument<TestModel>>(json, CrdtJsonContext.MetadataCompactOptions);
+        var options = TestOptionsHelper.GetCompactOptions();
+        var json = JsonSerializer.Serialize(document, options);
+        var deserialized = JsonSerializer.Deserialize<CrdtDocument<DocumentSerializationTestModel>>(json, options);
 
         // Assert
         deserialized.Data.ShouldNotBeNull();

@@ -28,12 +28,7 @@ public sealed class CrdtTimestampJsonConverterTests
 
     public CrdtTimestampJsonConverterTests()
     {
-        // Replaced legacy manual converters with Native Polymorphism resolver
-        serializerOptions = new JsonSerializerOptions
-        {
-            TypeInfoResolver = CrdtJsonTypeInfoResolver.Instance
-        };
-        
+        serializerOptions = TestOptionsHelper.GetDefaultOptions();
         CrdtTypeRegistry.Register("custom", typeof(CustomTimestamp));
     }
 
