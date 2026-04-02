@@ -2,6 +2,7 @@ namespace Ama.CRDT.Services.Partitioning;
 
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
@@ -27,17 +28,15 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     public const int MaxPartitionDataSize = 8192;
     public const int MinPartitionDataSize = MaxPartitionDataSize / 4;
 
-    private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, (PropertyInfo Property, IPartitionableCrdtStrategy Strategy)>> partitionablePropertyCache = new();
-    private static readonly ConcurrentDictionary<Type, PropertyInfo> partitionKeyCache = new();
-    private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, string>> propertyNamePathCache = new();
-
     private readonly IPartitionStorageService storageService;
     private readonly ICrdtMetadataManager metadataManager;
     private readonly PartitionManagerCrdtMetrics metrics;
     private readonly IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories;
+    private readonly IEnumerable<CrdtContext> aotContexts;
 
-    private readonly PropertyInfo partitionKeyProperty;
-    private readonly IReadOnlyDictionary<string, (PropertyInfo Property, IPartitionableCrdtStrategy Strategy)> partitionableProperties;
+    private readonly CrdtPropertyInfo partitionKeyProperty;
+    private readonly IReadOnlyDictionary<string, (CrdtPropertyInfo Property, IPartitionableCrdtStrategy Strategy)> partitionableProperties;
+    private readonly IReadOnlyDictionary<string, string> propertyNamePathCache;
 
     public PartitionManager(
         IPartitionStorageService storageService,
@@ -45,13 +44,15 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         ICrdtStrategyProvider strategyProvider,
         ReplicaContext replicaContext,
         PartitionManagerCrdtMetrics metrics,
-        IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories)
+        IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories,
+        IEnumerable<CrdtContext> aotContexts)
     {
         ArgumentNullException.ThrowIfNull(storageService);
         ArgumentNullException.ThrowIfNull(metadataManager);
         ArgumentNullException.ThrowIfNull(strategyProvider);
         ArgumentNullException.ThrowIfNull(metrics);
         ArgumentNullException.ThrowIfNull(compactionPolicyFactories);
+        ArgumentNullException.ThrowIfNull(aotContexts);
 
         if (replicaContext == null || string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
         {
@@ -62,10 +63,11 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         this.metadataManager = metadataManager;
         this.metrics = metrics;
         this.compactionPolicyFactories = compactionPolicyFactories;
+        this.aotContexts = aotContexts;
 
-        partitionKeyProperty = partitionKeyCache.GetOrAdd(typeof(T), FindPartitionKeyProperty);
-        partitionableProperties = partitionablePropertyCache.GetOrAdd(typeof(T), _ => FindPartitionablePropertiesAndStrategies(strategyProvider));
-        propertyNamePathCache.GetOrAdd(typeof(T), _ => partitionableProperties.ToDictionary(kvp => kvp.Value.Property.Name, kvp => kvp.Key));
+        partitionKeyProperty = FindPartitionKeyProperty(typeof(T), aotContexts);
+        partitionableProperties = FindPartitionablePropertiesAndStrategies(strategyProvider, aotContexts);
+        propertyNamePathCache = partitionableProperties.ToDictionary(kvp => kvp.Value.Property.Name, kvp => kvp.Key);
     }
 
     /// <inheritdoc/>
@@ -96,34 +98,34 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
 
         foreach (var (_, (prop, _)) in partitionableProperties)
         {
-            var collection = PocoPathHelper.GetAccessor(prop).Getter(fullObject);
-            if (collection is IList list)
+            var collection = prop.Getter!(fullObject);
+            if (collection is not null)
             {
-                list.Clear();
-            }
-            else if (collection is IDictionary dict)
-            {
-                dict.Clear();
+                PocoPathHelper.ClearCollection(collection, aotContexts);
             }
 
             await foreach(var partition in GetAllDataPartitionsAsync(logicalKey, prop.Name, cancellationToken).WithCancellation(cancellationToken))
             {
                 var partitionDoc = await storageService.LoadPartitionContentAsync<T>(logicalKey, prop.Name, partition, cancellationToken).ConfigureAwait(false);
 
-                var partitionCollection = PocoPathHelper.GetAccessor(prop).Getter(partitionDoc.Data!);
+                var partitionCollection = prop.Getter!(partitionDoc.Data!);
                 
-                if (collection is IList partitionList && partitionCollection is IEnumerable penum)
+                if (collection is not null && partitionCollection is IEnumerable penum)
                 {
-                    foreach(var item in penum)
+                    var typeInfo = PocoPathHelper.GetTypeInfo(collection.GetType(), aotContexts);
+                    if (typeInfo.IsCollection && typeInfo.CollectionAdd != null)
                     {
-                        partitionList.Add(item);
+                        foreach(var item in penum)
+                        {
+                            typeInfo.CollectionAdd(collection, item);
+                        }
                     }
-                }
-                else if (collection is IDictionary dict && partitionCollection is IDictionary pdict)
-                {
-                    foreach (DictionaryEntry item in pdict)
+                    else if (typeInfo.IsDictionary && collection is IDictionary dict && partitionCollection is IDictionary pdict)
                     {
-                        dict.Add(item.Key, item.Value);
+                        foreach (DictionaryEntry item in pdict)
+                        {
+                            dict.Add(item.Key, item.Value);
+                        }
                     }
                 }
             }
@@ -189,8 +191,8 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         var (prop, _) = partitionableProperties[propertyPath];
 
         // Attach the partition's data collection to the header document
-        var collection = PocoPathHelper.GetAccessor(prop).Getter(dataDoc.Data!);
-        PocoPathHelper.GetAccessor(prop).Setter(headerDoc.Value.Data!, collection);
+        var collection = prop.Getter!(dataDoc.Data!);
+        prop.Setter!(headerDoc.Value.Data!, collection);
 
         var mergedMeta = CrdtMetadata.Merge(headerDoc.Value.Metadata!, dataDoc.Metadata!);
         return new CrdtDocument<T>(headerDoc.Value.Data, mergedMeta);
@@ -315,24 +317,25 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     private async Task InitializeHeaderAsync(IComparable logicalKey, T initialObject, CancellationToken cancellationToken)
     {
         var headerObject = new T();
-        var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanRead && p.CanWrite);
+        var typeInfo = PocoPathHelper.GetTypeInfo(typeof(T), aotContexts);
+        var properties = typeInfo.Properties.Values.Where(p => p.CanRead && p.CanWrite);
 
         // Shallow copy all properties to the header
         foreach (var property in properties)
         {
-            PocoPathHelper.GetAccessor(property).Setter(headerObject, PocoPathHelper.GetAccessor(property).Getter(initialObject));
+            property.Setter!(headerObject, property.Getter!(initialObject));
         }
 
         // Isolate the header by providing empty instances of partitionable collections
         foreach (var kvp in partitionableProperties.Values)
         {
             var prop = kvp.Property;
-            var originalCollection = PocoPathHelper.GetAccessor(prop).Getter(initialObject);
+            var originalCollection = prop.Getter!(initialObject);
 
             if (prop.CanWrite && originalCollection is not null)
             {
-                var emptyCollection = Activator.CreateInstance(originalCollection.GetType());
-                PocoPathHelper.GetAccessor(prop).Setter(headerObject, emptyCollection);
+                var emptyCollection = PocoPathHelper.InstantiateCollection(prop.PropertyType, aotContexts);
+                prop.Setter!(headerObject, emptyCollection);
             }
         }
 
@@ -354,10 +357,10 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
             await storageService.InitializePropertyIndexAsync(prop.Name, cancellationToken).ConfigureAwait(false);
             await storageService.ClearPropertyDataAsync(logicalKey, prop.Name, cancellationToken).ConfigureAwait(false);
 
-            var initialCollection = PocoPathHelper.GetAccessor(prop).Getter(initialObject);
+            var initialCollection = prop.Getter!(initialObject);
             var dataObject = new T();
-            PocoPathHelper.GetAccessor(partitionKeyProperty).Setter(dataObject, logicalKey);
-            PocoPathHelper.GetAccessor(prop).Setter(dataObject, initialCollection);
+            partitionKeyProperty.Setter!(dataObject, logicalKey);
+            prop.Setter!(dataObject, initialCollection);
 
             var dataMetadata = metadataManager.Initialize(dataObject);
             var startRangeKey = strategy.GetStartKey(initialObject, prop) ?? strategy.GetMinimumKey(prop);
@@ -375,7 +378,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         }
     }
 
-    private async Task SplitPartitionAsync(IPartition partitionToSplit, string propertyName, IPartitionableCrdtStrategy strategy, PropertyInfo prop, CancellationToken cancellationToken)
+    private async Task SplitPartitionAsync(IPartition partitionToSplit, string propertyName, IPartitionableCrdtStrategy strategy, CrdtPropertyInfo prop, CancellationToken cancellationToken)
     {
         using var _ = new MetricTimer(metrics.SplitPartitionDuration);
         if (partitionToSplit is not DataPartition dataPartitionToSplit) return;
@@ -445,7 +448,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
 
     private IComparable GetLogicalKey(T obj)
     {
-        var logicalKeyObj = PocoPathHelper.GetAccessor(partitionKeyProperty).Getter(obj) ?? throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' cannot be null.");
+        var logicalKeyObj = partitionKeyProperty.Getter?.Invoke(obj) ?? throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' cannot be null.");
         if (logicalKeyObj is not IComparable logicalKey)
         {
             throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' must implement IComparable.");
@@ -453,13 +456,15 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         return logicalKey;
     }
     
-    private static IReadOnlyDictionary<string, (PropertyInfo Property, IPartitionableCrdtStrategy Strategy)> FindPartitionablePropertiesAndStrategies(ICrdtStrategyProvider strategyProvider)
+    private static IReadOnlyDictionary<string, (CrdtPropertyInfo Property, IPartitionableCrdtStrategy Strategy)> FindPartitionablePropertiesAndStrategies(ICrdtStrategyProvider strategyProvider, IEnumerable<CrdtContext> aotContexts)
     {
-        var partitionableProperties = typeof(T).GetProperties()
+        var typeInfo = PocoPathHelper.GetTypeInfo(typeof(T), aotContexts);
+
+        var partitionableProperties = typeInfo.Properties.Values
             .Select(p => new
             {
                 Property = p,
-                Strategy = strategyProvider.GetStrategy(p),
+                Strategy = strategyProvider.GetStrategy(typeof(T), p),
                 Path = $"$.{char.ToLowerInvariant(p.Name[0])}{p.Name[1..]}"
             })
             .Where(x => x.Strategy is IPartitionableCrdtStrategy)
@@ -473,7 +478,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         return partitionableProperties;
     }
     
-    private static PropertyInfo FindPartitionKeyProperty(Type type)
+    private static CrdtPropertyInfo FindPartitionKeyProperty(Type type, IEnumerable<CrdtContext> aotContexts)
     {
         var attr = type.GetCustomAttribute<PartitionKeyAttribute>();
         if (attr is null)
@@ -481,8 +486,8 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
             throw new NotSupportedException($"The type '{type.Name}' must be decorated with the [{nameof(PartitionKeyAttribute)}] to be used with partitioning.");
         }
         
-        var property = type.GetProperty(attr.PropertyName, BindingFlags.Public | BindingFlags.Instance);
-        if (property is null)
+        var typeInfo = PocoPathHelper.GetTypeInfo(type, aotContexts);
+        if (!typeInfo.Properties.TryGetValue(attr.PropertyName, out var property))
         {
             throw new NotSupportedException($"The partition key property '{attr.PropertyName}' specified on type '{type.Name}' was not found.");
         }
@@ -493,7 +498,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     private string ToPropertyPath(string propertyName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
-        if (!propertyNamePathCache.TryGetValue(typeof(T), out var nameToPathMap) || !nameToPathMap.TryGetValue(propertyName, out var propertyPath))
+        if (!propertyNamePathCache.TryGetValue(propertyName, out var propertyPath))
         {
             throw new ArgumentException($"Property '{propertyName}' is not a partitionable property on type '{typeof(T).Name}'.", nameof(propertyName));
         }

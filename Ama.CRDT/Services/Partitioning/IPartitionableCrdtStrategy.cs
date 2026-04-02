@@ -1,10 +1,10 @@
 namespace Ama.CRDT.Services.Partitioning;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Strategies;
 using System;
-using System.Reflection;
 
 /// <summary>
 /// Extends the <see cref="ICrdtStrategy"/> interface with methods for managing data and metadata across partitions.
@@ -18,7 +18,7 @@ public interface IPartitionableCrdtStrategy : ICrdtStrategy
     /// <param name="data">The document object containing the partitionable collection.</param>
     /// <param name="partitionableProperty">The property info of the partitionable collection.</param>
     /// <returns>The start range key, or null if the collection is empty. The key must implement <see cref="IComparable"/>.</returns>
-    IComparable? GetStartKey(object data, PropertyInfo partitionableProperty);
+    IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty);
 
     /// <summary>
     /// Extracts a range key from a CRDT operation.
@@ -37,7 +37,7 @@ public interface IPartitionableCrdtStrategy : ICrdtStrategy
     /// </summary>
     /// <param name="partitionableProperty">The property info of the partitionable collection.</param>
     /// <returns>The minimum possible key. The key must implement <see cref="IComparable"/>.</returns>
-    IComparable GetMinimumKey(PropertyInfo partitionableProperty);
+    IComparable GetMinimumKey(CrdtPropertyInfo partitionableProperty);
 
     /// <summary>
     /// Splits the data and metadata of a single, overfull partition into two new partitions.
@@ -46,7 +46,7 @@ public interface IPartitionableCrdtStrategy : ICrdtStrategy
     /// <param name="originalMetadata">The metadata of the partition being split.</param>
     /// <param name="partitionableProperty">The property info of the partitionable collection.</param>
     /// <returns>A <see cref="SplitResult"/> containing the content for the two new partitions and the range key at which the split occurred.</returns>
-    SplitResult Split(object originalData, CrdtMetadata originalMetadata, PropertyInfo partitionableProperty);
+    SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty);
 
     /// <summary>
     /// Merges the data and metadata of two adjacent partitions into a single partition.
@@ -57,5 +57,5 @@ public interface IPartitionableCrdtStrategy : ICrdtStrategy
     /// <param name="meta2">The metadata of the second partition.</param>
     /// <param name="partitionableProperty">The property info of the partitionable collection.</param>
     /// <returns>A <see cref="PartitionContent"/> object containing the merged data and metadata.</returns>
-    PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, PropertyInfo partitionableProperty);
+    PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty);
 }
