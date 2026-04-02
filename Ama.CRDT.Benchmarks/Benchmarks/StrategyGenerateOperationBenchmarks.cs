@@ -3,6 +3,7 @@ namespace Ama.CRDT.Benchmarks.Benchmarks;
 using Ama.CRDT.Benchmarks.Models;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Intents.Decorators;
 using Ama.CRDT.Services;
@@ -132,6 +133,7 @@ public class StrategyGenerateOperationBenchmarks
     {
         var services = new ServiceCollection();
         services.AddCrdt();
+        services.AddCrdtAotContext<BenchmarkCrdtContext>();
         services.AddScoped<MyStateMachine>();
         var serviceProvider = services.BuildServiceProvider();
         var serviceScopeFactory = serviceProvider.GetService<ICrdtScopeFactory>();
@@ -183,14 +185,28 @@ public class StrategyGenerateOperationBenchmarks
         #endregion
     }
 
+    private CrdtPropertyInfo GetPropertyInfo(string propertyName)
+    {
+        var crdtContexts = scope.ServiceProvider.GetServices<CrdtContext>();
+        foreach (var ctx in crdtContexts)
+        {
+            var typeInfo = ctx.GetTypeInfo(typeof(StrategyPoco));
+            if (typeInfo != null && typeInfo.Properties.TryGetValue(propertyName, out var p))
+            {
+                return p;
+            }
+        }
+        throw new InvalidOperationException($"Property {propertyName} not found in AOT contexts.");
+    }
+
     private void SetupStrategyAndContext(
         string propertyName, 
         IOperationIntent intent, 
         out ICrdtStrategy strategy, 
         out GenerateOperationContext context)
     {
-        var prop = typeof(StrategyPoco).GetProperty(propertyName)!;
-        strategy = strategyProvider.GetStrategy(prop);
+        var prop = GetPropertyInfo(propertyName);
+        strategy = strategyProvider.GetStrategy(typeof(StrategyPoco), prop);
         var path = $"$.{char.ToLowerInvariant(propertyName[0])}{propertyName.Substring(1)}";
         
         context = new GenerateOperationContext(
