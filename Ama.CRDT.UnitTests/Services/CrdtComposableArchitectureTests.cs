@@ -27,7 +27,8 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddCrdt();
-        services.AddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>();
+        services.AddCrdtAotContext<ServicesTestCrdtContext>();
+        services.AddCrdtTimestampProvider<EpochTimestampProvider>();
         
         // Register the state machine validator used in the complex composition tests
         services.AddSingleton<DocStatusValidator>();
@@ -49,7 +50,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
 
     #region Test Models
 
-    private sealed class TestRoot
+    internal sealed class TestRoot
     {
         public TestLevel1? Level1 { get; set; }
         
@@ -57,18 +58,18 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         public List<TestTag> Tags { get; set; } = new();
     }
 
-    private sealed class TestLevel1
+    internal sealed class TestLevel1
     {
         public TestLevel2? Level2 { get; set; }
     }
 
-    private sealed class TestLevel2
+    internal sealed class TestLevel2
     {
         public string? Message { get; set; }
         public int Count { get; set; }
     }
 
-    private sealed record TestTag(string Id, string Value);
+    internal sealed record TestTag(string Id, string Value);
 
     public enum DocStatus { Draft, Published, Archived }
 
@@ -83,7 +84,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         }
     }
 
-    private sealed class ComplexDocument
+    internal sealed class ComplexDocument
     {
         public string? Title { get; set; }
 
@@ -102,7 +103,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         public NestedConfig? Config { get; set; }
     }
 
-    private sealed class NestedConfig
+    internal sealed class NestedConfig
     {
         public string? SettingA { get; set; }
         
@@ -110,14 +111,14 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         public List<string> SubLog { get; set; } = new();
     }
 
-    private sealed class DecoratedDocument
+    internal sealed class DecoratedDocument
     {
         [CrdtEpochBound]
         [CrdtApprovalQuorum(2)]
         public string? ProtectedSecret { get; set; }
     }
 
-    private sealed class ComplexCollectionDocument
+    internal sealed class ComplexCollectionDocument
     {
         [CrdtLwwMapStrategy]
         public Dictionary<string, ComplexItem> Users { get; set; } = new();
@@ -126,7 +127,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         public List<ComplexItem> History { get; set; } = new();
     }
 
-    private sealed class ComplexItem : IEquatable<ComplexItem>
+    internal sealed class ComplexItem : IEquatable<ComplexItem>
     {
         public string? Id { get; set; }
         public string? Name { get; set; }

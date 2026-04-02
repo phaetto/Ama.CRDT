@@ -15,7 +15,7 @@ using Ama.CRDT.Extensions;
 
 public sealed class CrdtPatcherTests : IDisposable
 {
-    private sealed record TestModel
+    internal sealed record TestModel
     {
         public string? Name { get; init; }
 
@@ -33,7 +33,7 @@ public sealed class CrdtPatcherTests : IDisposable
         public Dictionary<string, int>? Scores { get; init; }
     }
 
-    private sealed record NestedModel
+    internal sealed record NestedModel
     {
         [CrdtLwwStrategy]
         public string? Value { get; init; }
@@ -47,6 +47,7 @@ public sealed class CrdtPatcherTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddCrdt();
+        services.AddCrdtAotContext<ServicesTestCrdtContext>();
 
         var serviceProvider = services.BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

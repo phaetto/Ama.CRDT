@@ -1,6 +1,7 @@
 namespace Ama.CRDT.UnitTests.Services;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
@@ -10,7 +11,6 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Xunit;
 
 public sealed class CrdtMetadataManagerTests
@@ -25,7 +25,13 @@ public sealed class CrdtMetadataManagerTests
         strategyProviderMock = new Mock<ICrdtStrategyProvider>();
         timestampProviderMock = new Mock<ICrdtTimestampProvider>();
         elementComparerProviderMock = new Mock<IElementComparerProvider>();
-        manager = new CrdtMetadataManager(strategyProviderMock.Object, timestampProviderMock.Object, elementComparerProviderMock.Object,new ReplicaContext { ReplicaId = "replica" });
+        manager = new CrdtMetadataManager(
+            strategyProviderMock.Object, 
+            timestampProviderMock.Object, 
+            elementComparerProviderMock.Object,
+            new ReplicaContext { ReplicaId = "replica" },
+            Array.Empty<CrdtContext>());
+            
         timestampProviderMock.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(v => new EpochTimestamp(v));
     }
     
@@ -154,7 +160,7 @@ public sealed class CrdtMetadataManagerTests
             c.Version == op2.Clock)))
             .Returns(false);
 
-        strategyProviderMock.Setup(p => p.GetStrategy(It.IsAny<PropertyInfo>())).Returns(Mock.Of<ICrdtStrategy>());
+        strategyProviderMock.Setup(p => p.GetStrategy(It.IsAny<Type>(), It.IsAny<CrdtPropertyInfo>())).Returns(Mock.Of<ICrdtStrategy>());
 
         // Act
         manager.Compact(doc, policyMock.Object);
@@ -174,7 +180,7 @@ public sealed class CrdtMetadataManagerTests
         var policyMock = new Mock<ICompactionPolicy>();
 
         var mockStrategy = new Mock<ICrdtStrategy>();
-        strategyProviderMock.Setup(p => p.GetStrategy(It.IsAny<PropertyInfo>())).Returns(mockStrategy.Object);
+        strategyProviderMock.Setup(p => p.GetStrategy(It.IsAny<Type>(), It.IsAny<CrdtPropertyInfo>())).Returns(mockStrategy.Object);
 
         // Act
         manager.Compact(doc, policyMock.Object);
