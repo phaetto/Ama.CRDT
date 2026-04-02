@@ -67,6 +67,97 @@ public class TestClass
     }
 
     [Fact]
+    public async Task WhenPropertyInfoNameIsAccessed_ShouldReportDiagnostic()
+    {
+        var source = @"
+using System.Reflection;
+
+public class TestClass
+{
+    public void DoWork(PropertyInfo prop)
+    {
+        _ = prop.Name;
+    }
+}
+";
+        var expected = new DiagnosticResult("CRDTPROJ0001", DiagnosticSeverity.Error)
+            .WithLocation(8, 13)
+            .WithArguments("Name");
+
+        var test = CreateTest();
+        test.TestCode = source;
+        test.ExpectedDiagnostics.Add(expected);
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenGetPropertyIsUsedOnType_ShouldReportDiagnostic()
+    {
+        var source = @"
+using System;
+
+public class TestClass
+{
+    public void DoWork()
+    {
+        typeof(TestClass).GetProperty(""DoWork"");
+    }
+}
+";
+        var expected = new DiagnosticResult("CRDTPROJ0001", DiagnosticSeverity.Error)
+            .WithLocation(8, 9)
+            .WithArguments("GetProperty");
+
+        var test = CreateTest();
+        test.TestCode = source;
+        test.ExpectedDiagnostics.Add(expected);
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenActivatorCreateInstanceWithNoGeneric_ShouldReportDiagnostic()
+    {
+        var source = @"
+using System;
+
+public class TestClass
+{
+    public void DoWork()
+    {
+        Activator.CreateInstance(typeof(TestClass));
+    }
+}
+";
+        var expected = new DiagnosticResult("CRDTPROJ0001", DiagnosticSeverity.Error)
+            .WithLocation(8, 9)
+            .WithArguments("CreateInstance");
+
+        var test = CreateTest();
+        test.TestCode = source;
+        test.ExpectedDiagnostics.Add(expected);
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenActivatorCreateInstanceWithGeneric_ShouldNotReportDiagnostic()
+    {
+        var source = @"
+using System;
+
+public class TestClass
+{
+    public void DoWork()
+    {
+        Activator.CreateInstance<TestClass>();
+    }
+}
+";
+        var test = CreateTest();
+        test.TestCode = source;
+        await test.RunAsync();
+    }
+
+    [Fact]
     public async Task WhenGetValueIsUsedOnDictionary_ShouldNotReportDiagnostic()
     {
         var source = @"
