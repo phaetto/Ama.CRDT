@@ -7,7 +7,7 @@ You need to select the medium that is used for larger than memory: [See Ama.CRDT
 ## Setup
 
 1.  **Define a Partition Key**: Your root CRDT model must be decorated with the `[PartitionKey]` attribute, specifying which property acts as the logical identifier for the document (e.g., a tenant ID, a document ID).
-2.  **Use a Partitionable Strategy**: Exactly one property in your model must use a CRDT strategy that supports partitioning (i.e., implements `IPartitionableCrdtStrategy`). Currently, `[CrdtOrMapStrategy]` and `[CrdtArrayLcsStrategy]` support this.
+2.  **Use a Partitionable Strategy**: One or more properties in your model must use a CRDT strategy that supports partitioning (i.e., implements `IPartitionableCrdtStrategy`). Currently, `[CrdtOrMapStrategy]` and `[CrdtArrayLcsStrategy]` support this.
 
 **Example Model:**
 ```csharp
@@ -38,46 +38,50 @@ public class UserProfile
 
 ## Usage
 
-Instead of the standard `ICrdtPatcher`/`ICrdtApplicator` workflow, you interact with the `IPartitionManager<T>`.
+Instead of loading the entire document into memory, you interact with `IPartitionManager<T>` to manage initialization and querying. Patch application is seamlessly handled by the standard `IAsyncCrdtApplicator`, which intercepts the call via decorators and streams the necessary partitions automatically.
 
 ```csharp
+using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Intents;
 // ... other usings
 
-// 1. Get the Partition Manager from a replica scope
+// 1. Get the required services from a replica scope
 // var scope = ...;
 var partitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<LargeTenantData>>();
+var applicator = scope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
+var patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
 
-// 2. Prepare streams for data and index storage (e.g., FileStream or MemoryStream)
-using var dataStream = new MemoryStream();
-using var indexStream = new MemoryStream();
-
-// 3. Initialize the partitioned document
+// 2. Initialize the partitioned document
+// The storage service (configured via DI) handles writing the data and indexes to the persistence medium.
 var initialData = new LargeTenantData { TenantId = "tenant-123", TenantName = "Big Corp" };
 initialData.UserProfiles.Add("user-a", new UserProfile { Name = "Alice" });
-await partitionManager.InitializeAsync(dataStream, indexStream, initialData);
+await partitionManager.InitializeAsync(initialData);
 
-// 4. Create a patch that targets the partitioned document
-// This patch would be generated from another replica using the standard ICrdtPatcher.
-var patch = new CrdtPatch(new List<CrdtOperation>
+// 3. Load the target document header
+// The PartitioningApplicatorDecorator will use the logical key on this header 
+// document to correctly route the operations.
+var targetDocument = await partitionManager.GetHeaderPartitionContentAsync("tenant-123");
+
+if (targetDocument != null)
 {
-    // An operation to add a new user to the dictionary.
-    // The key "user-b" will be used to find the right partition.
-    new CrdtOperation(Guid.NewGuid(), "replica-B", "$.userProfiles", OperationType.Upsert, 
-        new OrMapAddItem("user-b", new UserProfile { Name = "Bob" }, Guid.NewGuid()), 
-        timestampProvider.Now())
-})
-{
-    // The LogicalKey is crucial. It must match the value of the PartitionKey property.
-    LogicalKey = "tenant-123"
-};
+    // 4. Generate an operation using explicit intents
+    // The patcher automatically translates the intent into the correct CRDT payloads (e.g., OrMapAddItem)
+    var operation = patcher.GenerateOperation(
+        targetDocument, 
+        doc => doc.UserProfiles, 
+        new MapSetIntent("user-b", new UserProfile { Name = "Bob" })
+    );
+    
+    var patch = new CrdtPatch([operation]);
 
-// 5. Apply the patch
-// The PartitionManager will use the logical key and the key within the operation
-// to find and load only the necessary partition from the streams, apply the change,
-// and persist it back. It also handles splitting or merging partitions automatically.
-await partitionManager.ApplyPatchAsync(patch);
+    // 5. Apply the patch
+    // The decorator will use the logical key and the key within the operations
+    // to find and load only the necessary partitions from the configured storage service,
+    // apply the changes, and persist them back. It also handles splitting or merging partitions automatically.
+    await applicator.ApplyPatchAsync(targetDocument, patch);
+}
 
-// The streams (dataStream, indexStream) now contain the updated, partitioned data.
+// The storage medium now contains the updated, partitioned data.
 ```
