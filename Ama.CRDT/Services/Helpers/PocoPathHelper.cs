@@ -580,6 +580,25 @@ internal static class PocoPathHelper
 
         if (value is IDictionary<string, object> dictionary)
         {
+            if (underlyingType.IsGenericType && underlyingType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+            {
+                var typeInfo = GetTypeInfo(underlyingType, aotContexts);
+                var args = underlyingType.GetGenericArguments();
+                dictionary.TryGetValue("Key", out var keyObj);
+                dictionary.TryGetValue("Value", out var valObj);
+
+                if (keyObj == null && dictionary.TryGetValue("key", out var keyObjLower)) keyObj = keyObjLower;
+                if (valObj == null && dictionary.TryGetValue("value", out var valObjLower)) valObj = valObjLower;
+
+                var convertedKey = ConvertValue(keyObj, args[0], aotContexts);
+                var convertedValue = ConvertValue(valObj, args[1], aotContexts);
+
+                if (typeInfo.CreateWithArgs != null)
+                {
+                    return typeInfo.CreateWithArgs([convertedKey, convertedValue]);
+                }
+            }
+
             if (!underlyingType.IsPrimitive && underlyingType != typeof(string) && !typeof(IEnumerable).IsAssignableFrom(underlyingType))
             {
                 var typeInfo = GetTypeInfo(underlyingType, aotContexts);
@@ -587,7 +606,14 @@ internal static class PocoPathHelper
                 
                 if (instance is null)
                 {
-                    return null;
+                    if (underlyingType.IsValueType)
+                    {
+                        instance = RuntimeHelpers.GetUninitializedObject(underlyingType);
+                    }
+                    else
+                    {
+                        return null;
+                    }
                 }
 
                 foreach (var kvp in dictionary)

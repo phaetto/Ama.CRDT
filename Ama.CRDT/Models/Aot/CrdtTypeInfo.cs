@@ -19,6 +19,11 @@ public sealed class CrdtTypeInfo
     public Func<object>? CreateInstance { get; }
 
     /// <summary>
+    /// Gets a delegate to create a new instance of the type strictly utilizing arguments.
+    /// </summary>
+    public Func<object[], object>? CreateWithArgs { get; }
+
+    /// <summary>
     /// Gets the dictionary of strongly-typed property accessors.
     /// </summary>
     public IReadOnlyDictionary<string, CrdtPropertyInfo> Properties { get; }
@@ -69,6 +74,7 @@ public sealed class CrdtTypeInfo
     public CrdtTypeInfo(
         Type type,
         Func<object>? createInstance,
+        Func<object[], object>? createWithArgs,
         IReadOnlyDictionary<string, CrdtPropertyInfo> properties,
         bool isCollection,
         Type? collectionElementType,
@@ -81,6 +87,7 @@ public sealed class CrdtTypeInfo
     {
         Type = type;
         CreateInstance = createInstance;
+        CreateWithArgs = createWithArgs;
         Properties = properties;
         IsCollection = isCollection;
         CollectionElementType = collectionElementType;
