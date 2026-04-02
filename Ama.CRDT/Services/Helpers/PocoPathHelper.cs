@@ -4,217 +4,125 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Ama.CRDT.Models.Aot;
 
 /// <summary>
-/// A utility class containing helper methods for parsing JSON paths and resolving them against POCOs using reflection.
+/// A utility class containing helper methods for parsing JSON paths and resolving them against POCOs using Source Generator AOT Contexts or Reflection.
 /// </summary>
 internal static class PocoPathHelper
 {
     private static readonly JsonSerializerOptions SerializerOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 
-    private static readonly ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> PropertyCache = new();
-    private static readonly ConcurrentDictionary<Type, CachedPropertyMetadata[]> MetadataPropertyCache = new();
-    private static readonly ConcurrentDictionary<PropertyInfo, PropertyAccessor> AccessorCache = new();
-    private static readonly ConcurrentDictionary<Type, PropertyInfo?> DocumentIdPropertyCache = new();
+    // Fallback cache used only when Native AOT Contexts are not provided
+    private static readonly ConcurrentDictionary<Type, CrdtTypeInfo> ReflectionCache = new();
+
+    internal readonly record struct ParseResult(string JsonPath, CrdtPropertyInfo Property);
     
-    // Type resolution caches to avoid repetitive LINQ and reflection overhead
-    private static readonly ConcurrentDictionary<Type, Type> CollectionElementTypeCache = new();
-    private static readonly ConcurrentDictionary<Type, Type> DictionaryKeyTypeCache = new();
-    private static readonly ConcurrentDictionary<Type, Type> DictionaryValueTypeCache = new();
-
-    // Expression compilation caches to replace Activator.CreateInstance
-    private static readonly ConcurrentDictionary<Type, Func<object>> ConstructorCache = new();
-    private static readonly ConcurrentDictionary<Type, Func<object?, object?, object>> KvpConstructorCache = new();
-
-    private static readonly ConcurrentDictionary<Type, Action<object, object?>> CollectionAdders = new();
-    private static readonly ConcurrentDictionary<Type, Action<object, object?>> CollectionRemovers = new();
-    private static readonly ConcurrentDictionary<Type, Action<object>> CollectionClearers = new();
-
-    internal readonly record struct ParseResult(string JsonPath, PropertyInfo Property);
+    internal readonly record struct PathResolutionResult(object? Parent, CrdtPropertyInfo? Property, object? FinalSegment);
 
     /// <summary>
     /// Represents a dictionary key in a resolved path.
     /// </summary>
     internal readonly record struct DictionaryKeyPathSegment(string Key);
 
-    internal sealed class CachedPropertyMetadata(PropertyInfo property, string jsonPropertyName)
+    /// <summary>
+    /// Retrieves AOT metadata for the specified type. If not found in the provided contexts, builds it safely using reflection.
+    /// </summary>
+    public static CrdtTypeInfo GetTypeInfo(Type type, IEnumerable<CrdtContext>? aotContexts = null)
     {
-        public PropertyInfo Property { get; } = property;
-        public string PathSuffix { get; } = $".{jsonPropertyName}";
-        public string RootedPath { get; } = $"$.{jsonPropertyName}";
-        public PropertyAccessor Accessor { get; } = GetAccessor(property);
+        if (aotContexts != null)
+        {
+            foreach (var context in aotContexts)
+            {
+                var info = context.GetTypeInfo(type);
+                if (info != null) return info;
+            }
+        }
+
+        return ReflectionCache.GetOrAdd(type, BuildReflectionTypeInfo);
+    }
+
+    [RequiresUnreferencedCode("Reflection fallback requires unreferenced code. Mark models with [CrdtSerializable] to use the AOT Source Generator.")]
+    [RequiresDynamicCode("Reflection fallback requires dynamic code. Mark models with [CrdtSerializable] to use the AOT Source Generator.")]
+    private static CrdtTypeInfo BuildReflectionTypeInfo(Type type)
+    {
+        Func<object>? createInstance = null;
+        if (type.IsClass && !type.IsAbstract)
+        {
+            var ctor = type.GetConstructor(Type.EmptyTypes);
+            if (ctor != null)
+            {
+                createInstance = () => ctor.Invoke(null);
+            }
+        }
+        else if (type.IsValueType)
+        {
+            createInstance = () => Activator.CreateInstance(type)!;
+        }
+
+        var properties = new Dictionary<string, CrdtPropertyInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (!p.CanRead || p.GetIndexParameters().Length > 0 || p.GetCustomAttribute<JsonIgnoreAttribute>() != null)
+                continue;
+
+            var jsonName = SerializerOptions.PropertyNamingPolicy?.ConvertName(p.Name) ?? p.Name;
+            
+            Func<object, object?>? getter = p.CanRead ? obj => p.GetValue(obj) : null;
+            Action<object, object?>? setter = p.CanWrite ? (obj, val) => p.SetValue(obj, val) : null;
+
+            properties[p.Name] = new CrdtPropertyInfo(p.Name, jsonName, p.PropertyType, p.CanRead, p.CanWrite, getter, setter);
+        }
+
+        bool isCollection = IsCollection(type);
+        Type? collectionElementType = isCollection ? GetCollectionElementTypeReflect(type) : null;
+        Action<object, object?>? collectionAdd = null;
+        Action<object, object?>? collectionRemove = null;
+        Action<object>? collectionClear = null;
+
+        if (isCollection)
+        {
+            var addMethod = type.GetMethod("Add") ?? type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))?.GetMethod("Add");
+            if (addMethod != null) collectionAdd = (col, item) => addMethod.Invoke(col, new[] { item });
+
+            var removeMethod = type.GetMethod("Remove") ?? type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))?.GetMethod("Remove");
+            if (removeMethod != null) collectionRemove = (col, item) => removeMethod.Invoke(col, new[] { item });
+
+            var clearMethod = type.GetMethod("Clear") ?? type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))?.GetMethod("Clear");
+            if (clearMethod != null) collectionClear = col => clearMethod.Invoke(col, null);
+        }
+
+        bool isDictionary = typeof(IDictionary).IsAssignableFrom(type) || type.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
+        Type? dictKeyType = isDictionary ? GetDictionaryKeyTypeReflect(type) : null;
+        Type? dictValType = isDictionary ? GetDictionaryValueTypeReflect(type) : null;
+
+        return new CrdtTypeInfo(type, createInstance, properties, isCollection, collectionElementType, collectionAdd, collectionRemove, collectionClear, isDictionary, dictKeyType, dictValType);
     }
 
     /// <summary>
-    /// Extracts the Document ID from a POCO by looking for a PartitionKey attribute or an Id property.
+    /// Extracts the Document ID from a POCO by looking for an Id property.
     /// </summary>
-    public static string GetDocumentId<T>(T? obj)
+    public static string GetDocumentId<T>(T? obj, IEnumerable<CrdtContext>? aotContexts = null)
     {
         if (obj is null) return "default";
 
         var type = obj.GetType();
-        var prop = DocumentIdPropertyCache.GetOrAdd(type, t =>
-        {
-            var attr = t.GetCustomAttribute<Attributes.PartitionKeyAttribute>();
-            if (attr != null)
-            {
-                return t.GetProperty(attr.PropertyName, BindingFlags.Public | BindingFlags.Instance);
-            }
-            return t.GetProperty("Id", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-        });
+        var typeInfo = GetTypeInfo(type, aotContexts);
 
-        if (prop != null)
+        if (typeInfo.Properties.TryGetValue("Id", out var prop) && prop.CanRead)
         {
-            var val = GetAccessor(prop).Getter(obj);
+            var val = prop.Getter?.Invoke(obj);
             return val?.ToString() ?? "default";
         }
 
         return "default";
-    }
-
-    /// <summary>
-    /// Represents a heavily optimized, pre-compiled accessor for a PropertyInfo 
-    /// to eliminate boxing and reflection overhead.
-    /// </summary>
-    internal sealed class PropertyAccessor
-    {
-        public PropertyInfo Property { get; }
-        public Func<object, object?> Getter { get; }
-        public Action<object, object?> Setter { get; }
-
-        public PropertyAccessor(PropertyInfo property)
-        {
-            Property = property;
-            var declaringType = property.DeclaringType ?? property.ReflectedType!;
-
-            var instanceParam = Expression.Parameter(typeof(object), "obj");
-            var castInstance = Expression.Convert(instanceParam, declaringType);
-            var propertyAccess = Expression.Property(castInstance, property);
-            
-            // Compile Getter
-            var castProperty = Expression.Convert(propertyAccess, typeof(object));
-            Getter = Expression.Lambda<Func<object, object?>>(castProperty, instanceParam).Compile();
-
-            // Compile Setter
-            if (property.CanWrite)
-            {
-                var valueParam = Expression.Parameter(typeof(object), "val");
-                var castValue = Expression.Convert(valueParam, property.PropertyType);
-                var assign = Expression.Assign(propertyAccess, castValue);
-                Setter = Expression.Lambda<Action<object, object?>>(assign, instanceParam, valueParam).Compile();
-            }
-            else
-            {
-                Setter = (_, _) => throw new NotSupportedException($"Property '{property.Name}' on type '{declaringType.Name}' does not have a setter.");
-            }
-        }
-    }
-
-    /// <summary>
-    /// A generic converter that dynamically compiles the exact IL instructions needed
-    /// to cast or convert between a runtime type and T.
-    /// </summary>
-    internal static class GenericConverter<T>
-    {
-        private static readonly ConcurrentDictionary<Type, Func<object, T>> Converters = new();
-
-        public static T Convert(object value)
-        {
-            var type = value.GetType();
-            var converter = Converters.GetOrAdd(type, t =>
-            {
-                var param = Expression.Parameter(typeof(object), "val");
-                var castParam = Expression.Convert(param, t);
-                var body = BuildSafeConversion(castParam, t, typeof(T));
-                return Expression.Lambda<Func<object, T>>(body, param).Compile();
-            });
-            return converter(value);
-        }
-
-        internal static Expression BuildSafeConversion(Expression source, Type sourceType, Type targetType)
-        {
-            if (sourceType == targetType) return source;
-
-            // If the source is an object/interface, we can't emit a direct unboxing conversion
-            // without knowing the exact boxed type, so we safely fall back to ConvertValue.
-            if (sourceType == typeof(object) || sourceType == typeof(ValueType) || sourceType.IsInterface)
-            {
-                return BuildConvertValueCall(source, targetType);
-            }
-
-            try
-            {
-                // Let the Expression engine build the best direct conversion (e.g. IL conv.r8 for int -> decimal)
-                return Expression.Convert(source, targetType);
-            }
-            catch (InvalidOperationException)
-            {
-                // Fallback for types that lack an implicit/explicit cast operator (like string -> int)
-                return BuildConvertValueCall(source, targetType);
-            }
-        }
-
-        private static Expression BuildConvertValueCall(Expression source, Type targetType)
-        {
-            var convertValueMethod = typeof(PocoPathHelper).GetMethod(nameof(ConvertValue), BindingFlags.Public | BindingFlags.Static)!;
-            var sourceAsObject = Expression.Convert(source, typeof(object));
-            var targetTypeConst = Expression.Constant(targetType, typeof(Type));
-            var callConvertValue = Expression.Call(convertValueMethod, sourceAsObject, targetTypeConst);
-            return Expression.Convert(callConvertValue, targetType);
-        }
-    }
-
-    /// <summary>
-    /// A strongly-typed, compiled property accessor cache to completely eliminate 
-    /// boxing and runtime conversion overhead when getting and setting value types.
-    /// </summary>
-    internal static class GenericPropertyAccessor<T>
-    {
-        private static readonly ConcurrentDictionary<PropertyInfo, Func<object, T>> Getters = new();
-        private static readonly ConcurrentDictionary<PropertyInfo, Action<object, T>> Setters = new();
-
-        public static Func<object, T> GetGetter(PropertyInfo property)
-        {
-            return Getters.GetOrAdd(property, p =>
-            {
-                var declaringType = p.DeclaringType ?? p.ReflectedType!;
-                var instanceParam = Expression.Parameter(typeof(object), "obj");
-                var castInstance = Expression.Convert(instanceParam, declaringType);
-                var propAccess = Expression.Property(castInstance, p);
-                
-                var convertedProp = GenericConverter<T>.BuildSafeConversion(propAccess, p.PropertyType, typeof(T));
-                return Expression.Lambda<Func<object, T>>(convertedProp, instanceParam).Compile();
-            });
-        }
-
-        public static Action<object, T> GetSetter(PropertyInfo property)
-        {
-            return Setters.GetOrAdd(property, p =>
-            {
-                if (!p.CanWrite) return (_, _) => throw new InvalidOperationException($"Property '{p.Name}' does not have a setter.");
-
-                var declaringType = p.DeclaringType ?? p.ReflectedType!;
-                var instanceParam = Expression.Parameter(typeof(object), "obj");
-                var valueParam = Expression.Parameter(typeof(T), "val");
-                var castInstance = Expression.Convert(instanceParam, declaringType);
-                
-                var convertedValue = GenericConverter<T>.BuildSafeConversion(valueParam, typeof(T), p.PropertyType);
-                var assign = Expression.Assign(Expression.Property(castInstance, p), convertedValue);
-                
-                return Expression.Lambda<Action<object, T>>(assign, instanceParam, valueParam).Compile();
-            });
-        }
-    }
-
-    public static PropertyAccessor GetAccessor(PropertyInfo property)
-    {
-        return AccessorCache.GetOrAdd(property, p => new PropertyAccessor(p));
     }
 
     /// <summary>
@@ -264,7 +172,7 @@ internal static class PocoPathHelper
                     if (i > currentSegmentStart)
                     {
                         Current = span.Slice(currentSegmentStart, i - currentSegmentStart);
-                        currentPosition = i; // Do not advance past '[', handle it in the next MoveNext
+                        currentPosition = i; 
                         return true;
                     }
 
@@ -329,22 +237,22 @@ internal static class PocoPathHelper
         return [.. segments];
     }
     
-    public static (object? parent, PropertyInfo? property, object? finalSegment) ResolvePath(object root, string jsonPath, bool createMissing = false)
+    public static PathResolutionResult ResolvePath(object root, string jsonPath, IEnumerable<CrdtContext>? aotContexts, bool createMissing = false)
     {
         if (root is null || string.IsNullOrEmpty(jsonPath))
         {
-            return (null, null, null);
+            return new PathResolutionResult(null, null, null);
         }
 
         var enumerator = EnumeratePath(jsonPath);
         if (!enumerator.MoveNext())
         {
-            return (null, null, null);
+            return new PathResolutionResult(null, null, null);
         }
 
         object? parentOfCurrent = null;
         object? currentObject = root;
-        PropertyInfo? lastProperty = null;
+        CrdtPropertyInfo? lastProperty = null;
 
         bool hasNext = true;
         ReadOnlySpan<char> currentSegment = enumerator.Current;
@@ -355,44 +263,47 @@ internal static class PocoPathHelper
             
             if (!hasNext)
             {
-                // currentSegment is the last segment
                 break;
             }
 
-            // Not the last segment, process currentSegment against currentObject
-            if (currentObject is null) return (null, null, null);
+            if (currentObject is null) return new PathResolutionResult(null, null, null);
             
             parentOfCurrent = currentObject;
+            var currentTypeInfo = GetTypeInfo(currentObject.GetType(), aotContexts);
 
             if (currentObject is IDictionary dict)
             {
-                var keyType = GetDictionaryKeyType(currentObject.GetType());
-                var keyObj = ConvertValue(currentSegment.ToString(), keyType);
+                var keyType = currentTypeInfo.DictionaryKeyType ?? typeof(object);
+                var keyObj = ConvertValue(currentSegment.ToString(), keyType, aotContexts);
                 
                 if (keyObj != null && dict.Contains(keyObj))
                 {
                     currentObject = dict[keyObj];
-                    lastProperty = null; // We are inside an item, property context is reset
+                    lastProperty = null; 
                 }
                 else if (createMissing && keyObj != null)
                 {
-                    var valueType = GetDictionaryValueType(currentObject.GetType());
+                    var valueType = currentTypeInfo.DictionaryValueType ?? typeof(object);
                     if (valueType.IsClass && valueType != typeof(string) && !typeof(IEnumerable).IsAssignableFrom(valueType))
                     {
-                        var factory = ConstructorCache.GetOrAdd(valueType, CreateConstructor);
-                        var newObj = factory();
-                        dict[keyObj] = newObj;
-                        currentObject = newObj;
-                        lastProperty = null;
+                        var valueTypeInfo = GetTypeInfo(valueType, aotContexts);
+                        var newObj = valueTypeInfo.CreateInstance?.Invoke();
+                        if (newObj != null)
+                        {
+                            dict[keyObj] = newObj;
+                            currentObject = newObj;
+                            lastProperty = null;
+                        }
+                        else return new PathResolutionResult(null, null, null);
                     }
                     else
                     {
-                        return (null, null, null);
+                        return new PathResolutionResult(null, null, null);
                     }
                 }
                 else
                 {
-                    return (null, null, null);
+                    return new PathResolutionResult(null, null, null);
                 }
             }
             else if (int.TryParse(currentSegment, out var index))
@@ -402,108 +313,105 @@ internal static class PocoPathHelper
                     if (index >= 0 && index < list.Count)
                     {
                         currentObject = list[index];
-                        lastProperty = null; // We are inside an item, property context is reset
+                        lastProperty = null; 
                     }
-                    else { return (null, null, null); } // Index out of bounds
+                    else { return new PathResolutionResult(null, null, null); } 
                 }
-                else { return (null, null, null); } // Not a list
+                else { return new PathResolutionResult(null, null, null); } 
             }
             else
             {
-                var properties = GetPropertiesForType(currentObject.GetType());
-#if NET9_0_OR_GREATER
-                if (properties.GetAlternateLookup<ReadOnlySpan<char>>().TryGetValue(currentSegment, out var propertyInfo))
-#else
-                if (properties.TryGetValue(currentSegment.ToString(), out var propertyInfo))
-#endif
+                var currentSegmentStr = currentSegment.ToString();
+
+                // Simple fallback to locate by JSON name or exact C# property name
+                var propertyInfo = currentTypeInfo.Properties.Values.FirstOrDefault(p => 
+                    p.JsonName.Equals(currentSegmentStr, StringComparison.OrdinalIgnoreCase) || 
+                    p.Name.Equals(currentSegmentStr, StringComparison.OrdinalIgnoreCase));
+
+                if (propertyInfo != null)
                 {
                     lastProperty = propertyInfo;
-                    var nextObject = GetAccessor(propertyInfo).Getter(currentObject);
+                    var nextObject = propertyInfo.CanRead ? propertyInfo.Getter!(currentObject) : null;
+                    
                     if (nextObject is null && createMissing && propertyInfo.CanWrite)
                     {
-                        // Instantiate missing intermediate POCOs automatically
                         var propType = propertyInfo.PropertyType;
                         if (propType.IsClass && propType != typeof(string) && !typeof(IEnumerable).IsAssignableFrom(propType))
                         {
-                            var factory = ConstructorCache.GetOrAdd(propType, CreateConstructor);
-                            nextObject = factory();
-                            GetAccessor(propertyInfo).Setter(currentObject, nextObject);
+                            var propTypeInfo = GetTypeInfo(propType, aotContexts);
+                            nextObject = propTypeInfo.CreateInstance?.Invoke();
+                            if (nextObject != null)
+                            {
+                                propertyInfo.Setter!(currentObject, nextObject);
+                            }
                         }
                     }
                     currentObject = nextObject;
                 }
-                else { return (null, null, null); } // Property not found
+                else { return new PathResolutionResult(null, null, null); } 
             }
             
             currentSegment = enumerator.Current;
         }
         
-        if (currentObject is null) return (null, null, null);
+        if (currentObject is null) return new PathResolutionResult(null, null, null);
 
-        // Now, resolve the last segment against the parent
         if (currentObject is IDictionary)
         {
-            // The target is a key in a dictionary.
-            // We return information about the dictionary's parent container and property.
-            return (parentOfCurrent ?? root, lastProperty, new DictionaryKeyPathSegment(currentSegment.ToString()));
+            return new PathResolutionResult(parentOfCurrent ?? root, lastProperty, new DictionaryKeyPathSegment(currentSegment.ToString()));
         }
 
         if (int.TryParse(currentSegment, out var lastIndex))
         {
-            // The target is an index in a collection.
             if (currentObject is IList)
             {
-                // The path resolves to an element in a collection. We return information
-                // about the collection's property, which is needed for strategy resolution.
-                // We do not check array bounds, as the operation might be an insert.
-                return (parentOfCurrent ?? root, lastProperty, lastIndex);
+                return new PathResolutionResult(parentOfCurrent ?? root, lastProperty, lastIndex);
             }
+            return new PathResolutionResult(null, null, null);
+        }
+        
+        var finalTypeInfo = GetTypeInfo(currentObject.GetType(), aotContexts);
+        var finalSegmentStr = currentSegment.ToString();
+        var finalProperty = finalTypeInfo.Properties.Values.FirstOrDefault(p => 
+            p.JsonName.Equals(finalSegmentStr, StringComparison.OrdinalIgnoreCase) || 
+            p.Name.Equals(finalSegmentStr, StringComparison.OrdinalIgnoreCase));
 
-            return (null, null, null);
-        }
-        
-        // The target is a property on an object.
-        var parentProperties = GetPropertiesForType(currentObject.GetType());
-#if NET9_0_OR_GREATER
-        if (parentProperties.GetAlternateLookup<ReadOnlySpan<char>>().TryGetValue(currentSegment, out var finalProperty))
-#else
-        if (parentProperties.TryGetValue(currentSegment.ToString(), out var finalProperty))
-#endif
+        if (finalProperty != null)
         {
-            return (currentObject, finalProperty, currentSegment.ToString());
+            return new PathResolutionResult(currentObject, finalProperty, finalSegmentStr);
         }
         
-        return (null, null, null); // Could not resolve the final segment.
+        return new PathResolutionResult(null, null, null);
     }
 
-    public static object? GetValue(object root, string jsonPath)
+    public static object? GetValue(object root, string jsonPath, IEnumerable<CrdtContext>? aotContexts = null)
     {
         if (root is null || string.IsNullOrEmpty(jsonPath))
         {
             return null;
         }
 
-        var (parent, property, finalSegment) = ResolvePath(root, jsonPath);
+        var resolution = ResolvePath(root, jsonPath, aotContexts);
 
-        if (parent is null || property is null)
+        if (resolution.Parent is null || resolution.Property is null || !resolution.Property.CanRead)
         {
             return null;
         }
 
-        var propertyValue = GetAccessor(property).Getter(parent);
+        var propertyValue = resolution.Property.Getter!(resolution.Parent);
         
-        if (finalSegment is int index)
+        if (resolution.FinalSegment is int index)
         {
             if (propertyValue is IList list && index >= 0 && index < list.Count)
             {
                 return list[index];
             }
-            return null; // Index out of bounds or not a list
+            return null;
         }
-        else if (finalSegment is DictionaryKeyPathSegment dictKey && propertyValue is IDictionary dict)
+        else if (resolution.FinalSegment is DictionaryKeyPathSegment dictKey && propertyValue is IDictionary dict)
         {
-            var keyType = GetDictionaryKeyType(property);
-            var keyObj = ConvertValue(dictKey.Key, keyType);
+            var propTypeInfo = GetTypeInfo(resolution.Property.PropertyType, aotContexts);
+            var keyObj = ConvertValue(dictKey.Key, propTypeInfo.DictionaryKeyType ?? typeof(object), aotContexts);
             if (keyObj != null && dict.Contains(keyObj))
             {
                 return dict[keyObj];
@@ -514,208 +422,87 @@ internal static class PocoPathHelper
         return propertyValue;
     }
 
-    /// <summary>
-    /// A generic implementation to retrieve property values while bypassing boxing completely.
-    /// </summary>
-    public static T GetValue<T>(object root, string jsonPath)
+    public static T? GetValue<T>(object root, string jsonPath, IEnumerable<CrdtContext>? aotContexts = null)
     {
-        if (root is null || string.IsNullOrEmpty(jsonPath))
-        {
-            return default!;
-        }
-
-        var (parent, property, finalSegment) = ResolvePath(root, jsonPath);
-
-        if (parent is null || property is null)
-        {
-            return default!;
-        }
-
-        if (finalSegment is int index)
-        {
-            var propertyValue = GetAccessor(property).Getter(parent);
-            if (propertyValue is IList list && index >= 0 && index < list.Count)
-            {
-                var val = list[index];
-                return ConvertTo<T>(val);
-            }
-            return default!;
-        }
-        else if (finalSegment is DictionaryKeyPathSegment dictKey)
-        {
-            var propertyValue = GetAccessor(property).Getter(parent);
-            if (propertyValue is IDictionary dict)
-            {
-                var keyType = GetDictionaryKeyType(property);
-                var keyObj = ConvertValue(dictKey.Key, keyType);
-                if (keyObj != null && dict.Contains(keyObj))
-                {
-                    return ConvertTo<T>(dict[keyObj]);
-                }
-                return default!;
-            }
-        }
-
-        // Delegate to the perfectly typed and precompiled property accessor
-        return GenericPropertyAccessor<T>.GetGetter(property)(parent);
+        var value = GetValue(root, jsonPath, aotContexts);
+        if (value is null) return default;
+        return (T?)ConvertValue(value, typeof(T), aotContexts);
     }
 
-    public static bool SetValue(object root, string jsonPath, object? value)
+    public static bool SetValue(object root, string jsonPath, object? value, IEnumerable<CrdtContext>? aotContexts = null)
     {
         if (root is null || string.IsNullOrEmpty(jsonPath))
         {
             return false;
         }
 
-        var (parent, property, finalSegment) = ResolvePath(root, jsonPath);
+        var resolution = ResolvePath(root, jsonPath, aotContexts);
 
-        if (parent is null || property is null)
+        if (resolution.Parent is null || resolution.Property is null)
         {
             return false;
         }
 
-        var accessor = GetAccessor(property);
-
-        if (finalSegment is int index)
+        if (resolution.FinalSegment is int index)
         {
-            if (accessor.Getter(parent) is IList list)
+            if (resolution.Property.CanRead && resolution.Property.Getter!(resolution.Parent) is IList list)
             {
                 if (index < 0 || index >= list.Count) return false;
 
-                var elementType = GetCollectionElementType(property);
-                var convertedValue = ConvertValue(value, elementType);
+                var propTypeInfo = GetTypeInfo(resolution.Property.PropertyType, aotContexts);
+                var elementType = propTypeInfo.CollectionElementType ?? typeof(object);
+                var convertedValue = ConvertValue(value, elementType, aotContexts);
 
                 list[index] = convertedValue;
                 return true;
             }
             return false;
         }
-        else if (finalSegment is DictionaryKeyPathSegment dictKey && accessor.Getter(parent) is IDictionary dict)
+        else if (resolution.FinalSegment is DictionaryKeyPathSegment dictKey)
         {
-            var keyType = GetDictionaryKeyType(property);
-            var valueType = GetDictionaryValueType(property);
-            var keyObj = ConvertValue(dictKey.Key, keyType);
-            if (keyObj != null)
+            if (resolution.Property.CanRead && resolution.Property.Getter!(resolution.Parent) is IDictionary dict)
             {
-                dict[keyObj] = ConvertValue(value, valueType);
-                return true;
-            }
-            return false;
-        }
-
-        if (!property.CanWrite)
-        {
-            return false;
-        }
-
-        var finalValue = ConvertValue(value, property.PropertyType);
-        accessor.Setter(parent, finalValue);
-        return true;
-    }
-
-    /// <summary>
-    /// A generic implementation to set property values while bypassing boxing completely.
-    /// </summary>
-    public static bool SetValue<T>(object root, string jsonPath, T value)
-    {
-        if (root is null || string.IsNullOrEmpty(jsonPath))
-        {
-            return false;
-        }
-
-        var (parent, property, finalSegment) = ResolvePath(root, jsonPath);
-
-        if (parent is null || property is null)
-        {
-            return false;
-        }
-
-        if (finalSegment is int index)
-        {
-            var accessor = GetAccessor(property);
-            if (accessor.Getter(parent) is IList list)
-            {
-                if (index < 0 || index >= list.Count) return false;
-
-                var elementType = GetCollectionElementType(property);
-                var convertedValue = ConvertValue(value, elementType);
-
-                list[index] = convertedValue;
-                return true;
-            }
-            return false;
-        }
-        else if (finalSegment is DictionaryKeyPathSegment dictKey)
-        {
-            var accessor = GetAccessor(property);
-            if (accessor.Getter(parent) is IDictionary dict)
-            {
-                var keyType = GetDictionaryKeyType(property);
-                var valueType = GetDictionaryValueType(property);
-                var keyObj = ConvertValue(dictKey.Key, keyType);
+                var propTypeInfo = GetTypeInfo(resolution.Property.PropertyType, aotContexts);
+                var keyType = propTypeInfo.DictionaryKeyType ?? typeof(object);
+                var valueType = propTypeInfo.DictionaryValueType ?? typeof(object);
+                var keyObj = ConvertValue(dictKey.Key, keyType, aotContexts);
                 if (keyObj != null)
                 {
-                    dict[keyObj] = ConvertValue(value, valueType);
+                    dict[keyObj] = ConvertValue(value, valueType, aotContexts);
                     return true;
                 }
                 return false;
             }
         }
 
-        if (!property.CanWrite)
+        if (!resolution.Property.CanWrite)
         {
             return false;
         }
 
-        // Delegate to the perfectly typed and precompiled property accessor
-        GenericPropertyAccessor<T>.GetSetter(property)(parent, value);
+        var finalValue = ConvertValue(value, resolution.Property.PropertyType, aotContexts);
+        resolution.Property.Setter!(resolution.Parent, finalValue);
         return true;
     }
 
-    /// <summary>
-    /// Converts a value to the specified type using highly optimized compiled expressions.
-    /// </summary>
-    public static T ConvertTo<T>(object? value)
+    public static bool SetValue<T>(object root, string jsonPath, T value, IEnumerable<CrdtContext>? aotContexts = null)
+    {
+        return SetValue(root, jsonPath, (object?)value, aotContexts);
+    }
+
+    public static T ConvertTo<T>(object? value, IEnumerable<CrdtContext>? aotContexts = null)
     {
         if (value is null) return default!;
         if (value is T tVal) return tVal;
-        return GenericConverter<T>.Convert(value);
+        
+        var obj = ConvertValue(value, typeof(T), aotContexts);
+        return obj == null ? default! : (T)obj;
     }
 
-    public static Type GetCollectionElementType(PropertyInfo property)
+    public static object InstantiateCollection(Type propertyType, IEnumerable<CrdtContext>? aotContexts = null)
     {
-        if (property is null)
-        {
-            throw new ArgumentNullException(nameof(property));
-        }
-
-        return GetCollectionElementType(property.PropertyType);
-    }
-    
-    public static Type GetCollectionElementType(Type collectionType)
-    {
-        if (collectionType is null)
-        {
-            throw new ArgumentNullException(nameof(collectionType));
-        }
-
-        return CollectionElementTypeCache.GetOrAdd(collectionType, type =>
-        {
-            var iEnumerableOfT = type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
-            if (iEnumerableOfT != null)
-            {
-                return iEnumerableOfT.GetGenericArguments()[0];
-            }
-
-            return type.IsGenericType
-                ? type.GetGenericArguments()[0]
-                : type.GetElementType() ?? typeof(object);
-        });
-    }
-
-    public static object InstantiateCollection(Type propertyType)
-    {
-        var elementType = GetCollectionElementType(propertyType);
+        var typeInfo = GetTypeInfo(propertyType, aotContexts);
+        var elementType = typeInfo.CollectionElementType ?? typeof(object);
         Type concreteType;
 
         if (propertyType.IsInterface)
@@ -735,154 +522,42 @@ internal static class PocoPathHelper
             concreteType = propertyType;
         }
 
-        var factory = ConstructorCache.GetOrAdd(concreteType, CreateConstructor);
-        return factory();
-    }
-
-    public static void AddToCollection(object collection, object? item)
-    {
-        var type = collection.GetType();
-        var adder = CollectionAdders.GetOrAdd(type, t =>
+        var concreteTypeInfo = GetTypeInfo(concreteType, aotContexts);
+        if (concreteTypeInfo.CreateInstance != null)
         {
-            var elementType = GetCollectionElementType(t);
-            var colParam = Expression.Parameter(typeof(object), "col");
-            var itemParam = Expression.Parameter(typeof(object), "item");
-            var castCol = Expression.Convert(colParam, t);
-            
-            var addMethod = t.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))?.GetMethod("Add") 
-                            ?? (typeof(IList).IsAssignableFrom(t) ? typeof(IList).GetMethod("Add") : t.GetMethod("Add"));
-
-            if (addMethod == null) return (_, _) => throw new InvalidOperationException($"Cannot find Add method on {t.Name}");
-
-            var convertItemMethod = typeof(PocoPathHelper).GetMethod(nameof(ConvertValue), BindingFlags.Public | BindingFlags.Static)!;
-            var elementTypeConst = Expression.Constant(elementType, typeof(Type));
-            var convertedItem = Expression.Call(convertItemMethod, itemParam, elementTypeConst);
-            var castItem = Expression.Convert(convertedItem, elementType);
-
-            var call = Expression.Call(castCol, addMethod, castItem);
-            var body = addMethod.ReturnType == typeof(void) ? (Expression)call : Expression.Block(typeof(void), call);
-
-            return Expression.Lambda<Action<object, object?>>(body, colParam, itemParam).Compile();
-        });
-        adder(collection, item);
-    }
-
-    public static void RemoveFromCollection(object collection, object? item)
-    {
-        var type = collection.GetType();
-        var remover = CollectionRemovers.GetOrAdd(type, t =>
-        {
-            var elementType = GetCollectionElementType(t);
-            var colParam = Expression.Parameter(typeof(object), "col");
-            var itemParam = Expression.Parameter(typeof(object), "item");
-            var castCol = Expression.Convert(colParam, t);
-            
-            var removeMethod = t.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))?.GetMethod("Remove") 
-                            ?? (typeof(IList).IsAssignableFrom(t) ? typeof(IList).GetMethod("Remove") : t.GetMethod("Remove"));
-
-            if (removeMethod == null) return (_, _) => throw new InvalidOperationException($"Cannot find Remove method on {t.Name}");
-
-            var convertItemMethod = typeof(PocoPathHelper).GetMethod(nameof(ConvertValue), BindingFlags.Public | BindingFlags.Static)!;
-            var elementTypeConst = Expression.Constant(elementType, typeof(Type));
-            var convertedItem = Expression.Call(convertItemMethod, itemParam, elementTypeConst);
-            var castItem = Expression.Convert(convertedItem, elementType);
-
-            var call = Expression.Call(castCol, removeMethod, castItem);
-            var body = removeMethod.ReturnType == typeof(void) ? (Expression)call : Expression.Block(typeof(void), call);
-
-            return Expression.Lambda<Action<object, object?>>(body, colParam, itemParam).Compile();
-        });
-        remover(collection, item);
-    }
-
-    public static void ClearCollection(object collection)
-    {
-        var type = collection.GetType();
-        var clearer = CollectionClearers.GetOrAdd(type, t =>
-        {
-            var colParam = Expression.Parameter(typeof(object), "col");
-            var castCol = Expression.Convert(colParam, t);
-            
-            var clearMethod = t.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))?.GetMethod("Clear") 
-                            ?? (typeof(IList).IsAssignableFrom(t) ? typeof(IList).GetMethod("Clear") : t.GetMethod("Clear"));
-
-            if (clearMethod == null) return (_) => throw new InvalidOperationException($"Cannot find Clear method on {t.Name}");
-
-            var call = Expression.Call(castCol, clearMethod);
-            var body = clearMethod.ReturnType == typeof(void) ? (Expression)call : Expression.Block(typeof(void), call);
-
-            return Expression.Lambda<Action<object>>(body, colParam).Compile();
-        });
-        clearer(collection);
-    }
-
-    public static Type GetDictionaryKeyType(Type type)
-    {
-        if (type is null)
-        {
-            throw new ArgumentNullException(nameof(type));
+            return concreteTypeInfo.CreateInstance();
         }
 
-        return DictionaryKeyTypeCache.GetOrAdd(type, t =>
-        {
-            // Check if the type is or implements IDictionary<,>
-            var genericDictionaryInterface = (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IDictionary<,>))
-                ? t
-                : t.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
-
-            if (genericDictionaryInterface is not null)
-            {
-                return genericDictionaryInterface.GetGenericArguments()[0];
-            }
-            
-            // Fallback for non-generic IDictionary, as we cannot determine the key type.
-            return typeof(object);
-        });
+        throw new InvalidOperationException($"Cannot instantiate collection type {concreteType.Name}");
     }
 
-    public static Type GetDictionaryValueType(Type type)
+    public static void AddToCollection(object collection, object? item, IEnumerable<CrdtContext>? aotContexts = null)
     {
-        if (type is null)
+        var typeInfo = GetTypeInfo(collection.GetType(), aotContexts);
+        if (typeInfo.CollectionAdd != null)
         {
-            throw new ArgumentNullException(nameof(type));
+            var convertedItem = ConvertValue(item, typeInfo.CollectionElementType ?? typeof(object), aotContexts);
+            typeInfo.CollectionAdd(collection, convertedItem);
         }
-
-        return DictionaryValueTypeCache.GetOrAdd(type, t =>
-        {
-            // Check if the type is or implements IDictionary<,>
-            var genericDictionaryInterface = (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IDictionary<,>))
-                ? t
-                : t.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
-
-            if (genericDictionaryInterface is not null)
-            {
-                return genericDictionaryInterface.GetGenericArguments()[1];
-            }
-
-            // Fallback for non-generic IDictionary, as we cannot determine the value type.
-            return typeof(object);
-        });
     }
 
-    public static Type GetDictionaryKeyType(PropertyInfo property)
+    public static void RemoveFromCollection(object collection, object? item, IEnumerable<CrdtContext>? aotContexts = null)
     {
-        if (property is null)
+        var typeInfo = GetTypeInfo(collection.GetType(), aotContexts);
+        if (typeInfo.CollectionRemove != null)
         {
-            throw new ArgumentNullException(nameof(property));
+            var convertedItem = ConvertValue(item, typeInfo.CollectionElementType ?? typeof(object), aotContexts);
+            typeInfo.CollectionRemove(collection, convertedItem);
         }
-        return GetDictionaryKeyType(property.PropertyType);
     }
 
-    public static Type GetDictionaryValueType(PropertyInfo property)
+    public static void ClearCollection(object collection, IEnumerable<CrdtContext>? aotContexts = null)
     {
-        if (property is null)
-        {
-            throw new ArgumentNullException(nameof(property));
-        }
-        return GetDictionaryValueType(property.PropertyType);
+        var typeInfo = GetTypeInfo(collection.GetType(), aotContexts);
+        typeInfo.CollectionClear?.Invoke(collection);
     }
 
-    public static object? ConvertValue(object? value, Type targetType)
+    public static object? ConvertValue(object? value, Type targetType, IEnumerable<CrdtContext>? aotContexts = null)
     {
         if (value is null)
         {
@@ -913,7 +588,7 @@ internal static class PocoPathHelper
             }
             catch
             {
-                return value; // Silently fallback on invalid object conversion
+                return value; 
             }
         }
 
@@ -927,42 +602,34 @@ internal static class PocoPathHelper
                 dictionary.TryGetValue("Key", out var keyObj);
                 dictionary.TryGetValue("Value", out var valueObj);
 
-                var key = ConvertValue(keyObj, keyType);
-                var val = ConvertValue(valueObj, valueType);
+                var key = ConvertValue(keyObj, keyType, aotContexts);
+                var val = ConvertValue(valueObj, valueType, aotContexts);
 
-                // Replaced Activator.CreateInstance with compiled cached constructor lambda
-                var factory = KvpConstructorCache.GetOrAdd(underlyingType, CreateKvpConstructor);
-                return factory(key, val);
+                return Activator.CreateInstance(underlyingType, key, val);
             }
 
             if (!underlyingType.IsPrimitive && underlyingType != typeof(string) && !typeof(IEnumerable).IsAssignableFrom(underlyingType))
             {
-                // Replaced Activator.CreateInstance with compiled cached constructor lambda
-                var factory = ConstructorCache.GetOrAdd(underlyingType, CreateConstructor);
-                var instance = factory();
+                var typeInfo = GetTypeInfo(underlyingType, aotContexts);
+                var instance = typeInfo.CreateInstance?.Invoke();
                 
                 if (instance is null)
                 {
                     return null;
                 }
-                var properties = GetPropertiesForType(underlyingType);
 
                 foreach (var kvp in dictionary)
                 {
-                    if (properties.TryGetValue(kvp.Key, out var propInfo) && propInfo.CanWrite)
+                    if (typeInfo.Properties.TryGetValue(kvp.Key, out var propInfo) && propInfo.CanWrite)
                     {
-                        var propValue = ConvertValue(kvp.Value, propInfo.PropertyType);
-                        
-                        // Utilize the fast setter instead of reflection
-                        var accessor = GetAccessor(propInfo);
-                        accessor.Setter(instance, propValue);
+                        var propValue = ConvertValue(kvp.Value, propInfo.PropertyType, aotContexts);
+                        propInfo.Setter!(instance, propValue);
                     }
                 }
                 return instance;
             }
         }
 
-        // Fast path for Guids to avoid IConvertible logic
         if (underlyingType == typeof(Guid) && value is string guidString)
         {
             return Guid.TryParse(guidString, out var parsedGuid) ? parsedGuid : value;
@@ -970,7 +637,6 @@ internal static class PocoPathHelper
 
         try
         {
-            // Using IConvertible directly is fully equivalent to Convert.ChangeType overhead and avoids analyzers
             if (value is IConvertible convertible)
             {
                 return convertible.ToType(underlyingType, CultureInfo.InvariantCulture);
@@ -984,40 +650,27 @@ internal static class PocoPathHelper
         }
     }
     
-    internal static CachedPropertyMetadata[] GetCachedProperties(Type type)
-    {
-        return MetadataPropertyCache.GetOrAdd(type, static t =>
-            [.. t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                .Where(p => p.CanRead && p.GetIndexParameters().Length == 0 && p.GetCustomAttribute<JsonIgnoreAttribute>() == null)
-                .Select(p => 
-                {
-                    var jsonPropertyName = SerializerOptions.PropertyNamingPolicy?.ConvertName(p.Name) ?? p.Name;
-                    return new CachedPropertyMetadata(p, jsonPropertyName);
-                })]);
-    }
-
     internal static bool IsCollection(Type type)
     {
         return type != typeof(string) && typeof(IEnumerable).IsAssignableFrom(type);
     }
 
-    internal static ParseResult ParseExpression<T, TProp>(Expression<Func<T, TProp>> expression)
+    internal static ParseResult ParseExpression<T, TProp>(Expression<Func<T, TProp>> expression, IEnumerable<CrdtContext>? aotContexts = null)
     {
         var current = expression.Body;
         
-        // Unwrap potential boxing
         if (current is UnaryExpression unary)
         {
             current = unary.Operand;
         }
 
-        PropertyInfo? targetProperty = null;
+        PropertyInfo? targetReflectionProperty = null;
         if (current is MemberExpression initialMe && initialMe.Member is PropertyInfo pi)
         {
-            targetProperty = pi;
+            targetReflectionProperty = pi;
         }
 
-        if (targetProperty is null)
+        if (targetReflectionProperty is null)
         {
             throw new ArgumentException(
                 "Expression must end in a property access. " +
@@ -1026,7 +679,14 @@ internal static class PocoPathHelper
         }
 
         var jsonPath = BuildJsonPath(current);
-        return new ParseResult(jsonPath, targetProperty);
+
+        var typeInfo = GetTypeInfo(targetReflectionProperty.DeclaringType ?? typeof(T), aotContexts);
+        if (typeInfo.Properties.TryGetValue(targetReflectionProperty.Name, out var crdtProperty))
+        {
+            return new ParseResult(jsonPath, crdtProperty);
+        }
+
+        throw new InvalidOperationException($"Could not resolve AOT property info for {targetReflectionProperty.Name}");
     }
 
     private static string BuildJsonPath(Expression expression)
@@ -1090,72 +750,34 @@ internal static class PocoPathHelper
         return index?.ToString() ?? string.Empty;
     }
 
-    private static Dictionary<string, PropertyInfo> GetPropertiesForType(Type type)
+    private static Type GetCollectionElementTypeReflect(Type collectionType)
     {
-        return PropertyCache.GetOrAdd(type, t =>
+        var iEnumerableOfT = collectionType.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+        if (iEnumerableOfT != null)
         {
-            var props = t.GetProperties(BindingFlags.Public | BindingFlags.Instance).Where(p => p.CanRead && p.GetIndexParameters().Length == 0);
-
-            var dict = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var p in props)
-            {
-                dict[p.Name] = p;
-            }
-
-            return dict;
-        });
-    }
-
-    private static Func<object> CreateConstructor(Type type)
-    {
-        if (type.IsValueType)
-        {
-            var newExp = Expression.New(type);
-            var castExp = Expression.Convert(newExp, typeof(object));
-            return Expression.Lambda<Func<object>>(castExp).Compile();
+            return iEnumerableOfT.GetGenericArguments()[0];
         }
 
-        var ctor = type.GetConstructor(Type.EmptyTypes);
-        if (ctor is null)
-        {
-            return () => throw new InvalidOperationException($"No parameterless constructor found for type '{type.Name}'.");
-        }
-
-        var newRefExp = Expression.New(ctor);
-        var castRefExp = Expression.Convert(newRefExp, typeof(object));
-        return Expression.Lambda<Func<object>>(castRefExp).Compile();
+        return collectionType.IsGenericType
+            ? collectionType.GetGenericArguments()[0]
+            : collectionType.GetElementType() ?? typeof(object);
     }
 
-    private static Func<object?, object?, object> CreateKvpConstructor(Type type)
+    private static Type GetDictionaryKeyTypeReflect(Type type)
     {
-        var keyType = type.GetGenericArguments()[0];
-        var valueType = type.GetGenericArguments()[1];
-        var ctor = type.GetConstructor([keyType, valueType]);
-        
-        var keyParam = Expression.Parameter(typeof(object), "key");
-        var valParam = Expression.Parameter(typeof(object), "val");
+        var genericDictionaryInterface = (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IDictionary<,>))
+            ? type
+            : type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
 
-        var castKey = GetSafeConvert(keyParam, keyType);
-        var castVal = GetSafeConvert(valParam, valueType);
-
-        var newExp = Expression.New(ctor!, castKey, castVal);
-        var castResult = Expression.Convert(newExp, typeof(object));
-
-        return Expression.Lambda<Func<object?, object?, object>>(castResult, keyParam, valParam).Compile();
+        return genericDictionaryInterface?.GetGenericArguments()[0] ?? typeof(object);
     }
 
-    private static Expression GetSafeConvert(Expression param, Type targetType)
+    private static Type GetDictionaryValueTypeReflect(Type type)
     {
-        if (targetType.IsValueType && Nullable.GetUnderlyingType(targetType) is null)
-        {
-            // Safeguard against passing null objects into value-type constructors, falling back to default(T)
-            var isNull = Expression.Equal(param, Expression.Constant(null, typeof(object)));
-            return Expression.Condition(
-                isNull,
-                Expression.Default(targetType),
-                Expression.Convert(param, targetType));
-        }
-        return Expression.Convert(param, targetType);
+        var genericDictionaryInterface = (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IDictionary<,>))
+            ? type
+            : type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDictionary<,>));
+
+        return genericDictionaryInterface?.GetGenericArguments()[1] ?? typeof(object);
     }
 }

@@ -120,7 +120,9 @@
 | `$/Ama.CRDT.ShowCase/Services/InMemoryDatabaseService.cs` | An implementation of `IInMemoryDatabaseService` using `ConcurrentDictionary` to simulate a database for CRDT documents and metadata. |
 | `$/Ama.CRDT.ShowCase/SimulationRunner.cs` | Orchestrates the distributed map-reduce simulation using concurrent producers, mappers, and convergers communicating via channels to demonstrate CRDT convergence. |
 | `$/Ama.CRDT.SourceGenerators.UnitTests/Ama.CRDT.SourceGenerators.UnitTests.csproj` | No description provided. |
+| `$/Ama.CRDT.SourceGenerators.UnitTests/CrdtContextGeneratorTests.cs` | Tests the C# code output emitted by the `CrdtContextGenerator`. |
 | `$/Ama.CRDT.SourceGenerators/Ama.CRDT.SourceGenerators.csproj` | No description provided. |
+| `$/Ama.CRDT.SourceGenerators/CrdtContextGenerator.cs` | The Roslyn Source Generator that implements `CrdtContext` and generates explicit code to avoid Native AOT trim warnings. |
 | `$/Ama.CRDT.UnitTests/Ama.CRDT.UnitTests.csproj` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Architecture/ModelConventionTests.cs` | An architecture convention unit test that reflects over all data models to enforce the presence of serialization tests by scanning the test source files. |
 | `$/Ama.CRDT.UnitTests/Architecture/StrategyConventionTests.cs` | An architecture convention unit test that reflects over all strategies to enforce the presence of unit tests, property tests, benchmarks, and documentation. |
@@ -193,6 +195,7 @@
 | `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |
 | `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging and to automatically include its associated Roslyn analyzers. |
 | `$/Ama.CRDT/Attributes/CrdtIntentMappingAttribute.cs` | An attribute to map intent builder extension methods to the specific explicit intent types they generate, enabling compile-time validation via Roslyn analyzers without hardcoded mappings. |
+| `$/Ama.CRDT/Attributes/CrdtSerializableAttribute.cs` | Instructs the CRDT source generator to output AOT-compatible metadata for the specified type. |
 | `$/Ama.CRDT/Attributes/CrdtStrategyAttribute.cs` | The base abstract attribute for marking properties with a specific CRDT merge strategy. Contains the strategy type. |
 | `$/Ama.CRDT/Attributes/CrdtStrategyDecoratorAttribute.cs` | A base attribute for specifying a CRDT decorator strategy for a property, allowing multiple stacked decorators like `[CrdtEpochBound]` alongside core strategy attributes. |
 | `$/Ama.CRDT/Attributes/CrdtSupportedIntentAttribute.cs` | An attribute to explicitly mark which explicit `IOperationIntent` types a given CRDT strategy supports. Used by Roslyn analyzers for validation. |
@@ -238,6 +241,9 @@
 | `$/Ama.CRDT/Extensions/AsyncCrdtApplicatorExtensions.cs` | Provides extension methods for `IAsyncCrdtApplicator` to streamline common synchronization tasks, such as directly applying an asynchronous stream of missing operations. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods for easy library setup, unifying `AddCrdt`, applicator/patcher pipeline decoration (`AddCrdtApplicatorDecorator`, `AddCrdtJournaling`), comparers, timestamp providers, and serialization polymorphism. |
+| `$/Ama.CRDT/Models/Aot/CrdtContext.cs` | An abstract base class used to define Native AOT reflection contexts that are populated by the Source Generator. |
+| `$/Ama.CRDT/Models/Aot/CrdtPropertyInfo.cs` | Contains AOT-compatible, strongly-typed property accessors (getters/setters) to eliminate reflection overhead. |
+| `$/Ama.CRDT/Models/Aot/CrdtTypeInfo.cs` | Contains AOT-compatible metadata and factory methods for a specific type, including logic for lists and dictionaries. |
 | `$/Ama.CRDT/Models/ApplyPatchResult.cs` | Data structure containing the result of a patch application, including the document and any unapplied operations. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
 | `$/Ama.CRDT/Models/BidirectionalSyncRequirements.cs` | A data structure containing the synchronization requirements for two replicas to fully catch up with each other. |

@@ -1,6 +1,7 @@
 namespace Ama.CRDT.Services;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Services.Helpers;
@@ -14,7 +15,8 @@ using System.Collections.Generic;
 public sealed class CrdtApplicator(
     ICrdtStrategyProvider strategyProvider,
     ICrdtMetadataManager metadataManager,
-    ReplicaContext replicaContext) : ICrdtApplicator
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : ICrdtApplicator
 {
     /// <inheritdoc/>
     public ApplyPatchResult<T> ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class
@@ -88,13 +90,16 @@ public sealed class CrdtApplicator(
         }
 
         object? target;
-        System.Reflection.PropertyInfo? property;
+        CrdtPropertyInfo? property;
         object? finalSegment;
 
         try
         {
             // The Applicator is responsible for resolving the path and instantiating missing intermediate POCOs.
-            (target, property, finalSegment) = PocoPathHelper.ResolvePath(document, operation.JsonPath, createMissing: true);
+            var resolution = PocoPathHelper.ResolvePath(document, operation.JsonPath, aotContexts, createMissing: true);
+            target = resolution.Parent;
+            property = resolution.Property;
+            finalSegment = resolution.FinalSegment;
         }
         catch
         {
