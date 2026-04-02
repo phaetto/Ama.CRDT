@@ -1,12 +1,13 @@
 namespace Ama.CRDT.Services.Strategies;
 
+using Ama.CRDT.Attributes;
+using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
 using System;
-using Ama.CRDT.Attributes;
-using Ama.CRDT.Attributes.Strategies.Semantic;
 
 /// <summary>
 /// A CRDT strategy for handling numeric properties as counters.
@@ -24,7 +25,9 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 [Associative]
 [Idempotent]
 [StateBased]
-public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrategy
+public sealed class CounterStrategy(
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -33,8 +36,8 @@ public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrate
     {
         var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
-        var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue);
-        var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue);
+        var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue, aotContexts);
+        var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue, aotContexts);
 
         var delta = modifiedNumeric - originalNumeric;
 
@@ -59,7 +62,7 @@ public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrate
                 replicaId,
                 path,
                 OperationType.Increment,
-                PocoPathHelper.ConvertTo<decimal>(incrementIntent.Value),
+                PocoPathHelper.ConvertTo<decimal>(incrementIntent.Value, aotContexts),
                 timestamp,
                 clock),
 
@@ -79,11 +82,11 @@ public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrate
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        var incrementValue = PocoPathHelper.ConvertTo<decimal>(operation.Value);
-        var existingValue = PocoPathHelper.GetValue<decimal>(root, operation.JsonPath);
+        var incrementValue = PocoPathHelper.ConvertTo<decimal>(operation.Value, aotContexts);
+        var existingValue = PocoPathHelper.GetValue<decimal>(root, operation.JsonPath, aotContexts);
         var newValue = existingValue + incrementValue;
         
-        PocoPathHelper.SetValue(root, operation.JsonPath, newValue);
+        PocoPathHelper.SetValue(root, operation.JsonPath, newValue, aotContexts);
 
         return CrdtOperationStatus.Success;
     }
@@ -97,8 +100,8 @@ public sealed class CounterStrategy(ReplicaContext replicaContext) : ICrdtStrate
 
     private CrdtOperation GenerateSetOperation(object root, string path, SetIntent intent, ICrdtTimestamp timestamp, long clock)
     {
-        var targetValue = PocoPathHelper.ConvertTo<decimal>(intent.Value);
-        var currentValue = PocoPathHelper.GetValue<decimal>(root, path);
+        var targetValue = PocoPathHelper.ConvertTo<decimal>(intent.Value, aotContexts);
+        var currentValue = PocoPathHelper.GetValue<decimal>(root, path, aotContexts);
         var delta = targetValue - currentValue;
 
         return new CrdtOperation(

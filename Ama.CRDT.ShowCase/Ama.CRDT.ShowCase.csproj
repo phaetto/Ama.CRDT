@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 	<IsPackable>false</IsPackable>
+	<PublishAot>true</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,7 +15,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Ama.CRDT.Analyzers\Ama.CRDT.Analyzers.csproj" PrivateAssets="all" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
-    <ProjectReference Include="..\Ama.CRDT\Ama.CRDT.csproj" />
+	  <ProjectReference Include="..\Ama.CRDT.SourceGenerators\Ama.CRDT.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+	  <ProjectReference Include="..\Ama.CRDT\Ama.CRDT.csproj" />
   </ItemGroup>
 
 </Project>

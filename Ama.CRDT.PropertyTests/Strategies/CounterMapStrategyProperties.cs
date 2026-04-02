@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -43,6 +45,10 @@ public sealed class CounterMapTestPoco : IEquatable<CounterMapTestPoco>
     
     public override int GetHashCode() => Counters.Count.GetHashCode();
 }
+
+[CrdtSerializable(typeof(CounterMapTestPoco))]
+[CrdtSerializable(typeof(Dictionary<string, decimal>))]
+internal partial class CounterMapTestContext : CrdtContext { }
 
 public sealed class CounterMapStrategyProperties
 {
@@ -122,8 +128,18 @@ public sealed class CounterMapStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new CounterMapStrategy(mockComparerProvider.Object, replicaContext);
-        var propertyInfo = typeof(CounterMapTestPoco).GetProperty(nameof(CounterMapTestPoco.Counters));
+        var strategy = new CounterMapStrategy(mockComparerProvider.Object, replicaContext, [new CounterMapTestContext()]);
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(CounterMapTestPoco.Counters),
+            "counters",
+            typeof(Dictionary<string, decimal>),
+            true,
+            true,
+            obj => ((CounterMapTestPoco)obj).Counters,
+            (obj, val) => ((CounterMapTestPoco)obj).Counters = (Dictionary<string, decimal>)val!,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {

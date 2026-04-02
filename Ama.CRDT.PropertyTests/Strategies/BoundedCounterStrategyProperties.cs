@@ -1,14 +1,23 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(BoundedCounterTestPoco))]
+public partial class BoundedCounterTestContext : CrdtContext
+{
+}
 
 public sealed class BoundedCounterTestPoco : IEquatable<BoundedCounterTestPoco>
 {
@@ -103,9 +112,25 @@ public sealed class BoundedCounterStrategyProperties
 
     private static void ApplyOperations(BoundedCounterTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new BoundedCounterStrategy(replicaContext);
-        var propertyInfo = typeof(BoundedCounterTestPoco).GetProperty(nameof(BoundedCounterTestPoco.Value));
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .AddCrdtAotContext<BoundedCounterTestContext>()
+            .BuildServiceProvider();
+
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("property-test-replica");
+        var strategy = scope.ServiceProvider.GetRequiredService<BoundedCounterStrategy>();
+
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(BoundedCounterTestPoco.Value),
+            "value",
+            typeof(decimal),
+            true,
+            true,
+            obj => ((BoundedCounterTestPoco)obj).Value,
+            (obj, val) => ((BoundedCounterTestPoco)obj).Value = (decimal)val!,
+            new CrdtBoundedCounterStrategyAttribute(-50, 50),
+            []);
 
         foreach (var op in operations)
         {

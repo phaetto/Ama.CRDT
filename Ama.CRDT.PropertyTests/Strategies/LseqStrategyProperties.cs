@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Attributes;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -34,6 +36,12 @@ public sealed class LseqTestPoco : IEquatable<LseqTestPoco>
     public override bool Equals(object? obj) => Equals(obj as LseqTestPoco);
     
     public override int GetHashCode() => Items.Count.GetHashCode();
+}
+
+[CrdtSerializable(typeof(LseqTestPoco))]
+[CrdtSerializable(typeof(List<string>))]
+internal partial class LseqTestContext : CrdtContext
+{
 }
 
 public sealed class LseqStrategyProperties
@@ -171,8 +179,19 @@ public sealed class LseqStrategyProperties
         mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>())).Returns(new EpochTimestamp(0));
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new LseqStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, replicaContext);
-        var propertyInfo = typeof(LseqTestPoco).GetProperty(nameof(LseqTestPoco.Items));
+        var strategy = new LseqStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, replicaContext, new[] { new LseqTestContext() });
+        
+        var propertyInfo = new CrdtPropertyInfo(
+            name: nameof(LseqTestPoco.Items),
+            jsonName: "items",
+            propertyType: typeof(List<string>),
+            canRead: true,
+            canWrite: true,
+            getter: obj => ((LseqTestPoco)obj).Items,
+            setter: (obj, val) => ((LseqTestPoco)obj).Items = (List<string>)val!,
+            strategyAttribute: null,
+            decoratorAttributes: Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {

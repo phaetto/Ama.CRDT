@@ -1,8 +1,10 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
@@ -34,6 +36,11 @@ public sealed class StateMachineTestPoco : IEquatable<StateMachineTestPoco>
     public override bool Equals(object? obj) => Equals(obj as StateMachineTestPoco);
     
     public override int GetHashCode() => State.GetHashCode();
+}
+
+[CrdtSerializable(typeof(StateMachineTestPoco))]
+internal partial class StateMachineTestContext : CrdtContext
+{
 }
 
 public sealed class StateMachineStrategyProperties
@@ -135,8 +142,19 @@ public sealed class StateMachineStrategyProperties
         var mockServiceProvider = new Mock<IServiceProvider>();
         mockServiceProvider.Setup(x => x.GetService(typeof(AlwaysTrueMockValidator))).Returns(new AlwaysTrueMockValidator());
 
-        var strategy = new StateMachineStrategy(replicaContext, mockServiceProvider.Object);
-        var propertyInfo = typeof(StateMachineTestPoco).GetProperty(nameof(StateMachineTestPoco.State));
+        var strategy = new StateMachineStrategy(replicaContext, mockServiceProvider.Object, new[] { new StateMachineTestContext() });
+        
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(StateMachineTestPoco.State),
+            "state",
+            typeof(int),
+            true,
+            true,
+            obj => ((StateMachineTestPoco)obj).State,
+            (obj, val) => ((StateMachineTestPoco)obj).State = (int)val!,
+            new CrdtStateMachineStrategyAttribute(typeof(AlwaysTrueMockValidator)),
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {

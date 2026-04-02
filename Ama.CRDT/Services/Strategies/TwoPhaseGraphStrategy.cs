@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
@@ -22,7 +23,8 @@ using System.Linq;
 [StateBased]
 public sealed class TwoPhaseGraphStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext) : ICrdtStrategy
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -71,7 +73,7 @@ public sealed class TwoPhaseGraphStrategy(
     {
         var (root, metadata, operation) = context;
 
-        var graphObj = PocoPathHelper.GetValue(root, operation.JsonPath);
+        var graphObj = PocoPathHelper.GetValue(root, operation.JsonPath, aotContexts);
         if (graphObj is not CrdtGraph graph)
         {
             return CrdtOperationStatus.PathResolutionFailed;

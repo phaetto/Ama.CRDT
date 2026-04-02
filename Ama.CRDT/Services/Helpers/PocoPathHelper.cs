@@ -30,15 +30,15 @@ internal static class PocoPathHelper
     /// <summary>
     /// Retrieves AOT metadata for the specified type strictly from the provided contexts.
     /// </summary>
-    public static CrdtTypeInfo GetTypeInfo(Type type, IEnumerable<CrdtContext>? aotContexts = null)
+    public static CrdtTypeInfo GetTypeInfo(Type type, IEnumerable<CrdtContext> aotContexts)
     {
-        if (aotContexts != null)
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
+        foreach (var context in aotContexts)
         {
-            foreach (var context in aotContexts)
-            {
-                var info = context.GetTypeInfo(type);
-                if (info != null) return info;
-            }
+            var info = context.GetTypeInfo(type);
+            if (info != null) return info;
         }
 
         throw new InvalidOperationException($"Type '{type.Name}' is not registered in any provided AOT context. Please ensure the type is decorated with [CrdtSerializable] and the context is registered via DI.");
@@ -47,8 +47,10 @@ internal static class PocoPathHelper
     /// <summary>
     /// Extracts the Document ID from a POCO by looking for an Id property.
     /// </summary>
-    public static string GetDocumentId<T>(T? obj, IEnumerable<CrdtContext>? aotContexts = null)
+    public static string GetDocumentId<T>(T? obj, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         if (obj is null) return "default";
 
         var type = obj.GetType();
@@ -175,8 +177,10 @@ internal static class PocoPathHelper
         return [.. segments];
     }
     
-    public static PathResolutionResult ResolvePath(object root, string jsonPath, IEnumerable<CrdtContext>? aotContexts, bool createMissing = false)
+    public static PathResolutionResult ResolvePath(object root, string jsonPath, IEnumerable<CrdtContext> aotContexts, bool createMissing = false)
     {
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         if (root is null || string.IsNullOrEmpty(jsonPath))
         {
             return new PathResolutionResult(null, null, null);
@@ -321,8 +325,10 @@ internal static class PocoPathHelper
         return new PathResolutionResult(null, null, null);
     }
 
-    public static object? GetValue(object root, string jsonPath, IEnumerable<CrdtContext>? aotContexts = null)
+    public static object? GetValue(object root, string jsonPath, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         if (root is null || string.IsNullOrEmpty(jsonPath))
         {
             return null;
@@ -359,15 +365,19 @@ internal static class PocoPathHelper
         return propertyValue;
     }
 
-    public static T? GetValue<T>(object root, string jsonPath, IEnumerable<CrdtContext>? aotContexts = null)
+    public static T? GetValue<T>(object root, string jsonPath, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         var value = GetValue(root, jsonPath, aotContexts);
         if (value is null) return default;
         return (T?)ConvertValue(value, typeof(T), aotContexts);
     }
 
-    public static bool SetValue(object root, string jsonPath, object? value, IEnumerable<CrdtContext>? aotContexts = null)
+    public static bool SetValue(object root, string jsonPath, object? value, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         if (root is null || string.IsNullOrEmpty(jsonPath))
         {
             return false;
@@ -422,13 +432,17 @@ internal static class PocoPathHelper
         return true;
     }
 
-    public static bool SetValue<T>(object root, string jsonPath, T value, IEnumerable<CrdtContext>? aotContexts = null)
+    public static bool SetValue<T>(object root, string jsonPath, T value, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         return SetValue(root, jsonPath, (object?)value, aotContexts);
     }
 
-    public static T ConvertTo<T>(object? value, IEnumerable<CrdtContext>? aotContexts = null)
+    public static T ConvertTo<T>(object? value, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         if (value is null) return default!;
         if (value is T tVal) return tVal;
         
@@ -436,8 +450,11 @@ internal static class PocoPathHelper
         return obj == null ? default! : (T)obj;
     }
 
-    public static object Instantiate(Type type, IEnumerable<CrdtContext>? aotContexts = null)
+    public static object Instantiate(Type type, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         var typeInfo = GetTypeInfo(type, aotContexts);
         if (typeInfo.CreateInstance != null)
         {
@@ -452,8 +469,11 @@ internal static class PocoPathHelper
         throw new InvalidOperationException($"Cannot instantiate type {type.Name}. Ensure it has a parameterless constructor and is registered in the AOT context.");
     }
 
-    public static object? GetDefaultValue(Type type, IEnumerable<CrdtContext>? aotContexts = null)
+    public static object? GetDefaultValue(Type type, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         if (!type.IsValueType) return null;
         
         if (type == typeof(int)) return 0;
@@ -478,13 +498,19 @@ internal static class PocoPathHelper
         return RuntimeHelpers.GetUninitializedObject(type);
     }
 
-    public static object InstantiateCollection(Type propertyType, IEnumerable<CrdtContext>? aotContexts = null)
+    public static object InstantiateCollection(Type propertyType, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(propertyType);
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         return Instantiate(propertyType, aotContexts);
     }
 
-    public static void AddToCollection(object collection, object? item, IEnumerable<CrdtContext>? aotContexts = null)
+    public static void AddToCollection(object collection, object? item, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         var typeInfo = GetTypeInfo(collection.GetType(), aotContexts);
         if (typeInfo.CollectionAdd != null)
         {
@@ -493,8 +519,11 @@ internal static class PocoPathHelper
         }
     }
 
-    public static void RemoveFromCollection(object collection, object? item, IEnumerable<CrdtContext>? aotContexts = null)
+    public static void RemoveFromCollection(object collection, object? item, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         var typeInfo = GetTypeInfo(collection.GetType(), aotContexts);
         if (typeInfo.CollectionRemove != null)
         {
@@ -503,14 +532,19 @@ internal static class PocoPathHelper
         }
     }
 
-    public static void ClearCollection(object collection, IEnumerable<CrdtContext>? aotContexts = null)
+    public static void ClearCollection(object collection, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         var typeInfo = GetTypeInfo(collection.GetType(), aotContexts);
         typeInfo.CollectionClear?.Invoke(collection);
     }
 
-    public static object? ConvertValue(object? value, Type targetType, IEnumerable<CrdtContext>? aotContexts = null)
+    public static object? ConvertValue(object? value, Type targetType, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         if (value is null)
         {
             return null;
@@ -593,8 +627,11 @@ internal static class PocoPathHelper
         return type != typeof(string) && typeof(IEnumerable).IsAssignableFrom(type);
     }
 
-    internal static ParseResult ParseExpression<T, TProp>(Expression<Func<T, TProp>> expression, IEnumerable<CrdtContext>? aotContexts = null)
+    internal static ParseResult ParseExpression<T, TProp>(Expression<Func<T, TProp>> expression, IEnumerable<CrdtContext> aotContexts)
     {
+        ArgumentNullException.ThrowIfNull(expression);
+        ArgumentNullException.ThrowIfNull(aotContexts);
+
         var current = expression.Body;
         
         if (current is UnaryExpression unary)

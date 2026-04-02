@@ -1,7 +1,9 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -27,6 +29,13 @@ public sealed class SortedSetTestPoco : IEquatable<SortedSetTestPoco>
     public override bool Equals(object? obj) => Equals(obj as SortedSetTestPoco);
     
     public override int GetHashCode() => Items.Count.GetHashCode();
+}
+
+[CrdtSerializable(typeof(SortedSetTestPoco))]
+[CrdtSerializable(typeof(List<string>))]
+[CrdtSerializable(typeof(string))]
+internal partial class SortedSetTestContext : CrdtContext
+{
 }
 
 public sealed class SortedSetStrategyProperties
@@ -140,8 +149,19 @@ public sealed class SortedSetStrategyProperties
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
         var timestampProvider = new EpochTimestampProvider(replicaContext);
         
-        var strategy = new SortedSetStrategy(mockComparerProvider.Object, timestampProvider, replicaContext);
-        var propertyInfo = typeof(SortedSetTestPoco).GetProperty(nameof(SortedSetTestPoco.Items));
+        var strategy = new SortedSetStrategy(mockComparerProvider.Object, timestampProvider, replicaContext, new[] { new SortedSetTestContext() });
+        
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(SortedSetTestPoco.Items),
+            "items",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((SortedSetTestPoco)obj).Items,
+            (obj, val) => ((SortedSetTestPoco)obj).Items = (List<string>)val!,
+            new CrdtSortedSetStrategyAttribute(),
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {
