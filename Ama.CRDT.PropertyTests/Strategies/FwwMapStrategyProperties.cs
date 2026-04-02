@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -42,6 +44,12 @@ public sealed class FwwMapTestPoco : IEquatable<FwwMapTestPoco>
     public override bool Equals(object? obj) => Equals(obj as FwwMapTestPoco);
     
     public override int GetHashCode() => Map.Count.GetHashCode();
+}
+
+[CrdtSerializable(typeof(FwwMapTestPoco))]
+[CrdtSerializable(typeof(Dictionary<string, string>))]
+public partial class FwwMapTestContext : CrdtContext
+{
 }
 
 public sealed class FwwMapStrategyProperties
@@ -154,8 +162,17 @@ public sealed class FwwMapStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new FwwMapStrategy(mockComparerProvider.Object, replicaContext);
-        var propertyInfo = typeof(FwwMapTestPoco).GetProperty(nameof(FwwMapTestPoco.Map));
+        var strategy = new FwwMapStrategy(mockComparerProvider.Object, replicaContext, [new FwwMapTestContext()]);
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(FwwMapTestPoco.Map),
+            "map",
+            typeof(Dictionary<string, string>),
+            true,
+            true,
+            obj => ((FwwMapTestPoco)obj).Map,
+            (obj, val) => ((FwwMapTestPoco)obj).Map = (Dictionary<string, string>)val!,
+            null,
+            []);
 
         foreach (var op in operations)
         {

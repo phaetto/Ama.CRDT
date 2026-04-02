@@ -1,7 +1,9 @@
 namespace Ama.CRDT.PropertyTests.Strategies.Decorators;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
@@ -13,7 +15,6 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 public sealed class EpochBoundTestPoco : IEquatable<EpochBoundTestPoco>
 {
@@ -30,6 +31,11 @@ public sealed class EpochBoundTestPoco : IEquatable<EpochBoundTestPoco>
     public override bool Equals(object? obj) => Equals(obj as EpochBoundTestPoco);
     
     public override int GetHashCode() => Value?.GetHashCode(StringComparison.Ordinal) ?? 0;
+}
+
+[CrdtSerializable(typeof(EpochBoundTestPoco))]
+public partial class EpochBoundTestContext : CrdtContext
+{
 }
 
 public sealed class EpochBoundStrategyProperties
@@ -129,18 +135,27 @@ public sealed class EpochBoundStrategyProperties
     private static void ApplyOperations(EpochBoundTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
         var replicaContext = new ReplicaContext { ReplicaId = "inner-replica" };
-        var innerStrategy = new LwwStrategy(replicaContext);
+        var innerStrategy = new LwwStrategy(replicaContext, [ new EpochBoundTestContext() ]);
 
         var mockStrategyProvider = new Mock<ICrdtStrategyProvider>();
         mockStrategyProvider
-            .Setup(x => x.GetInnerStrategy(It.IsAny<PropertyInfo>(), typeof(EpochBoundStrategy)))
+            .Setup(x => x.GetInnerStrategy(It.IsAny<Type>(), It.IsAny<CrdtPropertyInfo>(), typeof(EpochBoundStrategy)))
             .Returns(innerStrategy);
 
         var mockServiceProvider = new Mock<IServiceProvider>();
         mockServiceProvider.Setup(x => x.GetService(typeof(ICrdtStrategyProvider))).Returns(mockStrategyProvider.Object);
 
-        var strategy = new EpochBoundStrategy(mockServiceProvider.Object, replicaContext);
-        var propertyInfo = typeof(EpochBoundTestPoco).GetProperty(nameof(EpochBoundTestPoco.Value));
+        var strategy = new EpochBoundStrategy(mockServiceProvider.Object, replicaContext, [new EpochBoundTestContext()]);
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(EpochBoundTestPoco.Value),
+            "value",
+            typeof(string),
+            true,
+            true,
+            obj => ((EpochBoundTestPoco)obj).Value,
+            (obj, val) => ((EpochBoundTestPoco)obj).Value = (string?)val,
+            null,
+            [new CrdtEpochBoundAttribute()]);
 
         foreach (var op in operations)
         {

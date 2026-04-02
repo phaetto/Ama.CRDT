@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Journaling;
 
@@ -18,20 +19,24 @@ public sealed class JournalingApplicatorDecorator : IAsyncCrdtApplicator
 {
     private readonly IAsyncCrdtApplicator innerApplicator;
     private readonly ICrdtOperationJournal journal;
+    private readonly IEnumerable<CrdtContext> aotContexts;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="JournalingApplicatorDecorator"/> class.
     /// </summary>
     /// <param name="innerApplicator">The inner applicator to delegate the actual patch application to.</param>
     /// <param name="journal">The journal service to record successfully applied operations.</param>
-    /// <exception cref="ArgumentNullException">Thrown if <paramref name="innerApplicator"/> or <paramref name="journal"/> is null.</exception>
-    public JournalingApplicatorDecorator(IAsyncCrdtApplicator innerApplicator, ICrdtOperationJournal journal)
+    /// <param name="aotContexts">The AOT contexts to use for reflection-free property access.</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="innerApplicator"/>, <paramref name="journal"/> or <paramref name="aotContexts"/> is null.</exception>
+    public JournalingApplicatorDecorator(IAsyncCrdtApplicator innerApplicator, ICrdtOperationJournal journal, IEnumerable<CrdtContext> aotContexts)
     {
         ArgumentNullException.ThrowIfNull(innerApplicator);
         ArgumentNullException.ThrowIfNull(journal);
+        ArgumentNullException.ThrowIfNull(aotContexts);
 
         this.innerApplicator = innerApplicator;
         this.journal = journal;
+        this.aotContexts = aotContexts;
     }
 
     /// <inheritdoc/>
@@ -47,7 +52,7 @@ public sealed class JournalingApplicatorDecorator : IAsyncCrdtApplicator
 
             if (appliedOperations.Count > 0)
             {
-                var docId = PocoPathHelper.GetDocumentId(document.Data);
+                var docId = PocoPathHelper.GetDocumentId(document.Data, this.aotContexts);
                 await this.journal.AppendAsync(docId, appliedOperations, cancellationToken).ConfigureAwait(false);
             }
         }

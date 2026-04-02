@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Attributes;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
@@ -13,6 +15,11 @@ using System.Text.Json;
 public sealed class GraphTestPoco
 {
     public CrdtGraph Graph { get; set; } = new();
+}
+
+[CrdtSerializable(typeof(GraphTestPoco))]
+internal partial class GraphTestContext : CrdtContext
+{
 }
 
 public sealed class GraphStrategyProperties
@@ -124,7 +131,18 @@ public sealed class GraphStrategyProperties
     {
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
         var strategy = new GraphStrategy(replicaContext);
-        var propertyInfo = typeof(GraphTestPoco).GetProperty(nameof(GraphTestPoco.Graph));
+        
+        var propertyInfo = new CrdtPropertyInfo(
+            name: nameof(GraphTestPoco.Graph),
+            jsonName: "graph",
+            propertyType: typeof(CrdtGraph),
+            canRead: true,
+            canWrite: true,
+            getter: obj => ((GraphTestPoco)obj).Graph,
+            setter: (obj, val) => ((GraphTestPoco)obj).Graph = (CrdtGraph)val!,
+            strategyAttribute: null,
+            decoratorAttributes: Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {

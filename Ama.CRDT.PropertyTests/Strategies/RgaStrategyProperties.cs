@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -10,6 +12,10 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(RgaTestPoco))]
+[CrdtSerializable(typeof(List<string>))]
+public partial class RgaTestContext : CrdtContext { }
 
 public sealed class RgaTestPoco : IEquatable<RgaTestPoco>
 {
@@ -144,8 +150,20 @@ public sealed class RgaStrategyProperties
         mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>())).Returns(new EpochTimestamp(0));
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new RgaStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, replicaContext);
-        var propertyInfo = typeof(RgaTestPoco).GetProperty(nameof(RgaTestPoco.Items));
+        var aotContexts = new CrdtContext[] { new RgaTestContext(), new InternalCrdtContext() };
+        var strategy = new RgaStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, replicaContext, aotContexts);
+        
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(RgaTestPoco.Items),
+            "items",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((RgaTestPoco)obj).Items,
+            (obj, val) => ((RgaTestPoco)obj).Items = (List<string>)val!,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {

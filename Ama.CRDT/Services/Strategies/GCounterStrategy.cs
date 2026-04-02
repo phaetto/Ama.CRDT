@@ -1,12 +1,13 @@
 namespace Ama.CRDT.Services.Strategies;
 
-using System;
 using Ama.CRDT.Attributes;
-using Ama.CRDT.Models;
-using Ama.CRDT.Models.Intents;
-using Ama.CRDT.Services.Helpers;
-using Ama.CRDT.Services;
 using Ama.CRDT.Attributes.Strategies.Semantic;
+using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Services;
+using Ama.CRDT.Services.Helpers;
+using System;
 
 /// <summary>
 /// Implements the G-Counter (Grow-Only Counter) strategy. This counter only supports positive increments.
@@ -21,7 +22,9 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 [Associative]
 [Idempotent]
 [StateBased]
-public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrategy
+public sealed class GCounterStrategy(
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -30,8 +33,8 @@ public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrat
     {
         var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
 
-        var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue);
-        var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue);
+        var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue, aotContexts);
+        var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue, aotContexts);
 
         var delta = modifiedNumeric - originalNumeric;
 
@@ -50,7 +53,7 @@ public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrat
             throw new NotSupportedException($"Intent '{context.Intent.GetType().Name}' is not supported by {nameof(GCounterStrategy)}.");
         }
 
-        var increment = PocoPathHelper.ConvertTo<decimal>(incrementIntent.Value);
+        var increment = PocoPathHelper.ConvertTo<decimal>(incrementIntent.Value, aotContexts);
 
         if (increment <= 0)
         {
@@ -77,17 +80,17 @@ public sealed class GCounterStrategy(ReplicaContext replicaContext) : ICrdtStrat
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        var increment = PocoPathHelper.ConvertTo<decimal>(operation.Value);
+        var increment = PocoPathHelper.ConvertTo<decimal>(operation.Value, aotContexts);
         if (increment <= 0)
         {
             // G-Counters only grow. Invalid non-positive increments are failed.
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        var currentNumeric = PocoPathHelper.GetValue<decimal>(root, operation.JsonPath);
+        var currentNumeric = PocoPathHelper.GetValue<decimal>(root, operation.JsonPath, aotContexts);
         var newValue = currentNumeric + increment;
 
-        PocoPathHelper.SetValue(root, operation.JsonPath, newValue);
+        PocoPathHelper.SetValue(root, operation.JsonPath, newValue, aotContexts);
 
         return CrdtOperationStatus.Success;
     }

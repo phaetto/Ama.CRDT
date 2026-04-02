@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -35,6 +37,12 @@ public sealed class FwwSetTestPoco : IEquatable<FwwSetTestPoco>
     public override bool Equals(object? obj) => Equals(obj as FwwSetTestPoco);
     
     public override int GetHashCode() => Items.Count.GetHashCode();
+}
+
+[CrdtSerializable(typeof(FwwSetTestPoco))]
+[CrdtSerializable(typeof(List<string>))]
+public partial class FwwSetTestContext : CrdtContext
+{
 }
 
 public sealed class FwwSetStrategyProperties
@@ -147,8 +155,17 @@ public sealed class FwwSetStrategyProperties
         mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>())).Returns(new EpochTimestamp(0));
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new FwwSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, replicaContext);
-        var propertyInfo = typeof(FwwSetTestPoco).GetProperty(nameof(FwwSetTestPoco.Items));
+        var strategy = new FwwSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, replicaContext, [new FwwSetTestContext()]);
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(FwwSetTestPoco.Items),
+            "items",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((FwwSetTestPoco)obj).Items,
+            (obj, val) => ((FwwSetTestPoco)obj).Items = (List<string>)val!,
+            null,
+            []);
 
         foreach (var op in operations)
         {

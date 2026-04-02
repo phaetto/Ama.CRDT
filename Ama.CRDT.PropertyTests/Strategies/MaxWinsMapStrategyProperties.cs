@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -10,6 +12,12 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(MaxWinsMapTestPoco))]
+[CrdtSerializable(typeof(Dictionary<string, int>))]
+internal partial class MaxWinsMapTestContext : CrdtContext
+{
+}
 
 public sealed class MaxWinsMapTestPoco : IEquatable<MaxWinsMapTestPoco>
 {
@@ -147,8 +155,19 @@ public sealed class MaxWinsMapStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new MaxWinsMapStrategy(mockComparerProvider.Object, replicaContext);
-        var propertyInfo = typeof(MaxWinsMapTestPoco).GetProperty(nameof(MaxWinsMapTestPoco.Map));
+        var aotContexts = new CrdtContext[] { new MaxWinsMapTestContext() };
+        var strategy = new MaxWinsMapStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
+        
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(MaxWinsMapTestPoco.Map),
+            "map",
+            typeof(Dictionary<string, int>),
+            true,
+            true,
+            obj => ((MaxWinsMapTestPoco)obj).Map,
+            (obj, val) => ((MaxWinsMapTestPoco)obj).Map = (Dictionary<string, int>)val!,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
 
         foreach (var op in operations)
         {

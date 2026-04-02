@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
@@ -8,6 +10,11 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(FwwTestPoco))]
+public partial class FwwTestContext : CrdtContext
+{
+}
 
 public sealed class FwwTestPoco : IEquatable<FwwTestPoco>
 {
@@ -138,8 +145,18 @@ public sealed class FwwStrategyProperties
     private static void ApplyOperations(FwwTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new FwwStrategy(replicaContext);
-        var propertyInfo = typeof(FwwTestPoco).GetProperty(nameof(FwwTestPoco.Value));
+        var strategy = new FwwStrategy(replicaContext, [ new FwwTestContext() ]);
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(FwwTestPoco.Value),
+            "value",
+            typeof(string),
+            true,
+            true,
+            obj => ((FwwTestPoco)obj).Value,
+            (obj, val) => ((FwwTestPoco)obj).Value = (string?)val,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {

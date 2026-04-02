@@ -1,13 +1,14 @@
 namespace Ama.CRDT.Services.Strategies;
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
 /// Implements an Average Register strategy. Each replica contributes a value, and the property converges to the average of all contributions.
@@ -22,7 +23,9 @@ using Ama.CRDT.Services.Helpers;
 [Associative]
 [Idempotent]
 [StateBased]
-public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICrdtStrategy
+public sealed class AverageRegisterStrategy(
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -81,7 +84,7 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
             return CrdtOperationStatus.Obsolete;
         }
         
-        var incomingValue = PocoPathHelper.ConvertTo<decimal>(operation.Value);
+        var incomingValue = PocoPathHelper.ConvertTo<decimal>(operation.Value, aotContexts);
         contributions[operation.ReplicaId] = new AverageRegisterValue(incomingValue, operation.Timestamp);
 
         RecalculateAndApplyAverage(root, operation.JsonPath, contributions);
@@ -96,7 +99,7 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
         // Therefore, there is no metadata to prune safely.
     }
 
-    private static void RecalculateAndApplyAverage(object root, string jsonPath, IDictionary<string, AverageRegisterValue> contributions)
+    private void RecalculateAndApplyAverage(object root, string jsonPath, IDictionary<string, AverageRegisterValue> contributions)
     {
         if (contributions.Count == 0)
         {
@@ -107,6 +110,6 @@ public sealed class AverageRegisterStrategy(ReplicaContext replicaContext) : ICr
         var sum = contributions.OrderBy(c => c.Key, StringComparer.Ordinal).Sum(c => c.Value.Value);
         var average = sum / contributions.Count;
 
-        PocoPathHelper.SetValue(root, jsonPath, average);
+        PocoPathHelper.SetValue(root, jsonPath, average, aotContexts);
     }
 }

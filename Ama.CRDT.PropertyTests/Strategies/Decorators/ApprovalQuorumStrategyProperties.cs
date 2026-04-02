@@ -1,7 +1,9 @@
 namespace Ama.CRDT.PropertyTests.Strategies.Decorators;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
@@ -13,7 +15,6 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 
 public sealed class ApprovalQuorumTestPoco : IEquatable<ApprovalQuorumTestPoco>
 {
@@ -32,6 +33,10 @@ public sealed class ApprovalQuorumTestPoco : IEquatable<ApprovalQuorumTestPoco>
     
     public override int GetHashCode() => Items.Count.GetHashCode();
 }
+
+[CrdtSerializable(typeof(ApprovalQuorumTestPoco))]
+[CrdtSerializable(typeof(List<string>))]
+internal partial class ApprovalQuorumTestContext : CrdtContext { }
 
 public sealed class ApprovalQuorumStrategyProperties
 {
@@ -75,18 +80,28 @@ public sealed class ApprovalQuorumStrategyProperties
             .Setup(x => x.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
 
-        var innerStrategy = new GSetStrategy(mockComparerProvider.Object, new ReplicaContext { ReplicaId = "inner-replica" });
+        var innerStrategy = new GSetStrategy(mockComparerProvider.Object, new ReplicaContext { ReplicaId = "inner-replica" }, [new ApprovalQuorumTestContext()]);
 
         var mockStrategyProvider = new Mock<ICrdtStrategyProvider>();
         mockStrategyProvider
-            .Setup(x => x.GetInnerStrategy(It.IsAny<PropertyInfo>(), typeof(ApprovalQuorumStrategy)))
+            .Setup(x => x.GetInnerStrategy(It.IsAny<Type>(), It.IsAny<CrdtPropertyInfo>(), typeof(ApprovalQuorumStrategy)))
             .Returns(innerStrategy);
 
         var mockServiceProvider = new Mock<IServiceProvider>();
         mockServiceProvider.Setup(x => x.GetService(typeof(ICrdtStrategyProvider))).Returns(mockStrategyProvider.Object);
 
-        var strategy = new ApprovalQuorumStrategy(mockServiceProvider.Object, mockComparerProvider.Object);
-        var propertyInfo = typeof(ApprovalQuorumTestPoco).GetProperty(nameof(ApprovalQuorumTestPoco.Items));
+        var strategy = new ApprovalQuorumStrategy(mockServiceProvider.Object, mockComparerProvider.Object, [new ApprovalQuorumTestContext()]);
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(ApprovalQuorumTestPoco.Items),
+            "items",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((ApprovalQuorumTestPoco)obj).Items,
+            (obj, val) => ((ApprovalQuorumTestPoco)obj).Items = (List<string>)val!,
+            null,
+            new CrdtStrategyDecoratorAttribute[] { new CrdtApprovalQuorumAttribute(2) }
+        );
 
         foreach (var op in operations)
         {

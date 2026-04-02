@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
@@ -8,6 +10,11 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(MinWinsTestPoco))]
+public partial class MinWinsTestContext : CrdtContext
+{
+}
 
 public sealed class MinWinsTestPoco : IEquatable<MinWinsTestPoco>
 {
@@ -126,7 +133,17 @@ public sealed class MinWinsStrategyProperties
     {
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
         var strategy = new MinWinsStrategy(replicaContext);
-        var propertyInfo = typeof(MinWinsTestPoco).GetProperty(nameof(MinWinsTestPoco.Value));
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(MinWinsTestPoco.Value),
+            "value",
+            typeof(int?),
+            true,
+            true,
+            obj => ((MinWinsTestPoco)obj).Value,
+            (obj, val) => ((MinWinsTestPoco)obj).Value = (int?)val,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {

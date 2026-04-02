@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -10,6 +12,12 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(LwwSetTestPoco))]
+[CrdtSerializable(typeof(List<string>))]
+internal partial class LwwSetTestContext : CrdtContext
+{
+}
 
 public sealed class LwwSetTestPoco : IEquatable<LwwSetTestPoco>
 {
@@ -147,8 +155,19 @@ public sealed class LwwSetStrategyProperties
         mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>())).Returns(new EpochTimestamp(0));
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new LwwSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, replicaContext);
-        var propertyInfo = typeof(LwwSetTestPoco).GetProperty(nameof(LwwSetTestPoco.Items));
+        var aotContexts = new CrdtContext[] { new LwwSetTestContext() };
+        var strategy = new LwwSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, replicaContext, aotContexts);
+        
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(LwwSetTestPoco.Items),
+            "items",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((LwwSetTestPoco)obj).Items,
+            (obj, val) => ((LwwSetTestPoco)obj).Items = (List<string>)val!,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
 
         foreach (var op in operations)
         {

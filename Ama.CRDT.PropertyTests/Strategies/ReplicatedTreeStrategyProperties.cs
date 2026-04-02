@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -11,6 +13,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+
+[CrdtSerializable(typeof(ReplicatedTreeTestPoco))]
+public partial class ReplicatedTreeTestContext : CrdtContext { }
 
 public sealed class ReplicatedTreeTestPoco
 {
@@ -136,8 +141,20 @@ public sealed class ReplicatedTreeStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new ReplicatedTreeStrategy(mockComparerProvider.Object, replicaContext);
-        var propertyInfo = typeof(ReplicatedTreeTestPoco).GetProperty(nameof(ReplicatedTreeTestPoco.Tree));
+        var aotContexts = new CrdtContext[] { new ReplicatedTreeTestContext(), new InternalCrdtContext() };
+        var strategy = new ReplicatedTreeStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
+        
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(ReplicatedTreeTestPoco.Tree),
+            "tree",
+            typeof(CrdtTree),
+            true,
+            true,
+            obj => ((ReplicatedTreeTestPoco)obj).Tree,
+            (obj, val) => ((ReplicatedTreeTestPoco)obj).Tree = (CrdtTree)val!,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {

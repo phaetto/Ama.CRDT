@@ -1,9 +1,14 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
+using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Strategies;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -33,8 +38,29 @@ public sealed class CounterTestPoco : IEquatable<CounterTestPoco>
     public override int GetHashCode() => Value.GetHashCode();
 }
 
-public sealed class CounterStrategyProperties
+[CrdtSerializable(typeof(CounterTestPoco))]
+internal partial class CounterTestContext : CrdtContext { }
+
+public sealed class CounterStrategyProperties : IDisposable
 {
+    private readonly ServiceProvider serviceProvider;
+    private readonly ICrdtScopeFactory scopeFactory;
+
+    public CounterStrategyProperties()
+    {
+        serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .AddCrdtAotContext<CounterTestContext>()
+            .BuildServiceProvider();
+
+        scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+    }
+
+    public void Dispose()
+    {
+        serviceProvider.Dispose();
+    }
+
     [CrdtProperty]
     public void Commutativity_ApplyingOperationsInDifferentOrder_YieldsSameState(int inc1, int inc2)
     {
@@ -99,18 +125,21 @@ public sealed class CounterStrategyProperties
         state1.ShouldBe(state2);
     }
 
-    private static void ApplyOperations(CounterTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
+    private void ApplyOperations(CounterTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new CounterStrategy(replicaContext);
-        var propertyInfo = typeof(CounterTestPoco).GetProperty(nameof(CounterTestPoco.Value));
+        using var scope = scopeFactory.CreateScope("property-test-replica");
+        var strategy = scope.ServiceProvider.GetRequiredService<CounterStrategy>();
+        var aotContexts = scope.ServiceProvider.GetRequiredService<IEnumerable<CrdtContext>>();
+        
+        var propertyInfo = PocoPathHelper.GetTypeInfo(typeof(CounterTestPoco), aotContexts)
+            .Properties.First(p => p.Value.Name == nameof(CounterTestPoco.Value));
 
         foreach (var op in operations)
         {
             var context = new ApplyOperationContext(state, metadata, op)
             {
                 Target = state,
-                Property = propertyInfo,
+                Property = propertyInfo.Value,
                 FinalSegment = nameof(CounterTestPoco.Value)
             };
             strategy.ApplyOperation(context);

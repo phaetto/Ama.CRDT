@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -10,6 +12,12 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(GSetTestPoco))]
+[CrdtSerializable(typeof(List<string>))]
+public partial class GSetTestContext : CrdtContext
+{
+}
 
 public sealed class GSetTestPoco : IEquatable<GSetTestPoco>
 {
@@ -133,8 +141,18 @@ public sealed class GSetStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new GSetStrategy(mockComparerProvider.Object, replicaContext);
-        var propertyInfo = typeof(GSetTestPoco).GetProperty(nameof(GSetTestPoco.Items));
+        var strategy = new GSetStrategy(mockComparerProvider.Object, replicaContext, new List<CrdtContext> { new GSetTestContext() });
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(GSetTestPoco.Items),
+            "items",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((GSetTestPoco)obj).Items,
+            (obj, val) => ((GSetTestPoco)obj).Items = (List<string>)(val ?? new List<string>()),
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
 
         foreach (var op in operations)
         {

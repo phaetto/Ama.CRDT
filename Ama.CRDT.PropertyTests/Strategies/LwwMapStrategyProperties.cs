@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
@@ -10,6 +12,12 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(LwwMapTestPoco))]
+[CrdtSerializable(typeof(Dictionary<string, string>))]
+internal partial class LwwMapTestContext : CrdtContext
+{
+}
 
 public sealed class LwwMapTestPoco : IEquatable<LwwMapTestPoco>
 {
@@ -154,8 +162,19 @@ public sealed class LwwMapStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new LwwMapStrategy(mockComparerProvider.Object, replicaContext);
-        var propertyInfo = typeof(LwwMapTestPoco).GetProperty(nameof(LwwMapTestPoco.Map));
+        var aotContexts = new CrdtContext[] { new LwwMapTestContext() };
+        var strategy = new LwwMapStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
+        
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(LwwMapTestPoco.Map),
+            "map",
+            typeof(Dictionary<string, string>),
+            true,
+            true,
+            obj => ((LwwMapTestPoco)obj).Map,
+            (obj, val) => ((LwwMapTestPoco)obj).Map = (Dictionary<string, string>)val!,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
 
         foreach (var op in operations)
         {

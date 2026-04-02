@@ -1,6 +1,8 @@
 namespace Ama.CRDT.PropertyTests.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Strategies;
@@ -8,6 +10,11 @@ using Shouldly;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+[CrdtSerializable(typeof(TestPoco))]
+internal partial class LwwTestContext : CrdtContext
+{
+}
 
 public sealed class TestPoco : IEquatable<TestPoco>
 {
@@ -150,7 +157,7 @@ public sealed class LwwStrategyProperties
     private static void ApplyOperations(TestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new LwwStrategy(replicaContext);
+        var strategy = new LwwStrategy(replicaContext, [ new LwwTestContext() ]);
 
         foreach (var op in operations)
         {

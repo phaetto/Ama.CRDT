@@ -3,10 +3,11 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
-using Ama.CRDT.Services.GarbageCollection;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,7 +22,8 @@ using System.Linq;
 [StateBased]
 public sealed class ReplicatedTreeStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext) : ICrdtStrategy
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -121,7 +123,7 @@ public sealed class ReplicatedTreeStrategy(
     {
         var (root, metadata, operation) = context;
         
-        var treeObj = PocoPathHelper.GetValue(root, operation.JsonPath);
+        var treeObj = PocoPathHelper.GetValue(root, operation.JsonPath, aotContexts);
         if (treeObj is not CrdtTree tree)
         {
             return CrdtOperationStatus.PathResolutionFailed;
@@ -146,11 +148,11 @@ public sealed class ReplicatedTreeStrategy(
         if (payload is IDictionary<string, object> dict)
         {
             if (dict.ContainsKey("Tag"))
-                payload = PocoPathHelper.ConvertValue(dict, typeof(TreeAddNodePayload));
+                payload = PocoPathHelper.ConvertValue(dict, typeof(TreeAddNodePayload), aotContexts);
             else if (dict.ContainsKey("Tags"))
-                payload = PocoPathHelper.ConvertValue(dict, typeof(TreeRemoveNodePayload));
+                payload = PocoPathHelper.ConvertValue(dict, typeof(TreeRemoveNodePayload), aotContexts);
             else if (dict.ContainsKey("NewParentId"))
-                payload = PocoPathHelper.ConvertValue(dict, typeof(TreeMoveNodePayload));
+                payload = PocoPathHelper.ConvertValue(dict, typeof(TreeMoveNodePayload), aotContexts);
         }
 
         if (payload is TreeAddNodePayload addPayload)

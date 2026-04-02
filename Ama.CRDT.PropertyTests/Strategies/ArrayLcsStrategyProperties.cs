@@ -4,13 +4,23 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Ama.CRDT.Attributes;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.PropertyTests.Attributes;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
+
+[CrdtSerializable(typeof(ArrayLcsTestPoco))]
+[CrdtSerializable(typeof(List<string>))]
+public partial class ArrayLcsTestContext : CrdtContext
+{
+}
 
 public sealed class ArrayLcsTestPoco : IEquatable<ArrayLcsTestPoco>
 {
@@ -138,9 +148,26 @@ public sealed class ArrayLcsStrategyProperties
             .Setup(x => x.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
 
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new ArrayLcsStrategy(mockComparerProvider.Object, replicaContext);
-        var propertyInfo = typeof(ArrayLcsTestPoco).GetProperty(nameof(ArrayLcsTestPoco.Items));
+        var serviceProvider = new ServiceCollection()
+            .AddCrdt()
+            .AddCrdtAotContext<ArrayLcsTestContext>()
+            .AddSingleton(mockComparerProvider.Object)
+            .BuildServiceProvider();
+
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("property-test-replica");
+        var strategy = scope.ServiceProvider.GetRequiredService<ArrayLcsStrategy>();
+
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(ArrayLcsTestPoco.Items),
+            "items",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((ArrayLcsTestPoco)obj).Items,
+            (obj, val) => ((ArrayLcsTestPoco)obj).Items = (List<string>)val!,
+            null,
+            []);
 
         foreach (var op in operations)
         {
