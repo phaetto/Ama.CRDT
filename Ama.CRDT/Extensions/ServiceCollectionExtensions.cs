@@ -1,6 +1,9 @@
+using System;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Adapters;
@@ -58,10 +61,15 @@ public static class ServiceCollectionExtensions
     /// </example>
     public static IServiceCollection AddCrdt(this IServiceCollection services, Action<CrdtModelBuilder>? configure = null)
     {
+        ArgumentNullException.ThrowIfNull(services);
+
         // Build the configuration registry
         var builder = new CrdtModelBuilder();
         configure?.Invoke(builder);
         services.TryAddSingleton(builder.Build());
+
+        // Register the internal CRDT AOT Context for reflection-free access to library models
+        services.AddCrdtAotContext<InternalCrdtContext>();
 
         // Add metrics
         services.TryAddSingleton<PartitionManagerCrdtMetrics>();
@@ -198,6 +206,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtApplicatorDecorator<TDecorator>(this IServiceCollection services)
         where TDecorator : class, IAsyncCrdtApplicator
     {
+        ArgumentNullException.ThrowIfNull(services);
         return services.DecorateService<IAsyncCrdtApplicator, TDecorator>();
     }
 
@@ -219,6 +228,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtPatcherDecorator<TDecorator>(this IServiceCollection services)
         where TDecorator : class, IAsyncCrdtPatcher
     {
+        ArgumentNullException.ThrowIfNull(services);
         return services.DecorateService<IAsyncCrdtPatcher, TDecorator>();
     }
 
@@ -244,6 +254,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtJournaling<TJournal>(this IServiceCollection services)
         where TJournal : class, ICrdtOperationJournal
     {
+        ArgumentNullException.ThrowIfNull(services);
+
         // Register the user-provided journal implementation
         services.TryAddScoped<ICrdtOperationJournal, TJournal>();
 
@@ -292,6 +304,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtComparer<TComparer>(this IServiceCollection services)
         where TComparer : class, IElementComparer
     {
+        ArgumentNullException.ThrowIfNull(services);
         services.TryAddEnumerable(ServiceDescriptor.Scoped<IElementComparer, TComparer>());
         return services;
     }
@@ -326,6 +339,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtTimestampProvider<TProvider>(this IServiceCollection services)
         where TProvider : class, ICrdtTimestampProvider
     {
+        ArgumentNullException.ThrowIfNull(services);
+
         // Register the custom provider implementation with validation.
         services.AddScoped(CreateValidatedInstance<TProvider>);
         // Override the ICrdtTimestampProvider registration to point to the custom implementation.
@@ -364,6 +379,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtTimestampType<TTimestamp>(this IServiceCollection services, string discriminator)
         where TTimestamp : ICrdtTimestamp
     {
+        ArgumentNullException.ThrowIfNull(services);
         CrdtTypeRegistry.Register(discriminator, typeof(TTimestamp));
         return services;
     }
@@ -388,7 +404,56 @@ public static class ServiceCollectionExtensions
     /// </example>
     public static IServiceCollection AddCrdtSerializableType<T>(this IServiceCollection services, string discriminator)
     {
+        ArgumentNullException.ThrowIfNull(services);
         CrdtTypeRegistry.Register(discriminator, typeof(T));
+        return services;
+    }
+
+    /// <summary>
+    /// Registers an AOT-generated <see cref="CrdtContext"/> into the DI container as a Singleton.
+    /// This enables reflection-free property access and instantiation for CRDT operations, making the library Native AOT compatible.
+    /// Because the type metadata does not hold replica state, it's safe and efficient to register it as a singleton.
+    /// </summary>
+    /// <typeparam name="TContext">The generated AOT context type.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// // In your DI setup:
+    /// builder.Services.AddCrdtAotContext<MyAotContext>();
+    /// ]]>
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddCrdtAotContext<TContext>(this IServiceCollection services)
+        where TContext : CrdtContext, new()
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<CrdtContext, TContext>());
+        return services;
+    }
+
+    /// <summary>
+    /// Registers an explicitly instantiated AOT-generated <see cref="CrdtContext"/> into the DI container as a Singleton.
+    /// This enables reflection-free property access and instantiation for CRDT operations, making the library Native AOT compatible.
+    /// Because the type metadata does not hold replica state, it's safe and efficient to register it as a singleton.
+    /// </summary>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <param name="context">The pre-instantiated context to register.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// // In your DI setup:
+    /// builder.Services.AddCrdtAotContext(new MyAotContext());
+    /// ]]>
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddCrdtAotContext(this IServiceCollection services, CrdtContext context)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(context);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton(typeof(CrdtContext), context));
         return services;
     }
 
@@ -436,6 +501,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtCompactionPolicyFactory<TFactory>(this IServiceCollection services)
         where TFactory : class, ICompactionPolicyFactory
     {
+        ArgumentNullException.ThrowIfNull(services);
         services.TryAddEnumerable(ServiceDescriptor.Scoped<ICompactionPolicyFactory, TFactory>());
         return services;
     }
@@ -457,6 +523,8 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdtCompactionPolicyFactory<TFactory>(this IServiceCollection services, Func<IServiceProvider, TFactory> implementationFactory)
         where TFactory : class, ICompactionPolicyFactory
     {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(implementationFactory);
         services.TryAddEnumerable(ServiceDescriptor.Scoped<ICompactionPolicyFactory, TFactory>(implementationFactory));
         return services;
     }
