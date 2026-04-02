@@ -14,7 +14,7 @@ using Ama.CRDT.Attributes.Strategies;
 
 public sealed class CrdtApplicatorTests : IDisposable
 {
-    private sealed class TestModel
+    internal sealed class TestModel
     {
         public string? Name { get; set; }
 
@@ -32,6 +32,7 @@ public sealed class CrdtApplicatorTests : IDisposable
         testReplicaId = Guid.NewGuid().ToString();
         var services = new ServiceCollection();
         services.AddCrdt();
+        services.AddCrdtAotContext<ServicesTestCrdtContext>();
 
         var serviceProvider = services.BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
