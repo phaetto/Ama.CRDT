@@ -5,13 +5,18 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 
 /// <inheritdoc/>
-public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTimestampProvider timestampProvider, ReplicaContext replicaContext) : ICrdtPatcher
+public sealed class CrdtPatcher(
+    ICrdtStrategyProvider strategyProvider, 
+    ICrdtTimestampProvider timestampProvider, 
+    ReplicaContext replicaContext,
+    IEnumerable<CrdtContext> aotContexts) : ICrdtPatcher
 {
     private sealed class ClockState { public long Clock; }
     private readonly ConditionalWeakTable<CrdtMetadata, ClockState> issuedClocks = new();
@@ -69,10 +74,6 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
 
         clockState.Clock = localClock;
 
-        // We DO NOT mutate from.Metadata.VersionVector here.
-        // It is the responsibility of the caller to apply the generated patch locally 
-        // to properly update both the VersionVector AND the strategy-specific metadata states.
-
         return new CrdtPatch(operations);
     }
 
@@ -92,7 +93,7 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
         ArgumentNullException.ThrowIfNull(intent);
         ArgumentNullException.ThrowIfNull(timestamp);
 
-        var parseResult = PocoPathHelper.ParseExpression(propertyExpression);
+        var parseResult = PocoPathHelper.ParseExpression(propertyExpression, aotContexts);
         var strategy = strategyProvider.GetStrategy(parseResult.Property);
 
         var replicaId = replicaContext.ReplicaId;
@@ -141,17 +142,17 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
                 continue;
             }
 
-            var properties = PocoPathHelper.GetCachedProperties(type);
+            var typeInfo = PocoPathHelper.GetTypeInfo(type, aotContexts);
             var isRoot = path == "$";
 
-            foreach (var cached in properties)
+            foreach (var propertyInfo in typeInfo.Properties.Values)
             {
-                var currentPath = isRoot ? cached.RootedPath : path + cached.PathSuffix;
-                var fromValue = fromObj is not null ? cached.Accessor.Getter(fromObj) : null;
-                var toValue = toObj is not null ? cached.Accessor.Getter(toObj) : null;
+                var currentPath = isRoot ? $"$.{propertyInfo.JsonName}" : $"{path}.{propertyInfo.JsonName}";
+                var fromValue = fromObj is not null && propertyInfo.CanRead ? propertyInfo.Getter!(fromObj) : null;
+                var toValue = toObj is not null && propertyInfo.CanRead ? propertyInfo.Getter!(toObj) : null;
 
-                var propertyType = cached.Property.PropertyType;
-                var strategy = strategyProvider.GetStrategy(cached.Property);
+                var propertyType = propertyInfo.PropertyType;
+                var strategy = strategyProvider.GetStrategy(propertyInfo);
 
                 var isComplexLww = strategy is LwwStrategy 
                                    && propertyType.IsClass 
@@ -169,7 +170,7 @@ public sealed class CrdtPatcher(ICrdtStrategyProvider strategyProvider, ICrdtTim
                     // Delegating to strategy, which could either be a terminal operation or an optimization (like emitting a parent Remove)
                     var nestedDiffs = new List<DifferentiateObjectContext>();
                     var strategyContext = new GeneratePatchContext(
-                        operations, nestedDiffs, currentPath, cached.Property, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp, clock);
+                        operations, nestedDiffs, currentPath, propertyInfo, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp, clock);
                     
                     strategy.GeneratePatch(strategyContext);
                     
