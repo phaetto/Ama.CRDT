@@ -1,5 +1,8 @@
 namespace Ama.CRDT.Models.Aot;
 
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
@@ -76,6 +79,57 @@ using Ama.CRDT.Models.Partitioning;
 [CrdtSerializable(typeof(SetIndexIntent))]
 [CrdtSerializable(typeof(SetIntent))]
 [CrdtSerializable(typeof(VoteIntent))]
+[CrdtSerializable(typeof(object))]
+[CrdtSerializable(typeof(IComparable))]
+[CrdtSerializable(typeof(ICrdtTimestamp))]
+[CrdtSerializable(typeof(ISet<object>))]
+[CrdtSerializable(typeof(HashSet<object>))]
+[CrdtSerializable(typeof(ISet<Edge>))]
+[CrdtSerializable(typeof(HashSet<Edge>))]
+[CrdtSerializable(typeof(ISet<Guid>))]
+[CrdtSerializable(typeof(ISet<CrdtOperation>))]
+[CrdtSerializable(typeof(HashSet<CrdtOperation>))]
+[CrdtSerializable(typeof(HashSet<long>))]
+[CrdtSerializable(typeof(IReadOnlyList<CrdtOperation>))]
+[CrdtSerializable(typeof(ImmutableList<LseqPathSegment>))]
+[CrdtSerializable(typeof(IDictionary<string, int>))]
+[CrdtSerializable(typeof(Dictionary<string, int>))]
+[CrdtSerializable(typeof(IDictionary<string, long>))]
+[CrdtSerializable(typeof(Dictionary<string, long>))]
+[CrdtSerializable(typeof(IDictionary<string, CausalTimestamp>))]
+[CrdtSerializable(typeof(Dictionary<string, CausalTimestamp>))]
+[CrdtSerializable(typeof(IDictionary<string, TwoPhaseSetState>))]
+[CrdtSerializable(typeof(Dictionary<string, TwoPhaseSetState>))]
+[CrdtSerializable(typeof(IDictionary<string, LwwSetState>))]
+[CrdtSerializable(typeof(Dictionary<string, LwwSetState>))]
+[CrdtSerializable(typeof(IDictionary<string, OrSetState>))]
+[CrdtSerializable(typeof(Dictionary<string, OrSetState>))]
+[CrdtSerializable(typeof(IDictionary<string, TwoPhaseGraphState>))]
+[CrdtSerializable(typeof(Dictionary<string, TwoPhaseGraphState>))]
+[CrdtSerializable(typeof(IDictionary<string, List<PositionalIdentifier>>))]
+[CrdtSerializable(typeof(Dictionary<string, List<PositionalIdentifier>>))]
+[CrdtSerializable(typeof(IDictionary<string, List<LseqItem>>))]
+[CrdtSerializable(typeof(Dictionary<string, List<LseqItem>>))]
+[CrdtSerializable(typeof(IDictionary<string, List<RgaItem>>))]
+[CrdtSerializable(typeof(Dictionary<string, List<RgaItem>>))]
+[CrdtSerializable(typeof(IDictionary<string, ISet<long>>))]
+[CrdtSerializable(typeof(IReadOnlyDictionary<string, OriginSyncRequirement>))]
+[CrdtSerializable(typeof(IDictionary<string, IDictionary<object, ISet<string>>>))]
+[CrdtSerializable(typeof(Dictionary<string, IDictionary<object, ISet<string>>>))]
+[CrdtSerializable(typeof(IDictionary<string, IDictionary<string, AverageRegisterValue>>))]
+[CrdtSerializable(typeof(Dictionary<string, IDictionary<string, AverageRegisterValue>>))]
+[CrdtSerializable(typeof(IDictionary<string, IDictionary<object, CausalTimestamp>>))]
+[CrdtSerializable(typeof(Dictionary<string, IDictionary<object, CausalTimestamp>>))]
+[CrdtSerializable(typeof(IDictionary<string, IDictionary<object, PnCounterState>>))]
+[CrdtSerializable(typeof(Dictionary<string, IDictionary<object, PnCounterState>>))]
+[CrdtSerializable(typeof(IDictionary<object, ICrdtTimestamp>))]
+[CrdtSerializable(typeof(IDictionary<object, CausalTimestamp>))]
+[CrdtSerializable(typeof(IDictionary<object, ISet<Guid>>))]
+[CrdtSerializable(typeof(IDictionary<object, IDictionary<Guid, CausalTimestamp>>))]
+[CrdtSerializable(typeof(IDictionary<object, TreeNode>))]
+[CrdtSerializable(typeof(Dictionary<object, TreeNode>))]
+[CrdtSerializable(typeof(CompositePartitionKey?))]
+[CrdtSerializable(typeof(RgaIdentifier?))]
 internal partial class InternalCrdtContext : CrdtContext
 {
 }
