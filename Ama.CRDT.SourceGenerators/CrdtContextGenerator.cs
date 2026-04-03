@@ -9,12 +9,12 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
 [Generator(LanguageNames.CSharp)]
-public class CrdtContextGenerator : IIncrementalGenerator
+public class CrdtAotContextGenerator : IIncrementalGenerator
 {
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         var provider = context.SyntaxProvider.ForAttributeWithMetadataName(
-            "Ama.CRDT.Attributes.CrdtSerializableAttribute",
+            "Ama.CRDT.Attributes.CrdtAotTypeAttribute",
             predicate: static (node, _) => node is ClassDeclarationSyntax,
             transform: static (ctx, _) => ctx.TargetSymbol as INamedTypeSymbol)
             .Where(static m => m is not null);
@@ -34,8 +34,8 @@ public class CrdtContextGenerator : IIncrementalGenerator
         foreach (var contextClass in distinctClasses)
         {
             var attributes = contextClass.GetAttributes()
-                .Where(a => a.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Ama.CRDT.Attributes.CrdtSerializableAttribute" ||
-                            a.AttributeClass?.ToDisplayString() == "Ama.CRDT.Attributes.CrdtSerializableAttribute")
+                .Where(a => a.AttributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == "global::Ama.CRDT.Attributes.CrdtAotTypeAttribute" ||
+                            a.AttributeClass?.ToDisplayString() == "Ama.CRDT.Attributes.CrdtAotTypeAttribute")
                 .ToList();
 
             var typesToGenerate = new List<ITypeSymbol>();

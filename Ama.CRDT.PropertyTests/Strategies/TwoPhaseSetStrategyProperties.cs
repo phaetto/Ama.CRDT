@@ -30,9 +30,9 @@ public sealed class TwoPhaseSetTestPoco : IEquatable<TwoPhaseSetTestPoco>
     public override int GetHashCode() => Items.Count.GetHashCode();
 }
 
-[CrdtSerializable(typeof(TwoPhaseSetTestPoco))]
-[CrdtSerializable(typeof(List<string>))]
-internal partial class TwoPhaseSetTestContext : CrdtContext
+[CrdtAotType(typeof(TwoPhaseSetTestPoco))]
+[CrdtAotType(typeof(List<string>))]
+internal partial class TwoPhaseSetTestContext : CrdtAotContext
 {
 }
 

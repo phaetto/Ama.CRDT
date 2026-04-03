@@ -13,9 +13,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(MinWinsMapTestPoco))]
-[CrdtSerializable(typeof(Dictionary<string, int>))]
-public partial class MinWinsMapTestContext : CrdtContext
+[CrdtAotType(typeof(MinWinsMapTestPoco))]
+[CrdtAotType(typeof(Dictionary<string, int>))]
+public partial class MinWinsMapTestContext : CrdtAotContext
 {
 }
 
@@ -155,7 +155,7 @@ public sealed class MinWinsMapStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new MinWinsMapStrategy(mockComparerProvider.Object, replicaContext, new CrdtContext[] { new InternalCrdtContext(), new MinWinsMapTestContext() });
+        var strategy = new MinWinsMapStrategy(mockComparerProvider.Object, replicaContext, new CrdtAotContext[] { new InternalCrdtAotContext(), new MinWinsMapTestContext() });
         var propertyInfo = new CrdtPropertyInfo(
             nameof(MinWinsMapTestPoco.Map),
             "map",

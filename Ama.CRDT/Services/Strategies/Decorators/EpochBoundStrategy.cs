@@ -25,7 +25,7 @@ using System.Linq;
 [Associative]
 [Idempotent]
 [OperationBased]
-public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, ReplicaContext replicaContext, IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
+public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, ReplicaContext replicaContext, IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
     private ICrdtStrategy GetInnerStrategy(Type declaringType, CrdtPropertyInfo property)
     {

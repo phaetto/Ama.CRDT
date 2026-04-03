@@ -13,7 +13,7 @@ builder.ConfigureServices((context, services) =>
 {
     services.AddCrdt()
         .AddCrdtSerializableType<Comment>("blog-comment")
-        .AddCrdtAotContext<LargerThanMemoryCrdtContext>()
+        .AddCrdtAotContext<LargerThanMemoryCrdtAotContext>()
         .AddCrdtJsonTypeInfoResolver(LargerThanMemoryJsonContext.Default)
         .AddCrdtJournaling<FileSystemOperationJournal>()
         .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()

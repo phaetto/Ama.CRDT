@@ -35,7 +35,7 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<ReplicatedTreeStrategyTestCrdtContext>()
+            .AddCrdtAotContext<ReplicatedTreeStrategyTestCrdtAotContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

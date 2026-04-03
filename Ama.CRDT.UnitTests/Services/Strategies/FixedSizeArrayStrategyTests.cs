@@ -19,9 +19,9 @@ using System.Linq;
 using System.Threading;
 using Xunit;
 
-[CrdtSerializable(typeof(FixedSizeArrayTestModel))]
-[CrdtSerializable(typeof(List<int>))]
-internal partial class FixedSizeArrayTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(FixedSizeArrayTestModel))]
+[CrdtAotType(typeof(List<int>))]
+internal partial class FixedSizeArrayTestCrdtAotContext : CrdtAotContext
 {
 }
 
@@ -46,7 +46,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<FixedSizeArrayTestCrdtContext>()
+            .AddCrdtAotContext<FixedSizeArrayTestCrdtAotContext>()
             .AddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>()
             .BuildServiceProvider();
 

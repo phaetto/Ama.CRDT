@@ -19,8 +19,8 @@ public sealed class TwoPhaseGraphTestPoco
     public CrdtGraph Graph { get; set; } = new();
 }
 
-[CrdtSerializable(typeof(TwoPhaseGraphTestPoco))]
-internal partial class TwoPhaseGraphTestContext : CrdtContext
+[CrdtAotType(typeof(TwoPhaseGraphTestPoco))]
+internal partial class TwoPhaseGraphTestContext : CrdtAotContext
 {
 }
 

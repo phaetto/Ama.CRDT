@@ -16,7 +16,7 @@ internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
 {
     private readonly IReadOnlyDictionary<Type, ICrdtStrategy> strategies;
     private readonly ICrdtModelRegistry registry;
-    private readonly IEnumerable<CrdtContext> aotContexts;
+    private readonly IEnumerable<CrdtAotContext> aotContexts;
     private readonly ICrdtStrategy defaultStrategy;
     private readonly ICrdtStrategy defaultArrayStrategy;
     private readonly ICrdtStrategy defaultDictionaryStrategy;
@@ -36,7 +36,7 @@ internal sealed class CrdtStrategyProvider : ICrdtStrategyProvider
     public CrdtStrategyProvider(
         IEnumerable<ICrdtStrategy> strategies, 
         ICrdtModelRegistry registry,
-        IEnumerable<CrdtContext> aotContexts)
+        IEnumerable<CrdtAotContext> aotContexts)
     {
         ArgumentNullException.ThrowIfNull(strategies);
         ArgumentNullException.ThrowIfNull(registry);

@@ -13,9 +13,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(MaxWinsMapTestPoco))]
-[CrdtSerializable(typeof(Dictionary<string, int>))]
-internal partial class MaxWinsMapTestContext : CrdtContext
+[CrdtAotType(typeof(MaxWinsMapTestPoco))]
+[CrdtAotType(typeof(Dictionary<string, int>))]
+internal partial class MaxWinsMapTestContext : CrdtAotContext
 {
 }
 
@@ -155,7 +155,7 @@ public sealed class MaxWinsMapStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var aotContexts = new CrdtContext[] { new MaxWinsMapTestContext() };
+        var aotContexts = new CrdtAotContext[] { new MaxWinsMapTestContext() };
         var strategy = new MaxWinsMapStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(

@@ -17,9 +17,9 @@ internal sealed class ElementComparerProvider : IElementComparerProvider
     /// Initializes a new instance of the <see cref="ElementComparerProvider"/> class.
     /// </summary>
     /// <param name="comparers">An enumerable of registered <see cref="IElementComparer"/> instances.</param>
-    /// <param name="aotContexts">An enumerable of registered <see cref="CrdtContext"/> instances.</param>
+    /// <param name="aotContexts">An enumerable of registered <see cref="CrdtAotContext"/> instances.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="comparers"/> or <paramref name="aotContexts"/> is null.</exception>
-    public ElementComparerProvider(IEnumerable<IElementComparer> comparers, IEnumerable<CrdtContext> aotContexts)
+    public ElementComparerProvider(IEnumerable<IElementComparer> comparers, IEnumerable<CrdtAotContext> aotContexts)
     {
         this.comparers = comparers ?? throw new ArgumentNullException(nameof(comparers));
         defaultComparer = new ObjectDeepEqualityComparer(aotContexts ?? throw new ArgumentNullException(nameof(aotContexts)));
@@ -34,9 +34,9 @@ internal sealed class ElementComparerProvider : IElementComparerProvider
     
     private sealed class ObjectDeepEqualityComparer : IEqualityComparer<object>
     {
-        private readonly IEnumerable<CrdtContext> aotContexts;
+        private readonly IEnumerable<CrdtAotContext> aotContexts;
 
-        public ObjectDeepEqualityComparer(IEnumerable<CrdtContext> aotContexts)
+        public ObjectDeepEqualityComparer(IEnumerable<CrdtAotContext> aotContexts)
         {
             this.aotContexts = aotContexts;
         }

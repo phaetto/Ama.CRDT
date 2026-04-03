@@ -13,9 +13,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(RgaTestPoco))]
-[CrdtSerializable(typeof(List<string>))]
-public partial class RgaTestContext : CrdtContext { }
+[CrdtAotType(typeof(RgaTestPoco))]
+[CrdtAotType(typeof(List<string>))]
+public partial class RgaTestContext : CrdtAotContext { }
 
 public sealed class RgaTestPoco : IEquatable<RgaTestPoco>
 {
@@ -147,7 +147,7 @@ public sealed class RgaStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var aotContexts = new CrdtContext[] { new RgaTestContext(), new InternalCrdtContext() };
+        var aotContexts = new CrdtAotContext[] { new RgaTestContext(), new InternalCrdtAotContext() };
         var strategy = new RgaStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(

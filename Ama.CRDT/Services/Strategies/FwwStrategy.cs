@@ -24,7 +24,7 @@ using System.Collections.Generic;
 [StateBased]
 public sealed class FwwStrategy(
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 

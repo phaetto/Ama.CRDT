@@ -17,8 +17,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-[CrdtSerializable(typeof(AverageRegisterStrategyTests.TestModel))]
-internal partial class AverageRegisterTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(AverageRegisterStrategyTests.TestModel))]
+internal partial class AverageRegisterTestCrdtAotContext : CrdtAotContext
 {
 }
 
@@ -37,7 +37,7 @@ public sealed class AverageRegisterStrategyTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddCrdt();
-        services.AddCrdtAotContext<AverageRegisterTestCrdtContext>();
+        services.AddCrdtAotContext<AverageRegisterTestCrdtAotContext>();
 
         var serviceProvider = services.BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

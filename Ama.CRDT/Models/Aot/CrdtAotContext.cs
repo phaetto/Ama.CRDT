@@ -6,7 +6,7 @@ using System.Collections.Generic;
 /// <summary>
 /// The abstract base class for AOT source-generated CRDT reflection contexts.
 /// </summary>
-public abstract class CrdtContext
+public abstract class CrdtAotContext
 {
     /// <summary>
     /// Retrieves the AOT-compatible type information for the specified type.

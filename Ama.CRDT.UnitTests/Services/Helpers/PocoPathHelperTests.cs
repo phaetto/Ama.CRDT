@@ -10,13 +10,13 @@ using Xunit;
 
 public sealed class PocoPathHelperTests
 {
-    private readonly IEnumerable<CrdtContext> aotContexts;
+    private readonly IEnumerable<CrdtAotContext> aotContexts;
     private readonly TestRoot rootObject;
 
     public PocoPathHelperTests()
     {
         // Supply the Source Generator context specific to these test models
-        aotContexts = [new HelpersTestCrdtContext()];
+        aotContexts = [new HelpersTestCrdtAotContext()];
         
         rootObject = new TestRoot
         {

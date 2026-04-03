@@ -20,8 +20,8 @@ using System;
 using System.Collections.Generic;
 using Xunit;
 
-[CrdtSerializable(typeof(ApprovalQuorumStrategyTests.ProposalDocument))]
-internal partial class ApprovalQuorumTestCrdtContext : CrdtContext { }
+[CrdtAotType(typeof(ApprovalQuorumStrategyTests.ProposalDocument))]
+internal partial class ApprovalQuorumTestCrdtAotContext : CrdtAotContext { }
 
 public sealed class ApprovalQuorumStrategyTests : IDisposable
 {
@@ -46,7 +46,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<ApprovalQuorumTestCrdtContext>()
+            .AddCrdtAotContext<ApprovalQuorumTestCrdtAotContext>()
             .BuildServiceProvider();
 
         scope = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("TestReplica");

@@ -18,9 +18,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-[CrdtSerializable(typeof(CounterStrategyTests.TestModel))]
-[CrdtSerializable(typeof(CounterStrategyTests.TestModelWithNoScore))]
-internal partial class CounterTestCrdtContext : CrdtContext { }
+[CrdtAotType(typeof(CounterStrategyTests.TestModel))]
+[CrdtAotType(typeof(CounterStrategyTests.TestModelWithNoScore))]
+internal partial class CounterTestCrdtAotContext : CrdtAotContext { }
 
 public sealed class CounterStrategyTests : IDisposable
 {
@@ -51,7 +51,7 @@ public sealed class CounterStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<CounterTestCrdtContext>()
+            .AddCrdtAotContext<CounterTestCrdtAotContext>()
             .BuildServiceProvider();
 
         scopeA = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("A");
@@ -81,7 +81,7 @@ public sealed class CounterStrategyTests : IDisposable
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
         var expectedTimestamp = new EpochTimestampProvider(new ReplicaContext { ReplicaId = "replica-A" }).Create(12345);
         mockTimestampProvider.Setup(p => p.Now()).Returns(expectedTimestamp);
-        var localStrategy = new CounterStrategy(new ReplicaContext { ReplicaId = "replica-A" }, new[] { new CounterTestCrdtContext() });
+        var localStrategy = new CounterStrategy(new ReplicaContext { ReplicaId = "replica-A" }, new[] { new CounterTestCrdtAotContext() });
         var context = new GeneratePatchContext(
             operations,
             new List<DifferentiateObjectContext>(),

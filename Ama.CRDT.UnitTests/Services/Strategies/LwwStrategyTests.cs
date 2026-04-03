@@ -46,7 +46,7 @@ public sealed class LwwStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<LwwStrategyTestCrdtContext>()
+            .AddCrdtAotContext<LwwStrategyTestCrdtAotContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

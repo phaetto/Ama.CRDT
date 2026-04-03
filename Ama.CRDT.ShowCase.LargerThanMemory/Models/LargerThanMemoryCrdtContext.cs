@@ -5,12 +5,12 @@ using System.Collections.Generic;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models.Aot;
 
-[CrdtSerializable(typeof(BlogPost))]
-[CrdtSerializable(typeof(Comment))]
-[CrdtSerializable(typeof(Dictionary<DateTimeOffset, Comment>))]
-[CrdtSerializable(typeof(List<string>))]
-[CrdtSerializable(typeof(IDictionary<DateTimeOffset, Comment>))]
-[CrdtSerializable(typeof(IList<string>))]
-public sealed partial class LargerThanMemoryCrdtContext : CrdtContext
+[CrdtAotType(typeof(BlogPost))]
+[CrdtAotType(typeof(Comment))]
+[CrdtAotType(typeof(Dictionary<DateTimeOffset, Comment>))]
+[CrdtAotType(typeof(List<string>))]
+[CrdtAotType(typeof(IDictionary<DateTimeOffset, Comment>))]
+[CrdtAotType(typeof(IList<string>))]
+public sealed partial class LargerThanMemoryCrdtAotContext : CrdtAotContext
 {
 }

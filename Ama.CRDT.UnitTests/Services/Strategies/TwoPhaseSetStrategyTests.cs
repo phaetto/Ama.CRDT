@@ -41,7 +41,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<TwoPhaseSetStrategyTestCrdtContext>()
+            .AddCrdtAotContext<TwoPhaseSetStrategyTestCrdtAotContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

@@ -4,9 +4,9 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Models.Aot;
 
 /// <summary>
-/// A dedicated CrdtContext for StateMachineStrategy unit tests to provide AOT-compatible property metadata.
+/// A dedicated CrdtAotContext for StateMachineStrategy unit tests to provide AOT-compatible property metadata.
 /// </summary>
-[CrdtSerializable(typeof(StateMachineTestModel))]
-internal partial class StateMachineStrategyTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(StateMachineTestModel))]
+internal partial class StateMachineStrategyTestCrdtAotContext : CrdtAotContext
 {
 }

@@ -18,9 +18,9 @@ using System.Collections.Generic;
 using System.Threading;
 using Xunit;
 
-[CrdtSerializable(typeof(LwwMapTestModel))]
-[CrdtSerializable(typeof(Dictionary<string, int>))]
-internal partial class LwwMapTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(LwwMapTestModel))]
+[CrdtAotType(typeof(Dictionary<string, int>))]
+internal partial class LwwMapTestCrdtAotContext : CrdtAotContext
 {
 }
 
@@ -54,7 +54,7 @@ public sealed class LwwMapStrategyTests
     {
         var services = new ServiceCollection();
         services.AddCrdt()
-            .AddCrdtAotContext<LwwMapTestCrdtContext>()
+            .AddCrdtAotContext<LwwMapTestCrdtAotContext>()
             .AddSingleton(comparerProviderMock.Object)
             .AddCrdtTimestampProvider<EpochTimestampProvider>();
 

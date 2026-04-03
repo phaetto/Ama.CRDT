@@ -81,7 +81,7 @@ var applyResultA = applicatorA.ApplyPatch(docA, patchFromB);
 Ama.CRDT is fully Native AOT compatible. To achieve this, it strictly avoids `System.Reflection` at runtime and instead uses Roslyn Source Generators to pre-calculate metadata and JSON serialization logic.
 
 Whenever you define a new model, you must register it in two source generators: 
-1. **`CrdtContext`**: For property access and tracking changes without reflection.
+1. **`CrdtAotContext`**: For property access and tracking changes without reflection.
 2. **`JsonSerializerContext`**: For generating Native AOT `System.Text.Json` rules.
 
 ### 1. Define your AOT Contexts
@@ -93,8 +93,8 @@ using Ama.CRDT.Attributes;
 using System.Text.Json.Serialization;
 
 // AOT Reflection Context
-[CrdtSerializable(typeof(UserStats))]
-public partial class AppCrdtContext : CrdtContext
+[CrdtAotType(typeof(UserStats))]
+public partial class AppCrdtContext : CrdtAotContext
 {
 }
 
@@ -152,4 +152,4 @@ public class NetworkService
 }
 ```
 
-**Important**: If you have created a custom `ICrdtTimestamp` or a custom operation payload type, you must register it with the serialization system using `AddCrdtTimestampType<T>()` or `AddCrdtSerializableType<T>()`. See [Extensibility & Customization](extensibility.md) for details.
+**Important**: If you have created a custom `ICrdtTimestamp` or a custom operation payload type, you must register it with the serialization system using `AddCrdtTimestampType<T>()` or `AddCrdtAotType<T>()`. See [Extensibility & Customization](extensibility.md) for details.

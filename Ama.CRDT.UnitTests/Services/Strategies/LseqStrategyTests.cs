@@ -20,9 +20,9 @@ using System.Collections.Immutable;
 using System.Linq;
 using Xunit;
 
-[CrdtSerializable(typeof(LseqTestModel))]
-[CrdtSerializable(typeof(List<string>))]
-internal partial class LseqTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(LseqTestModel))]
+[CrdtAotType(typeof(List<string>))]
+internal partial class LseqTestCrdtAotContext : CrdtAotContext
 {
 }
 
@@ -49,7 +49,7 @@ public sealed class LseqStrategyTests : IDisposable
     {
         var services = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<LseqTestCrdtContext>()
+            .AddCrdtAotContext<LseqTestCrdtAotContext>()
             .BuildServiceProvider();
 
         var factory = services.GetRequiredService<ICrdtScopeFactory>();

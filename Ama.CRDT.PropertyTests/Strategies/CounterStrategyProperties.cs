@@ -38,8 +38,8 @@ public sealed class CounterTestPoco : IEquatable<CounterTestPoco>
     public override int GetHashCode() => Value.GetHashCode();
 }
 
-[CrdtSerializable(typeof(CounterTestPoco))]
-internal partial class CounterTestContext : CrdtContext { }
+[CrdtAotType(typeof(CounterTestPoco))]
+internal partial class CounterTestContext : CrdtAotContext { }
 
 public sealed class CounterStrategyProperties : IDisposable
 {
@@ -129,7 +129,7 @@ public sealed class CounterStrategyProperties : IDisposable
     {
         using var scope = scopeFactory.CreateScope("property-test-replica");
         var strategy = scope.ServiceProvider.GetRequiredService<CounterStrategy>();
-        var aotContexts = scope.ServiceProvider.GetRequiredService<IEnumerable<CrdtContext>>();
+        var aotContexts = scope.ServiceProvider.GetRequiredService<IEnumerable<CrdtAotContext>>();
         
         var propertyInfo = PocoPathHelper.GetTypeInfo(typeof(CounterTestPoco), aotContexts)
             .Properties.First(p => p.Value.Name == nameof(CounterTestPoco.Value));

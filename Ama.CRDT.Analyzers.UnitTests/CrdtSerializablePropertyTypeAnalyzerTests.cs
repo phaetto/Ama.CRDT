@@ -15,20 +15,20 @@ public sealed class CrdtSerializablePropertyTypeAnalyzerTests
             ReferenceAssemblies = ReferenceAssemblies.Net.Net100
         };
 
-        // Create the dummy attributes and CrdtContext definition so the test code compiles and maps successfully
+        // Create the dummy attributes and CrdtAotContext definition so the test code compiles and maps successfully
         var dummyCode = @"
 namespace Ama.CRDT.Attributes
 {
     using System;
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
-    public class CrdtSerializableAttribute : Attribute
+    public class CrdtAotTypeAttribute : Attribute
     {
-        public CrdtSerializableAttribute(Type type) {}
+        public CrdtAotTypeAttribute(Type type) {}
     }
 }
 namespace Ama.CRDT.Models.Aot
 {
-    public abstract class CrdtContext {}
+    public abstract class CrdtAotContext {}
 }
 ";
         test.TestState.Sources.Add(dummyCode);
@@ -49,10 +49,10 @@ public class MyPoco
     public IList<string> Tags { get; set; } = new List<string>();
 }
 
-[CrdtSerializable(typeof(MyPoco))]
-[CrdtSerializable(typeof(IList<string>))]
-[CrdtSerializable(typeof(List<string>))]
-public partial class MyContext : CrdtContext {}
+[CrdtAotTypeAttribute(typeof(MyPoco))]
+[CrdtAotTypeAttribute(typeof(IList<string>))]
+[CrdtAotTypeAttribute(typeof(List<string>))]
+public partial class MyContext : CrdtAotContext {}
 ";
         var test = CreateTest();
         test.TestCode = source;
@@ -73,8 +73,8 @@ public class MyPoco
     public IList<string> Tags { get; set; }
 }
 
-[CrdtSerializable(typeof(MyPoco))]
-public partial class {|#0:MyContext|} : CrdtContext {}
+[CrdtAotTypeAttribute(typeof(MyPoco))]
+public partial class {|#0:MyContext|} : CrdtAotContext {}
 ";
         var expected = new DiagnosticResult("CRDT0003", DiagnosticSeverity.Error)
             .WithLocation(0)
@@ -99,9 +99,9 @@ public class MyPoco
     public IList<string> Tags { get; set; } = new List<string>();
 }
 
-[CrdtSerializable(typeof(MyPoco))]
-[CrdtSerializable(typeof(IList<string>))]
-public partial class {|#0:MyContext|} : CrdtContext {}
+[CrdtAotTypeAttribute(typeof(MyPoco))]
+[CrdtAotTypeAttribute(typeof(IList<string>))]
+public partial class {|#0:MyContext|} : CrdtAotContext {}
 ";
         var expected = new DiagnosticResult("CRDT0003", DiagnosticSeverity.Error)
             .WithLocation(0)
@@ -126,8 +126,8 @@ public class MyPoco
     public Dictionary<string, List<string>> Votes { get; set; } = new();
 }
 
-[CrdtSerializable(typeof(MyPoco))]
-public partial class {|#0:MyContext|} : CrdtContext {}
+[CrdtAotTypeAttribute(typeof(MyPoco))]
+public partial class {|#0:MyContext|} : CrdtAotContext {}
 ";
         var expected = new DiagnosticResult("CRDT0003", DiagnosticSeverity.Error)
             .WithLocation(0)
@@ -153,11 +153,11 @@ public class MyPoco
     public IList<string> Tags { get; set; }
 }
 
-[CrdtSerializable(typeof(MyPoco))]
-public partial class MyContext : CrdtContext {}
+[CrdtAotTypeAttribute(typeof(MyPoco))]
+public partial class MyContext : CrdtAotContext {}
 
-[CrdtSerializable(typeof(IList<string>))]
-public partial class OtherContext : CrdtContext {}
+[CrdtAotTypeAttribute(typeof(IList<string>))]
+public partial class OtherContext : CrdtAotContext {}
 ";
         var test = CreateTest();
         test.TestCode = source;
@@ -177,12 +177,12 @@ public class MyPoco
     public IList<string> Tags { get; set; } = new List<string>();
 }
 
-[CrdtSerializable(typeof(MyPoco))]
-public partial class MyContext : CrdtContext {}
+[CrdtAotTypeAttribute(typeof(MyPoco))]
+public partial class MyContext : CrdtAotContext {}
 
-[CrdtSerializable(typeof(IList<string>))]
-[CrdtSerializable(typeof(List<string>))]
-public partial class OtherContext : CrdtContext {}
+[CrdtAotTypeAttribute(typeof(IList<string>))]
+[CrdtAotTypeAttribute(typeof(List<string>))]
+public partial class OtherContext : CrdtAotContext {}
 ";
         var test = CreateTest();
         test.TestCode = source;

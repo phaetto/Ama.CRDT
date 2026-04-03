@@ -178,11 +178,11 @@ public readonly record struct VectorClockTimestamp(long Ticks) : ICrdtTimestamp
 }
 ```
 
-Because Ama.CRDT is fully AOT friendly, you must also add your struct to your `CrdtContext` and `JsonSerializerContext`:
+Because Ama.CRDT is fully AOT friendly, you must also add your struct to your `CrdtAotContext` and `JsonSerializerContext`:
 
 ```csharp
-[CrdtSerializable(typeof(VectorClockTimestamp))]
-public partial class MyAotCrdtContext : CrdtContext { }
+[CrdtAotType(typeof(VectorClockTimestamp))]
+public partial class MyAotCrdtContext : CrdtAotContext { }
 
 [JsonSerializable(typeof(VectorClockTimestamp))]
 public partial class MyAotJsonContext : JsonSerializerContext { }

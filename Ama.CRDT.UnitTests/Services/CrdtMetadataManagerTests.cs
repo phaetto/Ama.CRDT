@@ -30,7 +30,7 @@ public sealed class CrdtMetadataManagerTests
             timestampProviderMock.Object, 
             elementComparerProviderMock.Object,
             new ReplicaContext { ReplicaId = "replica" },
-            [new ServicesTestCrdtContext()]);
+            [new ServicesTestCrdtAotContext()]);
             
         timestampProviderMock.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(v => new EpochTimestamp(v));
     }
