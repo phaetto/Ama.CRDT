@@ -5,10 +5,8 @@ using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
-using Bogus;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 public sealed class DataGeneratorService(
@@ -29,27 +27,19 @@ public sealed class DataGeneratorService(
     {
         Console.WriteLine($"Generating {BlogPostCount} blog posts with {MinCommentsPerPost}-{MaxCommentsPerPost} comments each. This may take a while...");
 
-        var blogPostFaker = new Faker<BlogPost>()
-            .RuleFor(bp => bp.Id, f => Guid.NewGuid())
-            .RuleFor(bp => bp.Title, f => f.Lorem.Sentence(5, 5))
-            .RuleFor(bp => bp.Content, f => f.Lorem.Paragraphs(3));
-
-        var commentFaker = new Faker<Comment>()
-            .CustomInstantiator(f => new Comment(
-                Guid.NewGuid(),
-                f.Name.FullName(),
-                f.Lorem.Paragraphs(1),
-                default // Will be set sequentially to be older
-            ));
-        
         var random = new Random();
-        var faker = new Faker();
+        var faker = new SimpleFaker();
 
         for (int i = 0; i < BlogPostCount; i++)
         {
-            var blogPost = blogPostFaker.Generate();
-            blogPost.Comments = new Dictionary<DateTimeOffset, Comment>(); // Start with empty comments
-            blogPost.Tags = new List<string>(); // Start empty, will be seeded via patch to showcase strategy
+            var blogPost = new BlogPost
+            {
+                Id = Guid.NewGuid(),
+                Title = faker.LoremSentence(5),
+                Content = faker.LoremParagraphs(3),
+                Comments = new Dictionary<DateTimeOffset, Comment>(), // Start with empty comments
+                Tags = new List<string>() // Start empty, will be seeded via patch to showcase strategy
+            };
 
             Console.WriteLine($"Generating post '{blogPost.Title}'...");
             await partitionManager.InitializeAsync(blogPost);
@@ -59,7 +49,7 @@ public sealed class DataGeneratorService(
             var metadata = crdtDocument.Value.Metadata;
 
             // Generate tags and create a patch to showcase Array LCS strategy
-            var tags = faker.Lorem.Words(random.Next(MinTagsPerPost, MaxTagsPerPost)).ToList();
+            var tags = faker.LoremWords(random.Next(MinTagsPerPost, MaxTagsPerPost));
             var fromDocForTags = new CrdtDocument<BlogPost>(
                 new BlogPost { Id = blogPost.Id, Tags = new List<string>() },
                 metadata);
@@ -91,11 +81,16 @@ public sealed class DataGeneratorService(
                 var operations = new List<CrdtOperation>(currentBatchSize);
                 for (var j = 0; j < currentBatchSize; j++)
                 {
-                    var comment = commentFaker.Generate();
                     currentCommentDate = currentCommentDate.AddMinutes(-random.Next(1, 60)); // Make each comment older than the previous one
-                    var finalComment = comment with { CreatedAt = currentCommentDate };
                     
-                    var op = patcher.GenerateOperation(fromDocument, x => x.Comments, new MapSetIntent(finalComment.CreatedAt, finalComment));
+                    var comment = new Comment(
+                        Guid.NewGuid(),
+                        faker.FullName(),
+                        faker.LoremParagraphs(1),
+                        currentCommentDate
+                    );
+                    
+                    var op = patcher.GenerateOperation(fromDocument, x => x.Comments, new MapSetIntent(comment.CreatedAt, comment));
                     metadataManager.AdvanceVersionVector(metadata!, op);
                     operations.Add(op);
                 }
