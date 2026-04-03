@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
@@ -19,8 +20,11 @@ public sealed class SimulationRunner(IServiceProvider serviceProvider, ICrdtScop
     {
         var replicaIds = Enumerable.Range(1, ReplicaCount).Select(i => $"replica-{i}").ToList();
 
+        // Load existing DVVs before starting
+        var replicaDvvs = UiService.LoadReplicaStates(replicaIds);
+
         List<Guid> allBlogPostIds;
-        using (var scope = scopeFactory.CreateScope(replicaIds.First()))
+        using (var scope = scopeFactory.CreateScope(replicaIds.First(), replicaDvvs[replicaIds.First()]))
         {
             var partitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
             var keys = await partitionManager.GetAllLogicalKeysAsync();
@@ -30,14 +34,27 @@ public sealed class SimulationRunner(IServiceProvider serviceProvider, ICrdtScop
         if (!allBlogPostIds.Any())
         {
             Console.WriteLine($"--- No existing data found. Initializing Replica 1 and Generating Data ---");
-            using (var scope = scopeFactory.CreateScope(replicaIds.First()))
+            using (var scope = scopeFactory.CreateScope(replicaIds.First(), replicaDvvs[replicaIds.First()]))
             {
                 var dataGenerator = scope.ServiceProvider.GetRequiredService<DataGeneratorService>();
                 await dataGenerator.GenerateDataAsync();
             }
             Console.WriteLine($"--- Data Generation for Replica 1 Complete ---");
 
-            using (var scope = scopeFactory.CreateScope(replicaIds.First()))
+            // Copy generated DVV state from Replica 1 to other replicas
+            var sourceDvv = replicaDvvs[replicaIds.First()];
+            foreach (var replicaId in replicaIds.Skip(1))
+            {
+                replicaDvvs[replicaId] = new DottedVersionVector(
+                    new Dictionary<string, long>(sourceDvv.Versions),
+                    sourceDvv.Dots.ToDictionary(k => k.Key, v => (ISet<long>)new HashSet<long>(v.Value))
+                );
+            }
+
+            // Immediately save the bootstrapped state
+            UiService.SaveReplicaStates(replicaDvvs);
+
+            using (var scope = scopeFactory.CreateScope(replicaIds.First(), replicaDvvs[replicaIds.First()]))
             {
                 var partitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
                 var keys = await partitionManager.GetAllLogicalKeysAsync();
@@ -59,7 +76,7 @@ public sealed class SimulationRunner(IServiceProvider serviceProvider, ICrdtScop
         }
 
         Console.WriteLine($"--- Launching UI ---");
-        var ui = new UiService(serviceProvider, replicaIds, allBlogPostIds);
+        var ui = new UiService(serviceProvider, replicaIds, allBlogPostIds, replicaDvvs);
         ui.Run();
     }
     
