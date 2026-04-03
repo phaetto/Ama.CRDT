@@ -10,7 +10,6 @@ using System.Windows.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Journaling;
 using Ama.CRDT.Services.Versioning;

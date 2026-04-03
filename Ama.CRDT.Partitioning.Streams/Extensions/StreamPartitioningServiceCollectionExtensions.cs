@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Ama.CRDT.Partitioning.Streams.UnitTests")]
@@ -27,7 +28,7 @@ public static class StreamPartitioningServiceCollectionExtensions
     /// <typeparam name="TProvider">The type of the stream provider to register. Must implement <see cref="IPartitionStreamProvider"/>.</typeparam>
     /// <param name="services">The <see cref="IServiceCollection"/> to add the services to.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
-    public static IServiceCollection AddCrdtStreamPartitioning<TProvider>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtStreamPartitioning<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProvider>(this IServiceCollection services)
         where TProvider : class, IPartitionStreamProvider
     {
         // Explicitly register external stream-specific models to the polymorphic converter 
@@ -42,29 +43,29 @@ public static class StreamPartitioningServiceCollectionExtensions
 
         services.TryAddSingleton<StreamsCrdtMetrics>();
 
-        services.AddScoped(CreateValidatedInstance<TProvider>);
-        services.AddScoped<IPartitionStreamProvider>(sp => sp.GetRequiredService<TProvider>());
+        // Register core services natively to enable the AOT DI source generator,
+        // and resolve them via factories on interfaces to enforce replica scope validation.
+        services.AddScoped<TProvider>();
+        services.AddScoped<IPartitionStreamProvider>(sp => { ValidateReplicaScope(sp, typeof(TProvider).Name); return sp.GetRequiredService<TProvider>(); });
 
-        services.TryAddScoped(CreateValidatedInstance<DefaultPartitionSerializationService>);
-        services.TryAddScoped<IPartitionSerializationService>(sp => sp.GetRequiredService<DefaultPartitionSerializationService>());
+        services.TryAddScoped<DefaultPartitionSerializationService>();
+        services.TryAddScoped<IPartitionSerializationService>(sp => { ValidateReplicaScope(sp, nameof(DefaultPartitionSerializationService)); return sp.GetRequiredService<DefaultPartitionSerializationService>(); });
         
-        services.TryAddScoped(CreateValidatedInstance<StreamPartitionStorageService>);
-        services.TryAddScoped<IPartitionStorageService>(sp => sp.GetRequiredService<StreamPartitionStorageService>());
+        services.TryAddScoped<StreamPartitionStorageService>();
+        services.TryAddScoped<IPartitionStorageService>(sp => { ValidateReplicaScope(sp, nameof(StreamPartitionStorageService)); return sp.GetRequiredService<StreamPartitionStorageService>(); });
 
         return services;
     }
 
-    private static TImplementation CreateValidatedInstance<TImplementation>(IServiceProvider sp) where TImplementation : class
+    private static void ValidateReplicaScope(IServiceProvider sp, string serviceName)
     {
         var replicaContext = sp.GetService<ReplicaContext>();
 
         if (replicaContext == null || string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
         {
             throw new InvalidOperationException(
-                $"The service '{typeof(TImplementation).Name}' can only be resolved from a scope created by {nameof(ICrdtScopeFactory)}. " +
+                $"The service '{serviceName}' can only be resolved from a scope created by {nameof(ICrdtScopeFactory)}. " +
                 $"Please use {nameof(ICrdtScopeFactory)}.{nameof(ICrdtScopeFactory.CreateScope)} to create a valid CRDT scope before resolving services.");
         }
-
-        return ActivatorUtilities.CreateInstance<TImplementation>(sp);
     }
 }

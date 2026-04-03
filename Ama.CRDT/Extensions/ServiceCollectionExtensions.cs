@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
@@ -118,105 +119,106 @@ public static class ServiceCollectionExtensions
         // It does not require validation itself.
         services.TryAddSingleton<ICrdtScopeFactory, CrdtScopeFactory>();
         
-        // Register core services with a factory that validates the scope.
+        // Register core services natively to enable the AOT DI source generator,
+        // and resolve them via factories on interfaces to enforce replica scope validation.
         // This prevents resolving them from a non-replica scope (e.g., root container, ASP.NET request scope).
-        services.TryAddScoped(CreateValidatedInstance<CrdtApplicator>);
-        services.TryAddScoped<ICrdtApplicator>(sp => sp.GetRequiredService<CrdtApplicator>());
+        services.TryAddScoped<CrdtApplicator>();
+        services.TryAddScoped<ICrdtApplicator>(sp => { ValidateReplicaScope(sp, nameof(CrdtApplicator)); return sp.GetRequiredService<CrdtApplicator>(); });
         
         // Base asynchronous pipeline executor. Translates IAsyncCrdtApplicator to ICrdtApplicator.
         services.TryAddScoped<IAsyncCrdtApplicator>(sp => new AsyncCrdtApplicatorAdapter(sp.GetRequiredService<ICrdtApplicator>()));
 
-        services.TryAddScoped(CreateValidatedInstance<CrdtPatcher>);
-        services.TryAddScoped<ICrdtPatcher>(sp => sp.GetRequiredService<CrdtPatcher>());
+        services.TryAddScoped<CrdtPatcher>();
+        services.TryAddScoped<ICrdtPatcher>(sp => { ValidateReplicaScope(sp, nameof(CrdtPatcher)); return sp.GetRequiredService<CrdtPatcher>(); });
 
         // Base asynchronous pipeline executor. Translates IAsyncCrdtPatcher to ICrdtPatcher.
         services.TryAddScoped<IAsyncCrdtPatcher>(sp => new AsyncCrdtPatcherAdapter(sp.GetRequiredService<ICrdtPatcher>()));
         
-        services.TryAddScoped(CreateValidatedInstance<CrdtStrategyProvider>);
-        services.TryAddScoped<ICrdtStrategyProvider>(sp => sp.GetRequiredService<CrdtStrategyProvider>());
+        services.TryAddScoped<CrdtStrategyProvider>();
+        services.TryAddScoped<ICrdtStrategyProvider>(sp => { ValidateReplicaScope(sp, nameof(CrdtStrategyProvider)); return sp.GetRequiredService<CrdtStrategyProvider>(); });
         
-        services.TryAddScoped(CreateValidatedInstance<ElementComparerProvider>);
-        services.TryAddScoped<IElementComparerProvider>(sp => sp.GetRequiredService<ElementComparerProvider>());
+        services.TryAddScoped<ElementComparerProvider>();
+        services.TryAddScoped<IElementComparerProvider>(sp => { ValidateReplicaScope(sp, nameof(ElementComparerProvider)); return sp.GetRequiredService<ElementComparerProvider>(); });
         
-        services.TryAddScoped(CreateValidatedInstance<CrdtMetadataManager>);
-        services.TryAddScoped<ICrdtMetadataManager>(sp => sp.GetRequiredService<CrdtMetadataManager>());
+        services.TryAddScoped<CrdtMetadataManager>();
+        services.TryAddScoped<ICrdtMetadataManager>(sp => { ValidateReplicaScope(sp, nameof(CrdtMetadataManager)); return sp.GetRequiredService<CrdtMetadataManager>(); });
 
         // Register Partitioning services
         services.TryAddScoped(typeof(IPartitionManager<>), typeof(PartitionManager<>));
 
         // Register the default timestamp provider with validation.
         // This can be overridden by AddCrdtTimestampProvider.
-        services.TryAddScoped(CreateValidatedInstance<EpochTimestampProvider>);
-        services.TryAddScoped<ICrdtTimestampProvider>(sp => sp.GetRequiredService<EpochTimestampProvider>());
+        services.TryAddScoped<EpochTimestampProvider>();
+        services.TryAddScoped<ICrdtTimestampProvider>(sp => { ValidateReplicaScope(sp, nameof(EpochTimestampProvider)); return sp.GetRequiredService<EpochTimestampProvider>(); });
 
-        // Register all strategies with validation.
-        services.TryAddScoped(CreateValidatedInstance<LwwStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<FwwStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<CounterStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<SortedSetStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<ArrayLcsStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<GCounterStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<BoundedCounterStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<MaxWinsStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<MinWinsStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<AverageRegisterStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<GSetStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<TwoPhaseSetStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<LwwSetStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<FwwSetStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<OrSetStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<PriorityQueueStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<FixedSizeArrayStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<LseqStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<VoteCounterStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<StateMachineStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<LwwMapStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<FwwMapStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<OrMapStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<CounterMapStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<MaxWinsMapStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<MinWinsMapStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<GraphStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<TwoPhaseGraphStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<ReplicatedTreeStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<RgaStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<EpochBoundStrategy>);
-        services.TryAddScoped(CreateValidatedInstance<ApprovalQuorumStrategy>);
+        // Register all strategies to leverage the AOT DI source generator.
+        services.TryAddScoped<LwwStrategy>();
+        services.TryAddScoped<FwwStrategy>();
+        services.TryAddScoped<CounterStrategy>();
+        services.TryAddScoped<SortedSetStrategy>();
+        services.TryAddScoped<ArrayLcsStrategy>();
+        services.TryAddScoped<GCounterStrategy>();
+        services.TryAddScoped<BoundedCounterStrategy>();
+        services.TryAddScoped<MaxWinsStrategy>();
+        services.TryAddScoped<MinWinsStrategy>();
+        services.TryAddScoped<AverageRegisterStrategy>();
+        services.TryAddScoped<GSetStrategy>();
+        services.TryAddScoped<TwoPhaseSetStrategy>();
+        services.TryAddScoped<LwwSetStrategy>();
+        services.TryAddScoped<FwwSetStrategy>();
+        services.TryAddScoped<OrSetStrategy>();
+        services.TryAddScoped<PriorityQueueStrategy>();
+        services.TryAddScoped<FixedSizeArrayStrategy>();
+        services.TryAddScoped<LseqStrategy>();
+        services.TryAddScoped<VoteCounterStrategy>();
+        services.TryAddScoped<StateMachineStrategy>();
+        services.TryAddScoped<LwwMapStrategy>();
+        services.TryAddScoped<FwwMapStrategy>();
+        services.TryAddScoped<OrMapStrategy>();
+        services.TryAddScoped<CounterMapStrategy>();
+        services.TryAddScoped<MaxWinsMapStrategy>();
+        services.TryAddScoped<MinWinsMapStrategy>();
+        services.TryAddScoped<GraphStrategy>();
+        services.TryAddScoped<TwoPhaseGraphStrategy>();
+        services.TryAddScoped<ReplicatedTreeStrategy>();
+        services.TryAddScoped<RgaStrategy>();
+        services.TryAddScoped<EpochBoundStrategy>();
+        services.TryAddScoped<ApprovalQuorumStrategy>();
 
         // Register all concrete strategies as ICrdtStrategy.
         // This will resolve the concrete type, which in turn triggers our validating factory.
-        services.AddScoped<ICrdtStrategy, LwwStrategy>(sp => sp.GetRequiredService<LwwStrategy>());
-        services.AddScoped<ICrdtStrategy, FwwStrategy>(sp => sp.GetRequiredService<FwwStrategy>());
-        services.AddScoped<ICrdtStrategy, CounterStrategy>(sp => sp.GetRequiredService<CounterStrategy>());
-        services.AddScoped<ICrdtStrategy, SortedSetStrategy>(sp => sp.GetRequiredService<SortedSetStrategy>());
-        services.AddScoped<ICrdtStrategy, ArrayLcsStrategy>(sp => sp.GetRequiredService<ArrayLcsStrategy>());
-        services.AddScoped<ICrdtStrategy, GCounterStrategy>(sp => sp.GetRequiredService<GCounterStrategy>());
-        services.AddScoped<ICrdtStrategy, BoundedCounterStrategy>(sp => sp.GetRequiredService<BoundedCounterStrategy>());
-        services.AddScoped<ICrdtStrategy, MaxWinsStrategy>(sp => sp.GetRequiredService<MaxWinsStrategy>());
-        services.AddScoped<ICrdtStrategy, MinWinsStrategy>(sp => sp.GetRequiredService<MinWinsStrategy>());
-        services.AddScoped<ICrdtStrategy, AverageRegisterStrategy>(sp => sp.GetRequiredService<AverageRegisterStrategy>());
-        services.AddScoped<ICrdtStrategy, GSetStrategy>(sp => sp.GetRequiredService<GSetStrategy>());
-        services.AddScoped<ICrdtStrategy, TwoPhaseSetStrategy>(sp => sp.GetRequiredService<TwoPhaseSetStrategy>());
-        services.AddScoped<ICrdtStrategy, LwwSetStrategy>(sp => sp.GetRequiredService<LwwSetStrategy>());
-        services.AddScoped<ICrdtStrategy, FwwSetStrategy>(sp => sp.GetRequiredService<FwwSetStrategy>());
-        services.AddScoped<ICrdtStrategy, OrSetStrategy>(sp => sp.GetRequiredService<OrSetStrategy>());
-        services.AddScoped<ICrdtStrategy, PriorityQueueStrategy>(sp => sp.GetRequiredService<PriorityQueueStrategy>());
-        services.AddScoped<ICrdtStrategy, FixedSizeArrayStrategy>(sp => sp.GetRequiredService<FixedSizeArrayStrategy>());
-        services.AddScoped<ICrdtStrategy, LseqStrategy>(sp => sp.GetRequiredService<LseqStrategy>());
-        services.AddScoped<ICrdtStrategy, VoteCounterStrategy>(sp => sp.GetRequiredService<VoteCounterStrategy>());
-        services.AddScoped<ICrdtStrategy, StateMachineStrategy>(sp => sp.GetRequiredService<StateMachineStrategy>());
-        services.AddScoped<ICrdtStrategy, LwwMapStrategy>(sp => sp.GetRequiredService<LwwMapStrategy>());
-        services.AddScoped<ICrdtStrategy, FwwMapStrategy>(sp => sp.GetRequiredService<FwwMapStrategy>());
-        services.AddScoped<ICrdtStrategy, OrMapStrategy>(sp => sp.GetRequiredService<OrMapStrategy>());
-        services.AddScoped<ICrdtStrategy, CounterMapStrategy>(sp => sp.GetRequiredService<CounterMapStrategy>());
-        services.AddScoped<ICrdtStrategy, MaxWinsMapStrategy>(sp => sp.GetRequiredService<MaxWinsMapStrategy>());
-        services.AddScoped<ICrdtStrategy, MinWinsMapStrategy>(sp => sp.GetRequiredService<MinWinsMapStrategy>());
-        services.AddScoped<ICrdtStrategy, GraphStrategy>(sp => sp.GetRequiredService<GraphStrategy>());
-        services.AddScoped<ICrdtStrategy, TwoPhaseGraphStrategy>(sp => sp.GetRequiredService<TwoPhaseGraphStrategy>());
-        services.AddScoped<ICrdtStrategy, ReplicatedTreeStrategy>(sp => sp.GetRequiredService<ReplicatedTreeStrategy>());
-        services.AddScoped<ICrdtStrategy, RgaStrategy>(sp => sp.GetRequiredService<RgaStrategy>());
-        services.AddScoped<ICrdtStrategy, EpochBoundStrategy>(sp => sp.GetRequiredService<EpochBoundStrategy>());
-        services.AddScoped<ICrdtStrategy, ApprovalQuorumStrategy>(sp => sp.GetRequiredService<ApprovalQuorumStrategy>());
+        services.AddScoped<ICrdtStrategy, LwwStrategy>(sp => { ValidateReplicaScope(sp, nameof(LwwStrategy)); return sp.GetRequiredService<LwwStrategy>(); });
+        services.AddScoped<ICrdtStrategy, FwwStrategy>(sp => { ValidateReplicaScope(sp, nameof(FwwStrategy)); return sp.GetRequiredService<FwwStrategy>(); });
+        services.AddScoped<ICrdtStrategy, CounterStrategy>(sp => { ValidateReplicaScope(sp, nameof(CounterStrategy)); return sp.GetRequiredService<CounterStrategy>(); });
+        services.AddScoped<ICrdtStrategy, SortedSetStrategy>(sp => { ValidateReplicaScope(sp, nameof(SortedSetStrategy)); return sp.GetRequiredService<SortedSetStrategy>(); });
+        services.AddScoped<ICrdtStrategy, ArrayLcsStrategy>(sp => { ValidateReplicaScope(sp, nameof(ArrayLcsStrategy)); return sp.GetRequiredService<ArrayLcsStrategy>(); });
+        services.AddScoped<ICrdtStrategy, GCounterStrategy>(sp => { ValidateReplicaScope(sp, nameof(GCounterStrategy)); return sp.GetRequiredService<GCounterStrategy>(); });
+        services.AddScoped<ICrdtStrategy, BoundedCounterStrategy>(sp => { ValidateReplicaScope(sp, nameof(BoundedCounterStrategy)); return sp.GetRequiredService<BoundedCounterStrategy>(); });
+        services.AddScoped<ICrdtStrategy, MaxWinsStrategy>(sp => { ValidateReplicaScope(sp, nameof(MaxWinsStrategy)); return sp.GetRequiredService<MaxWinsStrategy>(); });
+        services.AddScoped<ICrdtStrategy, MinWinsStrategy>(sp => { ValidateReplicaScope(sp, nameof(MinWinsStrategy)); return sp.GetRequiredService<MinWinsStrategy>(); });
+        services.AddScoped<ICrdtStrategy, AverageRegisterStrategy>(sp => { ValidateReplicaScope(sp, nameof(AverageRegisterStrategy)); return sp.GetRequiredService<AverageRegisterStrategy>(); });
+        services.AddScoped<ICrdtStrategy, GSetStrategy>(sp => { ValidateReplicaScope(sp, nameof(GSetStrategy)); return sp.GetRequiredService<GSetStrategy>(); });
+        services.AddScoped<ICrdtStrategy, TwoPhaseSetStrategy>(sp => { ValidateReplicaScope(sp, nameof(TwoPhaseSetStrategy)); return sp.GetRequiredService<TwoPhaseSetStrategy>(); });
+        services.AddScoped<ICrdtStrategy, LwwSetStrategy>(sp => { ValidateReplicaScope(sp, nameof(LwwSetStrategy)); return sp.GetRequiredService<LwwSetStrategy>(); });
+        services.AddScoped<ICrdtStrategy, FwwSetStrategy>(sp => { ValidateReplicaScope(sp, nameof(FwwSetStrategy)); return sp.GetRequiredService<FwwSetStrategy>(); });
+        services.AddScoped<ICrdtStrategy, OrSetStrategy>(sp => { ValidateReplicaScope(sp, nameof(OrSetStrategy)); return sp.GetRequiredService<OrSetStrategy>(); });
+        services.AddScoped<ICrdtStrategy, PriorityQueueStrategy>(sp => { ValidateReplicaScope(sp, nameof(PriorityQueueStrategy)); return sp.GetRequiredService<PriorityQueueStrategy>(); });
+        services.AddScoped<ICrdtStrategy, FixedSizeArrayStrategy>(sp => { ValidateReplicaScope(sp, nameof(FixedSizeArrayStrategy)); return sp.GetRequiredService<FixedSizeArrayStrategy>(); });
+        services.AddScoped<ICrdtStrategy, LseqStrategy>(sp => { ValidateReplicaScope(sp, nameof(LseqStrategy)); return sp.GetRequiredService<LseqStrategy>(); });
+        services.AddScoped<ICrdtStrategy, VoteCounterStrategy>(sp => { ValidateReplicaScope(sp, nameof(VoteCounterStrategy)); return sp.GetRequiredService<VoteCounterStrategy>(); });
+        services.AddScoped<ICrdtStrategy, StateMachineStrategy>(sp => { ValidateReplicaScope(sp, nameof(StateMachineStrategy)); return sp.GetRequiredService<StateMachineStrategy>(); });
+        services.AddScoped<ICrdtStrategy, LwwMapStrategy>(sp => { ValidateReplicaScope(sp, nameof(LwwMapStrategy)); return sp.GetRequiredService<LwwMapStrategy>(); });
+        services.AddScoped<ICrdtStrategy, FwwMapStrategy>(sp => { ValidateReplicaScope(sp, nameof(FwwMapStrategy)); return sp.GetRequiredService<FwwMapStrategy>(); });
+        services.AddScoped<ICrdtStrategy, OrMapStrategy>(sp => { ValidateReplicaScope(sp, nameof(OrMapStrategy)); return sp.GetRequiredService<OrMapStrategy>(); });
+        services.AddScoped<ICrdtStrategy, CounterMapStrategy>(sp => { ValidateReplicaScope(sp, nameof(CounterMapStrategy)); return sp.GetRequiredService<CounterMapStrategy>(); });
+        services.AddScoped<ICrdtStrategy, MaxWinsMapStrategy>(sp => { ValidateReplicaScope(sp, nameof(MaxWinsMapStrategy)); return sp.GetRequiredService<MaxWinsMapStrategy>(); });
+        services.AddScoped<ICrdtStrategy, MinWinsMapStrategy>(sp => { ValidateReplicaScope(sp, nameof(MinWinsMapStrategy)); return sp.GetRequiredService<MinWinsMapStrategy>(); });
+        services.AddScoped<ICrdtStrategy, GraphStrategy>(sp => { ValidateReplicaScope(sp, nameof(GraphStrategy)); return sp.GetRequiredService<GraphStrategy>(); });
+        services.AddScoped<ICrdtStrategy, TwoPhaseGraphStrategy>(sp => { ValidateReplicaScope(sp, nameof(TwoPhaseGraphStrategy)); return sp.GetRequiredService<TwoPhaseGraphStrategy>(); });
+        services.AddScoped<ICrdtStrategy, ReplicatedTreeStrategy>(sp => { ValidateReplicaScope(sp, nameof(ReplicatedTreeStrategy)); return sp.GetRequiredService<ReplicatedTreeStrategy>(); });
+        services.AddScoped<ICrdtStrategy, RgaStrategy>(sp => { ValidateReplicaScope(sp, nameof(RgaStrategy)); return sp.GetRequiredService<RgaStrategy>(); });
+        services.AddScoped<ICrdtStrategy, EpochBoundStrategy>(sp => { ValidateReplicaScope(sp, nameof(EpochBoundStrategy)); return sp.GetRequiredService<EpochBoundStrategy>(); });
+        services.AddScoped<ICrdtStrategy, ApprovalQuorumStrategy>(sp => { ValidateReplicaScope(sp, nameof(ApprovalQuorumStrategy)); return sp.GetRequiredService<ApprovalQuorumStrategy>(); });
 
         return services;
     }
@@ -236,7 +238,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtApplicatorDecorator<TDecorator>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtApplicatorDecorator<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(this IServiceCollection services)
         where TDecorator : class, IAsyncCrdtApplicator
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -258,7 +260,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtPatcherDecorator<TDecorator>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtPatcherDecorator<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(this IServiceCollection services)
         where TDecorator : class, IAsyncCrdtPatcher
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -284,7 +286,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtJournaling<TJournal>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtJournaling<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TJournal>(this IServiceCollection services)
         where TJournal : class, ICrdtOperationJournal
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -334,7 +336,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtComparer<TComparer>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtComparer<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TComparer>(this IServiceCollection services)
         where TComparer : class, IElementComparer
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -369,15 +371,20 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtTimestampProvider<TProvider>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtTimestampProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProvider>(this IServiceCollection services)
         where TProvider : class, ICrdtTimestampProvider
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        // Register the custom provider implementation with validation.
-        services.AddScoped(CreateValidatedInstance<TProvider>);
+        // Register the custom provider implementation natively
+        services.TryAddScoped<TProvider>();
+        
         // Override the ICrdtTimestampProvider registration to point to the custom implementation.
-        services.AddScoped<ICrdtTimestampProvider>(sp => sp.GetRequiredService<TProvider>());
+        services.AddScoped<ICrdtTimestampProvider>(sp => {
+            ValidateReplicaScope(sp, typeof(TProvider).Name);
+            return sp.GetRequiredService<TProvider>();
+        });
+        
         return services;
     }
 
@@ -531,7 +538,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtCompactionPolicyFactory<TFactory>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtCompactionPolicyFactory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TFactory>(this IServiceCollection services)
         where TFactory : class, ICompactionPolicyFactory
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -553,7 +560,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtCompactionPolicyFactory<TFactory>(this IServiceCollection services, Func<IServiceProvider, TFactory> implementationFactory)
+    public static IServiceCollection AddCrdtCompactionPolicyFactory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TFactory>(this IServiceCollection services, Func<IServiceProvider, TFactory> implementationFactory)
         where TFactory : class, ICompactionPolicyFactory
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -562,7 +569,7 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection DecorateService<TInterface, TDecorator>(this IServiceCollection services)
+    private static IServiceCollection DecorateService<TInterface, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(this IServiceCollection services)
         where TInterface : class
         where TDecorator : class, TInterface
     {
@@ -598,19 +605,17 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    private static TImplementation CreateValidatedInstance<TImplementation>(IServiceProvider sp) where TImplementation : class
+    private static void ValidateReplicaScope(IServiceProvider sp, string serviceName)
     {
         var replicaContext = sp.GetService<ReplicaContext>();
-
+        
         // This check ensures that the service is only resolved within a scope created by CrdtScopeFactory,
         // which is responsible for setting the ReplicaId.
         if (replicaContext == null || string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
         {
             throw new InvalidOperationException(
-                $"The service '{typeof(TImplementation).Name}' can only be resolved from a scope created by {nameof(ICrdtScopeFactory)}. " +
+                $"The service '{serviceName}' can only be resolved from a scope created by {nameof(ICrdtScopeFactory)}. " +
                 $"Please use {nameof(ICrdtScopeFactory)}.{nameof(ICrdtScopeFactory.CreateScope)} to create a valid CRDT scope before resolving services.");
         }
-
-        return ActivatorUtilities.CreateInstance<TImplementation>(sp);
     }
 }

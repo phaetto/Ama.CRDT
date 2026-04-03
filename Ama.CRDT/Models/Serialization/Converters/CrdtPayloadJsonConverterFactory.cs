@@ -49,7 +49,7 @@ public sealed class CrdtPayloadJsonConverterFactory : JsonConverterFactory
             var typeDiscriminatorValue = typeNode.GetValue<string>();
             if (!CrdtTypeRegistry.TryGetType(typeDiscriminatorValue!, out var targetType))
             {
-                throw new NotSupportedException($"Type with discriminator '{typeDiscriminatorValue}' is not registered in CrdtTypeRegistry. Explicit type registration is required for AOT compatibility.");
+                throw new NotSupportedException($"Type with discriminator '{typeDiscriminatorValue}' is not registered in CrdtTypeRegistry. Explicit type registration is required for AOT compatibility. Use ServiceCollection.AddCrdtSerializableType to register it.");
             }
 
             // Fetch TypeInfo for AOT safety rather than relying on reflection deserialization
@@ -82,7 +82,7 @@ public sealed class CrdtPayloadJsonConverterFactory : JsonConverterFactory
 
             if (discriminator is null)
             {
-                throw new NotSupportedException($"Type '{type}' is not registered in CrdtTypeRegistry. Explicit type registration is required for AOT compatibility.");
+                throw new NotSupportedException($"Type '{type}' is not registered in CrdtTypeRegistry. Explicit type registration is required for AOT compatibility. Use ServiceCollection.AddCrdtSerializableType to register it.");
             }
 
             // Fetch TypeInfo for AOT safety

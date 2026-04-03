@@ -13,7 +13,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,6 +32,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     private readonly IPartitionSerializationService serializationService;
     private readonly PartitionManagerCrdtMetrics metrics;
     private readonly StreamsCrdtMetrics treeMetrics;
+    private readonly JsonSerializerOptions serializerOptions;
 
     // Concurrency controls
     private readonly ConcurrentDictionary<string, AsyncLock> locks = new();
@@ -46,12 +46,14 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         IServiceProvider serviceProvider,
         IPartitionSerializationService serializationService,
         PartitionManagerCrdtMetrics metrics,
-        StreamsCrdtMetrics treeMetrics)
+        StreamsCrdtMetrics treeMetrics,
+        [FromKeyedServices("Ama.CRDT")] JsonSerializerOptions serializerOptions)
     {
         ArgumentNullException.ThrowIfNull(serviceProvider);
         ArgumentNullException.ThrowIfNull(serializationService);
         ArgumentNullException.ThrowIfNull(metrics);
         ArgumentNullException.ThrowIfNull(treeMetrics);
+        ArgumentNullException.ThrowIfNull(serializerOptions);
 
         this.streamProvider = serviceProvider.GetService<IPartitionStreamProvider>() ??
             throw new InvalidOperationException(
@@ -62,6 +64,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         this.serializationService = serializationService;
         this.metrics = metrics;
         this.treeMetrics = treeMetrics;
+        this.serializerOptions = serializerOptions;
     }
 
     #region Data Stream Operations (IPartitionStorageService core)
@@ -216,22 +219,24 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         var buffer = new byte[HeaderSize];
         stream.Seek(0, SeekOrigin.Begin);
         await stream.ReadExactlyAsync(buffer, cancellationToken).ConfigureAwait(false);
-        var jsonString = Encoding.UTF8.GetString(buffer).TrimEnd();
         
-        if (string.IsNullOrWhiteSpace(jsonString)) 
+        int endOfJson = Array.FindLastIndex(buffer, b => b != (byte)' ') + 1;
+        if (endOfJson == 0) 
         {
             var newHeader = new DataStreamHeader();
             await WriteDataHeaderAsync(stream, newHeader, cancellationToken).ConfigureAwait(false);
             return newHeader;
         }
 
-        return JsonSerializer.Deserialize<DataStreamHeader>(jsonString) ?? new DataStreamHeader();
+        var typeInfo = serializerOptions.GetTypeInfo(typeof(DataStreamHeader));
+        return (DataStreamHeader?)JsonSerializer.Deserialize(buffer.AsSpan(0, endOfJson), typeInfo) ?? new DataStreamHeader();
     }
 
     private async Task WriteDataHeaderAsync(Stream stream, DataStreamHeader header, CancellationToken cancellationToken)
     {
-        var jsonString = JsonSerializer.Serialize(header);
-        var buffer = Encoding.UTF8.GetBytes(jsonString);
+        var typeInfo = serializerOptions.GetTypeInfo(typeof(DataStreamHeader));
+        var buffer = JsonSerializer.SerializeToUtf8Bytes(header, typeInfo);
+
         if (buffer.Length > HeaderSize) throw new InvalidOperationException($"Data stream header exceeded {HeaderSize} bytes.");
 
         var padded = new byte[HeaderSize];
