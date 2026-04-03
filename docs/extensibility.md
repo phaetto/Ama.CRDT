@@ -154,9 +154,9 @@ builder.Services.AddCrdt();
 builder.Services.AddCrdtTimestampProvider<LogicalClockProvider>();
 ```
 
-#### 3. Register a Custom Timestamp Type for Serialization
+#### 3. Register a Custom Timestamp Type for Native AOT
 
-If you create your own `ICrdtTimestamp` implementation, you **must** register it for serialization.
+If you create your own `ICrdtTimestamp` implementation, you **must** register it in the registry so the STJ polymorphism discriminator logic is mapped correctly.
 
 **Example**: A custom `VectorClockTimestamp`.
 
@@ -178,9 +178,22 @@ public readonly record struct VectorClockTimestamp(long Ticks) : ICrdtTimestamp
 }
 ```
 
+Because Ama.CRDT is fully AOT friendly, you must also add your struct to your `CrdtContext` and `JsonSerializerContext`:
+
+```csharp
+[CrdtSerializable(typeof(VectorClockTimestamp))]
+public partial class MyAotCrdtContext : CrdtContext { }
+
+[JsonSerializable(typeof(VectorClockTimestamp))]
+public partial class MyAotJsonContext : JsonSerializerContext { }
+```
+
 *In Program.cs*
 ```csharp
-builder.Services.AddCrdt();
+builder.Services.AddCrdt()
+    .AddCrdtAotContext<MyAotCrdtContext>()
+    .AddCrdtJsonTypeInfoResolver(MyAotJsonContext.Default);
+
 builder.Services.AddCrdtTimestampProvider<VectorClockProvider>(); 
 
 // Register the custom timestamp type with a unique discriminator string.

@@ -1,4 +1,4 @@
-# Multi-Replica Synchronization & Serialization
+# Multi-Replica Synchronization & Native AOT Serialization
 
 For distributed systems with multiple writers, you need a unique set of services for each replica. The `ICrdtScopeFactory` is the recommended way to create these. This example shows two replicas modifying the same object concurrently and converging to a consistent state.
 
@@ -76,37 +76,80 @@ var applyResultA = applicatorA.ApplyPatch(docA, patchFromB);
 // - Badges: ["veteran", "welcome"] (OR-Set merge adds "veteran")
 ```
 
-## Serializing and Transmitting Patches
+## Native AOT & Serialization Contexts
+
+Ama.CRDT is fully Native AOT compatible. To achieve this, it strictly avoids `System.Reflection` at runtime and instead uses Roslyn Source Generators to pre-calculate metadata and JSON serialization logic.
+
+Whenever you define a new model, you must register it in two source generators: 
+1. **`CrdtContext`**: For property access and tracking changes without reflection.
+2. **`JsonSerializerContext`**: For generating Native AOT `System.Text.Json` rules.
+
+### 1. Define your AOT Contexts
+
+```csharp
+using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models;
+using Ama.CRDT.Attributes;
+using System.Text.Json.Serialization;
+
+// AOT Reflection Context
+[CrdtSerializable(typeof(UserStats))]
+public partial class AppCrdtContext : CrdtContext
+{
+}
+
+// AOT JSON Context
+[JsonSerializable(typeof(UserStats))]
+[JsonSerializable(typeof(CrdtDocument<UserStats>))] // If you plan to serialize the whole document
+public partial class AppJsonContext : JsonSerializerContext
+{
+}
+```
+
+### 2. Register contexts in Dependency Injection
+
+By registering these contexts in DI, the library merges them with its internal contexts to natively support deep polymorphism and optimal network serialization.
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddCrdt()
+    .AddCrdtAotContext<AppCrdtContext>()
+    .AddCrdtJsonTypeInfoResolver(AppJsonContext.Default);
+```
+
+### 3. Serializing and Transmitting Patches
 
 Once a `CrdtPatch` is generated, it needs to be sent to other replicas. This is typically done by serializing the patch to JSON.
 
-The library provides pre-configured `JsonSerializerOptions` for this purpose through the `CrdtJsonContext` class. Using `CrdtJsonContext.DefaultOptions` is the recommended way to serialize patches, as it automatically handles:
-- Polymorphic `ICrdtTimestamp` types.
-- Polymorphic `object` payloads in `CrdtOperation.Value`.
-- Dictionaries with non-string keys.
+Because Ama.CRDT supports complex polymorphism (like various `ICrdtTimestamp` types or dynamic `object` payloads), you should **always** use the unified `JsonSerializerOptions` that the library generates and registers in the DI container as a Keyed Service (`"Ama.CRDT"`).
 
 ```csharp
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Serialization;
+using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 
-// Assume 'patch' is the CrdtPatch you generated.
-CrdtPatch patch = ...; 
+public class NetworkService
+{
+    private readonly JsonSerializerOptions crdtJsonOptions;
 
-// 1. Serialize the patch to a JSON string using the recommended options.
-string jsonPayload = JsonSerializer.Serialize(patch, CrdtJsonContext.DefaultOptions);
+    public NetworkService([FromKeyedServices("Ama.CRDT")] JsonSerializerOptions options)
+    {
+        crdtJsonOptions = options;
+    }
 
-// This 'jsonPayload' can now be sent across the network.
+    public string SerializePatch(CrdtPatch patch)
+    {
+        // 1. Serialize the patch using the AOT-safe options provided by DI
+        return JsonSerializer.Serialize(patch, crdtJsonOptions);
+    }
 
-// --- On the receiving replica ---
-
-// 2. Deserialize the JSON string back into a CrdtPatch object.
-CrdtPatch receivedPatch = JsonSerializer.Deserialize<CrdtPatch>(jsonPayload, CrdtJsonContext.DefaultOptions);
-
-// 3. Apply the received patch.
-// var applicator = ...;
-// var document = ...;
-// var result = applicator.ApplyPatch(document, receivedPatch);
+    public CrdtPatch DeserializePatch(string jsonPayload)
+    {
+        // 2. Deserialize the JSON string back into a CrdtPatch object.
+        return JsonSerializer.Deserialize<CrdtPatch>(jsonPayload, crdtJsonOptions);
+    }
+}
 ```
 
 **Important**: If you have created a custom `ICrdtTimestamp` or a custom operation payload type, you must register it with the serialization system using `AddCrdtTimestampType<T>()` or `AddCrdtSerializableType<T>()`. See [Extensibility & Customization](extensibility.md) for details.

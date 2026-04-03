@@ -8,21 +8,34 @@ You can then use the `IJournalManager` alongside the `IVersionVectorSyncService`
 
 ## 1. Implementing the Journal
 
-To enable journaling, you must first implement the `ICrdtOperationJournal` interface. This serves as an adapter to your preferred database, message queue, or event store.
+To enable journaling, you must first implement the `ICrdtOperationJournal` interface. This serves as an adapter to your preferred database, message queue, or event store. 
+
+To properly serialize the entries for Native AOT, you should inject the pre-configured `JsonSerializerOptions` registered under the Keyed Service `"Ama.CRDT"`.
 
 ```csharp
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Journaling;
+using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
 public class MyDatabaseJournal : ICrdtOperationJournal
 {
+    private readonly JsonSerializerOptions jsonOptions;
+
+    // Inject the fully configured AOT-safe serialization options
+    public MyDatabaseJournal([FromKeyedServices("Ama.CRDT")] JsonSerializerOptions jsonOptions)
+    {
+        this.jsonOptions = jsonOptions;
+    }
+
     public void Append(string documentId, IReadOnlyList<CrdtOperation> operations)
     {
         // Synchronous append (e.g., using a traditional DB driver)
+        // string json = JsonSerializer.Serialize(operations, jsonOptions);
         SaveToDatabase(documentId, operations);
     }
 
