@@ -36,7 +36,7 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<TwoPhaseGraphStrategyTestCrdtContext>()
+            .AddCrdtAotContext<TwoPhaseGraphStrategyTestCrdtAotContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

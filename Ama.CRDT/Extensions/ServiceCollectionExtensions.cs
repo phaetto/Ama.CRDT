@@ -89,7 +89,7 @@ public static class ServiceCollectionExtensions
                 TypeInfoResolver = combinedResolver
             };
 
-            var crdtContexts = sp.GetServices<CrdtContext>();
+            var crdtContexts = sp.GetServices<CrdtAotContext>();
 
             options.Converters.Add(CrdtPayloadJsonConverterFactory.Instance);
             options.Converters.Add(new ObjectKeyDictionaryJsonConverter(crdtContexts));
@@ -103,7 +103,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton(builder.Build());
 
         // Register the internal CRDT AOT Context for reflection-free access to library models
-        services.AddCrdtAotContext<InternalCrdtContext>();
+        services.AddCrdtAotContext<InternalCrdtAotContext>();
 
         // Add metrics
         services.TryAddSingleton<PartitionManagerCrdtMetrics>();
@@ -450,7 +450,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers an AOT-generated <see cref="CrdtContext"/> into the DI container as a Singleton.
+    /// Registers an AOT-generated <see cref="CrdtAotContext"/> into the DI container as a Singleton.
     /// This enables reflection-free property access and instantiation for CRDT operations, making the library Native AOT compatible.
     /// Because the type metadata does not hold replica state, it's safe and efficient to register it as a singleton.
     /// </summary>
@@ -466,15 +466,15 @@ public static class ServiceCollectionExtensions
     /// </code>
     /// </example>
     public static IServiceCollection AddCrdtAotContext<TContext>(this IServiceCollection services)
-        where TContext : CrdtContext, new()
+        where TContext : CrdtAotContext, new()
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<CrdtContext, TContext>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<CrdtAotContext, TContext>());
         return services;
     }
 
     /// <summary>
-    /// Registers an explicitly instantiated AOT-generated <see cref="CrdtContext"/> into the DI container as a Singleton.
+    /// Registers an explicitly instantiated AOT-generated <see cref="CrdtAotContext"/> into the DI container as a Singleton.
     /// This enables reflection-free property access and instantiation for CRDT operations, making the library Native AOT compatible.
     /// Because the type metadata does not hold replica state, it's safe and efficient to register it as a singleton.
     /// </summary>
@@ -489,11 +489,11 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtAotContext(this IServiceCollection services, CrdtContext context)
+    public static IServiceCollection AddCrdtAotContext(this IServiceCollection services, CrdtAotContext context)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(context);
-        services.TryAddEnumerable(ServiceDescriptor.Singleton(typeof(CrdtContext), context));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton(typeof(CrdtAotContext), context));
         return services;
     }
 

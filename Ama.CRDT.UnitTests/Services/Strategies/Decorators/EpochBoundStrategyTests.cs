@@ -21,9 +21,9 @@ using System;
 using System.Collections.Generic;
 using Xunit;
 
-[CrdtSerializable(typeof(EpochBoundStrategyTests.ShoppingCart))]
-[CrdtSerializable(typeof(Dictionary<string, string>))]
-internal partial class EpochBoundTestCrdtContext : CrdtContext { }
+[CrdtAotType(typeof(EpochBoundStrategyTests.ShoppingCart))]
+[CrdtAotType(typeof(Dictionary<string, string>))]
+internal partial class EpochBoundTestCrdtAotContext : CrdtAotContext { }
 
 public sealed class EpochBoundStrategyTests : IDisposable
 {
@@ -48,7 +48,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<EpochBoundTestCrdtContext>()
+            .AddCrdtAotContext<EpochBoundTestCrdtAotContext>()
             .BuildServiceProvider();
 
         scope = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("TestReplica");

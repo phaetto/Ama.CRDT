@@ -4,7 +4,7 @@ Ama.CRDT is built on a few core abstractions that separate data from metadata, c
 
 ## Core Components
 
-- **`CrdtContext` (AOT Reflection)**: Source-generated contexts that completely replace runtime reflection. The library uses these generated structs to read properties, instantiate types, and resolve CRDT strategies at compile-time, making it incredibly fast and Native AOT compatible.
+- **`CrdtAotContext` (AOT Reflection)**: Source-generated contexts that completely replace runtime reflection. The library uses these generated structs to read properties, instantiate types, and resolve CRDT strategies at compile-time, making it incredibly fast and Native AOT compatible.
 - **`ICrdtScopeFactory`**: A singleton factory for creating isolated `IServiceScope` instances. Each scope is configured for a specific `ReplicaId` and provides its own set of scoped services. This is the primary entry point for working with multiple replicas.
 - **`ICrdtPatcher`**: A scoped service that generates a `CrdtPatch` by comparing two versions of a document. It is a stateless service that only reads the `from` document's metadata to understand the state before the change. It uses the `ICrdtStrategyProvider` to find the correct strategy for each property. It also exposes `.BuildOperation` for explicit intent creation.
 - **`ICrdtApplicator`**: A scoped service that applies a `CrdtPatch` to a document. It uses the `ICrdtStrategyProvider` to find the correct strategy to modify the POCO and its metadata. It also handles idempotency checks using version vectors for supported strategies.

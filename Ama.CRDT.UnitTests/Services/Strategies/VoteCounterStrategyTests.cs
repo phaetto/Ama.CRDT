@@ -54,7 +54,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<VoteCounterStrategyTestCrdtContext>()
+            .AddCrdtAotContext<VoteCounterStrategyTestCrdtAotContext>()
             .AddSingleton<ICrdtTimestampProvider, TestTimestampProvider>()
             .BuildServiceProvider();
 

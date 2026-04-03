@@ -36,7 +36,7 @@ public sealed class OrSetStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<OrSetStrategyTestCrdtContext>()
+            .AddCrdtAotContext<OrSetStrategyTestCrdtAotContext>()
             .AddSingleton<ICrdtTimestampProvider, TestTimestampProvider>()
             .BuildServiceProvider();
 
@@ -85,7 +85,7 @@ public sealed class OrSetStrategyTests : IDisposable
     public void GenerateOperation_AddIntent_ShouldCreateUpsertOp()
     {
         // Arrange
-        var propInfo = new OrSetStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
+        var propInfo = new OrSetStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
         var ts = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
@@ -106,7 +106,7 @@ public sealed class OrSetStrategyTests : IDisposable
     public void GenerateOperation_RemoveValueIntent_ShouldCreateRemoveOp()
     {
         // Arrange
-        var propInfo = new OrSetStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
+        var propInfo = new OrSetStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
         var ts = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
         var doc = new TestModel { Tags = { "A" } };
         var meta = metadataManagerA.Initialize(doc);
@@ -133,7 +133,7 @@ public sealed class OrSetStrategyTests : IDisposable
     public void GenerateOperation_RemoveIntent_ShouldCreateRemoveOp()
     {
         // Arrange
-        var propInfo = new OrSetStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
+        var propInfo = new OrSetStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
         var ts = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
@@ -159,7 +159,7 @@ public sealed class OrSetStrategyTests : IDisposable
     public void GenerateOperation_UnsupportedIntent_ShouldThrowNotSupportedException()
     {
         // Arrange
-        var propInfo = new OrSetStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
+        var propInfo = new OrSetStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
         var ts = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
@@ -320,7 +320,7 @@ public sealed class OrSetStrategyTests : IDisposable
     [Fact]
     public void GetStartKey_ShouldReturnSmallestKeyOrNull()
     {
-        var propInfo = new OrSetStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
+        var propInfo = new OrSetStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
         
         strategyA.GetStartKey(new TestModel(), propInfo).ShouldBeNull();
         strategyA.GetStartKey(new TestModel { Tags = { "c", "a", "b" } }, propInfo).ShouldBe("a");
@@ -339,7 +339,7 @@ public sealed class OrSetStrategyTests : IDisposable
     [Fact]
     public void GetMinimumKey_ShouldReturnCorrectMinValue()
     {
-        var propInfo = new OrSetStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
+        var propInfo = new OrSetStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
         strategyA.GetMinimumKey(propInfo).ShouldBe(string.Empty);
     }
 
@@ -348,7 +348,7 @@ public sealed class OrSetStrategyTests : IDisposable
     {
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var propInfo = new OrSetStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
+        var propInfo = new OrSetStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
         var ts = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
 
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("a", Guid.NewGuid()), ts.Now(), 0)));
@@ -377,7 +377,7 @@ public sealed class OrSetStrategyTests : IDisposable
         var meta1 = metadataManagerA.Initialize(doc1);
         var doc2 = new TestModel();
         var meta2 = metadataManagerA.Initialize(doc2);
-        var propInfo = new OrSetStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
+        var propInfo = new OrSetStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
         var ts = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
 
         strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("a", Guid.NewGuid()), ts.Now(), 0)));

@@ -31,10 +31,10 @@ public sealed class SortedSetTestPoco : IEquatable<SortedSetTestPoco>
     public override int GetHashCode() => Items.Count.GetHashCode();
 }
 
-[CrdtSerializable(typeof(SortedSetTestPoco))]
-[CrdtSerializable(typeof(List<string>))]
-[CrdtSerializable(typeof(string))]
-internal partial class SortedSetTestContext : CrdtContext
+[CrdtAotType(typeof(SortedSetTestPoco))]
+[CrdtAotType(typeof(List<string>))]
+[CrdtAotType(typeof(string))]
+internal partial class SortedSetTestContext : CrdtAotContext
 {
 }
 

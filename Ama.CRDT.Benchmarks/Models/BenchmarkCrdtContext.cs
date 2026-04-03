@@ -4,19 +4,19 @@ using System.Collections.Generic;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models.Aot;
 
-[CrdtSerializable(typeof(SimplePoco))]
-[CrdtSerializable(typeof(ComplexPoco))]
-[CrdtSerializable(typeof(Details))]
-[CrdtSerializable(typeof(Tag))]
-[CrdtSerializable(typeof(StrategyPoco))]
-[CrdtSerializable(typeof(PrioItem))]
-[CrdtSerializable(typeof(List<Tag>))]
-[CrdtSerializable(typeof(List<string>))]
-[CrdtSerializable(typeof(string?[]))]
-[CrdtSerializable(typeof(Dictionary<string, List<string>>))]
-[CrdtSerializable(typeof(List<PrioItem>))]
-[CrdtSerializable(typeof(Dictionary<string, int>))]
-[CrdtSerializable(typeof(Dictionary<string, string>))]
-public partial class BenchmarkCrdtContext : CrdtContext
+[CrdtAotType(typeof(SimplePoco))]
+[CrdtAotType(typeof(ComplexPoco))]
+[CrdtAotType(typeof(Details))]
+[CrdtAotType(typeof(Tag))]
+[CrdtAotType(typeof(StrategyPoco))]
+[CrdtAotType(typeof(PrioItem))]
+[CrdtAotType(typeof(List<Tag>))]
+[CrdtAotType(typeof(List<string>))]
+[CrdtAotType(typeof(string?[]))]
+[CrdtAotType(typeof(Dictionary<string, List<string>>))]
+[CrdtAotType(typeof(List<PrioItem>))]
+[CrdtAotType(typeof(Dictionary<string, int>))]
+[CrdtAotType(typeof(Dictionary<string, string>))]
+public partial class BenchmarkCrdtAotContext : CrdtAotContext
 {
 }

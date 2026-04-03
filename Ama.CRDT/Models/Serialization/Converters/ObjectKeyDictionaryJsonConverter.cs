@@ -15,9 +15,9 @@ using Ama.CRDT.Models.Aot;
 /// </summary>
 public sealed class ObjectKeyDictionaryJsonConverter : JsonConverterFactory
 {
-    private readonly IEnumerable<CrdtContext>? crdtContexts;
+    private readonly IEnumerable<CrdtAotContext>? crdtContexts;
 
-    public ObjectKeyDictionaryJsonConverter(IEnumerable<CrdtContext>? crdtContexts = null)
+    public ObjectKeyDictionaryJsonConverter(IEnumerable<CrdtAotContext>? crdtContexts = null)
     {
         this.crdtContexts = crdtContexts;
     }
@@ -60,9 +60,9 @@ public sealed class ObjectKeyDictionaryJsonConverter : JsonConverterFactory
     {
         private readonly Type keyType;
         private readonly Type valueType;
-        private readonly IEnumerable<CrdtContext>? crdtContexts;
+        private readonly IEnumerable<CrdtAotContext>? crdtContexts;
 
-        public ObjectKeyDictionaryConverterInner(Type keyType, Type valueType, IEnumerable<CrdtContext>? crdtContexts)
+        public ObjectKeyDictionaryConverterInner(Type keyType, Type valueType, IEnumerable<CrdtAotContext>? crdtContexts)
         {
             this.keyType = keyType ?? throw new ArgumentNullException(nameof(keyType));
             this.valueType = valueType ?? throw new ArgumentNullException(nameof(valueType));
@@ -135,7 +135,7 @@ public sealed class ObjectKeyDictionaryJsonConverter : JsonConverterFactory
 
                 if (createInstance == null)
                 {
-                    throw new NotSupportedException($"Cannot create instance of {typeToConvert}. Ensure the type is explicitly registered in the provided AOT CrdtContexts.");
+                    throw new NotSupportedException($"Cannot create instance of {typeToConvert}. Ensure the type is explicitly registered in the provided AOT CrdtAotContexts.");
                 }
             }
 

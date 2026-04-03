@@ -22,7 +22,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Arrange
         var patcherMock = new Mock<IAsyncCrdtPatcher>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtContext() };
+        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
 
         // Act & Assert
         Should.Throw<ArgumentNullException>(() => new JournalingPatcherDecorator(null!, journalMock.Object, aotContexts));
@@ -36,7 +36,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Arrange
         var patcherMock = new Mock<IAsyncCrdtPatcher>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtContext() };
+        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
         var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, aotContexts);
 
         var document = new CrdtDocument<TestModel>(new TestModel());
@@ -65,7 +65,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Arrange
         var patcherMock = new Mock<IAsyncCrdtPatcher>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtContext() };
+        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
         var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, aotContexts);
 
         var document = new CrdtDocument<TestModel>(new TestModel());
@@ -95,7 +95,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Arrange
         var patcherMock = new Mock<IAsyncCrdtPatcher>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtContext() };
+        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
         var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, aotContexts);
 
         var document = new CrdtDocument<TestModel>(new TestModel());
@@ -118,7 +118,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Arrange
         var patcherMock = new Mock<IAsyncCrdtPatcher>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtContext() };
+        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
         var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, aotContexts);
 
         var document = new CrdtDocument<TestModel>(new TestModel());

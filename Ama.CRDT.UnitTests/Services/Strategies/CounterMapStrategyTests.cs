@@ -18,11 +18,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-[CrdtSerializable(typeof(CounterMapTestModel))]
-[CrdtSerializable(typeof(CounterMapTestModelInt))]
-[CrdtSerializable(typeof(Dictionary<string, int>))]
-[CrdtSerializable(typeof(Dictionary<int, int>))]
-internal partial class CounterMapStrategyTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(CounterMapTestModel))]
+[CrdtAotType(typeof(CounterMapTestModelInt))]
+[CrdtAotType(typeof(Dictionary<string, int>))]
+[CrdtAotType(typeof(Dictionary<int, int>))]
+internal partial class CounterMapStrategyTestCrdtAotContext : CrdtAotContext
 {
 }
 
@@ -50,7 +50,7 @@ public sealed class CounterMapStrategyTests
     {
         var services = new ServiceCollection();
         services.AddCrdt()
-            .AddCrdtAotContext<CounterMapStrategyTestCrdtContext>()
+            .AddCrdtAotContext<CounterMapStrategyTestCrdtAotContext>()
             .AddSingleton(comparerProviderMock.Object);
 
         serviceProvider = services.BuildServiceProvider();

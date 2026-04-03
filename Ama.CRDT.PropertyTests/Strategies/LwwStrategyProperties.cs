@@ -11,8 +11,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(TestPoco))]
-internal partial class LwwTestContext : CrdtContext
+[CrdtAotType(typeof(TestPoco))]
+internal partial class LwwTestContext : CrdtAotContext
 {
 }
 

@@ -76,7 +76,7 @@ public sealed class SortedSetStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<SortedSetStrategyTestCrdtContext>()
+            .AddCrdtAotContext<SortedSetStrategyTestCrdtAotContext>()
             .AddSingleton<ICrdtTimestampProvider, EpochTimestampProvider>()
             .BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
@@ -106,7 +106,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         // Arrange
         var mockComparerProvider = new Mock<IElementComparerProvider>();
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
-        var strategy = new SortedSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, new ReplicaContext { ReplicaId = "replica-A" }, new[] { new SortedSetStrategyTestCrdtContext() });
+        var strategy = new SortedSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, new ReplicaContext { ReplicaId = "replica-A" }, new[] { new SortedSetStrategyTestCrdtAotContext() });
 
         mockComparerProvider
             .Setup(p => p.GetComparer(typeof(NestedModel)))

@@ -24,7 +24,7 @@ public class PatcherBenchmarks
     {
         var services = new ServiceCollection();
         services.AddCrdt();
-        services.AddCrdtAotContext<BenchmarkCrdtContext>();
+        services.AddCrdtAotContext<BenchmarkCrdtAotContext>();
         var serviceProvider = services.BuildServiceProvider();
         var serviceScopeFactory = serviceProvider.GetService<ICrdtScopeFactory>();
         scope = serviceScopeFactory.CreateScope("replica-id");

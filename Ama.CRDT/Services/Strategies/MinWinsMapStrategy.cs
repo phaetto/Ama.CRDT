@@ -28,7 +28,7 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 public sealed class MinWinsMapStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -245,7 +245,7 @@ public sealed class MinWinsMapStrategy(
         partitionableProperty.Setter!(root, dict);
     }
 
-    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtContext> aotContexts)
+    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtAotContext> aotContexts)
     {
         if (keyType == typeof(string)) return string.Empty;
         if (keyType == typeof(int)) return int.MinValue;

@@ -16,9 +16,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
 
-[CrdtSerializable(typeof(ArrayLcsTestPoco))]
-[CrdtSerializable(typeof(List<string>))]
-public partial class ArrayLcsTestContext : CrdtContext
+[CrdtAotType(typeof(ArrayLcsTestPoco))]
+[CrdtAotType(typeof(List<string>))]
+public partial class ArrayLcsTestContext : CrdtAotContext
 {
 }
 

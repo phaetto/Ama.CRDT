@@ -5,17 +5,17 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Models.Aot;
 
 /// <summary>
-/// A dedicated CrdtContext for VoteCounterStrategy unit tests to provide AOT-compatible 
+/// A dedicated CrdtAotContext for VoteCounterStrategy unit tests to provide AOT-compatible 
 /// property metadata for test-specific models and collections.
 /// </summary>
-[CrdtSerializable(typeof(VoteCounterStrategyTests.Poll))]
-[CrdtSerializable(typeof(VoteCounterStrategyTests.PollWithList))]
-[CrdtSerializable(typeof(Dictionary<string, HashSet<string>>))]
-[CrdtSerializable(typeof(Dictionary<string, List<string>>))]
-[CrdtSerializable(typeof(HashSet<string>))]
-[CrdtSerializable(typeof(List<string>))]
-[CrdtSerializable(typeof(IDictionary<string, HashSet<string>>))]
-[CrdtSerializable(typeof(IDictionary<string, List<string>>))]
-internal partial class VoteCounterStrategyTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(VoteCounterStrategyTests.Poll))]
+[CrdtAotType(typeof(VoteCounterStrategyTests.PollWithList))]
+[CrdtAotType(typeof(Dictionary<string, HashSet<string>>))]
+[CrdtAotType(typeof(Dictionary<string, List<string>>))]
+[CrdtAotType(typeof(HashSet<string>))]
+[CrdtAotType(typeof(List<string>))]
+[CrdtAotType(typeof(IDictionary<string, HashSet<string>>))]
+[CrdtAotType(typeof(IDictionary<string, List<string>>))]
+internal partial class VoteCounterStrategyTestCrdtAotContext : CrdtAotContext
 {
 }

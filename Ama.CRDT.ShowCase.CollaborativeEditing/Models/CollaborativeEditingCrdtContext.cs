@@ -6,9 +6,9 @@ using Ama.CRDT.Models.Aot;
 /// <summary>
 /// AOT reflection context for the showcase models.
 /// </summary>
-[CrdtSerializable(typeof(SharedDocument))]
-[CrdtSerializable(typeof(IList<string>))]
-[CrdtSerializable(typeof(List<string>))]
-internal partial class CollaborativeEditingCrdtContext : CrdtContext
+[CrdtAotType(typeof(SharedDocument))]
+[CrdtAotType(typeof(IList<string>))]
+[CrdtAotType(typeof(List<string>))]
+internal partial class CollaborativeEditingCrdtAotContext : CrdtAotContext
 {
 }

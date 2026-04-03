@@ -14,10 +14,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(PqItem))]
-[CrdtSerializable(typeof(PriorityQueueTestPoco))]
-[CrdtSerializable(typeof(List<PqItem>))]
-public partial class PriorityQueueTestContext : CrdtContext { }
+[CrdtAotType(typeof(PqItem))]
+[CrdtAotType(typeof(PriorityQueueTestPoco))]
+[CrdtAotType(typeof(List<PqItem>))]
+public partial class PriorityQueueTestContext : CrdtAotContext { }
 
 public sealed class PqItem : IEquatable<PqItem>
 {
@@ -180,7 +180,7 @@ public sealed class PriorityQueueStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var aotContexts = new CrdtContext[] { new PriorityQueueTestContext(), new InternalCrdtContext() };
+        var aotContexts = new CrdtAotContext[] { new PriorityQueueTestContext(), new InternalCrdtAotContext() };
         var strategy = new PriorityQueueStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(

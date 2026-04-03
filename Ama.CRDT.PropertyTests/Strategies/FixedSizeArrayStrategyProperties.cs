@@ -37,9 +37,9 @@ public sealed class FixedSizeArrayTestPoco : IEquatable<FixedSizeArrayTestPoco>
     public override int GetHashCode() => Items.Count.GetHashCode();
 }
 
-[CrdtSerializable(typeof(FixedSizeArrayTestPoco))]
-[CrdtSerializable(typeof(List<string?>))]
-public partial class FixedSizeArrayTestContext : CrdtContext
+[CrdtAotType(typeof(FixedSizeArrayTestPoco))]
+[CrdtAotType(typeof(List<string?>))]
+public partial class FixedSizeArrayTestContext : CrdtAotContext
 {
 }
 

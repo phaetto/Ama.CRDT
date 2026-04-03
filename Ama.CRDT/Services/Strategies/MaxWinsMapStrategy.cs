@@ -28,7 +28,7 @@ using System.Linq;
 public sealed class MaxWinsMapStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -238,7 +238,7 @@ public sealed class MaxWinsMapStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructDictionaryForSplitMerge(object root, IDictionary sourceDict, HashSet<IComparable> keysToKeep, CrdtPropertyInfo partitionableProperty, IEnumerable<CrdtContext> aotContexts)
+    private static void ReconstructDictionaryForSplitMerge(object root, IDictionary sourceDict, HashSet<IComparable> keysToKeep, CrdtPropertyInfo partitionableProperty, IEnumerable<CrdtAotContext> aotContexts)
     {
         var dict = (IDictionary)PocoPathHelper.Instantiate(partitionableProperty.PropertyType, aotContexts);
         
@@ -253,7 +253,7 @@ public sealed class MaxWinsMapStrategy(
         partitionableProperty.Setter!(root, dict);
     }
 
-    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtContext> aotContexts)
+    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtAotContext> aotContexts)
     {
         if (keyType == typeof(string)) return string.Empty;
         if (keyType == typeof(int)) return int.MinValue;

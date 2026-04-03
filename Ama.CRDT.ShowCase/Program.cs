@@ -15,7 +15,7 @@ public static class Program
                 services.AddCrdt();
 
                 // Register the showcase's AOT CRDT context to avoid reflection warnings
-                services.AddCrdtAotContext<ShowcaseCrdtContext>();
+                services.AddCrdtAotContext<ShowcaseCrdtAotContext>();
                 
                 // Register the showcase's AOT JSON context to include our models in serialization
                 services.AddCrdtJsonTypeInfoResolver(ShowcaseJsonContext.Default);

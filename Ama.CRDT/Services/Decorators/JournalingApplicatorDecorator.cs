@@ -19,7 +19,7 @@ public sealed class JournalingApplicatorDecorator : IAsyncCrdtApplicator
 {
     private readonly IAsyncCrdtApplicator innerApplicator;
     private readonly ICrdtOperationJournal journal;
-    private readonly IEnumerable<CrdtContext> aotContexts;
+    private readonly IEnumerable<CrdtAotContext> aotContexts;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="JournalingApplicatorDecorator"/> class.
@@ -28,7 +28,7 @@ public sealed class JournalingApplicatorDecorator : IAsyncCrdtApplicator
     /// <param name="journal">The journal service to record successfully applied operations.</param>
     /// <param name="aotContexts">The AOT contexts to use for reflection-free property access.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="innerApplicator"/>, <paramref name="journal"/> or <paramref name="aotContexts"/> is null.</exception>
-    public JournalingApplicatorDecorator(IAsyncCrdtApplicator innerApplicator, ICrdtOperationJournal journal, IEnumerable<CrdtContext> aotContexts)
+    public JournalingApplicatorDecorator(IAsyncCrdtApplicator innerApplicator, ICrdtOperationJournal journal, IEnumerable<CrdtAotContext> aotContexts)
     {
         ArgumentNullException.ThrowIfNull(innerApplicator);
         ArgumentNullException.ThrowIfNull(journal);

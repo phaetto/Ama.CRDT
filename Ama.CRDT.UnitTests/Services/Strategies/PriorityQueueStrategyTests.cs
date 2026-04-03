@@ -56,7 +56,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<PriorityQueueStrategyTestCrdtContext>()
+            .AddCrdtAotContext<PriorityQueueStrategyTestCrdtAotContext>()
             .AddCrdtComparer<ItemComparer>()
             .BuildServiceProvider();
 
@@ -299,7 +299,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
             model,
             meta,
             "$.Items",
-            new PriorityQueueStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
+            new PriorityQueueStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
             new AddIntent(itemToAdd),
             timestampProvider.Now(),
             0);
@@ -327,7 +327,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
             model,
             meta,
             "$.Items",
-            new PriorityQueueStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
+            new PriorityQueueStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
             new RemoveValueIntent(itemToRemove),
             timestampProvider.Now(),
             0);
@@ -354,7 +354,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
             model,
             meta,
             "$.Items",
-            new PriorityQueueStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
+            new PriorityQueueStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
             new IncrementIntent(1),
             timestampProvider.Now(),
             0);

@@ -5,31 +5,31 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Models.Aot;
 
 /// <summary>
-/// A dedicated CrdtContext for the Services unit tests to provide AOT-compatible 
+/// A dedicated CrdtAotContext for the Services unit tests to provide AOT-compatible 
 /// property metadata for test-specific models and collections.
 /// </summary>
-[CrdtSerializable(typeof(CrdtApplicatorTests.TestModel))]
-[CrdtSerializable(typeof(CrdtComposableArchitectureTests.TestRoot))]
-[CrdtSerializable(typeof(CrdtComposableArchitectureTests.TestLevel1))]
-[CrdtSerializable(typeof(CrdtComposableArchitectureTests.TestLevel2))]
-[CrdtSerializable(typeof(CrdtComposableArchitectureTests.TestTag))]
-[CrdtSerializable(typeof(CrdtComposableArchitectureTests.ComplexDocument))]
-[CrdtSerializable(typeof(CrdtComposableArchitectureTests.NestedConfig))]
-[CrdtSerializable(typeof(CrdtComposableArchitectureTests.DecoratedDocument))]
-[CrdtSerializable(typeof(CrdtComposableArchitectureTests.ComplexCollectionDocument))]
-[CrdtSerializable(typeof(CrdtComposableArchitectureTests.ComplexItem))]
-[CrdtSerializable(typeof(CrdtPatcherTests.TestModel))]
-[CrdtSerializable(typeof(CrdtPatcherTests.NestedModel))]
-[CrdtSerializable(typeof(CrdtMetadataManagerTests.OuterDoc))]
-[CrdtSerializable(typeof(CrdtMetadataManagerTests.InnerDoc))]
-[CrdtSerializable(typeof(List<CrdtComposableArchitectureTests.TestTag>))]
-[CrdtSerializable(typeof(List<string>))]
-[CrdtSerializable(typeof(List<CrdtComposableArchitectureTests.ComplexItem>))]
-[CrdtSerializable(typeof(List<CrdtMetadataManagerTests.InnerDoc>))]
-[CrdtSerializable(typeof(Dictionary<string, int>))]
-[CrdtSerializable(typeof(Dictionary<string, CrdtComposableArchitectureTests.ComplexItem>))]
-[CrdtSerializable(typeof(Dictionary<string, CrdtMetadataManagerTests.InnerDoc>))]
-[CrdtSerializable(typeof(object))]
-internal partial class ServicesTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(CrdtApplicatorTests.TestModel))]
+[CrdtAotType(typeof(CrdtComposableArchitectureTests.TestRoot))]
+[CrdtAotType(typeof(CrdtComposableArchitectureTests.TestLevel1))]
+[CrdtAotType(typeof(CrdtComposableArchitectureTests.TestLevel2))]
+[CrdtAotType(typeof(CrdtComposableArchitectureTests.TestTag))]
+[CrdtAotType(typeof(CrdtComposableArchitectureTests.ComplexDocument))]
+[CrdtAotType(typeof(CrdtComposableArchitectureTests.NestedConfig))]
+[CrdtAotType(typeof(CrdtComposableArchitectureTests.DecoratedDocument))]
+[CrdtAotType(typeof(CrdtComposableArchitectureTests.ComplexCollectionDocument))]
+[CrdtAotType(typeof(CrdtComposableArchitectureTests.ComplexItem))]
+[CrdtAotType(typeof(CrdtPatcherTests.TestModel))]
+[CrdtAotType(typeof(CrdtPatcherTests.NestedModel))]
+[CrdtAotType(typeof(CrdtMetadataManagerTests.OuterDoc))]
+[CrdtAotType(typeof(CrdtMetadataManagerTests.InnerDoc))]
+[CrdtAotType(typeof(List<CrdtComposableArchitectureTests.TestTag>))]
+[CrdtAotType(typeof(List<string>))]
+[CrdtAotType(typeof(List<CrdtComposableArchitectureTests.ComplexItem>))]
+[CrdtAotType(typeof(List<CrdtMetadataManagerTests.InnerDoc>))]
+[CrdtAotType(typeof(Dictionary<string, int>))]
+[CrdtAotType(typeof(Dictionary<string, CrdtComposableArchitectureTests.ComplexItem>))]
+[CrdtAotType(typeof(Dictionary<string, CrdtMetadataManagerTests.InnerDoc>))]
+[CrdtAotType(typeof(object))]
+internal partial class ServicesTestCrdtAotContext : CrdtAotContext
 {
 }

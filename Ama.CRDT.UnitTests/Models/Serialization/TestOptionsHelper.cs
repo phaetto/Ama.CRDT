@@ -22,7 +22,7 @@ public static class TestOptionsHelper
 
         var options = new JsonSerializerOptions { TypeInfoResolver = resolver };
         options.Converters.Add(CrdtPayloadJsonConverterFactory.Instance);
-        options.Converters.Add(new ObjectKeyDictionaryJsonConverter([new InternalCrdtContext(), new SerializationTestCrdtContext()]));
+        options.Converters.Add(new ObjectKeyDictionaryJsonConverter([new InternalCrdtAotContext(), new SerializationTestCrdtAotContext()]));
         return options;
     }
 
@@ -36,7 +36,7 @@ public static class TestOptionsHelper
 
         var options = new JsonSerializerOptions { TypeInfoResolver = resolver };
         options.Converters.Add(CrdtPayloadJsonConverterFactory.Instance);
-        options.Converters.Add(new ObjectKeyDictionaryJsonConverter([new InternalCrdtContext(), new SerializationTestCrdtContext()]));
+        options.Converters.Add(new ObjectKeyDictionaryJsonConverter([new InternalCrdtAotContext(), new SerializationTestCrdtAotContext()]));
         return options;
     }
 }

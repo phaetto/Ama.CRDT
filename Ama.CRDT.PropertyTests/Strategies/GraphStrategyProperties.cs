@@ -17,8 +17,8 @@ public sealed class GraphTestPoco
     public CrdtGraph Graph { get; set; } = new();
 }
 
-[CrdtSerializable(typeof(GraphTestPoco))]
-internal partial class GraphTestContext : CrdtContext
+[CrdtAotType(typeof(GraphTestPoco))]
+internal partial class GraphTestContext : CrdtAotContext
 {
 }
 

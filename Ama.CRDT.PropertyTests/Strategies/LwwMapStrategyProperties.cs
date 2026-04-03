@@ -13,9 +13,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(LwwMapTestPoco))]
-[CrdtSerializable(typeof(Dictionary<string, string>))]
-internal partial class LwwMapTestContext : CrdtContext
+[CrdtAotType(typeof(LwwMapTestPoco))]
+[CrdtAotType(typeof(Dictionary<string, string>))]
+internal partial class LwwMapTestContext : CrdtAotContext
 {
 }
 
@@ -162,7 +162,7 @@ public sealed class LwwMapStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var aotContexts = new CrdtContext[] { new LwwMapTestContext() };
+        var aotContexts = new CrdtAotContext[] { new LwwMapTestContext() };
         var strategy = new LwwMapStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(

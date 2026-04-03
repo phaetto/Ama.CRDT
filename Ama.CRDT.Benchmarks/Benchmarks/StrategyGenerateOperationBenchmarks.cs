@@ -133,7 +133,7 @@ public class StrategyGenerateOperationBenchmarks
     {
         var services = new ServiceCollection();
         services.AddCrdt();
-        services.AddCrdtAotContext<BenchmarkCrdtContext>();
+        services.AddCrdtAotContext<BenchmarkCrdtAotContext>();
         services.AddScoped<MyStateMachine>();
         var serviceProvider = services.BuildServiceProvider();
         var serviceScopeFactory = serviceProvider.GetService<ICrdtScopeFactory>();
@@ -187,7 +187,7 @@ public class StrategyGenerateOperationBenchmarks
 
     private CrdtPropertyInfo GetPropertyInfo(string propertyName)
     {
-        var crdtContexts = scope.ServiceProvider.GetServices<CrdtContext>();
+        var crdtContexts = scope.ServiceProvider.GetServices<CrdtAotContext>();
         foreach (var ctx in crdtContexts)
         {
             var typeInfo = ctx.GetTypeInfo(typeof(StrategyPoco));

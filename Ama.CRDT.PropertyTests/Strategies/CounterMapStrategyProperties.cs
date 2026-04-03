@@ -46,9 +46,9 @@ public sealed class CounterMapTestPoco : IEquatable<CounterMapTestPoco>
     public override int GetHashCode() => Counters.Count.GetHashCode();
 }
 
-[CrdtSerializable(typeof(CounterMapTestPoco))]
-[CrdtSerializable(typeof(Dictionary<string, decimal>))]
-internal partial class CounterMapTestContext : CrdtContext { }
+[CrdtAotType(typeof(CounterMapTestPoco))]
+[CrdtAotType(typeof(Dictionary<string, decimal>))]
+internal partial class CounterMapTestContext : CrdtAotContext { }
 
 public sealed class CounterMapStrategyProperties
 {

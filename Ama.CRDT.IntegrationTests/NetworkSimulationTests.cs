@@ -20,12 +20,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
 
-[CrdtSerializable(typeof(SimulationDocument))]
-[CrdtSerializable(typeof(IList<string>))]
-[CrdtSerializable(typeof(List<string>))]
-[CrdtSerializable(typeof(IDictionary<string, string>))]
-[CrdtSerializable(typeof(Dictionary<string, string>))]
-public partial class NetworkSimulationTestContext : CrdtContext
+[CrdtAotType(typeof(SimulationDocument))]
+[CrdtAotType(typeof(IList<string>))]
+[CrdtAotType(typeof(List<string>))]
+[CrdtAotType(typeof(IDictionary<string, string>))]
+[CrdtAotType(typeof(Dictionary<string, string>))]
+public partial class NetworkSimulationTestContext : CrdtAotContext
 {
 }
 

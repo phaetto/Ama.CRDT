@@ -43,7 +43,7 @@ Install-Package Ama.CRDT
 
 ### 1. Setup AOT Contexts & DI
 
-To ensure Native AOT compatibility, define a `CrdtContext` and a `JsonSerializerContext` for your POCOs. Then register the CRDT services in your `Program.cs`.
+To ensure Native AOT compatibility, define a `CrdtAotContext` and a `JsonSerializerContext` for your POCOs. Then register the CRDT services in your `Program.cs`.
 
 ```csharp
 using Ama.CRDT.Extensions;
@@ -51,8 +51,8 @@ using Ama.CRDT.Models.Aot;
 using System.Text.Json.Serialization;
 
 // 1. Define an AOT reflection context for your models
-[CrdtSerializable(typeof(UserStats))]
-public partial class MyCrdtContext : CrdtContext { }
+[CrdtAotTypeAttribute(typeof(UserStats))]
+public partial class MyCrdtAotContext : CrdtAotContext { }
 
 // 2. Define an AOT JSON context for network serialization
 [JsonSerializable(typeof(UserStats))]
@@ -69,7 +69,7 @@ builder.Services.AddCrdt(options =>
            .Property(x => x.LoginCount).HasStrategy<CounterStrategy>()
            .Property(x => x.Badges).HasStrategy<OrSetStrategy>();
 })
-.AddCrdtAotContext<MyCrdtContext>() // Register AOT reflection
+.AddCrdtAotContext<MyCrdtAotContext>() // Register AOT reflection
 .AddCrdtJsonTypeInfoResolver(MyJsonContext.Default); // Register AOT JSON
 
 var app = builder.Build();

@@ -13,9 +13,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(OrMapTestPoco))]
-[CrdtSerializable(typeof(Dictionary<string, string>))]
-public partial class OrMapTestContext : CrdtContext
+[CrdtAotType(typeof(OrMapTestPoco))]
+[CrdtAotType(typeof(Dictionary<string, string>))]
+public partial class OrMapTestContext : CrdtAotContext
 {
 }
 
@@ -164,7 +164,7 @@ public sealed class OrMapStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new OrMapStrategy(mockComparerProvider.Object, replicaContext, new CrdtContext[] { new InternalCrdtContext(), new OrMapTestContext() });
+        var strategy = new OrMapStrategy(mockComparerProvider.Object, replicaContext, new CrdtAotContext[] { new InternalCrdtAotContext(), new OrMapTestContext() });
         var propertyInfo = new CrdtPropertyInfo(
             nameof(OrMapTestPoco.Map),
             "map",

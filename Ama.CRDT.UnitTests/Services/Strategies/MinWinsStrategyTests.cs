@@ -31,7 +31,7 @@ public sealed class MinWinsStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<MinWinsStrategyTestCrdtContext>()
+            .AddCrdtAotContext<MinWinsStrategyTestCrdtAotContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

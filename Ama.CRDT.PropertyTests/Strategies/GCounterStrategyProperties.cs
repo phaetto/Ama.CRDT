@@ -11,8 +11,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(GCounterTestPoco))]
-public partial class GCounterTestContext : CrdtContext
+[CrdtAotType(typeof(GCounterTestPoco))]
+public partial class GCounterTestContext : CrdtAotContext
 {
 }
 

@@ -31,7 +31,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
     private readonly ICrdtMetadataManager metadataManager;
     private readonly PartitionManagerCrdtMetrics metrics;
     private readonly IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories;
-    private readonly IEnumerable<CrdtContext> aotContexts;
+    private readonly IEnumerable<CrdtAotContext> aotContexts;
 
     private readonly CrdtPropertyInfo partitionKeyProperty;
     private readonly IReadOnlyDictionary<string, (CrdtPropertyInfo Property, IPartitionableCrdtStrategy Strategy)> partitionableProperties;
@@ -44,7 +44,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         ReplicaContext replicaContext,
         PartitionManagerCrdtMetrics metrics,
         IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories,
-        IEnumerable<CrdtContext> aotContexts)
+        IEnumerable<CrdtAotContext> aotContexts)
     {
         ArgumentNullException.ThrowIfNull(storageService);
         ArgumentNullException.ThrowIfNull(metadataManager);
@@ -455,7 +455,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         return logicalKey;
     }
     
-    private static IReadOnlyDictionary<string, (CrdtPropertyInfo Property, IPartitionableCrdtStrategy Strategy)> FindPartitionablePropertiesAndStrategies(ICrdtStrategyProvider strategyProvider, IEnumerable<CrdtContext> aotContexts)
+    private static IReadOnlyDictionary<string, (CrdtPropertyInfo Property, IPartitionableCrdtStrategy Strategy)> FindPartitionablePropertiesAndStrategies(ICrdtStrategyProvider strategyProvider, IEnumerable<CrdtAotContext> aotContexts)
     {
         var typeInfo = PocoPathHelper.GetTypeInfo(typeof(T), aotContexts);
 
@@ -477,7 +477,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         return partitionableProperties;
     }
     
-    private static CrdtPropertyInfo FindPartitionKeyProperty(Type type, IEnumerable<CrdtContext> aotContexts)
+    private static CrdtPropertyInfo FindPartitionKeyProperty(Type type, IEnumerable<CrdtAotContext> aotContexts)
     {
         var attr = type.GetCustomAttribute<PartitionKeyAttribute>();
         if (attr is null)

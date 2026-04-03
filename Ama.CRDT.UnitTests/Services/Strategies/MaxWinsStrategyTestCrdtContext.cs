@@ -4,9 +4,9 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Models.Aot;
 
 /// <summary>
-/// A dedicated CrdtContext for MaxWinsStrategy unit tests to provide AOT-compatible property metadata.
+/// A dedicated CrdtAotContext for MaxWinsStrategy unit tests to provide AOT-compatible property metadata.
 /// </summary>
-[CrdtSerializable(typeof(MaxWinsStrategyTests.TestModel))]
-internal partial class MaxWinsStrategyTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(MaxWinsStrategyTests.TestModel))]
+internal partial class MaxWinsStrategyTestCrdtAotContext : CrdtAotContext
 {
 }

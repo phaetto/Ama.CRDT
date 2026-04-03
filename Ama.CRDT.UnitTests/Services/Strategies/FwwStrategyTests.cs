@@ -17,9 +17,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-[CrdtSerializable(typeof(FwwStrategyTests.TestModel))]
-[CrdtSerializable(typeof(FwwStrategyTests.NullableTestModel))]
-internal partial class FwwTestCrdtContext : CrdtContext { }
+[CrdtAotType(typeof(FwwStrategyTests.TestModel))]
+[CrdtAotType(typeof(FwwStrategyTests.NullableTestModel))]
+internal partial class FwwTestCrdtAotContext : CrdtAotContext { }
 
 public sealed class FwwStrategyTests : IDisposable
 {
@@ -39,7 +39,7 @@ public sealed class FwwStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<FwwTestCrdtContext>()
+            .AddCrdtAotContext<FwwTestCrdtAotContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

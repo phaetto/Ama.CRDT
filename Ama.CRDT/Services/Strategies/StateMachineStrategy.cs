@@ -25,7 +25,7 @@ using Ama.CRDT.Extensions;
 public sealed class StateMachineStrategy(
     ReplicaContext replicaContext, 
     IServiceProvider serviceProvider, 
-    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 

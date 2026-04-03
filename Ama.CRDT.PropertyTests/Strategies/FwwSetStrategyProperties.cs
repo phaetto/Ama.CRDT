@@ -39,9 +39,9 @@ public sealed class FwwSetTestPoco : IEquatable<FwwSetTestPoco>
     public override int GetHashCode() => Items.Count.GetHashCode();
 }
 
-[CrdtSerializable(typeof(FwwSetTestPoco))]
-[CrdtSerializable(typeof(List<string>))]
-public partial class FwwSetTestContext : CrdtContext
+[CrdtAotType(typeof(FwwSetTestPoco))]
+[CrdtAotType(typeof(List<string>))]
+public partial class FwwSetTestContext : CrdtAotContext
 {
 }
 

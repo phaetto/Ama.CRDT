@@ -7,13 +7,13 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
 
 /// <summary>
-/// A dedicated CrdtContext for the ReplicatedTreeStrategy unit tests to provide AOT-compatible 
+/// A dedicated CrdtAotContext for the ReplicatedTreeStrategy unit tests to provide AOT-compatible 
 /// property metadata for test-specific models and collections.
 /// </summary>
-[CrdtSerializable(typeof(ReplicatedTreeStrategyTests.TestModel))]
-[CrdtSerializable(typeof(Dictionary<object, TreeNode>))]
-[CrdtSerializable(typeof(Guid))]
-[CrdtSerializable(typeof(string))]
-internal partial class ReplicatedTreeStrategyTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(ReplicatedTreeStrategyTests.TestModel))]
+[CrdtAotType(typeof(Dictionary<object, TreeNode>))]
+[CrdtAotType(typeof(Guid))]
+[CrdtAotType(typeof(string))]
+internal partial class ReplicatedTreeStrategyTestCrdtAotContext : CrdtAotContext
 {
 }

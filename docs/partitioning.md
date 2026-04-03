@@ -8,7 +8,7 @@ You need to select the medium that is used for larger than memory: [See Ama.CRDT
 
 1.  **Define a Partition Key**: Your root CRDT model must be decorated with the `[PartitionKey]` attribute, specifying which property acts as the logical identifier for the document (e.g., a tenant ID, a document ID).
 2.  **Use a Partitionable Strategy**: One or more properties in your model must use a CRDT strategy that supports partitioning (i.e., implements `IPartitionableCrdtStrategy`). Currently, `[CrdtOrMapStrategy]` and `[CrdtArrayLcsStrategy]` support this.
-3.  **Register AOT Contexts**: Because of complex generic resolutions in partitions, you must define the type within your `CrdtContext` and `JsonSerializerContext`.
+3.  **Register AOT Contexts**: Because of complex generic resolutions in partitions, you must define the type within your `CrdtAotContext` and `JsonSerializerContext`.
 
 **Example Model:**
 ```csharp
@@ -43,10 +43,10 @@ using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Attributes;
 using System.Text.Json.Serialization;
 
-[CrdtSerializable(typeof(LargeTenantData))]
-[CrdtSerializable(typeof(UserProfile))]
-[CrdtSerializable(typeof(Dictionary<string, UserProfile>))]
-public partial class AppCrdtContext : CrdtContext { }
+[CrdtAotType(typeof(LargeTenantData))]
+[CrdtAotType(typeof(UserProfile))]
+[CrdtAotType(typeof(Dictionary<string, UserProfile>))]
+public partial class AppCrdtContext : CrdtAotContext { }
 
 [JsonSerializable(typeof(LargeTenantData))]
 [JsonSerializable(typeof(UserProfile))]

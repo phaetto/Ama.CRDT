@@ -18,9 +18,9 @@ using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Attributes;
 
-[CrdtSerializable(typeof(BoundedCounterTestModel))]
-[CrdtSerializable(typeof(BoundedCounterNoAttributeModel))]
-internal partial class BoundedCounterStrategyTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(BoundedCounterTestModel))]
+[CrdtAotType(typeof(BoundedCounterNoAttributeModel))]
+internal partial class BoundedCounterStrategyTestCrdtAotContext : CrdtAotContext
 {
 }
 
@@ -47,7 +47,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<BoundedCounterStrategyTestCrdtContext>()
+            .AddCrdtAotContext<BoundedCounterStrategyTestCrdtAotContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

@@ -28,7 +28,7 @@ public sealed class OrMapStrategyTests
     {
         var services = new ServiceCollection();
         services.AddCrdt()
-            .AddCrdtAotContext<OrMapStrategyTestCrdtContext>()
+            .AddCrdtAotContext<OrMapStrategyTestCrdtAotContext>()
             .AddSingleton(comparerProviderMock.Object);
         
         serviceProvider = services.BuildServiceProvider();
@@ -160,7 +160,7 @@ public sealed class OrMapStrategyTests
         originalDoc.Metadata.Lww["$.map['a']"] = new CausalTimestamp(timestampProvider.Create(1), "A", 1);
         originalDoc.Metadata.Lww["$.map['d']"] = new CausalTimestamp(timestampProvider.Create(1), "A", 1);
 
-        var propertyInfo = new OrMapStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))?.Properties[nameof(TestModel.Map)];
+        var propertyInfo = new OrMapStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))?.Properties[nameof(TestModel.Map)];
         propertyInfo.ShouldNotBeNull();
 
         // Act
@@ -198,7 +198,7 @@ public sealed class OrMapStrategyTests
         var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "b", 0 } }); // Conflict on "b"
         doc2.Metadata.Lww["$.map['b']"] = new CausalTimestamp(timestampProvider.Create(5), "A", 1); // Older timestamp
 
-        var propertyInfo = new OrMapStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))?.Properties[nameof(TestModel.Map)];
+        var propertyInfo = new OrMapStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))?.Properties[nameof(TestModel.Map)];
         propertyInfo.ShouldNotBeNull();
 
         // Act
@@ -225,7 +225,7 @@ public sealed class OrMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
-        var property = new OrMapStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Map)];
+        var property = new OrMapStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Map)];
         var intent = new MapSetIntent("a", 42);
         var timestamp = timestampProvider.Create(1);
         var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestamp, 0);
@@ -252,7 +252,7 @@ public sealed class OrMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        var property = new OrMapStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Map)];
+        var property = new OrMapStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Map)];
         var intent = new MapRemoveIntent("a");
         var timestamp = timestampProvider.Create(2);
         var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestamp, 0);
@@ -280,7 +280,7 @@ public sealed class OrMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
-        var property = new OrMapStrategyTestCrdtContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Map)];
+        var property = new OrMapStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Map)];
         var intent = new SetIntent("test");
         var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestampProvider.Create(1), 0);
 

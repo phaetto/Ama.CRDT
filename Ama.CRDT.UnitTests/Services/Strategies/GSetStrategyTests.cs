@@ -18,9 +18,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-[CrdtSerializable(typeof(GSetStrategyTests.TestModel))]
-[CrdtSerializable(typeof(List<string>))]
-internal partial class GSetTestCrdtContext : CrdtContext { }
+[CrdtAotType(typeof(GSetStrategyTests.TestModel))]
+[CrdtAotType(typeof(List<string>))]
+internal partial class GSetTestCrdtAotContext : CrdtAotContext { }
 
 public sealed class GSetStrategyTests : IDisposable
 {
@@ -45,7 +45,7 @@ public sealed class GSetStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<GSetTestCrdtContext>()
+            .AddCrdtAotContext<GSetTestCrdtAotContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

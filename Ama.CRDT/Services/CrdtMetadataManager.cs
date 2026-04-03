@@ -20,7 +20,7 @@ public sealed class CrdtMetadataManager(
     ICrdtTimestampProvider timestampProvider,
     IElementComparerProvider elementComparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> crdtContexts) : ICrdtMetadataManager
+    IEnumerable<CrdtAotContext> crdtContexts) : ICrdtMetadataManager
 {
     private static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new()
     {

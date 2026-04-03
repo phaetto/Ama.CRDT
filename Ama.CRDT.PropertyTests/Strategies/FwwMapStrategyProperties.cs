@@ -46,9 +46,9 @@ public sealed class FwwMapTestPoco : IEquatable<FwwMapTestPoco>
     public override int GetHashCode() => Map.Count.GetHashCode();
 }
 
-[CrdtSerializable(typeof(FwwMapTestPoco))]
-[CrdtSerializable(typeof(Dictionary<string, string>))]
-public partial class FwwMapTestContext : CrdtContext
+[CrdtAotType(typeof(FwwMapTestPoco))]
+[CrdtAotType(typeof(Dictionary<string, string>))]
+public partial class FwwMapTestContext : CrdtAotContext
 {
 }
 

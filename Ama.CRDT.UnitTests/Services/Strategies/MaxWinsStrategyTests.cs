@@ -31,7 +31,7 @@ public sealed class MaxWinsStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<MaxWinsStrategyTestCrdtContext>()
+            .AddCrdtAotContext<MaxWinsStrategyTestCrdtAotContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

@@ -20,7 +20,7 @@ public sealed class JournalingPatcherDecorator : IAsyncCrdtPatcher
 {
     private readonly IAsyncCrdtPatcher innerPatcher;
     private readonly ICrdtOperationJournal journal;
-    private readonly IEnumerable<CrdtContext> aotContexts;
+    private readonly IEnumerable<CrdtAotContext> aotContexts;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="JournalingPatcherDecorator"/> class.
@@ -29,7 +29,7 @@ public sealed class JournalingPatcherDecorator : IAsyncCrdtPatcher
     /// <param name="journal">The journal service to record generated operations.</param>
     /// <param name="aotContexts">The AOT contexts to use for reflection-free property access.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="innerPatcher"/>, <paramref name="journal"/> or <paramref name="aotContexts"/> is null.</exception>
-    public JournalingPatcherDecorator(IAsyncCrdtPatcher innerPatcher, ICrdtOperationJournal journal, IEnumerable<CrdtContext> aotContexts)
+    public JournalingPatcherDecorator(IAsyncCrdtPatcher innerPatcher, ICrdtOperationJournal journal, IEnumerable<CrdtAotContext> aotContexts)
     {
         ArgumentNullException.ThrowIfNull(innerPatcher);
         ArgumentNullException.ThrowIfNull(journal);

@@ -31,7 +31,7 @@ public sealed class LwwSetStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     
@@ -353,7 +353,7 @@ public sealed class LwwSetStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructListForSplitMerge(object root, CrdtPropertyInfo partitionableProperty, LwwSetState state, Type elementType, IEnumerable<CrdtContext> aotContexts)
+    private static void ReconstructListForSplitMerge(object root, CrdtPropertyInfo partitionableProperty, LwwSetState state, Type elementType, IEnumerable<CrdtAotContext> aotContexts)
     {
         var collection = partitionableProperty.Getter!(root);
         if (collection is null)
@@ -380,7 +380,7 @@ public sealed class LwwSetStrategy(
         foreach (var item in liveItems) PocoPathHelper.AddToCollection(collection, item, aotContexts);
     }
     
-    private static void InsertSorted(object collection, object item, IEqualityComparer<object> comparer, IEnumerable<CrdtContext> aotContexts)
+    private static void InsertSorted(object collection, object item, IEqualityComparer<object> comparer, IEnumerable<CrdtAotContext> aotContexts)
     {
         if (collection is IList list)
         {
@@ -426,7 +426,7 @@ public sealed class LwwSetStrategy(
         }
     }
 
-    private static void RemoveFromCollection(object collection, object item, IEqualityComparer<object> comparer, IEnumerable<CrdtContext> aotContexts)
+    private static void RemoveFromCollection(object collection, object item, IEqualityComparer<object> comparer, IEnumerable<CrdtAotContext> aotContexts)
     {
         if (collection is IList list)
         {
@@ -445,7 +445,7 @@ public sealed class LwwSetStrategy(
         }
     }
 
-    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtContext> aotContexts)
+    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtAotContext> aotContexts)
     {
         if (keyType == typeof(string)) return string.Empty;
         if (keyType == typeof(int)) return int.MinValue;

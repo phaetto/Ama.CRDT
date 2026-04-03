@@ -24,7 +24,7 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 [Associative]
 [Idempotent]
 [StateBased]
-public sealed class BoundedCounterStrategy(ReplicaContext replicaContext, IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
+public sealed class BoundedCounterStrategy(ReplicaContext replicaContext, IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 

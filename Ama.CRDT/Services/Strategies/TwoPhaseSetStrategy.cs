@@ -29,7 +29,7 @@ using System.Linq;
 public sealed class TwoPhaseSetStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     

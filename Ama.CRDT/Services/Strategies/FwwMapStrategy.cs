@@ -32,7 +32,7 @@ using System.Linq;
 public sealed class FwwMapStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -359,7 +359,7 @@ public sealed class FwwMapStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructDictionaryForSplitMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object originalData, IEnumerable<CrdtContext> aotContexts)
+    private static void ReconstructDictionaryForSplitMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object originalData, IEnumerable<CrdtAotContext> aotContexts)
     {
         var resolution = PocoPathHelper.ResolvePath(root, path, aotContexts);
         var parent = resolution.Parent;
@@ -395,7 +395,7 @@ public sealed class FwwMapStrategy(
         }
     }
 
-    private static void ReconstructDictionaryForMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, IEnumerable<CrdtContext> aotContexts)
+    private static void ReconstructDictionaryForMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, IEnumerable<CrdtAotContext> aotContexts)
     {
         var resolution = PocoPathHelper.ResolvePath(root, path, aotContexts);
         var parent = resolution.Parent;

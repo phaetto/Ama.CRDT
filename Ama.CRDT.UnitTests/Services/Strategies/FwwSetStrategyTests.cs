@@ -19,9 +19,9 @@ using System.Linq;
 using System.Threading;
 using Xunit;
 
-[CrdtSerializable(typeof(FwwSetTestModel))]
-[CrdtSerializable(typeof(List<string>))]
-internal partial class FwwSetTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(FwwSetTestModel))]
+[CrdtAotType(typeof(List<string>))]
+internal partial class FwwSetTestCrdtAotContext : CrdtAotContext
 {
 }
 
@@ -50,7 +50,7 @@ public sealed class FwwSetStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<FwwSetTestCrdtContext>()
+            .AddCrdtAotContext<FwwSetTestCrdtAotContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

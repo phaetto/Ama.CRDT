@@ -47,7 +47,7 @@ public sealed class CrdtPatcherTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddCrdt();
-        services.AddCrdtAotContext<ServicesTestCrdtContext>();
+        services.AddCrdtAotContext<ServicesTestCrdtAotContext>();
 
         var serviceProvider = services.BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

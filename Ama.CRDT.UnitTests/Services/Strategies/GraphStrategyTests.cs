@@ -17,8 +17,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
-[CrdtSerializable(typeof(GraphStrategyTests.TestModel))]
-internal partial class GraphStrategyTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(GraphStrategyTests.TestModel))]
+internal partial class GraphStrategyTestCrdtAotContext : CrdtAotContext
 {
 }
 
@@ -43,7 +43,7 @@ public sealed class GraphStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<GraphStrategyTestCrdtContext>()
+            .AddCrdtAotContext<GraphStrategyTestCrdtAotContext>()
             .BuildServiceProvider();
 
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();

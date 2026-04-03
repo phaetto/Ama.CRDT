@@ -23,7 +23,7 @@ using Ama.CRDT.Services.GarbageCollection;
 [StateBased]
 public sealed class VoteCounterStrategy(
     ReplicaContext replicaContext, 
-    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -337,7 +337,7 @@ public sealed class VoteCounterStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private void ReconstructDictionaryForSplitMerge(object root, string path, IDictionary sourceDict, HashSet<IComparable> votersToKeep, CrdtPropertyInfo partitionableProperty, IEnumerable<CrdtContext> aotContexts)
+    private void ReconstructDictionaryForSplitMerge(object root, string path, IDictionary sourceDict, HashSet<IComparable> votersToKeep, CrdtPropertyInfo partitionableProperty, IEnumerable<CrdtAotContext> aotContexts)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);
         if (parent is null || property is null) return;
@@ -366,7 +366,7 @@ public sealed class VoteCounterStrategy(
         property.Setter!(parent, dict);
     }
 
-    private static void RemoveVoterFromAllOptions(IDictionary dictionary, object voter, IEnumerable<CrdtContext> aotContexts)
+    private static void RemoveVoterFromAllOptions(IDictionary dictionary, object voter, IEnumerable<CrdtAotContext> aotContexts)
     {
         var keys = dictionary.Keys.Cast<object>().ToList();
         foreach (var key in keys)
@@ -422,7 +422,7 @@ public sealed class VoteCounterStrategy(
         }
     }
 
-    private static void AddVoterToOption(IDictionary dictionary, object voter, object newOption, Type dictValueType, IEnumerable<CrdtContext> aotContexts)
+    private static void AddVoterToOption(IDictionary dictionary, object voter, object newOption, Type dictValueType, IEnumerable<CrdtAotContext> aotContexts)
     {
         if (!dictionary.Contains(newOption))
         {
@@ -467,7 +467,7 @@ public sealed class VoteCounterStrategy(
         return voter.ToString() ?? "";
     }
 
-    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtContext> aotContexts)
+    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtAotContext> aotContexts)
     {
         if (keyType == typeof(string)) return string.Empty;
         if (keyType == typeof(int)) return int.MinValue;

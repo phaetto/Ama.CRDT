@@ -5,11 +5,11 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Models.Aot;
 
 /// <summary>
-/// A dedicated CrdtContext for the RgaStrategy unit tests to provide AOT-compatible 
+/// A dedicated CrdtAotContext for the RgaStrategy unit tests to provide AOT-compatible 
 /// property metadata for test-specific models and collections.
 /// </summary>
-[CrdtSerializable(typeof(RgaStrategyTests.RgaTestModel))]
-[CrdtSerializable(typeof(List<string>))]
-internal partial class RgaStrategyTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(RgaStrategyTests.RgaTestModel))]
+[CrdtAotType(typeof(List<string>))]
+internal partial class RgaStrategyTestCrdtAotContext : CrdtAotContext
 {
 }

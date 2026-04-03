@@ -34,9 +34,9 @@ public sealed class ApprovalQuorumTestPoco : IEquatable<ApprovalQuorumTestPoco>
     public override int GetHashCode() => Items.Count.GetHashCode();
 }
 
-[CrdtSerializable(typeof(ApprovalQuorumTestPoco))]
-[CrdtSerializable(typeof(List<string>))]
-internal partial class ApprovalQuorumTestContext : CrdtContext { }
+[CrdtAotType(typeof(ApprovalQuorumTestPoco))]
+[CrdtAotType(typeof(List<string>))]
+internal partial class ApprovalQuorumTestContext : CrdtAotContext { }
 
 public sealed class ApprovalQuorumStrategyProperties
 {

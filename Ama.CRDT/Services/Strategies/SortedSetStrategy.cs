@@ -34,7 +34,7 @@ public sealed class SortedSetStrategy(
     IElementComparerProvider comparerProvider, 
     ICrdtTimestampProvider timestampProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -514,7 +514,7 @@ public sealed class SortedSetStrategy(
         return diff;
     }
     
-    private static void SortCollection(object collection, CrdtPropertyInfo property, IEnumerable<CrdtContext> aotContexts)
+    private static void SortCollection(object collection, CrdtPropertyInfo property, IEnumerable<CrdtAotContext> aotContexts)
     {
         var attr = property.StrategyAttribute as CrdtSortedSetStrategyAttribute;
         var sortPropertyName = attr?.SortPropertyName ?? "Id"; // Simplification for AOT
@@ -562,7 +562,7 @@ public sealed class SortedSetStrategy(
         }
     }
 
-    private static void ReconstructListForSplitMerge(object root, string path, LwwSetState state, Type elementType, Type propertyType, IEnumerable<CrdtContext> aotContexts)
+    private static void ReconstructListForSplitMerge(object root, string path, LwwSetState state, Type elementType, Type propertyType, IEnumerable<CrdtAotContext> aotContexts)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);
         if (parent is null || property is null) return;
@@ -597,7 +597,7 @@ public sealed class SortedSetStrategy(
         SortCollection(collection, property, aotContexts);
     }
 
-    private static object? GetSortKey(object? obj, string? sortPropertyName, IEnumerable<CrdtContext> aotContexts)
+    private static object? GetSortKey(object? obj, string? sortPropertyName, IEnumerable<CrdtAotContext> aotContexts)
     {
         if (obj is null)
         {
@@ -645,7 +645,7 @@ public sealed class SortedSetStrategy(
         return obj;
     }
 
-    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtContext> aotContexts)
+    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtAotContext> aotContexts)
     {
         if (keyType == typeof(string)) return string.Empty;
         if (keyType == typeof(int)) return int.MinValue;

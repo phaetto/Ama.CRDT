@@ -24,7 +24,7 @@ using System.Linq;
 public sealed class TwoPhaseGraphStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
