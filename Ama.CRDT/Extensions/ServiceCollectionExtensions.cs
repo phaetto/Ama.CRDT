@@ -1,8 +1,10 @@
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Serialization;
+using Ama.CRDT.Models.Serialization.Converters;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Adapters;
 using Ama.CRDT.Services.GarbageCollection;
@@ -19,6 +21,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 [assembly: InternalsVisibleTo("Ama.CRDT.UnitTests")]
 [assembly: InternalsVisibleTo("Ama.CRDT.PropertyTests")]
 [assembly: InternalsVisibleTo("Ama.CRDT.Benchmarks")]
+[assembly: InternalsVisibleTo("Ama.CRDT.Partitioning.Streams.UnitTests")]
 
 namespace Ama.CRDT.Extensions;
 
@@ -61,6 +64,37 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCrdt(this IServiceCollection services, Action<CrdtModelBuilder>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        // Setup central JSON options for CRDT natively in the DI container.
+        // This solves the problem of needing static contexts or manual combinations.
+        // Any user wanting to serialize objects with full CRDT polymorphic support can simply inject:
+        // [FromKeyedServices("Ama.CRDT")] JsonSerializerOptions options
+        services.TryAddKeyedSingleton("Ama.CRDT", (sp, key) =>
+        {
+            var customResolvers = sp.GetKeyedServices<IJsonTypeInfoResolver>("Ama.CRDT");
+            var resolvers = new List<IJsonTypeInfoResolver> { CrdtJsonContext.Default };
+            
+            if (customResolvers != null)
+            {
+                resolvers.AddRange(customResolvers);
+            }
+
+            var combinedResolver = JsonTypeInfoResolver.Combine([.. resolvers])
+                .WithAddedModifier(CrdtJsonTypeInfoResolver.ApplyCrdtModifiers)
+                .WithAddedModifier(CrdtMetadataJsonResolver.ApplyMetadataModifiers);
+
+            var options = new JsonSerializerOptions
+            {
+                TypeInfoResolver = combinedResolver
+            };
+
+            var crdtContexts = sp.GetServices<CrdtContext>();
+
+            options.Converters.Add(CrdtPayloadJsonConverterFactory.Instance);
+            options.Converters.Add(new ObjectKeyDictionaryJsonConverter(crdtContexts));
+
+            return options;
+        });
 
         // Build the configuration registry
         var builder = new CrdtModelBuilder();
