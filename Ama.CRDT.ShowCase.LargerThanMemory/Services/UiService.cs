@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
@@ -19,7 +21,7 @@ public sealed class UiService
 {
     private const string CommentsPropertyName = nameof(BlogPost.Comments);
     private const string TagsPropertyName = nameof(BlogPost.Tags);
-    private const string DvvStateFilePath = "replica_dvvs.json";
+    public const string DvvStateFilePath = "replica_dvvs.json";
 
     private readonly IServiceProvider serviceProvider;
     private readonly List<string> replicaIds;
@@ -31,7 +33,7 @@ public sealed class UiService
     private string currentReplicaId;
 
     // Track simulated Global Version Vectors to show causality gaps
-    private readonly Dictionary<string, DottedVersionVector> replicaDvvs = new();
+    private readonly Dictionary<string, DottedVersionVector> replicaDvvs;
 
     private Window topPane;
     private FrameView rightPane;
@@ -59,48 +61,22 @@ public sealed class UiService
         public Dictionary<string, HashSet<long>> Dots { get; set; } = new();
     }
 
-    public UiService(IServiceProvider serviceProvider, List<string> replicaIds, List<Guid> blogPostIds)
+    public UiService(IServiceProvider serviceProvider, List<string> replicaIds, List<Guid> blogPostIds, Dictionary<string, DottedVersionVector> replicaDvvs)
     {
         this.serviceProvider = serviceProvider;
         this.replicaIds = replicaIds;
         this.blogPostIds = blogPostIds;
+        this.replicaDvvs = replicaDvvs;
+    }
 
+    public static Dictionary<string, DottedVersionVector> LoadReplicaStates(IEnumerable<string> replicaIds)
+    {
+        var replicaDvvs = new Dictionary<string, DottedVersionVector>();
         foreach (var rId in replicaIds)
         {
             replicaDvvs[rId] = new DottedVersionVector();
         }
 
-        LoadReplicaStates();
-    }
-
-    private void SaveReplicaStates()
-    {
-        try
-        {
-            var dtos = replicaDvvs.ToDictionary(
-                kvp => kvp.Key,
-                kvp => new DvvStateDto
-                {
-                    Versions = new Dictionary<string, long>(kvp.Value.Versions),
-                    Dots = kvp.Value.Dots.ToDictionary(d => d.Key, d => new HashSet<long>(d.Value))
-                });
-            
-            var options = new JsonSerializerOptions 
-            { 
-                WriteIndented = true,
-                TypeInfoResolver = LargerThanMemoryJsonContext.Default
-            };
-            var json = JsonSerializer.Serialize(dtos, typeof(Dictionary<string, DvvStateDto>), options);
-            File.WriteAllText(DvvStateFilePath, json);
-        }
-        catch 
-        {
-            // Ignore for showcase
-        }
-    }
-
-    private void LoadReplicaStates()
-    {
         try
         {
             if (File.Exists(DvvStateFilePath))
@@ -130,6 +106,39 @@ public sealed class UiService
         {
             // Ignore for showcase, will just start fresh
         }
+
+        return replicaDvvs;
+    }
+
+    public static void SaveReplicaStates(Dictionary<string, DottedVersionVector> replicaDvvs)
+    {
+        try
+        {
+            var dtos = replicaDvvs.ToDictionary(
+                kvp => kvp.Key,
+                kvp => new DvvStateDto
+                {
+                    Versions = new Dictionary<string, long>(kvp.Value.Versions),
+                    Dots = kvp.Value.Dots.ToDictionary(d => d.Key, d => new HashSet<long>(d.Value))
+                });
+            
+            var options = new JsonSerializerOptions 
+            { 
+                WriteIndented = true,
+                TypeInfoResolver = LargerThanMemoryJsonContext.Default
+            };
+            var json = JsonSerializer.Serialize(dtos, typeof(Dictionary<string, DvvStateDto>), options);
+            File.WriteAllText(DvvStateFilePath, json);
+        }
+        catch 
+        {
+            // Ignore for showcase
+        }
+    }
+
+    private void SaveReplicaStates()
+    {
+        SaveReplicaStates(this.replicaDvvs);
     }
 
     public void Run()
@@ -157,7 +166,7 @@ public sealed class UiService
                 new MenuItem("_New Post", "", ShowNewPostDialog),
                 new MenuItem("Add _Comment", "", ShowAddCommentDialog),
                 new MenuItem("Add _Tag", "", ShowAddTagDialog),
-                new MenuItem("_Sync Replicas", "", SyncReplicas),
+                new MenuItem("Sync _Current Replica", "", SyncReplicas),
                 new MenuItem("Sync _Status", "", ShowSyncStatusDialog)
             }),
             new MenuBarItem("_Replica", CreateReplicaMenuItems())
@@ -229,7 +238,7 @@ public sealed class UiService
         var statusBar = new StatusBar(new[]
         {
             new StatusItem(Key.F2, "~F2~ Load Next Partitions", LoadNextPartitions),
-            new StatusItem(Key.F5, "~F5~ Sync Changes", SyncReplicas),
+            new StatusItem(Key.F5, "~F5~ Sync Current Replica", SyncReplicas),
             new StatusItem(Key.CtrlMask | Key.Q, "~^Q~ Quit", () => Application.RequestStop())
         });
 
@@ -303,13 +312,11 @@ public sealed class UiService
         Application.MainLoop.Invoke(() => 
         {
             var vvSyncService = serviceProvider.GetRequiredService<IVersionVectorSyncService>();
-            var targetCtx = new ReplicaContext { ReplicaId = currentReplicaId, GlobalVersionVector = replicaDvvs[currentReplicaId] };
             
             int totalMissing = 0;
             foreach (var source in replicaIds.Where(r => r != currentReplicaId))
             {
-                var sourceCtx = new ReplicaContext { ReplicaId = source, GlobalVersionVector = replicaDvvs[source] };
-                var req = vvSyncService.CalculateRequirement(targetCtx, sourceCtx);
+                var req = vvSyncService.CalculateRequirement(currentReplicaId, replicaDvvs[currentReplicaId], source, replicaDvvs[source]);
                 if (req.IsBehind && req.RequirementsByOrigin != null)
                 {
                     totalMissing += (int)req.RequirementsByOrigin.Values.Sum(r => Math.Max(0, r.SourceContiguousVersion - r.TargetContiguousVersion) + (r.SourceMissingDots?.Count ?? 0));
@@ -318,11 +325,11 @@ public sealed class UiService
             
             if (totalMissing > 0)
             {
-                syncStatusLabel.Text = $"⚠ Behind by {totalMissing} operations";
+                syncStatusLabel.Text = $"⚠ {currentReplicaId} is behind by {totalMissing} operations";
             }
             else
             {
-                syncStatusLabel.Text = $"✔ Up to date";
+                syncStatusLabel.Text = $"✔ {currentReplicaId} is up to date";
             }
         });
     }
@@ -341,14 +348,11 @@ public sealed class UiService
         
         foreach (var target in replicaIds)
         {
-            var targetCtx = new ReplicaContext { ReplicaId = target, GlobalVersionVector = replicaDvvs[target] };
-            
             foreach (var source in replicaIds)
             {
                 if (target == source) continue;
                 
-                var sourceCtx = new ReplicaContext { ReplicaId = source, GlobalVersionVector = replicaDvvs[source] };
-                var req = vvSyncService.CalculateRequirement(targetCtx, sourceCtx);
+                var req = vvSyncService.CalculateRequirement(target, replicaDvvs[target], source, replicaDvvs[source]);
                 
                 if (req.IsBehind && req.RequirementsByOrigin != null)
                 {
@@ -720,14 +724,11 @@ public sealed class UiService
 
         foreach (var replica in replicaIds.Where(r => r != currentReplicaId))
         {
-            var targetCtx = new ReplicaContext { ReplicaId = currentReplicaId, GlobalVersionVector = replicaDvvs[currentReplicaId] };
-            var sourceCtx = new ReplicaContext { ReplicaId = replica, GlobalVersionVector = replicaDvvs[replica] };
-            
-            var req = vvSyncService.CalculateRequirement(targetCtx, sourceCtx);
+            var req = vvSyncService.CalculateRequirement(currentReplicaId, replicaDvvs[currentReplicaId], replica, replicaDvvs[replica]);
             if (!req.IsBehind) continue;
 
             // Fetch missing operations directly from the source replica's journal
-            using var sourceScope = scopeFactory.CreateScope(replica, sourceCtx.GlobalVersionVector);
+            using var sourceScope = scopeFactory.CreateScope(replica, replicaDvvs[replica]);
             var sourceJournalManager = sourceScope.ServiceProvider.GetRequiredService<IJournalManager>();
             var missingOpsStream = sourceJournalManager.GetMissingOperationsAsync(req);
 
@@ -758,8 +759,19 @@ public sealed class UiService
                     }
                     
                     var headerDoc = await partitionManager.GetHeaderPartitionContentAsync(logicalKey);
-                    var patch = new CrdtPatch(kvp.Value);
-                    await targetApplicator.ApplyPatchAsync(headerDoc.Value, patch);
+                    
+                    async IAsyncEnumerable<JournaledOperation> GetDocumentOpsStreamAsync()
+                    {
+                        foreach (var op in kvp.Value)
+                        {
+                            yield return new JournaledOperation(kvp.Key, op);
+                        }
+                        
+                        await Task.CompletedTask;
+                    }
+
+                    // Using ApplyOperationsAsync guarantees that out-of-order operations are retried and dependencies resolved properly
+                    await targetApplicator.ApplyOperationsAsync(headerDoc.Value, GetDocumentOpsStreamAsync());
                     syncCount++;
                 }
             }
@@ -767,7 +779,7 @@ public sealed class UiService
 
         Application.MainLoop.Invoke(() => {
             SaveReplicaStates();
-            MessageBox.Query("Sync Complete", $"Successfully applied patches for {syncCount} documents.", "Ok");
+            MessageBox.Query("Sync Complete", $"Successfully pulled and applied patches for {syncCount} documents to '{currentReplicaId}'.", "Ok");
             UpdateSyncStatusUI();
             LoadBlogPostHeadersAsync();
         });
