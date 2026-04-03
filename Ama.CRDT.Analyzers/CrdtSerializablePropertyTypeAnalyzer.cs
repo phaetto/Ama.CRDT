@@ -40,7 +40,30 @@ public sealed class CrdtSerializablePropertyTypeAnalyzer : DiagnosticAnalyzer
             // to support cross-context and cross-project type resolution.
             var globalRegisteredTypes = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
             var visitor = new ContextSymbolVisitor(crdtContextType, serializableAttributeSymbol, globalRegisteredTypes);
-            visitor.Visit(compilationContext.Compilation.GlobalNamespace);
+            
+            // Visit ONLY the current assembly to prevent massive memory usage, timeouts, 
+            // and AD0001 exceptions caused by traversing the entire GlobalNamespace (which includes mscorlib).
+            visitor.Visit(compilationContext.Compilation.Assembly.GlobalNamespace);
+
+            // Visit referenced assemblies that might contain base contexts, explicitly skipping huge BCL/System ones
+            foreach (var reference in compilationContext.Compilation.References)
+            {
+                if (compilationContext.Compilation.GetAssemblyOrModuleSymbol(reference) is IAssemblySymbol asmSymbol)
+                {
+                    var name = asmSymbol.Name;
+                    if (name.StartsWith("System") || 
+                        name.StartsWith("Microsoft") || 
+                        name == "mscorlib" || 
+                        name == "netstandard" || 
+                        name.StartsWith("xunit") || 
+                        name.StartsWith("Terminal.Gui"))
+                    {
+                        continue;
+                    }
+                    
+                    visitor.Visit(asmSymbol.GlobalNamespace);
+                }
+            }
 
             compilationContext.RegisterSymbolAction(symbolContext =>
             {
@@ -100,24 +123,32 @@ public sealed class CrdtSerializablePropertyTypeAnalyzer : DiagnosticAnalyzer
                 // 2. Verify the initialized concrete type is registered ANYWHERE (e.g., initialized with 'new List<string>()')
                 foreach (var syntaxRef in prop.DeclaringSyntaxReferences)
                 {
+                    var syntaxTree = syntaxRef.SyntaxTree;
+                    
+                    // Crucial safeguard to prevent "SyntaxTree is not part of the compilation" AD0001 Exception
+                    if (syntaxTree == null || !context.Compilation.ContainsSyntaxTree(syntaxTree))
+                    {
+                        continue;
+                    }
+
                     if (syntaxRef.GetSyntax(context.CancellationToken) is PropertyDeclarationSyntax propSyntax)
                     {
                         ITypeSymbol? initType = null;
                         
                         if (propSyntax.Initializer?.Value is ObjectCreationExpressionSyntax objCreation)
                         {
-                            var semanticModel = context.Compilation.GetSemanticModel(objCreation.SyntaxTree);
+                            var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
                             initType = semanticModel.GetTypeInfo(objCreation, context.CancellationToken).Type;
                         }
                         else if (propSyntax.Initializer?.Value is CollectionExpressionSyntax collectionExpr)
                         {
-                            var semanticModel = context.Compilation.GetSemanticModel(collectionExpr.SyntaxTree);
+                            var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
                             var typeInfo = semanticModel.GetTypeInfo(collectionExpr, context.CancellationToken);
                             initType = typeInfo.ConvertedType ?? typeInfo.Type;
                         }
                         else if (propSyntax.Initializer?.Value is ImplicitObjectCreationExpressionSyntax implicitCreation)
                         {
-                            var semanticModel = context.Compilation.GetSemanticModel(implicitCreation.SyntaxTree);
+                            var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
                             initType = semanticModel.GetTypeInfo(implicitCreation, context.CancellationToken).Type;
                         }
 

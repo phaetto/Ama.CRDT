@@ -146,12 +146,9 @@ public sealed class RgaStrategyProperties
             .Setup(x => x.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
 
-        var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
-        mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>())).Returns(new EpochTimestamp(0));
-
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
         var aotContexts = new CrdtContext[] { new RgaTestContext(), new InternalCrdtContext() };
-        var strategy = new RgaStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, replicaContext, aotContexts);
+        var strategy = new RgaStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(
             nameof(RgaTestPoco.Items),

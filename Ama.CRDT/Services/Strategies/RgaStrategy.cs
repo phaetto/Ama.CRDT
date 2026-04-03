@@ -29,7 +29,6 @@ using System.Linq;
 [OperationBased]
 public sealed class RgaStrategy(
     IElementComparerProvider elementComparerProvider,
-    ICrdtTimestampProvider timestampProvider,
     ReplicaContext replicaContext,
     IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
 {

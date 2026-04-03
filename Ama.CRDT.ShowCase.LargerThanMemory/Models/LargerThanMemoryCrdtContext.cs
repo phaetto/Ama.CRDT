@@ -9,6 +9,8 @@ using Ama.CRDT.Models.Aot;
 [CrdtSerializable(typeof(Comment))]
 [CrdtSerializable(typeof(Dictionary<DateTimeOffset, Comment>))]
 [CrdtSerializable(typeof(List<string>))]
+[CrdtSerializable(typeof(IDictionary<DateTimeOffset, Comment>))]
+[CrdtSerializable(typeof(IList<string>))]
 public sealed partial class LargerThanMemoryCrdtContext : CrdtContext
 {
 }

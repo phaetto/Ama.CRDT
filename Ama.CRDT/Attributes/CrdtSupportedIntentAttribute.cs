@@ -2,11 +2,13 @@ namespace Ama.CRDT.Attributes;
 
 using System;
 
+#pragma warning disable CS0419 // Ambiguous reference in cref attribute
 /// <summary>
 /// Specifies that a CRDT strategy supports a specific explicit operation intent.
 /// Used by Roslyn analyzers to validate <see cref="Services.ICrdtPatcher.GenerateOperation"/> calls at compile time.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = true)]
+#pragma warning restore CS0419 // Ambiguous reference in cref attribute
 public sealed class CrdtSupportedIntentAttribute : Attribute
 {
     /// <summary>
