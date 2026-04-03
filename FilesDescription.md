@@ -96,6 +96,7 @@
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.Designer.cs` | No description provided. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.cs` | No description provided. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/MainForm.resx` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/Models/CollaborativeEditingCrdtContext.cs` | AOT reflection context for the showcase models to be used by the internal reflection-free routines. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Models/CollaborativeEditingJsonContext.cs` | AOT JSON serialization context for the collaborative editing showcase models. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Models/NetworkMessage.cs` | DTO representing a network message containing a patch and sender ID. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Models/SharedDocument.cs` | Model representing a shared document of strings synced across replicas using ArrayLcsStrategy. |
@@ -105,6 +106,7 @@
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/BlogPost.cs` | The root data model for the showcase, representing a blog post. It is decorated with `[PartitionKey]` and its `Comments` list uses `[CrdtArrayLcsStrategy]` to enable partitioning. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/Comment.cs` | A simple record representing a comment in the blog post. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/LargerThanMemoryCrdtContext.cs` | Provides a Native AOT compatible `CrdtContext` generated for the models used in the Larger-Than-Memory showcase, allowing execution without runtime reflection. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/LargerThanMemoryJsonContext.cs` | AOT JSON serialization context for the larger-than-memory showcase models. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Program.cs` | The main entry point for the showcase application, responsible for setting up dependency injection and starting the simulation. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/README.md` | Provides an overview of the larger-than-memory showcase, explaining how to run it, the features it demonstrates (partitioning, journaling, disconnected sync), and how to interact with the terminal UI. |
@@ -114,6 +116,8 @@
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/UiService.cs` | Implements the `Terminal.Gui`-based user interface for browsing blog posts. It displays post titles, content, and comments, demonstrating on-demand loading of data from partitions. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/SimulationRunner.cs` | Orchestrates the showcase by checking for existing data, triggering the data generation process if needed, and launching the user interface. It uses `IPartitionManager` to discover existing documents at startup. |
 | `$/Ama.CRDT.ShowCase/Ama.CRDT.ShowCase.csproj` | The project file for the showcase console application. |
+| `$/Ama.CRDT.ShowCase/Models/ShowcaseCrdtContext.cs` | AOT reflection context for the showcase models to be used by the internal reflection-free routines. |
+| `$/Ama.CRDT.ShowCase/Models/ShowcaseJsonContext.cs` | AOT JSON serialization context for the showcase models. |
 | `$/Ama.CRDT.ShowCase/Models/User.cs` | A simple data model representing a user, used as an element in the CRDT-managed array. |
 | `$/Ama.CRDT.ShowCase/Models/UserStats.cs` | The main POCO representing the shared state, decorated with CRDT strategy attributes (`CrdtCounter`, `CrdtArrayLcsStrategy`, `LwwStrategy`). |
 | `$/Ama.CRDT.ShowCase/Program.cs` | The main entry point of the console application, responsible for setting up dependency injection and starting the simulation. |
