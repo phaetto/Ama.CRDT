@@ -45,7 +45,7 @@ public sealed class IntentTextBox : TextBox
     {
         isApplyingExternalChange = true;
         
-        Lines = System.Linq.Enumerable.ToArray(externalLines);
+        Lines = Enumerable.ToArray(externalLines);
         cachedLines = Lines;
         
         if (cursorSelectionStart <= Text.Length)

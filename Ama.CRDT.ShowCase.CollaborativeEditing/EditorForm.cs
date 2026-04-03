@@ -121,11 +121,12 @@ public sealed class EditorForm : Form
     private async void EditorForm_Load(object? sender, EventArgs e)
     {
         var metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        var jsonOptions = scope.ServiceProvider.GetRequiredKeyedService<JsonSerializerOptions>("Ama.CRDT");
         
         var snapshotJson = networkBroker.GetSnapshotJson();
         if (snapshotJson != null)
         {
-            document = JsonSerializer.Deserialize<CrdtDocument<SharedDocument>>(snapshotJson, CrdtJsonContext.DefaultOptions)!;
+            document = JsonSerializer.Deserialize<CrdtDocument<SharedDocument>>(snapshotJson, jsonOptions)!;
         }
         else
         {
@@ -155,7 +156,7 @@ public sealed class EditorForm : Form
 
         networkBroker.RegisterReplica(replicaId, scope.ServiceProvider.GetRequiredService<ReplicaContext>().GlobalVersionVector, () => 
         {
-            return JsonSerializer.Serialize(document, CrdtJsonContext.DefaultOptions);
+            return JsonSerializer.Serialize(document, jsonOptions);
         });
 
         // Initialize IntentTextBox dependencies and callbacks
