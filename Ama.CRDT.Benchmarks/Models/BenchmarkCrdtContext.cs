@@ -1,9 +1,7 @@
 namespace Ama.CRDT.Benchmarks.Models;
 
-using System;
 using System.Collections.Generic;
 using Ama.CRDT.Attributes;
-using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
 
 [CrdtSerializable(typeof(SimplePoco))]

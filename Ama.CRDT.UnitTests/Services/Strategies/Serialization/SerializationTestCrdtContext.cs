@@ -3,7 +3,6 @@ namespace Ama.CRDT.UnitTests.Services.Strategies.Serialization;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
-using System.Collections;
 using System.Collections.Generic;
 
 /// <summary>

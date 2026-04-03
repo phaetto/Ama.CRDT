@@ -2,9 +2,6 @@ namespace Ama.CRDT.UnitTests.Models.Serialization;
 
 using System.Text.Json.Serialization;
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Intents;
-using Ama.CRDT.Models.Intents.Decorators;
-using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.UnitTests.Services.Strategies.Serialization;
 
 /// <summary>
@@ -22,30 +19,6 @@ using Ama.CRDT.UnitTests.Services.Strategies.Serialization;
 [JsonSerializable(typeof(CustomTimestamp))]
 [JsonSerializable(typeof(AnotherCustomTimestamp))]
 [JsonSerializable(typeof(InvalidTimestamp))]
-[JsonSerializable(typeof(OriginSyncRequirement))]
-[JsonSerializable(typeof(ReplicaSyncRequirement))]
-[JsonSerializable(typeof(BidirectionalSyncRequirements))]
-[JsonSerializable(typeof(SplitResult))]
-[JsonSerializable(typeof(AddIntent))]
-[JsonSerializable(typeof(AddEdgeIntent))]
-[JsonSerializable(typeof(AddNodeIntent))]
-[JsonSerializable(typeof(AddVertexIntent))]
-[JsonSerializable(typeof(ClearIntent))]
-[JsonSerializable(typeof(IncrementIntent))]
-[JsonSerializable(typeof(InsertIntent))]
-[JsonSerializable(typeof(MapIncrementIntent))]
-[JsonSerializable(typeof(MapRemoveIntent))]
-[JsonSerializable(typeof(MapSetIntent))]
-[JsonSerializable(typeof(MoveNodeIntent))]
-[JsonSerializable(typeof(RemoveEdgeIntent))]
-[JsonSerializable(typeof(RemoveIntent))]
-[JsonSerializable(typeof(RemoveNodeIntent))]
-[JsonSerializable(typeof(RemoveValueIntent))]
-[JsonSerializable(typeof(RemoveVertexIntent))]
-[JsonSerializable(typeof(SetIndexIntent))]
-[JsonSerializable(typeof(SetIntent))]
-[JsonSerializable(typeof(VoteIntent))]
-[JsonSerializable(typeof(EpochClearIntent))]
 [JsonSerializable(typeof(StrategyPayloadSerializationTests.LwwModel))]
 [JsonSerializable(typeof(CrdtDocument<StrategyPayloadSerializationTests.LwwModel>))]
 [JsonSerializable(typeof(StrategyPayloadSerializationTests.FwwModel))]

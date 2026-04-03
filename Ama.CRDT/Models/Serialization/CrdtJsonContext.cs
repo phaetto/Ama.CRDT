@@ -2,6 +2,8 @@ namespace Ama.CRDT.Models.Serialization;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
+using Ama.CRDT.Models.Intents;
+using Ama.CRDT.Models.Intents.Decorators;
 using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Models.Serialization.Converters;
 using System;
@@ -53,6 +55,30 @@ using System.Text.Json.Serialization.Metadata;
 [JsonSerializable(typeof(VotePayload))]
 [JsonSerializable(typeof(EpochPayload))]
 [JsonSerializable(typeof(QuorumPayload))]
+[JsonSerializable(typeof(OriginSyncRequirement))]
+[JsonSerializable(typeof(ReplicaSyncRequirement))]
+[JsonSerializable(typeof(BidirectionalSyncRequirements))]
+[JsonSerializable(typeof(SplitResult))]
+[JsonSerializable(typeof(AddIntent))]
+[JsonSerializable(typeof(AddEdgeIntent))]
+[JsonSerializable(typeof(AddNodeIntent))]
+[JsonSerializable(typeof(AddVertexIntent))]
+[JsonSerializable(typeof(ClearIntent))]
+[JsonSerializable(typeof(IncrementIntent))]
+[JsonSerializable(typeof(InsertIntent))]
+[JsonSerializable(typeof(MapIncrementIntent))]
+[JsonSerializable(typeof(MapRemoveIntent))]
+[JsonSerializable(typeof(MapSetIntent))]
+[JsonSerializable(typeof(MoveNodeIntent))]
+[JsonSerializable(typeof(RemoveEdgeIntent))]
+[JsonSerializable(typeof(RemoveIntent))]
+[JsonSerializable(typeof(RemoveNodeIntent))]
+[JsonSerializable(typeof(RemoveValueIntent))]
+[JsonSerializable(typeof(RemoveVertexIntent))]
+[JsonSerializable(typeof(SetIndexIntent))]
+[JsonSerializable(typeof(SetIntent))]
+[JsonSerializable(typeof(VoteIntent))]
+[JsonSerializable(typeof(EpochClearIntent))]
 public partial class CrdtJsonContext : JsonSerializerContext
 {
     private static readonly Lazy<JsonSerializerOptions> _defaultOptions = new(CreateDefaultOptions);

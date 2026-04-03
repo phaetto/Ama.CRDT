@@ -1,5 +1,12 @@
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("Ama.CRDT.Partitioning.Streams.UnitTests")]
+
 namespace Ama.CRDT.Partitioning.Streams.Extensions;
 
+using Ama.CRDT.Extensions;
+using Ama.CRDT.Partitioning.Streams.Models;
+using Ama.CRDT.Partitioning.Streams.Models.Serialization;
 using Ama.CRDT.Partitioning.Streams.Services;
 using Ama.CRDT.Partitioning.Streams.Services.Metrics;
 using Ama.CRDT.Partitioning.Streams.Services.Serialization;
@@ -23,6 +30,16 @@ public static class StreamPartitioningServiceCollectionExtensions
     public static IServiceCollection AddCrdtStreamPartitioning<TProvider>(this IServiceCollection services)
         where TProvider : class, IPartitionStreamProvider
     {
+        // Explicitly register external stream-specific models to the polymorphic converter 
+        services.AddCrdtSerializableType<BPlusTreeNode>("bplus-tree-node");
+        services.AddCrdtSerializableType<BTreeHeader>("bplus-tree-header");
+        services.AddCrdtSerializableType<DataStreamHeader>("data-stream-header");
+        services.AddCrdtSerializableType<FreeSpaceState>("free-space-state");
+
+        // Dynamically register our Streams-specific context to seamlessly merge 
+        // with the central Ama.CRDT serialization pipeline in the DI container.
+        services.AddCrdtJsonTypeInfoResolver(StreamsJsonContext.Default);
+
         services.TryAddSingleton<StreamsCrdtMetrics>();
 
         services.AddScoped(CreateValidatedInstance<TProvider>);

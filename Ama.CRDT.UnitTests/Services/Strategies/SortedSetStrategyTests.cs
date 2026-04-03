@@ -125,7 +125,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             obj => ((TestModel)obj).Items,
             null,
             null,
-            Array.Empty<Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>());
+            Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
         
         var originalValue = new List<NestedModel>
         {
@@ -171,7 +171,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             obj => ((ConvergenceTestModel)obj).Users,
             null,
             new CrdtSortedSetStrategyAttribute(),
-            Array.Empty<Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>());
+            Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
         var timestamp = timestampProvider.Now();
         var intent = new AddIntent(new TestUser("Eve", "Eve"));
         
@@ -206,7 +206,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             obj => ((ConvergenceTestModel)obj).Users,
             null,
             new CrdtSortedSetStrategyAttribute(),
-            Array.Empty<Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>());
+            Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
         var timestamp = timestampProvider.Now();
         var intent = new RemoveValueIntent(new TestUser("Bob", "Bob"));
         
@@ -241,7 +241,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             obj => ((ConvergenceTestModel)obj).Users,
             null,
             new CrdtSortedSetStrategyAttribute(),
-            Array.Empty<Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>());
+            Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
         var timestamp = timestampProvider.Now();
         var intent = new SetIntent("Unsupported");
         
@@ -267,7 +267,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             obj => ((ConvergenceTestModel)obj).Users,
             null,
             new CrdtSortedSetStrategyAttribute(),
-            Array.Empty<Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>());
+            Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
         
         // Generate an add operation using explicit intent
         var addContext = new GenerateOperationContext(doc, meta, "$.users", property, new AddIntent(new TestUser("Frank", "Frank")), timestampProvider.Now(), 0);
@@ -519,7 +519,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             obj => ((ConvergenceTestModel)obj).Users,
             null,
             new CrdtSortedSetStrategyAttribute(),
-            Array.Empty<Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>());
+            Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
         
         strategy.GetStartKey(new ConvergenceTestModel(), propInfo).ShouldBeNull();
         strategy.GetStartKey(new ConvergenceTestModel { Users = { new TestUser("Charlie", "Charlie"), new TestUser("Alice", "Alice") } }, propInfo).ShouldBe("Alice");
@@ -548,7 +548,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             obj => ((ConvergenceTestModel)obj).Users,
             null,
             new CrdtSortedSetStrategyAttribute(),
-            Array.Empty<Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>());
+            Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
         strategy.GetMinimumKey(propInfo).ShouldBe(string.Empty);
     }
 
@@ -567,7 +567,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             obj => ((ConvergenceTestModel)obj).Users,
             null,
             new CrdtSortedSetStrategyAttribute(),
-            Array.Empty<Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>());
+            Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
 
         strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Alice", "Alice"), timestampProvider.Now(), 0)));
         strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now(), 0)));
@@ -602,7 +602,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             obj => ((ConvergenceTestModel)obj).Users,
             null,
             new CrdtSortedSetStrategyAttribute(),
-            Array.Empty<Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>());
+            Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
 
         strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Dave", "Dave"), timestampProvider.Now(), 0)));
         strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Alice", "Alice"), timestampProvider.Now(), 0)));

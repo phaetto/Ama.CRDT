@@ -3,7 +3,6 @@ namespace Ama.CRDT.Benchmarks.Benchmarks;
 using Ama.CRDT.Benchmarks.Models;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Services;
 using BenchmarkDotNet.Attributes;
 using Microsoft.Extensions.DependencyInjection;

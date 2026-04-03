@@ -1,10 +1,12 @@
 namespace Ama.CRDT.Partitioning.Streams.UnitTests;
 
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Partitioning.Streams.Extensions;
 using Ama.CRDT.Partitioning.Streams.Services;
-using Ama.CRDT.Partitioning.Streams.Services.Metrics;
-using Ama.CRDT.Partitioning.Streams.Services.Serialization;
-using Ama.CRDT.Services.Metrics;
+using Ama.CRDT.Services;
+using Ama.CRDT.Services.Partitioning;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
 using System;
@@ -19,10 +21,7 @@ using Xunit;
 
 public sealed class StreamPartitionStorageServiceIndexTests
 {
-    private readonly DefaultPartitionSerializationService serializationService = new([]);
-    private readonly StreamsCrdtMetrics treeMetrics;
-    private readonly PartitionManagerCrdtMetrics partitionMetrics;
-    private readonly StreamPartitionStorageService strategy;
+    private readonly IPartitionStorageService strategy;
     private readonly InMemoryPartitionStreamProvider streamProvider;
     private const string PropertyName = "items";
     private const string LogicalKey = "doc1";
@@ -31,18 +30,21 @@ public sealed class StreamPartitionStorageServiceIndexTests
 
     public StreamPartitionStorageServiceIndexTests()
     {
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        services.AddCrdtStreamPartitioning<InMemoryPartitionStreamProvider>();
+
         var meterFactoryMock = new Mock<IMeterFactory>();
-        var meter = new Meter("TestMeterForBPlusTree");
-        meterFactoryMock.Setup(f => f.Create(It.IsAny<MeterOptions>())).Returns(meter);
-        
-        treeMetrics = new StreamsCrdtMetrics(meterFactoryMock.Object);
-        partitionMetrics = new PartitionManagerCrdtMetrics(meterFactoryMock.Object);
-        streamProvider = new InMemoryPartitionStreamProvider();
+        meterFactoryMock.Setup(f => f.Create(It.IsAny<MeterOptions>())).Returns(new Meter("TestMeter"));
+        services.AddSingleton(meterFactoryMock.Object);
 
-        var serviceProviderMock = new Mock<IServiceProvider>();
-        serviceProviderMock.Setup(x => x.GetService(typeof(IPartitionStreamProvider))).Returns(streamProvider);
+        // Need a scope context to resolve validated CRDT services
+        var serviceProvider = services.BuildServiceProvider();
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        var scope = scopeFactory.CreateScope("test-replica");
 
-        strategy = new StreamPartitionStorageService(serviceProviderMock.Object, serializationService, partitionMetrics, treeMetrics);
+        strategy = scope.ServiceProvider.GetRequiredService<IPartitionStorageService>();
+        streamProvider = (InMemoryPartitionStreamProvider)scope.ServiceProvider.GetRequiredService<IPartitionStreamProvider>();
     }
 
     private sealed class InMemoryPartitionStreamProvider : IPartitionStreamProvider

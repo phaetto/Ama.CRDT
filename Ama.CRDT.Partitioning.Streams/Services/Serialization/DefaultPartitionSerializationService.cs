@@ -1,14 +1,10 @@
 namespace Ama.CRDT.Partitioning.Streams.Services.Serialization;
 
-using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Partitioning.Streams.Models;
-using Ama.CRDT.Partitioning.Streams.Models.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -19,45 +15,10 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
 {
     private readonly JsonSerializerOptions serializerOptions;
 
-    static DefaultPartitionSerializationService()
-    {
-        // Dynamically register our external stream-specific models to the polymorphic converter 
-        // without introducing circular dependencies into the core Ama.CRDT logic.
-        CrdtTypeRegistry.Register("bplus-tree-node", typeof(BPlusTreeNode));
-        CrdtTypeRegistry.Register("bplus-tree-header", typeof(BTreeHeader));
-        CrdtTypeRegistry.Register("data-stream-header", typeof(DataStreamHeader));
-        CrdtTypeRegistry.Register("free-space-state", typeof(FreeSpaceState));
-    }
-
     public DefaultPartitionSerializationService(
-        [FromKeyedServices("Ama.CRDT")] IEnumerable<IJsonTypeInfoResolver> customResolvers)
+        [FromKeyedServices("Ama.CRDT")] JsonSerializerOptions serializerOptions)
     {
-        ArgumentNullException.ThrowIfNull(customResolvers);
-
-        var resolvers = new List<IJsonTypeInfoResolver>
-        {
-            StreamsJsonContext.Default,
-            CrdtJsonContext.Default
-        };
-
-        foreach (var custom in customResolvers)
-        {
-            resolvers.Add(custom);
-        }
-
-        // Combine the core CRDT AOT context with the local Streams context cleanly
-        var combinedResolver = JsonTypeInfoResolver.Combine([.. resolvers])
-         .WithAddedModifier(CrdtJsonTypeInfoResolver.ApplyCrdtModifiers)
-         .WithAddedModifier(CrdtMetadataJsonResolver.ApplyMetadataModifiers);
-
-        serializerOptions = new JsonSerializerOptions
-        {
-            TypeInfoResolver = combinedResolver
-        };
-
-        // Re-apply core converters for polymorphic objects manually for the new options instance
-        serializerOptions.Converters.Add(Ama.CRDT.Models.Serialization.Converters.CrdtPayloadJsonConverterFactory.Instance);
-        serializerOptions.Converters.Add(new CRDT.Models.Serialization.Converters.ObjectKeyDictionaryJsonConverter());
+        this.serializerOptions = serializerOptions ?? throw new ArgumentNullException(nameof(serializerOptions));
     }
 
     /// <inheritdoc/>
