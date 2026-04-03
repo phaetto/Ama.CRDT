@@ -30,6 +30,9 @@ csharp_style_expression_bodied_accessors = true:silent
 csharp_style_expression_bodied_lambdas = true:silent
 csharp_style_expression_bodied_local_functions = false:silent
 
+# CS9113: Parameter is unread.
+dotnet_diagnostic.CS9113.severity = error
+
 # === EXPLICITLY ENABLE CA2007 STRICTLY FOR SHIPPED LIBRARY PROJECTS ===
 [Ama.CRDT/**/*.cs]
 dotnet_diagnostic.CA2007.severity = error

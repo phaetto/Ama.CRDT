@@ -30,7 +30,6 @@ using System.Linq;
 [OperationBased]
 public sealed class LseqStrategy(
     IElementComparerProvider elementComparerProvider,
-    ICrdtTimestampProvider timestampProvider,
     ReplicaContext replicaContext,
     IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
 {
