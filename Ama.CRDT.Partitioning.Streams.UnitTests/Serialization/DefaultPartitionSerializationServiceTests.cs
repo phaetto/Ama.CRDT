@@ -4,17 +4,43 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Partitioning.Streams.Extensions;
 using Ama.CRDT.Partitioning.Streams.Models;
+using Ama.CRDT.Partitioning.Streams.Services;
 using Ama.CRDT.Partitioning.Streams.Services.Serialization;
+using Ama.CRDT.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
 
 public sealed class DefaultPartitionSerializationServiceTests
 {
-    // Pass an empty collection for the custom resolvers since we don't need any additional ones for these tests
-    private readonly DefaultPartitionSerializationService service = new([]);
+    private readonly IPartitionSerializationService service;
+
+    public DefaultPartitionSerializationServiceTests()
+    {
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        services.AddCrdtStreamPartitioning<DummyPartitionStreamProvider>();
+
+        // Need a scope context to resolve validated CRDT services
+        var serviceProvider = services.BuildServiceProvider();
+        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        var scope = scopeFactory.CreateScope("test-replica");
+
+        service = scope.ServiceProvider.GetRequiredService<IPartitionSerializationService>();
+    }
+
+    private sealed class DummyPartitionStreamProvider : IPartitionStreamProvider
+    {
+        public Task<Stream> GetPropertyIndexStreamAsync(string propertyName, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<Stream> GetPropertyDataStreamAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<Stream> GetHeaderIndexStreamAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<Stream> GetHeaderDataStreamAsync(IComparable logicalKey, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    }
 
     [Fact]
     public async Task WriteHeaderAndReadHeader_ShouldSucceed()

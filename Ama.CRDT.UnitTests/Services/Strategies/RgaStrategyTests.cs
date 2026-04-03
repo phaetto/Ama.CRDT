@@ -228,7 +228,7 @@ public sealed class RgaStrategyTests : IDisposable
             obj => ((RgaTestModel)obj).Items,
             (obj, val) => ((RgaTestModel)obj).Items = (List<string>)val!,
             new CrdtRgaStrategyAttribute(),
-            Array.Empty<Ama.CRDT.Attributes.CrdtStrategyDecoratorAttribute>());
+            Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
 
         var strategy = scopeA.ServiceProvider.GetRequiredService<IEnumerable<ICrdtStrategy>>()
             .OfType<RgaStrategy>()
