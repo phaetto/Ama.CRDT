@@ -4,6 +4,7 @@ A .NET library for achieving eventual consistency in distributed systems using C
 
 ## Features
 
+- **Native AOT Ready**: Zero-reflection architecture powered by C# Source Generators and `System.Text.Json` polymorphic resolvers, making the library incredibly fast, memory-efficient, and trim-safe.
 - **Attribute & Fluent Strategies**: Define conflict resolution logic on your properties using attributes like `[CrdtLwwStrategy]`, `[CrdtOrSetStrategy]`, or use the **Fluent API** to keep your POCOs pure.
 - **Strategy Decorators**: Stack complex distributed rules on top of base strategies. Chain decorators like `[CrdtEpochBound]` (for Clear-Wins/Reset semantics) and `[CrdtApprovalQuorum]` natively in the pipeline.
 - **POCO-First & Composable**: Work directly with your C# objects. Mix and match strategies at any depth. The library handles recursive diffing, patching, and missing object auto-instantiation seamlessly.
@@ -40,35 +41,36 @@ Install-Package Ama.CRDT
 
 ## Quick Start
 
-### 1. Setup
+### 1. Setup AOT Contexts & DI
 
-In your `Program.cs` or service configuration file, register the CRDT services. You can configure strategies fluently here, or use attributes directly on your models. You can also configure automatic garbage collection policies here.
+To ensure Native AOT compatibility, define a `CrdtContext` and a `JsonSerializerContext` for your POCOs. Then register the CRDT services in your `Program.cs`.
 
 ```csharp
 using Ama.CRDT.Extensions;
-using Ama.CRDT.Services.Providers;
-using Ama.CRDT.Services.Strategies;
-using Ama.CRDT.Services.Strategies.Decorators;
-using Ama.CRDT.Services.GarbageCollection;
-using Ama.CRDT.Services.Decorators;
+using Ama.CRDT.Models.Aot;
+using System.Text.Json.Serialization;
 
+// 1. Define an AOT reflection context for your models
+[CrdtSerializable(typeof(UserStats))]
+public partial class MyCrdtContext : CrdtContext { }
+
+// 2. Define an AOT JSON context for network serialization
+[JsonSerializable(typeof(UserStats))]
+[JsonSerializable(typeof(CrdtDocument<UserStats>))]
+public partial class MyJsonContext : JsonSerializerContext { }
+
+// 3. Register in DI
 var builder = WebApplication.CreateBuilder(args);
 
-// Add CRDT services to the DI container.
 builder.Services.AddCrdt(options => 
 {
     // Optionally configure strategies fluently instead of using attributes
     options.Entity<UserStats>()
            .Property(x => x.LoginCount).HasStrategy<CounterStrategy>()
-           .Property(x => x.Badges).HasStrategy<OrSetStrategy>()
-           .Property(x => x.LastSeenLocation).HasStrategy<LwwStrategy>()
-                                             .HasDecorator<EpochBoundStrategy>(); // Add decorators!
+           .Property(x => x.Badges).HasStrategy<OrSetStrategy>();
 })
-// Optional: Configure automatic garbage collection (e.g., compacting tombstones older than 7 days)
-.AddCrdtCompactionPolicyFactory(sp => new ThresholdCompactionPolicyFactory(
-    TimeSpan.FromDays(7), 
-    sp.GetRequiredService<ICrdtTimestampProvider>()))
-.AddCrdtApplicatorDecorator<CompactingApplicatorDecorator>();
+.AddCrdtAotContext<MyCrdtContext>() // Register AOT reflection
+.AddCrdtJsonTypeInfoResolver(MyJsonContext.Default); // Register AOT JSON
 
 var app = builder.Build();
 ```
@@ -150,7 +152,7 @@ Explore the detailed features of the library by checking out the advanced topics
 
 - [**CRDT Strategies Reference**](docs/strategies-reference.md) - A full list of supported CRDT strategies like LWW, Counters, Sets, Maps, and Graphs.
 - [**Explicit Intents Builder**](docs/explicit-intents.md) - Learn how to build precise, strongly-typed operations directly instead of generating diffs.
-- [**Multi-Replica Synchronization & Serialization**](docs/multi-replica-and-serialization.md) - Learn how to set up multi-node environments and safely serialize patches over the wire.
+- [**Multi-Replica Synchronization & Serialization**](docs/multi-replica-and-serialization.md) - Learn how to set up multi-node environments and safely serialize patches over the wire for Native AOT.
 - [**Operation Journaling**](docs/journaling.md) - Learn how to automatically record operations to an external datastore for advanced offline-first synchronization.
 - [**Managing Metadata Size**](docs/metadata-management.md) - Strategies for compacting state and pruning tombstones efficiently.
 - [**Larger-Than-Memory Partitioning**](docs/partitioning.md) - Handle massive datasets efficiently by breaking documents into on-demand streams.

@@ -96,23 +96,26 @@ This causality tracking is managed completely automatically by the `CrdtApplicat
 
 ## Serializing Metadata Efficiently
 
-To avoid bloated JSON output from empty collections in the metadata object (e.g., cleared sets, empty out-of-order logs), use the pre-configured `CrdtJsonContext.MetadataCompactOptions`. It automatically omits empty collections and handles all necessary custom converters.
+To avoid bloated JSON output from empty collections in the metadata object (e.g., cleared sets, empty out-of-order logs), use the DI-injected `JsonSerializerOptions` (from the `"Ama.CRDT"` Keyed Service). The library registers modifiers to omit empty collections automatically, making Native AOT execution fast and the network payload compact.
 
 ```csharp
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Serialization;
+using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 
 // Assume 'metadata' is your CrdtMetadata object.
 CrdtMetadata metadata = ...; 
 
-// 1. Serialize using the compact options.
-string jsonPayload = JsonSerializer.Serialize(metadata, CrdtJsonContext.MetadataCompactOptions);
+// Retrieve options from DI (which already includes CrdtMetadataJsonResolver)
+var options = serviceProvider.GetRequiredKeyedService<JsonSerializerOptions>("Ama.CRDT");
+
+// 1. Serialize
+string jsonPayload = JsonSerializer.Serialize(metadata, options);
 
 // This 'jsonPayload' is now compact and can be stored or sent.
 
 // --- When reading the metadata back ---
 
 // 2. Deserialize using the same options.
-CrdtMetadata deserializedMetadata = JsonSerializer.Deserialize<CrdtMetadata>(jsonPayload, CrdtJsonContext.MetadataCompactOptions);
+CrdtMetadata deserializedMetadata = JsonSerializer.Deserialize<CrdtMetadata>(jsonPayload, options);
 ```
