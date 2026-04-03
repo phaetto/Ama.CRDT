@@ -53,7 +53,7 @@ public sealed class UiService
     
     private sealed record BlogPostHeader(Guid Id, string Title);
 
-    private sealed class DvvStateDto
+    public sealed class DvvStateDto
     {
         public Dictionary<string, long> Versions { get; set; } = new();
         public Dictionary<string, HashSet<long>> Dots { get; set; } = new();
@@ -85,7 +85,12 @@ public sealed class UiService
                     Dots = kvp.Value.Dots.ToDictionary(d => d.Key, d => new HashSet<long>(d.Value))
                 });
             
-            var json = JsonSerializer.Serialize(dtos, new JsonSerializerOptions { WriteIndented = true });
+            var options = new JsonSerializerOptions 
+            { 
+                WriteIndented = true,
+                TypeInfoResolver = LargerThanMemoryJsonContext.Default
+            };
+            var json = JsonSerializer.Serialize(dtos, typeof(Dictionary<string, DvvStateDto>), options);
             File.WriteAllText(DvvStateFilePath, json);
         }
         catch 
@@ -101,7 +106,12 @@ public sealed class UiService
             if (File.Exists(DvvStateFilePath))
             {
                 var json = File.ReadAllText(DvvStateFilePath);
-                var dtos = JsonSerializer.Deserialize<Dictionary<string, DvvStateDto>>(json);
+                var options = new JsonSerializerOptions 
+                { 
+                    TypeInfoResolver = LargerThanMemoryJsonContext.Default
+                };
+                var dtos = (Dictionary<string, DvvStateDto>?)JsonSerializer.Deserialize(json, typeof(Dictionary<string, DvvStateDto>), options);
+                
                 if (dtos != null)
                 {
                     foreach (var kvp in dtos)

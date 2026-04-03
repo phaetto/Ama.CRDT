@@ -9,20 +9,26 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Serialization;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Journaling;
+using Microsoft.Extensions.DependencyInjection;
 
 public sealed class FileSystemOperationJournal : ICrdtOperationJournal
 {
     private readonly string journalFilePath;
     private readonly Dictionary<string, List<JournaledOperation>> operationsByOrigin = new();
     private readonly object lockObj = new();
+    private readonly JsonSerializerOptions jsonOptions;
 
-    public FileSystemOperationJournal(ReplicaContext replicaContext)
+    public FileSystemOperationJournal(
+        ReplicaContext replicaContext, 
+        [FromKeyedServices("Ama.CRDT")] JsonSerializerOptions jsonOptions)
     {
         ArgumentNullException.ThrowIfNull(replicaContext);
         ArgumentException.ThrowIfNullOrWhiteSpace(replicaContext.ReplicaId);
+        ArgumentNullException.ThrowIfNull(jsonOptions);
+
+        this.jsonOptions = jsonOptions;
 
         var basePath = Path.Combine(Environment.CurrentDirectory, "data", replicaContext.ReplicaId);
         Directory.CreateDirectory(basePath);
@@ -38,7 +44,7 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         try
         {
             var json = File.ReadAllText(journalFilePath);
-            var ops = JsonSerializer.Deserialize<List<JournaledOperation>>(json, CrdtJsonContext.DefaultOptions) ?? new List<JournaledOperation>();
+            var ops = JsonSerializer.Deserialize<List<JournaledOperation>>(json, jsonOptions) ?? new List<JournaledOperation>();
             
             foreach (var jOp in ops)
             {
@@ -59,7 +65,7 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
     private void SaveJournal()
     {
         var allOps = operationsByOrigin.Values.SelectMany(x => x).ToList();
-        var json = JsonSerializer.Serialize(allOps, CrdtJsonContext.DefaultOptions);
+        var json = JsonSerializer.Serialize(allOps, jsonOptions);
         File.WriteAllText(journalFilePath, json);
     }
 
