@@ -175,11 +175,8 @@ public sealed class LseqStrategyProperties
             .Setup(x => x.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
 
-        var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
-        mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>())).Returns(new EpochTimestamp(0));
-
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new LseqStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, replicaContext, new[] { new LseqTestContext() });
+        var strategy = new LseqStrategy(mockComparerProvider.Object, replicaContext, new[] { new LseqTestContext() });
         
         var propertyInfo = new CrdtPropertyInfo(
             name: nameof(LseqTestPoco.Items),
