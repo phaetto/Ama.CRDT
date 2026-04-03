@@ -12,6 +12,7 @@ var builder = Host.CreateDefaultBuilder(args);
 builder.ConfigureServices((context, services) =>
 {
     services.AddCrdt()
+        .AddCrdtSerializableType<Comment>("blog-comment")
         .AddCrdtAotContext<LargerThanMemoryCrdtContext>()
         .AddCrdtJsonTypeInfoResolver(LargerThanMemoryJsonContext.Default)
         .AddCrdtJournaling<FileSystemOperationJournal>()
