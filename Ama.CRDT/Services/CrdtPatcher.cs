@@ -16,7 +16,7 @@ public sealed class CrdtPatcher(
     ICrdtStrategyProvider strategyProvider, 
     ICrdtTimestampProvider timestampProvider, 
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : ICrdtPatcher
+    IEnumerable<CrdtAotContext> aotContexts) : ICrdtPatcher
 {
     private sealed class ClockState { public long Clock; }
     private readonly ConditionalWeakTable<CrdtMetadata, ClockState> issuedClocks = new();

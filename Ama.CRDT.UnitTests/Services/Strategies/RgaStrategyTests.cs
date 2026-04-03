@@ -31,7 +31,7 @@ public sealed class RgaStrategyTests : IDisposable
     {
         var services = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<RgaStrategyTestCrdtContext>()
+            .AddCrdtAotContext<RgaStrategyTestCrdtAotContext>()
             .BuildServiceProvider();
 
         var factory = services.GetRequiredService<ICrdtScopeFactory>();

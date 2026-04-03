@@ -13,9 +13,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(LwwSetTestPoco))]
-[CrdtSerializable(typeof(List<string>))]
-internal partial class LwwSetTestContext : CrdtContext
+[CrdtAotType(typeof(LwwSetTestPoco))]
+[CrdtAotType(typeof(List<string>))]
+internal partial class LwwSetTestContext : CrdtAotContext
 {
 }
 
@@ -155,7 +155,7 @@ public sealed class LwwSetStrategyProperties
         mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>())).Returns(new EpochTimestamp(0));
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var aotContexts = new CrdtContext[] { new LwwSetTestContext() };
+        var aotContexts = new CrdtAotContext[] { new LwwSetTestContext() };
         var strategy = new LwwSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, replicaContext, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(

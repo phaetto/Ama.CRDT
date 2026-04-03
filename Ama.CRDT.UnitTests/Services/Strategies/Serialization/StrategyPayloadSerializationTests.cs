@@ -166,7 +166,7 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     {
         var services = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<SerializationTestCrdtContext>()
+            .AddCrdtAotContext<SerializationTestCrdtAotContext>()
             .AddCrdtTimestampProvider<TestTimestampProvider>()
             .AddCrdtComparer<ItemComparer>()
             .AddSingleton<OrderStatusStateMachine>()

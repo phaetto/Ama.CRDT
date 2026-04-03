@@ -14,8 +14,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(BoundedCounterTestPoco))]
-public partial class BoundedCounterTestContext : CrdtContext
+[CrdtAotType(typeof(BoundedCounterTestPoco))]
+public partial class BoundedCounterTestContext : CrdtAotContext
 {
 }
 

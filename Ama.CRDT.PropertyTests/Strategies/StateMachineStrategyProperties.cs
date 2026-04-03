@@ -38,8 +38,8 @@ public sealed class StateMachineTestPoco : IEquatable<StateMachineTestPoco>
     public override int GetHashCode() => State.GetHashCode();
 }
 
-[CrdtSerializable(typeof(StateMachineTestPoco))]
-internal partial class StateMachineTestContext : CrdtContext
+[CrdtAotType(typeof(StateMachineTestPoco))]
+internal partial class StateMachineTestContext : CrdtAotContext
 {
 }
 

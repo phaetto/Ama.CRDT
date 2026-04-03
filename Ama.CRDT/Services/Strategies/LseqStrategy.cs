@@ -31,7 +31,7 @@ using System.Linq;
 public sealed class LseqStrategy(
     IElementComparerProvider elementComparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     private const int Base = 32;
@@ -427,7 +427,7 @@ public sealed class LseqStrategy(
         return new LseqIdentifier(newPath.ToImmutable());
     }
 
-    private static void ReconstructListForSplitMerge(object root, string path, List<LseqItem> lseqItems, IEnumerable<CrdtContext> aotContexts)
+    private static void ReconstructListForSplitMerge(object root, string path, List<LseqItem> lseqItems, IEnumerable<CrdtAotContext> aotContexts)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);
         if (parent is null || property is null) return;

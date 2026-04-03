@@ -31,7 +31,7 @@ public sealed class FwwSetStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     
@@ -358,7 +358,7 @@ public sealed class FwwSetStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructListForSplitMerge(object root, string path, LwwSetState state, Type elementType, IEnumerable<CrdtContext> aotContexts)
+    private static void ReconstructListForSplitMerge(object root, string path, LwwSetState state, Type elementType, IEnumerable<CrdtAotContext> aotContexts)
     {
         var resolution = PocoPathHelper.ResolvePath(root, path, aotContexts);
         if (resolution.Parent == null || resolution.Property == null) return;
@@ -435,7 +435,7 @@ public sealed class FwwSetStrategy(
         }
     }
 
-    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtContext> aotContexts)
+    private static IComparable GetMinimumKeyForType(Type keyType, IEnumerable<CrdtAotContext> aotContexts)
     {
         if (keyType == typeof(string)) return string.Empty;
         if (keyType == typeof(int)) return int.MinValue;

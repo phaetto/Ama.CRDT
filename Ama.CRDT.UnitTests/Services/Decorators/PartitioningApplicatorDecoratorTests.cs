@@ -41,8 +41,8 @@ public sealed class PartitioningApplicatorDecoratorTests
 
         var services = new ServiceCollection()
             .AddCrdt()
-            .AddSingleton<CrdtContext, DecoratorsTestCrdtContext>()
-            .AddSingleton<CrdtContext, PartitioningTestCrdtContext>()
+            .AddSingleton<CrdtAotContext, DecoratorsTestCrdtAotContext>()
+            .AddSingleton<CrdtAotContext, PartitioningTestCrdtAotContext>()
             .AddSingleton(meterFactoryMock.Object)
             .BuildServiceProvider();
 
@@ -54,7 +54,7 @@ public sealed class PartitioningApplicatorDecoratorTests
         
         var strategyProvider = scope.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
         var metrics = scope.ServiceProvider.GetRequiredService<PartitionManagerCrdtMetrics>();
-        var aotContexts = new CrdtContext[] { new DecoratorsTestCrdtContext(), new PartitioningTestCrdtContext() };
+        var aotContexts = new CrdtAotContext[] { new DecoratorsTestCrdtAotContext(), new PartitioningTestCrdtAotContext() };
 
         decorator = new PartitioningApplicatorDecorator(
             mockInnerApplicator.Object,

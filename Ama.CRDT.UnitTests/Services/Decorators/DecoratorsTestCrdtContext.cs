@@ -5,11 +5,11 @@ using Ama.CRDT.Models.Aot;
 using Ama.CRDT.UnitTests.Services.Partitioning;
 
 /// <summary>
-/// A dedicated CrdtContext for the decorators unit tests to provide AOT-compatible 
+/// A dedicated CrdtAotContext for the decorators unit tests to provide AOT-compatible 
 /// property metadata for test-specific models.
 /// </summary>
-[CrdtSerializable(typeof(TestModel))]
-[CrdtSerializable(typeof(MultiPartitionedModel))]
-internal partial class DecoratorsTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(TestModel))]
+[CrdtAotType(typeof(MultiPartitionedModel))]
+internal partial class DecoratorsTestCrdtAotContext : CrdtAotContext
 {
 }

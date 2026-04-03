@@ -24,7 +24,7 @@ using System;
 [StateBased]
 public sealed class GCounterStrategy(
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 

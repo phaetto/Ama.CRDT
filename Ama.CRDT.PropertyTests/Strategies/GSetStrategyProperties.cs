@@ -13,9 +13,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(GSetTestPoco))]
-[CrdtSerializable(typeof(List<string>))]
-public partial class GSetTestContext : CrdtContext
+[CrdtAotType(typeof(GSetTestPoco))]
+[CrdtAotType(typeof(List<string>))]
+public partial class GSetTestContext : CrdtAotContext
 {
 }
 
@@ -141,7 +141,7 @@ public sealed class GSetStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new GSetStrategy(mockComparerProvider.Object, replicaContext, new List<CrdtContext> { new GSetTestContext() });
+        var strategy = new GSetStrategy(mockComparerProvider.Object, replicaContext, new List<CrdtAotContext> { new GSetTestContext() });
         var propertyInfo = new CrdtPropertyInfo(
             nameof(GSetTestPoco.Items),
             "items",

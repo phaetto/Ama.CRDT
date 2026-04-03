@@ -11,10 +11,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(VoteCounterTestPoco))]
-[CrdtSerializable(typeof(Dictionary<string, List<string>>))]
-[CrdtSerializable(typeof(List<string>))]
-public partial class VoteCounterTestContext : CrdtContext
+[CrdtAotType(typeof(VoteCounterTestPoco))]
+[CrdtAotType(typeof(Dictionary<string, List<string>>))]
+[CrdtAotType(typeof(List<string>))]
+public partial class VoteCounterTestContext : CrdtAotContext
 {
 }
 
@@ -145,7 +145,7 @@ public sealed class VoteCounterStrategyProperties
     private static void ApplyOperations(VoteCounterTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var aotContexts = new CrdtContext[] { new VoteCounterTestContext() };
+        var aotContexts = new CrdtAotContext[] { new VoteCounterTestContext() };
         var strategy = new VoteCounterStrategy(replicaContext, aotContexts);
         
         var propertyInfo = aotContexts[0].GetTypeInfo(typeof(VoteCounterTestPoco))!.Properties[nameof(VoteCounterTestPoco.Votes)];

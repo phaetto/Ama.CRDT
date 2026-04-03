@@ -13,8 +13,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(AverageRegisterTestPoco))]
-public partial class AverageRegisterTestContext : CrdtContext
+[CrdtAotType(typeof(AverageRegisterTestPoco))]
+public partial class AverageRegisterTestContext : CrdtAotContext
 {
 }
 

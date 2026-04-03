@@ -35,7 +35,7 @@ public sealed class MaxWinsMapStrategyTests
     {
         var services = new ServiceCollection();
         services.AddCrdt()
-            .AddCrdtAotContext<MaxWinsMapStrategyTestCrdtContext>()
+            .AddCrdtAotContext<MaxWinsMapStrategyTestCrdtAotContext>()
             .AddSingleton(comparerProviderMock.Object)
             .AddCrdtTimestampProvider<EpochTimestampProvider>();
 

@@ -16,7 +16,7 @@ public sealed class CrdtApplicator(
     ICrdtStrategyProvider strategyProvider,
     ICrdtMetadataManager metadataManager,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : ICrdtApplicator
+    IEnumerable<CrdtAotContext> aotContexts) : ICrdtApplicator
 {
     /// <inheritdoc/>
     public ApplyPatchResult<T> ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class

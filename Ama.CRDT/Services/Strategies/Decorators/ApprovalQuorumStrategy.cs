@@ -25,7 +25,7 @@ using System.Linq;
 public sealed class ApprovalQuorumStrategy(
     IServiceProvider serviceProvider, 
     IElementComparerProvider comparerProvider, 
-    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
     private ICrdtStrategy GetInnerStrategy(Type declaringType, CrdtPropertyInfo property)
     {

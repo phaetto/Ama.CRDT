@@ -5,11 +5,11 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Models.Aot;
 
 /// <summary>
-/// A dedicated CrdtContext for MinWinsMapStrategy unit tests to provide AOT-compatible property metadata.
+/// A dedicated CrdtAotContext for MinWinsMapStrategy unit tests to provide AOT-compatible property metadata.
 /// </summary>
-[CrdtSerializable(typeof(MinWinsMapStrategyTests.TestModel))]
-[CrdtSerializable(typeof(Dictionary<string, int>))]
-[CrdtSerializable(typeof(KeyValuePair<object, object?>))]
-internal partial class MinWinsMapStrategyTestCrdtContext : CrdtContext
+[CrdtAotType(typeof(MinWinsMapStrategyTests.TestModel))]
+[CrdtAotType(typeof(Dictionary<string, int>))]
+[CrdtAotType(typeof(KeyValuePair<object, object?>))]
+internal partial class MinWinsMapStrategyTestCrdtAotContext : CrdtAotContext
 {
 }

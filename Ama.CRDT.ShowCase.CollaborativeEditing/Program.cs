@@ -27,7 +27,7 @@ internal static class Program
         // Register the core CRDT infrastructure
         services.AddCrdt()
                 .AddCrdtJsonTypeInfoResolver(CollaborativeEditingJsonContext.Default)
-                .AddCrdtAotContext<CollaborativeEditingCrdtContext>();
+                .AddCrdtAotContext<CollaborativeEditingCrdtAotContext>();
 
         // Register Memory Journal as Singleton so all replicas share it (simulating a central DB or shared bus)
         services.AddSingleton<MemoryJournal>();

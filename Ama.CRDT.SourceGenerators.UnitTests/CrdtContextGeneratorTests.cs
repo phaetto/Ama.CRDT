@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Shouldly;
 using Xunit;
 
-public sealed class CrdtContextGeneratorTests
+public sealed class CrdtAotContextGeneratorTests
 {
     [Fact]
     public void Generator_ShouldCreateAotContext_WhenAttributesArePresent()
@@ -27,8 +27,8 @@ namespace TestNamespace
         public List<string> Tags { get; set; } = new List<string>();
     }
 
-    [CrdtSerializable(typeof(User))]
-    public partial class MyAotContext : CrdtContext
+    [CrdtAotTypeAttribute(typeof(User))]
+    public partial class MyAotContext : CrdtAotContext
     {
     }
 }";
@@ -41,7 +41,7 @@ namespace TestNamespace
             .ToList();
 
         // Add reference to Ama.CRDT
-        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtSerializableAttribute).Assembly.Location));
+        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtAotTypeAttribute).Assembly.Location));
 
         var compilation = CSharpCompilation.Create(
             "TestCompilation",
@@ -49,7 +49,7 @@ namespace TestNamespace
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var generator = new CrdtContextGenerator();
+        var generator = new CrdtAotContextGenerator();
         GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
 
         // Act
@@ -91,8 +91,8 @@ namespace TestNamespace
         public object Document { get; init; }
     }
 
-    [CrdtSerializable(typeof(ResultRecord))]
-    public partial class MyAotContext : CrdtContext
+    [CrdtAotTypeAttribute(typeof(ResultRecord))]
+    public partial class MyAotContext : CrdtAotContext
     {
     }
 }";
@@ -105,7 +105,7 @@ namespace TestNamespace
             .ToList();
 
         // Add reference to Ama.CRDT
-        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtSerializableAttribute).Assembly.Location));
+        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtAotTypeAttribute).Assembly.Location));
 
         var compilation = CSharpCompilation.Create(
             "TestCompilation",
@@ -113,7 +113,7 @@ namespace TestNamespace
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var generator = new CrdtContextGenerator();
+        var generator = new CrdtAotContextGenerator();
         GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
 
         // Act
@@ -151,8 +151,8 @@ namespace TestNamespace
         public required string Id { get; set; }
     }
 
-    [CrdtSerializable(typeof(TreeNode))]
-    public partial class MyAotContext : CrdtContext
+    [CrdtAotTypeAttribute(typeof(TreeNode))]
+    public partial class MyAotContext : CrdtAotContext
     {
     }
 }";
@@ -164,7 +164,7 @@ namespace TestNamespace
             .Cast<MetadataReference>()
             .ToList();
 
-        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtSerializableAttribute).Assembly.Location));
+        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtAotTypeAttribute).Assembly.Location));
 
         var compilation = CSharpCompilation.Create(
             "TestCompilation",
@@ -172,7 +172,7 @@ namespace TestNamespace
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var generator = new CrdtContextGenerator();
+        var generator = new CrdtAotContextGenerator();
         GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
 
         // Act
@@ -215,8 +215,8 @@ namespace TestNamespace
         public string Text { get; set; }
     }
 
-    [CrdtSerializable(typeof(StrategyModel))]
-    public partial class StrategyAotContext : CrdtContext
+    [CrdtAotTypeAttribute(typeof(StrategyModel))]
+    public partial class StrategyAotContext : CrdtAotContext
     {
     }
 }";
@@ -228,7 +228,7 @@ namespace TestNamespace
             .Cast<MetadataReference>()
             .ToList();
 
-        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtSerializableAttribute).Assembly.Location));
+        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtAotTypeAttribute).Assembly.Location));
 
         var compilation = CSharpCompilation.Create(
             "TestCompilation",
@@ -236,7 +236,7 @@ namespace TestNamespace
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var generator = new CrdtContextGenerator();
+        var generator = new CrdtAotContextGenerator();
         GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
 
         // Act
@@ -272,10 +272,10 @@ using Ama.CRDT.Models.Aot;
 
 namespace TestNamespace
 {
-    [CrdtSerializable(typeof(IEnumerable<string>))]
-    [CrdtSerializable(typeof(ISet<int>))]
-    [CrdtSerializable(typeof(IDictionary<string, long>))]
-    public partial class CollectionAotContext : CrdtContext
+    [CrdtAotTypeAttribute(typeof(IEnumerable<string>))]
+    [CrdtAotTypeAttribute(typeof(ISet<int>))]
+    [CrdtAotTypeAttribute(typeof(IDictionary<string, long>))]
+    public partial class CollectionAotContext : CrdtAotContext
     {
     }
 }";
@@ -287,7 +287,7 @@ namespace TestNamespace
             .Cast<MetadataReference>()
             .ToList();
 
-        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtSerializableAttribute).Assembly.Location));
+        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtAotTypeAttribute).Assembly.Location));
 
         var compilation = CSharpCompilation.Create(
             "TestCompilation",
@@ -295,7 +295,7 @@ namespace TestNamespace
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var generator = new CrdtContextGenerator();
+        var generator = new CrdtAotContextGenerator();
         GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
 
         // Act
@@ -325,8 +325,8 @@ using Ama.CRDT.Models.Aot;
 
 namespace TestNamespace
 {
-    [CrdtSerializable(typeof(KeyValuePair<string, int>))]
-    public partial class KvpAotContext : CrdtContext
+    [CrdtAotTypeAttribute(typeof(KeyValuePair<string, int>))]
+    public partial class KvpAotContext : CrdtAotContext
     {
     }
 }";
@@ -338,7 +338,7 @@ namespace TestNamespace
             .Cast<MetadataReference>()
             .ToList();
 
-        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtSerializableAttribute).Assembly.Location));
+        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtAotTypeAttribute).Assembly.Location));
 
         var compilation = CSharpCompilation.Create(
             "TestCompilation",
@@ -346,7 +346,7 @@ namespace TestNamespace
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        var generator = new CrdtContextGenerator();
+        var generator = new CrdtAotContextGenerator();
         GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
 
         // Act

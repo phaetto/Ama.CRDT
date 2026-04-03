@@ -38,9 +38,9 @@ public sealed class LseqTestPoco : IEquatable<LseqTestPoco>
     public override int GetHashCode() => Items.Count.GetHashCode();
 }
 
-[CrdtSerializable(typeof(LseqTestPoco))]
-[CrdtSerializable(typeof(List<string>))]
-internal partial class LseqTestContext : CrdtContext
+[CrdtAotType(typeof(LseqTestPoco))]
+[CrdtAotType(typeof(List<string>))]
+internal partial class LseqTestContext : CrdtAotContext
 {
 }
 

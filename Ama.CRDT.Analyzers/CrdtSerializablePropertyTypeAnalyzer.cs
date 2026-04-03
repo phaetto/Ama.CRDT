@@ -12,9 +12,9 @@ public sealed class CrdtSerializablePropertyTypeAnalyzer : DiagnosticAnalyzer
 {
     public const string DiagnosticId = "CRDT0003";
 
-    private static readonly LocalizableString Title = "Missing CrdtSerializable registration for property type";
-    private static readonly LocalizableString MessageFormat = "The property '{0}' on registered class '{1}' uses type '{2}' which must be registered with [CrdtSerializable] on '{3}'";
-    private static readonly LocalizableString Description = "All complex types used in properties of a registered CRDT model must also be explicitly registered in a CrdtContext to support AOT serialization.";
+    private static readonly LocalizableString Title = "Missing CrdtAotTypeAttribute registration for property type";
+    private static readonly LocalizableString MessageFormat = "The property '{0}' on registered class '{1}' uses type '{2}' which must be registered with [CrdtAotTypeAttribute] on '{3}'";
+    private static readonly LocalizableString Description = "All complex types used in properties of a registered CRDT model must also be explicitly registered in a CrdtAotContext to support AOT serialization.";
     private const string Category = "Usage";
 
     private static readonly DiagnosticDescriptor Rule = new(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Error, isEnabledByDefault: true, description: Description);
@@ -28,8 +28,8 @@ public sealed class CrdtSerializablePropertyTypeAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(compilationContext =>
         {
-            var crdtContextType = compilationContext.Compilation.GetTypeByMetadataName("Ama.CRDT.Models.Aot.CrdtContext");
-            var serializableAttributeSymbol = compilationContext.Compilation.GetTypeByMetadataName("Ama.CRDT.Attributes.CrdtSerializableAttribute");
+            var crdtContextType = compilationContext.Compilation.GetTypeByMetadataName("Ama.CRDT.Models.Aot.CrdtAotContext");
+            var serializableAttributeSymbol = compilationContext.Compilation.GetTypeByMetadataName("Ama.CRDT.Attributes.CrdtAotTypeAttribute");
 
             if (crdtContextType == null || serializableAttributeSymbol == null)
             {
@@ -76,7 +76,7 @@ public sealed class CrdtSerializablePropertyTypeAnalyzer : DiagnosticAnalyzer
     {
         var namedType = (INamedTypeSymbol)context.Symbol;
 
-        // Ensure we are inspecting a class that inherits from CrdtContext
+        // Ensure we are inspecting a class that inherits from CrdtAotContext
         if (!InheritsFrom(namedType, crdtContextType))
         {
             return;

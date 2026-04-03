@@ -31,14 +31,14 @@ public sealed class PartitioningApplicatorDecorator : IAsyncCrdtApplicator
     private readonly IPartitionStorageService storageService;
     private readonly ICrdtStrategyProvider strategyProvider;
     private readonly PartitionManagerCrdtMetrics metrics;
-    private readonly IEnumerable<CrdtContext> aotContexts;
+    private readonly IEnumerable<CrdtAotContext> aotContexts;
 
     public PartitioningApplicatorDecorator(
         IAsyncCrdtApplicator innerApplicator,
         IPartitionStorageService storageService,
         ICrdtStrategyProvider strategyProvider,
         PartitionManagerCrdtMetrics metrics,
-        IEnumerable<CrdtContext> aotContexts)
+        IEnumerable<CrdtAotContext> aotContexts)
     {
         ArgumentNullException.ThrowIfNull(innerApplicator);
         ArgumentNullException.ThrowIfNull(storageService);

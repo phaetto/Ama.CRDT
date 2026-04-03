@@ -16,8 +16,8 @@ using Shouldly;
 using System;
 using Xunit;
 
-[CrdtSerializable(typeof(ChainedDecoratorsTests.ChainedDocument))]
-internal partial class ChainedDecoratorsTestCrdtContext : CrdtContext { }
+[CrdtAotType(typeof(ChainedDecoratorsTests.ChainedDocument))]
+internal partial class ChainedDecoratorsTestCrdtAotContext : CrdtAotContext { }
 
 public sealed class ChainedDecoratorsTests : IDisposable
 {
@@ -29,7 +29,7 @@ public sealed class ChainedDecoratorsTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<ChainedDecoratorsTestCrdtContext>()
+            .AddCrdtAotContext<ChainedDecoratorsTestCrdtAotContext>()
             .AddScoped<ICrdtStrategy, ApprovalQuorumStrategy>()
             .BuildServiceProvider();
 

@@ -33,8 +33,8 @@ public sealed class EpochBoundTestPoco : IEquatable<EpochBoundTestPoco>
     public override int GetHashCode() => Value?.GetHashCode(StringComparison.Ordinal) ?? 0;
 }
 
-[CrdtSerializable(typeof(EpochBoundTestPoco))]
-public partial class EpochBoundTestContext : CrdtContext
+[CrdtAotType(typeof(EpochBoundTestPoco))]
+public partial class EpochBoundTestContext : CrdtAotContext
 {
 }
 

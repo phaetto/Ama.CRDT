@@ -42,7 +42,7 @@ public sealed class PartitionManagerTests
 
         var services = new ServiceCollection()
             .AddCrdt()
-            .AddSingleton<CrdtContext, PartitioningTestCrdtContext>()
+            .AddSingleton<CrdtAotContext, PartitioningTestCrdtAotContext>()
             .AddSingleton(meterFactoryMock.Object)
             .AddSingleton(mockStorage.Object); // Inject the mock instead of StreamPartitionStorageService
 

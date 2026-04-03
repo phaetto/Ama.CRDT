@@ -14,8 +14,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 
-[CrdtSerializable(typeof(ReplicatedTreeTestPoco))]
-public partial class ReplicatedTreeTestContext : CrdtContext { }
+[CrdtAotType(typeof(ReplicatedTreeTestPoco))]
+public partial class ReplicatedTreeTestContext : CrdtAotContext { }
 
 public sealed class ReplicatedTreeTestPoco
 {
@@ -141,7 +141,7 @@ public sealed class ReplicatedTreeStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var aotContexts = new CrdtContext[] { new ReplicatedTreeTestContext(), new InternalCrdtContext() };
+        var aotContexts = new CrdtAotContext[] { new ReplicatedTreeTestContext(), new InternalCrdtAotContext() };
         var strategy = new ReplicatedTreeStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(

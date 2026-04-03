@@ -28,7 +28,7 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 public sealed class CounterMapStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -304,7 +304,7 @@ public sealed class CounterMapStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructDictionaryForSplitMerge(object root, string path, IDictionary<object, PnCounterState> counters, Type keyType, Type valueType, IEnumerable<CrdtContext> aotContexts)
+    private static void ReconstructDictionaryForSplitMerge(object root, string path, IDictionary<object, PnCounterState> counters, Type keyType, Type valueType, IEnumerable<CrdtAotContext> aotContexts)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);
         if (parent is null || property is null) return;

@@ -11,8 +11,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-[CrdtSerializable(typeof(MaxWinsTestPoco))]
-public partial class MaxWinsTestContext : CrdtContext
+[CrdtAotType(typeof(MaxWinsTestPoco))]
+public partial class MaxWinsTestContext : CrdtAotContext
 {
 }
 

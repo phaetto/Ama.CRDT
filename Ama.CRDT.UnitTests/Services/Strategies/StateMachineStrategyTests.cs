@@ -52,7 +52,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     {
         var serviceProvider = new ServiceCollection()
             .AddCrdt()
-            .AddCrdtAotContext<StateMachineStrategyTestCrdtContext>()
+            .AddCrdtAotContext<StateMachineStrategyTestCrdtAotContext>()
             .AddSingleton<OrderStatusStateMachine>()
             .BuildServiceProvider();
 

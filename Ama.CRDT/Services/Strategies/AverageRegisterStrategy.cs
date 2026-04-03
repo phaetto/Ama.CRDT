@@ -25,7 +25,7 @@ using System.Linq;
 [StateBased]
 public sealed class AverageRegisterStrategy(
     ReplicaContext replicaContext,
-    IEnumerable<CrdtContext> aotContexts) : ICrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
