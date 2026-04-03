@@ -572,7 +572,7 @@ internal static class PocoPathHelper
             {
                 return Enum.ToObject(underlyingType, value);
             }
-            catch
+            catch (ArgumentException)
             {
                 return value; 
             }
@@ -642,7 +642,15 @@ internal static class PocoPathHelper
             
             return value;
         }
-        catch (Exception)
+        catch (InvalidCastException)
+        {
+            return value;
+        }
+        catch (FormatException)
+        {
+            return value;
+        }
+        catch (OverflowException)
         {
             return value;
         }

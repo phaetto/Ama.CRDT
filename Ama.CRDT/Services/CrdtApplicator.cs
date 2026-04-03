@@ -89,41 +89,20 @@ public sealed class CrdtApplicator(
             return CrdtOperationStatus.Duplicate;
         }
 
-        object? target;
-        CrdtPropertyInfo? property;
-        object? finalSegment;
-
-        try
-        {
-            // The Applicator is responsible for resolving the path and instantiating missing intermediate POCOs.
-            var resolution = PocoPathHelper.ResolvePath(document, operation.JsonPath, aotContexts, createMissing: true);
-            target = resolution.Parent;
-            property = resolution.Property;
-            finalSegment = resolution.FinalSegment;
-        }
-        catch
-        {
-            return CrdtOperationStatus.PathResolutionFailed;
-        }
-
+        // The Applicator is responsible for resolving the path and instantiating missing intermediate POCOs.
+        var resolution = PocoPathHelper.ResolvePath(document, operation.JsonPath, aotContexts, createMissing: true);
+        
         var context = new ApplyOperationContext(document, metadata, operation)
         {
-            Target = target,
-            Property = property,
-            FinalSegment = finalSegment
+            Target = resolution.Parent,
+            Property = resolution.Property,
+            FinalSegment = resolution.FinalSegment
         };
 
-        try
+        var strategyStatus = strategy.ApplyOperation(context);
+        if (strategyStatus != CrdtOperationStatus.Success)
         {
-            var strategyStatus = strategy.ApplyOperation(context);
-            if (strategyStatus != CrdtOperationStatus.Success)
-            {
-                return strategyStatus;
-            }
-        }
-        catch
-        {
-            return CrdtOperationStatus.StrategyApplicationFailed;
+            return strategyStatus;
         }
 
         metadataManager.AdvanceVersionVector(metadata, operation);
