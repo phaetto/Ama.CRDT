@@ -51,7 +51,7 @@ using Ama.CRDT.Models.Aot;
 using System.Text.Json.Serialization;
 
 // 1. Define an AOT reflection context for your models
-[CrdtAotTypeAttribute(typeof(UserStats))]
+[CrdtAotType(typeof(UserStats))]
 public partial class MyCrdtAotContext : CrdtAotContext { }
 
 // 2. Define an AOT JSON context for network serialization
