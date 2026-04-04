@@ -272,9 +272,11 @@
 | `$/Ama.CRDT/Models/Aot/CrdtTypeInfo.cs` | Contains AOT-compatible metadata and factory methods for a specific type, including logic for lists and dictionaries. |
 | `$/Ama.CRDT/Models/Aot/InternalCrdtContext.cs` | An internal, source-generated AOT context containing metadata for all core library CRDT models (e.g., CrdtOperation, CrdtPatch, Intents, and Partitioning states), registered by default in the DI container. |
 | `$/Ama.CRDT/Models/ApplyPatchResult.cs` | Data structure containing the result of a patch application, including the document and any unapplied operations. |
+| `$/Ama.CRDT/Models/AverageRegisterState.cs` | A wrapper state structure implementing `ICrdtState` for Average Register contributions. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
 | `$/Ama.CRDT/Models/BidirectionalSyncRequirements.cs` | A data structure containing the synchronization requirements for two replicas to fully catch up with each other. |
 | `$/Ama.CRDT/Models/CausalTimestamp.cs` | A data structure that bundles a logical timestamp with the causal identity (replica and clock) of the operation, used to track metadata for tombstones and deletions safely for garbage collection. |
+| `$/Ama.CRDT/Models/CounterMapState.cs` | A wrapper state structure implementing `ICrdtState` for Counter-Map trackers. |
 | `$/Ama.CRDT/Models/CrdtDocument.cs` | No description provided. |
 | `$/Ama.CRDT/Models/CrdtGraph.cs` | A data model for a graph structure with vertices and edges, suitable for CRDT management. |
 | `$/Ama.CRDT/Models/CrdtMetadata.cs` | Encapsulates CRDT state for various strategies using dedicated, serializable record types instead of tuples. For serialization, use the recommended options from `CrdtJsonContext`. |
@@ -287,9 +289,14 @@
 | `$/Ama.CRDT/Models/Decorators/QuorumPayload.cs` | A data structure for the payload of a quorum-bound operation. |
 | `$/Ama.CRDT/Models/DottedVersionVector.cs` | Represents a Dotted Version Vector (DVV) to track causality and operations seen by a replica. Combines a contiguous version vector with discrete "dots" for out-of-order events. |
 | `$/Ama.CRDT/Models/Edge.cs` | No description provided. |
+| `$/Ama.CRDT/Models/EpochState.cs` | A wrapper state structure implementing `ICrdtState` for Epoch-bound decorator tracking. |
 | `$/Ama.CRDT/Models/EpochTimestamp.cs` | A default, backward-compatible implementation of `ICrdtTimestamp` that wraps a `long` value representing Unix milliseconds. |
+| `$/Ama.CRDT/Models/FwwMapState.cs` | A wrapper state structure implementing `ICrdtState` for FWW-Map trackers. |
+| `$/Ama.CRDT/Models/FwwSetState.cs` | A wrapper state structure implementing `ICrdtState` for FWW-Set trackers. |
+| `$/Ama.CRDT/Models/FwwTimestamp.cs` | A wrapper state structure implementing `ICrdtState` for First-Writer-Wins single timestamps. |
 | `$/Ama.CRDT/Models/GraphEdgePayload.cs` | A data structure for the payload of a graph edge operation. |
 | `$/Ama.CRDT/Models/GraphVertexPayload.cs` | A data structure for the payload of a graph vertex operation. |
+| `$/Ama.CRDT/Models/ICrdtState.cs` | Defines the base polymorphic interface for CRDT metadata states, allowing unified mapping of property JSON Paths to an abstracted state implementation. |
 | `$/Ama.CRDT/Models/ICrdtTimestamp.cs` | Represents a logical point in time for a CRDT operation, allowing for different timestamping mechanisms. |
 | `$/Ama.CRDT/Models/Intents/AddEdgeIntent.cs` | Represents the intent to explicitly add an edge to a graph. |
 | `$/Ama.CRDT/Models/Intents/AddIntent.cs` | Represents the intent to explicitly add an item to an unordered collection or set. |
@@ -316,6 +323,8 @@
 | `$/Ama.CRDT/Models/LseqIdentifier.cs` | A record struct for the dense, ordered identifier used in LSEQ, composed of a path of `LseqPathSegment` instances. |
 | `$/Ama.CRDT/Models/LseqItem.cs` | A record struct that pairs an LseqIdentifier with its corresponding value in the LSEQ metadata. |
 | `$/Ama.CRDT/Models/LseqPathSegment.cs` | Represents a single, serializable segment in an LSEQ identifier's path, containing a position and a replica ID. |
+| `$/Ama.CRDT/Models/LseqState.cs` | A wrapper state structure implementing `ICrdtState` for LSEQ trackers. |
+| `$/Ama.CRDT/Models/LwwMapState.cs` | A wrapper state structure implementing `ICrdtState` for LWW-Map trackers. |
 | `$/Ama.CRDT/Models/LwwSetState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/OperationType.cs` | Defines the types of operations (Upsert, Remove, Increment, Move) for a CRDT patch. |
 | `$/Ama.CRDT/Models/OrMapItem.cs` | Contains payload record structs (`OrMapAddItem`, `OrMapRemoveItem`) for OR-Map (Observed-Remove Map) operations, bundling keys and values with unique tags. |
@@ -331,9 +340,12 @@
 | `$/Ama.CRDT/Models/PnCounterState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
+| `$/Ama.CRDT/Models/PositionalState.cs` | A wrapper state structure implementing `ICrdtState` for Array LCS positional trackers. |
+| `$/Ama.CRDT/Models/QuorumState.cs` | A wrapper state structure implementing `ICrdtState` for Quorum decorator approvals. |
 | `$/Ama.CRDT/Models/ReplicaSyncRequirement.cs` | A data structure representing the data a target replica needs to request from a source replica to catch up with its causal history. |
 | `$/Ama.CRDT/Models/RgaIdentifier.cs` | Readonly record struct containing logical timestamp and replicaId used as a unique identifier for each RGA node. |
 | `$/Ama.CRDT/Models/RgaItem.cs` | Data structure representing an RGA node with a pointer to its predecessor, its payload value, and a tombstone flag. |
+| `$/Ama.CRDT/Models/RgaState.cs` | A wrapper state structure implementing `ICrdtState` for RGA trackers. |
 | `$/Ama.CRDT/Models/Serialization/Converters/CrdtPayloadJsonConverterFactory.cs` | A unified, high-performance JSON converter factory for handling type discriminators on weakly-typed (`object`, `IComparable`) properties. Avoids options cloning. |
 | `$/Ama.CRDT/Models/Serialization/Converters/ObjectKeyDictionaryJsonConverter.cs` | A `JsonConverterFactory` that creates converters for dictionaries with non-string keys. It serializes them as a JSON array of [key, value] pairs to work around `System.Text.Json` limitations. |
 | `$/Ama.CRDT/Models/Serialization/Converters/SeenExceptionsJsonConverter.cs` | A specialized `JsonConverter` for `CrdtMetadata.SeenExceptions` that ensures `CrdtOperation` elements are serialized and deserialized with polymorphism enabled for their `Value` property. |
