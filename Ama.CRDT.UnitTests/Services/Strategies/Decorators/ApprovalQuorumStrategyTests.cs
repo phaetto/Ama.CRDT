@@ -135,8 +135,8 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         doc.Data.ConfigValue.ShouldBe("Current");
 
         // Metadata should track the approval
-        doc.Metadata.States.ShouldContainKey("$.configValue");
-        var approvals = doc.Metadata.States["$.configValue"].ShouldBeOfType<QuorumState>().Approvals;
+        doc.Metadata.States.ShouldContainKey("$.configValue@quorum");
+        var approvals = doc.Metadata.States["$.configValue@quorum"].ShouldBeOfType<QuorumState>().Approvals;
         approvals.ShouldContainKey("ProposedNew");
         approvals["ProposedNew"].ShouldContain("ReplicaA");
         approvals["ProposedNew"].Count.ShouldBe(1);
@@ -170,7 +170,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         // Value shouldn't change, we still only have 1 distinct replica approval
         doc.Data.ConfigValue.ShouldBe("Current");
         
-        var approvals = doc.Metadata.States["$.configValue"].ShouldBeOfType<QuorumState>().Approvals;
+        var approvals = doc.Metadata.States["$.configValue@quorum"].ShouldBeOfType<QuorumState>().Approvals;
         approvals["ProposedNew"].Count.ShouldBe(1);
     }
 
@@ -201,7 +201,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         
         // Quorum not yet met
         doc.Data.ConfigValue.ShouldBe("Current");
-        doc.Metadata.States.ShouldContainKey("$.configValue");
+        doc.Metadata.States.ShouldContainKey("$.configValue@quorum");
 
         applicator.ApplyPatch(doc, new CrdtPatch([op2]));
 
@@ -209,7 +209,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         doc.Data.ConfigValue.ShouldBe("ProposedNew");
         
         // Trackers should be cleaned up
-        doc.Metadata.States.ShouldNotContainKey("$.configValue");
+        doc.Metadata.States.ShouldNotContainKey("$.configValue@quorum");
     }
 
     [Fact]
@@ -233,7 +233,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         doc.Data.ConfigValue.ShouldBe("Current");
         
         // Should NOT track any approvals because the operation is invalid for this strategy
-        doc.Metadata.States.ShouldNotContainKey("$.configValue");
+        doc.Metadata.States.ShouldNotContainKey("$.configValue@quorum");
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         var strategy = strategyProvider.GetStrategy(typeof(ProposalDocument), property);
         
         var metadata = new CrdtMetadata();
-        metadata.States["$.configValue"] = new QuorumState(new Dictionary<object, ISet<string>>());
+        metadata.States["$.configValue@quorum"] = new QuorumState(new Dictionary<object, ISet<string>>());
         
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
@@ -255,6 +255,6 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         strategy.Compact(context);
 
         // Assert
-        metadata.States.ShouldContainKey("$.configValue");
+        metadata.States.ShouldContainKey("$.configValue@quorum");
     }
 }

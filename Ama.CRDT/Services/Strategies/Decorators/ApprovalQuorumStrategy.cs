@@ -90,11 +90,13 @@ public sealed class ApprovalQuorumStrategy(
         var requiredQuorum = quorumAttr?.QuorumSize ?? 1;
 
         var path = context.Operation.JsonPath;
-        if (!context.Metadata.States.TryGetValue(path, out var baseState) || baseState is not QuorumState quorumState)
+        var decoratorPath = $"{path}@quorum";
+        
+        if (!context.Metadata.States.TryGetValue(decoratorPath, out var baseState) || baseState is not QuorumState quorumState)
         {
             var comparer = comparerProvider.GetComparer(typeof(object));
             quorumState = new QuorumState(new Dictionary<object, ISet<string>>(comparer));
-            context.Metadata.States[path] = quorumState;
+            context.Metadata.States[decoratorPath] = quorumState;
         }
 
         var pathApprovals = quorumState.Approvals;
@@ -124,7 +126,7 @@ public sealed class ApprovalQuorumStrategy(
             pathApprovals.Remove(keyObject);
             if (pathApprovals.Count == 0)
             {
-                context.Metadata.States.Remove(path);
+                context.Metadata.States.Remove(decoratorPath);
             }
 
             return status;
