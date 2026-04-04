@@ -89,10 +89,10 @@ public sealed class CrdtDocumentSerializationTests
         deserialized.Data.ShouldBe(data);
         deserialized.Metadata.ShouldNotBeNull();
         deserialized.Metadata.VersionVector.ShouldContainKeyAndValue("replica1", 100L);
-        deserialized.Metadata.Lww.ShouldBeEmpty(); // Asserting empty collections are instantiated correctly
+        deserialized.Metadata.States.ShouldBeEmpty(); // Asserting empty collections are instantiated correctly
 
         // Should omit empty collections in JSON representation of metadata
-        json.ShouldNotContain("\"Lww\"");
+        json.ShouldNotContain("\"States\"");
         
         deserialized.ShouldBe(document);
     }

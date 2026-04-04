@@ -198,7 +198,7 @@ public sealed class AverageRegisterStrategyTests : IDisposable
         
         // Assert
         model.Rating.ShouldBe(7.5m);
-        metadata.AverageRegisters[Path].Count.ShouldBe(2);
+        metadata.States[Path].ShouldBeOfType<AverageRegisterState>().Contributions.Count.ShouldBe(2);
     }
     
     [Fact]
@@ -273,8 +273,9 @@ public sealed class AverageRegisterStrategyTests : IDisposable
         
         // Assert
         model.Rating.ShouldBe(8m); // Only one value from r1
-        metadata.AverageRegisters[Path].Count.ShouldBe(1);
-        metadata.AverageRegisters[Path]["r1"].Value.ShouldBe(8m);
+        var state = metadata.States[Path].ShouldBeOfType<AverageRegisterState>();
+        state.Contributions.Count.ShouldBe(1);
+        state.Contributions["r1"].Value.ShouldBe(8m);
     }
 
     [Fact]
@@ -283,10 +284,10 @@ public sealed class AverageRegisterStrategyTests : IDisposable
         // Arrange
         var metadata = new CrdtMetadata();
         var timestamp = timestampProvider.Create(1L);
-        metadata.AverageRegisters[Path] = new Dictionary<string, AverageRegisterValue>
+        metadata.States[Path] = new AverageRegisterState(new Dictionary<string, AverageRegisterValue>
         {
             { "r1", new AverageRegisterValue(5m, timestamp) }
-        };
+        });
 
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
@@ -297,8 +298,9 @@ public sealed class AverageRegisterStrategyTests : IDisposable
         strategyA.Compact(context);
 
         // Assert
-        metadata.AverageRegisters[Path].ShouldContainKey("r1");
-        metadata.AverageRegisters[Path]["r1"].Value.ShouldBe(5m);
+        var state = metadata.States[Path].ShouldBeOfType<AverageRegisterState>();
+        state.Contributions.ShouldContainKey("r1");
+        state.Contributions["r1"].Value.ShouldBe(5m);
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
     

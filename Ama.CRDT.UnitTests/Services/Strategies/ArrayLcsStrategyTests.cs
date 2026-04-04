@@ -204,13 +204,13 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         // Act
         applicatorA.ApplyPatch(targetDocument, patch);
         var stateAfterFirstApply = new List<string>(targetModel.Tags);
-        var trackersCountAfterFirstApply = targetMeta.PositionalTrackers["$.tags"].Count;
+        var trackersCountAfterFirstApply = targetMeta.States["$.tags"].ShouldBeOfType<PositionalState>().Trackers.Count;
 
         applicatorA.ApplyPatch(targetDocument, patch);
 
         // Assert
         targetModel.Tags.ShouldBe(stateAfterFirstApply);
-        targetMeta.PositionalTrackers["$.tags"].Count.ShouldBe(trackersCountAfterFirstApply);
+        targetMeta.States["$.tags"].ShouldBeOfType<PositionalState>().Trackers.Count.ShouldBe(trackersCountAfterFirstApply);
         targetModel.Tags.ShouldBe(new[] { "A", "B", "C" });
     }
 
@@ -323,7 +323,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         applicatorA.ApplyPatch(docConverged, patchX);
 
         // Sanity check: "B" and "X" now have the same position string "1.5" in the metadata.
-        var positionalTrackers = docConverged.Metadata.PositionalTrackers["$.tags"];
+        var positionalTrackers = docConverged.Metadata.States["$.tags"].ShouldBeOfType<PositionalState>().Trackers;
         positionalTrackers.Count(p => p.Position == "1.5").ShouldBe(2);
 
         // 4. Create a new state by inserting "Y" between "B" and "X".
@@ -353,7 +353,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         // Arrange
         var doc = new TestModel { Tags = new List<string> { "A", "B" } };
         var meta = metadataManagerA.Initialize(doc);
-        var originalTrackersCount = meta.PositionalTrackers["$.tags"].Count;
+        var originalTrackersCount = meta.States["$.tags"].ShouldBeOfType<PositionalState>().Trackers.Count;
 
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
         var mockPolicy = new Mock<ICompactionPolicy>();
@@ -365,7 +365,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         strategy.Compact(context);
 
         // Assert
-        meta.PositionalTrackers["$.tags"].Count.ShouldBe(originalTrackersCount);
+        meta.States["$.tags"].ShouldBeOfType<PositionalState>().Trackers.Count.ShouldBe(originalTrackersCount);
         // Verify IsSafeToCompact was never called, as there are no tombstones to check
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }

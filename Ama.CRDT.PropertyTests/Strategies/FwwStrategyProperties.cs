@@ -168,7 +168,7 @@ public sealed class FwwStrategyProperties
             };
             
             // Replicate external Applicator timestamp management so FWW comparisons work correctly
-            if (metadata.Fww.TryGetValue(nameof(FwwTestPoco.Value), out var existingTs))
+            if (metadata.States.TryGetValue(nameof(FwwTestPoco.Value), out var existingState) && existingState is FwwTimestamp existingTs)
             {
                 if (op.Timestamp.CompareTo(existingTs.Timestamp) >= 0) continue; 
             }
@@ -176,7 +176,7 @@ public sealed class FwwStrategyProperties
             var status = strategy.ApplyOperation(context);
             if (status == CrdtOperationStatus.Success)
             {
-                 metadata.Fww[nameof(FwwTestPoco.Value)] = new CausalTimestamp(op.Timestamp, op.ReplicaId, op.Clock);
+                 metadata.States[nameof(FwwTestPoco.Value)] = new FwwTimestamp(op.Timestamp, op.ReplicaId, op.Clock);
             }
         }
     }

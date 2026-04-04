@@ -236,7 +236,7 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
         state.EdgeTombstones[edgeA] = new CausalTimestamp(timestampProvider.Create(100), "R1", 4); // Should be removed
         state.EdgeTombstones[edgeB] = new CausalTimestamp(timestampProvider.Create(200), "R1", 6); // Should be kept
 
-        metadata.TwoPhaseGraphs["$.graph"] = state;
+        metadata.States["$.graph"] = state;
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Graph", "$.graph", new TwoPhaseGraphTestModel());
 
