@@ -79,7 +79,7 @@ public sealed class TwoPhaseGraphStrategy(
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        if (!metadata.TwoPhaseGraphs.TryGetValue(operation.JsonPath, out var state))
+        if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not TwoPhaseGraphState state)
         {
             var vertexComparer = comparerProvider.GetComparer(typeof(object));
             var edgeComparer = comparerProvider.GetComparer(typeof(Edge));
@@ -89,7 +89,7 @@ public sealed class TwoPhaseGraphStrategy(
                 new Dictionary<object, CausalTimestamp>(vertexComparer),
                 new HashSet<object>(edgeComparer), 
                 new Dictionary<object, CausalTimestamp>(edgeComparer));
-            metadata.TwoPhaseGraphs[operation.JsonPath] = state;
+            metadata.States[operation.JsonPath] = state;
         }
         
         object? payload = operation.Value;
@@ -147,7 +147,7 @@ public sealed class TwoPhaseGraphStrategy(
 
     public void Compact(CompactionContext context)
     {
-        if (context.Metadata.TwoPhaseGraphs.TryGetValue(context.PropertyPath, out var state))
+        if (context.Metadata.States.TryGetValue(context.PropertyPath, out var baseState) && baseState is TwoPhaseGraphState state)
         {
             var verticesToRemove = new List<object>();
             foreach (var kvp in state.VertexTombstones)

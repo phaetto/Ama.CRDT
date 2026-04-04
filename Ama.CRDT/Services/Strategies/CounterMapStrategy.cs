@@ -115,10 +115,15 @@ public sealed class CounterMapStrategy(
         var valueType = typeInfo.DictionaryValueType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
         
-        if (!metadata.CounterMaps.TryGetValue(operation.JsonPath, out var counters))
+        IDictionary<object, PnCounterState> counters;
+        if (metadata.States.TryGetValue(operation.JsonPath, out var baseState) && baseState is CounterMapState mapState)
+        {
+            counters = mapState.Keys;
+        }
+        else
         {
             counters = new Dictionary<object, PnCounterState>(comparer);
-            metadata.CounterMaps[operation.JsonPath] = counters;
+            metadata.States[operation.JsonPath] = new CounterMapState(counters);
         }
 
         if (PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>), aotContexts) is not KeyValuePair<object, object?> payload)
@@ -227,11 +232,12 @@ public sealed class CounterMapStrategy(
         var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        if (!originalMetadata.CounterMaps.TryGetValue(path, out var counters) || counters.Count < 2)
+        if (!originalMetadata.States.TryGetValue(path, out var baseState) || baseState is not CounterMapState mapState || mapState.Keys.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
         }
 
+        var counters = mapState.Keys;
         var sortedKeys = counters.Keys.Cast<IComparable>().OrderBy(k => k).ToList();
         var splitIndex = sortedKeys.Count / 2;
         var splitKey = sortedKeys[splitIndex];
@@ -253,17 +259,23 @@ public sealed class CounterMapStrategy(
         var counters1 = new Dictionary<object, PnCounterState>(comparer);
         var counters2 = new Dictionary<object, PnCounterState>(comparer);
 
-        foreach (var kvp in meta1.CounterMaps[path])
+        if (meta1.States.TryGetValue(path, out var state1) && state1 is CounterMapState mapState1)
         {
-            if (keys1.Contains((IComparable)kvp.Key)) counters1[kvp.Key] = kvp.Value;
+            foreach (var kvp in mapState1.Keys)
+            {
+                if (keys1.Contains((IComparable)kvp.Key)) counters1[kvp.Key] = kvp.Value;
+            }
         }
-        meta1.CounterMaps[path] = counters1;
+        meta1.States[path] = new CounterMapState(counters1);
 
-        foreach (var kvp in meta2.CounterMaps[path])
+        if (meta2.States.TryGetValue(path, out var state2) && state2 is CounterMapState mapState2)
         {
-            if (keys2.Contains((IComparable)kvp.Key)) counters2[kvp.Key] = kvp.Value;
+            foreach (var kvp in mapState2.Keys)
+            {
+                if (keys2.Contains((IComparable)kvp.Key)) counters2[kvp.Key] = kvp.Value;
+            }
         }
-        meta2.CounterMaps[path] = counters2;
+        meta2.States[path] = new CounterMapState(counters2);
 
         ReconstructDictionaryForSplitMerge(doc1, path, counters1, keyType, valueType, aotContexts);
         ReconstructDictionaryForSplitMerge(doc2, path, counters2, keyType, valueType, aotContexts);
@@ -287,17 +299,17 @@ public sealed class CounterMapStrategy(
 
         var mergedCounters = new Dictionary<object, PnCounterState>(comparer);
 
-        if (meta1.CounterMaps.TryGetValue(path, out var counters1))
+        if (meta1.States.TryGetValue(path, out var state1) && state1 is CounterMapState mapState1)
         {
-            foreach (var kvp in counters1) mergedCounters[kvp.Key] = kvp.Value;
+            foreach (var kvp in mapState1.Keys) mergedCounters[kvp.Key] = kvp.Value;
         }
 
-        if (meta2.CounterMaps.TryGetValue(path, out var counters2))
+        if (meta2.States.TryGetValue(path, out var state2) && state2 is CounterMapState mapState2)
         {
-            foreach (var kvp in counters2) mergedCounters[kvp.Key] = kvp.Value;
+            foreach (var kvp in mapState2.Keys) mergedCounters[kvp.Key] = kvp.Value;
         }
 
-        mergedMeta.CounterMaps[path] = mergedCounters;
+        mergedMeta.States[path] = new CounterMapState(mergedCounters);
 
         ReconstructDictionaryForSplitMerge(mergedDoc, path, mergedCounters, keyType, valueType, aotContexts);
 

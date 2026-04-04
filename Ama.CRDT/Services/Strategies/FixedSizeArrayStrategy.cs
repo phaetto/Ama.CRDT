@@ -54,7 +54,7 @@ public sealed class FixedSizeArrayStrategy(
                 continue;
             }
 
-            if (!originalMeta.Lww.TryGetValue(elementPath, out var originalTimestamp) || originalTimestamp.Timestamp is null || changeTimestamp.CompareTo(originalTimestamp.Timestamp) >= 0)
+            if (!originalMeta.States.TryGetValue(elementPath, out var baseState) || baseState is not CausalTimestamp originalTimestamp || originalTimestamp.Timestamp is null || changeTimestamp.CompareTo(originalTimestamp.Timestamp) >= 0)
             {
                 operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, elementPath, OperationType.Upsert, modifiedElement, changeTimestamp, clock));
             }
@@ -98,7 +98,7 @@ public sealed class FixedSizeArrayStrategy(
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        if (metadata.Lww.TryGetValue(operation.JsonPath, out var currentTimestamp) && currentTimestamp.Timestamp is not null &&
+        if (metadata.States.TryGetValue(operation.JsonPath, out var baseState) && baseState is CausalTimestamp currentTimestamp && currentTimestamp.Timestamp is not null &&
             operation.Timestamp.CompareTo(currentTimestamp.Timestamp) < 0)
         {
             return CrdtOperationStatus.Obsolete;
@@ -110,7 +110,7 @@ public sealed class FixedSizeArrayStrategy(
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        metadata.Lww[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
+        metadata.States[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
 
         var value = PocoPathHelper.ConvertValue(operation.Value, elementType, aotContexts);
         var elementIndex = (int)index;

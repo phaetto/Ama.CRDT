@@ -56,7 +56,7 @@ public sealed class FwwMapStrategy(
         var removedKeys = originalKeys.Except(modifiedKeys, comparer);
         var commonKeys = originalKeys.Intersect(modifiedKeys, comparer);
 
-        var timestamps = originalMeta.FwwMaps.TryGetValue(path, out var ts) ? ts : null;
+        var timestamps = originalMeta.States.TryGetValue(path, out var state) && state is FwwMapState mapState ? mapState.Keys : null;
 
         foreach (var key in addedKeys)
         {
@@ -119,7 +119,7 @@ public sealed class FwwMapStrategy(
         if (isReset)
         {
             dict.Clear();
-            metadata.FwwMaps.Remove(operation.JsonPath);
+            metadata.States.Remove(operation.JsonPath);
             return CrdtOperationStatus.Success;
         }
 
@@ -128,11 +128,13 @@ public sealed class FwwMapStrategy(
         var valueType = typeInfo.DictionaryValueType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
-        if (!metadata.FwwMaps.TryGetValue(operation.JsonPath, out var timestamps))
+        if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not FwwMapState mapState)
         {
-            timestamps = new Dictionary<object, CausalTimestamp>(comparer);
-            metadata.FwwMaps[operation.JsonPath] = timestamps;
+            var newTimestamps = new Dictionary<object, CausalTimestamp>(comparer);
+            mapState = new FwwMapState(newTimestamps);
+            metadata.States[operation.JsonPath] = mapState;
         }
+        var timestamps = mapState.Keys;
 
         if (PocoPathHelper.ConvertValue(operation.Value, typeof(KeyValuePair<object, object?>), aotContexts) is not KeyValuePair<object, object?> payload)
         {
@@ -172,7 +174,8 @@ public sealed class FwwMapStrategy(
     public void Compact(CompactionContext context)
     {
         if (context.Document is null) return;
-        if (!context.Metadata.FwwMaps.TryGetValue(context.PropertyPath, out var timestamps)) return;
+        if (!context.Metadata.States.TryGetValue(context.PropertyPath, out var baseState) || baseState is not FwwMapState mapState) return;
+        var timestamps = mapState.Keys;
 
         var resolution = PocoPathHelper.ResolvePath(context.Document, context.PropertyPath, aotContexts);
         var parent = resolution.Parent;
@@ -287,10 +290,12 @@ public sealed class FwwMapStrategy(
         var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        if (!originalMetadata.FwwMaps.TryGetValue(path, out var fwwMap) || fwwMap.Count < 2)
+        if (!originalMetadata.States.TryGetValue(path, out var baseState) || baseState is not FwwMapState fwwMapState || fwwMapState.Keys.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
         }
+
+        var fwwMap = fwwMapState.Keys;
 
         var sortedEntries = fwwMap.ToList();
         sortedEntries.Sort((a, b) => ((IComparable)a.Key).CompareTo((IComparable)b.Key));
@@ -309,8 +314,8 @@ public sealed class FwwMapStrategy(
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
 
-        meta1.FwwMaps[path] = items1.ToDictionary(k => k.Key, v => v.Value, comparer);
-        meta2.FwwMaps[path] = items2.ToDictionary(k => k.Key, v => v.Value, comparer);
+        meta1.States[path] = new FwwMapState(items1.ToDictionary(k => k.Key, v => v.Value, comparer));
+        meta2.States[path] = new FwwMapState(items2.ToDictionary(k => k.Key, v => v.Value, comparer));
 
         ReconstructDictionaryForSplitMerge(doc1, path, items1, originalData, aotContexts);
         ReconstructDictionaryForSplitMerge(doc2, path, items2, originalData, aotContexts);
@@ -336,8 +341,8 @@ public sealed class FwwMapStrategy(
         
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var items1 = meta1.FwwMaps.TryGetValue(path, out var i1) ? i1 : new Dictionary<object, CausalTimestamp>(comparer);
-        var items2 = meta2.FwwMaps.TryGetValue(path, out var i2) ? i2 : new Dictionary<object, CausalTimestamp>(comparer);
+        var items1 = meta1.States.TryGetValue(path, out var s1) && s1 is FwwMapState fww1 ? fww1.Keys : new Dictionary<object, CausalTimestamp>(comparer);
+        var items2 = meta2.States.TryGetValue(path, out var s2) && s2 is FwwMapState fww2 ? fww2.Keys : new Dictionary<object, CausalTimestamp>(comparer);
 
         var mergedItems = new Dictionary<object, CausalTimestamp>(comparer);
         foreach (var kvp in items1) mergedItems[kvp.Key] = kvp.Value;
@@ -349,7 +354,7 @@ public sealed class FwwMapStrategy(
             }
         }
         
-        mergedMeta.FwwMaps[path] = mergedItems;
+        mergedMeta.States[path] = new FwwMapState(mergedItems);
 
         var sortedItems = mergedItems.ToList();
         sortedItems.Sort((a, b) => ((IComparable)a.Key).CompareTo((IComparable)b.Key));
@@ -424,8 +429,8 @@ public sealed class FwwMapStrategy(
             property.Setter!(parent, dict);
         }
 
-        meta1.FwwMaps.TryGetValue(path, out var items1);
-        meta2.FwwMaps.TryGetValue(path, out var items2);
+        var items1 = meta1.States.TryGetValue(path, out var s1) && s1 is FwwMapState fww1 ? fww1.Keys : null;
+        var items2 = meta2.States.TryGetValue(path, out var s2) && s2 is FwwMapState fww2 ? fww2.Keys : null;
 
         foreach (var item in items)
         {

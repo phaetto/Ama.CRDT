@@ -47,7 +47,7 @@ public sealed class ReplicatedTreeStrategy(
             operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp, clock));
         }
 
-        if (originalMeta.ReplicatedTrees.TryGetValue(path, out var metaState))
+        if (originalMeta.States.TryGetValue(path, out var baseState) && baseState is OrSetState metaState)
         {
             foreach (var id in removedIds)
             {
@@ -103,7 +103,7 @@ public sealed class ReplicatedTreeStrategy(
     private CrdtOperation GenerateRemoveOperation(GenerateOperationContext context, RemoveNodeIntent intent)
     {
         var tags = new HashSet<Guid>();
-        if (context.Metadata.ReplicatedTrees.TryGetValue(context.JsonPath, out var state) &&
+        if (context.Metadata.States.TryGetValue(context.JsonPath, out var baseState) && baseState is OrSetState state &&
             state.Adds.TryGetValue(intent.NodeId, out var addedTags))
         {
             tags = new HashSet<Guid>(addedTags);
@@ -132,10 +132,10 @@ public sealed class ReplicatedTreeStrategy(
         var idType = tree.Nodes.Keys.FirstOrDefault()?.GetType() ?? typeof(object);
         var idComparer = comparerProvider.GetComparer(idType);
 
-        if (!metadata.ReplicatedTrees.TryGetValue(operation.JsonPath, out var state))
+        if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not OrSetState state)
         {
             state = new OrSetState(new Dictionary<object, ISet<Guid>>(idComparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(idComparer));
-            metadata.ReplicatedTrees[operation.JsonPath] = state;
+            metadata.States[operation.JsonPath] = state;
         }
         
         object? payload = operation.Value;
@@ -197,7 +197,7 @@ public sealed class ReplicatedTreeStrategy(
             var nodePath = $"{operation.JsonPath}.Nodes.['{nodeId}'].ParentId";
             var causalOpTs = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
 
-            if (metadata.Lww.TryGetValue(nodePath, out var existingTimestamp) && causalOpTs.CompareTo(existingTimestamp) <= 0)
+            if (metadata.States.TryGetValue(nodePath, out var existingState) && existingState is CausalTimestamp existingTimestamp && causalOpTs.CompareTo(existingTimestamp) <= 0)
             {
                 return CrdtOperationStatus.Obsolete;
             }
@@ -205,7 +205,7 @@ public sealed class ReplicatedTreeStrategy(
             if (tree.Nodes.TryGetValue(nodeId, out var nodeToMove))
             {
                 nodeToMove.ParentId = movePayload.NewParentId;
-                metadata.Lww[nodePath] = causalOpTs;
+                metadata.States[nodePath] = causalOpTs;
             }
         }
         else
@@ -218,7 +218,7 @@ public sealed class ReplicatedTreeStrategy(
 
     public void Compact(CompactionContext context)
     {
-        if (!context.Metadata.ReplicatedTrees.TryGetValue(context.PropertyPath, out var state)) return;
+        if (!context.Metadata.States.TryGetValue(context.PropertyPath, out var baseState) || baseState is not OrSetState state) return;
 
         var nodesToRemove = new List<object>();
 

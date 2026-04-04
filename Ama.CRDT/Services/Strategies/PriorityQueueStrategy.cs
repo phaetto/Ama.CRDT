@@ -47,7 +47,7 @@ public sealed class PriorityQueueStrategy(
         var originalDict = originalList?.Cast<object>().ToDictionary(item => item, item => item, comparer) ?? new Dictionary<object, object>(comparer);
         var modifiedDict = modifiedList?.Cast<object>().ToDictionary(item => item, item => item, comparer) ?? new Dictionary<object, object>(comparer);
 
-        if (!originalMeta.PriorityQueues.TryGetValue(path, out var originalMetaState))
+        if (!originalMeta.States.TryGetValue(path, out var baseMetaState) || baseMetaState is not LwwSetState originalMetaState)
         {
             originalMetaState = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
         }
@@ -127,10 +127,10 @@ public sealed class PriorityQueueStrategy(
         
         var comparer = comparerProvider.GetComparer(elementType);
         
-        if (!metadata.PriorityQueues.TryGetValue(operation.JsonPath, out var meta))
+        if (!metadata.States.TryGetValue(operation.JsonPath, out var baseMeta) || baseMeta is not LwwSetState meta)
         {
             meta = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
-            metadata.PriorityQueues[operation.JsonPath] = meta;
+            metadata.States[operation.JsonPath] = meta;
         }
         var adds = meta.Adds;
         var removes = meta.Removes;
@@ -167,7 +167,7 @@ public sealed class PriorityQueueStrategy(
     /// <inheritdoc/>
     public void Compact(CompactionContext context)
     {
-        if (!context.Metadata.PriorityQueues.TryGetValue(context.PropertyPath, out var state)) return;
+        if (!context.Metadata.States.TryGetValue(context.PropertyPath, out var baseState) || baseState is not LwwSetState state) return;
 
         var deadItemsToRemove = new List<object>();
 

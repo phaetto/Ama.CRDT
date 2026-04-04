@@ -114,7 +114,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
             // We entered a new epoch. Clear all metadata and local state.
             // MUST clear metadata before setting the new epoch so we don't clear the new value.
             ClearMetadataForPath(context.Metadata, basePath);
-            context.Metadata.Epochs[basePath] = payload.Epoch;
+            context.Metadata.States[basePath] = new EpochState(payload.Epoch);
 
             var propVal = PocoPathHelper.GetValue(context.Root, basePath, aotContexts);
             if (propVal is System.Collections.IList list && !list.IsFixedSize)
@@ -185,14 +185,17 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         int maxEpoch = 0;
         matchingPath = fullPath;
         
-        foreach (var kvp in metadata.Epochs)
+        foreach (var kvp in metadata.States)
         {
-            if (fullPath == kvp.Key || fullPath.StartsWith(kvp.Key + ".") || fullPath.StartsWith(kvp.Key + "["))
+            if (kvp.Value is EpochState epochState)
             {
-                if (maxEpoch == 0 || kvp.Key.Length > matchingPath.Length)
+                if (fullPath == kvp.Key || fullPath.StartsWith(kvp.Key + ".") || fullPath.StartsWith(kvp.Key + "["))
                 {
-                    maxEpoch = kvp.Value;
-                    matchingPath = kvp.Key;
+                    if (maxEpoch == 0 || kvp.Key.Length > matchingPath.Length)
+                    {
+                        maxEpoch = epochState.Epoch;
+                        matchingPath = kvp.Key;
+                    }
                 }
             }
         }
@@ -206,26 +209,9 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         var prefix2 = path + "[";
         var isMatch = (string k) => k == path || k.StartsWith(prefix1) || k.StartsWith(prefix2);
 
-        // Crucial: We must clear epochs for child paths as well, otherwise a lingering child 
+        // Crucial: We must clear states for child paths as well, otherwise a lingering child 
         // will override the parent's new higher epoch during future operations!
-        RemoveKeys(metadata.Epochs, isMatch);
-        RemoveKeys(metadata.Lww, isMatch);
-        RemoveKeys(metadata.Fww, isMatch);
-        RemoveKeys(metadata.PositionalTrackers, isMatch);
-        RemoveKeys(metadata.AverageRegisters, isMatch);
-        RemoveKeys(metadata.TwoPhaseSets, isMatch);
-        RemoveKeys(metadata.LwwSets, isMatch);
-        RemoveKeys(metadata.FwwSets, isMatch);
-        RemoveKeys(metadata.OrSets, isMatch);
-        RemoveKeys(metadata.PriorityQueues, isMatch);
-        RemoveKeys(metadata.LseqTrackers, isMatch);
-        RemoveKeys(metadata.RgaTrackers, isMatch);
-        RemoveKeys(metadata.LwwMaps, isMatch);
-        RemoveKeys(metadata.FwwMaps, isMatch);
-        RemoveKeys(metadata.OrMaps, isMatch);
-        RemoveKeys(metadata.CounterMaps, isMatch);
-        RemoveKeys(metadata.TwoPhaseGraphs, isMatch);
-        RemoveKeys(metadata.ReplicatedTrees, isMatch);
+        RemoveKeys(metadata.States, isMatch);
     }
 
     private static void RemoveKeys<TValue>(IDictionary<string, TValue> dict, Func<string, bool> predicate)
