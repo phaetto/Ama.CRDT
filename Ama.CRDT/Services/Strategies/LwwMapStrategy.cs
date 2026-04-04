@@ -371,8 +371,8 @@ public sealed class LwwMapStrategy(
 
         if (parent is null || property is null) return;
 
-        var dict1 = property1 != null ? property1.Getter!(parent1) as IDictionary : null;
-        var dict2 = property2 != null ? property2.Getter!(parent2) as IDictionary : null;
+        var dict1 = property1 != null ? property1.Getter!(parent1!) as IDictionary : null;
+        var dict2 = property2 != null ? property2.Getter!(parent2!) as IDictionary : null;
 
         var typeInfo = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts);
         var keyType = typeInfo.DictionaryKeyType ?? typeof(object);

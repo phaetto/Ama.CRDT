@@ -397,7 +397,7 @@ public sealed class CrdtMetadataManager(
                     var ticksBase = DateTime.UtcNow.Ticks;
                     for (var i = 0; i < rgaList.Count; i++)
                     {
-                        var id = new RgaIdentifier(ticksBase + i, replicaContext.ReplicaId);
+                        var id = new RgaIdentifier(ticksBase + i, replicaContext.ReplicaId!);
                         var item = new RgaItem(id, prevId, rgaList[i], false);
                         rgaItems.Add(item);
                         prevId = id;

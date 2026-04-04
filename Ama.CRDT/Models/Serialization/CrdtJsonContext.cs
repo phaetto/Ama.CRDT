@@ -8,6 +8,7 @@ using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Models.Serialization.Converters;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
@@ -79,6 +80,8 @@ using System.Text.Json.Serialization.Metadata;
 [JsonSerializable(typeof(SetIntent))]
 [JsonSerializable(typeof(VoteIntent))]
 [JsonSerializable(typeof(EpochClearIntent))]
+[SuppressMessage("ApiDesign", "RS0016:Add public types and members to the declared API", Justification = "System.Text.Json source generator emits public properties that do not need to be tracked in the public API.")]
+[SuppressMessage("ApiDesign", "RS0041:Symbol uses some oblivious reference types", Justification = "System.Text.Json source generator does not emit nullable annotations for its properties.")]
 public partial class CrdtJsonContext : JsonSerializerContext
 {
     private static readonly Lazy<JsonSerializerOptions> _defaultOptions = new(CreateDefaultOptions);

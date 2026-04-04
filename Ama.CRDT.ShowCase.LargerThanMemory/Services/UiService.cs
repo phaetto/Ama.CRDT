@@ -2,6 +2,7 @@ namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -69,6 +70,8 @@ public sealed class UiService
         this.replicaDvvs = replicaDvvs;
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
+    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
     public static Dictionary<string, DottedVersionVector> LoadReplicaStates(IEnumerable<string> replicaIds)
     {
         var replicaDvvs = new Dictionary<string, DottedVersionVector>();
@@ -110,6 +113,8 @@ public sealed class UiService
         return replicaDvvs;
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
+    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
     public static void SaveReplicaStates(Dictionary<string, DottedVersionVector> replicaDvvs)
     {
         try
@@ -127,7 +132,7 @@ public sealed class UiService
                 WriteIndented = true,
                 TypeInfoResolver = LargerThanMemoryJsonContext.Default
             };
-            var json = JsonSerializer.Serialize(dtos, typeof(Dictionary<string, DvvStateDto>), options);
+            var json = JsonSerializer.Serialize(dtos, options);
             File.WriteAllText(DvvStateFilePath, json);
         }
         catch 

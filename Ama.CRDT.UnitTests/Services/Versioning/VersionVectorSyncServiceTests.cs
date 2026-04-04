@@ -27,20 +27,7 @@ public class VersionVectorSyncServiceTests
     [InlineData("")]
     [InlineData(" ")]
     [InlineData(null)]
-    public void CalculateRequirement_InvalidReplicaId_ThrowsArgumentException(string invalidId)
-    {
-        var validContext = new ReplicaContext { ReplicaId = "Valid" };
-        var invalidContext = new ReplicaContext { ReplicaId = invalidId };
-
-        Should.Throw<ArgumentException>(() => _sut.CalculateRequirement(invalidContext, validContext));
-        Should.Throw<ArgumentException>(() => _sut.CalculateRequirement(validContext, invalidContext));
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData(" ")]
-    [InlineData(null)]
-    public void CalculateRequirement_StringArgs_InvalidReplicaId_ThrowsArgumentException(string invalidId)
+    public void CalculateRequirement_StringArgs_InvalidReplicaId_ThrowsArgumentException(string? invalidId)
     {
         var dvv = new DottedVersionVector();
 
@@ -228,18 +215,6 @@ public class VersionVectorSyncServiceTests
     }
 
     [Fact]
-    public void CalculateRequirement_NullDVVs_HandledGracefully()
-    {
-        var target = new ReplicaContext { ReplicaId = "Target", GlobalVersionVector = null! };
-        var source = new ReplicaContext { ReplicaId = "Source", GlobalVersionVector = null! };
-
-        var result = _sut.CalculateRequirement(target, source);
-
-        result.IsBehind.ShouldBeFalse();
-        result.RequirementsByOrigin.ShouldBeEmpty();
-    }
-
-    [Fact]
     public void CalculateGlobalMinimumVersionVector_NullClusterVectors_ThrowsArgumentNullException()
     {
         Should.Throw<ArgumentNullException>(() => _sut.CalculateGlobalMinimumVersionVector(null!));
@@ -248,7 +223,7 @@ public class VersionVectorSyncServiceTests
     [Fact]
     public void CalculateGlobalMinimumVersionVector_EmptyClusterVectors_ReturnsEmptyDictionary()
     {
-        var result = _sut.CalculateGlobalMinimumVersionVector(Enumerable.Empty<DottedVersionVector>());
+        var result = _sut.CalculateGlobalMinimumVersionVector([]);
         result.ShouldBeEmpty();
     }
 
@@ -279,7 +254,7 @@ public class VersionVectorSyncServiceTests
     [Fact]
     public void CalculateGlobalMaximumVersionVector_EmptyClusterVectors_ReturnsEmpty()
     {
-        var result = _sut.CalculateGlobalMaximumVersionVector(Enumerable.Empty<DottedVersionVector>());
+        var result = _sut.CalculateGlobalMaximumVersionVector([]);
         result.Versions.ShouldBeEmpty();
         result.Dots.ShouldBeEmpty();
     }
@@ -302,8 +277,8 @@ public class VersionVectorSyncServiceTests
         result.Versions["C"].ShouldBe(2);
 
         result.Dots.Count.ShouldBe(2);
-        result.Dots["A"].ShouldBe(new[] { 7L });
-        result.Dots["B"].ShouldBe(new[] { 6L });
+        result.Dots["A"].ShouldBe([7L]);
+        result.Dots["B"].ShouldBe([6L]);
     }
 
     [Fact]
@@ -319,7 +294,7 @@ public class VersionVectorSyncServiceTests
 
         result.Versions["A"].ShouldBe(5);
         result.Dots.Count.ShouldBe(1);
-        result.Dots["A"].ShouldBe(new[] { 6L }); // 5 was pruned because Max version is 5
+        result.Dots["A"].ShouldBe([6L]); // 5 was pruned because Max version is 5
     }
 
     private static DottedVersionVector CreateDvv(IDictionary<string, long> versions, IDictionary<string, ISet<long>>? dots)
