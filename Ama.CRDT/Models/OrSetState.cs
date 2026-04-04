@@ -121,9 +121,17 @@ public sealed record OrSetState(IDictionary<object, ISet<Guid>> Adds, IDictionar
             if (!mergedRemoves.TryGetValue(kvp.Key, out var dict)) mergedRemoves[kvp.Key] = dict = new Dictionary<Guid, CausalTimestamp>();
             foreach (var innerKvp in kvp.Value)
             {
-                if (!dict.TryGetValue(innerKvp.Key, out var existing) || innerKvp.Value.CompareTo(existing) > 0)
+                if (!dict.TryGetValue(innerKvp.Key, out var existing))
                 {
                     dict[innerKvp.Key] = innerKvp.Value;
+                }
+                else
+                {
+                    int cmp = innerKvp.Value.Timestamp.CompareTo(existing.Timestamp);
+                    if (cmp > 0 || (cmp == 0 && string.CompareOrdinal(innerKvp.Value.ReplicaId, existing.ReplicaId) > 0))
+                    {
+                        dict[innerKvp.Key] = innerKvp.Value;
+                    }
                 }
             }
         }

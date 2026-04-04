@@ -68,10 +68,11 @@ public sealed class RgaStrategy(
     {
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
         
-        if (!originalMetadata.RgaTrackers.TryGetValue(path, out var items))
+        if (!originalMetadata.States.TryGetValue(path, out var baseState) || baseState is not RgaState rgaState)
         {
-            items = new List<RgaItem>();
+            rgaState = new RgaState(new List<RgaItem>());
         }
+        var items = rgaState.Trackers;
 
         var sortedItems = items.OrderBy(x => x.Identifier).ToList();
 
@@ -86,8 +87,8 @@ public sealed class RgaStrategy(
         var leftMeta = originalMetadata.DeepClone();
         var rightMeta = originalMetadata.DeepClone();
         
-        leftMeta.RgaTrackers[path] = leftItems;
-        rightMeta.RgaTrackers[path] = rightItems;
+        leftMeta.States[path] = new RgaState(leftItems);
+        rightMeta.States[path] = new RgaState(rightItems);
 
         var leftData = PocoPathHelper.Instantiate(originalData.GetType(), aotContexts);
         var rightData = PocoPathHelper.Instantiate(originalData.GetType(), aotContexts);
@@ -107,17 +108,17 @@ public sealed class RgaStrategy(
     {
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        meta1.RgaTrackers.TryGetValue(path, out var items1);
-        meta2.RgaTrackers.TryGetValue(path, out var items2);
+        meta1.States.TryGetValue(path, out var baseState1);
+        meta2.States.TryGetValue(path, out var baseState2);
 
-        items1 ??= new List<RgaItem>();
-        items2 ??= new List<RgaItem>();
+        var items1 = (baseState1 as RgaState)?.Trackers ?? new List<RgaItem>();
+        var items2 = (baseState2 as RgaState)?.Trackers ?? new List<RgaItem>();
 
         var mergedItems = items1.Concat(items2).DistinctBy(x => x.Identifier).ToList();
         mergedItems = RebuildRgaOrder(mergedItems);
 
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
-        mergedMeta.RgaTrackers[path] = mergedItems;
+        mergedMeta.States[path] = new RgaState(mergedItems);
 
         var mergedData = PocoPathHelper.Instantiate(data1.GetType(), aotContexts);
         ReconstructList(mergedData, path, mergedItems);
@@ -135,10 +136,11 @@ public sealed class RgaStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = elementComparerProvider.GetComparer(elementType);
 
-        if (!originalMeta.RgaTrackers.TryGetValue(path, out var originalItems))
+        if (!originalMeta.States.TryGetValue(path, out var baseState) || baseState is not RgaState rgaState)
         {
-            originalItems = new List<RgaItem>();
+            rgaState = new RgaState(new List<RgaItem>());
         }
+        var originalItems = rgaState.Trackers;
 
         var originalVisible = originalItems.Where(x => !x.IsDeleted).ToList();
 
@@ -248,10 +250,11 @@ public sealed class RgaStrategy(
     {
         var (_, metadata, path, _, intent, timestamp, clock) = context;
 
-        if (!metadata.RgaTrackers.TryGetValue(path, out var items))
+        if (!metadata.States.TryGetValue(path, out var baseState) || baseState is not RgaState rgaState)
         {
-            items = new List<RgaItem>();
+            rgaState = new RgaState(new List<RgaItem>());
         }
+        var items = rgaState.Trackers;
 
         var visibleItems = items.Where(x => !x.IsDeleted).ToList();
 
@@ -297,11 +300,12 @@ public sealed class RgaStrategy(
     {
         var (root, metadata, operation) = context;
 
-        if (!metadata.RgaTrackers.TryGetValue(operation.JsonPath, out var items))
+        if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not RgaState rgaState)
         {
-            items = new List<RgaItem>();
-            metadata.RgaTrackers[operation.JsonPath] = items;
+            rgaState = new RgaState(new List<RgaItem>());
+            metadata.States[operation.JsonPath] = rgaState;
         }
+        var items = rgaState.Trackers;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
         if (parent is null || property is null)
@@ -390,7 +394,7 @@ public sealed class RgaStrategy(
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        metadata.RgaTrackers[operation.JsonPath] = items;
+        metadata.States[operation.JsonPath] = new RgaState(items);
 
         return CrdtOperationStatus.Success;
     }
@@ -398,10 +402,11 @@ public sealed class RgaStrategy(
     /// <inheritdoc/>
     public void Compact(CompactionContext context)
     {
-        if (!context.Metadata.RgaTrackers.TryGetValue(context.PropertyPath, out var items))
+        if (!context.Metadata.States.TryGetValue(context.PropertyPath, out var baseState) || baseState is not RgaState rgaState)
         {
             return;
         }
+        var items = rgaState.Trackers;
 
         var itemLookup = new Dictionary<RgaIdentifier, RgaItem>();
         var referenceCounts = new Dictionary<RgaIdentifier, int>();

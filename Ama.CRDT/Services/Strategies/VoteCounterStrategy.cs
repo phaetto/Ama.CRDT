@@ -48,7 +48,7 @@ public sealed class VoteCounterStrategy(
 
             var voterMetaPath = $"{path}.['{GetVoterKey(voter)}']";
             
-            if (originalMeta.Lww.TryGetValue(voterMetaPath, out var lastTimestamp) && changeTimestamp.CompareTo(lastTimestamp.Timestamp) <= 0)
+            if (originalMeta.States.TryGetValue(voterMetaPath, out var state) && state is CausalTimestamp lastTimestamp && changeTimestamp.CompareTo(lastTimestamp.Timestamp) <= 0)
             {
                 continue;
             }
@@ -92,7 +92,7 @@ public sealed class VoteCounterStrategy(
         }
         var voterMetaPath = $"{operation.JsonPath}.['{GetVoterKey(payload.Voter)}']";
 
-        if (metadata.Lww.TryGetValue(voterMetaPath, out var currentTimestamp) && operation.Timestamp.CompareTo(currentTimestamp.Timestamp) <= 0)
+        if (metadata.States.TryGetValue(voterMetaPath, out var state) && state is CausalTimestamp currentTimestamp && operation.Timestamp.CompareTo(currentTimestamp.Timestamp) <= 0)
         {
             return CrdtOperationStatus.Obsolete;
         }
@@ -125,7 +125,7 @@ public sealed class VoteCounterStrategy(
         RemoveVoterFromAllOptions(dictionary, voter, aotContexts);
         AddVoterToOption(dictionary, voter, newOption, dictValueType, aotContexts);
         
-        metadata.Lww[voterMetaPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
+        metadata.States[voterMetaPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
 
         return CrdtOperationStatus.Success;
     }
@@ -158,13 +158,13 @@ public sealed class VoteCounterStrategy(
             }
         }
 
-        foreach (var kvp in context.Metadata.Lww)
+        foreach (var kvp in context.Metadata.States)
         {
-            if (kvp.Key.StartsWith(prefix, StringComparison.Ordinal) && kvp.Key.EndsWith("']", StringComparison.Ordinal))
+            if (kvp.Value is CausalTimestamp ts && kvp.Key.StartsWith(prefix, StringComparison.Ordinal) && kvp.Key.EndsWith("']", StringComparison.Ordinal))
             {
                 var voterKey = kvp.Key.Substring(prefix.Length, kvp.Key.Length - prefix.Length - 2);
                 
-                if (!currentVoters.Contains(voterKey) && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: kvp.Value.Timestamp, ReplicaId: kvp.Value.ReplicaId, Version: kvp.Value.Clock)))
+                if (!currentVoters.Contains(voterKey) && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: ts.Timestamp, ReplicaId: ts.ReplicaId, Version: ts.Clock)))
                 {
                     keysToRemove.Add(kvp.Key);
                 }
@@ -173,7 +173,7 @@ public sealed class VoteCounterStrategy(
 
         foreach (var key in keysToRemove)
         {
-            context.Metadata.Lww.Remove(key);
+            context.Metadata.States.Remove(key);
         }
     }
 
@@ -262,22 +262,22 @@ public sealed class VoteCounterStrategy(
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
 
-        var keysToRemove1 = meta1.Lww.Keys.Where(k => k.StartsWith(path + ".['")).ToList();
-        foreach (var k in keysToRemove1) meta1.Lww.Remove(k);
+        var keysToRemove1 = meta1.States.Keys.Where(k => k.StartsWith(path + ".['")).ToList();
+        foreach (var k in keysToRemove1) meta1.States.Remove(k);
         
-        var keysToRemove2 = meta2.Lww.Keys.Where(k => k.StartsWith(path + ".['")).ToList();
-        foreach (var k in keysToRemove2) meta2.Lww.Remove(k);
+        var keysToRemove2 = meta2.States.Keys.Where(k => k.StartsWith(path + ".['")).ToList();
+        foreach (var k in keysToRemove2) meta2.States.Remove(k);
 
         foreach (var voter in voters1)
         {
             var voterMetaPath = $"{path}.['{GetVoterKey(voter)}']";
-            if (originalMetadata.Lww.TryGetValue(voterMetaPath, out var ts)) meta1.Lww[voterMetaPath] = ts;
+            if (originalMetadata.States.TryGetValue(voterMetaPath, out var ts)) meta1.States[voterMetaPath] = ts;
         }
 
         foreach (var voter in voters2)
         {
             var voterMetaPath = $"{path}.['{GetVoterKey(voter)}']";
-            if (originalMetadata.Lww.TryGetValue(voterMetaPath, out var ts)) meta2.Lww[voterMetaPath] = ts;
+            if (originalMetadata.States.TryGetValue(voterMetaPath, out var ts)) meta2.States[voterMetaPath] = ts;
         }
 
         if (dict != null)

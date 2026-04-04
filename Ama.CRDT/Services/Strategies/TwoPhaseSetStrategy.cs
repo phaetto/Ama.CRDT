@@ -85,10 +85,10 @@ public sealed class TwoPhaseSetStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        if (!metadata.TwoPhaseSets.TryGetValue(operation.JsonPath, out var state))
+        if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not TwoPhaseSetState state)
         {
             state = new TwoPhaseSetState(new HashSet<object>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
-            metadata.TwoPhaseSets[operation.JsonPath] = state;
+            metadata.States[operation.JsonPath] = state;
         }
 
         var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType, aotContexts);
@@ -132,7 +132,7 @@ public sealed class TwoPhaseSetStrategy(
     /// <inheritdoc/>
     public void Compact(CompactionContext context)
     {
-        if (context.Metadata.TwoPhaseSets.TryGetValue(context.PropertyPath, out var state))
+        if (context.Metadata.States.TryGetValue(context.PropertyPath, out var baseState) && baseState is TwoPhaseSetState state)
         {
             var keysToRemove = new List<object>();
 
@@ -189,7 +189,7 @@ public sealed class TwoPhaseSetStrategy(
         var documentType = originalData.GetType();
         var path = $"$.{partitionableProperty.JsonName}";
 
-        if (!originalMetadata.TwoPhaseSets.TryGetValue(path, out var state) || state.Adds.Count + state.Tombstones.Count < 2)
+        if (!originalMetadata.States.TryGetValue(path, out var baseState) || baseState is not TwoPhaseSetState state || state.Adds.Count + state.Tombstones.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
         }
@@ -223,14 +223,14 @@ public sealed class TwoPhaseSetStrategy(
             else toms2.Add(kvp.Key, kvp.Value);
         }
 
-        meta1.TwoPhaseSets[path] = new TwoPhaseSetState(adds1, toms1);
-        meta2.TwoPhaseSets[path] = new TwoPhaseSetState(adds2, toms2);
+        meta1.States[path] = new TwoPhaseSetState(adds1, toms1);
+        meta2.States[path] = new TwoPhaseSetState(adds2, toms2);
 
         var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts);
         var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts);
 
-        ReconstructListForSplitMerge(doc1, path, meta1.TwoPhaseSets[path], elementType, partitionableProperty.PropertyType);
-        ReconstructListForSplitMerge(doc2, path, meta2.TwoPhaseSets[path], elementType, partitionableProperty.PropertyType);
+        ReconstructListForSplitMerge(doc1, path, (TwoPhaseSetState)meta1.States[path], elementType, partitionableProperty.PropertyType);
+        ReconstructListForSplitMerge(doc2, path, (TwoPhaseSetState)meta2.States[path], elementType, partitionableProperty.PropertyType);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
@@ -250,12 +250,12 @@ public sealed class TwoPhaseSetStrategy(
         var adds = new HashSet<object>(comparer);
         var toms = new Dictionary<object, CausalTimestamp>(comparer);
 
-        if (meta1.TwoPhaseSets.TryGetValue(path, out var state1))
+        if (meta1.States.TryGetValue(path, out var baseState1) && baseState1 is TwoPhaseSetState state1)
         {
             foreach (var item in state1.Adds) adds.Add(item);
             foreach (var item in state1.Tombstones) toms[item.Key] = item.Value;
         }
-        if (meta2.TwoPhaseSets.TryGetValue(path, out var state2))
+        if (meta2.States.TryGetValue(path, out var baseState2) && baseState2 is TwoPhaseSetState state2)
         {
             foreach (var item in state2.Adds) adds.Add(item);
             foreach (var item in state2.Tombstones) 
@@ -268,7 +268,7 @@ public sealed class TwoPhaseSetStrategy(
         }
 
         var mergedState = new TwoPhaseSetState(adds, toms);
-        mergedMeta.TwoPhaseSets[path] = mergedState;
+        mergedMeta.States[path] = mergedState;
 
         ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType, partitionableProperty.PropertyType);
 

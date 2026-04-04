@@ -72,11 +72,12 @@ public sealed class AverageRegisterStrategy(
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        if (!metadata.AverageRegisters.TryGetValue(operation.JsonPath, out var contributions))
+        if (!metadata.States.TryGetValue(operation.JsonPath, out var state) || state is not AverageRegisterState avgState)
         {
-            contributions = new Dictionary<string, AverageRegisterValue>();
-            metadata.AverageRegisters[operation.JsonPath] = contributions;
+            avgState = new AverageRegisterState(new Dictionary<string, AverageRegisterValue>());
+            metadata.States[operation.JsonPath] = avgState;
         }
+        var contributions = avgState.Contributions;
         
         if (contributions.TryGetValue(operation.ReplicaId, out var existing) && operation.Timestamp.CompareTo(existing.Timestamp) <= 0)
         {

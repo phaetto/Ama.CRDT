@@ -150,11 +150,12 @@ public sealed class ArrayLcsStrategy(
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        if (!metadata.PositionalTrackers.TryGetValue(operation.JsonPath, out var positions))
+        if (!metadata.States.TryGetValue(operation.JsonPath, out var state) || state is not PositionalState posState)
         {
-            positions = new List<PositionalIdentifier>();
-            metadata.PositionalTrackers[operation.JsonPath] = positions;
+            posState = new PositionalState(new List<PositionalIdentifier>());
+            metadata.States[operation.JsonPath] = posState;
         }
+        var positions = posState.Trackers;
 
         if (list.Count > 0 && positions.Count == 0)
         {
@@ -239,10 +240,11 @@ public sealed class ArrayLcsStrategy(
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
         }
 
-        if (!originalMetadata.PositionalTrackers.TryGetValue(path, out var positions) || positions.Count != list.Count)
+        if (!originalMetadata.States.TryGetValue(path, out var state) || state is not PositionalState posState || posState.Trackers.Count != list.Count)
         {
             throw new InvalidOperationException("Positional metadata is out of sync, cannot split.");
         }
+        var positions = posState.Trackers;
 
         var splitIndex = list.Count / 2;
         var splitKey = positions[splitIndex];
@@ -257,7 +259,7 @@ public sealed class ArrayLcsStrategy(
         for (int i = 0; i < splitIndex; i++) list1.Add(list[i]);
         
         var meta1 = originalMetadata.DeepClone();
-        meta1.PositionalTrackers[path] = positions.Take(splitIndex).ToList();
+        meta1.States[path] = new PositionalState(positions.Take(splitIndex).ToList());
 
         var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
         var list2 = partitionableProperty.Getter!(doc2) as IList;
@@ -269,7 +271,7 @@ public sealed class ArrayLcsStrategy(
         for (int i = splitIndex; i < list.Count; i++) list2.Add(list[i]);
         
         var meta2 = originalMetadata.DeepClone();
-        meta2.PositionalTrackers[path] = positions.Skip(splitIndex).ToList();
+        meta2.States[path] = new PositionalState(positions.Skip(splitIndex).ToList());
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
@@ -296,10 +298,10 @@ public sealed class ArrayLcsStrategy(
         
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
         
-        var positions1 = meta1.PositionalTrackers.TryGetValue(path, out var p1) ? p1 : new List<PositionalIdentifier>();
-        var positions2 = meta2.PositionalTrackers.TryGetValue(path, out var p2) ? p2 : new List<PositionalIdentifier>();
+        var positions1 = meta1.States.TryGetValue(path, out var s1) && s1 is PositionalState p1 ? p1.Trackers : new List<PositionalIdentifier>();
+        var positions2 = meta2.States.TryGetValue(path, out var s2) && s2 is PositionalState p2 ? p2.Trackers : new List<PositionalIdentifier>();
         
-        mergedMeta.PositionalTrackers[path] = positions1.Concat(positions2).OrderBy(p => p).ToList();
+        mergedMeta.States[path] = new PositionalState(positions1.Concat(positions2).OrderBy(p => p).ToList());
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
@@ -349,9 +351,9 @@ public sealed class ArrayLcsStrategy(
 
     private static List<PositionalIdentifier> GetOrInitializePositions(IList currentList, CrdtMetadata metadata, string path)
     {
-        if (!metadata.PositionalTrackers.TryGetValue(path, out var positions)
-            || positions.Count != currentList.Count
-            || positions.All(p => p.OperationId == Guid.Empty))
+        if (!metadata.States.TryGetValue(path, out var state) || state is not PositionalState posState
+            || posState.Trackers.Count != currentList.Count
+            || posState.Trackers.All(p => p.OperationId == Guid.Empty))
         {
             var newPositions = new List<PositionalIdentifier>();
             for (var i = 0; i < currentList.Count; i++)
@@ -360,7 +362,7 @@ public sealed class ArrayLcsStrategy(
             }
             return newPositions;
         }
-        return positions;
+        return posState.Trackers;
     }
     
     private static string GeneratePositionBetween(string? posBefore, string? posAfter)
