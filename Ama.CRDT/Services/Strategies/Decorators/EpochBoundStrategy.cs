@@ -27,6 +27,8 @@ using System.Linq;
 [OperationBased]
 public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, ReplicaContext replicaContext, IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
+    private const string EpochSuffix = "@epoch";
+
     private ICrdtStrategy GetInnerStrategy(Type declaringType, CrdtPropertyInfo property)
     {
         // We use IServiceProvider directly here to break a circular DI dependency
@@ -114,7 +116,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
             // We entered a new epoch. Clear all metadata and local state.
             // MUST clear metadata before setting the new epoch so we don't clear the new value.
             ClearMetadataForPath(context.Metadata, basePath);
-            context.Metadata.States[basePath] = new EpochState(payload.Epoch);
+            context.Metadata.States[basePath + EpochSuffix] = new EpochState(payload.Epoch);
 
             var propVal = PocoPathHelper.GetValue(context.Root, basePath, aotContexts);
             if (propVal is System.Collections.IList list && !list.IsFixedSize)
@@ -189,12 +191,16 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         {
             if (kvp.Value is EpochState epochState)
             {
-                if (fullPath == kvp.Key || fullPath.StartsWith(kvp.Key + ".") || fullPath.StartsWith(kvp.Key + "["))
+                string actualPath = kvp.Key.EndsWith(EpochSuffix) 
+                    ? kvp.Key.Substring(0, kvp.Key.Length - EpochSuffix.Length) 
+                    : kvp.Key;
+
+                if (fullPath == actualPath || fullPath.StartsWith(actualPath + ".") || fullPath.StartsWith(actualPath + "["))
                 {
-                    if (maxEpoch == 0 || kvp.Key.Length > matchingPath.Length)
+                    if (maxEpoch == 0 || actualPath.Length > matchingPath.Length)
                     {
                         maxEpoch = epochState.Epoch;
-                        matchingPath = kvp.Key;
+                        matchingPath = actualPath;
                     }
                 }
             }
@@ -207,7 +213,11 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
     {
         var prefix1 = path + ".";
         var prefix2 = path + "[";
-        var isMatch = (string k) => k == path || k.StartsWith(prefix1) || k.StartsWith(prefix2);
+        var isMatch = (string k) => 
+        {
+            var actualK = k.EndsWith(EpochSuffix) ? k.Substring(0, k.Length - EpochSuffix.Length) : k;
+            return actualK == path || actualK.StartsWith(prefix1) || actualK.StartsWith(prefix2);
+        };
 
         // Crucial: We must clear states for child paths as well, otherwise a lingering child 
         // will override the parent's new higher epoch during future operations!

@@ -160,6 +160,30 @@ public sealed class CrdtMetadataSerializationTests
             new Dictionary<object, IDictionary<Guid, CausalTimestamp>>()
         ));
 
+        // Missing Models specifically requested in Architecture Convention tests
+        metadata.States.Add("$.epoch1", new EpochState(42));
+
+        metadata.States.Add("$.quorum1", new QuorumState(new Dictionary<object, ISet<string>>
+        {
+            ["payload1"] = new HashSet<string> { "replica1", "replica2" }
+        }));
+
+        metadata.States.Add("$.fwwmap1", new FwwMapState(new Dictionary<object, CausalTimestamp>
+        {
+            ["key1"] = new CausalTimestamp(timestamp, "replica1", 1)
+        }));
+
+        metadata.States.Add("$.fwwset1", new FwwSetState(
+            new Dictionary<object, ICrdtTimestamp> { ["item1"] = timestamp },
+            new Dictionary<object, CausalTimestamp> { ["item2"] = new CausalTimestamp(timestamp, "replica1", 1) }
+        ));
+
+        metadata.States.Add("$.fwwts1", new FwwTimestamp(timestamp, "replica1", 1));
+
+        metadata.States.Add("$.rga1", new RgaState([
+            new RgaItem(new RgaIdentifier(12345L, "replica1"), null, "val1", false)
+        ]));
+
         return metadata;
     }
 

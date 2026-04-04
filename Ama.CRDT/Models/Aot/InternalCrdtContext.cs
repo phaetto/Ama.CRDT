@@ -116,6 +116,8 @@ using Ama.CRDT.Models.Partitioning;
 [CrdtAotType(typeof(IReadOnlyDictionary<string, OriginSyncRequirement>))]
 [CrdtAotType(typeof(IDictionary<string, IDictionary<object, ISet<string>>>))]
 [CrdtAotType(typeof(Dictionary<string, IDictionary<object, ISet<string>>>))]
+[CrdtAotType(typeof(IDictionary<object, ISet<string>>))]
+[CrdtAotType(typeof(Dictionary<object, ISet<string>>))]
 [CrdtAotType(typeof(IDictionary<string, IDictionary<string, AverageRegisterValue>>))]
 [CrdtAotType(typeof(Dictionary<string, IDictionary<string, AverageRegisterValue>>))]
 [CrdtAotType(typeof(IDictionary<string, IDictionary<object, CausalTimestamp>>))]
@@ -130,6 +132,7 @@ using Ama.CRDT.Models.Partitioning;
 [CrdtAotType(typeof(Dictionary<object, TreeNode>))]
 [CrdtAotType(typeof(CompositePartitionKey?))]
 [CrdtAotType(typeof(RgaIdentifier?))]
+
 internal partial class InternalCrdtAotContext : CrdtAotContext
 {
 }
