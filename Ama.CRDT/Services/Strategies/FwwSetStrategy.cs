@@ -123,7 +123,7 @@ public sealed class FwwSetStrategy(
             var rems = new Dictionary<object, CausalTimestamp>(comparer);
             for (int i = 0; i < list.Count; i++)
             {
-                adds[list[i]] = timestampProvider.Create(0);
+                adds[list[i]!] = timestampProvider.Create(0);
             }
             state = new LwwSetState(adds, rems);
             metadata.FwwSets[operation.JsonPath] = state;

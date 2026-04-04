@@ -1,8 +1,10 @@
 namespace Ama.CRDT.Analyzers;
 
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -28,24 +30,22 @@ public sealed class CrdtSerializablePropertyTypeAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(compilationContext =>
         {
-            var crdtContextType = compilationContext.Compilation.GetTypeByMetadataName("Ama.CRDT.Models.Aot.CrdtAotContext");
-            var serializableAttributeSymbol = compilationContext.Compilation.GetTypeByMetadataName("Ama.CRDT.Attributes.CrdtAotTypeAttribute");
+            var crdtContextType = compilationContext.Compilation.GetTypeByMetadataName("Ama.CRDT.Models.Aot.CrdtAotContext") 
+                               ?? compilationContext.Compilation.GetTypeByMetadataName("Ama.CRDT.Models.Aot.CrdtContext");
+            var serializableAttributeSymbol = compilationContext.Compilation.GetTypeByMetadataName("Ama.CRDT.Attributes.CrdtAotTypeAttribute")
+                               ?? compilationContext.Compilation.GetTypeByMetadataName("Ama.CRDT.Attributes.CrdtSerializableAttribute");
 
             if (crdtContextType == null || serializableAttributeSymbol == null)
             {
                 return;
             }
 
-            // Pre-calculate all globally registered types across the entire compilation
-            // to support cross-context and cross-project type resolution.
-            var globalRegisteredTypes = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+            // Pre-calculate all globally registered types mapping to the context that registered them
+            var globalRegisteredTypes = new Dictionary<ITypeSymbol, INamedTypeSymbol>(SymbolEqualityComparer.Default);
             var visitor = new ContextSymbolVisitor(crdtContextType, serializableAttributeSymbol, globalRegisteredTypes);
             
-            // Visit ONLY the current assembly to prevent massive memory usage, timeouts, 
-            // and AD0001 exceptions caused by traversing the entire GlobalNamespace (which includes mscorlib).
             visitor.Visit(compilationContext.Compilation.Assembly.GlobalNamespace);
 
-            // Visit referenced assemblies that might contain base contexts, explicitly skipping huge BCL/System ones
             foreach (var reference in compilationContext.Compilation.References)
             {
                 if (compilationContext.Compilation.GetAssemblyOrModuleSymbol(reference) is IAssemblySymbol asmSymbol)
@@ -65,126 +65,113 @@ public sealed class CrdtSerializablePropertyTypeAnalyzer : DiagnosticAnalyzer
                 }
             }
 
+            // ACTION 1: Check DECLARED types using SymbolAction (this also covers inherited properties correctly)
             compilationContext.RegisterSymbolAction(symbolContext =>
             {
-                AnalyzeNamedType(symbolContext, crdtContextType, serializableAttributeSymbol, globalRegisteredTypes);
-            }, SymbolKind.NamedType);
-        });
-    }
+                var namedType = (INamedTypeSymbol)symbolContext.Symbol;
 
-    private static void AnalyzeNamedType(SymbolAnalysisContext context, INamedTypeSymbol crdtContextType, INamedTypeSymbol serializableAttributeSymbol, HashSet<ITypeSymbol> globalRegisteredTypes)
-    {
-        var namedType = (INamedTypeSymbol)context.Symbol;
-
-        // Ensure we are inspecting a class that inherits from CrdtAotContext
-        if (!InheritsFrom(namedType, crdtContextType))
-        {
-            return;
-        }
-
-        var localRegisteredTypes = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
-        
-        var contextAttributes = namedType.GetAttributes()
-            .Where(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, serializableAttributeSymbol))
-            .ToList();
-
-        foreach (var attr in contextAttributes)
-        {
-            if (attr.ConstructorArguments.Length > 0 && attr.ConstructorArguments[0].Value is ITypeSymbol typeSymbol)
-            {
-                localRegisteredTypes.Add(typeSymbol.WithNullableAnnotation(NullableAnnotation.None));
-            }
-        }
-
-        // Iterate over all user-defined types that have been registered on THIS context
-        foreach (var registeredType in localRegisteredTypes)
-        {
-            var nsName = registeredType.ContainingNamespace?.ToDisplayString();
-            if (nsName != null && (nsName.StartsWith("System") || nsName.StartsWith("Microsoft")))
-            {
-                continue; // Skip inspecting internals of framework types like List<T>, Dictionary<K,V>
-            }
-
-            foreach (var prop in GetAllPublicProperties(registeredType))
-            {
-                var propType = prop.Type.WithNullableAnnotation(NullableAnnotation.None);
-
-                if (IsSimpleType(propType))
+                if (!InheritsFrom(namedType, crdtContextType))
                 {
-                    continue;
+                    return;
                 }
 
-                // 1. Verify the declared property type is registered ANYWHERE (globally)
-                if (!globalRegisteredTypes.Contains(propType))
+                var localRegisteredTypes = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+                var contextAttributes = namedType.GetAttributes()
+                    .Where(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, serializableAttributeSymbol));
+
+                foreach (var attr in contextAttributes)
                 {
-                    ReportDiagnostic(context, namedType, prop, registeredType, propType);
+                    if (attr.ConstructorArguments.Length > 0 && attr.ConstructorArguments[0].Value is ITypeSymbol typeSymbol)
+                    {
+                        localRegisteredTypes.Add(typeSymbol.WithNullableAnnotation(NullableAnnotation.None));
+                    }
                 }
 
-                // 2. Verify the initialized concrete type is registered ANYWHERE (e.g., initialized with 'new List<string>()')
-                foreach (var syntaxRef in prop.DeclaringSyntaxReferences)
+                foreach (var registeredType in localRegisteredTypes)
                 {
-                    var syntaxTree = syntaxRef.SyntaxTree;
-                    
-                    // Crucial safeguard to prevent "SyntaxTree is not part of the compilation" AD0001 Exception
-                    if (syntaxTree == null || !context.Compilation.ContainsSyntaxTree(syntaxTree))
+                    var nsName = registeredType.ContainingNamespace?.ToDisplayString();
+                    if (nsName != null && (nsName.StartsWith("System") || nsName.StartsWith("Microsoft")))
                     {
                         continue;
                     }
 
-                    if (syntaxRef.GetSyntax(context.CancellationToken) is PropertyDeclarationSyntax propSyntax)
+                    foreach (var prop in GetAllPublicProperties(registeredType))
                     {
-                        ITypeSymbol? initType = null;
-                        
-                        if (propSyntax.Initializer?.Value is ObjectCreationExpressionSyntax objCreation)
-                        {
-                            var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
-                            initType = semanticModel.GetTypeInfo(objCreation, context.CancellationToken).Type;
-                        }
-                        else if (propSyntax.Initializer?.Value is CollectionExpressionSyntax collectionExpr)
-                        {
-                            var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
-                            var typeInfo = semanticModel.GetTypeInfo(collectionExpr, context.CancellationToken);
-                            initType = typeInfo.ConvertedType ?? typeInfo.Type;
-                        }
-                        else if (propSyntax.Initializer?.Value is ImplicitObjectCreationExpressionSyntax implicitCreation)
-                        {
-                            var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
-                            initType = semanticModel.GetTypeInfo(implicitCreation, context.CancellationToken).Type;
-                        }
+                        var propType = prop.Type.WithNullableAnnotation(NullableAnnotation.None);
 
-                        if (initType != null)
+                        if (IsSimpleType(propType)) continue;
+
+                        if (!globalRegisteredTypes.ContainsKey(propType))
                         {
-                            initType = initType.WithNullableAnnotation(NullableAnnotation.None);
-                            
-                            if (!IsSimpleType(initType) && !globalRegisteredTypes.Contains(initType))
+                            ReportDiagnostic(symbolContext.ReportDiagnostic, namedType, prop.Name, registeredType.Name, propType);
+                        }
+                    }
+                }
+            }, SymbolKind.NamedType);
+
+            // ACTION 2: Check INITIALIZER types using SyntaxNodeAction (Naturally provides the shared SemanticModel!)
+            compilationContext.RegisterSyntaxNodeAction(syntaxContext =>
+            {
+                var propSyntax = (PropertyDeclarationSyntax)syntaxContext.Node;
+                
+                if (propSyntax.Initializer == null) return;
+
+                var propertySymbol = syntaxContext.SemanticModel.GetDeclaredSymbol(propSyntax) as IPropertySymbol;
+                if (propertySymbol == null) return;
+
+                var containingType = propertySymbol.ContainingType;
+                
+                // Only inspect properties of types that are registered in our CRDT contexts
+                if (globalRegisteredTypes.TryGetValue(containingType, out var contextType))
+                {
+                    ITypeSymbol? initType = null;
+                    
+                    if (propSyntax.Initializer.Value is ObjectCreationExpressionSyntax objCreation)
+                    {
+                        initType = syntaxContext.SemanticModel.GetTypeInfo(objCreation, syntaxContext.CancellationToken).Type;
+                    }
+                    else if (propSyntax.Initializer.Value is CollectionExpressionSyntax collectionExpr)
+                    {
+                        var typeInfo = syntaxContext.SemanticModel.GetTypeInfo(collectionExpr, syntaxContext.CancellationToken);
+                        initType = typeInfo.ConvertedType ?? typeInfo.Type;
+                    }
+                    else if (propSyntax.Initializer.Value is ImplicitObjectCreationExpressionSyntax implicitCreation)
+                    {
+                        initType = syntaxContext.SemanticModel.GetTypeInfo(implicitCreation, syntaxContext.CancellationToken).Type;
+                    }
+
+                    if (initType != null)
+                    {
+                        initType = initType.WithNullableAnnotation(NullableAnnotation.None);
+                        
+                        if (!IsSimpleType(initType) && !globalRegisteredTypes.ContainsKey(initType))
+                        {
+                            var propType = propertySymbol.Type.WithNullableAnnotation(NullableAnnotation.None);
+                            // Prevent duplicate reporting if declared and initialized types are exactly the same
+                            if (!SymbolEqualityComparer.Default.Equals(initType, propType) || globalRegisteredTypes.ContainsKey(propType))
                             {
-                                // Prevent duplicate reporting if declared and initialized types are exactly the same
-                                if (!SymbolEqualityComparer.Default.Equals(initType, propType) || globalRegisteredTypes.Contains(propType))
-                                {
-                                    ReportDiagnostic(context, namedType, prop, registeredType, initType);
-                                }
+                                ReportDiagnostic(syntaxContext.ReportDiagnostic, contextType, propertySymbol.Name, containingType.Name, initType);
                             }
                         }
                     }
                 }
-            }
-        }
+            }, SyntaxKind.PropertyDeclaration);
+        });
     }
 
-    private static void ReportDiagnostic(SymbolAnalysisContext context, INamedTypeSymbol contextType, IPropertySymbol prop, ITypeSymbol registeredType, ITypeSymbol missingType)
+    private static void ReportDiagnostic(Action<Diagnostic> reportAction, INamedTypeSymbol contextType, string propertyName, string registeredTypeName, ITypeSymbol missingType)
     {
-        // Try to attach the diagnostic specifically to the context class definition
         var location = contextType.Locations.FirstOrDefault();
 
         var diagnostic = Diagnostic.Create(
             Rule,
             location,
-            prop.Name,
-            registeredType.Name,
+            propertyName,
+            registeredTypeName,
             missingType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat),
             contextType.Name);
             
-        context.ReportDiagnostic(diagnostic);
+        reportAction(diagnostic);
     }
 
     private static IEnumerable<IPropertySymbol> GetAllPublicProperties(ITypeSymbol typeSymbol)
@@ -264,9 +251,9 @@ public sealed class CrdtSerializablePropertyTypeAnalyzer : DiagnosticAnalyzer
     {
         private readonly INamedTypeSymbol _crdtContextType;
         private readonly INamedTypeSymbol _serializableAttr;
-        private readonly HashSet<ITypeSymbol> _registeredTypes;
+        private readonly Dictionary<ITypeSymbol, INamedTypeSymbol> _registeredTypes;
 
-        public ContextSymbolVisitor(INamedTypeSymbol crdtContextType, INamedTypeSymbol serializableAttr, HashSet<ITypeSymbol> registeredTypes)
+        public ContextSymbolVisitor(INamedTypeSymbol crdtContextType, INamedTypeSymbol serializableAttr, Dictionary<ITypeSymbol, INamedTypeSymbol> registeredTypes)
         {
             _crdtContextType = crdtContextType;
             _serializableAttr = serializableAttr;
@@ -304,7 +291,11 @@ public sealed class CrdtSerializablePropertyTypeAnalyzer : DiagnosticAnalyzer
                     {
                         if (attr.ConstructorArguments.Length > 0 && attr.ConstructorArguments[0].Value is ITypeSymbol typeSymbol)
                         {
-                            _registeredTypes.Add(typeSymbol.WithNullableAnnotation(NullableAnnotation.None));
+                            var cleanType = typeSymbol.WithNullableAnnotation(NullableAnnotation.None);
+                            if (!_registeredTypes.ContainsKey(cleanType))
+                            {
+                                _registeredTypes.Add(cleanType, symbol);
+                            }
                         }
                     }
                 }

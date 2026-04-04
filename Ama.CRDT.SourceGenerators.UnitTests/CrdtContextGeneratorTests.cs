@@ -361,4 +361,66 @@ namespace TestNamespace
 
         generatedSyntax.ShouldContain("createWithArgs: args => new global::System.Collections.Generic.KeyValuePair<string, int>(args[0] == null ? default! : (string)args[0], args[1] == null ? default! : (int)args[1])");
     }
+
+    [Fact]
+    public void Generator_ShouldPreserveNullability_ForNullableCollectionsAndProperties()
+    {
+        // Arrange
+        var source = @"
+using System;
+using System.Collections.Generic;
+using Ama.CRDT.Attributes;
+using Ama.CRDT.Models.Aot;
+
+namespace TestNamespace
+{
+    public class NullableModel
+    {
+        public List<string?>? NullableList { get; set; }
+        public string? NullableString { get; set; }
+    }
+
+    [CrdtAotTypeAttribute(typeof(NullableModel))]
+    public partial class NullableAotContext : CrdtAotContext
+    {
+    }
+}";
+
+        var syntaxTree = CSharpSyntaxTree.ParseText(source);
+        var references = AppDomain.CurrentDomain.GetAssemblies()
+            .Where(a => !a.IsDynamic && !string.IsNullOrWhiteSpace(a.Location))
+            .Select(a => MetadataReference.CreateFromFile(a.Location))
+            .Cast<MetadataReference>()
+            .ToList();
+
+        references.Add(MetadataReference.CreateFromFile(typeof(Attributes.CrdtAotTypeAttribute).Assembly.Location));
+
+        var compilation = CSharpCompilation.Create(
+            "TestCompilation",
+            [syntaxTree],
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var generator = new CrdtAotContextGenerator();
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(generator);
+
+        // Act
+        driver = driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var diagnostics);
+
+        // Assert
+        diagnostics.ShouldBeEmpty();
+        var runResult = driver.GetRunResult();
+        runResult.GeneratedTrees.Length.ShouldBe(1);
+
+        var generatedSyntax = runResult.GeneratedTrees[0].GetText().ToString();
+
+        // typeof() should strip nullability for valid C# syntax
+        generatedSyntax.ShouldContain("propertyType: typeof(global::System.Collections.Generic.List<string>)");
+        // Casts/assignments should preserve the nullable attributes to avoid warnings
+        generatedSyntax.ShouldContain("setter: (obj, val) => ((global::TestNamespace.NullableModel)obj).NullableList = val == null ? default! : (global::System.Collections.Generic.List<string?>?)val");
+        
+        // Primitive string? should be handled correctly too
+        generatedSyntax.ShouldContain("propertyType: typeof(string)");
+        generatedSyntax.ShouldContain("setter: (obj, val) => ((global::TestNamespace.NullableModel)obj).NullableString = val == null ? default! : (string?)val");
+    }
 }
