@@ -4,11 +4,11 @@ using System;
 using System.Collections.Generic;
 
 /// <summary>
-/// Represents the state for a Last-Writer-Wins Set (LWW-Set) and similar structures.
+/// Represents the state for a First-Writer-Wins Set (FWW-Set).
 /// </summary>
-/// <param name="Adds">A dictionary mapping added elements to their timestamps.</param>
-/// <param name="Removes">A dictionary mapping removed elements to their causal timestamps, tracking who and when removed them for GC.</param>
-public sealed record LwwSetState(IDictionary<object, ICrdtTimestamp> Adds, IDictionary<object, CausalTimestamp> Removes) : IEquatable<LwwSetState>, ICrdtMetadataState
+/// <param name="Adds">A dictionary mapping added elements to their earliest timestamps.</param>
+/// <param name="Removes">A dictionary mapping removed elements to their earliest causal timestamps.</param>
+public sealed record FwwSetState(IDictionary<object, ICrdtTimestamp> Adds, IDictionary<object, CausalTimestamp> Removes) : IEquatable<FwwSetState>, ICrdtMetadataState
 {
     private static bool DictionaryEquals<TKey, TValue>(IDictionary<TKey, TValue> left, IDictionary<TKey, TValue> right) where TKey : notnull
     {
@@ -40,18 +40,18 @@ public sealed record LwwSetState(IDictionary<object, ICrdtTimestamp> Adds, IDict
     {
         var newAdds = new Dictionary<object, ICrdtTimestamp>(Adds, (Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer);
         var newRemoves = new Dictionary<object, CausalTimestamp>(Removes, (Removes as Dictionary<object, CausalTimestamp>)?.Comparer);
-        return new LwwSetState(newAdds, newRemoves);
+        return new FwwSetState(newAdds, newRemoves);
     }
 
     /// <inheritdoc />
     public ICrdtMetadataState Merge(ICrdtMetadataState other)
     {
-        if (other is not LwwSetState otherState) return this;
+        if (other is not FwwSetState otherState) return this;
 
         var mergedAdds = new Dictionary<object, ICrdtTimestamp>(Adds, (Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer);
         foreach (var kvp in otherState.Adds)
         {
-            if (!mergedAdds.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
+            if (!mergedAdds.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) < 0)
             {
                 mergedAdds[kvp.Key] = kvp.Value;
             }
@@ -60,20 +60,20 @@ public sealed record LwwSetState(IDictionary<object, ICrdtTimestamp> Adds, IDict
         var mergedRemoves = new Dictionary<object, CausalTimestamp>(Removes, (Removes as Dictionary<object, CausalTimestamp>)?.Comparer);
         foreach (var kvp in otherState.Removes)
         {
-            if (!mergedRemoves.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
+            if (!mergedRemoves.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) < 0)
             {
                 mergedRemoves[kvp.Key] = kvp.Value;
             }
         }
 
-        return new LwwSetState(mergedAdds, mergedRemoves);
+        return new FwwSetState(mergedAdds, mergedRemoves);
     }
 
     /// <inheritdoc />
-    public bool Equals(ICrdtMetadataState? other) => other is LwwSetState otherState && this.Equals(otherState);
+    public bool Equals(ICrdtMetadataState? other) => other is FwwSetState otherState && this.Equals(otherState);
 
     /// <inheritdoc />
-    public bool Equals(LwwSetState? other)
+    public bool Equals(FwwSetState? other)
     {
         if (other is null) return false;
         if (ReferenceEquals(this, other)) return true;

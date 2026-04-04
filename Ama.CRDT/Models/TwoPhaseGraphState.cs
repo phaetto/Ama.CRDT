@@ -10,7 +10,7 @@ using System.Collections.Generic;
 /// <param name="VertexTombstones">A dictionary of removed vertices (tombstones) tracking the causality of the removal.</param>
 /// <param name="EdgeAdds">A set of added edges.</param>
 /// <param name="EdgeTombstones">A dictionary of removed edges (tombstones) tracking the causality of the removal.</param>
-public sealed record TwoPhaseGraphState(ISet<object> VertexAdds, IDictionary<object, CausalTimestamp> VertexTombstones, ISet<object> EdgeAdds, IDictionary<object, CausalTimestamp> EdgeTombstones) : IEquatable<TwoPhaseGraphState>
+public sealed record TwoPhaseGraphState(ISet<object> VertexAdds, IDictionary<object, CausalTimestamp> VertexTombstones, ISet<object> EdgeAdds, IDictionary<object, CausalTimestamp> EdgeTombstones) : IEquatable<TwoPhaseGraphState>, ICrdtMetadataState
 {
     private static bool SetEquals(ISet<object> left, ISet<object> right)
     {
@@ -53,6 +53,52 @@ public sealed record TwoPhaseGraphState(ISet<object> VertexAdds, IDictionary<obj
         }
         return hash;
     }
+
+    /// <inheritdoc />
+    public ICrdtMetadataState DeepClone()
+    {
+        return new TwoPhaseGraphState(
+            new HashSet<object>(VertexAdds, (VertexAdds as HashSet<object>)?.Comparer),
+            new Dictionary<object, CausalTimestamp>(VertexTombstones, (VertexTombstones as Dictionary<object, CausalTimestamp>)?.Comparer),
+            new HashSet<object>(EdgeAdds, (EdgeAdds as HashSet<object>)?.Comparer),
+            new Dictionary<object, CausalTimestamp>(EdgeTombstones, (EdgeTombstones as Dictionary<object, CausalTimestamp>)?.Comparer)
+        );
+    }
+
+    /// <inheritdoc />
+    public ICrdtMetadataState Merge(ICrdtMetadataState other)
+    {
+        if (other is not TwoPhaseGraphState otherState) return this;
+
+        var mergedVertexAdds = new HashSet<object>(VertexAdds, (VertexAdds as HashSet<object>)?.Comparer);
+        foreach (var item in otherState.VertexAdds) mergedVertexAdds.Add(item);
+
+        var mergedVertexTombstones = new Dictionary<object, CausalTimestamp>(VertexTombstones, (VertexTombstones as Dictionary<object, CausalTimestamp>)?.Comparer);
+        foreach (var kvp in otherState.VertexTombstones)
+        {
+            if (!mergedVertexTombstones.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
+            {
+                mergedVertexTombstones[kvp.Key] = kvp.Value;
+            }
+        }
+
+        var mergedEdgeAdds = new HashSet<object>(EdgeAdds, (EdgeAdds as HashSet<object>)?.Comparer);
+        foreach (var item in otherState.EdgeAdds) mergedEdgeAdds.Add(item);
+
+        var mergedEdgeTombstones = new Dictionary<object, CausalTimestamp>(EdgeTombstones, (EdgeTombstones as Dictionary<object, CausalTimestamp>)?.Comparer);
+        foreach (var kvp in otherState.EdgeTombstones)
+        {
+            if (!mergedEdgeTombstones.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
+            {
+                mergedEdgeTombstones[kvp.Key] = kvp.Value;
+            }
+        }
+
+        return new TwoPhaseGraphState(mergedVertexAdds, mergedVertexTombstones, mergedEdgeAdds, mergedEdgeTombstones);
+    }
+
+    /// <inheritdoc />
+    public bool Equals(ICrdtMetadataState? other) => other is TwoPhaseGraphState otherState && this.Equals(otherState);
 
     /// <inheritdoc />
     public bool Equals(TwoPhaseGraphState? other)

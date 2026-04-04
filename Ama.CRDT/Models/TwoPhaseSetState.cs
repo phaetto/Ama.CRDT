@@ -8,7 +8,7 @@ using System.Collections.Generic;
 /// </summary>
 /// <param name="Adds">A set of added elements.</param>
 /// <param name="Tombstones">A dictionary of removed elements (tombstones) tracking the causality of the removal.</param>
-public sealed record TwoPhaseSetState(ISet<object> Adds, IDictionary<object, CausalTimestamp> Tombstones) : IEquatable<TwoPhaseSetState>
+public sealed record TwoPhaseSetState(ISet<object> Adds, IDictionary<object, CausalTimestamp> Tombstones) : IEquatable<TwoPhaseSetState>, ICrdtMetadataState
 {
     private static bool SetEquals(ISet<object> left, ISet<object> right)
     {
@@ -51,6 +51,38 @@ public sealed record TwoPhaseSetState(ISet<object> Adds, IDictionary<object, Cau
         }
         return hash;
     }
+
+    /// <inheritdoc />
+    public ICrdtMetadataState DeepClone()
+    {
+        return new TwoPhaseSetState(
+            new HashSet<object>(Adds, (Adds as HashSet<object>)?.Comparer),
+            new Dictionary<object, CausalTimestamp>(Tombstones, (Tombstones as Dictionary<object, CausalTimestamp>)?.Comparer)
+        );
+    }
+
+    /// <inheritdoc />
+    public ICrdtMetadataState Merge(ICrdtMetadataState other)
+    {
+        if (other is not TwoPhaseSetState otherState) return this;
+
+        var mergedAdds = new HashSet<object>(Adds, (Adds as HashSet<object>)?.Comparer);
+        foreach (var item in otherState.Adds) mergedAdds.Add(item);
+
+        var mergedTombstones = new Dictionary<object, CausalTimestamp>(Tombstones, (Tombstones as Dictionary<object, CausalTimestamp>)?.Comparer);
+        foreach (var kvp in otherState.Tombstones)
+        {
+            if (!mergedTombstones.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
+            {
+                mergedTombstones[kvp.Key] = kvp.Value;
+            }
+        }
+
+        return new TwoPhaseSetState(mergedAdds, mergedTombstones);
+    }
+
+    /// <inheritdoc />
+    public bool Equals(ICrdtMetadataState? other) => other is TwoPhaseSetState otherState && this.Equals(otherState);
 
     /// <inheritdoc />
     public bool Equals(TwoPhaseSetState? other)
