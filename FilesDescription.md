@@ -161,6 +161,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Decorators/TestModel.cs` | A simple data model used for unit testing decorator services. |
 | `$/Ama.CRDT.UnitTests/Services/GarbageCollection/GlobalMinimumVersionPolicyTests.cs` | Contains unit tests for `GlobalMinimumVersionPolicy`, verifying correct GMVV-based causal evaluation for safe compaction of candidates. |
 | `$/Ama.CRDT.UnitTests/Services/GarbageCollection/ThresholdCompactionPolicyTests.cs` | Contains unit tests for `ThresholdCompactionPolicy`, testing time-to-live logic using wall-clock timestamps and logical version thresholds. |
+| `$/Ama.CRDT.UnitTests/Services/Helpers/HelpersTestCrdtContext.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/Models.cs` | Contains simple data models for unit testing path conversion and resolution helpers. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs, and testing new centralized reflection helpers for getting/setting values and retrieving type information. |
 | `$/Ama.CRDT.UnitTests/Services/Journaling/JournalManagerTests.cs` | Contains unit tests for `JournalManager`, verifying the retrieval of missing operations based on synchronization requirements, range bounds, and missing dots. |
@@ -204,10 +205,13 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/OrSetStrategyTests.cs` | Contains unit tests for the `OrSetStrategy`, verifying that it correctly handles concurrent additions and removals without anomalies, allowing for proper re-addition of elements. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/PriorityQueueStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `PriorityQueueStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/PriorityQueueStrategyTests.cs` | Contains unit tests for the `PriorityQueueStrategy`, verifying that concurrent updates converge and the list remains sorted by priority. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/ReplicatedTreeStrategyTestCrdtContext.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/ReplicatedTreeStrategyTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/RgaStrategyTestCrdtContext.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/RgaStrategyTests.cs` | Contains unit tests for `RgaStrategy`, verifying correct calculation of tombstones, insertions and tree based flattening. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/Serialization/SerializationTestCrdtContext.cs` | A dedicated AOT context for the `StrategyPayloadSerializationTests` to provide metadata for test-specific models and collections without relying on reflection. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/Serialization/StrategyPayloadSerializationTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/SortedSetStrategyTestCrdtContext.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/SortedSetStrategyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/StateMachineStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `StateMachineStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/StateMachineStrategyTests.cs` | Contains unit tests for `StateMachineStrategy`, verifying valid/invalid transitions and LWW-based conflict resolution. |
@@ -220,8 +224,8 @@
 | `$/Ama.CRDT.UnitTests/Services/Versioning/VersionVectorSyncServiceTests.cs` | No description provided. |
 | `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |
 | `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging and to automatically include its associated Roslyn analyzers. |
+| `$/Ama.CRDT/Attributes/CrdtAotTypeAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/CrdtIntentMappingAttribute.cs` | An attribute to map intent builder extension methods to the specific explicit intent types they generate, enabling compile-time validation via Roslyn analyzers without hardcoded mappings. |
-| `$/Ama.CRDT/Attributes/CrdtSerializableAttribute.cs` | Instructs the CRDT source generator to output AOT-compatible metadata for the specified type. |
 | `$/Ama.CRDT/Attributes/CrdtStrategyAttribute.cs` | The base abstract attribute for marking properties with a specific CRDT merge strategy. Contains the strategy type. |
 | `$/Ama.CRDT/Attributes/CrdtStrategyDecoratorAttribute.cs` | A base attribute for specifying a CRDT decorator strategy for a property, allowing multiple stacked decorators like `[CrdtEpochBound]` alongside core strategy attributes. |
 | `$/Ama.CRDT/Attributes/CrdtSupportedIntentAttribute.cs` | An attribute to explicitly mark which explicit `IOperationIntent` types a given CRDT strategy supports. Used by Roslyn analyzers for validation. |
@@ -267,7 +271,7 @@
 | `$/Ama.CRDT/Extensions/AsyncCrdtApplicatorExtensions.cs` | Provides extension methods for `IAsyncCrdtApplicator` to streamline common synchronization tasks, such as directly applying an asynchronous stream of missing operations. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods for easy library setup, unifying `AddCrdt`, applicator/patcher pipeline decoration (`AddCrdtApplicatorDecorator`, `AddCrdtJournaling`), comparers, timestamp providers, and serialization polymorphism. |
-| `$/Ama.CRDT/Models/Aot/CrdtContext.cs` | An abstract base class used to define Native AOT reflection contexts that are populated by the Source Generator. |
+| `$/Ama.CRDT/Models/Aot/CrdtAotContext.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Aot/CrdtPropertyInfo.cs` | Contains AOT-compatible metadata, now natively including pre-extracted array of strategy type configurations mapped via attribute. |
 | `$/Ama.CRDT/Models/Aot/CrdtTypeInfo.cs` | Contains AOT-compatible metadata and factory methods for a specific type, including logic for lists and dictionaries. |
 | `$/Ama.CRDT/Models/Aot/InternalCrdtContext.cs` | An internal, source-generated AOT context containing metadata for all core library CRDT models (e.g., CrdtOperation, CrdtPatch, Intents, and Partitioning states), registered by default in the DI container. |
@@ -296,7 +300,7 @@
 | `$/Ama.CRDT/Models/FwwTimestamp.cs` | A wrapper state structure implementing `ICrdtState` for First-Writer-Wins single timestamps. |
 | `$/Ama.CRDT/Models/GraphEdgePayload.cs` | A data structure for the payload of a graph edge operation. |
 | `$/Ama.CRDT/Models/GraphVertexPayload.cs` | A data structure for the payload of a graph vertex operation. |
-| `$/Ama.CRDT/Models/ICrdtState.cs` | Defines the base polymorphic interface for CRDT metadata states, allowing unified mapping of property JSON Paths to an abstracted state implementation. |
+| `$/Ama.CRDT/Models/ICrdtMetadataState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/ICrdtTimestamp.cs` | Represents a logical point in time for a CRDT operation, allowing for different timestamping mechanisms. |
 | `$/Ama.CRDT/Models/Intents/AddEdgeIntent.cs` | Represents the intent to explicitly add an edge to a graph. |
 | `$/Ama.CRDT/Models/Intents/AddIntent.cs` | Represents the intent to explicitly add an item to an unordered collection or set. |
@@ -350,7 +354,6 @@
 | `$/Ama.CRDT/Models/Serialization/Converters/ObjectKeyDictionaryJsonConverter.cs` | A `JsonConverterFactory` that creates converters for dictionaries with non-string keys. It serializes them as a JSON array of [key, value] pairs to work around `System.Text.Json` limitations. |
 | `$/Ama.CRDT/Models/Serialization/Converters/SeenExceptionsJsonConverter.cs` | A specialized `JsonConverter` for `CrdtMetadata.SeenExceptions` that ensures `CrdtOperation` elements are serialized and deserialized with polymorphism enabled for their `Value` property. |
 | `$/Ama.CRDT/Models/Serialization/CrdtJsonContext.cs` | Provides centralized, pre-configured `JsonSerializerOptions` for CRDT models, establishing a best practice for serialization. |
-| `$/Ama.CRDT/Models/Serialization/CrdtJsonResolverRegistration.cs` | A readonly record struct that wraps custom `IJsonTypeInfoResolver` instances added via DI. This enables consumers to supply their own AOT JSON contexts for custom CRDT payloads. |
 | `$/Ama.CRDT/Models/Serialization/CrdtJsonTypeInfoResolver.cs` | A custom `IJsonTypeInfoResolver` that applies the `PolymorphicObjectJsonConverter` to all properties of type `object`, enabling robust polymorphic serialization. |
 | `$/Ama.CRDT/Models/Serialization/CrdtMetadataJsonResolver.cs` | A custom `IJsonTypeInfoResolver` that modifies the serialization contract for `CrdtMetadata` to omit empty collections, resulting in a more compact JSON output. |
 | `$/Ama.CRDT/Models/Serialization/CrdtTypeRegistry.cs` | Centralized registry mapping discriminator strings to CRDT serialization types, powering both native STJ polymorphism and custom payload wrappers. |
