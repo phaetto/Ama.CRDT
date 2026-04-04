@@ -1,6 +1,7 @@
 namespace Ama.CRDT.UnitTests.Models.Serialization;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Decorators;
 using Shouldly;
 using System;
 using System.Collections.Generic;
@@ -43,7 +44,6 @@ public sealed class CrdtMetadataSerializationTests
         AssertMetadataEquality(originalMetadata, deserializedMetadata);
     }
 
-
     [Fact]
     public void ShouldOmitEmptyCollections_WhenUsingCompactOptions()
     {
@@ -84,6 +84,39 @@ public sealed class CrdtMetadataSerializationTests
         var deserializedCompact = JsonSerializer.Deserialize<CrdtMetadata>(compactJson, compactOptions);
         deserializedCompact.ShouldNotBeNull();
         AssertAllCollectionsAreEmpty(deserializedCompact);
+    }
+
+    [Fact]
+    public void ShouldSerializeAndDeserialize_MiscPayloadsAndItems()
+    {
+        // Covers miscellaneous models and decorator structures that might not fall strictly under Metadata states
+        var options = TestOptionsHelper.GetDefaultOptions();
+        var causal = new CausalTimestamp(new EpochTimestamp(1), "r1", 1);
+        var tagGuid = Guid.NewGuid();
+        
+        var items = new object[]
+        {
+            new EpochPayload(1, "val"),
+            new QuorumPayload("val"),
+            new PositionalItem("1", "val"),
+            new OrMapAddItem("key", "val", tagGuid),
+            new OrMapRemoveItem("key", new HashSet<Guid> { tagGuid }),
+            new OrSetAddItem("val", tagGuid),
+            new OrSetRemoveItem("val", new HashSet<Guid> { tagGuid }),
+            new TreeAddNodePayload("n1", "val", "p1", tagGuid),
+            new TreeMoveNodePayload("n1", "p2"),
+            new TreeRemoveNodePayload("n1", new HashSet<Guid> { tagGuid }),
+            new TreeNode { Id = "n1", Value = "val", ParentId = "p1" },
+            new GraphEdgePayload(new Edge("v1", "v2", null)),
+            new GraphVertexPayload("v1")
+        };
+
+        foreach (var item in items)
+        {
+            var json = JsonSerializer.Serialize(item, options);
+            var deserialized = JsonSerializer.Deserialize(json, item.GetType(), options);
+            deserialized.ShouldNotBeNull();
+        }
     }
 
     private static void AssertAllCollectionsAreEmpty(CrdtMetadata metadata)
