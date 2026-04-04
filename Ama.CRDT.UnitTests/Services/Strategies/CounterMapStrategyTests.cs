@@ -206,14 +206,14 @@ public sealed class CounterMapStrategyTests
         applicator.ApplyPatch(doc, new CrdtPatch { Operations = [ op ] });
 
         var stateAfterFirstApply = new Dictionary<string, int>(doc.Data.Map);
-        var metadataCountersAfterFirstApply = new Dictionary<string, IDictionary<object, PnCounterState>>(doc.Metadata.CounterMaps);
+        var metadataCountersAfterFirstApply = ((CounterMapState)doc.Metadata.States["$.map"]).Keys.ToDictionary(k => k.Key, v => v.Value);
 
         // Second time, the operation has been seen and should be ignored by the applicator.
         applicator.ApplyPatch(doc, new CrdtPatch { Operations = [op] });
 
         // Assert
         doc.Data.Map.ShouldBe(stateAfterFirstApply);
-        doc.Metadata.CounterMaps.ShouldBe(metadataCountersAfterFirstApply);
+        ((CounterMapState)doc.Metadata.States["$.map"]).Keys.ShouldBe(metadataCountersAfterFirstApply);
         doc.Data.Map["a"].ShouldBe(15);
     }
 
@@ -367,8 +367,8 @@ public sealed class CounterMapStrategyTests
         doc2.Map["c"].ShouldBe(30);
         doc2.Map["d"].ShouldBe(40);
 
-        result.Partition1.Metadata.CounterMaps["$.map"].Keys.ShouldBe(["a", "b"], ignoreOrder: true);
-        result.Partition2.Metadata.CounterMaps["$.map"].Keys.ShouldBe(["c", "d"], ignoreOrder: true);
+        ((CounterMapState)result.Partition1.Metadata.States["$.map"]).Keys.Keys.ShouldBe(["a", "b"], ignoreOrder: true);
+        ((CounterMapState)result.Partition2.Metadata.States["$.map"]).Keys.Keys.ShouldBe(["c", "d"], ignoreOrder: true);
     }
 
     [Fact]
@@ -415,7 +415,7 @@ public sealed class CounterMapStrategyTests
         mergedDoc.Map["c"].ShouldBe(30);
         mergedDoc.Map["d"].ShouldBe(40);
 
-        merged.Metadata.CounterMaps["$.map"].Keys.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
+        ((CounterMapState)merged.Metadata.States["$.map"]).Keys.Keys.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
     }
 
     [Fact]
@@ -426,10 +426,10 @@ public sealed class CounterMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
 
         var metadata = new CrdtMetadata();
-        metadata.CounterMaps["$.map"] = new Dictionary<object, PnCounterState>
+        metadata.States["$.map"] = new CounterMapState(new Dictionary<object, PnCounterState>
         {
             { "a", new PnCounterState(10, 5) }
-        };
+        });
 
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
@@ -440,8 +440,9 @@ public sealed class CounterMapStrategyTests
         strategy.Compact(context);
 
         // Assert
-        metadata.CounterMaps["$.map"].ShouldContainKey("a");
-        metadata.CounterMaps["$.map"]["a"].P.ShouldBe(10);
+        var state = (CounterMapState)metadata.States["$.map"];
+        state.Keys.ShouldContainKey("a");
+        state.Keys["a"].P.ShouldBe(10);
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
 }

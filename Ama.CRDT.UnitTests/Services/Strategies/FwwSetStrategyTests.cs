@@ -196,7 +196,7 @@ public sealed class FwwSetStrategyTests : IDisposable
 
         // Assert
         doc.Tags.ShouldBeEmpty();
-        meta.FwwSets.ShouldNotContainKey("$.tags");
+        meta.States.ShouldNotContainKey("$.tags");
     }
 
     [Fact]
@@ -407,8 +407,11 @@ public sealed class FwwSetStrategyTests : IDisposable
         doc1.Tags.ShouldBe(["a", "b"], ignoreOrder: true);
         doc2.Tags.ShouldBe(["c", "d"], ignoreOrder: true);
 
-        result.Partition1.Metadata.FwwSets["$.tags"].Adds.Keys.ShouldContain("a");
-        result.Partition2.Metadata.FwwSets["$.tags"].Adds.Keys.ShouldContain("c");
+        var state1 = result.Partition1.Metadata.States["$.tags"].ShouldBeOfType<FwwSetState>();
+        state1.Adds.Keys.ShouldContain("a");
+
+        var state2 = result.Partition2.Metadata.States["$.tags"].ShouldBeOfType<FwwSetState>();
+        state2.Adds.Keys.ShouldContain("c");
     }
 
     [Fact]
@@ -435,7 +438,8 @@ public sealed class FwwSetStrategyTests : IDisposable
 
         var mergedDoc = (FwwSetTestModel)result.Data;
         mergedDoc.Tags.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
-        result.Metadata.FwwSets["$.tags"].Adds.Keys.Count.ShouldBeGreaterThanOrEqualTo(4);
+        var mergedState = result.Metadata.States["$.tags"].ShouldBeOfType<FwwSetState>();
+        mergedState.Adds.Keys.Count.ShouldBeGreaterThanOrEqualTo(4);
     }
 
     [Fact]
@@ -470,7 +474,7 @@ public sealed class FwwSetStrategyTests : IDisposable
         // Item 5: Dead, Unsafe Remove (No Add)
         removes["item5"] = new CausalTimestamp(unsafeTs, "replica-2", 3);
 
-        meta.FwwSets["$.tags"] = new LwwSetState(adds, removes);
+        meta.States["$.tags"] = new FwwSetState(adds, removes);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()))
@@ -487,18 +491,19 @@ public sealed class FwwSetStrategyTests : IDisposable
         strategyA.Compact(context);
 
         // Assert
-        meta.FwwSets["$.tags"].Adds.ShouldContainKey("item1");
-        meta.FwwSets["$.tags"].Removes.ShouldContainKey("item1");
+        var finalState = meta.States["$.tags"].ShouldBeOfType<FwwSetState>();
+        finalState.Adds.ShouldContainKey("item1");
+        finalState.Removes.ShouldContainKey("item1");
 
-        meta.FwwSets["$.tags"].Adds.ShouldNotContainKey("item2");
-        meta.FwwSets["$.tags"].Removes.ShouldNotContainKey("item2");
+        finalState.Adds.ShouldNotContainKey("item2");
+        finalState.Removes.ShouldNotContainKey("item2");
 
-        meta.FwwSets["$.tags"].Adds.ShouldContainKey("item3");
-        meta.FwwSets["$.tags"].Removes.ShouldContainKey("item3");
+        finalState.Adds.ShouldContainKey("item3");
+        finalState.Removes.ShouldContainKey("item3");
 
-        meta.FwwSets["$.tags"].Removes.ShouldNotContainKey("item4");
+        finalState.Removes.ShouldNotContainKey("item4");
 
-        meta.FwwSets["$.tags"].Removes.ShouldContainKey("item5");
+        finalState.Removes.ShouldContainKey("item5");
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

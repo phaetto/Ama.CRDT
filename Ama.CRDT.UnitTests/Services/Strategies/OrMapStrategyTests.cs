@@ -61,7 +61,7 @@ public sealed class OrMapStrategyTests
         var doc2 = new CrdtDocument<TestModel>(doc2Model, doc2Metadata!);
 
         var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("b", 2, Guid.NewGuid()), timestampProvider.Create(1), 0);
-        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new OrMapRemoveItem("a", doc1.Metadata.OrMaps["$.map"].Adds["a"]), timestampProvider.Create(2), 0);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new OrMapRemoveItem("a", ((OrSetState)doc1.Metadata.States["$.map"]).Adds["a"]), timestampProvider.Create(2), 0);
 
         // Act: Apply op1 then op2
         strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op1));
@@ -109,7 +109,7 @@ public sealed class OrMapStrategyTests
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         
-        var removeOp = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Remove, new OrMapRemoveItem("a", doc.Metadata.OrMaps["$.map"].Adds["a"]), timestampProvider.Create(1), 0);
+        var removeOp = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Remove, new OrMapRemoveItem("a", ((OrSetState)doc.Metadata.States["$.map"]).Adds["a"]), timestampProvider.Create(1), 0);
         var addOp = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("a", 100, Guid.NewGuid()), timestampProvider.Create(2), 0);
 
         // Act
@@ -131,7 +131,7 @@ public sealed class OrMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.Lww["$.map['a']"] = new CausalTimestamp(timestampProvider.Create(10), "A", 1);
+        doc.Metadata.States["$.map['a']"] = new CausalTimestamp(timestampProvider.Create(10), "A", 1);
         
         var olderUpdate = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("a", 0, Guid.NewGuid()), timestampProvider.Create(5), 0);
         var newerUpdate = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("a", 2, Guid.NewGuid()), timestampProvider.Create(15), 0);
@@ -157,8 +157,8 @@ public sealed class OrMapStrategyTests
         {
             { "a", 1 }, { "b", 2 }, { "c", 3 }, { "d", 4 }, { "e", 5 }
         });
-        originalDoc.Metadata.Lww["$.map['a']"] = new CausalTimestamp(timestampProvider.Create(1), "A", 1);
-        originalDoc.Metadata.Lww["$.map['d']"] = new CausalTimestamp(timestampProvider.Create(1), "A", 1);
+        originalDoc.Metadata.States["$.map['a']"] = new CausalTimestamp(timestampProvider.Create(1), "A", 1);
+        originalDoc.Metadata.States["$.map['d']"] = new CausalTimestamp(timestampProvider.Create(1), "A", 1);
 
         var propertyInfo = new OrMapStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))?.Properties[nameof(TestModel.Map)];
         propertyInfo.ShouldNotBeNull();
@@ -179,10 +179,10 @@ public sealed class OrMapStrategyTests
         doc1!.Map.Keys.OrderBy(k => k).ShouldBe(new[] { "a", "b" });
         doc2!.Map.Keys.OrderBy(k => k).ShouldBe(new[] { "c", "d", "e" });
 
-        meta1.Lww.ShouldContainKey("$.map['a']");
-        meta2.Lww.ShouldContainKey("$.map['d']");
-        meta1.OrMaps["$.map"].Adds.Count.ShouldBe(2);
-        meta2.OrMaps["$.map"].Adds.Count.ShouldBe(3);
+        meta1.States.ShouldContainKey("$.map['a']");
+        meta2.States.ShouldContainKey("$.map['d']");
+        ((OrSetState)meta1.States["$.map"]).Adds.Count.ShouldBe(2);
+        ((OrSetState)meta2.States["$.map"]).Adds.Count.ShouldBe(3);
     }
     
     [Fact]
@@ -193,10 +193,10 @@ public sealed class OrMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
 
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "b", 2 } });
-        doc1.Metadata.Lww["$.map['b']"] = new CausalTimestamp(timestampProvider.Create(10), "A", 1);
+        doc1.Metadata.States["$.map['b']"] = new CausalTimestamp(timestampProvider.Create(10), "A", 1);
         
         var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "b", 0 } }); // Conflict on "b"
-        doc2.Metadata.Lww["$.map['b']"] = new CausalTimestamp(timestampProvider.Create(5), "A", 1); // Older timestamp
+        doc2.Metadata.States["$.map['b']"] = new CausalTimestamp(timestampProvider.Create(5), "A", 1); // Older timestamp
 
         var propertyInfo = new OrMapStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))?.Properties[nameof(TestModel.Map)];
         propertyInfo.ShouldNotBeNull();
@@ -214,8 +214,8 @@ public sealed class OrMapStrategyTests
         mergedDoc.Map["b"].ShouldBe(2); // From doc1, as it has the higher LWW value
         mergedDoc.Map["c"].ShouldBe(3);
 
-        mergedMeta.OrMaps["$.map"].Adds.Count.ShouldBe(3);
-        mergedMeta.Lww["$.map['b']"].Timestamp.ShouldBe(timestampProvider.Create(10));
+        ((OrSetState)mergedMeta.States["$.map"]).Adds.Count.ShouldBe(3);
+        ((CausalTimestamp)mergedMeta.States["$.map['b']"]).Timestamp.ShouldBe(timestampProvider.Create(10));
     }
 
     [Fact]
@@ -268,7 +268,7 @@ public sealed class OrMapStrategyTests
 
         var payload = operation.Value.ShouldBeOfType<OrMapRemoveItem>();
         payload.Key.ShouldBe("a");
-        var expectedTags = doc.Metadata.OrMaps["$.map"].Adds["a"];
+        var expectedTags = ((OrSetState)doc.Metadata.States["$.map"]).Adds["a"];
         payload.Tags.ShouldBeSubsetOf(expectedTags);
         payload.Tags.Count.ShouldBe(expectedTags.Count);
     }
@@ -302,9 +302,9 @@ public sealed class OrMapStrategyTests
         var tsDeadSafe = timestampProvider.Create(2);
         var tsDeadUnsafe = timestampProvider.Create(3);
 
-        meta.Lww["$.map['alive']"] = new CausalTimestamp(tsAlive, "A", 1);
-        meta.Lww["$.map['dead_safe']"] = new CausalTimestamp(tsDeadSafe, "A", 2);
-        meta.Lww["$.map['dead_unsafe']"] = new CausalTimestamp(tsDeadUnsafe, "A", 3);
+        meta.States["$.map['alive']"] = new CausalTimestamp(tsAlive, "A", 1);
+        meta.States["$.map['dead_safe']"] = new CausalTimestamp(tsDeadSafe, "A", 2);
+        meta.States["$.map['dead_unsafe']"] = new CausalTimestamp(tsDeadUnsafe, "A", 3);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == tsAlive))).Returns(true); // Should not be called because it's alive
@@ -317,9 +317,9 @@ public sealed class OrMapStrategyTests
         strategy.Compact(context);
 
         // Assert
-        meta.Lww.ShouldContainKey("$.map['alive']");
-        meta.Lww.ShouldNotContainKey("$.map['dead_safe']");
-        meta.Lww.ShouldContainKey("$.map['dead_unsafe']");
+        meta.States.ShouldContainKey("$.map['alive']");
+        meta.States.ShouldNotContainKey("$.map['dead_safe']");
+        meta.States.ShouldContainKey("$.map['dead_unsafe']");
 
         mockPolicy.Verify(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == tsAlive)), Times.Never);
         mockPolicy.Verify(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == tsDeadSafe)), Times.Once);
@@ -354,7 +354,7 @@ public sealed class OrMapStrategyTests
             { "dead_unsafe", new Dictionary<Guid, CausalTimestamp> { { tag2, new CausalTimestamp(ts, "replica-2", 10) } } }
         };
 
-        meta.OrMaps["$.map"] = new OrSetState(adds, removes);
+        meta.States["$.map"] = new OrSetState(adds, removes);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version == 5))).Returns(true);
@@ -366,7 +366,7 @@ public sealed class OrMapStrategyTests
         strategy.Compact(context);
 
         // Assert
-        var state = meta.OrMaps["$.map"];
+        var state = (OrSetState)meta.States["$.map"];
         state.Adds.ShouldContainKey("alive");
         state.Adds.ShouldNotContainKey("dead_safe");
         state.Removes.ShouldNotContainKey("dead_safe");

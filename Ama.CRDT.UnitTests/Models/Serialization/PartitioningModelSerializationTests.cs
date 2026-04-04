@@ -54,7 +54,7 @@ public sealed class PartitioningModelSerializationTests
     {
         var data = "test-data";
         var metadata = new CrdtMetadata();
-        metadata.Lww["$.prop"] = new CausalTimestamp(new EpochTimestamp(1), "R1", 1);
+        metadata.States["$.prop"] = new CausalTimestamp(new EpochTimestamp(1), "R1", 1);
         
         var content = new PartitionContent(data, metadata);
 

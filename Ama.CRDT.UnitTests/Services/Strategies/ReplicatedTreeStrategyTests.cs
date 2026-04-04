@@ -294,7 +294,7 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
             }
         };
 
-        meta.ReplicatedTrees["$.tree"] = new OrSetState(adds, removes);
+        meta.States["$.tree"] = new OrSetState(adds, removes);
 
         var context = new CRDT.Services.Strategies.CompactionContext(meta, mockPolicy.Object, "Tree", "$.tree", doc);
 
@@ -302,7 +302,7 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
         strategy.Compact(context);
 
         // Assert
-        var state = meta.ReplicatedTrees["$.tree"];
+        var state = (OrSetState)meta.States["$.tree"];
         state.Removes[nodeId].ShouldNotContainKey(tagSafe); // Compacted
         state.Removes[nodeId].ShouldContainKey(tagUnsafe); // Not compacted (Version > 5)
         state.Removes[nodeId].ShouldContainKey(tagOther); // Not compacted (Wrong replica)

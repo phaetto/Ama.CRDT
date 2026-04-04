@@ -185,7 +185,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
         strategyA.ApplyOperation(context);
 
         model.Votes["OptionA"].ShouldContain("Voter1");
-        metadata.Lww["$.votes.['Voter1']"].Timestamp.ShouldBe(timestampProvider.Create(200L));
+        metadata.States["$.votes.['Voter1']"].ShouldBeOfType<CausalTimestamp>().Timestamp.ShouldBe(timestampProvider.Create(200L));
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
         strategyA.ApplyOperation(context);
 
         model.Votes["OptionA"].ShouldContain("Voter1");
-        metadata.Lww["$.votes.['Voter1']"].Timestamp.ShouldBe(timestampProvider.Create(200L));
+        metadata.States["$.votes.['Voter1']"].ShouldBeOfType<CausalTimestamp>().Timestamp.ShouldBe(timestampProvider.Create(200L));
     }
 
     [Fact]
@@ -208,7 +208,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
     {
         var model = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
         var metadata = metadataManagerA.Initialize(model);
-        metadata.Lww["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(100L), "r0", 1);
+        metadata.States["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(100L), "r0", 1);
 
         var oldVoteOp = new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("Voter1", "OptionC"), timestampProvider.Create(90L), 0);
         var newVoteOp = new CrdtOperation(Guid.NewGuid(), "r2", "$.votes", OperationType.Upsert, new VotePayload("Voter1", "OptionB"), timestampProvider.Create(110L), 0);
@@ -279,12 +279,12 @@ public sealed class VoteCounterStrategyTests : IDisposable
         
         var initialModel = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
         var initialMeta = metadataManagerA.Initialize(initialModel);
-        initialMeta.Lww["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(200L), "r0", 1);
+        initialMeta.States["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(200L), "r0", 1);
 
         // Scenario 1: op1 then op2
         var model1 = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
         var meta1 = metadataManagerA.Initialize(new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } });
-        meta1.Lww["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(200L), "r0", 1);
+        meta1.States["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(200L), "r0", 1);
 
         strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op1));
         strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op2)); // op2 is older, should be ignored
@@ -292,7 +292,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
         // Scenario 2: op2 then op1
         var model2 = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
         var meta2 = metadataManagerA.Initialize(new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } });
-        meta2.Lww["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(200L), "r0", 1);
+        meta2.States["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(200L), "r0", 1);
 
         strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op2)); // This is applied because timestamp 250 > 200
         strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op1)); // op1 is newer (300 > 250), should win
@@ -356,8 +356,8 @@ public sealed class VoteCounterStrategyTests : IDisposable
         doc1.Votes["O1"].ShouldBe(["a", "b"], ignoreOrder: true);
         doc2.Votes["O2"].ShouldBe(["c", "d"], ignoreOrder: true);
 
-        result.Partition1.Metadata.Lww.Keys.ShouldContain("$.votes.['a']");
-        result.Partition2.Metadata.Lww.Keys.ShouldContain("$.votes.['c']");
+        result.Partition1.Metadata.States.Keys.ShouldContain("$.votes.['a']");
+        result.Partition2.Metadata.States.Keys.ShouldContain("$.votes.['c']");
     }
 
     [Fact]
@@ -380,11 +380,11 @@ public sealed class VoteCounterStrategyTests : IDisposable
         var mergedDoc = (Poll)result.Data;
         mergedDoc.Votes["O1"].ShouldBe(["a", "b"], ignoreOrder: true);
         mergedDoc.Votes["O2"].ShouldBe(["c", "d"], ignoreOrder: true);
-        result.Metadata.Lww.Keys.Count.ShouldBeGreaterThanOrEqualTo(4);
+        result.Metadata.States.Keys.Count.ShouldBeGreaterThanOrEqualTo(4);
     }
 
     [Fact]
-    public void Compact_ShouldRemoveLwwTombstones_WhenPolicyAllows()
+    public void Compact_ShouldRemoveTombstones_WhenPolicyAllows()
     {
         // Arrange
         var doc = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "ActiveVoter" } } };
@@ -394,9 +394,9 @@ public sealed class VoteCounterStrategyTests : IDisposable
         var tsDeadSafe = timestampProvider.Create(2);
         var tsDeadUnsafe = timestampProvider.Create(3);
 
-        meta.Lww["$.votes.['ActiveVoter']"] = new CausalTimestamp(tsActive, "replica-1", 1);
-        meta.Lww["$.votes.['DeadSafeVoter']"] = new CausalTimestamp(tsDeadSafe, "replica-1", 2);
-        meta.Lww["$.votes.['DeadUnsafeVoter']"] = new CausalTimestamp(tsDeadUnsafe, "replica-2", 3);
+        meta.States["$.votes.['ActiveVoter']"] = new CausalTimestamp(tsActive, "replica-1", 1);
+        meta.States["$.votes.['DeadSafeVoter']"] = new CausalTimestamp(tsDeadSafe, "replica-1", 2);
+        meta.States["$.votes.['DeadUnsafeVoter']"] = new CausalTimestamp(tsDeadUnsafe, "replica-2", 3);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()))
@@ -408,9 +408,9 @@ public sealed class VoteCounterStrategyTests : IDisposable
         strategyA.Compact(context);
 
         // Assert
-        meta.Lww.ShouldContainKey("$.votes.['ActiveVoter']");
-        meta.Lww.ShouldContainKey("$.votes.['DeadUnsafeVoter']");
-        meta.Lww.ShouldNotContainKey("$.votes.['DeadSafeVoter']");
+        meta.States.ShouldContainKey("$.votes.['ActiveVoter']");
+        meta.States.ShouldContainKey("$.votes.['DeadUnsafeVoter']");
+        meta.States.ShouldNotContainKey("$.votes.['DeadSafeVoter']");
 
         mockPolicy.Verify(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == tsActive)), Times.Never);
         mockPolicy.Verify(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == tsDeadSafe)), Times.Once);
