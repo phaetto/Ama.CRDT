@@ -495,6 +495,7 @@
 | `$/docs/multi-replica-and-serialization.md` | Explains advanced synchronization mechanics for multi-node setups and demonstrates configuring `CrdtPatch` JSON serialization correctly. |
 | `$/docs/partitioning.md` | Documents the setup and usage of the library's Larger-Than-Memory partitioning features and how to use the IPartitionManager. |
 | `$/docs/strategies-reference.md` | Provides a comprehensive table detailing all available CRDT strategies (e.g., LWW, Counters, Sets, Maps) and their ideal use cases. |
+| `$/docs/target-crdt-strategies.md` | Contains a comprehensive, categorized catalog of CRDT strategies, broken down into base strategies and composable decorators, providing a long-term roadmap for the library. |
 | `$/dotnet-tools.json` | No description provided. |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/01-crdt-strategy-attribute-and-interface.md` | No description provided. |
 | `$/features/allow-to-choose-strategy-using-attributes-specs/02-lww-strategy-implementation.md` | No description provided. |
