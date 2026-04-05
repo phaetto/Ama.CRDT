@@ -61,6 +61,7 @@ public static class CrdtTypeRegistry
         Register("vote-payload", typeof(VotePayload));
         Register("epoch-payload", typeof(EpochPayload));
         Register("quorum-payload", typeof(QuorumPayload));
+        Register("tree-node", typeof(TreeNode));
 
         // Partitioning
         Register("comp-key", typeof(CompositePartitionKey));

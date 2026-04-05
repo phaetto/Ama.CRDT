@@ -32,6 +32,8 @@ public sealed class ModelConventionTests
 
         var solutionDir = GetSolutionDirectory();
         var unitTestsDir = Path.Combine(solutionDir, "Ama.CRDT.UnitTests");
+        var crdtJsonContextPath = Path.Combine(solutionDir, "Ama.CRDT", "Models", "Serialization", "CrdtJsonContext.cs");
+        var internalCrdtContextPath = Path.Combine(solutionDir, "Ama.CRDT", "Models", "Aot", "InternalCrdtContext.cs");
         
         // 2. Load all Serialization test files to check for model inclusion
         var testFiles = Directory.GetFiles(unitTestsDir, "*.cs", SearchOption.AllDirectories)
@@ -40,6 +42,9 @@ public sealed class ModelConventionTests
             .ToList();
 
         var allTestContent = string.Join(Environment.NewLine, testFiles.Select(File.ReadAllText));
+        var jsonContextContent = File.Exists(crdtJsonContextPath) ? File.ReadAllText(crdtJsonContextPath) : string.Empty;
+        var internalContextContent = File.Exists(internalCrdtContextPath) ? File.ReadAllText(internalCrdtContextPath) : string.Empty;
+
         var missingItems = new List<string>();
 
         foreach (var model in modelTypes)
@@ -54,13 +59,24 @@ public sealed class ModelConventionTests
 
             // 3. Use regex to ensure whole word match so "Node" doesn't falsely match "AddNodeIntent"
             var regex = new Regex($@"\b{name}\b");
+            
             if (!regex.IsMatch(allTestContent))
             {
                 missingItems.Add($"[{model.FullName}] Missing serialization test. The model name '{name}' was not found in any Serialization test file.");
             }
+
+            if (!regex.IsMatch(jsonContextContent))
+            {
+                missingItems.Add($"[{model.FullName}] Missing AOT JSON serialization context registration. The model name '{name}' was not found in CrdtJsonContext.cs.");
+            }
+
+            if (!model.IsGenericType && !regex.IsMatch(internalContextContent))
+            {
+                missingItems.Add($"[{model.FullName}] Missing AOT internal context registration. The model name '{name}' was not found in InternalCrdtContext.cs.");
+            }
         }
 
-        var errorMessage = $"Found missing serialization tests for models. Please ensure they are serialized and deserialized in a test inside the Serialization folder:\n\n{string.Join(Environment.NewLine, missingItems)}";
+        var errorMessage = $"Found missing serialization requirements for models. Please ensure they are tested and explicitly registered in CrdtJsonContext and InternalCrdtContext:\n\n{string.Join(Environment.NewLine, missingItems)}";
         
         missingItems.ShouldBeEmpty(errorMessage);
     }

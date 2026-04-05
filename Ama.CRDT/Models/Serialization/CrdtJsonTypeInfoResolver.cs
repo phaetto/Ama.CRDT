@@ -8,7 +8,7 @@ using Ama.CRDT.Models.Partitioning;
 /// <summary>
 /// A static class that configures JSON serialization modifiers for CRDT types.
 /// It applies Native System.Text.Json Polymorphism for purely object-oriented interfaces 
-/// (<see cref="ICrdtTimestamp"/>, <see cref="IPartition"/>) making it fully AOT compatible.
+/// (<see cref="ICrdtTimestamp"/>, <see cref="IPartition"/>, <see cref="ICrdtMetadataState"/>) making it fully AOT compatible.
 /// </summary>
 public static class CrdtJsonTypeInfoResolver
 {
@@ -18,7 +18,9 @@ public static class CrdtJsonTypeInfoResolver
     public static void ApplyCrdtModifiers(JsonTypeInfo jsonTypeInfo)
     {
         // Leverage Native System.Text.Json Polymorphism for pure object interfaces
-        if (jsonTypeInfo.Type == typeof(ICrdtTimestamp) || jsonTypeInfo.Type == typeof(IPartition))
+        if (jsonTypeInfo.Type == typeof(ICrdtTimestamp) || 
+            jsonTypeInfo.Type == typeof(IPartition) || 
+            jsonTypeInfo.Type == typeof(ICrdtMetadataState))
         {
             jsonTypeInfo.PolymorphismOptions = new JsonPolymorphismOptions
             {
