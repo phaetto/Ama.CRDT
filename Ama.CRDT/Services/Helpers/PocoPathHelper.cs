@@ -223,28 +223,9 @@ internal static class PocoPathHelper
                     currentObject = dict[keyObj];
                     lastProperty = null; 
                 }
-                else if (createMissing && keyObj != null)
-                {
-                    var valueType = currentTypeInfo.DictionaryValueType ?? typeof(object);
-                    if (valueType.IsClass && valueType != typeof(string) && !typeof(IEnumerable).IsAssignableFrom(valueType))
-                    {
-                        var valueTypeInfo = GetTypeInfo(valueType, aotContexts);
-                        var newObj = valueTypeInfo.CreateInstance?.Invoke();
-                        if (newObj != null)
-                        {
-                            dict[keyObj] = newObj;
-                            currentObject = newObj;
-                            lastProperty = null;
-                        }
-                        else return new PathResolutionResult(null, null, null);
-                    }
-                    else
-                    {
-                        return new PathResolutionResult(null, null, null);
-                    }
-                }
                 else
                 {
+                    // Do not instantiate missing dictionary items. This bypasses Map CRDT strategies.
                     return new PathResolutionResult(null, null, null);
                 }
             }

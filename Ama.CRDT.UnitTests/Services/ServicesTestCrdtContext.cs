@@ -30,6 +30,7 @@ using Ama.CRDT.Models.Aot;
 [CrdtAotType(typeof(Dictionary<string, CrdtComposableArchitectureTests.ComplexItem>))]
 [CrdtAotType(typeof(Dictionary<string, CrdtMetadataManagerTests.InnerDoc>))]
 [CrdtAotType(typeof(object))]
+[CrdtAotType(typeof(string))]
 internal partial class ServicesTestCrdtAotContext : CrdtAotContext
 {
 }

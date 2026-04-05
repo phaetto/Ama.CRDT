@@ -579,4 +579,213 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         model1.ProtectedSecret.ShouldBeNull();
         model2.ProtectedSecret.ShouldBeNull();
     }
+
+    [Fact]
+    public void ComplexComposition_Map_ParentDeletedWhileChildUpdated_ShouldConverge()
+    {
+        using var scope2 = scope.ServiceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test-replica-2");
+        var patcher2 = scope2.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var applicator2 = scope2.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        var metadataManager2 = scope2.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+
+        // Arrange - Shared Initial State
+        var model1 = new ComplexCollectionDocument();
+        model1.Users["u1"] = new ComplexItem { Id = "u1", Name = "Alice", Score = 10 };
+        var meta1 = metadataManager.Initialize(model1);
+        var doc1 = new CrdtDocument<ComplexCollectionDocument>(model1, meta1);
+
+        var model2 = new ComplexCollectionDocument();
+        model2.Users["u1"] = new ComplexItem { Id = "u1", Name = "Alice", Score = 10 };
+        var meta2 = metadataManager2.Initialize(model2);
+        var doc2 = new CrdtDocument<ComplexCollectionDocument>(model2, meta2);
+
+        var baseTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        // Act
+        // Replica 1 deletes the user entirely at TS1
+        var ts1 = timestampProvider.Create(baseTime + 1000);
+        var op1 = patcher.GenerateOperation(doc1, d => d.Users, new MapRemoveIntent("u1"), ts1);
+        var patch1 = new CrdtPatch([op1]);
+        applicator.ApplyPatch(doc1, patch1);
+
+        // Replica 2 updates a deep property of the user at a HIGHER TS2
+        var ts2 = timestampProvider.Create(baseTime + 2000); 
+        var op2 = patcher2.GenerateOperation(doc2, d => d.Users["u1"].Score, new SetIntent(99), ts2);
+        var patch2 = new CrdtPatch([op2]);
+        applicator2.ApplyPatch(doc2, patch2);
+
+        // Exchange
+        applicator.ApplyPatch(doc1, patch2);
+        applicator2.ApplyPatch(doc2, patch1);
+
+        // Assert
+        // The core requirement is strict CONVERGENCE across the cluster, preventing divergence crashes.
+        // Regardless of whether the Map resurrects the item or ignores the orphan update, state must match exactly.
+        doc1.Data.Users.ContainsKey("u1").ShouldBe(doc2.Data.Users.ContainsKey("u1"));
+        if (doc1.Data.Users.TryGetValue("u1", out var u1))
+        {
+            u1.Score.ShouldBe(doc2.Data.Users["u1"].Score);
+        }
+    }
+
+    [Fact]
+    public void ComplexComposition_List_ParentDeletedWhileChildUpdated_ShouldConverge()
+    {
+        using var scope2 = scope.ServiceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test-replica-2");
+        var patcher2 = scope2.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var applicator2 = scope2.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        var metadataManager2 = scope2.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+
+        // Arrange - Shared Initial State
+        var model1 = new ComplexCollectionDocument();
+        model1.History.Add(new ComplexItem { Id = "h1", Name = "Event1", Score = 10 });
+        var meta1 = metadataManager.Initialize(model1);
+        var doc1 = new CrdtDocument<ComplexCollectionDocument>(model1, meta1);
+
+        var model2 = new ComplexCollectionDocument();
+        model2.History.Add(new ComplexItem { Id = "h1", Name = "Event1", Score = 10 });
+        var meta2 = metadataManager2.Initialize(model2);
+        var doc2 = new CrdtDocument<ComplexCollectionDocument>(model2, meta2);
+
+        var baseTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        // Act
+        // Replica 1 removes the list item
+        var ts1 = timestampProvider.Create(baseTime + 1000);
+        var op1 = patcher.GenerateOperation(doc1, d => d.History, new RemoveIntent(0), ts1);
+        var patch1 = new CrdtPatch([op1]);
+        applicator.ApplyPatch(doc1, patch1);
+
+        // Replica 2 updates the score of the same list item (concurrently addressing index 0)
+        var ts2 = timestampProvider.Create(baseTime + 2000);
+        var op2 = patcher2.GenerateOperation(doc2, d => d.History[0].Score, new SetIntent(99), ts2);
+        var patch2 = new CrdtPatch([op2]);
+        applicator2.ApplyPatch(doc2, patch2);
+
+        // Exchange
+        applicator.ApplyPatch(doc1, patch2);
+        applicator2.ApplyPatch(doc2, patch1);
+
+        // Assert
+        // Ensures Lseq deletes mixed with deep indexing converge correctly without out-of-bounds exceptions.
+        doc1.Data.History.Count.ShouldBe(doc2.Data.History.Count);
+        if (doc1.Data.History.Count > 0)
+        {
+            doc1.Data.History[0].Score.ShouldBe(doc2.Data.History[0].Score);
+        }
+    }
+
+    [Fact]
+    public void ComplexComposition_Map_ConcurrentInitialization_ShouldConverge()
+    {
+        using var scope2 = scope.ServiceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test-replica-2");
+        var patcher2 = scope2.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var applicator2 = scope2.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        var metadataManager2 = scope2.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+
+        // Arrange - Empty States
+        var model1 = new ComplexCollectionDocument();
+        var meta1 = metadataManager.Initialize(model1);
+        var doc1 = new CrdtDocument<ComplexCollectionDocument>(model1, meta1);
+
+        var model2 = new ComplexCollectionDocument();
+        var meta2 = metadataManager2.Initialize(model2);
+        var doc2 = new CrdtDocument<ComplexCollectionDocument>(model2, meta2);
+
+        var baseTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        // Act
+        // Replica 1 initializes "u1" with Name "Alice"
+        var ts1 = timestampProvider.Create(baseTime + 1000);
+        var op1 = patcher.GenerateOperation(doc1, d => d.Users, new MapSetIntent("u1", new ComplexItem { Id = "u1", Name = "Alice", Score = 10 }), ts1);
+        var patch1 = new CrdtPatch([op1]);
+        applicator.ApplyPatch(doc1, patch1);
+
+        // Replica 2 initializes "u1" concurrently but with Name "Bob" and higher timestamp
+        var ts2 = timestampProvider.Create(baseTime + 2000);
+        var op2 = patcher2.GenerateOperation(doc2, d => d.Users, new MapSetIntent("u1", new ComplexItem { Id = "u1", Name = "Bob", Score = 20 }), ts2);
+        var patch2 = new CrdtPatch([op2]);
+        applicator2.ApplyPatch(doc2, patch2);
+
+        // Exchange
+        applicator.ApplyPatch(doc1, patch2);
+        applicator2.ApplyPatch(doc2, patch1);
+
+        // Assert 
+        // LWW Map must converge picking the structurally newer initialization based on LWW of the dictionary key
+        doc1.Data.Users.ContainsKey("u1").ShouldBeTrue();
+        doc2.Data.Users.ContainsKey("u1").ShouldBeTrue();
+        
+        doc1.Data.Users["u1"].Name.ShouldBe("Bob");
+        doc2.Data.Users["u1"].Name.ShouldBe("Bob");
+        
+        doc1.Data.Users["u1"].Score.ShouldBe(20);
+        doc2.Data.Users["u1"].Score.ShouldBe(20);
+    }
+
+    [Fact]
+    public void Applicator_WhenListIndexIsOutOfBounds_ShouldSafelyOrphanOperation()
+    {
+        // Arrange
+        var model = new ComplexCollectionDocument();
+        // Model.History is initialized but empty.
+        var meta = metadataManager.Initialize(model);
+        var doc = new CrdtDocument<ComplexCollectionDocument>(model, meta);
+
+        // Act - Operation targeting an out-of-bounds index deeply
+        var op = new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.history[99].score", OperationType.Upsert, 50, timestampProvider.Now(), 1);
+        var patch = new CrdtPatch([op]);
+
+        var result = applicator.ApplyPatch(doc, patch);
+
+        // Assert
+        // Should not throw ArgumentOutOfRangeException.
+        // It must be treated as an orphan (Success) so it doesn't block future syncs.
+        result.UnappliedOperations.ShouldBeEmpty();
+        doc.Metadata.VersionVector["test-replica-2"].ShouldBe(1); // Version vector MUST advance to acknowledge the op
+        model.History.Count.ShouldBe(0); // Data remains uncorrupted
+    }
+
+    [Fact]
+    public void Applicator_WhenPathTraversesIntoPrimitive_ShouldSafelyOrphanOperation()
+    {
+        // Arrange
+        var model = new ComplexDocument { Title = "Just a string" };
+        var meta = metadataManager.Initialize(model);
+        var doc = new CrdtDocument<ComplexDocument>(model, meta);
+
+        // Act - Operation trying to access a property INSIDE a primitive string
+        var op = new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.title.someDeepProperty", OperationType.Upsert, 50, timestampProvider.Now(), 1);
+        var patch = new CrdtPatch([op]);
+
+        var result = applicator.ApplyPatch(doc, patch);
+
+        // Assert
+        // Should not throw reflection/resolution errors.
+        result.UnappliedOperations.ShouldBeEmpty();
+        doc.Metadata.VersionVector["test-replica-2"].ShouldBe(1);
+        model.Title.ShouldBe("Just a string"); // Remains unchanged
+    }
+
+    [Fact]
+    public void Applicator_WhenDictionaryKeyIsMissing_ShouldSafelyOrphanDeepOperation()
+    {
+        // Arrange
+        var model = new ComplexCollectionDocument();
+        // "missing_user" does not exist in the dictionary
+        var meta = metadataManager.Initialize(model);
+        var doc = new CrdtDocument<ComplexCollectionDocument>(model, meta);
+
+        // Act - Deep update on a non-existent dictionary key
+        var op = new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.users['missing_user'].score", OperationType.Upsert, 100, timestampProvider.Now(), 1);
+        var patch = new CrdtPatch([op]);
+
+        var result = applicator.ApplyPatch(doc, patch);
+
+        // Assert
+        // Should not instantiate a blank 'missing_user' item just to set the score.
+        result.UnappliedOperations.ShouldBeEmpty();
+        doc.Metadata.VersionVector["test-replica-2"].ShouldBe(1);
+        model.Users.ContainsKey("missing_user").ShouldBeFalse();
+    }
 }

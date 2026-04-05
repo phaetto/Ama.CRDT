@@ -92,6 +92,14 @@ public sealed class CrdtApplicator(
         // The Applicator is responsible for resolving the path and instantiating missing intermediate POCOs.
         var resolution = PocoPathHelper.ResolvePath(document, operation.JsonPath, aotContexts, createMissing: true);
         
+        if (resolution.Parent == null)
+        {
+            // Orphaned operation (e.g., parent map key or list item was concurrently deleted).
+            // It is safely shadowed by the deletion, so we acknowledge it without applying to prevent divergence.
+            metadataManager.AdvanceVersionVector(metadata, operation);
+            return CrdtOperationStatus.Success;
+        }
+
         var context = new ApplyOperationContext(document, metadata, operation)
         {
             Target = resolution.Parent,
