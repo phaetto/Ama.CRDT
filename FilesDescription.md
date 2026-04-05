@@ -103,6 +103,7 @@
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Models/NetworkMessage.cs` | DTO representing a network message containing a patch and sender ID. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Models/SharedDocument.cs` | Model representing a shared document of strings synced across replicas using ArrayLcsStrategy. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Program.cs` | No description provided. |
+| `$/Ama.CRDT.ShowCase.CollaborativeEditing/README.md` | Provides an overview and user guide for the Collaborative Editing showcase, highlighting the use of the RGA Strategy, Explicit Intents, Operation Journaling, and GMVV-based Garbage Collection. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Services/MemoryJournal.cs` | An in-memory operation journal implementation providing missing operation histories and journal truncation based on the cluster's GMVV. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Services/NetworkBroker.cs` | Simulates a network passing CRDT patches to different editors in real-time. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application. |

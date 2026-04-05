@@ -159,6 +159,14 @@ Explore the detailed features of the library by checking out the advanced topics
 - [**Extensibility & Customization**](docs/extensibility.md) - Build your own CRDT strategies, timestamps, and comparers.
 - [**Architecture & How It Works**](docs/architecture.md) - A high-level overview of the library's internal abstractions.
 
+## Showcases
+
+This repository includes several executable showcase projects that demonstrate the library in action, simulating complex distributed scenarios:
+
+- [**Basic Simulation (`Ama.CRDT.ShowCase`)**](Ama.CRDT.ShowCase/README.md) - A simple map-reduce style simulation where multiple passive and active replicas process events and mathematically converge to the same state using different strategies.
+- [**Collaborative Editing (`Ama.CRDT.ShowCase.CollaborativeEditing`)**](Ama.CRDT.ShowCase.CollaborativeEditing/README.md) - A Windows Forms app demonstrating real-time peer-to-peer text editing using the RGA strategy, explicit intents, operation journaling, and GMVV garbage collection.
+- [**Larger-Than-Memory (`Ama.CRDT.ShowCase.LargerThanMemory`)**](Ama.CRDT.ShowCase.LargerThanMemory/README.md) - A Terminal.Gui console app showcasing advanced features like Stream-based Partitioning, "On-Demand" data loading, and disconnected offline synchronization.
+
 ## Building and Testing
 
 To build the project, simply run:
