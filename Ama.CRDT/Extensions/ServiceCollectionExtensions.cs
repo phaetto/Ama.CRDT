@@ -235,7 +235,7 @@ public static class ServiceCollectionExtensions
     /// <code>
     /// <![CDATA[
     /// builder.Services.AddCrdt()
-    ///                 .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>();
+    ///                 .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>(DecoratorBehavior.Complex);
     /// ]]>
     /// </code>
     /// </example>
@@ -258,7 +258,7 @@ public static class ServiceCollectionExtensions
     /// <code>
     /// <![CDATA[
     /// builder.Services.AddCrdt()
-    ///                 .AddCrdtPatcherDecorator<JournalingPatcherDecorator>();
+    ///                 .AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After);
     /// ]]>
     /// </code>
     /// </example>
@@ -283,8 +283,8 @@ public static class ServiceCollectionExtensions
     /// <![CDATA[
     /// builder.Services.AddCrdt()
     ///                 .AddCrdtJournaling<MyDatabaseJournal>()
-    ///                 .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()
-    ///                 .AddCrdtPatcherDecorator<JournalingPatcherDecorator>();
+    ///                 .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.After)
+    ///                 .AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After);
     /// ]]>
     /// </code>
     /// </example>
