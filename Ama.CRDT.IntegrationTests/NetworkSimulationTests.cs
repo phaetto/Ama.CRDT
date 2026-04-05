@@ -488,8 +488,8 @@ public sealed class NetworkSimulationTests
         services.AddCrdt()
                 .AddCrdtAotContext<NetworkSimulationTestContext>()
                 .AddCrdtJournaling<InMemoryJournal>()
-                .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()
-                .AddCrdtPatcherDecorator<JournalingPatcherDecorator>();
+                .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.After)
+                .AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After);
         var provider = services.BuildServiceProvider();
 
         var scopeFactory = provider.GetRequiredService<ICrdtScopeFactory>();
@@ -555,8 +555,8 @@ public sealed class NetworkSimulationTests
         services.AddCrdt()
                 .AddCrdtAotContext<NetworkSimulationTestContext>()
                 .AddCrdtJournaling<InMemoryJournal>()
-                .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()
-                .AddCrdtPatcherDecorator<JournalingPatcherDecorator>();
+                .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.After)
+                .AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After);
         var provider = services.BuildServiceProvider();
 
         var scopeFactory = provider.GetRequiredService<ICrdtScopeFactory>();

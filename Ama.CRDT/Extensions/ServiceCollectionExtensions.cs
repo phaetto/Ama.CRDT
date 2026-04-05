@@ -229,6 +229,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <typeparam name="TDecorator">The decorator implementation of <see cref="IAsyncCrdtApplicator"/>.</typeparam>
     /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <param name="behavior">The explicitly required behavior for this decorator, if it needs to be overridden or directly instantiated by DI.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
     /// <example>
     /// <code>
@@ -238,11 +239,11 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtApplicatorDecorator<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtApplicatorDecorator<TDecorator>(this IServiceCollection services, DecoratorBehavior behavior)
         where TDecorator : class, IAsyncCrdtApplicator
     {
         ArgumentNullException.ThrowIfNull(services);
-        return services.DecorateService<IAsyncCrdtApplicator, TDecorator>();
+        return services.DecorateService<IAsyncCrdtApplicator, TDecorator>(behavior);
     }
 
     /// <summary>
@@ -251,6 +252,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <typeparam name="TDecorator">The decorator implementation of <see cref="IAsyncCrdtPatcher"/>.</typeparam>
     /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <param name="behavior">The explicitly required behavior for this decorator, if it needs to be overridden or directly instantiated by DI.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
     /// <example>
     /// <code>
@@ -260,11 +262,11 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtPatcherDecorator<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtPatcherDecorator<TDecorator>(this IServiceCollection services, DecoratorBehavior behavior)
         where TDecorator : class, IAsyncCrdtPatcher
     {
         ArgumentNullException.ThrowIfNull(services);
-        return services.DecorateService<IAsyncCrdtPatcher, TDecorator>();
+        return services.DecorateService<IAsyncCrdtPatcher, TDecorator>(behavior);
     }
 
     /// <summary>
@@ -286,7 +288,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtJournaling<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TJournal>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtJournaling<TJournal>(this IServiceCollection services)
         where TJournal : class, ICrdtOperationJournal
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -336,7 +338,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtComparer<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TComparer>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtComparer<TComparer>(this IServiceCollection services)
         where TComparer : class, IElementComparer
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -371,7 +373,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtTimestampProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProvider>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtTimestampProvider<TProvider>(this IServiceCollection services)
         where TProvider : class, ICrdtTimestampProvider
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -538,7 +540,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtCompactionPolicyFactory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TFactory>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtCompactionPolicyFactory<TFactory>(this IServiceCollection services)
         where TFactory : class, ICompactionPolicyFactory
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -560,7 +562,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtCompactionPolicyFactory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TFactory>(this IServiceCollection services, Func<IServiceProvider, TFactory> implementationFactory)
+    public static IServiceCollection AddCrdtCompactionPolicyFactory<TFactory>(this IServiceCollection services, Func<IServiceProvider, TFactory> implementationFactory)
         where TFactory : class, ICompactionPolicyFactory
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -569,7 +571,7 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection DecorateService<TInterface, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(this IServiceCollection services)
+    private static IServiceCollection DecorateService<TInterface, TDecorator>(this IServiceCollection services, DecoratorBehavior behavior)
         where TInterface : class
         where TDecorator : class, TInterface
     {
@@ -599,7 +601,7 @@ public static class ServiceCollectionExtensions
             }
 
             // Create the decorator, injecting the inner service
-            return ActivatorUtilities.CreateInstance<TDecorator>(sp, inner);
+            return ActivatorUtilities.CreateInstance<TDecorator>(sp, inner, behavior);
         }, existingDescriptor.Lifetime));
 
         return services;

@@ -1,4 +1,5 @@
 using Ama.CRDT.Extensions;
+using Ama.CRDT.Models;
 using Ama.CRDT.Partitioning.Streams.Extensions;
 using Ama.CRDT.Services.Decorators;
 using Ama.CRDT.ShowCase.LargerThanMemory;
@@ -16,9 +17,9 @@ builder.ConfigureServices((context, services) =>
         .AddCrdtAotContext<LargerThanMemoryCrdtAotContext>()
         .AddCrdtJsonTypeInfoResolver(LargerThanMemoryJsonContext.Default)
         .AddCrdtJournaling<FileSystemOperationJournal>()
-        .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()
-        .AddCrdtPatcherDecorator<JournalingPatcherDecorator>()
-        .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>()
+        .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.After)
+        .AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After)
+        .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>(DecoratorBehavior.Complex)
         .AddCrdtStreamPartitioning<FileSystemPartitionStreamProvider>();
 
     services.AddScoped<DataGeneratorService>();

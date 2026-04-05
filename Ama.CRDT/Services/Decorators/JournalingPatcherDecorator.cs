@@ -2,10 +2,10 @@ namespace Ama.CRDT.Services.Decorators;
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
@@ -16,9 +16,9 @@ using Ama.CRDT.Services.Journaling;
 /// A decorator for <see cref="IAsyncCrdtPatcher"/> that intercepts explicit operation generation
 /// and patch generation, forwarding the created operations to an <see cref="ICrdtOperationJournal"/>.
 /// </summary>
-public sealed class JournalingPatcherDecorator : IAsyncCrdtPatcher
+[AllowedDecoratorBehavior(DecoratorBehavior.After)]
+public sealed class JournalingPatcherDecorator : AsyncCrdtPatcherDecoratorBase
 {
-    private readonly IAsyncCrdtPatcher innerPatcher;
     private readonly ICrdtOperationJournal journal;
     private readonly IEnumerable<CrdtAotContext> aotContexts;
 
@@ -28,61 +28,52 @@ public sealed class JournalingPatcherDecorator : IAsyncCrdtPatcher
     /// <param name="innerPatcher">The inner patcher to delegate the generation to.</param>
     /// <param name="journal">The journal service to record generated operations.</param>
     /// <param name="aotContexts">The AOT contexts to use for reflection-free property access.</param>
+    /// <param name="behavior">The explicitly chosen execution phase (enforced to be After).</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="innerPatcher"/>, <paramref name="journal"/> or <paramref name="aotContexts"/> is null.</exception>
-    public JournalingPatcherDecorator(IAsyncCrdtPatcher innerPatcher, ICrdtOperationJournal journal, IEnumerable<CrdtAotContext> aotContexts)
+    public JournalingPatcherDecorator(
+        IAsyncCrdtPatcher innerPatcher, 
+        ICrdtOperationJournal journal, 
+        IEnumerable<CrdtAotContext> aotContexts,
+        DecoratorBehavior behavior) : base(innerPatcher, behavior)
     {
-        ArgumentNullException.ThrowIfNull(innerPatcher);
         ArgumentNullException.ThrowIfNull(journal);
         ArgumentNullException.ThrowIfNull(aotContexts);
 
-        this.innerPatcher = innerPatcher;
         this.journal = journal;
         this.aotContexts = aotContexts;
     }
 
     /// <inheritdoc/>
-    public async Task<CrdtPatch> GeneratePatchAsync<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, CancellationToken cancellationToken = default) where T : class
+    protected override async Task OnAfterGeneratePatchAsync<T>(CrdtDocument<T> from, T changed, CrdtPatch result, CancellationToken cancellationToken)
     {
-        var patch = await this.innerPatcher.GeneratePatchAsync(from, changed, cancellationToken).ConfigureAwait(false);
-        
-        if (patch.Operations is { Count: > 0 })
+        if (result.Operations is { Count: > 0 })
         {
             var docId = PocoPathHelper.GetDocumentId(from.Data, this.aotContexts);
-            await this.journal.AppendAsync(docId, patch.Operations, cancellationToken).ConfigureAwait(false);
+            await this.journal.AppendAsync(docId, result.Operations, cancellationToken).ConfigureAwait(false);
         }
-        
-        return patch;
     }
 
     /// <inheritdoc/>
-    public async Task<CrdtPatch> GeneratePatchAsync<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, [DisallowNull] ICrdtTimestamp changeTimestamp, CancellationToken cancellationToken = default) where T : class
+    protected override async Task OnAfterGeneratePatchAsync<T>(CrdtDocument<T> from, T changed, ICrdtTimestamp changeTimestamp, CrdtPatch result, CancellationToken cancellationToken)
     {
-        var patch = await this.innerPatcher.GeneratePatchAsync(from, changed, changeTimestamp, cancellationToken).ConfigureAwait(false);
-        
-        if (patch.Operations is { Count: > 0 })
+        if (result.Operations is { Count: > 0 })
         {
             var docId = PocoPathHelper.GetDocumentId(from.Data, this.aotContexts);
-            await this.journal.AppendAsync(docId, patch.Operations, cancellationToken).ConfigureAwait(false);
+            await this.journal.AppendAsync(docId, result.Operations, cancellationToken).ConfigureAwait(false);
         }
-        
-        return patch;
     }
 
     /// <inheritdoc/>
-    public async Task<CrdtOperation> GenerateOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CancellationToken cancellationToken = default) where T : class
+    protected override async Task OnAfterGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CrdtOperation result, CancellationToken cancellationToken)
     {
-        var operation = await this.innerPatcher.GenerateOperationAsync(document, propertyExpression, intent, cancellationToken).ConfigureAwait(false);
         var docId = PocoPathHelper.GetDocumentId(document.Data, this.aotContexts);
-        await this.journal.AppendAsync(docId, new[] { operation }, cancellationToken).ConfigureAwait(false);
-        return operation;
+        await this.journal.AppendAsync(docId, new[] { result }, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    public async Task<CrdtOperation> GenerateOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, [DisallowNull] ICrdtTimestamp timestamp, CancellationToken cancellationToken = default) where T : class
+    protected override async Task OnAfterGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, ICrdtTimestamp timestamp, CrdtOperation result, CancellationToken cancellationToken)
     {
-        var operation = await this.innerPatcher.GenerateOperationAsync(document, propertyExpression, intent, timestamp, cancellationToken).ConfigureAwait(false);
         var docId = PocoPathHelper.GetDocumentId(document.Data, this.aotContexts);
-        await this.journal.AppendAsync(docId, new[] { operation }, cancellationToken).ConfigureAwait(false);
-        return operation;
+        await this.journal.AppendAsync(docId, new[] { result }, cancellationToken).ConfigureAwait(false);
     }
 }
