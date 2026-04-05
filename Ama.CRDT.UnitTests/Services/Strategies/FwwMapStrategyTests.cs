@@ -127,10 +127,10 @@ public sealed class FwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
+        doc.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
         {
             { "a", new CausalTimestamp(timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), "A", 1) }
-        };
+        });
         
         var newerTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(50).ToUnixTimeMilliseconds());
         var olderTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(-50).ToUnixTimeMilliseconds());
@@ -275,10 +275,10 @@ public sealed class FwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
+        doc.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
         {
             { "a", new CausalTimestamp(timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), "A", 1) }
-        };
+        });
         
         var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Remove, null, timestampProvider.Now(), 0);
 
@@ -287,7 +287,7 @@ public sealed class FwwMapStrategyTests
 
         // Assert
         doc.Data.Map.ShouldBeEmpty();
-        doc.Metadata.FwwMaps.ShouldNotContainKey("$.map");
+        doc.Metadata.States.ShouldNotContainKey("$.map");
     }
 
     [Fact]
@@ -397,13 +397,13 @@ public sealed class FwwMapStrategyTests
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "b", 2 }, { "c", 3 }, { "d", 4 } });
         
-        doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
+        doc.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>
         {
             { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
             { "b", new CausalTimestamp(timestampProvider.Create(2), "A", 2) },
             { "c", new CausalTimestamp(timestampProvider.Create(3), "A", 3) },
             { "d", new CausalTimestamp(timestampProvider.Create(4), "A", 4) }
-        };
+        });
 
         // Act
         var result = strategy.Split(doc.Data, doc.Metadata, prop);
@@ -417,9 +417,10 @@ public sealed class FwwMapStrategyTests
         doc1.Map.ShouldContainKey("a");
         doc1.Map.ShouldContainKey("b");
 
-        meta1.FwwMaps["$.map"].Count.ShouldBe(2);
-        meta1.FwwMaps["$.map"].ShouldContainKey("a");
-        meta1.FwwMaps["$.map"].ShouldContainKey("b");
+        var state1 = meta1.States["$.map"].ShouldBeOfType<FwwMapState>();
+        state1.Keys.Count.ShouldBe(2);
+        state1.Keys.ShouldContainKey("a");
+        state1.Keys.ShouldContainKey("b");
 
         var doc2 = (FwwMapTestModel)result.Partition2.Data;
         var meta2 = result.Partition2.Metadata;
@@ -427,9 +428,10 @@ public sealed class FwwMapStrategyTests
         doc2.Map.ShouldContainKey("c");
         doc2.Map.ShouldContainKey("d");
 
-        meta2.FwwMaps["$.map"].Count.ShouldBe(2);
-        meta2.FwwMaps["$.map"].ShouldContainKey("c");
-        meta2.FwwMaps["$.map"].ShouldContainKey("d");
+        var state2 = meta2.States["$.map"].ShouldBeOfType<FwwMapState>();
+        state2.Keys.Count.ShouldBe(2);
+        state2.Keys.ShouldContainKey("c");
+        state2.Keys.ShouldContainKey("d");
     }
 
     [Fact]
@@ -447,10 +449,10 @@ public sealed class FwwMapStrategyTests
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         
-        doc.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
+        doc.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>
         {
             { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) }
-        };
+        });
 
         // Act & Assert
         Should.Throw<InvalidOperationException>(() => strategy.Split(doc.Data, doc.Metadata, prop));
@@ -470,18 +472,18 @@ public sealed class FwwMapStrategyTests
             new CrdtFwwMapStrategyAttribute(), []);
 
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "overlap", 100 } });
-        doc1.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
+        doc1.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>
         {
             { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
             { "overlap", new CausalTimestamp(timestampProvider.Create(100), "A", 2) } // Lower timestamp, should win
-        };
+        });
 
         var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "overlap", 200 } });
-        doc2.Metadata.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
+        doc2.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>
         {
             { "c", new CausalTimestamp(timestampProvider.Create(3), "B", 1) },
             { "overlap", new CausalTimestamp(timestampProvider.Create(200), "B", 2) } 
-        };
+        });
 
         // Act
         var result = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, prop);
@@ -495,8 +497,9 @@ public sealed class FwwMapStrategyTests
         mergedDoc.Map["c"].ShouldBe(3);
         mergedDoc.Map["overlap"].ShouldBe(100);
 
-        mergedMeta.FwwMaps["$.map"].Count.ShouldBe(3);
-        mergedMeta.FwwMaps["$.map"]["overlap"].Timestamp.ShouldBe(timestampProvider.Create(100));
+        var mergedState = mergedMeta.States["$.map"].ShouldBeOfType<FwwMapState>();
+        mergedState.Keys.Count.ShouldBe(3);
+        mergedState.Keys["overlap"].Timestamp.ShouldBe(timestampProvider.Create(100));
     }
 
     [Fact]
@@ -513,12 +516,12 @@ public sealed class FwwMapStrategyTests
         var tsDeadSafe = timestampProvider.Create(2);
         var tsDeadUnsafe = timestampProvider.Create(3);
 
-        meta.FwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
+        meta.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
         {
             { "alive", new CausalTimestamp(tsAlive, "replica-1", 1) },
             { "dead_safe", new CausalTimestamp(tsDeadSafe, "replica-1", 2) },
             { "dead_unsafe", new CausalTimestamp(tsDeadUnsafe, "replica-2", 3) }
-        };
+        });
 
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()))
@@ -530,8 +533,9 @@ public sealed class FwwMapStrategyTests
         strategy.Compact(context);
 
         // Assert
-        meta.FwwMaps["$.map"].ShouldContainKey("alive");
-        meta.FwwMaps["$.map"].ShouldContainKey("dead_unsafe");
-        meta.FwwMaps["$.map"].ShouldNotContainKey("dead_safe");
+        var finalState = meta.States["$.map"].ShouldBeOfType<FwwMapState>();
+        finalState.Keys.ShouldContainKey("alive");
+        finalState.Keys.ShouldContainKey("dead_unsafe");
+        finalState.Keys.ShouldNotContainKey("dead_safe");
     }
 }

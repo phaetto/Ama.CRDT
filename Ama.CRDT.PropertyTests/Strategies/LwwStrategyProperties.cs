@@ -64,8 +64,8 @@ public sealed class LwwStrategyProperties
 
         state1.ShouldBe(state2);
         
-        meta1.Lww.TryGetValue(nameof(TestPoco.Value), out var ts1);
-        meta2.Lww.TryGetValue(nameof(TestPoco.Value), out var ts2);
+        meta1.States.TryGetValue(nameof(TestPoco.Value), out var ts1);
+        meta2.States.TryGetValue(nameof(TestPoco.Value), out var ts2);
         ts1.ShouldBe(ts2);
     }
 
@@ -106,8 +106,8 @@ public sealed class LwwStrategyProperties
 
         stateAB.ShouldBe(stateBA);
         
-        metaAB.Lww.TryGetValue(nameof(TestPoco.Value), out var tsAB);
-        metaBA.Lww.TryGetValue(nameof(TestPoco.Value), out var tsBA);
+        metaAB.States.TryGetValue(nameof(TestPoco.Value), out var tsAB);
+        metaBA.States.TryGetValue(nameof(TestPoco.Value), out var tsBA);
         tsAB.ShouldBe(tsBA);
     }
 
@@ -149,8 +149,8 @@ public sealed class LwwStrategyProperties
 
         state1.ShouldBe(state2);
         
-        meta1.Lww.TryGetValue(nameof(TestPoco.Value), out var ts1);
-        meta2.Lww.TryGetValue(nameof(TestPoco.Value), out var ts2);
+        meta1.States.TryGetValue(nameof(TestPoco.Value), out var ts1);
+        meta2.States.TryGetValue(nameof(TestPoco.Value), out var ts2);
         ts1.ShouldBe(ts2);
     }
 

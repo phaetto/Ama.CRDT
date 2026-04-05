@@ -135,7 +135,10 @@ public sealed class LwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.LwwMaps["$.map"]["a"] = new CausalTimestamp(timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), "A", 1);
+        doc.Metadata.States["$.map"] = new LwwMapState(new Dictionary<object, CausalTimestamp>
+        {
+            { "a", new CausalTimestamp(timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), "A", 1) }
+        });
         
         var newerTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(50).ToUnixTimeMilliseconds());
         var olderTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(-50).ToUnixTimeMilliseconds());
@@ -303,13 +306,13 @@ public sealed class LwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "b", 2 }, { "c", 3 }, { "d", 4 } });
         
-        doc.Metadata.LwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
+        doc.Metadata.States["$.map"] = new LwwMapState(new Dictionary<object, CausalTimestamp>
         {
             { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
             { "b", new CausalTimestamp(timestampProvider.Create(2), "A", 2) },
             { "c", new CausalTimestamp(timestampProvider.Create(3), "A", 3) },
             { "d", new CausalTimestamp(timestampProvider.Create(4), "A", 4) }
-        };
+        });
 
         // Act
         var result = strategy.Split(doc.Data, doc.Metadata, mapProperty);
@@ -323,9 +326,10 @@ public sealed class LwwMapStrategyTests
         doc1.Map.ShouldContainKey("a");
         doc1.Map.ShouldContainKey("b");
 
-        meta1.LwwMaps["$.map"].Count.ShouldBe(2);
-        meta1.LwwMaps["$.map"].ShouldContainKey("a");
-        meta1.LwwMaps["$.map"].ShouldContainKey("b");
+        var meta1State = (LwwMapState)meta1.States["$.map"];
+        meta1State.Keys.Count.ShouldBe(2);
+        meta1State.Keys.ShouldContainKey("a");
+        meta1State.Keys.ShouldContainKey("b");
 
         var doc2 = (LwwMapTestModel)result.Partition2.Data;
         var meta2 = result.Partition2.Metadata;
@@ -333,9 +337,10 @@ public sealed class LwwMapStrategyTests
         doc2.Map.ShouldContainKey("c");
         doc2.Map.ShouldContainKey("d");
 
-        meta2.LwwMaps["$.map"].Count.ShouldBe(2);
-        meta2.LwwMaps["$.map"].ShouldContainKey("c");
-        meta2.LwwMaps["$.map"].ShouldContainKey("d");
+        var meta2State = (LwwMapState)meta2.States["$.map"];
+        meta2State.Keys.Count.ShouldBe(2);
+        meta2State.Keys.ShouldContainKey("c");
+        meta2State.Keys.ShouldContainKey("d");
     }
 
     [Fact]
@@ -346,10 +351,10 @@ public sealed class LwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         
-        doc.Metadata.LwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
+        doc.Metadata.States["$.map"] = new LwwMapState(new Dictionary<object, CausalTimestamp>
         {
             { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) }
-        };
+        });
 
         // Act & Assert
         Should.Throw<InvalidOperationException>(() => strategy.Split(doc.Data, doc.Metadata, mapProperty));
@@ -363,18 +368,18 @@ public sealed class LwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
 
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "overlap", 100 } });
-        doc1.Metadata.LwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
+        doc1.Metadata.States["$.map"] = new LwwMapState(new Dictionary<object, CausalTimestamp>
         {
             { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
             { "overlap", new CausalTimestamp(timestampProvider.Create(100), "A", 100) }
-        };
+        });
 
         var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "overlap", 200 } });
-        doc2.Metadata.LwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>
+        doc2.Metadata.States["$.map"] = new LwwMapState(new Dictionary<object, CausalTimestamp>
         {
             { "c", new CausalTimestamp(timestampProvider.Create(3), "B", 3) },
             { "overlap", new CausalTimestamp(timestampProvider.Create(200), "B", 200) } // Higher timestamp, should win
-        };
+        });
 
         // Act
         var result = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapProperty);
@@ -388,8 +393,9 @@ public sealed class LwwMapStrategyTests
         mergedDoc.Map["c"].ShouldBe(3);
         mergedDoc.Map["overlap"].ShouldBe(200);
 
-        mergedMeta.LwwMaps["$.map"].Count.ShouldBe(3);
-        mergedMeta.LwwMaps["$.map"]["overlap"].ShouldBe(new CausalTimestamp(timestampProvider.Create(200), "B", 200));
+        var mergedMapState = (LwwMapState)mergedMeta.States["$.map"];
+        mergedMapState.Keys.Count.ShouldBe(3);
+        mergedMapState.Keys["overlap"].ShouldBe(new CausalTimestamp(timestampProvider.Create(200), "B", 200));
     }
 
     [Fact]
@@ -406,12 +412,12 @@ public sealed class LwwMapStrategyTests
         var tsDeadSafe = new CausalTimestamp(timestampProvider.Create(2), "replica-1", 2);
         var tsDeadUnsafe = new CausalTimestamp(timestampProvider.Create(3), "replica-2", 3);
 
-        meta.LwwMaps["$.map"] = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
+        meta.States["$.map"] = new LwwMapState(new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
         {
             { "alive", tsAlive },
             { "dead_safe", tsDeadSafe },
             { "dead_unsafe", tsDeadUnsafe }
-        };
+        });
 
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version <= 2))).Returns(true);
@@ -424,9 +430,10 @@ public sealed class LwwMapStrategyTests
         strategy.Compact(context);
 
         // Assert
-        meta.LwwMaps["$.map"].ShouldContainKey("alive");
-        meta.LwwMaps["$.map"].ShouldContainKey("dead_unsafe");
-        meta.LwwMaps["$.map"].ShouldNotContainKey("dead_safe");
+        var stateKeys = ((LwwMapState)meta.States["$.map"]).Keys;
+        stateKeys.ShouldContainKey("alive");
+        stateKeys.ShouldContainKey("dead_unsafe");
+        stateKeys.ShouldNotContainKey("dead_safe");
         
         // Verify alive was not checked
         mockPolicy.Verify(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version == 1)), Times.Never);

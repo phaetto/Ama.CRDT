@@ -49,7 +49,7 @@ public sealed class CrdtMetadataSerializationTests
     {
         // Arrange
         var metadata = new CrdtMetadata();
-        metadata.Lww.Add("$.prop1", new CausalTimestamp(new EpochTimestamp(12345), "replica1", 1));
+        metadata.States.Add("$.prop1", new CausalTimestamp(new EpochTimestamp(12345), "replica1", 1));
         metadata.VersionVector.Add("replica1", 100L);
 
         // Act
@@ -59,21 +59,9 @@ public sealed class CrdtMetadataSerializationTests
 
         // Assert
         jsonNode.ShouldNotBeNull();
-        jsonNode.ContainsKey("Lww").ShouldBeTrue();
+        jsonNode.ContainsKey("States").ShouldBeTrue();
         jsonNode.ContainsKey("VersionVector").ShouldBeTrue();
         jsonNode.ContainsKey("SeenExceptions").ShouldBeFalse();
-        jsonNode.ContainsKey("PositionalTrackers").ShouldBeFalse();
-        jsonNode.ContainsKey("AverageRegisters").ShouldBeFalse();
-        jsonNode.ContainsKey("TwoPhaseSets").ShouldBeFalse();
-        jsonNode.ContainsKey("LwwSets").ShouldBeFalse();
-        jsonNode.ContainsKey("OrSets").ShouldBeFalse();
-        jsonNode.ContainsKey("PriorityQueues").ShouldBeFalse();
-        jsonNode.ContainsKey("LseqTrackers").ShouldBeFalse();
-        jsonNode.ContainsKey("LwwMaps").ShouldBeFalse();
-        jsonNode.ContainsKey("OrMaps").ShouldBeFalse();
-        jsonNode.ContainsKey("CounterMaps").ShouldBeFalse();
-        jsonNode.ContainsKey("TwoPhaseGraphs").ShouldBeFalse();
-        jsonNode.ContainsKey("ReplicatedTrees").ShouldBeFalse();
     }
 
     [Fact]
@@ -100,21 +88,9 @@ public sealed class CrdtMetadataSerializationTests
 
     private static void AssertAllCollectionsAreEmpty(CrdtMetadata metadata)
     {
-        metadata.Lww.ShouldBeEmpty();
+        metadata.States.ShouldBeEmpty();
         metadata.VersionVector.ShouldBeEmpty();
         metadata.SeenExceptions.ShouldBeEmpty();
-        metadata.PositionalTrackers.ShouldBeEmpty();
-        metadata.AverageRegisters.ShouldBeEmpty();
-        metadata.TwoPhaseSets.ShouldBeEmpty();
-        metadata.LwwSets.ShouldBeEmpty();
-        metadata.OrSets.ShouldBeEmpty();
-        metadata.PriorityQueues.ShouldBeEmpty();
-        metadata.LseqTrackers.ShouldBeEmpty();
-        metadata.LwwMaps.ShouldBeEmpty();
-        metadata.OrMaps.ShouldBeEmpty();
-        metadata.CounterMaps.ShouldBeEmpty();
-        metadata.TwoPhaseGraphs.ShouldBeEmpty();
-        metadata.ReplicatedTrees.ShouldBeEmpty();
     }
 
     private static CrdtMetadata CreatePopulatedMetadata()
@@ -124,52 +100,62 @@ public sealed class CrdtMetadataSerializationTests
 
         var metadata = new CrdtMetadata();
 
-        metadata.Lww.Add("$.prop1", new CausalTimestamp(new EpochTimestamp(12345), "replica1", 1));
+        metadata.States.Add("$.prop1", new CausalTimestamp(new EpochTimestamp(12345), "replica1", 1));
         metadata.VersionVector.Add("replica1", 100L);
         metadata.SeenExceptions.Add(new CrdtOperation(guid, "replica2", "$.prop2", OperationType.Upsert, "value", timestamp, 0));
-        metadata.PositionalTrackers.Add("$.array", [new PositionalIdentifier("0.5", guid)]);
-        metadata.AverageRegisters.Add("$.avg", new Dictionary<string, AverageRegisterValue>
+        
+        metadata.States.Add("$.array", new PositionalState([new PositionalIdentifier("0.5", guid)]));
+        
+        metadata.States.Add("$.avg", new AverageRegisterState(new Dictionary<string, AverageRegisterValue>
         {
             ["replica1"] = new(10m, timestamp)
-        });
-        metadata.TwoPhaseSets.Add("$.set1", new TwoPhaseSetState(
+        }));
+        
+        metadata.States.Add("$.set1", new TwoPhaseSetState(
             new HashSet<object> { "item1" }, 
             new Dictionary<object, CausalTimestamp> { ["item2"] = new CausalTimestamp(timestamp, "replica1", 1) }));
 
         var guid1 = Guid.NewGuid();
         var guid2 = Guid.NewGuid();
-        metadata.LwwSets.Add("$.lwwset1", new LwwSetState(
+        
+        metadata.States.Add("$.lwwset1", new LwwSetState(
             new Dictionary<object, ICrdtTimestamp> { ["item1"] = new EpochTimestamp(1) },
             new Dictionary<object, CausalTimestamp> { ["item2"] = new CausalTimestamp(new EpochTimestamp(2), "replica1", 1) }
         ));
-        metadata.OrSets.Add("$.orset1", new OrSetState(
+        
+        metadata.States.Add("$.orset1", new OrSetState(
             new Dictionary<object, ISet<Guid>> { ["item1"] = new HashSet<Guid> { guid1 } },
             new Dictionary<object, IDictionary<Guid, CausalTimestamp>> { ["item2"] = new Dictionary<Guid, CausalTimestamp> { [guid2] = new CausalTimestamp(timestamp, "replica1", 1) } }
         ));
-        metadata.PriorityQueues.Add("$.pq1", new LwwSetState(
+        
+        metadata.States.Add("$.pq1", new LwwSetState(
             new Dictionary<object, ICrdtTimestamp> { ["task1"] = new EpochTimestamp(1) },
             new Dictionary<object, CausalTimestamp>()
         ));
-        metadata.LseqTrackers.Add("$.lseq1", [new LseqItem(new LseqIdentifier(ImmutableList.Create(new LseqPathSegment(1, "r1"))), "A")]);
-        metadata.LwwMaps.Add("$.lwwmap1", new Dictionary<object, CausalTimestamp> { ["key1"] = new CausalTimestamp(new EpochTimestamp(1), "replica1", 1), [2] = new CausalTimestamp(new EpochTimestamp(2), "replica1", 2) });
-        metadata.OrMaps.Add("$.ormap1", new OrSetState(
+        
+        metadata.States.Add("$.lseq1", new LseqState([new LseqItem(new LseqIdentifier(ImmutableList.Create(new LseqPathSegment(1, "r1"))), "A")]));
+        
+        metadata.States.Add("$.lwwmap1", new LwwMapState(new Dictionary<object, CausalTimestamp> { ["key1"] = new CausalTimestamp(new EpochTimestamp(1), "replica1", 1), [2] = new CausalTimestamp(new EpochTimestamp(2), "replica1", 2) }));
+        
+        metadata.States.Add("$.ormap1", new OrSetState(
              new Dictionary<object, ISet<Guid>> { ["key1"] = new HashSet<Guid> { guid1 } },
              new Dictionary<object, IDictionary<Guid, CausalTimestamp>>()
         ));
-        metadata.CounterMaps.Add("$.countermap1", new Dictionary<object, PnCounterState>
+        
+        metadata.States.Add("$.countermap1", new CounterMapState(new Dictionary<object, PnCounterState>
         {
             ["key1"] = new PnCounterState(10m, 5m)
-        });
+        }));
 
         var edge = new Edge("v1", "v2", null);
-        metadata.TwoPhaseGraphs.Add("$.graph1", new TwoPhaseGraphState(
+        metadata.States.Add("$.graph1", new TwoPhaseGraphState(
             new HashSet<object> { "v1", "v2" },
             new Dictionary<object, CausalTimestamp> { ["v3"] = new CausalTimestamp(timestamp, "replica1", 1) },
             new HashSet<object> { edge },
             new Dictionary<object, CausalTimestamp> { [new Edge("v4", "v5", null)] = new CausalTimestamp(timestamp, "replica1", 2) }
         ));
 
-        metadata.ReplicatedTrees.Add("$.tree1", new OrSetState(
+        metadata.States.Add("$.tree1", new OrSetState(
             new Dictionary<object, ISet<Guid>> { [1] = new HashSet<Guid> { guid1 } },
             new Dictionary<object, IDictionary<Guid, CausalTimestamp>>()
         ));

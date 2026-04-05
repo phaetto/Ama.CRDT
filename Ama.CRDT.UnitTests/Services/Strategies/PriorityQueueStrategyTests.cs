@@ -398,7 +398,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         var itemDeadNoAdd = new Item("dead_no_add", 4);
         removes[itemDeadNoAdd] = new CausalTimestamp(safeTs1, "replica-1", 5);
 
-        meta.PriorityQueues["$.Items"] = new LwwSetState(adds, removes);
+        meta.States["$.Items"] = new LwwSetState(adds, removes);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == safeTs1 && c.ReplicaId == null))).Returns(true);
@@ -416,7 +416,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         strategy.Compact(context);
 
         // Assert
-        var queueState = meta.PriorityQueues["$.Items"];
+        var queueState = (LwwSetState)meta.States["$.Items"];
         
         queueState.Adds.ShouldContainKey(itemAlive);
         queueState.Removes.ShouldContainKey(itemAlive);

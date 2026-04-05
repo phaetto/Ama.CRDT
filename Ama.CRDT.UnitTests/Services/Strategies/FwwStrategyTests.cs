@@ -92,7 +92,7 @@ public sealed class FwwStrategyTests : IDisposable
         // Arrange
         var originalValue = 10;
         var modifiedValue = 20;
-        var originalMeta = new CrdtMetadata { Fww = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(300L), "r1", 1) } };
+        var originalMeta = new CrdtMetadata { States = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(300L), "r1", 1) } };
         var property = GetValuePropertyInfo();
         var changeTimestamp = timestampProvider.Create(200L); // Older timestamp, should be accepted in FWW
         var context = new GeneratePatchContext(
@@ -116,7 +116,7 @@ public sealed class FwwStrategyTests : IDisposable
         // Arrange
         var originalValue = 10;
         var modifiedValue = 20;
-        var originalMeta = new CrdtMetadata { Fww = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(100L), "r1", 1) } };
+        var originalMeta = new CrdtMetadata { States = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(100L), "r1", 1) } };
         var property = GetValuePropertyInfo();
         var changeTimestamp = timestampProvider.Create(200L); // Newer timestamp, should be rejected in FWW
         var context = new GeneratePatchContext(
@@ -227,7 +227,7 @@ public sealed class FwwStrategyTests : IDisposable
         // Arrange
         var model = new NullableTestModel { Value = 10 };
         var metadata = new CrdtMetadata();
-        metadata.Fww["$.Value"] = new CausalTimestamp(timestampProvider.Create(100L), "r1", 1);
+        metadata.States["$.Value"] = new CausalTimestamp(timestampProvider.Create(100L), "r1", 1);
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Value", OperationType.Remove, null, timestampProvider.Create(200L), 0);
         var context = new ApplyOperationContext(model, metadata, operation);
         
@@ -236,7 +236,7 @@ public sealed class FwwStrategyTests : IDisposable
 
         // Assert
         model.Value.ShouldBeNull();
-        metadata.Fww.ShouldNotContainKey("$.Value");
+        metadata.States.ShouldNotContainKey("$.Value");
     }
     
     [Fact]
@@ -256,7 +256,7 @@ public sealed class FwwStrategyTests : IDisposable
         // Assert
         model.Value.ShouldBe(valueAfterFirstApply);
         model.Value.ShouldBe(20);
-        metadata.Fww["$.Value"].Timestamp.ShouldBe(timestampProvider.Create(200L));
+        ((CausalTimestamp)metadata.States["$.Value"]).Timestamp.ShouldBe(timestampProvider.Create(200L));
     }
 
     [Fact]
@@ -322,8 +322,8 @@ public sealed class FwwStrategyTests : IDisposable
         mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId != "r1" || c.Version > 5))).Returns(false);
 
         var metadata = new CrdtMetadata();
-        metadata.Fww["$.Value"] = new CausalTimestamp(timestampProvider.Create(200L), "r1", 5);
-        metadata.Fww["$.Value.Keep"] = new CausalTimestamp(timestampProvider.Create(300L), "r2", 6);
+        metadata.States["$.Value"] = new CausalTimestamp(timestampProvider.Create(200L), "r1", 5);
+        metadata.States["$.Value.Keep"] = new CausalTimestamp(timestampProvider.Create(300L), "r2", 6);
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Value", "$.Value", new TestModel());
 
@@ -331,8 +331,8 @@ public sealed class FwwStrategyTests : IDisposable
         strategyA.Compact(context);
 
         // Assert
-        metadata.Fww.ShouldNotContainKey("$.Value"); // Removed as it satisfies the policy
-        metadata.Fww.ShouldContainKey("$.Value.Keep"); // Kept
+        metadata.States.ShouldNotContainKey("$.Value"); // Removed as it satisfies the policy
+        metadata.States.ShouldContainKey("$.Value.Keep"); // Kept
     }
 
     [Fact]
@@ -342,7 +342,7 @@ public sealed class FwwStrategyTests : IDisposable
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(false);
         var metadata = new CrdtMetadata();
-        metadata.Fww["$.Value"] = new CausalTimestamp(timestampProvider.Create(200L), "r1", 5);
+        metadata.States["$.Value"] = new CausalTimestamp(timestampProvider.Create(200L), "r1", 5);
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Value", "$.Value", new TestModel());
 
@@ -350,7 +350,7 @@ public sealed class FwwStrategyTests : IDisposable
         strategyA.Compact(context);
 
         // Assert
-        metadata.Fww.ShouldContainKey("$.Value");
+        metadata.States.ShouldContainKey("$.Value");
     }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

@@ -353,7 +353,7 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
 
         // The value shouldn't change yet because quorum is 2, but metadata should have the proposal
         targetDoc.Data!.Value.ShouldBe(10);
-        targetDoc.Metadata!.QuorumApprovals.ShouldNotBeEmpty();
+        targetDoc.Metadata!.States.ShouldNotBeEmpty();
     }
 
     [Fact] public void GraphEdgePayload_ShouldSerializeAndDeserialize() => TestPayloadSerialization<GraphEdgePayload>();

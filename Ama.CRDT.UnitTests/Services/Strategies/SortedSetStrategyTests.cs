@@ -645,7 +645,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         // Item 4: Dead, Safe (No Add)
         removes["dead_no_add"] = new CausalTimestamp(safeTs1, "replica-1", 1);
 
-        meta.SortedSets["$.items"] = new LwwSetState(adds, removes);
+        meta.States["$.items"] = new LwwSetState(adds, removes);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
         // Allow compacting if ReplicaId == "replica-1" and Version <= 2, or if evaluating an Add timestamp (ReplicaId null) <= 20
@@ -666,7 +666,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         strategy.Compact(context);
 
         // Assert
-        var set = meta.SortedSets["$.items"];
+        var set = (LwwSetState)meta.States["$.items"];
         set.Adds.ShouldContainKey("alive");
         set.Removes.ShouldContainKey("alive");
 

@@ -99,18 +99,19 @@ public sealed class CrdtMetadataManagerTests
         // Arrange
         var metadata = new CrdtMetadata();
         var causalTs = new CausalTimestamp(timestampProviderMock.Object.Create(100), "replica", 1);
+        var fwwTs = new FwwTimestamp(timestampProviderMock.Object.Create(100), "replica", 1);
 
-        metadata.Lww["$.a"] = causalTs;
-        metadata.Fww["$.a"] = causalTs;
-        metadata.PositionalTrackers["$.b"] = [];
-        metadata.AverageRegisters["$.c"] = new Dictionary<string, AverageRegisterValue>();
-        metadata.PriorityQueues["$.d"] = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
-        metadata.LwwSets["$.e"] = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
-        metadata.FwwSets["$.e2"] = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
-        metadata.LwwMaps["$.f"] = new Dictionary<object, CausalTimestamp>();
-        metadata.FwwMaps["$.f2"] = new Dictionary<object, CausalTimestamp>();
-        metadata.OrMaps["$.g"] = new OrSetState(new Dictionary<object, ISet<Guid>>(), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>());
-        metadata.CounterMaps["$.h"] = new Dictionary<object, PnCounterState> { { "key", new PnCounterState(1, 1) } };
+        metadata.States["$.a"] = causalTs;
+        metadata.States["$.a_fww"] = fwwTs;
+        metadata.States["$.b"] = new PositionalState([]);
+        metadata.States["$.c"] = new AverageRegisterState(new Dictionary<string, AverageRegisterValue>());
+        metadata.States["$.d"] = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
+        metadata.States["$.e"] = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
+        metadata.States["$.e2"] = new FwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
+        metadata.States["$.f"] = new LwwMapState(new Dictionary<object, CausalTimestamp>());
+        metadata.States["$.f2"] = new FwwMapState(new Dictionary<object, CausalTimestamp>());
+        metadata.States["$.g"] = new OrSetState(new Dictionary<object, ISet<Guid>>(), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>());
+        metadata.States["$.h"] = new CounterMapState(new Dictionary<object, PnCounterState> { { "key", new PnCounterState(1, 1) } });
 
         var doc = new object();
         timestampProviderMock.Setup(p => p.Now()).Returns(timestampProviderMock.Object.Create(200));
@@ -119,17 +120,7 @@ public sealed class CrdtMetadataManagerTests
         manager.Reset(new CrdtDocument<object>(doc, metadata));
         
         // Assert
-        metadata.Lww.ShouldBeEmpty();
-        metadata.Fww.ShouldBeEmpty();
-        metadata.PositionalTrackers.ShouldBeEmpty();
-        metadata.AverageRegisters.ShouldBeEmpty();
-        metadata.PriorityQueues.ShouldBeEmpty();
-        metadata.LwwSets.ShouldBeEmpty();
-        metadata.FwwSets.ShouldBeEmpty();
-        metadata.LwwMaps.ShouldBeEmpty();
-        metadata.FwwMaps.ShouldBeEmpty();
-        metadata.OrMaps.ShouldBeEmpty();
-        metadata.CounterMaps.ShouldBeEmpty();
+        metadata.States.ShouldBeEmpty();
     }
 
     [Fact]

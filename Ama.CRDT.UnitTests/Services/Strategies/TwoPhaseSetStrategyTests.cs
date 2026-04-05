@@ -282,8 +282,8 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         doc1.Tags.ShouldBe(["a", "b"], ignoreOrder: true);
         doc2.Tags.ShouldBe(["c", "d"], ignoreOrder: true);
 
-        result.Partition1.Metadata.TwoPhaseSets["$.tags"].Adds.ShouldContain("a");
-        result.Partition2.Metadata.TwoPhaseSets["$.tags"].Adds.ShouldContain("c");
+        ((TwoPhaseSetState)result.Partition1.Metadata.States["$.tags"]).Adds.ShouldContain("a");
+        ((TwoPhaseSetState)result.Partition2.Metadata.States["$.tags"]).Adds.ShouldContain("c");
     }
 
     [Fact]
@@ -305,7 +305,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
 
         var mergedDoc = (TwoPhaseSetTestModel)result.Data;
         mergedDoc.Tags.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
-        result.Metadata.TwoPhaseSets["$.tags"].Adds.Count.ShouldBeGreaterThanOrEqualTo(4);
+        ((TwoPhaseSetState)result.Metadata.States["$.tags"]).Adds.Count.ShouldBeGreaterThanOrEqualTo(4);
     }
     
     [Fact]
@@ -370,8 +370,8 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
 
         // Assert
         doc1.Tags.ShouldBe(["B"], ignoreOrder: true);
-        meta1.TwoPhaseSets["$.tags"].Adds.ShouldContain("B");
-        meta1.TwoPhaseSets["$.tags"].Tombstones.ShouldContainKey("A");
+        ((TwoPhaseSetState)meta1.States["$.tags"]).Adds.ShouldContain("B");
+        ((TwoPhaseSetState)meta1.States["$.tags"]).Tombstones.ShouldContainKey("A");
     }
 
     [Fact]
@@ -394,7 +394,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         state.Tombstones["B"] = new CausalTimestamp(timestampProvider.Now(), "R2", 10); // Should be kept
         state.Tombstones["C"] = new CausalTimestamp(timestampProvider.Now(), "R1", 6); // Should be kept
 
-        metadata.TwoPhaseSets["$.tags"] = state;
+        metadata.States["$.tags"] = state;
 
         var context = new CompactionContext(metadata, mockPolicy.Object, "Tags", "$.tags", new TwoPhaseSetTestModel());
 

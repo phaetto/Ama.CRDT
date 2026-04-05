@@ -277,8 +277,10 @@ public sealed class LseqStrategyTests : IDisposable
 
         // Verify pre-split setup
         crdtDoc.Data.Items.Count.ShouldBe(4);
-        crdtDoc.Metadata.LseqTrackers["$.items"].Count.ShouldBe(4);
-        var originalIdentifiers = crdtDoc.Metadata.LseqTrackers["$.items"].Select(i => i.Identifier).ToList();
+        
+        var itemsState = (LseqState)crdtDoc.Metadata.States["$.items"];
+        itemsState.Trackers.Count.ShouldBe(4);
+        var originalIdentifiers = itemsState.Trackers.Select(i => i.Identifier).ToList();
 
         // Act
         var splitResult = lseqStrategy.Split(crdtDoc.Data, crdtDoc.Metadata, itemsProperty);
@@ -297,11 +299,14 @@ public sealed class LseqStrategyTests : IDisposable
         var p1Meta = splitResult.Partition1.Metadata;
         var p2Meta = splitResult.Partition2.Metadata;
 
-        p1Meta.LseqTrackers["$.items"].Count.ShouldBe(2);
-        p2Meta.LseqTrackers["$.items"].Count.ShouldBe(2);
+        var p1State = (LseqState)p1Meta.States["$.items"];
+        var p2State = (LseqState)p2Meta.States["$.items"];
 
-        p1Meta.LseqTrackers["$.items"].Select(i => i.Identifier).ShouldBeSubsetOf(originalIdentifiers.Take(2));
-        p2Meta.LseqTrackers["$.items"].Select(i => i.Identifier).ShouldBeSubsetOf(originalIdentifiers.Skip(2));
+        p1State.Trackers.Count.ShouldBe(2);
+        p2State.Trackers.Count.ShouldBe(2);
+
+        p1State.Trackers.Select(i => i.Identifier).ShouldBeSubsetOf(originalIdentifiers.Take(2));
+        p2State.Trackers.Select(i => i.Identifier).ShouldBeSubsetOf(originalIdentifiers.Skip(2));
     }
 
     [Fact]
@@ -330,7 +335,7 @@ public sealed class LseqStrategyTests : IDisposable
         mergedData.Items.ShouldContain("Gamma");
         mergedData.Items.ShouldContain("Delta");
 
-        mergedResult.Metadata.LseqTrackers["$.items"].Count.ShouldBe(4);
+        ((LseqState)mergedResult.Metadata.States["$.items"]).Trackers.Count.ShouldBe(4);
         mergedResult.Metadata.VersionVector.ShouldNotBeEmpty();
     }
 
@@ -462,7 +467,7 @@ public sealed class LseqStrategyTests : IDisposable
 
         // Assert
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
-        meta.LseqTrackers.ShouldNotBeNull();
+        meta.States.ShouldNotBeNull();
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

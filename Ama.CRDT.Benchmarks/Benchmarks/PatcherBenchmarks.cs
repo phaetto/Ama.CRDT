@@ -88,9 +88,9 @@ public class PatcherBenchmarks
     {
         var clone = new CrdtMetadata();
         
-        foreach (var entry in original.Lww)
+        foreach (var entry in original.States)
         {
-            clone.Lww[entry.Key] = entry.Value;
+            clone.States[entry.Key] = entry.Value.DeepClone();
         }
         
         foreach (var entry in original.VersionVector)

@@ -327,8 +327,8 @@ public sealed class LwwSetStrategyTests : IDisposable
         doc1.Tags.ShouldBe(["a", "b"], ignoreOrder: true);
         doc2.Tags.ShouldBe(["c", "d"], ignoreOrder: true);
 
-        result.Partition1.Metadata.LwwSets["$.tags"].Adds.Keys.ShouldContain("a");
-        result.Partition2.Metadata.LwwSets["$.tags"].Adds.Keys.ShouldContain("c");
+        ((LwwSetState)result.Partition1.Metadata.States["$.tags"]).Adds.Keys.ShouldContain("a");
+        ((LwwSetState)result.Partition2.Metadata.States["$.tags"]).Adds.Keys.ShouldContain("c");
     }
 
     [Fact]
@@ -349,7 +349,7 @@ public sealed class LwwSetStrategyTests : IDisposable
 
         var mergedDoc = (TestModel)result.Data;
         mergedDoc.Tags.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
-        result.Metadata.LwwSets["$.tags"].Adds.Keys.Count.ShouldBeGreaterThanOrEqualTo(4);
+        ((LwwSetState)result.Metadata.States["$.tags"]).Adds.Keys.Count.ShouldBeGreaterThanOrEqualTo(4);
     }
     
     [Fact]
@@ -384,7 +384,7 @@ public sealed class LwwSetStrategyTests : IDisposable
         // Item 4: Dead, Safe (No Add)
         removes["item4"] = safeRemove1;
 
-        meta.LwwSets["$.tags"] = new LwwSetState(adds, removes);
+        meta.States["$.tags"] = new LwwSetState(adds, removes);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
         
@@ -401,16 +401,16 @@ public sealed class LwwSetStrategyTests : IDisposable
         strategyA.Compact(context);
 
         // Assert
-        meta.LwwSets["$.tags"].Adds.ShouldContainKey("item1");
-        meta.LwwSets["$.tags"].Removes.ShouldContainKey("item1");
+        ((LwwSetState)meta.States["$.tags"]).Adds.ShouldContainKey("item1");
+        ((LwwSetState)meta.States["$.tags"]).Removes.ShouldContainKey("item1");
 
-        meta.LwwSets["$.tags"].Adds.ShouldNotContainKey("item2");
-        meta.LwwSets["$.tags"].Removes.ShouldNotContainKey("item2");
+        ((LwwSetState)meta.States["$.tags"]).Adds.ShouldNotContainKey("item2");
+        ((LwwSetState)meta.States["$.tags"]).Removes.ShouldNotContainKey("item2");
 
-        meta.LwwSets["$.tags"].Adds.ShouldContainKey("item3");
-        meta.LwwSets["$.tags"].Removes.ShouldContainKey("item3");
+        ((LwwSetState)meta.States["$.tags"]).Adds.ShouldContainKey("item3");
+        ((LwwSetState)meta.States["$.tags"]).Removes.ShouldContainKey("item3");
 
-        meta.LwwSets["$.tags"].Removes.ShouldNotContainKey("item4");
+        ((LwwSetState)meta.States["$.tags"]).Removes.ShouldNotContainKey("item4");
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

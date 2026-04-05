@@ -125,8 +125,8 @@ public sealed class RgaStrategyTests : IDisposable
         document.Data.Items.ShouldBe(stateAfterFirstApply);
         
         // Ensure tombstones exist
-        document.Metadata.RgaTrackers["$.items"].Count.ShouldBe(4); // A, B(Deleted), C, D
-        document.Metadata.RgaTrackers["$.items"].Count(i => i.IsDeleted).ShouldBe(1);
+        ((RgaState)document.Metadata.States["$.items"]).Trackers.Count.ShouldBe(4); // A, B(Deleted), C, D
+        ((RgaState)document.Metadata.States["$.items"]).Trackers.Count(i => i.IsDeleted).ShouldBe(1);
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public sealed class RgaStrategyTests : IDisposable
         crdtDoc.Data.Items.ShouldBe(new List<string> { "A", "B", "C" });
         
         // Verify RgaItem structure
-        var trackers = crdtDoc.Metadata.RgaTrackers["$.items"];
+        var trackers = ((RgaState)crdtDoc.Metadata.States["$.items"]).Trackers;
         trackers.Count.ShouldBe(3);
         var itemB = trackers.First(x => (string)x.Value! == "B");
         var itemA = trackers.First(x => (string)x.Value! == "A");
@@ -174,7 +174,7 @@ public sealed class RgaStrategyTests : IDisposable
         crdtDoc.Data.Items.ShouldBe(new List<string> { "A", "C" });
         
         // Verify RgaItem structure (tombstone should be true for B)
-        var trackers = crdtDoc.Metadata.RgaTrackers["$.items"];
+        var trackers = ((RgaState)crdtDoc.Metadata.States["$.items"]).Trackers;
         trackers.Count.ShouldBe(3);
         var itemB = trackers.First(x => (string)x.Value! == "B");
         itemB.IsDeleted.ShouldBeTrue();
@@ -299,7 +299,7 @@ public sealed class RgaStrategyTests : IDisposable
         var itemC = new RgaItem(idC, idRoot, "C", true) with { DeletedByReplicaId = "replica-1", DeletedAtClock = 10 }; // Unsafe (Version > 5)
         var itemD = new RgaItem(idD, idRoot, "D", true) with { DeletedByReplicaId = "replica-2", DeletedAtClock = 4 }; // Unsafe (Wrong replica)
 
-        meta.RgaTrackers["$.items"] = new List<RgaItem> { root, itemA, itemB, itemC, itemD };
+        meta.States["$.items"] = new RgaState(new List<RgaItem> { root, itemA, itemB, itemC, itemD });
 
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version <= 5))).Returns(true);
@@ -311,7 +311,7 @@ public sealed class RgaStrategyTests : IDisposable
         strategy.Compact(context);
 
         // Assert
-        var trackers = meta.RgaTrackers["$.items"];
+        var trackers = ((RgaState)meta.States["$.items"]).Trackers;
         trackers.ShouldContain(i => i.Identifier == idRoot);
         trackers.ShouldNotContain(i => i.Identifier == idA); // Deleted because B is deleted and A is safe
         trackers.ShouldNotContain(i => i.Identifier == idB); // Deleted because safe and no children

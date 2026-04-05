@@ -366,8 +366,8 @@ public sealed class OrSetStrategyTests : IDisposable
         doc1.Tags.ShouldBe(["a", "b"], ignoreOrder: true);
         doc2.Tags.ShouldBe(["c", "d"], ignoreOrder: true);
 
-        result.Partition1.Metadata.OrSets["$.tags"].Adds.Keys.ShouldContain("a");
-        result.Partition2.Metadata.OrSets["$.tags"].Adds.Keys.ShouldContain("c");
+        ((OrSetState)result.Partition1.Metadata.States["$.tags"]).Adds.Keys.ShouldContain("a");
+        ((OrSetState)result.Partition2.Metadata.States["$.tags"]).Adds.Keys.ShouldContain("c");
     }
 
     [Fact]
@@ -390,7 +390,7 @@ public sealed class OrSetStrategyTests : IDisposable
 
         var mergedDoc = (TestModel)result.Data;
         mergedDoc.Tags.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);
-        result.Metadata.OrSets["$.tags"].Adds.Keys.Count.ShouldBeGreaterThanOrEqualTo(4);
+        ((OrSetState)result.Metadata.States["$.tags"]).Adds.Keys.Count.ShouldBeGreaterThanOrEqualTo(4);
     }
 
     [Fact]
@@ -420,7 +420,7 @@ public sealed class OrSetStrategyTests : IDisposable
             { "dead_unsafe", new Dictionary<Guid, CausalTimestamp> { { tag2, new CausalTimestamp(ts, "replica-2", 10) } } }
         };
 
-        meta.OrSets["$.tags"] = new OrSetState(adds, removes);
+        meta.States["$.tags"] = new OrSetState(adds, removes);
 
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.ReplicaId == "replica-1" && c.Version == 5))).Returns(true);
@@ -432,7 +432,7 @@ public sealed class OrSetStrategyTests : IDisposable
         strategyA.Compact(context);
 
         // Assert
-        var queueState = meta.OrSets["$.tags"];
+        var queueState = (OrSetState)meta.States["$.tags"];
         
         queueState.Adds.ShouldContainKey("alive");
         queueState.Adds.ShouldNotContainKey("dead_safe");
