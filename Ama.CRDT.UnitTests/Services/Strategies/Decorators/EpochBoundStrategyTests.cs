@@ -111,7 +111,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
     public void GeneratePatch_ChildProperty_ShouldInheritParentEpoch()
     {
         var fromDoc = new CrdtDocument<ShoppingCart>(new ShoppingCart { Items = new Dictionary<string, string> { { "Key1", "Val1" } } }, new CrdtMetadata());
-        fromDoc.Metadata.States["$.items"] = new EpochState(4); // Parent at epoch 4
+        fromDoc.Metadata.States["$.items@epoch"] = new EpochState(4); // Parent at epoch 4
 
         var toState = new ShoppingCart { Items = new Dictionary<string, string> { { "Key1", "Val2" } } };
 
@@ -131,7 +131,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
     public void GenerateOperation_ChildPath_ShouldInheritParentEpoch()
     {
         var doc = new CrdtDocument<ShoppingCart>(new ShoppingCart(), new CrdtMetadata());
-        doc.Metadata.States["$.items"] = new EpochState(3); // Parent is at epoch 3
+        doc.Metadata.States["$.items@epoch"] = new EpochState(3); // Parent is at epoch 3
 
         // Use GenerateOperation on a child path with Set intent
         var op = patcher.GenerateOperation(doc, x => x.Items, new MapSetIntent("Key1", "Val1"));
@@ -147,7 +147,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
     public void GenerateOperation_EpochClearIntent_ShouldBumpEpoch_AndEmitNullValue()
     {
         var doc = new CrdtDocument<ShoppingCart>(new ShoppingCart(), new CrdtMetadata());
-        doc.Metadata.States["$.items"] = new EpochState(5); // Start at epoch 5
+        doc.Metadata.States["$.items@epoch"] = new EpochState(5); // Start at epoch 5
 
         var op = patcher.GenerateOperation(doc, x => x.Items, new EpochClearIntent());
 
@@ -164,7 +164,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
     public void ApplyOperation_WithOlderEpoch_ShouldBeDiscarded()
     {
         var doc = new CrdtDocument<ShoppingCart>(new ShoppingCart { Status = "Current" }, new CrdtMetadata());
-        doc.Metadata.States["$.status"] = new EpochState(2); // Local epoch is 2
+        doc.Metadata.States["$.status@epoch"] = new EpochState(2); // Local epoch is 2
 
         var oldOp = new CrdtOperation(
             Guid.NewGuid(),
@@ -179,7 +179,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
 
         // Status should remain unchanged because epoch 1 < epoch 2
         doc.Data.Status.ShouldBe("Current");
-        doc.Metadata.States["$.status"].ShouldBeOfType<EpochState>().Epoch.ShouldBe(2);
+        doc.Metadata.States["$.status@epoch"].ShouldBeOfType<EpochState>().Epoch.ShouldBe(2);
     }
 
     [Fact]
@@ -190,7 +190,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
             Status = "OldStatus"
         }, new CrdtMetadata());
         
-        doc.Metadata.States["$.status"] = new EpochState(1); // Local epoch is 1
+        doc.Metadata.States["$.status@epoch"] = new EpochState(1); // Local epoch is 1
 
         var newEpochOp = new CrdtOperation(
             Guid.NewGuid(),
@@ -204,7 +204,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
         applicator.ApplyPatch(doc, new CrdtPatch([newEpochOp]));
 
         // State should be cleared of old items and properly bumped, applying the inner payload
-        doc.Metadata.States["$.status"].ShouldBeOfType<EpochState>().Epoch.ShouldBe(2);
+        doc.Metadata.States["$.status@epoch"].ShouldBeOfType<EpochState>().Epoch.ShouldBe(2);
         doc.Data.Status.ShouldBe("NewStatus");
     }
 
@@ -216,7 +216,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
             Items = new Dictionary<string, string> { { "Key1", "Val1" } }
         }, new CrdtMetadata());
         
-        doc.Metadata.States["$.items"] = new EpochState(1);
+        doc.Metadata.States["$.items@epoch"] = new EpochState(1);
 
         var clearOp = new CrdtOperation(
             Guid.NewGuid(),
@@ -229,7 +229,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
 
         applicator.ApplyPatch(doc, new CrdtPatch([clearOp]));
 
-        doc.Metadata.States["$.items"].ShouldBeOfType<EpochState>().Epoch.ShouldBe(2);
+        doc.Metadata.States["$.items@epoch"].ShouldBeOfType<EpochState>().Epoch.ShouldBe(2);
         doc.Data.Items.ShouldBeEmpty();
     }
 
@@ -242,8 +242,8 @@ public sealed class EpochBoundStrategyTests : IDisposable
         }, new CrdtMetadata());
         
         // Simulate child op arriving out-of-order before parent clear
-        doc.Metadata.States["$.items['Key1']"] = new EpochState(1);
-        doc.Metadata.States["$.items"] = new EpochState(1);
+        doc.Metadata.States["$.items['Key1']@epoch"] = new EpochState(1);
+        doc.Metadata.States["$.items@epoch"] = new EpochState(1);
 
         // Now parent clear arrives with Epoch 2
         var clearOp = patcher.GenerateOperation(doc, x => x.Items, new EpochClearIntent());
@@ -251,10 +251,10 @@ public sealed class EpochBoundStrategyTests : IDisposable
         applicator.ApplyPatch(doc, new CrdtPatch([clearOp]));
 
         // Parent should be bumped
-        doc.Metadata.States["$.items"].ShouldBeOfType<EpochState>().Epoch.ShouldBe(2);
+        doc.Metadata.States["$.items@epoch"].ShouldBeOfType<EpochState>().Epoch.ShouldBe(2);
         
         // Lingering child epoch must be gone, otherwise future operations will evaluate against it!
-        doc.Metadata.States.ContainsKey("$.items['Key1']").ShouldBeFalse();
+        doc.Metadata.States.ContainsKey("$.items['Key1']@epoch").ShouldBeFalse();
 
         // Future operation on child with epoch 2 should succeed and NOT trigger a clear
         var childOp = patcher.GenerateOperation(doc, x => x.Items, new MapSetIntent("Key2", "Val2"));
@@ -273,7 +273,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
         var strategy = strategyProvider.GetStrategy(typeof(ShoppingCart), property);
         
         var metadata = new CrdtMetadata();
-        metadata.States["$.status"] = new EpochState(5);
+        metadata.States["$.status@epoch"] = new EpochState(5);
         
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
@@ -284,6 +284,6 @@ public sealed class EpochBoundStrategyTests : IDisposable
         strategy.Compact(context);
 
         // Assert
-        metadata.States["$.status"].ShouldBeOfType<EpochState>().Epoch.ShouldBe(5);
+        metadata.States["$.status@epoch"].ShouldBeOfType<EpochState>().Epoch.ShouldBe(5);
     }
 }
