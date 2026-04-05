@@ -23,9 +23,9 @@ public sealed class CompactingApplicatorDecoratorTests
         var factories = new List<ICompactionPolicyFactory>();
 
         // Act & Assert
-        Should.Throw<ArgumentNullException>(() => new CompactingApplicatorDecorator(null!, metadataManagerMock.Object, factories));
-        Should.Throw<ArgumentNullException>(() => new CompactingApplicatorDecorator(applicatorMock.Object, null!, factories));
-        Should.Throw<ArgumentNullException>(() => new CompactingApplicatorDecorator(applicatorMock.Object, metadataManagerMock.Object, null!));
+        Should.Throw<ArgumentNullException>(() => new CompactingApplicatorDecorator(null!, metadataManagerMock.Object, factories, DecoratorBehavior.After));
+        Should.Throw<ArgumentNullException>(() => new CompactingApplicatorDecorator(applicatorMock.Object, null!, factories, DecoratorBehavior.After));
+        Should.Throw<ArgumentNullException>(() => new CompactingApplicatorDecorator(applicatorMock.Object, metadataManagerMock.Object, null!, DecoratorBehavior.After));
     }
 
     [Fact]
@@ -46,7 +46,7 @@ public sealed class CompactingApplicatorDecoratorTests
 
         var factories = new List<ICompactionPolicyFactory> { factory1Mock.Object, factory2Mock.Object };
 
-        var decorator = new CompactingApplicatorDecorator(applicatorMock.Object, metadataManagerMock.Object, factories);
+        var decorator = new CompactingApplicatorDecorator(applicatorMock.Object, metadataManagerMock.Object, factories, DecoratorBehavior.After);
 
         var document = new CrdtDocument<TestModel>(new TestModel(), new CrdtMetadata());
         var patch = new CrdtPatch(Array.Empty<CrdtOperation>());
@@ -79,7 +79,7 @@ public sealed class CompactingApplicatorDecoratorTests
         
         var factories = new List<ICompactionPolicyFactory>(); // Empty
 
-        var decorator = new CompactingApplicatorDecorator(applicatorMock.Object, metadataManagerMock.Object, factories);
+        var decorator = new CompactingApplicatorDecorator(applicatorMock.Object, metadataManagerMock.Object, factories, DecoratorBehavior.After);
 
         var document = new CrdtDocument<TestModel>(new TestModel(), new CrdtMetadata());
         var patch = new CrdtPatch(Array.Empty<CrdtOperation>());

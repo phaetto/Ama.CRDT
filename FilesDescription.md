@@ -6,10 +6,12 @@
 | `$/.github/workflows/publish-nuget.yml` | GitHub Actions workflow for building, testing, and publishing the `Ama.CRDT` NuGet package (including its Roslyn analyzers) on pushes to the `master` branch. |
 | `$/.gitignore` | No description provided. |
 | `$/Ama.CRDT.Analyzers.UnitTests/Ama.CRDT.Analyzers.UnitTests.csproj` | The project file for the unit tests of the Roslyn analyzers. |
+| `$/Ama.CRDT.Analyzers.UnitTests/CrdtDecoratorBehaviorAnalyzerTests.cs` | Contains unit tests for `CrdtDecoratorBehaviorAnalyzer`, verifying it correctly allows valid behavior DI registrations and reports diagnostics for unsupported ones. |
 | `$/Ama.CRDT.Analyzers.UnitTests/CrdtIntentUsageAnalyzerTests.cs` | Contains unit tests for the `CrdtIntentUsageAnalyzer`, verifying that it correctly identifies valid and invalid usages of explicit operation intents. |
 | `$/Ama.CRDT.Analyzers.UnitTests/CrdtSerializablePropertyTypeAnalyzerTests.cs` | Contains unit tests for `CrdtSerializablePropertyTypeAnalyzer`, verifying registration checks for declared types and property initializers. |
 | `$/Ama.CRDT.Analyzers.UnitTests/CrdtStrategyTypeAnalyzerTests.cs` | Contains unit tests for the `CrdtStrategyTypeAnalyzer`, verifying that it correctly identifies valid and invalid applications of CRDT strategy attributes. |
 | `$/Ama.CRDT.Analyzers/Ama.CRDT.Analyzers.csproj` | The project file for the Roslyn analyzers that validate CRDT strategy usage. It is configured to be bundled with the main `Ama.CRDT` NuGet package and not as a standalone package. |
+| `$/Ama.CRDT.Analyzers/CrdtDecoratorBehaviorAnalyzer.cs` | Roslyn analyzer (CRDT0004) to ensure that DI registrations of decorators specify a behavior that is permitted by the decorator's `[AllowedDecoratorBehavior]` attributes. |
 | `$/Ama.CRDT.Analyzers/CrdtIntentUsageAnalyzer.cs` | Roslyn analyzer to validate that explicit operation intents are supported by the corresponding property's CRDT strategy. |
 | `$/Ama.CRDT.Analyzers/CrdtSerializablePropertyTypeAnalyzer.cs` | Roslyn analyzer (CRDT0003) to ensure complex property types of registered models are also explicitly registered with [CrdtSerializable] on the CrdtContext. |
 | `$/Ama.CRDT.Analyzers/CrdtStrategyTypeAnalyzer.cs` | No description provided. |
@@ -224,6 +226,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Versioning/VersionVectorSyncServiceTests.cs` | No description provided. |
 | `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |
 | `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging and to automatically include its associated Roslyn analyzers. |
+| `$/Ama.CRDT/Attributes/AllowedDecoratorBehaviorAttribute.cs` | Attribute used to tag decorator classes with their supported execution behaviors. Meant for use alongside Roslyn Analyzers to ensure DI validation. |
 | `$/Ama.CRDT/Attributes/CrdtAotTypeAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/CrdtIntentMappingAttribute.cs` | An attribute to map intent builder extension methods to the specific explicit intent types they generate, enabling compile-time validation via Roslyn analyzers without hardcoded mappings. |
 | `$/Ama.CRDT/Attributes/CrdtStrategyAttribute.cs` | The base abstract attribute for marking properties with a specific CRDT merge strategy. Contains the strategy type. |
@@ -289,6 +292,7 @@
 | `$/Ama.CRDT/Models/CrdtPatch.cs` | Encapsulates a list of CRDT operations, now with a logical key of type `IComparable?` to support strongly-typed, sortable partition keys. |
 | `$/Ama.CRDT/Models/CrdtPropertyKey.cs` | A unique identifier representing a property without relying on `System.Reflection.PropertyInfo`, used for AOT-friendly mapping. |
 | `$/Ama.CRDT/Models/CrdtTree.cs` | A data model for a tree data structure with nodes that can be added, removed, and moved, suitable for CRDT management. |
+| `$/Ama.CRDT/Models/DecoratorBehavior.cs` | Enum defining the strict structural execution phases (`Before`, `After`, `Complex`) available to pipeline decorators. |
 | `$/Ama.CRDT/Models/Decorators/EpochPayload.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Decorators/QuorumPayload.cs` | A data structure for the payload of a quorum-bound operation. |
 | `$/Ama.CRDT/Models/DottedVersionVector.cs` | Represents a Dotted Version Vector (DVV) to track causality and operations seen by a replica. Combines a contiguous version vector with discrete "dots" for out-of-order events. |
@@ -373,10 +377,12 @@
 | `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implements the `ICrdtMetadataManager` for managing and compacting CRDT metadata. It provides helper methods like Initialize(document) to create a metadata object from a POCO by reflecting on its properties, and Reset(metadata, document) to clear and re-initialize an existing metadata object. The initialization logic correctly traverses nested objects and collections. |
 | `$/Ama.CRDT/Services/CrdtPatcher.cs` | Generates CRDT operations dynamically utilizing AOT context and `CrdtPropertyKey` identifiers. |
 | `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext` holding the unique replica ID. |
-| `$/Ama.CRDT/Services/Decorators/CompactingApplicatorDecorator.cs` | A decorator for `IAsyncCrdtApplicator` that seamlessly applies registered garbage collection policies to a document's metadata immediately after a patch is successfully applied. |
-| `$/Ama.CRDT/Services/Decorators/JournalingApplicatorDecorator.cs` | A decorator for `IAsyncCrdtApplicator` that intercepts patch applications and forwards successfully applied operations to an `ICrdtOperationJournal`. |
-| `$/Ama.CRDT/Services/Decorators/JournalingPatcherDecorator.cs` | A decorator for `IAsyncCrdtPatcher` that intercepts patch generation and explicitly created operations, forwarding them to an `ICrdtOperationJournal`. |
-| `$/Ama.CRDT/Services/Decorators/PartitioningApplicatorDecorator.cs` | A global decorator implementation of `IAsyncCrdtApplicator` that intercepts patch application, skips non-partitionable types, handles partition streaming, and delegates internal CRDT operations to the inner applicator. |
+| `$/Ama.CRDT/Services/Decorators/AsyncCrdtApplicatorDecoratorBase.cs` | An abstract base class for `IAsyncCrdtApplicator` decorators. Uses the `DecoratorBehavior` enum in its constructor to strictly control the Template Method execution flow, making bugs around pipeline ordering structurally impossible. |
+| `$/Ama.CRDT/Services/Decorators/AsyncCrdtPatcherDecoratorBase.cs` | An abstract base class for `IAsyncCrdtPatcher` decorators. Uses the `DecoratorBehavior` enum in its constructor to safely structure patch and operation generation overrides. |
+| `$/Ama.CRDT/Services/Decorators/CompactingApplicatorDecorator.cs` | A decorator for `IAsyncCrdtApplicator` that automatically runs garbage collection on the document's metadata. Refactored to declare `DecoratorBehavior.After` flow using the new base class attributes. |
+| `$/Ama.CRDT/Services/Decorators/JournalingApplicatorDecorator.cs` | A decorator for `IAsyncCrdtApplicator` that intercepts patch applications and forwards operations to the journal. Refactored to rigidly declare `DecoratorBehavior.After` flow. |
+| `$/Ama.CRDT/Services/Decorators/JournalingPatcherDecorator.cs` | A decorator for `IAsyncCrdtPatcher` that intercepts generated operations and forwards them to the journal. Refactored to rigidly declare `DecoratorBehavior.After` flow. |
+| `$/Ama.CRDT/Services/Decorators/PartitioningApplicatorDecorator.cs` | A global decorator implementation of `IAsyncCrdtApplicator` that acts as a `Complex` interceptor to manage recursive partition splitting and merging. Refactored to completely avoid Tuples in favor of struct DTOs and strict behavioral flow. |
 | `$/Ama.CRDT/Services/DifferentiateObjectContext.cs` | Defines the context object for the `ICrdtPatcher.DifferentiateObject` method, encapsulating all necessary parameters. |
 | `$/Ama.CRDT/Services/GarbageCollection/CompactionCandidate.cs` | Represents the metadata payload (e.g., Timestamp, ReplicaId, Version) of a tombstone or deleted item being evaluated for garbage collection. |
 | `$/Ama.CRDT/Services/GarbageCollection/GlobalMinimumVersionPolicy.cs` | Implements a mathematically safe compaction policy based on the Global Minimum Version Vector (GMVV) across a cluster of replicas. |
