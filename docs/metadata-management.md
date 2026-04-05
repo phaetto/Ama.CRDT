@@ -12,6 +12,7 @@ You configure this entirely in your Dependency Injection setup:
 
 ```csharp
 using Ama.CRDT.Extensions;
+using Ama.CRDT.Models;
 using Ama.CRDT.Services.Decorators;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
@@ -27,7 +28,7 @@ builder.Services.AddCrdt()
     ))
     
     // 2. Decorate the applicator to automatically trigger compaction after patches are applied.
-    .AddCrdtApplicatorDecorator<CompactingApplicatorDecorator>();
+    .AddCrdtApplicatorDecorator<CompactingApplicatorDecorator>(DecoratorBehavior.After);
 ```
 
 With this configured, you never have to manually call compaction logic. The decorator handles it in the background immediately after a patch succeeds.

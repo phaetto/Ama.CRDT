@@ -64,14 +64,16 @@ Register the stream partitioning services in your DI container using the provide
 
 ```csharp
 using Ama.CRDT.Extensions; // Includes the AddCrdtStreamPartitioning extension
+using Ama.CRDT.Models;
+using Ama.CRDT.Services.Decorators;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add core CRDT services
-builder.Services.AddCrdt();
-
-// Add the stream partitioning services with your custom provider
-builder.Services.AddCrdtStreamPartitioning<FileSystemStreamProvider>();
+// Add core CRDT services and register the partitioning decorator
+builder.Services.AddCrdt()
+    .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>(DecoratorBehavior.Complex)
+    // Add the stream partitioning services with your custom provider
+    .AddCrdtStreamPartitioning<FileSystemStreamProvider>();
 
 var app = builder.Build();
 ```
