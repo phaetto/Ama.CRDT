@@ -156,7 +156,7 @@ public sealed class SortedSetStrategy(
         var comparer = comparerProvider.GetComparer(elementType);
         var listRepresentation = collection.Cast<object>().ToList();
 
-        if (!metadata.SortedSets.TryGetValue(collectionPath, out var state))
+        if (!metadata.States.TryGetValue(collectionPath, out var baseState) || baseState is not LwwSetState state)
         {
             var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
             foreach (var item in listRepresentation)
@@ -164,7 +164,7 @@ public sealed class SortedSetStrategy(
                 adds[item] = timestampProvider.Create(0);
             }
             state = new LwwSetState(adds, new Dictionary<object, CausalTimestamp>(comparer));
-            metadata.SortedSets[collectionPath] = state;
+            metadata.States[collectionPath] = state;
         }
 
         var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType, aotContexts);
@@ -263,7 +263,7 @@ public sealed class SortedSetStrategy(
     /// <inheritdoc/>
     public void Compact(CompactionContext context)
     {
-        if (!context.Metadata.SortedSets.TryGetValue(context.PropertyPath, out var state)) return;
+        if (!context.Metadata.States.TryGetValue(context.PropertyPath, out var baseState) || baseState is not LwwSetState state) return;
 
         var deadItemsToRemove = new List<object>();
 
@@ -357,14 +357,14 @@ public sealed class SortedSetStrategy(
         var collection = partitionableProperty.Getter!(originalData) as IEnumerable;
         var list = collection?.Cast<object>().ToList() ?? new List<object>();
 
-        if (!originalMetadata.SortedSets.TryGetValue(path, out var state))
+        if (!originalMetadata.States.TryGetValue(path, out var baseState) || baseState is not LwwSetState state)
         {
             var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
             var comparer = comparerProvider.GetComparer(elementType);
             var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
             foreach (var item in list) adds[item] = timestampProvider.Create(0);
             state = new LwwSetState(adds, new Dictionary<object, CausalTimestamp>(comparer));
-            originalMetadata.SortedSets[path] = state;
+            originalMetadata.States[path] = state;
         }
 
         if (state.Adds.Count + state.Removes.Count < 2)
@@ -415,11 +415,11 @@ public sealed class SortedSetStrategy(
         var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
         var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
 
-        meta1.SortedSets[path] = new LwwSetState(adds1, rems1);
-        meta2.SortedSets[path] = new LwwSetState(adds2, rems2);
+        meta1.States[path] = new LwwSetState(adds1, rems1);
+        meta2.States[path] = new LwwSetState(adds2, rems2);
 
-        ReconstructListForSplitMerge(doc1, path, meta1.SortedSets[path], elementTypeProp, partitionableProperty.PropertyType, aotContexts);
-        ReconstructListForSplitMerge(doc2, path, meta2.SortedSets[path], elementTypeProp, partitionableProperty.PropertyType, aotContexts);
+        ReconstructListForSplitMerge(doc1, path, (LwwSetState)meta1.States[path], elementTypeProp, partitionableProperty.PropertyType, aotContexts);
+        ReconstructListForSplitMerge(doc2, path, (LwwSetState)meta2.States[path], elementTypeProp, partitionableProperty.PropertyType, aotContexts);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey!);
     }
@@ -439,12 +439,12 @@ public sealed class SortedSetStrategy(
         var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
         var rems = new Dictionary<object, CausalTimestamp>(comparer);
 
-        if (meta1.SortedSets.TryGetValue(path, out var state1))
+        if (meta1.States.TryGetValue(path, out var baseState1) && baseState1 is LwwSetState state1)
         {
             foreach (var kvp in state1.Adds) adds[kvp.Key] = kvp.Value;
             foreach (var kvp in state1.Removes) rems[kvp.Key] = kvp.Value;
         }
-        if (meta2.SortedSets.TryGetValue(path, out var state2))
+        if (meta2.States.TryGetValue(path, out var baseState2) && baseState2 is LwwSetState state2)
         {
             foreach (var kvp in state2.Adds)
             {
@@ -459,7 +459,7 @@ public sealed class SortedSetStrategy(
         }
 
         var mergedState = new LwwSetState(adds, rems);
-        mergedMeta.SortedSets[path] = mergedState;
+        mergedMeta.States[path] = mergedState;
 
         ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType, partitionableProperty.PropertyType, aotContexts);
 

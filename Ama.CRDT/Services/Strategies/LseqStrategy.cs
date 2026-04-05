@@ -49,10 +49,11 @@ public sealed class LseqStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = elementComparerProvider.GetComparer(elementType);
         
-        if (!originalMeta.LseqTrackers.TryGetValue(path, out var originalItems))
+        if (!originalMeta.States.TryGetValue(path, out var state) || state is not LseqState lseqState)
         {
-            originalItems = new List<LseqItem>();
+            lseqState = new LseqState(new List<LseqItem>());
         }
+        var originalItems = lseqState.Trackers;
 
         // 1. O(N) Optimization: Trim common prefix
         int start = 0;
@@ -182,10 +183,11 @@ public sealed class LseqStrategy(
             throw new ArgumentNullException(nameof(context), "Intent cannot be null.");
         }
 
-        if (!context.Metadata.LseqTrackers.TryGetValue(context.JsonPath, out var lseqItems))
+        if (!context.Metadata.States.TryGetValue(context.JsonPath, out var state) || state is not LseqState lseqState)
         {
-            lseqItems = new List<LseqItem>();
+            lseqState = new LseqState(new List<LseqItem>());
         }
+        var lseqItems = lseqState.Trackers;
 
         switch (context.Intent)
         {
@@ -228,11 +230,12 @@ public sealed class LseqStrategy(
     {
         var (root, metadata, operation) = context;
 
-        if (!metadata.LseqTrackers.TryGetValue(operation.JsonPath, out var lseqItems))
+        if (!metadata.States.TryGetValue(operation.JsonPath, out var state) || state is not LseqState lseqState)
         {
-            lseqItems = new List<LseqItem>();
-            metadata.LseqTrackers[operation.JsonPath] = lseqItems;
+            lseqState = new LseqState(new List<LseqItem>());
+            metadata.States[operation.JsonPath] = lseqState;
         }
+        var lseqItems = lseqState.Trackers;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
         if (parent is null || property is null)
@@ -296,7 +299,7 @@ public sealed class LseqStrategy(
                 return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        metadata.LseqTrackers[operation.JsonPath] = lseqItems;
+        metadata.States[operation.JsonPath] = lseqState;
 
         return CrdtOperationStatus.Success;
     }
@@ -346,10 +349,11 @@ public sealed class LseqStrategy(
         var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        if (!originalMetadata.LseqTrackers.TryGetValue(path, out var lseqItems) || lseqItems.Count < 2)
+        if (!originalMetadata.States.TryGetValue(path, out var state) || state is not LseqState lseqState || lseqState.Trackers.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
         }
+        var lseqItems = lseqState.Trackers;
 
         var splitIndex = lseqItems.Count / 2;
         var splitKey = lseqItems[splitIndex].Identifier;
@@ -363,8 +367,8 @@ public sealed class LseqStrategy(
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
 
-        meta1.LseqTrackers[path] = items1;
-        meta2.LseqTrackers[path] = items2;
+        meta1.States[path] = new LseqState(items1);
+        meta2.States[path] = new LseqState(items2);
 
         ReconstructListForSplitMerge(doc1, path, items1, aotContexts);
         ReconstructListForSplitMerge(doc2, path, items2, aotContexts);
@@ -381,8 +385,8 @@ public sealed class LseqStrategy(
         
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var items1 = meta1.LseqTrackers.TryGetValue(path, out var i1) ? i1 : new List<LseqItem>();
-        var items2 = meta2.LseqTrackers.TryGetValue(path, out var i2) ? i2 : new List<LseqItem>();
+        var items1 = meta1.States.TryGetValue(path, out var s1) && s1 is LseqState ls1 ? ls1.Trackers : new List<LseqItem>();
+        var items2 = meta2.States.TryGetValue(path, out var s2) && s2 is LseqState ls2 ? ls2.Trackers : new List<LseqItem>();
 
         var mergedItemsDict = new Dictionary<LseqIdentifier, LseqItem>();
         foreach (var item in items1) mergedItemsDict[item.Identifier] = item;
@@ -391,7 +395,7 @@ public sealed class LseqStrategy(
         var mergedItems = mergedItemsDict.Values.ToList();
         mergedItems.Sort((a, b) => a.Identifier.CompareTo(b.Identifier));
 
-        mergedMeta.LseqTrackers[path] = mergedItems;
+        mergedMeta.States[path] = new LseqState(mergedItems);
 
         ReconstructListForSplitMerge(mergedDoc, path, mergedItems, aotContexts);
 

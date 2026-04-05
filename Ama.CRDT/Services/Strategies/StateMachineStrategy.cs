@@ -47,7 +47,7 @@ public sealed class StateMachineStrategy(
             return;
         }
         
-        if (originalMeta.Lww.TryGetValue(path, out var originalTimestamp) && originalTimestamp.Timestamp is not null && changeTimestamp.CompareTo(originalTimestamp.Timestamp) <= 0)
+        if (originalMeta.States.TryGetValue(path, out var baseState) && baseState is CausalTimestamp originalTimestamp && originalTimestamp.Timestamp is not null && changeTimestamp.CompareTo(originalTimestamp.Timestamp) <= 0)
         {
             return;
         }
@@ -113,13 +113,13 @@ public sealed class StateMachineStrategy(
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        if (metadata.Lww.TryGetValue(operation.JsonPath, out var lwwTs) && lwwTs.Timestamp is not null && operation.Timestamp.CompareTo(lwwTs.Timestamp) <= 0)
+        if (metadata.States.TryGetValue(operation.JsonPath, out var baseState) && baseState is CausalTimestamp lwwTs && lwwTs.Timestamp is not null && operation.Timestamp.CompareTo(lwwTs.Timestamp) <= 0)
         {
             return CrdtOperationStatus.Obsolete;
         }
         
         PocoPathHelper.SetValue(root, operation.JsonPath, incomingValue, aotContexts);
-        metadata.Lww[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
+        metadata.States[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
 
         return CrdtOperationStatus.Success;
     }

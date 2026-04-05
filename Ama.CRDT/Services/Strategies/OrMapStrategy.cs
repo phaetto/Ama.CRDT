@@ -57,7 +57,7 @@ public sealed class OrMapStrategy(
             operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, new OrMapAddItem(key, modifiedDict![key], Guid.NewGuid()), changeTimestamp, clock));
         }
 
-        if (originalMeta.OrMaps.TryGetValue(path, out var metaState))
+        if (originalMeta.States.TryGetValue(path, out var baseMetaState) && baseMetaState is OrSetState metaState)
         {
             foreach (var key in removedKeys)
             {
@@ -107,7 +107,7 @@ public sealed class OrMapStrategy(
             var itemKey = PocoPathHelper.ConvertValue(removeIntent.Key, keyType, aotContexts) ?? throw new ArgumentException($"Key cannot be null or incompatible for type {keyType.Name}.");
 
             ISet<Guid> tags = new HashSet<Guid>();
-            if (metadata.OrMaps.TryGetValue(path, out var state) && state.Adds.TryGetValue(itemKey, out var existingTags))
+            if (metadata.States.TryGetValue(path, out var baseState) && baseState is OrSetState state && state.Adds.TryGetValue(itemKey, out var existingTags))
             {
                 tags = new HashSet<Guid>(existingTags);
             }
@@ -133,10 +133,10 @@ public sealed class OrMapStrategy(
         var valueType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryValueType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
-        if (!metadata.OrMaps.TryGetValue(operation.JsonPath, out var state))
+        if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not OrSetState state)
         {
             state = new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
-            metadata.OrMaps[operation.JsonPath] = state;
+            metadata.States[operation.JsonPath] = state;
         }
 
         switch (operation.Type)
@@ -184,9 +184,9 @@ public sealed class OrMapStrategy(
         var prefix = context.PropertyPath + "['";
         var lwwKeysToRemove = new List<string>();
 
-        foreach (var kvp in context.Metadata.Lww)
+        foreach (var kvp in context.Metadata.States)
         {
-            if (kvp.Key.StartsWith(prefix, StringComparison.Ordinal) && kvp.Key.EndsWith("']", StringComparison.Ordinal))
+            if (kvp.Value is CausalTimestamp causalTs && kvp.Key.StartsWith(prefix, StringComparison.Ordinal) && kvp.Key.EndsWith("']", StringComparison.Ordinal))
             {
                 bool exists = false;
                 var extractedKeyStr = kvp.Key.Substring(prefix.Length, kvp.Key.Length - prefix.Length - 2).Replace("\\'", "'");
@@ -200,7 +200,7 @@ public sealed class OrMapStrategy(
                     }
                 }
 
-                if (!exists && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: kvp.Value.Timestamp, ReplicaId: kvp.Value.ReplicaId, Version: kvp.Value.Clock)))
+                if (!exists && context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: causalTs.Timestamp, ReplicaId: causalTs.ReplicaId, Version: causalTs.Clock)))
                 {
                     lwwKeysToRemove.Add(kvp.Key);
                 }
@@ -209,12 +209,12 @@ public sealed class OrMapStrategy(
 
         foreach (var key in lwwKeysToRemove)
         {
-            context.Metadata.Lww.Remove(key);
+            context.Metadata.States.Remove(key);
         }
 
         // 2. OR-Map keys state (OrSetState) uses Guid tags.
         // We now have causal metadata on removals, so we can compact them!
-        if (context.Metadata.OrMaps.TryGetValue(context.PropertyPath, out var state))
+        if (context.Metadata.States.TryGetValue(context.PropertyPath, out var baseState) && baseState is OrSetState state)
         {
             var keysToRemove = new List<object>();
 
@@ -374,19 +374,19 @@ public sealed class OrMapStrategy(
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
 
-        if (originalMetadata.OrMaps.TryGetValue(path, out var orMapState))
+        if (originalMetadata.States.TryGetValue(path, out var baseState) && baseState is OrSetState orMapState)
         {
             IDictionary<object, ISet<Guid>> adds1 = orMapState.Adds.Where(kvp => keys1.Contains(kvp.Key))
                 .ToDictionary(kvp => kvp.Key, kvp => (ISet<Guid>)new HashSet<Guid>(kvp.Value), comparer);
             IDictionary<object, IDictionary<Guid, CausalTimestamp>> removes1 = orMapState.Removes.Where(kvp => keys1.Contains(kvp.Key))
                 .ToDictionary(kvp => kvp.Key, kvp => (IDictionary<Guid, CausalTimestamp>)new Dictionary<Guid, CausalTimestamp>(kvp.Value), comparer);
-            meta1.OrMaps[path] = new OrSetState(adds1, removes1);
+            meta1.States[path] = new OrSetState(adds1, removes1);
 
             IDictionary<object, ISet<Guid>> adds2 = orMapState.Adds.Where(kvp => keys2.Contains(kvp.Key))
                 .ToDictionary(kvp => kvp.Key, kvp => (ISet<Guid>)new HashSet<Guid>(kvp.Value), comparer);
             IDictionary<object, IDictionary<Guid, CausalTimestamp>> removes2 = orMapState.Removes.Where(kvp => keys2.Contains(kvp.Key))
                 .ToDictionary(kvp => kvp.Key, kvp => (IDictionary<Guid, CausalTimestamp>)new Dictionary<Guid, CausalTimestamp>(kvp.Value), comparer);
-            meta2.OrMaps[path] = new OrSetState(adds2, removes2);
+            meta2.States[path] = new OrSetState(adds2, removes2);
         }
 
         // Optimized LWW metadata splitting.
@@ -396,9 +396,9 @@ public sealed class OrMapStrategy(
         var keysToRemoveFrom1 = new List<string>();
         var keysToRemoveFrom2 = new List<string>();
 
-        foreach (var lwwPath in originalMetadata.Lww.Keys)
+        foreach (var lwwPath in originalMetadata.States.Keys)
         {
-            if (lwwPath.StartsWith(path, StringComparison.Ordinal) && lwwPath.Length > path.Length + 4 && lwwPath.Contains("['"))
+            if (originalMetadata.States[lwwPath] is CausalTimestamp && lwwPath.StartsWith(path, StringComparison.Ordinal) && lwwPath.Length > path.Length + 4 && lwwPath.Contains("['"))
             {
                 var keyStr = lwwPath.Substring(path.Length + 2, lwwPath.Length - path.Length - 4).Replace("\\'", "'");
                 if (stringKeys2.Contains(keyStr)) keysToRemoveFrom1.Add(lwwPath);
@@ -406,8 +406,8 @@ public sealed class OrMapStrategy(
             }
         }
         
-        foreach(var k in keysToRemoveFrom1) meta1.Lww.Remove(k);
-        foreach(var k in keysToRemoveFrom2) meta2.Lww.Remove(k);
+        foreach(var k in keysToRemoveFrom1) meta1.States.Remove(k);
+        foreach(var k in keysToRemoveFrom2) meta2.States.Remove(k);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), comparableSplitKey);
     }
@@ -428,8 +428,8 @@ public sealed class OrMapStrategy(
 
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var orMap1 = meta1.OrMaps.TryGetValue(path, out var s1) ? s1 : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
-        var orMap2 = meta2.OrMaps.TryGetValue(path, out var s2) ? s2 : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+        var orMap1 = meta1.States.TryGetValue(path, out var s1) && s1 is OrSetState s1State ? s1State : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+        var orMap2 = meta2.States.TryGetValue(path, out var s2) && s2 is OrSetState s2State ? s2State : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
         
         IDictionary<object, ISet<Guid>> mergedAdds = orMap1.Adds.ToDictionary(kvp => kvp.Key, kvp => (ISet<Guid>)new HashSet<Guid>(kvp.Value), comparer);
         foreach(var(key, tags) in orMap2.Adds)
@@ -463,7 +463,7 @@ public sealed class OrMapStrategy(
             }
         }
 
-        mergedMeta.OrMaps[path] = new OrSetState(mergedAdds, mergedRemoves);
+        mergedMeta.States[path] = new OrSetState(mergedAdds, mergedRemoves);
 
         // Add all items from dict1 first
         foreach (DictionaryEntry entry in dict1)
@@ -481,11 +481,11 @@ public sealed class OrMapStrategy(
             if (mergedDict.Contains(key))
             {
                 // Conflict: key exists in both. Resolve with LWW.
-                var hasTs1 = meta1.Lww.TryGetValue(itemPath, out var ts1);
-                var hasTs2 = meta2.Lww.TryGetValue(itemPath, out var ts2);
+                CausalTimestamp? ts1 = meta1.States.TryGetValue(itemPath, out var ts1Base) && ts1Base is CausalTimestamp ts1Val ? ts1Val : null;
+                CausalTimestamp? ts2 = meta2.States.TryGetValue(itemPath, out var ts2Base) && ts2Base is CausalTimestamp ts2Val ? ts2Val : null;
 
                 // If ts2 is present, and either ts1 is not present or ts2 is newer, update the value.
-                if (hasTs2 && (!hasTs1 || ts2.CompareTo(ts1) > 0))
+                if (ts2.HasValue && (!ts1.HasValue || ts2.Value.CompareTo(ts1.Value) > 0))
                 {
                     mergedDict[key] = value2;
                 }
@@ -498,7 +498,7 @@ public sealed class OrMapStrategy(
         }
     
         // Reconstruct dictionary based on merged OR-Set state to handle removals
-        if (mergedMeta.OrMaps.TryGetValue(path, out var orState))
+        if (mergedMeta.States.TryGetValue(path, out var mergedState) && mergedState is OrSetState orState)
         {
             var liveKeys = new HashSet<object>(comparer);
             foreach (var (key, addTags) in orState.Adds)
@@ -540,9 +540,9 @@ public sealed class OrMapStrategy(
         
         var valuePath = $"{operation.JsonPath}['{itemKey.ToString()?.Replace("'", "\\'")}']";
         var causalOpTs = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
-        if (!metadata.Lww.TryGetValue(valuePath, out var currentTimestamp) || causalOpTs.CompareTo(currentTimestamp) > 0)
+        if (!metadata.States.TryGetValue(valuePath, out var baseTs) || baseTs is not CausalTimestamp currentTimestamp || causalOpTs.CompareTo(currentTimestamp) > 0)
         {
-            metadata.Lww[valuePath] = causalOpTs;
+            metadata.States[valuePath] = causalOpTs;
             var itemValue = PocoPathHelper.ConvertValue(payload.Value, valueType, aotContexts);
             dict[itemKey] = itemValue;
         }

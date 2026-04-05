@@ -110,14 +110,14 @@ public sealed class FwwSetStrategy(
         if (isReset)
         {
             list.Clear();
-            metadata.FwwSets.Remove(operation.JsonPath);
+            metadata.States.Remove(operation.JsonPath);
             return CrdtOperationStatus.Success;
         }
 
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        if (!metadata.FwwSets.TryGetValue(operation.JsonPath, out var state))
+        if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not FwwSetState state)
         {
             var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
             var rems = new Dictionary<object, CausalTimestamp>(comparer);
@@ -125,8 +125,8 @@ public sealed class FwwSetStrategy(
             {
                 adds[list[i]!] = timestampProvider.Create(0);
             }
-            state = new LwwSetState(adds, rems);
-            metadata.FwwSets[operation.JsonPath] = state;
+            state = new FwwSetState(adds, rems);
+            metadata.States[operation.JsonPath] = state;
         }
 
         var itemValue = PocoPathHelper.ConvertValue(operation.Value, elementType, aotContexts);
@@ -177,7 +177,7 @@ public sealed class FwwSetStrategy(
     /// <inheritdoc/>
     public void Compact(CompactionContext context)
     {
-        if (!context.Metadata.FwwSets.TryGetValue(context.PropertyPath, out var state)) return;
+        if (!context.Metadata.States.TryGetValue(context.PropertyPath, out var baseState) || baseState is not FwwSetState state) return;
 
         var deadItemsToRemove = new List<object>();
 
@@ -261,7 +261,7 @@ public sealed class FwwSetStrategy(
         var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        if (!originalMetadata.FwwSets.TryGetValue(path, out var state) || state.Adds.Count + state.Removes.Count < 2)
+        if (!originalMetadata.States.TryGetValue(path, out var baseState) || baseState is not FwwSetState state || state.Adds.Count + state.Removes.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
         }
@@ -304,14 +304,16 @@ public sealed class FwwSetStrategy(
             else rems2[kvp.Key] = kvp.Value;
         }
 
-        meta1.FwwSets[path] = new LwwSetState(adds1, rems1);
-        meta2.FwwSets[path] = new LwwSetState(adds2, rems2);
+        var state1 = new FwwSetState(adds1, rems1);
+        var state2 = new FwwSetState(adds2, rems2);
+        meta1.States[path] = state1;
+        meta2.States[path] = state2;
 
         var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
         var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts)!;
 
-        ReconstructListForSplitMerge(doc1, path, meta1.FwwSets[path], elementType, aotContexts);
-        ReconstructListForSplitMerge(doc2, path, meta2.FwwSets[path], elementType, aotContexts);
+        ReconstructListForSplitMerge(doc1, path, state1, elementType, aotContexts);
+        ReconstructListForSplitMerge(doc2, path, state2, elementType, aotContexts);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
@@ -331,12 +333,12 @@ public sealed class FwwSetStrategy(
         var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
         var rems = new Dictionary<object, CausalTimestamp>(comparer);
 
-        if (meta1.FwwSets.TryGetValue(path, out var state1))
+        if (meta1.States.TryGetValue(path, out var baseState1) && baseState1 is FwwSetState state1)
         {
             foreach (var kvp in state1.Adds) adds[kvp.Key] = kvp.Value;
             foreach (var kvp in state1.Removes) rems[kvp.Key] = kvp.Value;
         }
-        if (meta2.FwwSets.TryGetValue(path, out var state2))
+        if (meta2.States.TryGetValue(path, out var baseState2) && baseState2 is FwwSetState state2)
         {
             foreach (var kvp in state2.Adds)
             {
@@ -350,15 +352,15 @@ public sealed class FwwSetStrategy(
             }
         }
 
-        var mergedState = new LwwSetState(adds, rems);
-        mergedMeta.FwwSets[path] = mergedState;
+        var mergedState = new FwwSetState(adds, rems);
+        mergedMeta.States[path] = mergedState;
 
         ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType, aotContexts);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private static void ReconstructListForSplitMerge(object root, string path, LwwSetState state, Type elementType, IEnumerable<CrdtAotContext> aotContexts)
+    private static void ReconstructListForSplitMerge(object root, string path, FwwSetState state, Type elementType, IEnumerable<CrdtAotContext> aotContexts)
     {
         var resolution = PocoPathHelper.ResolvePath(root, path, aotContexts);
         if (resolution.Parent == null || resolution.Property == null) return;

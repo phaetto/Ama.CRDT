@@ -38,11 +38,12 @@ public sealed class FwwStrategy(
             return;
         }
         
-        originalMeta.Fww.TryGetValue(path, out var originalCausal);
-        
-        if (originalCausal.Timestamp is not null && changeTimestamp.CompareTo(originalCausal.Timestamp) >= 0)
+        if (originalMeta.States.TryGetValue(path, out var baseState) && baseState is CausalTimestamp originalCausal)
         {
-            return;
+            if (originalCausal.Timestamp is not null && changeTimestamp.CompareTo(originalCausal.Timestamp) >= 0)
+            {
+                return;
+            }
         }
 
         var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, modifiedValue, changeTimestamp, clock);
@@ -93,26 +94,28 @@ public sealed class FwwStrategy(
 
         bool isReset = operation.Type == OperationType.Remove && operation.Value is null;
 
-        metadata.Fww.TryGetValue(operation.JsonPath, out var fwwCausal);
-        if (!isReset && fwwCausal.Timestamp is not null && operation.Timestamp.CompareTo(fwwCausal.Timestamp) >= 0)
+        if (!isReset && metadata.States.TryGetValue(operation.JsonPath, out var baseState) && baseState is CausalTimestamp fwwCausal)
         {
-            return CrdtOperationStatus.Obsolete;
+            if (fwwCausal.Timestamp is not null && operation.Timestamp.CompareTo(fwwCausal.Timestamp) >= 0)
+            {
+                return CrdtOperationStatus.Obsolete;
+            }
         }
         
         if (isReset)
         {
             PocoPathHelper.SetValue(root, operation.JsonPath, null, aotContexts);
-            metadata.Fww.Remove(operation.JsonPath);
+            metadata.States.Remove(operation.JsonPath);
         }
         else if (operation.Type == OperationType.Remove)
         {
             PocoPathHelper.SetValue(root, operation.JsonPath, null, aotContexts );
-            metadata.Fww[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
+            metadata.States[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
         }
         else if (operation.Type == OperationType.Upsert)
         {
             PocoPathHelper.SetValue(root, operation.JsonPath, operation.Value, aotContexts);
-            metadata.Fww[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
+            metadata.States[operation.JsonPath] = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
         }
         else
         {
@@ -127,11 +130,11 @@ public sealed class FwwStrategy(
     {
         var keysToRemove = new List<string>();
 
-        foreach (var kvp in context.Metadata.Fww)
+        foreach (var kvp in context.Metadata.States)
         {
-            if (kvp.Key.StartsWith(context.PropertyPath, StringComparison.Ordinal))
+            if (kvp.Value is CausalTimestamp causal && kvp.Key.StartsWith(context.PropertyPath, StringComparison.Ordinal))
             {
-                var candidate = new CompactionCandidate(Timestamp: kvp.Value.Timestamp, ReplicaId: kvp.Value.ReplicaId, Version: kvp.Value.Clock);
+                var candidate = new CompactionCandidate(Timestamp: causal.Timestamp, ReplicaId: causal.ReplicaId, Version: causal.Clock);
                 if (context.Policy.IsSafeToCompact(candidate))
                 {
                     keysToRemove.Add(kvp.Key);
@@ -141,7 +144,7 @@ public sealed class FwwStrategy(
 
         foreach (var key in keysToRemove)
         {
-            context.Metadata.Fww.Remove(key);
+            context.Metadata.States.Remove(key);
         }
     }
 }

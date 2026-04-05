@@ -55,7 +55,7 @@ public sealed class OrSetStrategy(
             operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp, clock));
         }
 
-        if (originalMeta.OrSets.TryGetValue(path, out var metaState))
+        if (originalMeta.States.TryGetValue(path, out var baseMetaState) && baseMetaState is OrSetState metaState)
         {
             foreach (var item in removed)
             {
@@ -125,10 +125,10 @@ public sealed class OrSetStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        if (!metadata.OrSets.TryGetValue(operation.JsonPath, out var state))
+        if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not OrSetState state)
         {
             state = new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
-            metadata.OrSets[operation.JsonPath] = state;
+            metadata.States[operation.JsonPath] = state;
         }
 
         object? modifiedItemValue = null;
@@ -174,7 +174,7 @@ public sealed class OrSetStrategy(
     /// <inheritdoc/>
     public void Compact(CompactionContext context)
     {
-        if (!context.Metadata.OrSets.TryGetValue(context.PropertyPath, out var state)) return;
+        if (!context.Metadata.States.TryGetValue(context.PropertyPath, out var baseState) || baseState is not OrSetState state) return;
 
         var itemsToRemove = new List<object>();
 
@@ -276,7 +276,7 @@ public sealed class OrSetStrategy(
         var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
-        if (!originalMetadata.OrSets.TryGetValue(path, out var state) || state.Adds.Count + state.Removes.Count < 2)
+        if (!originalMetadata.States.TryGetValue(path, out var baseState) || baseState is not OrSetState state || state.Adds.Count + state.Removes.Count < 2)
         {
             throw new InvalidOperationException("Cannot split a partition with less than 2 items.");
         }
@@ -310,14 +310,14 @@ public sealed class OrSetStrategy(
             else rems2[kvp.Key] = new Dictionary<Guid, CausalTimestamp>(kvp.Value);
         }
 
-        meta1.OrSets[path] = new OrSetState(adds1, rems1);
-        meta2.OrSets[path] = new OrSetState(adds2, rems2);
+        meta1.States[path] = new OrSetState(adds1, rems1);
+        meta2.States[path] = new OrSetState(adds2, rems2);
 
         var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts);
         var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts);
 
-        ReconstructListForSplitMerge(doc1, path, meta1.OrSets[path], elementType, partitionableProperty.PropertyType);
-        ReconstructListForSplitMerge(doc2, path, meta2.OrSets[path], elementType, partitionableProperty.PropertyType);
+        ReconstructListForSplitMerge(doc1, path, (OrSetState)meta1.States[path], elementType, partitionableProperty.PropertyType);
+        ReconstructListForSplitMerge(doc2, path, (OrSetState)meta2.States[path], elementType, partitionableProperty.PropertyType);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
@@ -337,12 +337,12 @@ public sealed class OrSetStrategy(
         var adds = new Dictionary<object, ISet<Guid>>(comparer);
         var rems = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer);
 
-        if (meta1.OrSets.TryGetValue(path, out var state1))
+        if (meta1.States.TryGetValue(path, out var baseState1) && baseState1 is OrSetState state1)
         {
             foreach (var kvp in state1.Adds) adds[kvp.Key] = new HashSet<Guid>(kvp.Value);
             foreach (var kvp in state1.Removes) rems[kvp.Key] = new Dictionary<Guid, CausalTimestamp>(kvp.Value);
         }
-        if (meta2.OrSets.TryGetValue(path, out var state2))
+        if (meta2.States.TryGetValue(path, out var baseState2) && baseState2 is OrSetState state2)
         {
             foreach (var kvp in state2.Adds)
             {
@@ -363,7 +363,7 @@ public sealed class OrSetStrategy(
         }
 
         var mergedState = new OrSetState(adds, rems);
-        mergedMeta.OrSets[path] = mergedState;
+        mergedMeta.States[path] = mergedState;
 
         ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType, partitionableProperty.PropertyType);
 
@@ -516,7 +516,7 @@ public sealed class OrSetStrategy(
     {
         var tags = new HashSet<Guid>();
 
-        if (value != null && context.Metadata.OrSets.TryGetValue(context.JsonPath, out var state))
+        if (value != null && context.Metadata.States.TryGetValue(context.JsonPath, out var baseState) && baseState is OrSetState state)
         {
             if (state.Adds.TryGetValue(value, out var existingTags))
             {

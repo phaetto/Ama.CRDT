@@ -90,12 +90,14 @@ public sealed class ApprovalQuorumStrategy(
         var requiredQuorum = quorumAttr?.QuorumSize ?? 1;
 
         var path = context.Operation.JsonPath;
-        if (!context.Metadata.QuorumApprovals.TryGetValue(path, out var pathApprovals))
+        if (!context.Metadata.States.TryGetValue(path, out var baseState) || baseState is not QuorumState quorumState)
         {
             var comparer = comparerProvider.GetComparer(typeof(object));
-            pathApprovals = new Dictionary<object, ISet<string>>(comparer);
-            context.Metadata.QuorumApprovals[path] = pathApprovals;
+            quorumState = new QuorumState(new Dictionary<object, ISet<string>>(comparer));
+            context.Metadata.States[path] = quorumState;
         }
+
+        var pathApprovals = quorumState.Approvals;
 
         // Handle null proposed values cleanly using a constant proxy if needed, as Dictionaries reject null keys.
         var keyObject = payload.ProposedValue ?? "$null";
@@ -122,7 +124,7 @@ public sealed class ApprovalQuorumStrategy(
             pathApprovals.Remove(keyObject);
             if (pathApprovals.Count == 0)
             {
-                context.Metadata.QuorumApprovals.Remove(path);
+                context.Metadata.States.Remove(path);
             }
 
             return status;
