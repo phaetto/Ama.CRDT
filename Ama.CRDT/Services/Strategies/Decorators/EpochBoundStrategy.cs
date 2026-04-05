@@ -27,7 +27,7 @@ using System.Linq;
 [OperationBased]
 public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, ReplicaContext replicaContext, IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
-    private const string EpochSuffix = "@epoch";
+    private const string DecoratorKey = "Epoch";
 
     private ICrdtStrategy GetInnerStrategy(Type declaringType, CrdtPropertyInfo property)
     {
@@ -116,7 +116,9 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
             // We entered a new epoch. Clear all metadata and local state.
             // MUST clear metadata before setting the new epoch so we don't clear the new value.
             ClearMetadataForPath(context.Metadata, basePath);
-            context.Metadata.States[basePath + EpochSuffix] = new EpochState(payload.Epoch);
+            
+            var decoratorPath = MetadataPathHelper.GetDecoratorPath(basePath, DecoratorKey);
+            context.Metadata.States[decoratorPath] = new EpochState(payload.Epoch);
 
             var propVal = PocoPathHelper.GetValue(context.Root, basePath, aotContexts);
             if (propVal is System.Collections.IList list && !list.IsFixedSize)
@@ -191,9 +193,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         {
             if (kvp.Value is EpochState epochState)
             {
-                string actualPath = kvp.Key.EndsWith(EpochSuffix) 
-                    ? kvp.Key.Substring(0, kvp.Key.Length - EpochSuffix.Length) 
-                    : kvp.Key;
+                string actualPath = MetadataPathHelper.GetBasePath(kvp.Key);
 
                 if (fullPath == actualPath || fullPath.StartsWith(actualPath + ".") || fullPath.StartsWith(actualPath + "["))
                 {
@@ -211,25 +211,15 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
 
     private static void ClearMetadataForPath(CrdtMetadata metadata, string path)
     {
-        var prefix1 = path + ".";
-        var prefix2 = path + "[";
-        var isMatch = (string k) => 
-        {
-            var actualK = k.EndsWith(EpochSuffix) ? k.Substring(0, k.Length - EpochSuffix.Length) : k;
-            return actualK == path || actualK.StartsWith(prefix1) || actualK.StartsWith(prefix2);
-        };
+        var keysToRemove = metadata.States.Keys
+            .Where(k => MetadataPathHelper.IsChildOrSelfPath(k, path))
+            .ToList();
 
         // Crucial: We must clear states for child paths as well, otherwise a lingering child 
         // will override the parent's new higher epoch during future operations!
-        RemoveKeys(metadata.States, isMatch);
-    }
-
-    private static void RemoveKeys<TValue>(IDictionary<string, TValue> dict, Func<string, bool> predicate)
-    {
-        var keysToRemove = dict.Keys.Where(predicate).ToList();
         foreach (var key in keysToRemove)
         {
-            dict.Remove(key);
+            metadata.States.Remove(key);
         }
     }
 }

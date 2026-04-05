@@ -164,6 +164,7 @@
 | `$/Ama.CRDT.UnitTests/Services/GarbageCollection/GlobalMinimumVersionPolicyTests.cs` | Contains unit tests for `GlobalMinimumVersionPolicy`, verifying correct GMVV-based causal evaluation for safe compaction of candidates. |
 | `$/Ama.CRDT.UnitTests/Services/GarbageCollection/ThresholdCompactionPolicyTests.cs` | Contains unit tests for `ThresholdCompactionPolicy`, testing time-to-live logic using wall-clock timestamps and logical version thresholds. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/HelpersTestCrdtContext.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Helpers/MetadataPathHelperTests.cs` | Contains unit tests for `MetadataPathHelper`, verifying the correct generation, extraction, and matching of decorator-isolated metadata paths. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/Models.cs` | Contains simple data models for unit testing path conversion and resolution helpers. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs, and testing new centralized reflection helpers for getting/setting values and retrieving type information. |
 | `$/Ama.CRDT.UnitTests/Services/Journaling/JournalManagerTests.cs` | Contains unit tests for `JournalManager`, verifying the retrieval of missing operations based on synchronization requirements, range bounds, and missing dots. |
@@ -283,6 +284,7 @@
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
 | `$/Ama.CRDT/Models/BidirectionalSyncRequirements.cs` | A data structure containing the synchronization requirements for two replicas to fully catch up with each other. |
 | `$/Ama.CRDT/Models/CausalTimestamp.cs` | A data structure that bundles a logical timestamp with the causal identity (replica and clock) of the operation, used to track metadata for tombstones and deletions safely for garbage collection. |
+| `$/Ama.CRDT/Models/CompositeMetadataState.cs` | Represents a composite metadata state that holds both the inner base strategy state and isolated decorator states mapped to a single JSON property path, avoiding string mangling. |
 | `$/Ama.CRDT/Models/CounterMapState.cs` | A wrapper state structure implementing `ICrdtState` for Counter-Map trackers. |
 | `$/Ama.CRDT/Models/CrdtDocument.cs` | No description provided. |
 | `$/Ama.CRDT/Models/CrdtGraph.cs` | A data model for a graph structure with vertices and edges, suitable for CRDT management. |
@@ -391,6 +393,7 @@
 | `$/Ama.CRDT/Services/GarbageCollection/ICompactionPolicyFactory.cs` | Defines a factory that dynamically generates a compaction policy. Useful for long-running scopes that need policies evaluated relative to the current time. |
 | `$/Ama.CRDT/Services/GarbageCollection/ThresholdCompactionPolicy.cs` | Implements a heuristic-based compaction policy (TTL) that considers any timestamp or version older than a specified threshold as safe to compact. |
 | `$/Ama.CRDT/Services/GarbageCollection/ThresholdCompactionPolicyFactory.cs` | Factory for creating instances of `ThresholdCompactionPolicy` dynamically based on time-to-live (`TimeSpan`) or dynamic threshold providers. |
+| `$/Ama.CRDT/Services/Helpers/MetadataPathHelper.cs` | Provides formalized methods for constructing and evaluating metadata state paths, ensuring decorator strategies isolate their state safely without string mangling bugs. |
 | `$/Ama.CRDT/Services/Helpers/PocoPathHelper.cs` | A utility class managing JSON paths mapped against the Source Generator AOT Contexts. |
 | `$/Ama.CRDT/Services/IAsyncCrdtApplicator.cs` | Defines the asynchronous contract for a service that applies a CRDT patch to a document. |
 | `$/Ama.CRDT/Services/IAsyncCrdtPatcher.cs` | Defines the asynchronous contract for a service that compares two versions of a data model and generates a CRDT patch. |
