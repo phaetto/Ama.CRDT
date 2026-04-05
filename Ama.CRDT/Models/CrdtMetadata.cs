@@ -17,28 +17,10 @@ using System.Linq;
 public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
 {
     /// <summary>
-    /// Gets or sets a dictionary that stores the epoch generation for properties managed by the Epoch Bound strategy.
-    /// The key is the JSON Path to the property.
+    /// Gets or sets a dictionary that maps a JSON Path of a property to its specific CRDT resolution state.
+    /// This utilizes polymorphic serialization for all concrete state implementations (e.g., LwwSetState, PnCounterState).
     /// </summary>
-    public IDictionary<string, int> Epochs { get; set; } = new Dictionary<string, int>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the Approval Quorum strategy.
-    /// The outer key is the JSON Path. The inner dictionary maps the proposed value to a set of Replica IDs that approved it.
-    /// </summary>
-    public IDictionary<string, IDictionary<object, ISet<string>>> QuorumApprovals { get; set; } = new Dictionary<string, IDictionary<object, ISet<string>>>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the last-seen causal timestamp for properties managed by the Last-Writer-Wins (LWW) strategy.
-    /// The key is the JSON Path to the property.
-    /// </summary>
-    public IDictionary<string, CausalTimestamp> Lww { get; set; } = new Dictionary<string, CausalTimestamp>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the earliest-seen causal timestamp for properties managed by the First-Writer-Wins (FWW) strategy.
-    /// The key is the JSON Path to the property.
-    /// </summary>
-    public IDictionary<string, CausalTimestamp> Fww { get; set; } = new Dictionary<string, CausalTimestamp>();
+    public IDictionary<string, ICrdtMetadataState> States { get; set; } = new Dictionary<string, ICrdtMetadataState>();
 
     /// <summary>
     /// Gets or sets a version vector mapping a ReplicaId to the latest contiguous causal sequence clock received from that replica.
@@ -51,105 +33,6 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     /// This set is used for idempotency checks and can be compacted once the version vector advances.
     /// </summary>
     public ISet<CrdtOperation> SeenExceptions { get; set; } = new HashSet<CrdtOperation>();
-    
-    /// <summary>
-    /// Gets or sets a dictionary that stores the ordered list of positional identifiers for properties managed by the ArrayLcsStrategy.
-    /// The key is the JSON Path to the array property.
-    /// </summary>
-    public IDictionary<string, List<PositionalIdentifier>> PositionalTrackers { get; set; } = new Dictionary<string, List<PositionalIdentifier>>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the per-replica contributions for properties managed by the AverageRegisterStrategy.
-    /// The outer key is the JSON Path to the property, the inner key is the ReplicaId.
-    /// </summary>
-    public IDictionary<string, IDictionary<string, AverageRegisterValue>> AverageRegisters { get; set; } = new Dictionary<string, IDictionary<string, AverageRegisterValue>>();
-    
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the Two-Phase Set (2P-Set) strategy.
-    /// The key is the JSON Path to the property.
-    /// </summary>
-    public IDictionary<string, TwoPhaseSetState> TwoPhaseSets { get; set; } = new Dictionary<string, TwoPhaseSetState>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the Last-Writer-Wins Set (LWW-Set) strategy.
-    /// The key is the JSON Path to the property.
-    /// </summary>
-    public IDictionary<string, LwwSetState> LwwSets { get; set; } = new Dictionary<string, LwwSetState>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the First-Writer-Wins Set (FWW-Set) strategy.
-    /// The key is the JSON Path to the property. Uses LwwSetState as the state structure is identical.
-    /// </summary>
-    public IDictionary<string, LwwSetState> FwwSets { get; set; } = new Dictionary<string, LwwSetState>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the Observed-Remove Set (OR-Set) strategy.
-    /// The key is the JSON Path to the property.
-    /// </summary>
-    public IDictionary<string, OrSetState> OrSets { get; set; } = new Dictionary<string, OrSetState>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the Priority Queue strategy.
-    /// It functions similarly to an LWW-Set, tracking additions and removals with timestamps.
-    /// The key is the JSON Path to the property.
-    /// </summary>
-    public IDictionary<string, LwwSetState> PriorityQueues { get; set; } = new Dictionary<string, LwwSetState>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the Sorted Set strategy.
-    /// The key is the JSON Path to the property.
-    /// </summary>
-    public IDictionary<string, LwwSetState> SortedSets { get; set; } = new Dictionary<string, LwwSetState>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the LSEQ strategy.
-    /// The key is the JSON Path to the array. The value is a list of items, each pairing a dense identifier with a value.
-    /// </summary>
-    public IDictionary<string, List<LseqItem>> LseqTrackers { get; set; } = new Dictionary<string, List<LseqItem>>();
-    
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the RGA (Replicated Growable Array) strategy.
-    /// The key is the JSON Path to the array. The value is a list of RGA nodes tracking insertion causality and tombstones.
-    /// </summary>
-    public IDictionary<string, List<RgaItem>> RgaTrackers { get; set; } = new Dictionary<string, List<RgaItem>>();
-    
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the Last-Writer-Wins Map (LWW-Map) strategy.
-    /// The outer key is the JSON Path to the property. The inner dictionary maps each key from the user's dictionary to its LWW timestamp and causal tracking.
-    /// </summary>
-    public IDictionary<string, IDictionary<object, CausalTimestamp>> LwwMaps { get; set; } = new Dictionary<string, IDictionary<object, CausalTimestamp>>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the First-Writer-Wins Map (FWW-Map) strategy.
-    /// The outer key is the JSON Path to the property. The inner dictionary maps each key from the user's dictionary to its earliest-seen causal timestamp.
-    /// </summary>
-    public IDictionary<string, IDictionary<object, CausalTimestamp>> FwwMaps { get; set; } = new Dictionary<string, IDictionary<object, CausalTimestamp>>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the Observed-Remove Map (OR-Map) strategy.
-    /// The key is the JSON Path to the property. The value contains dictionaries for 'Adds' and 'Removes' with their associated unique tags, managing key presence.
-    /// Value updates are managed separately using LWW timestamps in the main Lww dictionary.
-    /// </summary>
-    public IDictionary<string, OrSetState> OrMaps { get; set; } = new Dictionary<string, OrSetState>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the Counter Map strategy.
-    /// The outer key is the JSON Path to the property. The inner dictionary maps each key from the user's dictionary
-    /// to its PN-Counter state.
-    /// </summary>
-    public IDictionary<string, IDictionary<object, PnCounterState>> CounterMaps { get; set; } = new Dictionary<string, IDictionary<object, PnCounterState>>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for properties managed by the Two-Phase Graph (2P-Graph) strategy.
-    /// The key is the JSON Path to the property.
-    /// </summary>
-    public IDictionary<string, TwoPhaseGraphState> TwoPhaseGraphs { get; set; } = new Dictionary<string, TwoPhaseGraphState>();
-
-    /// <summary>
-    /// Gets or sets a dictionary that stores the state for node existence in properties managed by the Replicated Tree strategy.
-    /// It uses OR-Set logic, mapping a node's ID to unique tags for its additions and removals.
-    /// </summary>
-    public IDictionary<string, OrSetState> ReplicatedTrees { get; set; } = new Dictionary<string, OrSetState>();
 
     /// <summary>
     /// Creates a deep copy of this metadata instance.
@@ -159,141 +42,19 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     {
         var newMetadata = new CrdtMetadata();
 
-        foreach (var kvp in Epochs) { newMetadata.Epochs.Add(kvp.Key, kvp.Value); }
-        foreach (var kvp in Lww) { newMetadata.Lww.Add(kvp.Key, kvp.Value); }
-        foreach (var kvp in Fww) { newMetadata.Fww.Add(kvp.Key, kvp.Value); }
-        foreach (var kvp in PositionalTrackers) { newMetadata.PositionalTrackers.Add(kvp.Key, new List<PositionalIdentifier>(kvp.Value)); }
-        foreach (var kvp in AverageRegisters) { newMetadata.AverageRegisters.Add(kvp.Key, new Dictionary<string, AverageRegisterValue>(kvp.Value)); }
-
-        foreach (var kvp in QuorumApprovals)
+        foreach (var kvp in States)
         {
-            var dict = new Dictionary<object, ISet<string>>((kvp.Value as Dictionary<object, ISet<string>>)?.Comparer);
-            foreach (var innerKvp in kvp.Value)
-            {
-                dict.Add(innerKvp.Key, new HashSet<string>(innerKvp.Value));
-            }
-            newMetadata.QuorumApprovals.Add(kvp.Key, dict);
+            newMetadata.States.Add(kvp.Key, kvp.Value.DeepClone());
         }
 
-        foreach (var kvp in TwoPhaseSets)
-        {
-            newMetadata.TwoPhaseSets.Add(kvp.Key, new TwoPhaseSetState(
-                Adds: new HashSet<object>(kvp.Value.Adds, (kvp.Value.Adds as HashSet<object>)?.Comparer),
-                Tombstones: new Dictionary<object, CausalTimestamp>(kvp.Value.Tombstones, (kvp.Value.Tombstones as Dictionary<object, CausalTimestamp>)?.Comparer)
-            ));
+        foreach (var kvp in VersionVector) 
+        { 
+            newMetadata.VersionVector.Add(kvp.Key, kvp.Value); 
         }
 
-        foreach (var kvp in LwwSets)
-        {
-            newMetadata.LwwSets.Add(kvp.Key, new LwwSetState(
-                Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
-                Removes: new Dictionary<object, CausalTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, CausalTimestamp>)?.Comparer)
-            ));
-        }
-
-        foreach (var kvp in FwwSets)
-        {
-            newMetadata.FwwSets.Add(kvp.Key, new LwwSetState(
-                Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
-                Removes: new Dictionary<object, CausalTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, CausalTimestamp>)?.Comparer)
-            ));
-        }
-
-        foreach (var kvp in OrSets)
-        {
-            var addedComparer = (kvp.Value.Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
-            var newAdded = kvp.Value.Adds.ToDictionary(
-                innerKvp => innerKvp.Key,
-                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
-                addedComparer);
-
-            var removedComparer = (kvp.Value.Removes as Dictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer;
-            var newRemoved = kvp.Value.Removes.ToDictionary(
-                innerKvp => innerKvp.Key,
-                innerKvp => (IDictionary<Guid, CausalTimestamp>)new Dictionary<Guid, CausalTimestamp>(innerKvp.Value),
-                removedComparer);
-
-            newMetadata.OrSets.Add(kvp.Key, new OrSetState(Adds: newAdded, Removes: newRemoved));
-        }
-
-        foreach (var kvp in PriorityQueues)
-        {
-            newMetadata.PriorityQueues.Add(kvp.Key, new LwwSetState(
-                Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
-                Removes: new Dictionary<object, CausalTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, CausalTimestamp>)?.Comparer)
-            ));
-        }
-
-        foreach (var kvp in SortedSets)
-        {
-            newMetadata.SortedSets.Add(kvp.Key, new LwwSetState(
-                Adds: new Dictionary<object, ICrdtTimestamp>(kvp.Value.Adds, (kvp.Value.Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer),
-                Removes: new Dictionary<object, CausalTimestamp>(kvp.Value.Removes, (kvp.Value.Removes as Dictionary<object, CausalTimestamp>)?.Comparer)
-            ));
-        }
-
-        foreach (var kvp in LseqTrackers) { newMetadata.LseqTrackers.Add(kvp.Key, new List<LseqItem>(kvp.Value)); }
-        foreach (var kvp in RgaTrackers) { newMetadata.RgaTrackers.Add(kvp.Key, new List<RgaItem>(kvp.Value)); }
-        foreach (var kvp in VersionVector) { newMetadata.VersionVector.Add(kvp.Key, kvp.Value); }
-        foreach (var op in SeenExceptions) { newMetadata.SeenExceptions.Add(op); }
-
-        foreach (var kvp in LwwMaps)
-        {
-            newMetadata.LwwMaps.Add(kvp.Key, new Dictionary<object, CausalTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, CausalTimestamp>)?.Comparer));
-        }
-
-        foreach (var kvp in FwwMaps)
-        {
-            newMetadata.FwwMaps.Add(kvp.Key, new Dictionary<object, CausalTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, CausalTimestamp>)?.Comparer));
-        }
-
-        foreach (var kvp in OrMaps)
-        {
-            var addedComparer = (kvp.Value.Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
-            var newAdded = kvp.Value.Adds.ToDictionary(
-                innerKvp => innerKvp.Key,
-                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
-                addedComparer);
-
-            var removedComparer = (kvp.Value.Removes as Dictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer;
-            var newRemoved = kvp.Value.Removes.ToDictionary(
-                innerKvp => innerKvp.Key,
-                innerKvp => (IDictionary<Guid, CausalTimestamp>)new Dictionary<Guid, CausalTimestamp>(innerKvp.Value),
-                removedComparer);
-
-            newMetadata.OrMaps.Add(kvp.Key, new OrSetState(Adds: newAdded, Removes: newRemoved));
-        }
-
-        foreach (var kvp in CounterMaps)
-        {
-            newMetadata.CounterMaps.Add(kvp.Key, new Dictionary<object, PnCounterState>(kvp.Value, (kvp.Value as Dictionary<object, PnCounterState>)?.Comparer));
-        }
-        
-        foreach (var kvp in TwoPhaseGraphs)
-        {
-            newMetadata.TwoPhaseGraphs.Add(kvp.Key, new TwoPhaseGraphState(
-                VertexAdds: new HashSet<object>(kvp.Value.VertexAdds, (kvp.Value.VertexAdds as HashSet<object>)?.Comparer),
-                VertexTombstones: new Dictionary<object, CausalTimestamp>(kvp.Value.VertexTombstones, (kvp.Value.VertexTombstones as Dictionary<object, CausalTimestamp>)?.Comparer),
-                EdgeAdds: new HashSet<object>(kvp.Value.EdgeAdds, (kvp.Value.EdgeAdds as HashSet<object>)?.Comparer),
-                EdgeTombstones: new Dictionary<object, CausalTimestamp>(kvp.Value.EdgeTombstones, (kvp.Value.EdgeTombstones as Dictionary<object, CausalTimestamp>)?.Comparer)
-            ));
-        }
-
-        foreach (var kvp in ReplicatedTrees)
-        {
-            var addedComparer = (kvp.Value.Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
-            var newAdded = kvp.Value.Adds.ToDictionary(
-                innerKvp => innerKvp.Key,
-                innerKvp => (ISet<Guid>)new HashSet<Guid>(innerKvp.Value),
-                addedComparer);
-
-            var removedComparer = (kvp.Value.Removes as Dictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer;
-            var newRemoved = kvp.Value.Removes.ToDictionary(
-                innerKvp => innerKvp.Key,
-                innerKvp => (IDictionary<Guid, CausalTimestamp>)new Dictionary<Guid, CausalTimestamp>(innerKvp.Value),
-                removedComparer);
-
-            newMetadata.ReplicatedTrees.Add(kvp.Key, new OrSetState(Adds: newAdded, Removes: newRemoved));
+        foreach (var op in SeenExceptions) 
+        { 
+            newMetadata.SeenExceptions.Add(op); 
         }
 
         return newMetadata;
@@ -322,153 +83,29 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
 
         foreach (var metadata in metadatas.Where(m => m is not null))
         {
-            foreach (var kvp in metadata.Epochs) 
+            foreach (var kvp in metadata.States)
             {
-                if (!merged.Epochs.TryGetValue(kvp.Key, out var existingEpoch) || kvp.Value > existingEpoch)
+                if (merged.States.TryGetValue(kvp.Key, out var existing))
                 {
-                    merged.Epochs[kvp.Key] = kvp.Value;
+                    merged.States[kvp.Key] = existing.Merge(kvp.Value);
                 }
-            }
-            
-            foreach (var kvp in metadata.QuorumApprovals)
-            {
-                if (!merged.QuorumApprovals.TryGetValue(kvp.Key, out var existingDict))
+                else
                 {
-                    var comparer = (kvp.Value as Dictionary<object, ISet<string>>)?.Comparer;
-                    existingDict = new Dictionary<object, ISet<string>>(comparer);
-                    merged.QuorumApprovals[kvp.Key] = existingDict;
-                }
-                foreach (var innerKvp in kvp.Value)
-                {
-                    if (!existingDict.TryGetValue(innerKvp.Key, out var existingSet))
-                    {
-                        existingSet = new HashSet<string>();
-                        existingDict[innerKvp.Key] = existingSet;
-                    }
-                    foreach (var voter in innerKvp.Value)
-                    {
-                        existingSet.Add(voter);
-                    }
+                    merged.States[kvp.Key] = kvp.Value.DeepClone();
                 }
             }
 
-            foreach (var kvp in metadata.Lww) 
-            {
-                if (!merged.Lww.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
-                {
-                    merged.Lww[kvp.Key] = kvp.Value;
-                }
-            }
-            
-            foreach (var kvp in metadata.Fww) 
-            {
-                if (!merged.Fww.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) < 0)
-                {
-                    merged.Fww[kvp.Key] = kvp.Value;
-                }
-            }
-            
-            foreach (var kvp in metadata.TwoPhaseSets) 
-            {
-                if (!merged.TwoPhaseSets.TryGetValue(kvp.Key, out var existing))
-                {
-                    merged.TwoPhaseSets[kvp.Key] = new TwoPhaseSetState(
-                        new HashSet<object>(kvp.Value.Adds, (kvp.Value.Adds as HashSet<object>)?.Comparer),
-                        new Dictionary<object, CausalTimestamp>(kvp.Value.Tombstones, (kvp.Value.Tombstones as Dictionary<object, CausalTimestamp>)?.Comparer)
-                    );
-                }
-                else
-                {
-                    foreach (var item in kvp.Value.Adds) existing.Adds.Add(item);
-                    foreach (var item in kvp.Value.Tombstones) 
-                    {
-                        if (!existing.Tombstones.TryGetValue(item.Key, out var existingTs) || item.Value.CompareTo(existingTs) > 0) 
-                        {
-                            existing.Tombstones[item.Key] = item.Value;
-                        }
-                    }
-                }
-            }
-            
-            foreach (var kvp in metadata.LwwSets) merged.LwwSets[kvp.Key] = kvp.Value;
-            foreach (var kvp in metadata.FwwSets) merged.FwwSets[kvp.Key] = kvp.Value;
-            foreach (var kvp in metadata.OrSets) merged.OrSets[kvp.Key] = kvp.Value;
-            foreach (var kvp in metadata.PriorityQueues) merged.PriorityQueues[kvp.Key] = kvp.Value;
-            foreach (var kvp in metadata.SortedSets) merged.SortedSets[kvp.Key] = kvp.Value;
-            foreach (var kvp in metadata.OrMaps) merged.OrMaps[kvp.Key] = kvp.Value;
-            
-            foreach (var kvp in metadata.TwoPhaseGraphs) 
-            {
-                if (!merged.TwoPhaseGraphs.TryGetValue(kvp.Key, out var existing))
-                {
-                    merged.TwoPhaseGraphs[kvp.Key] = new TwoPhaseGraphState(
-                        new HashSet<object>(kvp.Value.VertexAdds, (kvp.Value.VertexAdds as HashSet<object>)?.Comparer),
-                        new Dictionary<object, CausalTimestamp>(kvp.Value.VertexTombstones, (kvp.Value.VertexTombstones as Dictionary<object, CausalTimestamp>)?.Comparer),
-                        new HashSet<object>(kvp.Value.EdgeAdds, (kvp.Value.EdgeAdds as HashSet<object>)?.Comparer),
-                        new Dictionary<object, CausalTimestamp>(kvp.Value.EdgeTombstones, (kvp.Value.EdgeTombstones as Dictionary<object, CausalTimestamp>)?.Comparer)
-                    );
-                }
-                else
-                {
-                    foreach (var item in kvp.Value.VertexAdds) existing.VertexAdds.Add(item);
-                    foreach (var item in kvp.Value.VertexTombstones) 
-                    {
-                        if (!existing.VertexTombstones.TryGetValue(item.Key, out var existingTs) || item.Value.CompareTo(existingTs) > 0) 
-                        {
-                            existing.VertexTombstones[item.Key] = item.Value;
-                        }
-                    }
-                    foreach (var item in kvp.Value.EdgeAdds) existing.EdgeAdds.Add(item);
-                    foreach (var item in kvp.Value.EdgeTombstones) 
-                    {
-                        if (!existing.EdgeTombstones.TryGetValue(item.Key, out var existingTs) || item.Value.CompareTo(existingTs) > 0) 
-                        {
-                            existing.EdgeTombstones[item.Key] = item.Value;
-                        }
-                    }
-                }
-            }
-            
-            foreach (var kvp in metadata.ReplicatedTrees) merged.ReplicatedTrees[kvp.Key] = kvp.Value;
-            
-            foreach (var op in metadata.SeenExceptions) merged.SeenExceptions.Add(op);
-            
-            foreach (var kvp in metadata.PositionalTrackers) merged.PositionalTrackers[kvp.Key] = new List<PositionalIdentifier>(kvp.Value);
-            foreach (var kvp in metadata.LseqTrackers) merged.LseqTrackers[kvp.Key] = new List<LseqItem>(kvp.Value);
-            
-            foreach (var kvp in metadata.AverageRegisters) merged.AverageRegisters[kvp.Key] = new Dictionary<string, AverageRegisterValue>(kvp.Value);
-            foreach (var kvp in metadata.LwwMaps) merged.LwwMaps[kvp.Key] = new Dictionary<object, CausalTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, CausalTimestamp>)?.Comparer);
-            foreach (var kvp in metadata.FwwMaps) merged.FwwMaps[kvp.Key] = new Dictionary<object, CausalTimestamp>(kvp.Value, (kvp.Value as Dictionary<object, CausalTimestamp>)?.Comparer);
-            foreach (var kvp in metadata.CounterMaps) merged.CounterMaps[kvp.Key] = new Dictionary<object, PnCounterState>(kvp.Value, (kvp.Value as Dictionary<object, PnCounterState>)?.Comparer);
-            
-            foreach (var kvp in metadata.RgaTrackers)
-            {
-                if (!merged.RgaTrackers.TryGetValue(kvp.Key, out var existing))
-                {
-                    merged.RgaTrackers[kvp.Key] = new List<RgaItem>(kvp.Value);
-                }
-                else
-                {
-                    var mergedItemsDict = existing.ToDictionary(x => x.Identifier);
-                    foreach (var item in kvp.Value)
-                    {
-                        if (!mergedItemsDict.TryGetValue(item.Identifier, out var eItem) || (!eItem.IsDeleted && item.IsDeleted))
-                        {
-                            mergedItemsDict[item.Identifier] = item;
-                        }
-                    }
-                    var mergedItems = mergedItemsDict.Values.ToList();
-                    mergedItems.Sort((a, b) => a.Identifier.CompareTo(b.Identifier));
-                    merged.RgaTrackers[kvp.Key] = mergedItems;
-                }
-            }
-            
             foreach (var (replicaId, clock) in metadata.VersionVector)
             {
                 if (!merged.VersionVector.TryGetValue(replicaId, out var existingClock) || clock > existingClock)
                 {
                     merged.VersionVector[replicaId] = clock;
                 }
+            }
+
+            foreach (var op in metadata.SeenExceptions)
+            {
+                merged.SeenExceptions.Add(op);
             }
         }
 
@@ -481,56 +118,18 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         if (other is null) return false;
         if (ReferenceEquals(this, other)) return true;
 
-        return DictionaryEquals(Epochs, other.Epochs)
-            && DictionaryOfDictionariesOfSetsEquals(QuorumApprovals, other.QuorumApprovals)
-            && DictionaryEquals(Lww, other.Lww)
-            && DictionaryEquals(Fww, other.Fww)
+        return DictionaryEquals(States, other.States)
             && DictionaryEquals(VersionVector, other.VersionVector)
-            && SeenExceptions.SetEquals(other.SeenExceptions)
-            && DictionaryOfListsEquals(PositionalTrackers, other.PositionalTrackers)
-            && DictionaryOfDictionariesEquals(AverageRegisters, other.AverageRegisters)
-            && DictionaryEquals(TwoPhaseSets, other.TwoPhaseSets)
-            && DictionaryEquals(LwwSets, other.LwwSets)
-            && DictionaryEquals(FwwSets, other.FwwSets)
-            && DictionaryEquals(OrSets, other.OrSets)
-            && DictionaryEquals(PriorityQueues, other.PriorityQueues)
-            && DictionaryEquals(SortedSets, other.SortedSets)
-            && DictionaryOfListsEquals(LseqTrackers, other.LseqTrackers)
-            && DictionaryOfListsEquals(RgaTrackers, other.RgaTrackers)
-            && DictionaryOfDictionariesEquals(LwwMaps, other.LwwMaps)
-            && DictionaryOfDictionariesEquals(FwwMaps, other.FwwMaps)
-            && DictionaryEquals(OrMaps, other.OrMaps)
-            && DictionaryOfDictionariesEquals(CounterMaps, other.CounterMaps)
-            && DictionaryEquals(TwoPhaseGraphs, other.TwoPhaseGraphs)
-            && DictionaryEquals(ReplicatedTrees, other.ReplicatedTrees);
+            && SeenExceptions.SetEquals(other.SeenExceptions);
     }
 
     /// <inheritdoc />
     public override int GetHashCode()
     {
         var hash = new HashCode();
-        hash.Add(GetDictionaryHashCode(Epochs));
-        hash.Add(GetDictionaryOfDictionariesOfSetsHashCode(QuorumApprovals));
-        hash.Add(GetDictionaryHashCode(Lww));
-        hash.Add(GetDictionaryHashCode(Fww));
+        hash.Add(GetDictionaryHashCode(States));
         hash.Add(GetDictionaryHashCode(VersionVector));
         hash.Add(GetSetHashCode(SeenExceptions));
-        hash.Add(GetDictionaryOfListsHashCode(PositionalTrackers));
-        hash.Add(GetDictionaryOfDictionariesHashCode(AverageRegisters));
-        hash.Add(GetDictionaryHashCode(TwoPhaseSets));
-        hash.Add(GetDictionaryHashCode(LwwSets));
-        hash.Add(GetDictionaryHashCode(FwwSets));
-        hash.Add(GetDictionaryHashCode(OrSets));
-        hash.Add(GetDictionaryHashCode(PriorityQueues));
-        hash.Add(GetDictionaryHashCode(SortedSets));
-        hash.Add(GetDictionaryOfListsHashCode(LseqTrackers));
-        hash.Add(GetDictionaryOfListsHashCode(RgaTrackers));
-        hash.Add(GetDictionaryOfDictionariesHashCode(LwwMaps));
-        hash.Add(GetDictionaryOfDictionariesHashCode(FwwMaps));
-        hash.Add(GetDictionaryHashCode(OrMaps));
-        hash.Add(GetDictionaryOfDictionariesHashCode(CounterMaps));
-        hash.Add(GetDictionaryHashCode(TwoPhaseGraphs));
-        hash.Add(GetDictionaryHashCode(ReplicatedTrees));
         return hash.ToHashCode();
     }
 
@@ -547,51 +146,6 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         return true;
     }
 
-    private static bool DictionaryOfDictionariesEquals<TKey1, TKey2, TValue>(IDictionary<TKey1, IDictionary<TKey2, TValue>> left, IDictionary<TKey1, IDictionary<TKey2, TValue>> right) where TKey1 : notnull where TKey2 : notnull
-    {
-        if (ReferenceEquals(left, right)) return true;
-        if (left is null || right is null) return false;
-        if (left.Count != right.Count) return false;
-        foreach (var (key, value) in left)
-        {
-            if (!right.TryGetValue(key, out var rightValue) || !DictionaryEquals(value, rightValue))
-                return false;
-        }
-        return true;
-    }
-
-    private static bool DictionaryOfDictionariesOfSetsEquals<TKey1, TKey2, TItem>(IDictionary<TKey1, IDictionary<TKey2, ISet<TItem>>> left, IDictionary<TKey1, IDictionary<TKey2, ISet<TItem>>> right) where TKey1 : notnull where TKey2 : notnull
-    {
-        if (ReferenceEquals(left, right)) return true;
-        if (left is null || right is null) return false;
-        if (left.Count != right.Count) return false;
-        foreach (var (key, value) in left)
-        {
-            if (!right.TryGetValue(key, out var rightValue) || value is null || rightValue is null || value.Count != rightValue.Count)
-                return false;
-
-            foreach (var (innerKey, innerValue) in value)
-            {
-                if (!rightValue.TryGetValue(innerKey, out var rightInnerValue) || innerValue is null || rightInnerValue is null || !innerValue.SetEquals(rightInnerValue))
-                    return false;
-            }
-        }
-        return true;
-    }
-
-    private static bool DictionaryOfListsEquals<TKey, TValue>(IDictionary<TKey, List<TValue>> left, IDictionary<TKey, List<TValue>> right) where TKey : notnull
-    {
-        if (ReferenceEquals(left, right)) return true;
-        if (left is null || right is null) return false;
-        if (left.Count != right.Count) return false;
-        foreach (var (key, value) in left)
-        {
-            if (!right.TryGetValue(key, out var rightValue) || value is null || rightValue is null || !value.SequenceEqual(rightValue))
-                return false;
-        }
-        return true;
-    }
-
     private static int GetDictionaryHashCode<TKey, TValue>(IDictionary<TKey, TValue> dict) where TKey : notnull
     {
         if (dict is null) return 0;
@@ -603,60 +157,11 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
         return hash;
     }
 
-    private static int GetDictionaryOfDictionariesHashCode<TKey1, TKey2, TValue>(IDictionary<TKey1, IDictionary<TKey2, TValue>> dict) where TKey1 : notnull where TKey2 : notnull
-    {
-        if (dict is null) return 0;
-        int hash = 0;
-        foreach (var (key, value) in dict)
-        {
-            hash ^= (key?.GetHashCode() ?? 0) ^ GetDictionaryHashCode(value);
-        }
-        return hash;
-    }
-
-    private static int GetDictionaryOfDictionariesOfSetsHashCode<TKey1, TKey2, TItem>(IDictionary<TKey1, IDictionary<TKey2, ISet<TItem>>> dict) where TKey1 : notnull where TKey2 : notnull
-    {
-        if (dict is null) return 0;
-        int hash = 0;
-        foreach (var (key, value) in dict)
-        {
-            int innerHash = 0;
-            if (value is not null)
-            {
-                foreach (var (innerKey, innerValue) in value)
-                {
-                    innerHash ^= (innerKey?.GetHashCode() ?? 0) ^ GetSetHashCode(innerValue);
-                }
-            }
-            hash ^= (key?.GetHashCode() ?? 0) ^ innerHash;
-        }
-        return hash;
-    }
-
-    private static int GetDictionaryOfListsHashCode<TKey, TValue>(IDictionary<TKey, List<TValue>> dict) where TKey : notnull
-    {
-        if (dict is null) return 0;
-        int hash = 0;
-        foreach (var (key, value) in dict)
-        {
-            int listHash = 0;
-            if (value is not null)
-            {
-                foreach(var item in value)
-                {
-                    listHash ^= item?.GetHashCode() ?? 0;
-                }
-            }
-            hash ^= (key?.GetHashCode() ?? 0) ^ listHash;
-        }
-        return hash;
-    }
-
     private static int GetSetHashCode<T>(ISet<T> set)
     {
         if (set is null) return 0;
         int hash = 0;
-        foreach(var item in set)
+        foreach (var item in set)
         {
             hash ^= item?.GetHashCode() ?? 0;
         }

@@ -42,6 +42,9 @@ dotnet_diagnostic.RS0026.severity = none
 # xUnit1051 Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive.	
 dotnet_diagnostic.xUnit1051.severity = none
 
+# Collection initialization can be simplified
+dotnet_diagnostic.IDE0028.severity = none
+dotnet_diagnostic.IDE0306.severity = none
 
 # === EXPLICITLY ENABLE CA2007 STRICTLY FOR SHIPPED LIBRARY PROJECTS ===
 [Ama.CRDT/**/*.cs]

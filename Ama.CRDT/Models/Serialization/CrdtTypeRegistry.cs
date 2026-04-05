@@ -39,7 +39,6 @@ public static class CrdtTypeRegistry
 
         // Core CRDT Models
         Register("kvp", typeof(KeyValuePair<object, object>));
-        Register("avg-reg", typeof(AverageRegisterValue));
         Register("patch", typeof(CrdtPatch));
         Register("op", typeof(CrdtOperation));
         Register("edge", typeof(Edge));
@@ -70,6 +69,26 @@ public static class CrdtTypeRegistry
 
         // Timestamps
         Register("epoch", typeof(EpochTimestamp));
+
+        // States
+        Register("causal-ts", typeof(CausalTimestamp));
+        Register("fww-ts", typeof(FwwTimestamp));
+        Register("pn-counter-state", typeof(PnCounterState));
+        Register("lww-set-state", typeof(LwwSetState));
+        Register("fww-set-state", typeof(FwwSetState));
+        Register("or-set-state", typeof(OrSetState));
+        Register("2p-set-state", typeof(TwoPhaseSetState));
+        Register("2p-graph-state", typeof(TwoPhaseGraphState));
+        Register("avg-reg", typeof(AverageRegisterValue));
+        Register("avg-reg-state", typeof(AverageRegisterState));
+        Register("pos-state", typeof(PositionalState));
+        Register("lseq-state", typeof(LseqState));
+        Register("rga-state", typeof(RgaState));
+        Register("lww-map-state", typeof(LwwMapState));
+        Register("fww-map-state", typeof(FwwMapState));
+        Register("counter-map-state", typeof(CounterMapState));
+        Register("epoch-state", typeof(EpochState));
+        Register("quorum-state", typeof(QuorumState));
     }
 
     /// <summary>

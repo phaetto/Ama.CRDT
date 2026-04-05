@@ -8,7 +8,7 @@ using System.Collections.Generic;
 /// </summary>
 /// <param name="Adds">A dictionary mapping added elements to a set of unique tags.</param>
 /// <param name="Removes">A dictionary mapping removed elements to a dictionary of unique tags and their causal tracking data for GC.</param>
-public sealed record OrSetState(IDictionary<object, ISet<Guid>> Adds, IDictionary<object, IDictionary<Guid, CausalTimestamp>> Removes) : IEquatable<OrSetState>
+public sealed record OrSetState(IDictionary<object, ISet<Guid>> Adds, IDictionary<object, IDictionary<Guid, CausalTimestamp>> Removes) : IEquatable<OrSetState>, ICrdtMetadataState
 {
     private static bool DictionaryOfSetsEquals(IDictionary<object, ISet<Guid>> left, IDictionary<object, ISet<Guid>> right)
     {
@@ -84,6 +84,55 @@ public sealed record OrSetState(IDictionary<object, ISet<Guid>> Adds, IDictionar
         }
         return hash;
     }
+
+    /// <inheritdoc />
+    public ICrdtMetadataState DeepClone()
+    {
+        var addedComparer = (Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
+        var newAdds = new Dictionary<object, ISet<Guid>>(addedComparer);
+        foreach (var kvp in Adds) newAdds[kvp.Key] = new HashSet<Guid>(kvp.Value);
+
+        var removedComparer = (Removes as Dictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer;
+        var newRemoves = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(removedComparer);
+        foreach (var kvp in Removes) newRemoves[kvp.Key] = new Dictionary<Guid, CausalTimestamp>(kvp.Value);
+
+        return new OrSetState(newAdds, newRemoves);
+    }
+
+    /// <inheritdoc />
+    public ICrdtMetadataState Merge(ICrdtMetadataState other)
+    {
+        if (other is not OrSetState otherState) return this;
+
+        var addedComparer = (Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
+        var mergedAdds = new Dictionary<object, ISet<Guid>>(addedComparer);
+        foreach (var kvp in Adds) mergedAdds[kvp.Key] = new HashSet<Guid>(kvp.Value);
+        foreach (var kvp in otherState.Adds)
+        {
+            if (!mergedAdds.TryGetValue(kvp.Key, out var set)) mergedAdds[kvp.Key] = set = new HashSet<Guid>();
+            foreach (var id in kvp.Value) set.Add(id);
+        }
+
+        var removedComparer = (Removes as Dictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer;
+        var mergedRemoves = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(removedComparer);
+        foreach (var kvp in Removes) mergedRemoves[kvp.Key] = new Dictionary<Guid, CausalTimestamp>(kvp.Value);
+        foreach (var kvp in otherState.Removes)
+        {
+            if (!mergedRemoves.TryGetValue(kvp.Key, out var dict)) mergedRemoves[kvp.Key] = dict = new Dictionary<Guid, CausalTimestamp>();
+            foreach (var innerKvp in kvp.Value)
+            {
+                if (!dict.TryGetValue(innerKvp.Key, out var existing) || innerKvp.Value.CompareTo(existing) > 0)
+                {
+                    dict[innerKvp.Key] = innerKvp.Value;
+                }
+            }
+        }
+
+        return new OrSetState(mergedAdds, mergedRemoves);
+    }
+
+    /// <inheritdoc />
+    public bool Equals(ICrdtMetadataState? other) => other is OrSetState otherState && this.Equals(otherState);
 
     /// <inheritdoc />
     public bool Equals(OrSetState? other)
