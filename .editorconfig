@@ -33,6 +33,16 @@ csharp_style_expression_bodied_local_functions = false:silent
 # CS9113: Parameter is unread.
 dotnet_diagnostic.CS9113.severity = error
 
+# RS2008 Enable analyzer release tracking for the analyzer project containing rules
+dotnet_diagnostic.RS2008.severity = none
+
+# RS0026 Symbol 'GenerateOperationAsync<T, TProp>' violates the backcompat requirement: 'Do not add multiple overloads with optional parameters'.
+dotnet_diagnostic.RS0026.severity = none
+
+# xUnit1051 Calls to methods which accept CancellationToken should use TestContext.Current.CancellationToken to allow test cancellation to be more responsive.	
+dotnet_diagnostic.xUnit1051.severity = none
+
+
 # === EXPLICITLY ENABLE CA2007 STRICTLY FOR SHIPPED LIBRARY PROJECTS ===
 [Ama.CRDT/**/*.cs]
 dotnet_diagnostic.CA2007.severity = error

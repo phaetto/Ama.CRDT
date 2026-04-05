@@ -42,7 +42,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         ArgumentNullException.ThrowIfNull(context.Property);
 
         var root = context.OriginalRoot ?? context.ModifiedRoot;
-        var (target, _, _) = PocoPathHelper.ResolvePath(root, context.Path, aotContexts);
+        var (target, _, _) = PocoPathHelper.ResolvePath(root!, context.Path, aotContexts);
         var declaringType = target?.GetType() ?? typeof(object);
 
         var innerStrategy = GetInnerStrategy(declaringType, context.Property);

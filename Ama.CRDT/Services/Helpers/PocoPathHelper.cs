@@ -595,7 +595,7 @@ internal static class PocoPathHelper
 
                 if (typeInfo.CreateWithArgs != null)
                 {
-                    return typeInfo.CreateWithArgs([convertedKey, convertedValue]);
+                    return typeInfo.CreateWithArgs([convertedKey!, convertedValue!]);
                 }
             }
 

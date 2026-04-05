@@ -2,6 +2,7 @@ namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -37,6 +38,8 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         LoadJournal();
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
+    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
     private void LoadJournal()
     {
         if (!File.Exists(journalFilePath)) return;
@@ -62,6 +65,8 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         }
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
+    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
     private void SaveJournal()
     {
         var allOps = operationsByOrigin.Values.SelectMany(x => x).ToList();
