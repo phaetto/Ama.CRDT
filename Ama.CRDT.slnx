@@ -1,0 +1,31 @@
+<Solution>
+  <Folder Name="/Analyzers/">
+    <Project Path="Ama.CRDT.Analyzers.UnitTests/Ama.CRDT.Analyzers.UnitTests.csproj" />
+    <Project Path="Ama.CRDT.Analyzers/Ama.CRDT.Analyzers.csproj" />
+    <Project Path="Ama.CRDT.Project.Analyzers.UnitTests/Ama.CRDT.Project.Analyzers.UnitTests.csproj" />
+    <Project Path="Ama.CRDT.Project.Analyzers/Ama.CRDT.Project.Analyzers.csproj" />
+    <Project Path="Ama.CRDT.SourceGenerators.UnitTests/Ama.CRDT.SourceGenerators.UnitTests.csproj" />
+    <Project Path="Ama.CRDT.SourceGenerators/Ama.CRDT.SourceGenerators.csproj" />
+  </Folder>
+  <Folder Name="/ShowCases/">
+    <Project Path="Ama.CRDT.ShowCase.CollaborativeEditing/Ama.CRDT.ShowCase.CollaborativeEditing.csproj" />
+    <Project Path="Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj" />
+    <Project Path="Ama.CRDT.ShowCase/Ama.CRDT.ShowCase.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".github/workflows/ci.yml" />
+    <File Path=".github/workflows/publish-nuget-manual.yml" />
+    <File Path=".github/workflows/publish-nuget.yml" />
+    <File Path="CodingStandards.md" />
+    <File Path="README.md" />
+    <File Path="solution.settings.json" />
+  </Folder>
+  <Project Path="Ama.CRDT.Benchmarks/Ama.CRDT.Benchmarks.csproj" />
+  <Project Path="Ama.CRDT.IntegrationTests/Ama.CRDT.IntegrationTests.csproj" />
+  <Project Path="Ama.CRDT.Partitioning.Streams.UnitTests/Ama.CRDT.Partitioning.Streams.UnitTests.csproj" />
+  <Project Path="Ama.CRDT.Partitioning.Streams/Ama.CRDT.Partitioning.Streams.csproj" />
+  <Project Path="Ama.CRDT.PropertyTests/Ama.CRDT.PropertyTests.csproj" />
+  <Project Path="Ama.CRDT.UnitTests/Ama.CRDT.UnitTests.csproj" />
+  <Project Path="Ama.CRDT/Ama.CRDT.csproj" />
+</Solution>

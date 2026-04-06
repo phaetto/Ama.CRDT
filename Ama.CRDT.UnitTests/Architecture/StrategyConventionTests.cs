@@ -70,7 +70,7 @@ public class StrategyConventionTests
     private static string GetSolutionDirectory()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !dir.GetFiles("*.sln").Any())
+        while (dir != null && !dir.GetFiles("*.slnx").Any())
         {
             dir = dir.Parent;
         }
