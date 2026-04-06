@@ -13,6 +13,7 @@ using Ama.CRDT.Services.Journaling;
 using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Services.Serialization;
 using Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Services.Strategies.Decorators;
 using Ama.CRDT.Services.Versioning;
@@ -66,36 +67,9 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        // Setup central JSON options for CRDT natively in the DI container.
-        // This solves the problem of needing static contexts or manual combinations.
-        // Any user wanting to serialize objects with full CRDT polymorphic support can simply inject:
-        // [FromKeyedServices("Ama.CRDT")] JsonSerializerOptions options
-        services.TryAddKeyedSingleton("Ama.CRDT", (sp, key) =>
-        {
-            var customResolvers = sp.GetKeyedServices<IJsonTypeInfoResolver>("Ama.CRDT");
-            var resolvers = new List<IJsonTypeInfoResolver> { CrdtJsonContext.Default };
-            
-            if (customResolvers != null)
-            {
-                resolvers.AddRange(customResolvers);
-            }
-
-            var combinedResolver = JsonTypeInfoResolver.Combine([.. resolvers])
-                .WithAddedModifier(CrdtJsonTypeInfoResolver.ApplyCrdtModifiers)
-                .WithAddedModifier(CrdtMetadataJsonResolver.ApplyMetadataModifiers);
-
-            var options = new JsonSerializerOptions
-            {
-                TypeInfoResolver = combinedResolver
-            };
-
-            var crdtContexts = sp.GetServices<CrdtAotContext>();
-
-            options.Converters.Add(CrdtPayloadJsonConverterFactory.Instance);
-            options.Converters.Add(new ObjectKeyDictionaryJsonConverter(crdtContexts));
-
-            return options;
-        });
+        // Setup the default System.Text.Json serialization integration.
+        // This is extracted into its own method to allow for future binary serialization abstraction.
+        services.AddCrdtSystemTextJson();
 
         // Build the configuration registry
         var builder = new CrdtModelBuilder();
@@ -219,6 +193,48 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICrdtStrategy, RgaStrategy>(sp => { ValidateReplicaScope(sp, nameof(RgaStrategy)); return sp.GetRequiredService<RgaStrategy>(); });
         services.AddScoped<ICrdtStrategy, EpochBoundStrategy>(sp => { ValidateReplicaScope(sp, nameof(EpochBoundStrategy)); return sp.GetRequiredService<EpochBoundStrategy>(); });
         services.AddScoped<ICrdtStrategy, ApprovalQuorumStrategy>(sp => { ValidateReplicaScope(sp, nameof(ApprovalQuorumStrategy)); return sp.GetRequiredService<ApprovalQuorumStrategy>(); });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Binds the <see cref="System.Text.Json"/> format as the core <see cref="ICrdtSerializer"/> mechanism for the CRDT library.
+    /// Called by default by <see cref="AddCrdt"/>, but extracted to allow swapping to binary protocols.
+    /// </summary>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    public static IServiceCollection AddCrdtSystemTextJson(this IServiceCollection services)
+    {
+        // Setup central JSON options for CRDT natively in the DI container.
+        services.TryAddKeyedSingleton("Ama.CRDT", (sp, key) =>
+        {
+            var customResolvers = sp.GetKeyedServices<IJsonTypeInfoResolver>("Ama.CRDT");
+            var resolvers = new List<IJsonTypeInfoResolver> { CrdtJsonContext.Default };
+            
+            if (customResolvers != null)
+            {
+                resolvers.AddRange(customResolvers);
+            }
+
+            var combinedResolver = JsonTypeInfoResolver.Combine([.. resolvers])
+                .WithAddedModifier(CrdtJsonTypeInfoResolver.ApplyCrdtModifiers)
+                .WithAddedModifier(CrdtMetadataJsonResolver.ApplyMetadataModifiers);
+
+            var options = new JsonSerializerOptions
+            {
+                TypeInfoResolver = combinedResolver
+            };
+
+            var crdtContexts = sp.GetServices<CrdtAotContext>();
+
+            options.Converters.Add(CrdtPayloadJsonConverterFactory.Instance);
+            options.Converters.Add(new ObjectKeyDictionaryJsonConverter(crdtContexts));
+
+            return options;
+        });
+
+        // Register the concrete STJ implementation of the ICrdtSerializer abstraction
+        services.TryAddSingleton<ICrdtSerializer, JsonCrdtSerializer>();
 
         return services;
     }

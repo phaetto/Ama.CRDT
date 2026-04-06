@@ -424,6 +424,8 @@
 | `$/Ama.CRDT/Services/Providers/IElementComparer.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/IElementComparerProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/ReplicaContext.cs` | A scoped service that holds the unique identifier for a CRDT replica, making it available to other scoped services within the same `IServiceScope`. |
+| `$/Ama.CRDT/Services/Serialization/ICrdtSerializer.cs` | Defines a format-agnostic abstraction for serializing and deserializing CRDT models and payloads, decoupling the core library from System.Text.Json. |
+| `$/Ama.CRDT/Services/Serialization/JsonCrdtSerializer.cs` | The default Native AOT compatible implementation of `ICrdtSerializer` utilizing `System.Text.Json` and pre-configured `JsonSerializerOptions`. |
 | `$/Ama.CRDT/Services/Strategies/ApplyOperationContext.cs` | Defines the context for an <see cref="ICrdtStrategy.ApplyOperation"/> call, encapsulating all necessary parameters for applying a single CRDT operation to a document. This context is now simplified as strategies use centralized helpers for reflection. |
 | `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements a CRDT strategy for arrays using LCS. Refactored to eliminate reflection and rely purely on AOT contexts. |
 | `$/Ama.CRDT/Services/Strategies/AverageRegisterStrategy.cs` | Implements the Average Register strategy. It now uses centralized reflection helpers from `PocoPathHelper` to apply the calculated average value. |
