@@ -13,9 +13,9 @@ using System.Linq;
 /// underlying CRDT mechanics. This class holds the exact tracking data required to safely merge concurrent updates, 
 /// handle out-of-order network delivery, and maintain idempotency across a distributed system.
 /// <para>
-/// For serialization, use the pre-configured options from <see cref="CrdtJsonContext"/>.
-/// Use <see cref="CrdtJsonContext.MetadataCompactOptions"/> for an efficient, compact JSON output,
-/// or <see cref="CrdtJsonContext.DefaultOptions"/> for standard serialization.
+/// For serialization, it is highly recommended to use the pre-configured options from the 
+/// DI container (injected via <c>[FromKeyedServices("Ama.CRDT")] JsonSerializerOptions</c>), 
+/// which automatically applies modifiers for compact and polymorphic serialization.
 /// </para>
 /// </remarks>
 /// <example>
@@ -27,8 +27,8 @@ using System.Linq;
 /// // 2. Initialize the CRDT metadata tracking state for this model
 /// var metadata = metadataManager.Initialize(myModel);
 /// 
-/// // 3. Serialize to JSON compactly for storage or network transmission
-/// string json = JsonSerializer.Serialize(metadata, CrdtJsonContext.MetadataCompactOptions);
+/// // 3. Serialize to JSON compactly for storage or network transmission using DI options
+/// string json = JsonSerializer.Serialize(metadata, injectedJsonOptions);
 /// </code>
 /// </example>
 public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
