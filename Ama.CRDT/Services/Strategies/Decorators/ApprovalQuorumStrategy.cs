@@ -27,6 +27,8 @@ public sealed class ApprovalQuorumStrategy(
     IElementComparerProvider comparerProvider, 
     IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
+    private const string DecoratorKey = "Quorum";
+
     private ICrdtStrategy GetInnerStrategy(Type declaringType, CrdtPropertyInfo property)
     {
         // Use IServiceProvider to break circular DI dependency
@@ -89,8 +91,7 @@ public sealed class ApprovalQuorumStrategy(
         var quorumAttr = context.Property.DecoratorAttributes.OfType<CrdtApprovalQuorumAttribute>().FirstOrDefault();
         var requiredQuorum = quorumAttr?.QuorumSize ?? 1;
 
-        var path = context.Operation.JsonPath;
-        var decoratorPath = $"{path}@quorum";
+        var decoratorPath = MetadataPathHelper.GetDecoratorPath(context.Operation.JsonPath, DecoratorKey);
         
         if (!context.Metadata.States.TryGetValue(decoratorPath, out var baseState) || baseState is not QuorumState quorumState)
         {
