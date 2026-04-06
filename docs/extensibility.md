@@ -249,5 +249,5 @@ public class HighWaterMarkPolicyFactory : ICompactionPolicyFactory
 // In Program.cs
 builder.Services.AddCrdt()
     .AddCrdtCompactionPolicyFactory<HighWaterMarkPolicyFactory>()
-    .AddCrdtApplicatorDecorator<CompactingApplicatorDecorator>();
+    .AddCrdtApplicatorDecorator<CompactingApplicatorDecorator>(DecoratorBehavior.After);
 ```

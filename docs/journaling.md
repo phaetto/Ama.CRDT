@@ -73,6 +73,7 @@ The library provides decorators (`JournalingApplicatorDecorator` and `Journaling
 
 ```csharp
 using Ama.CRDT.Extensions;
+using Ama.CRDT.Models;
 using Ama.CRDT.Services.Decorators;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -82,10 +83,10 @@ builder.Services.AddCrdt()
     .AddCrdtJournaling<MyDatabaseJournal>()
     
     // 2. Decorate the applicator so it saves operations as they are applied
-    .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>()
+    .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.After)
     
     // 3. Decorate the patcher so it saves operations when generated explicitly
-    .AddCrdtPatcherDecorator<JournalingPatcherDecorator>();
+    .AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After);
 ```
 
 With this configuration:
