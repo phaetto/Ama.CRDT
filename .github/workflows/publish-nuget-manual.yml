@@ -16,6 +16,9 @@ on:
         required: true
         default: '0'
 
+permissions:
+  contents: read
+
 env:
   PROJECT_PATH_MAIN: 'Ama.CRDT/Ama.CRDT.csproj'
   PROJECT_PATH_STREAMS: 'Ama.CRDT.Partitioning.Streams/Ama.CRDT.Partitioning.Streams.csproj'

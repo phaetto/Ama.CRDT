@@ -5,6 +5,9 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+
 env:
   MAJOR_VERSION: 3
   MINOR_VERSION: 0
