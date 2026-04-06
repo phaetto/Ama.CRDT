@@ -11,14 +11,9 @@ using System.Threading.Tasks;
 /// The default implementation of <see cref="IPartitionSerializationService"/>, fully Native AOT compatible,
 /// now utilizing the decoupled <see cref="ICrdtSerializer"/> abstraction.
 /// </summary>
-public sealed class DefaultPartitionSerializationService : IPartitionSerializationService
+public sealed class DefaultPartitionSerializationService(ICrdtSerializer crdtSerializer) : IPartitionSerializationService
 {
-    private readonly ICrdtSerializer crdtSerializer;
-
-    public DefaultPartitionSerializationService(ICrdtSerializer crdtSerializer)
-    {
-        this.crdtSerializer = crdtSerializer ?? throw new ArgumentNullException(nameof(crdtSerializer));
-    }
+    private readonly ICrdtSerializer crdtSerializer = crdtSerializer ?? throw new ArgumentNullException(nameof(crdtSerializer));
 
     /// <inheritdoc/>
     public async Task WriteHeaderAsync(Stream stream, BTreeHeader header, int headerSize, CancellationToken cancellationToken = default)

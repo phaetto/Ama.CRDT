@@ -1,1 +1,1 @@
-﻿
+﻿Ama.CRDT.Partitioning.Streams.Services.Serialization.DefaultPartitionSerializationService.DefaultPartitionSerializationService(Ama.CRDT.Services.Serialization.ICrdtSerializer! crdtSerializer) -> void

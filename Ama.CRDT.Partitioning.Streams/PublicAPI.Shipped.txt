@@ -79,7 +79,6 @@ Ama.CRDT.Partitioning.Streams.Services.Metrics.StreamsCrdtMetrics.StreamsCrdtMet
 Ama.CRDT.Partitioning.Streams.Services.Metrics.StreamsCrdtMetrics.UpdateDuration.get -> System.Diagnostics.Metrics.Histogram<double>!
 Ama.CRDT.Partitioning.Streams.Services.Serialization.DefaultPartitionSerializationService
 Ama.CRDT.Partitioning.Streams.Services.Serialization.DefaultPartitionSerializationService.CloneObject<T>(T original) -> T?
-Ama.CRDT.Partitioning.Streams.Services.Serialization.DefaultPartitionSerializationService.DefaultPartitionSerializationService(System.Text.Json.JsonSerializerOptions! serializerOptions) -> void
 Ama.CRDT.Partitioning.Streams.Services.Serialization.DefaultPartitionSerializationService.DeserializeObjectAsync<T>(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T?>!
 Ama.CRDT.Partitioning.Streams.Services.Serialization.DefaultPartitionSerializationService.ReadHeaderAsync(System.IO.Stream! stream, int headerSize, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Partitioning.Streams.Models.BTreeHeader>!
 Ama.CRDT.Partitioning.Streams.Services.Serialization.DefaultPartitionSerializationService.ReadNodeAsync(System.IO.Stream! stream, long offset, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Partitioning.Streams.Models.BPlusTreeNode!>!
