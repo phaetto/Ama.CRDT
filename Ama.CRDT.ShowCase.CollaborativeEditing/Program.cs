@@ -9,6 +9,7 @@ using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Journaling;
 using Ama.CRDT.ShowCase.CollaborativeEditing.Models;
 using Ama.CRDT.ShowCase.CollaborativeEditing.Services;
+using Ama.CRDT.Models;
 
 internal static class Program
 {
@@ -34,9 +35,9 @@ internal static class Program
         services.AddSingleton<ICrdtOperationJournal>(sp => sp.GetRequiredService<MemoryJournal>());
 
         // Decorate pipeline to automatically journal changes and trigger garbage collection routines
-        services.AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>();
-        services.AddCrdtPatcherDecorator<JournalingPatcherDecorator>();
-        services.AddCrdtApplicatorDecorator<CompactingApplicatorDecorator>();
+        services.AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.After);
+        services.AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After);
+        services.AddCrdtApplicatorDecorator<CompactingApplicatorDecorator>(DecoratorBehavior.After);
 
         // Register Global GC policy for CRDT Metadata connected to the network's minimum version state
         services.AddCrdtCompactionPolicyFactory(sp => 

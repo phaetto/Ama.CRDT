@@ -61,7 +61,8 @@ public sealed class PartitioningApplicatorDecoratorTests
             mockStorage.Object,
             strategyProvider,
             metrics,
-            aotContexts);
+            aotContexts,
+            DecoratorBehavior.Complex);
     }
 
     [Fact]
