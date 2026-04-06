@@ -1,24 +1,23 @@
 namespace Ama.CRDT.Partitioning.Streams.Services.Serialization;
 
 using Ama.CRDT.Partitioning.Streams.Models;
-using Microsoft.Extensions.DependencyInjection;
+using Ama.CRDT.Services.Serialization;
 using System;
 using System.IO;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
-/// The default implementation of <see cref="IPartitionSerializationService"/>, fully Native AOT compatible.
+/// The default implementation of <see cref="IPartitionSerializationService"/>, fully Native AOT compatible,
+/// now utilizing the decoupled <see cref="ICrdtSerializer"/> abstraction.
 /// </summary>
 public sealed class DefaultPartitionSerializationService : IPartitionSerializationService
 {
-    private readonly JsonSerializerOptions serializerOptions;
+    private readonly ICrdtSerializer crdtSerializer;
 
-    public DefaultPartitionSerializationService(
-        [FromKeyedServices("Ama.CRDT")] JsonSerializerOptions serializerOptions)
+    public DefaultPartitionSerializationService(ICrdtSerializer crdtSerializer)
     {
-        this.serializerOptions = serializerOptions ?? throw new ArgumentNullException(nameof(serializerOptions));
+        this.crdtSerializer = crdtSerializer ?? throw new ArgumentNullException(nameof(crdtSerializer));
     }
 
     /// <inheritdoc/>
@@ -28,9 +27,8 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
 
         stream.Seek(0, SeekOrigin.Begin);
         var buffer = new byte[headerSize];
-        var typeInfo = serializerOptions.GetTypeInfo(typeof(BTreeHeader));
         
-        var jsonData = JsonSerializer.SerializeToUtf8Bytes(header, typeInfo);
+        var jsonData = crdtSerializer.SerializeToBytes(header);
         if (jsonData.Length > headerSize) throw new InvalidOperationException("Header size is too large.");
 
         jsonData.CopyTo(buffer, 0);
@@ -50,8 +48,7 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         int endOfJson = Array.FindLastIndex(buffer, b => b != 0) + 1;
         if (endOfJson == 0) endOfJson = headerSize;
 
-        var typeInfo = serializerOptions.GetTypeInfo(typeof(BTreeHeader));
-        return (BTreeHeader)JsonSerializer.Deserialize(buffer.AsSpan(0, endOfJson), typeInfo)!;
+        return crdtSerializer.DeserializeFromBytes<BTreeHeader>(buffer.AsSpan(0, endOfJson))!;
     }
 
     /// <inheritdoc/>
@@ -79,9 +76,7 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         var jsonBuffer = new byte[length];
         await stream.ReadExactlyAsync(jsonBuffer, cancellationToken).ConfigureAwait(false);
 
-        using var memStream = new MemoryStream(jsonBuffer);
-        var typeInfo = serializerOptions.GetTypeInfo(typeof(BPlusTreeNode));
-        return (BPlusTreeNode)(await JsonSerializer.DeserializeAsync(memStream, typeInfo, cancellationToken).ConfigureAwait(false))!;
+        return crdtSerializer.DeserializeFromBytes<BPlusTreeNode>(jsonBuffer)!;
     }
 
     /// <inheritdoc/>
@@ -90,45 +85,36 @@ public sealed class DefaultPartitionSerializationService : IPartitionSerializati
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(content);
 
-        var typeInfo = serializerOptions.GetTypeInfo(content.GetType());
-        await JsonSerializer.SerializeAsync(stream, content, typeInfo, cancellationToken).ConfigureAwait(false);
+        await crdtSerializer.SerializeAsync(stream, content, content.GetType(), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public async Task<T?> DeserializeObjectAsync<T>(Stream stream, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
-
-        var typeInfo = serializerOptions.GetTypeInfo(typeof(T));
-        return (T?)await JsonSerializer.DeserializeAsync(stream, typeInfo, cancellationToken).ConfigureAwait(false);
+        return await crdtSerializer.DeserializeAsync<T>(stream, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public T? CloneObject<T>(T original)
     {
         ArgumentNullException.ThrowIfNull(original);
-
-        var typeInfo = serializerOptions.GetTypeInfo(typeof(T));
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(original, typeInfo);
-        return (T?)JsonSerializer.Deserialize(bytes, typeInfo);
+        return crdtSerializer.Clone(original);
     }
 
     /// <inheritdoc/>
-    public async Task<byte[]> SerializeNodeToBytesAsync(BPlusTreeNode node, CancellationToken cancellationToken = default)
+    public Task<byte[]> SerializeNodeToBytesAsync(BPlusTreeNode node, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(node);
 
-        using var memStream = new MemoryStream();
-        var typeInfo = serializerOptions.GetTypeInfo(typeof(BPlusTreeNode));
-        await JsonSerializer.SerializeAsync(memStream, node, typeInfo, cancellationToken).ConfigureAwait(false);
-        var jsonBytes = memStream.ToArray();
-
+        var jsonBytes = crdtSerializer.SerializeToBytes(node);
         var lengthPrefix = BitConverter.GetBytes(jsonBytes.Length);
         var result = new byte[lengthPrefix.Length + jsonBytes.Length];
+        
         Buffer.BlockCopy(lengthPrefix, 0, result, 0, lengthPrefix.Length);
         Buffer.BlockCopy(jsonBytes, 0, result, lengthPrefix.Length, jsonBytes.Length);
         
-        return result;
+        return Task.FromResult(result);
     }
 
     /// <inheritdoc/>

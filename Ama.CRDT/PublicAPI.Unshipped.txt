@@ -1,0 +1,20 @@
+Ama.CRDT.Services.Serialization.ICrdtSerializer
+Ama.CRDT.Services.Serialization.ICrdtSerializer.Clone<T>(T original) -> T?
+Ama.CRDT.Services.Serialization.ICrdtSerializer.DeserializeAsync<T>(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T?>!
+Ama.CRDT.Services.Serialization.ICrdtSerializer.DeserializeFromBytes(System.ReadOnlySpan<byte> bytes, System.Type! returnType) -> object?
+Ama.CRDT.Services.Serialization.ICrdtSerializer.DeserializeFromBytes<T>(System.ReadOnlySpan<byte> bytes) -> T?
+Ama.CRDT.Services.Serialization.ICrdtSerializer.SerializeAsync(System.IO.Stream! stream, object! value, System.Type! inputType, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Serialization.ICrdtSerializer.SerializeAsync<T>(System.IO.Stream! stream, T value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Serialization.ICrdtSerializer.SerializeToBytes(object! value, System.Type! inputType) -> byte[]!
+Ama.CRDT.Services.Serialization.ICrdtSerializer.SerializeToBytes<T>(T value) -> byte[]!
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.Clone<T>(T original) -> T?
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.DeserializeAsync<T>(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T?>!
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.DeserializeFromBytes(System.ReadOnlySpan<byte> bytes, System.Type! returnType) -> object?
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.DeserializeFromBytes<T>(System.ReadOnlySpan<byte> bytes) -> T?
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.JsonCrdtSerializer(System.Text.Json.JsonSerializerOptions! options) -> void
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.SerializeAsync(System.IO.Stream! stream, object! value, System.Type! inputType, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.SerializeAsync<T>(System.IO.Stream! stream, T value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.SerializeToBytes(object! value, System.Type! inputType) -> byte[]!
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.SerializeToBytes<T>(T value) -> byte[]!
+static Ama.CRDT.Extensions.ServiceCollectionExtensions.AddCrdtSystemTextJson(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
