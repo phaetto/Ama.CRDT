@@ -8,6 +8,7 @@
     <IsPackable>false</IsPackable>
     <NoWarn>CS8618;CS8602;CS8618;CS8604</NoWarn>
     <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <ItemGroup>
