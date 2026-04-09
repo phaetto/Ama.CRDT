@@ -5,6 +5,7 @@ using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Services.Serialization;
 using Ama.CRDT.Services.Strategies;
 using Moq;
 using Shouldly;
@@ -19,18 +20,22 @@ public sealed class CrdtMetadataManagerTests
     private readonly Mock<ICrdtStrategyProvider> strategyProviderMock;
     private readonly Mock<ICrdtTimestampProvider> timestampProviderMock;
     private readonly Mock<IElementComparerProvider> elementComparerProviderMock;
+    private readonly Mock<ICrdtSerializer> crdtSerializerMock;
 
     public CrdtMetadataManagerTests()
     {
         strategyProviderMock = new Mock<ICrdtStrategyProvider>();
         timestampProviderMock = new Mock<ICrdtTimestampProvider>();
         elementComparerProviderMock = new Mock<IElementComparerProvider>();
+        crdtSerializerMock = new Mock<ICrdtSerializer>();
+
         manager = new CrdtMetadataManager(
             strategyProviderMock.Object, 
             timestampProviderMock.Object, 
             elementComparerProviderMock.Object,
             new ReplicaContext { ReplicaId = "replica" },
-            [new ServicesTestCrdtAotContext()]);
+            [new ServicesTestCrdtAotContext()],
+            crdtSerializerMock.Object);
             
         timestampProviderMock.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(v => new EpochTimestamp(v));
     }

@@ -46,6 +46,9 @@ dotnet_diagnostic.xUnit1051.severity = none
 dotnet_diagnostic.IDE0028.severity = none
 dotnet_diagnostic.IDE0306.severity = none
 
+# Trim warnings
+dotnet_diagnostic.IL2026.severity = error
+
 # === EXPLICITLY ENABLE CA2007 STRICTLY FOR SHIPPED LIBRARY PROJECTS ===
 [Ama.CRDT/**/*.cs]
 dotnet_diagnostic.CA2007.severity = error

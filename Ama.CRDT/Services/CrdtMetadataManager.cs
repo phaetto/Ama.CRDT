@@ -8,11 +8,11 @@ using System.Collections;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text.Json;
 using System;
 using System.Collections.Generic;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.GarbageCollection;
+using Ama.CRDT.Services.Serialization;
 
 /// <inheritdoc/>
 public sealed class CrdtMetadataManager(
@@ -20,13 +20,9 @@ public sealed class CrdtMetadataManager(
     ICrdtTimestampProvider timestampProvider,
     IElementComparerProvider elementComparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtAotContext> crdtContexts) : ICrdtMetadataManager
+    IEnumerable<CrdtAotContext> crdtContexts,
+    ICrdtSerializer crdtSerializer) : ICrdtMetadataManager
 {
-    private static readonly JsonSerializerOptions DefaultJsonSerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     /// <inheritdoc/>
     public CrdtMetadata Initialize<T>([DisallowNull] T document) where T : class
     {
@@ -589,12 +585,9 @@ public sealed class CrdtMetadataManager(
         );
     }
 
-    private static string GetVoterKey(object voter)
+    private string GetVoterKey(object voter)
     {
-        return voter switch
-        {
-            string s => s,
-            _ => JsonSerializer.Serialize(voter, DefaultJsonSerializerOptions)
-        };
+        if (voter is string s) return s;
+        return crdtSerializer.SerializeToString(voter, voter.GetType());
     }
 }

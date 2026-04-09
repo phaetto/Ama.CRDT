@@ -14,7 +14,7 @@ public sealed class CrdtDecoratorBehaviorAnalyzer : DiagnosticAnalyzer
     public const string DiagnosticId = "CRDT0004";
 
     private static readonly LocalizableString Title = "Unsupported decorator behavior";
-    private static readonly LocalizableString MessageFormat = "The decorator '{0}' does not support the behavior '{1}'. Allowed behaviors are: {2}";
+    private static readonly LocalizableString MessageFormat = "The decorator '{0}' does not support the behavior '{1}', allowed behaviors are: {2}";
     private static readonly LocalizableString Description = "Decorators must be registered with a behavior they support.";
     private const string Category = "Usage";
 

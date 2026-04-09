@@ -444,7 +444,9 @@ internal static class PocoPathHelper
 
         if (type.IsValueType)
         {
+#pragma warning disable IL2067 // Target parameter requirements don't match source requirements
             return RuntimeHelpers.GetUninitializedObject(type);
+#pragma warning restore IL2067
         }
 
         throw new InvalidOperationException($"Cannot instantiate type {type.Name}. Ensure it has a parameterless constructor and is registered in the AOT context.");
@@ -476,7 +478,9 @@ internal static class PocoPathHelper
             return typeInfo.CreateInstance.Invoke();
         }
 
+#pragma warning disable IL2067 // Target parameter requirements don't match source requirements
         return RuntimeHelpers.GetUninitializedObject(type);
+#pragma warning restore IL2067
     }
 
     public static object InstantiateCollection(Type propertyType, IEnumerable<CrdtAotContext> aotContexts)
@@ -545,6 +549,7 @@ internal static class PocoPathHelper
 
         if (underlyingType.IsEnum)
         {
+#pragma warning disable IL2067 // Target parameter requirements don't match source requirements
             if (value is string s) 
             {
                 return Enum.TryParse(underlyingType, s, true, out var parsedEnum) ? parsedEnum : value;
@@ -557,6 +562,7 @@ internal static class PocoPathHelper
             {
                 return value; 
             }
+#pragma warning restore IL2067
         }
 
         if (value is IDictionary<string, object> dictionary)
@@ -589,7 +595,9 @@ internal static class PocoPathHelper
                 {
                     if (underlyingType.IsValueType)
                     {
+#pragma warning disable IL2067 // Target parameter requirements don't match source requirements
                         instance = RuntimeHelpers.GetUninitializedObject(underlyingType);
+#pragma warning restore IL2067
                     }
                     else
                     {

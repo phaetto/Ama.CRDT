@@ -48,6 +48,26 @@ public interface ICrdtSerializer
     object? DeserializeFromBytes(ReadOnlySpan<byte> bytes, Type returnType);
 
     /// <summary>
+    /// Serializes the specified value to a string representation.
+    /// </summary>
+    string SerializeToString<T>(T value);
+
+    /// <summary>
+    /// Serializes an object of a dynamically determined type to a string representation.
+    /// </summary>
+    string SerializeToString(object value, Type inputType);
+
+    /// <summary>
+    /// Deserializes a value of the specified type from a string representation.
+    /// </summary>
+    T? DeserializeFromString<T>(string data);
+
+    /// <summary>
+    /// Deserializes a value of a dynamically determined type from a string representation.
+    /// </summary>
+    object? DeserializeFromString(string data, Type returnType);
+
+    /// <summary>
     /// Creates a deep clone of the specified original value using the underlying serialization mechanism.
     /// </summary>
     T? Clone<T>(T original);
