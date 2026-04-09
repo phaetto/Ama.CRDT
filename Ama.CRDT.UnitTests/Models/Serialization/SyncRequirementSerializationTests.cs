@@ -2,6 +2,7 @@ namespace Ama.CRDT.UnitTests.Models.Serialization;
 
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models;
 using Shouldly;
 using Xunit;
@@ -20,8 +21,10 @@ public sealed class SyncRequirementSerializationTests
         };
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(req, options);
-        var deserialized = JsonSerializer.Deserialize<OriginSyncRequirement>(json, options);
+        var typeInfo = (JsonTypeInfo<OriginSyncRequirement>)options.GetTypeInfo(typeof(OriginSyncRequirement));
+        
+        var json = JsonSerializer.Serialize(req, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         deserialized.ShouldBe(req);
     }
@@ -48,8 +51,10 @@ public sealed class SyncRequirementSerializationTests
         };
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(req, options);
-        var deserialized = JsonSerializer.Deserialize<ReplicaSyncRequirement>(json, options);
+        var typeInfo = (JsonTypeInfo<ReplicaSyncRequirement>)options.GetTypeInfo(typeof(ReplicaSyncRequirement));
+        
+        var json = JsonSerializer.Serialize(req, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         deserialized.ShouldBe(req);
     }
@@ -78,8 +83,10 @@ public sealed class SyncRequirementSerializationTests
         };
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(bidi, options);
-        var deserialized = JsonSerializer.Deserialize<BidirectionalSyncRequirements>(json, options);
+        var typeInfo = (JsonTypeInfo<BidirectionalSyncRequirements>)options.GetTypeInfo(typeof(BidirectionalSyncRequirements));
+        
+        var json = JsonSerializer.Serialize(bidi, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         deserialized.ShouldBe(bidi);
     }
