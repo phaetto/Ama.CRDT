@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Models.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models;
 using Shouldly;
 using Xunit;
@@ -32,8 +33,10 @@ public sealed class CoreModelSerializationTests
         var result = new ApplyPatchResult<CoreSerializationTestModel>(document, new[] { unapplied });
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(result, options);
-        var deserialized = JsonSerializer.Deserialize<ApplyPatchResult<CoreSerializationTestModel>>(json, options);
+        var typeInfo = (JsonTypeInfo<ApplyPatchResult<CoreSerializationTestModel>>)options.GetTypeInfo(typeof(ApplyPatchResult<CoreSerializationTestModel>));
+        
+        var json = JsonSerializer.Serialize(result, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         deserialized.Document.ShouldBe(result.Document);
         deserialized.UnappliedOperations.ShouldHaveSingleItem();
@@ -47,8 +50,10 @@ public sealed class CoreModelSerializationTests
         var journaled = new JournaledOperation("doc-1", op);
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(journaled, options);
-        var deserialized = JsonSerializer.Deserialize<JournaledOperation>(json, options);
+        var typeInfo = (JsonTypeInfo<JournaledOperation>)options.GetTypeInfo(typeof(JournaledOperation));
+        
+        var json = JsonSerializer.Serialize(journaled, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         deserialized.ShouldBe(journaled);
     }
@@ -60,8 +65,10 @@ public sealed class CoreModelSerializationTests
         var unapplied = new UnappliedOperation(op, CrdtOperationStatus.PathResolutionFailed);
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(unapplied, options);
-        var deserialized = JsonSerializer.Deserialize<UnappliedOperation>(json, options);
+        var typeInfo = (JsonTypeInfo<UnappliedOperation>)options.GetTypeInfo(typeof(UnappliedOperation));
+        
+        var json = JsonSerializer.Serialize(unapplied, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         deserialized.ShouldBe(unapplied);
     }
@@ -75,8 +82,10 @@ public sealed class CoreModelSerializationTests
         );
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(dvv, options);
-        var deserialized = JsonSerializer.Deserialize<DottedVersionVector>(json, options);
+        var typeInfo = (JsonTypeInfo<DottedVersionVector>)options.GetTypeInfo(typeof(DottedVersionVector));
+        
+        var json = JsonSerializer.Serialize(dvv, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         deserialized.ShouldNotBeNull();
         deserialized.Equals(dvv).ShouldBeTrue();

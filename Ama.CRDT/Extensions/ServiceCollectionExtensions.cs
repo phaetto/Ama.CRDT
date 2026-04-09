@@ -255,7 +255,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtApplicatorDecorator<TDecorator>(this IServiceCollection services, DecoratorBehavior behavior)
+    public static IServiceCollection AddCrdtApplicatorDecorator<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(this IServiceCollection services, DecoratorBehavior behavior)
         where TDecorator : class, IAsyncCrdtApplicator
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -278,7 +278,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtPatcherDecorator<TDecorator>(this IServiceCollection services, DecoratorBehavior behavior)
+    public static IServiceCollection AddCrdtPatcherDecorator<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(this IServiceCollection services, DecoratorBehavior behavior)
         where TDecorator : class, IAsyncCrdtPatcher
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -304,7 +304,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtJournaling<TJournal>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtJournaling<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TJournal>(this IServiceCollection services)
         where TJournal : class, ICrdtOperationJournal
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -354,7 +354,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtComparer<TComparer>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtComparer<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TComparer>(this IServiceCollection services)
         where TComparer : class, IElementComparer
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -389,7 +389,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtTimestampProvider<TProvider>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtTimestampProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProvider>(this IServiceCollection services)
         where TProvider : class, ICrdtTimestampProvider
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -434,7 +434,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtTimestampType<TTimestamp>(this IServiceCollection services, string discriminator)
+    public static IServiceCollection AddCrdtTimestampType<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TTimestamp>(this IServiceCollection services, string discriminator)
         where TTimestamp : ICrdtTimestamp
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -460,7 +460,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtSerializableType<T>(this IServiceCollection services, string discriminator)
+    public static IServiceCollection AddCrdtSerializableType<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this IServiceCollection services, string discriminator)
     {
         ArgumentNullException.ThrowIfNull(services);
         CrdtTypeRegistry.Register(discriminator, typeof(T));
@@ -483,7 +483,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtAotContext<TContext>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtAotContext<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TContext>(this IServiceCollection services)
         where TContext : CrdtAotContext, new()
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -556,7 +556,7 @@ public static class ServiceCollectionExtensions
     /// ]]>
     /// </code>
     /// </example>
-    public static IServiceCollection AddCrdtCompactionPolicyFactory<TFactory>(this IServiceCollection services)
+    public static IServiceCollection AddCrdtCompactionPolicyFactory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TFactory>(this IServiceCollection services)
         where TFactory : class, ICompactionPolicyFactory
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -587,7 +587,7 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection DecorateService<TInterface, TDecorator>(this IServiceCollection services, DecoratorBehavior behavior)
+    private static IServiceCollection DecorateService<TInterface, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(this IServiceCollection services, DecoratorBehavior behavior)
         where TInterface : class
         where TDecorator : class, TInterface
     {

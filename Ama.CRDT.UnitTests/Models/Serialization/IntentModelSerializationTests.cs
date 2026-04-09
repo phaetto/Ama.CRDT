@@ -1,6 +1,7 @@
 namespace Ama.CRDT.UnitTests.Models.Serialization;
 
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Intents.Decorators;
@@ -12,8 +13,9 @@ public sealed class IntentModelSerializationTests
     private T SerializeAndDeserialize<T>(T intent)
     {
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(intent, options);
-        return JsonSerializer.Deserialize<T>(json, options)!;
+        var typeInfo = (JsonTypeInfo<T>)options.GetTypeInfo(typeof(T));
+        var json = JsonSerializer.Serialize(intent, typeInfo);
+        return JsonSerializer.Deserialize(json, typeInfo)!;
     }
 
     [Fact]

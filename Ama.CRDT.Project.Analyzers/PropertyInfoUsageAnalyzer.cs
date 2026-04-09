@@ -1,8 +1,6 @@
 namespace Ama.CRDT.Project.Analyzers;
 
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 using System.Collections.Immutable;
@@ -14,7 +12,7 @@ public sealed class PropertyInfoUsageAnalyzer : DiagnosticAnalyzer
 
     private static readonly LocalizableString Title = "Avoid dynamic reflection to ensure AOT compatibility";
     private static readonly LocalizableString MessageFormat = "Do not use '{0}'. Dynamic reflection breaks AOT compilation. Use AOT-compatible alternatives.";
-    private static readonly LocalizableString Description = "Avoid using dynamic reflection methods (GetValue, SetValue, Invoke, GetProperty, etc.) and AOT suppression attributes (DynamicallyAccessedMembers, etc.) as they are not Native AOT compatible. Reading metadata like .Name or .PropertyType is safe.";
+    private static readonly LocalizableString Description = "Avoid using dynamic reflection methods (GetValue, SetValue, Invoke, GetProperty, etc.) as they are not Native AOT compatible. Reading metadata like .Name or .PropertyType is safe.";
     private const string Category = "Performance";
 
     private static readonly DiagnosticDescriptor Rule = new(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Error, isEnabledByDefault: true, description: Description);
@@ -29,8 +27,6 @@ public sealed class PropertyInfoUsageAnalyzer : DiagnosticAnalyzer
             OperationKind.Invocation, 
             OperationKind.PropertyReference, 
             OperationKind.FieldReference);
-        
-        context.RegisterSyntaxNodeAction(AnalyzeAttribute, SyntaxKind.Attribute);
     }
 
     private static void AnalyzeOperation(OperationAnalysisContext context)
@@ -88,29 +84,6 @@ public sealed class PropertyInfoUsageAnalyzer : DiagnosticAnalyzer
             {
                 ReportDiagnostic(context, context.Operation.Syntax.GetLocation(), symbol.Name);
                 return;
-            }
-        }
-    }
-
-    private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context)
-    {
-        if (context.Node is AttributeSyntax attributeSyntax)
-        {
-            var symbolInfo = context.SemanticModel.GetSymbolInfo(attributeSyntax, context.CancellationToken);
-            if (symbolInfo.Symbol?.ContainingType is { } attributeType)
-            {
-                var name = attributeType.ToDisplayString();
-                if (name is "System.Diagnostics.CodeAnalysis.DynamicallyAccessedMembersAttribute"
-                         or "System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute"
-                         or "System.Diagnostics.CodeAnalysis.RequiresDynamicCodeAttribute")
-                {
-                    var diagnostic = Diagnostic.Create(
-                        Rule,
-                        attributeSyntax.GetLocation(),
-                        attributeType.Name);
-                    
-                    context.ReportDiagnostic(diagnostic);
-                }
             }
         }
     }

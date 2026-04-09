@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Models.Serialization;
 using Ama.CRDT.Models;
 using Shouldly;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Xunit;
 
 internal sealed record DocumentSerializationTestModel(string Name, int Value);
@@ -19,8 +20,10 @@ public sealed class CrdtDocumentSerializationTests
 
         // Act
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(document, options);
-        var deserialized = JsonSerializer.Deserialize<CrdtDocument<DocumentSerializationTestModel>>(json, options);
+        var typeInfo = (JsonTypeInfo<CrdtDocument<DocumentSerializationTestModel>>)options.GetTypeInfo(typeof(CrdtDocument<DocumentSerializationTestModel>));
+        
+        var json = JsonSerializer.Serialize(document, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         // Assert
         deserialized.Data.ShouldNotBeNull();
@@ -41,8 +44,10 @@ public sealed class CrdtDocumentSerializationTests
 
         // Act
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(document, options);
-        var deserialized = JsonSerializer.Deserialize<CrdtDocument<DocumentSerializationTestModel>>(json, options);
+        var typeInfo = (JsonTypeInfo<CrdtDocument<DocumentSerializationTestModel>>)options.GetTypeInfo(typeof(CrdtDocument<DocumentSerializationTestModel>));
+        
+        var json = JsonSerializer.Serialize(document, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         // Assert
         deserialized.Data.ShouldBeNull();
@@ -60,8 +65,10 @@ public sealed class CrdtDocumentSerializationTests
 
         // Act
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(document, options);
-        var deserialized = JsonSerializer.Deserialize<CrdtDocument<DocumentSerializationTestModel>>(json, options);
+        var typeInfo = (JsonTypeInfo<CrdtDocument<DocumentSerializationTestModel>>)options.GetTypeInfo(typeof(CrdtDocument<DocumentSerializationTestModel>));
+        
+        var json = JsonSerializer.Serialize(document, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         // Assert
         deserialized.Data.ShouldNotBeNull();
@@ -81,8 +88,10 @@ public sealed class CrdtDocumentSerializationTests
 
         // Act
         var options = TestOptionsHelper.GetCompactOptions();
-        var json = JsonSerializer.Serialize(document, options);
-        var deserialized = JsonSerializer.Deserialize<CrdtDocument<DocumentSerializationTestModel>>(json, options);
+        var typeInfo = (JsonTypeInfo<CrdtDocument<DocumentSerializationTestModel>>)options.GetTypeInfo(typeof(CrdtDocument<DocumentSerializationTestModel>));
+        
+        var json = JsonSerializer.Serialize(document, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         // Assert
         deserialized.Data.ShouldNotBeNull();

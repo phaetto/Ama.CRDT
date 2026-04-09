@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Services.Strategies;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 /// <summary>
@@ -26,7 +27,7 @@ public sealed class CrdtStateMachineStrategyAttribute : CrdtStrategyAttribute
     /// <param name="validatorType">The type of the validator that implements <see cref="IStateMachine{TState}"/>.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="validatorType"/> is null.</exception>
     /// <exception cref="ArgumentException">Thrown if <paramref name="validatorType"/> does not implement the <see cref="IStateMachine{TState}"/> interface.</exception>
-    public CrdtStateMachineStrategyAttribute(Type validatorType) : base(typeof(StateMachineStrategy))
+    public CrdtStateMachineStrategyAttribute([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type validatorType) : base(typeof(StateMachineStrategy))
     {
         ArgumentNullException.ThrowIfNull(validatorType);
 

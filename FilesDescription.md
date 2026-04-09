@@ -52,10 +52,10 @@
 | `$/Ama.CRDT.Partitioning.Streams/Services/StreamPartitionStorageService.cs` | No description provided. |
 | `$/Ama.CRDT.Partitioning.Streams/Services/StreamSpaceAllocator.cs` | No description provided. |
 | `$/Ama.CRDT.Project.Analyzers.UnitTests/Ama.CRDT.Project.Analyzers.UnitTests.csproj` | No description provided. |
-| `$/Ama.CRDT.Project.Analyzers.UnitTests/PropertyInfoUsageAnalyzerTests.cs` | No description provided. |
+| `$/Ama.CRDT.Project.Analyzers.UnitTests/PropertyInfoUsageAnalyzerTests.cs` | Contains unit tests for `PropertyInfoUsageAnalyzer`, verifying that it catches dynamic reflection methods while ignoring AOT-safe metadata access. Removed outdated tests targeting compiler trimmer attributes. |
 | `$/Ama.CRDT.Project.Analyzers.UnitTests/SystemConvertUsageAnalyzerTests.cs` | No description provided. |
 | `$/Ama.CRDT.Project.Analyzers/Ama.CRDT.Project.Analyzers.csproj` | No description provided. |
-| `$/Ama.CRDT.Project.Analyzers/PropertyInfoUsageAnalyzer.cs` | No description provided. |
+| `$/Ama.CRDT.Project.Analyzers/PropertyInfoUsageAnalyzer.cs` | Roslyn analyzer to forbid the use of dynamic reflection methods (`GetValue`, `SetValue`, `Activator.CreateInstance`) to ensure strict Native AOT compatibility across the library, while allowing safe metadata access (`.Name`, `.PropertyType`). |
 | `$/Ama.CRDT.Project.Analyzers/SystemConvertUsageAnalyzer.cs` | No description provided. |
 | `$/Ama.CRDT.PropertyTests/Ama.CRDT.PropertyTests.csproj` | Contains the project definition for the property tests, incorporating FsCheck for automated generative testing validation. |
 | `$/Ama.CRDT.PropertyTests/Attributes/CrdtPropertyAttribute.cs` | Custom FsCheck property attribute (`[CrdtProperty]`) that centrally configures the default number of test permutations (`MaxTest`) and supports environment-variable overrides for CI/CD environments. |
@@ -106,7 +106,7 @@
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/README.md` | Provides an overview and user guide for the Collaborative Editing showcase, highlighting the use of the RGA Strategy, Explicit Intents, Operation Journaling, and GMVV-based Garbage Collection. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Services/MemoryJournal.cs` | An in-memory operation journal implementation providing missing operation histories and journal truncation based on the cluster's GMVV. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Services/NetworkBroker.cs` | Simulates a network passing CRDT patches to different editors in real-time. |
-| `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application, configured for Native AOT, explicit trimming, and trim analysis. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/BlogPost.cs` | The root data model for the showcase, representing a blog post. It is decorated with `[PartitionKey]` and its `Comments` list uses `[CrdtArrayLcsStrategy]` to enable partitioning. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/Comment.cs` | A simple record representing a comment in the blog post. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/LargerThanMemoryCrdtContext.cs` | Provides a Native AOT compatible `CrdtContext` generated for the models used in the Larger-Than-Memory showcase, allowing execution without runtime reflection. |
@@ -227,7 +227,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTests.cs` | Contains unit tests for the `VoteCounterStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent voting scenarios. |
 | `$/Ama.CRDT.UnitTests/Services/Versioning/VersionVectorSyncServiceTests.cs` | No description provided. |
 | `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |
-| `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging and to automatically include its associated Roslyn analyzers. |
+| `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging, auto-including associated Roslyn analyzers, and now explicitly enforcing `<IsAotCompatible>true</IsAotCompatible>` to bubble up AOT/Trimming warnings during regular builds. |
 | `$/Ama.CRDT/Attributes/AllowedDecoratorBehaviorAttribute.cs` | Attribute used to tag decorator classes with their supported execution behaviors. Meant for use alongside Roslyn Analyzers to ensure DI validation. |
 | `$/Ama.CRDT/Attributes/CrdtAotTypeAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/CrdtIntentMappingAttribute.cs` | An attribute to map intent builder extension methods to the specific explicit intent types they generate, enabling compile-time validation via Roslyn analyzers without hardcoded mappings. |
@@ -275,7 +275,7 @@
 | `$/Ama.CRDT/Attributes/Strategies/Semantic/StateBasedAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/AsyncCrdtApplicatorExtensions.cs` | Provides extension methods for `IAsyncCrdtApplicator` to streamline common synchronization tasks, such as directly applying an asynchronous stream of missing operations. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
-| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods for easy library setup, unifying `AddCrdt`, applicator/patcher pipeline decoration (`AddCrdtApplicatorDecorator`, `AddCrdtJournaling`), comparers, timestamp providers, and serialization polymorphism. |
+| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods for easy library setup, unifying `AddCrdt`, applicator/patcher pipeline decoration (`AddCrdtApplicatorDecorator`, `AddCrdtJournaling`), comparers, timestamp providers, and serialization polymorphism. It uses standard `[DynamicallyAccessedMembers]` annotations to maintain Native AOT compatibility without sacrificing developer experience. |
 | `$/Ama.CRDT/Models/Aot/CrdtAotContext.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Aot/CrdtPropertyInfo.cs` | Contains AOT-compatible metadata, now natively including pre-extracted array of strategy type configurations mapped via attribute. |
 | `$/Ama.CRDT/Models/Aot/CrdtTypeInfo.cs` | Contains AOT-compatible metadata and factory methods for a specific type, including logic for lists and dictionaries. |
