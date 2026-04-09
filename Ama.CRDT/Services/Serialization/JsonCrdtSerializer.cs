@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Serialization;
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,7 +24,7 @@ public sealed class JsonCrdtSerializer : ICrdtSerializer
     /// <inheritdoc/>
     public Task SerializeAsync<T>(Stream stream, T value, CancellationToken cancellationToken = default)
     {
-        var typeInfo = _options.GetTypeInfo(typeof(T));
+        var typeInfo = (JsonTypeInfo<T>)_options.GetTypeInfo(typeof(T));
         return JsonSerializer.SerializeAsync(stream, value, typeInfo, cancellationToken);
     }
 
@@ -37,14 +38,14 @@ public sealed class JsonCrdtSerializer : ICrdtSerializer
     /// <inheritdoc/>
     public async Task<T?> DeserializeAsync<T>(Stream stream, CancellationToken cancellationToken = default)
     {
-        var typeInfo = _options.GetTypeInfo(typeof(T));
-        return (T?)await JsonSerializer.DeserializeAsync(stream, typeInfo, cancellationToken).ConfigureAwait(false);
+        var typeInfo = (JsonTypeInfo<T>)_options.GetTypeInfo(typeof(T));
+        return await JsonSerializer.DeserializeAsync(stream, typeInfo, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public byte[] SerializeToBytes<T>(T value)
     {
-        var typeInfo = _options.GetTypeInfo(typeof(T));
+        var typeInfo = (JsonTypeInfo<T>)_options.GetTypeInfo(typeof(T));
         return JsonSerializer.SerializeToUtf8Bytes(value, typeInfo);
     }
 
@@ -58,8 +59,8 @@ public sealed class JsonCrdtSerializer : ICrdtSerializer
     /// <inheritdoc/>
     public T? DeserializeFromBytes<T>(ReadOnlySpan<byte> bytes)
     {
-        var typeInfo = _options.GetTypeInfo(typeof(T));
-        return (T?)JsonSerializer.Deserialize(bytes, typeInfo);
+        var typeInfo = (JsonTypeInfo<T>)_options.GetTypeInfo(typeof(T));
+        return JsonSerializer.Deserialize(bytes, typeInfo);
     }
 
     /// <inheritdoc/>
@@ -74,8 +75,8 @@ public sealed class JsonCrdtSerializer : ICrdtSerializer
     {
         if (original is null) return default;
         
-        var typeInfo = _options.GetTypeInfo(typeof(T));
+        var typeInfo = (JsonTypeInfo<T>)_options.GetTypeInfo(typeof(T));
         var bytes = JsonSerializer.SerializeToUtf8Bytes(original, typeInfo);
-        return (T?)JsonSerializer.Deserialize(bytes, typeInfo);
+        return JsonSerializer.Deserialize(bytes, typeInfo);
     }
 }

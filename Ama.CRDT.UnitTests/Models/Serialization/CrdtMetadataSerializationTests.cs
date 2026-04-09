@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization.Metadata;
 using Xunit;
 
 public sealed class CrdtMetadataSerializationTests
@@ -20,8 +21,9 @@ public sealed class CrdtMetadataSerializationTests
 
         // Act
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(originalMetadata, options);
-        var deserializedMetadata = JsonSerializer.Deserialize<CrdtMetadata>(json, options);
+        var typeInfo = (JsonTypeInfo<CrdtMetadata>)options.GetTypeInfo(typeof(CrdtMetadata));
+        var json = JsonSerializer.Serialize(originalMetadata, typeInfo);
+        var deserializedMetadata = JsonSerializer.Deserialize(json, typeInfo);
 
         // Assert
         deserializedMetadata.ShouldNotBeNull();
@@ -36,8 +38,9 @@ public sealed class CrdtMetadataSerializationTests
 
         // Act
         var options = TestOptionsHelper.GetCompactOptions();
-        var json = JsonSerializer.Serialize(originalMetadata, options);
-        var deserializedMetadata = JsonSerializer.Deserialize<CrdtMetadata>(json, options);
+        var typeInfo = (JsonTypeInfo<CrdtMetadata>)options.GetTypeInfo(typeof(CrdtMetadata));
+        var json = JsonSerializer.Serialize(originalMetadata, typeInfo);
+        var deserializedMetadata = JsonSerializer.Deserialize(json, typeInfo);
 
         // Assert
         deserializedMetadata.ShouldNotBeNull();
@@ -54,7 +57,8 @@ public sealed class CrdtMetadataSerializationTests
 
         // Act
         var options = TestOptionsHelper.GetCompactOptions();
-        var json = JsonSerializer.Serialize(metadata, options);
+        var typeInfo = (JsonTypeInfo<CrdtMetadata>)options.GetTypeInfo(typeof(CrdtMetadata));
+        var json = JsonSerializer.Serialize(metadata, typeInfo);
         var jsonNode = JsonNode.Parse(json)!.AsObject();
 
         // Assert
@@ -72,16 +76,18 @@ public sealed class CrdtMetadataSerializationTests
 
         // Act & Assert for DefaultOptions
         var defaultOptions = TestOptionsHelper.GetDefaultOptions();
-        var defaultJson = JsonSerializer.Serialize(emptyMetadata, defaultOptions);
-        var deserializedDefault = JsonSerializer.Deserialize<CrdtMetadata>(defaultJson, defaultOptions);
+        var defaultTypeInfo = (JsonTypeInfo<CrdtMetadata>)defaultOptions.GetTypeInfo(typeof(CrdtMetadata));
+        var defaultJson = JsonSerializer.Serialize(emptyMetadata, defaultTypeInfo);
+        var deserializedDefault = JsonSerializer.Deserialize(defaultJson, defaultTypeInfo);
         deserializedDefault.ShouldNotBeNull();
         AssertAllCollectionsAreEmpty(deserializedDefault);
 
         // Act & Assert for MetadataCompactOptions
         var compactOptions = TestOptionsHelper.GetCompactOptions();
-        var compactJson = JsonSerializer.Serialize(emptyMetadata, compactOptions);
+        var compactTypeInfo = (JsonTypeInfo<CrdtMetadata>)compactOptions.GetTypeInfo(typeof(CrdtMetadata));
+        var compactJson = JsonSerializer.Serialize(emptyMetadata, compactTypeInfo);
         compactJson.ShouldBe("{}");
-        var deserializedCompact = JsonSerializer.Deserialize<CrdtMetadata>(compactJson, compactOptions);
+        var deserializedCompact = JsonSerializer.Deserialize(compactJson, compactTypeInfo);
         deserializedCompact.ShouldNotBeNull();
         AssertAllCollectionsAreEmpty(deserializedCompact);
     }
@@ -113,8 +119,9 @@ public sealed class CrdtMetadataSerializationTests
 
         foreach (var item in items)
         {
-            var json = JsonSerializer.Serialize(item, options);
-            var deserialized = JsonSerializer.Deserialize(json, item.GetType(), options);
+            var typeInfo = options.GetTypeInfo(item.GetType());
+            var json = JsonSerializer.Serialize(item, typeInfo);
+            var deserialized = JsonSerializer.Deserialize(json, typeInfo);
             deserialized.ShouldNotBeNull();
         }
     }

@@ -5,9 +5,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-	<IsPackable>false</IsPackable>
-	<NoWarn>CS8618;CS8602;CS8618;CS8604</NoWarn>
-	<PublishAot>true</PublishAot>
+    <IsPackable>false</IsPackable>
+    <NoWarn>CS8618;CS8602;CS8618;CS8604</NoWarn>
+    <PublishAot>true</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,8 +17,8 @@
   
   <ItemGroup>
     <ProjectReference Include="..\Ama.CRDT.Analyzers\Ama.CRDT.Analyzers.csproj" PrivateAssets="all" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
-	  <ProjectReference Include="..\Ama.CRDT.SourceGenerators\Ama.CRDT.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-	  <ProjectReference Include="..\Ama.CRDT.Partitioning.Streams\Ama.CRDT.Partitioning.Streams.csproj" />
+    <ProjectReference Include="..\Ama.CRDT.SourceGenerators\Ama.CRDT.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Ama.CRDT.Partitioning.Streams\Ama.CRDT.Partitioning.Streams.csproj" />
     <ProjectReference Include="..\Ama.CRDT\Ama.CRDT.csproj" />
   </ItemGroup>
 

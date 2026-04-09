@@ -1,6 +1,7 @@
 namespace Ama.CRDT.UnitTests.Models.Serialization;
 
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Partitioning;
 using Shouldly;
@@ -14,8 +15,10 @@ public sealed class PartitioningModelSerializationTests
         var key = new CompositePartitionKey("tenant-1", 42);
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(key, options);
-        var deserialized = JsonSerializer.Deserialize<CompositePartitionKey>(json, options);
+        var typeInfo = (JsonTypeInfo<CompositePartitionKey>)options.GetTypeInfo(typeof(CompositePartitionKey));
+        
+        var json = JsonSerializer.Serialize(key, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         deserialized.LogicalKey.ShouldBe("tenant-1");
         deserialized.RangeKey.ShouldBe(42);
@@ -30,8 +33,10 @@ public sealed class PartitioningModelSerializationTests
         var partition = new DataPartition(startKey, endKey, 100, 50, 200, 25);
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(partition, options);
-        var deserialized = JsonSerializer.Deserialize<DataPartition>(json, options);
+        var typeInfo = (JsonTypeInfo<DataPartition>)options.GetTypeInfo(typeof(DataPartition));
+        
+        var json = JsonSerializer.Serialize(partition, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         deserialized.ShouldBe(partition);
     }
@@ -43,8 +48,10 @@ public sealed class PartitioningModelSerializationTests
         var partition = new HeaderPartition(key, 0, 100, 100, 50);
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(partition, options);
-        var deserialized = JsonSerializer.Deserialize<HeaderPartition>(json, options);
+        var typeInfo = (JsonTypeInfo<HeaderPartition>)options.GetTypeInfo(typeof(HeaderPartition));
+        
+        var json = JsonSerializer.Serialize(partition, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         deserialized.ShouldBe(partition);
     }
@@ -59,8 +66,10 @@ public sealed class PartitioningModelSerializationTests
         var content = new PartitionContent(data, metadata);
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(content, options);
-        var deserialized = JsonSerializer.Deserialize<PartitionContent>(json, options);
+        var typeInfo = (JsonTypeInfo<PartitionContent>)options.GetTypeInfo(typeof(PartitionContent));
+        
+        var json = JsonSerializer.Serialize(content, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         deserialized.Data.ShouldBe(data);
         deserialized.Metadata.Equals(metadata).ShouldBeTrue();
@@ -76,8 +85,10 @@ public sealed class PartitioningModelSerializationTests
         var result = new SplitResult(content1, content2, splitKey);
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var json = JsonSerializer.Serialize(result, options);
-        var deserialized = JsonSerializer.Deserialize<SplitResult>(json, options);
+        var typeInfo = (JsonTypeInfo<SplitResult>)options.GetTypeInfo(typeof(SplitResult));
+        
+        var json = JsonSerializer.Serialize(result, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         deserialized.Partition1.Data.ShouldBe(content1.Data);
         deserialized.Partition2.Data.ShouldBe(content2.Data);
