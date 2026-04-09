@@ -2,34 +2,30 @@ namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Journaling;
-using Microsoft.Extensions.DependencyInjection;
+using Ama.CRDT.Services.Serialization;
 
 public sealed class FileSystemOperationJournal : ICrdtOperationJournal
 {
     private readonly string journalFilePath;
     private readonly Dictionary<string, List<JournaledOperation>> operationsByOrigin = new();
     private readonly object lockObj = new();
-    private readonly JsonSerializerOptions jsonOptions;
+    private readonly ICrdtSerializer crdtSerializer;
 
-    public FileSystemOperationJournal(
-        ReplicaContext replicaContext, 
-        [FromKeyedServices("Ama.CRDT")] JsonSerializerOptions jsonOptions)
+    public FileSystemOperationJournal(ReplicaContext replicaContext, ICrdtSerializer crdtSerializer)
     {
         ArgumentNullException.ThrowIfNull(replicaContext);
         ArgumentException.ThrowIfNullOrWhiteSpace(replicaContext.ReplicaId);
-        ArgumentNullException.ThrowIfNull(jsonOptions);
+        ArgumentNullException.ThrowIfNull(crdtSerializer);
 
-        this.jsonOptions = jsonOptions;
+        this.crdtSerializer = crdtSerializer;
 
         var basePath = Path.Combine(Environment.CurrentDirectory, "data", replicaContext.ReplicaId);
         Directory.CreateDirectory(basePath);
@@ -38,8 +34,6 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         LoadJournal();
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
-    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
     private void LoadJournal()
     {
         if (!File.Exists(journalFilePath)) return;
@@ -47,7 +41,7 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         try
         {
             var json = File.ReadAllText(journalFilePath);
-            var ops = JsonSerializer.Deserialize<List<JournaledOperation>>(json, jsonOptions) ?? new List<JournaledOperation>();
+            var ops = crdtSerializer.DeserializeFromString<List<JournaledOperation>>(json) ?? new List<JournaledOperation>();
             
             foreach (var jOp in ops)
             {
@@ -65,12 +59,10 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         }
     }
 
-    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
-    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
     private void SaveJournal()
     {
         var allOps = operationsByOrigin.Values.SelectMany(x => x).ToList();
-        var json = JsonSerializer.Serialize(allOps, jsonOptions);
+        var json = crdtSerializer.SerializeToString(allOps);
         File.WriteAllText(journalFilePath, json);
     }
 

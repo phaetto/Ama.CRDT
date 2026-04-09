@@ -944,7 +944,6 @@ Ama.CRDT.Services.CrdtMetadataManager
 Ama.CRDT.Services.CrdtMetadataManager.AdvanceVersionVector(Ama.CRDT.Models.CrdtMetadata! metadata, Ama.CRDT.Models.CrdtOperation operation) -> void
 Ama.CRDT.Services.CrdtMetadataManager.AdvanceVersionVector(Ama.CRDT.Models.CrdtMetadata! metadata, string! replicaId, long clock) -> void
 Ama.CRDT.Services.CrdtMetadataManager.Compact<T>(Ama.CRDT.Models.CrdtDocument<T!> document, Ama.CRDT.Services.GarbageCollection.ICompactionPolicy! policy) -> void
-Ama.CRDT.Services.CrdtMetadataManager.CrdtMetadataManager(Ama.CRDT.Services.Providers.ICrdtStrategyProvider! strategyProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.Providers.IElementComparerProvider! elementComparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext, System.Collections.Generic.IEnumerable<Ama.CRDT.Models.Aot.CrdtAotContext!>! crdtContexts) -> void
 Ama.CRDT.Services.CrdtMetadataManager.Initialize<T>(Ama.CRDT.Models.CrdtDocument<T!> document) -> void
 Ama.CRDT.Services.CrdtMetadataManager.Initialize<T>(Ama.CRDT.Models.CrdtDocument<T!> document, Ama.CRDT.Models.ICrdtTimestamp! timestamp) -> void
 Ama.CRDT.Services.CrdtMetadataManager.Initialize<T>(T! document) -> Ama.CRDT.Models.CrdtMetadata!

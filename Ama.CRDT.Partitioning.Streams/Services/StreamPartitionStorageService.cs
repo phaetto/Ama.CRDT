@@ -13,10 +13,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Ama.CRDT.Partitioning.Streams.Models;
+using Ama.CRDT.Services.Serialization;
 
 /// <summary>
 /// An implementation of <see cref="IPartitionStorageService"/> that coordinates raw streams and an internal B+ Tree index
@@ -30,9 +30,9 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
     private readonly IPartitionStreamProvider streamProvider;
     private readonly IPartitionSerializationService serializationService;
+    private readonly ICrdtSerializer crdtSerializer;
     private readonly PartitionManagerCrdtMetrics metrics;
     private readonly StreamsCrdtMetrics treeMetrics;
-    private readonly JsonSerializerOptions serializerOptions;
 
     // Concurrency controls
     private readonly ConcurrentDictionary<string, AsyncLock> locks = new();
@@ -47,13 +47,13 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         IPartitionSerializationService serializationService,
         PartitionManagerCrdtMetrics metrics,
         StreamsCrdtMetrics treeMetrics,
-        [FromKeyedServices("Ama.CRDT")] JsonSerializerOptions serializerOptions)
+        ICrdtSerializer crdtSerializer)
     {
         ArgumentNullException.ThrowIfNull(serviceProvider);
         ArgumentNullException.ThrowIfNull(serializationService);
         ArgumentNullException.ThrowIfNull(metrics);
         ArgumentNullException.ThrowIfNull(treeMetrics);
-        ArgumentNullException.ThrowIfNull(serializerOptions);
+        ArgumentNullException.ThrowIfNull(crdtSerializer);
 
         this.streamProvider = serviceProvider.GetService<IPartitionStreamProvider>() ??
             throw new InvalidOperationException(
@@ -64,7 +64,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         this.serializationService = serializationService;
         this.metrics = metrics;
         this.treeMetrics = treeMetrics;
-        this.serializerOptions = serializerOptions;
+        this.crdtSerializer = crdtSerializer;
     }
 
     #region Data Stream Operations (IPartitionStorageService core)
@@ -228,14 +228,12 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             return newHeader;
         }
 
-        var typeInfo = serializerOptions.GetTypeInfo(typeof(DataStreamHeader));
-        return (DataStreamHeader?)JsonSerializer.Deserialize(buffer.AsSpan(0, endOfJson), typeInfo) ?? new DataStreamHeader();
+        return crdtSerializer.DeserializeFromBytes<DataStreamHeader>(buffer.AsSpan(0, endOfJson)) ?? new DataStreamHeader();
     }
 
     private async Task WriteDataHeaderAsync(Stream stream, DataStreamHeader header, CancellationToken cancellationToken)
     {
-        var typeInfo = serializerOptions.GetTypeInfo(typeof(DataStreamHeader));
-        var buffer = JsonSerializer.SerializeToUtf8Bytes(header, typeInfo);
+        var buffer = crdtSerializer.SerializeToBytes(header);
 
         if (buffer.Length > HeaderSize) throw new InvalidOperationException($"Data stream header exceeded {HeaderSize} bytes.");
 
