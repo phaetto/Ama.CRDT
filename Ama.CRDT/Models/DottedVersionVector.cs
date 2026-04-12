@@ -153,6 +153,15 @@ public sealed class DottedVersionVector : IEquatable<DottedVersionVector>
         }
     }
 
+    /// <summary>
+    /// Creates a deep clone of the current <see cref="DottedVersionVector"/>.
+    /// </summary>
+    /// <returns>A new, deeply cloned instance of <see cref="DottedVersionVector"/>.</returns>
+    public DottedVersionVector DeepClone()
+    {
+        return new DottedVersionVector(Versions, Dots);
+    }
+
     /// <inheritdoc/>
     public bool Equals(DottedVersionVector? other)
     {

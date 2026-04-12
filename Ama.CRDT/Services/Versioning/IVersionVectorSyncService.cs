@@ -1,6 +1,8 @@
 namespace Ama.CRDT.Services.Versioning;
 
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Ama.CRDT.Models;
 
 /// <summary>
@@ -56,6 +58,25 @@ public interface IVersionVectorSyncService
     /// <param name="sourceReplicaId">The ID of the replica that may have newer data.</param>
     /// <param name="sourceVector">The version vector of the replica that may have newer data.</param>
     /// <returns>A <see cref="ReplicaSyncRequirement"/> detailing exactly what versions the target is missing from the source.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var targetVector = new DottedVersionVector();
+    /// targetVector.Add("OriginX", 1);
+    /// 
+    /// var sourceVector = new DottedVersionVector();
+    /// sourceVector.Add("OriginX", 3);
+    /// 
+    /// var syncService = new VersionVectorSyncService();
+    /// var requirements = syncService.CalculateRequirement("ReplicaA", targetVector, "ReplicaB", sourceVector);
+    /// 
+    /// if (requirements.IsBehind)
+    /// {
+    ///     // Handle synchronization from ReplicaB to ReplicaA
+    /// }
+    /// ]]>
+    /// </code>
+    /// </example>
     ReplicaSyncRequirement CalculateRequirement(string targetReplicaId, DottedVersionVector targetVector, string sourceReplicaId, DottedVersionVector sourceVector);
 
     /// <summary>
@@ -92,6 +113,30 @@ public interface IVersionVectorSyncService
     /// <param name="replicaBId">The ID of the second replica.</param>
     /// <param name="vectorB">The version vector of the second replica.</param>
     /// <returns>A <see cref="BidirectionalSyncRequirements"/> containing the requirements for A to catch up to B, and B to catch up to A.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var vectorA = new DottedVersionVector();
+    /// vectorA.Add("OriginX", 2);
+    /// 
+    /// var vectorB = new DottedVersionVector();
+    /// vectorB.Add("OriginY", 3);
+    /// 
+    /// var syncService = new VersionVectorSyncService();
+    /// var requirements = syncService.CalculateBidirectionalRequirements("ReplicaA", vectorA, "ReplicaB", vectorB);
+    /// 
+    /// if (requirements.ReplicaANeedsFromB.IsBehind)
+    /// {
+    ///     // Sync needed for A
+    /// }
+    /// 
+    /// if (requirements.ReplicaBNeedsFromA.IsBehind)
+    /// {
+    ///     // Sync needed for B
+    /// }
+    /// ]]>
+    /// </code>
+    /// </example>
     BidirectionalSyncRequirements CalculateBidirectionalRequirements(string replicaAId, DottedVersionVector vectorA, string replicaBId, DottedVersionVector vectorB);
 
     /// <summary>
@@ -147,4 +192,58 @@ public interface IVersionVectorSyncService
     /// </code>
     /// </example>
     DottedVersionVector CalculateGlobalMaximumVersionVector(IEnumerable<DottedVersionVector> clusterVectors);
+
+    /// <summary>
+    /// Removes causal tracking information for specific replicas from a given version vector.
+    /// This is useful for cleaning up version vectors after replicas have been evicted from the cluster,
+    /// allowing the Global Minimum Version Vector (GMVV) to advance.
+    /// </summary>
+    /// <param name="vector">The version vector to clean.</param>
+    /// <param name="evictedReplicaIds">The IDs of the replicas to remove.</param>
+    /// <returns>A new <see cref="DottedVersionVector"/> without the evicted replicas.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var vector = new DottedVersionVector();
+    /// vector.Add("ReplicaA", 5);
+    /// vector.Add("ReplicaB", 3);
+    /// 
+    /// var syncService = new VersionVectorSyncService();
+    /// var cleanVector = syncService.RemoveEvictedReplicas(vector, new[] { "ReplicaB" });
+    /// 
+    /// // cleanVector will only contain "ReplicaA"
+    /// ]]>
+    /// </code>
+    /// </example>
+    DottedVersionVector RemoveEvictedReplicas(DottedVersionVector vector, IEnumerable<string> evictedReplicaIds);
+
+    /// <summary>
+    /// Evaluates if an asynchronous stream of retrieved operations fully satisfies the synchronization requirement, 
+    /// or if the stream is missing required causal gaps (indicating truncation and a need for a full state snapshot).
+    /// </summary>
+    /// <param name="retrievedOperations">The asynchronous stream of operations retrieved from a source (e.g., a journal).</param>
+    /// <param name="requirement">The synchronization requirement detailing the missing causal versions.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A <see cref="JournalSyncResult"/> containing the materialized operations and a flag indicating if a snapshot is required to bridge gaps.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var requirement = syncService.CalculateRequirement(targetContext, sourceContext);
+    /// var operationStream = operationJournal.GetOperationsAsync(requirement);
+    /// 
+    /// var result = await syncService.EvaluateJournalCompletionAsync(operationStream, requirement);
+    /// 
+    /// if (result.RequiresSnapshot)
+    /// {
+    ///     // Request full snapshot from source because the journal was truncated
+    ///     // and could not supply all the missing operations needed to catch up.
+    /// }
+    /// else
+    /// {
+    ///     // Apply result.Operations safely to close the gap
+    /// }
+    /// ]]>
+    /// </code>
+    /// </example>
+    Task<JournalSyncResult> EvaluateJournalCompletionAsync(IAsyncEnumerable<JournaledOperation> retrievedOperations, ReplicaSyncRequirement requirement, CancellationToken cancellationToken = default);
 }

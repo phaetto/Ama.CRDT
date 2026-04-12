@@ -182,6 +182,37 @@ public sealed class CrdtMetadataManager(
         }
     }
 
+    /// <inheritdoc/>
+    public void EvictReplica([DisallowNull] CrdtMetadata metadata, [DisallowNull] string replicaId)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
+
+        metadata.VersionVector.Remove(replicaId);
+
+        if (metadata.SeenExceptions.Count > 0)
+        {
+            var exceptionsToRemove = metadata.SeenExceptions
+                .Where(op => op.ReplicaId == replicaId)
+                .ToList();
+
+            foreach (var exception in exceptionsToRemove)
+            {
+                metadata.SeenExceptions.Remove(exception);
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public void EvictReplica<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] string replicaId) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(document.Metadata);
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
+
+        EvictReplica(document.Metadata, replicaId);
+    }
+
     private void PopulateMetadataRecursive(CrdtMetadata metadata, object obj, string path, ICrdtTimestamp timestamp, object root)
     {
         if (obj is null)

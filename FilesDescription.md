@@ -330,6 +330,7 @@
 | `$/Ama.CRDT/Models/Intents/SetIndexIntent.cs` | Represents the intent to explicitly set a value at a specific index within a collection or sequence. |
 | `$/Ama.CRDT/Models/Intents/SetIntent.cs` | Represents the intent to explicitly set a value for a property or register. |
 | `$/Ama.CRDT/Models/Intents/VoteIntent.cs` | Represents the intent to explicitly cast a vote for a specific option. |
+| `$/Ama.CRDT/Models/JournalSyncResult.cs` | DTO representing the result of evaluating journal operations against synchronization requirements, avoiding tuple usage. |
 | `$/Ama.CRDT/Models/JournaledOperation.cs` | An envelope record struct used by the operation journal interfaces to bundle a core `CrdtOperation` with its target `DocumentId` (logical key), facilitating correct data routing when synchronizing independent documents. |
 | `$/Ama.CRDT/Models/LseqIdentifier.cs` | A record struct for the dense, ordered identifier used in LSEQ, composed of a path of `LseqPathSegment` instances. |
 | `$/Ama.CRDT/Models/LseqItem.cs` | A record struct that pairs an LseqIdentifier with its corresponding value in the LSEQ metadata. |
