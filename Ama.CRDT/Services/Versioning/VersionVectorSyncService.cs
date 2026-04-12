@@ -3,6 +3,8 @@ namespace Ama.CRDT.Services.Versioning;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Ama.CRDT.Models;
 
 /// <summary>
@@ -219,5 +221,120 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
         }
 
         return new DottedVersionVector(mergedVersions, mergedDots);
+    }
+
+    /// <inheritdoc/>
+    public DottedVersionVector RemoveEvictedReplicas(DottedVersionVector vector, IEnumerable<string> evictedReplicaIds)
+    {
+        ArgumentNullException.ThrowIfNull(vector);
+        ArgumentNullException.ThrowIfNull(evictedReplicaIds);
+
+        var evictedSet = evictedReplicaIds as ISet<string> ?? new HashSet<string>(evictedReplicaIds);
+
+        var newVersions = new Dictionary<string, long>();
+        foreach (var kvp in vector.Versions)
+        {
+            if (!evictedSet.Contains(kvp.Key))
+            {
+                newVersions[kvp.Key] = kvp.Value;
+            }
+        }
+
+        var newDots = new Dictionary<string, ISet<long>>();
+        if (vector.Dots != null)
+        {
+            foreach (var kvp in vector.Dots)
+            {
+                if (!evictedSet.Contains(kvp.Key))
+                {
+                    newDots[kvp.Key] = new HashSet<long>(kvp.Value);
+                }
+            }
+        }
+
+        return new DottedVersionVector(newVersions, newDots);
+    }
+
+    /// <inheritdoc/>
+    public async Task<JournalSyncResult> EvaluateJournalCompletionAsync(IAsyncEnumerable<JournaledOperation> retrievedOperations, ReplicaSyncRequirement requirement, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(retrievedOperations);
+        ArgumentNullException.ThrowIfNull(requirement);
+
+        if (!requirement.IsBehind)
+        {
+            return new JournalSyncResult(Array.Empty<JournaledOperation>(), false);
+        }
+
+        var allJournaledOps = new List<JournaledOperation>();
+        await foreach (var jOp in retrievedOperations.WithCancellation(cancellationToken).ConfigureAwait(false))
+        {
+            allJournaledOps.Add(jOp);
+        }
+
+        bool journalTruncated = false;
+
+        if (requirement.RequirementsByOrigin != null)
+        {
+            // Build a dictionary of hashed clocks to achieve O(1) checks per required dot
+            var availableOpsLookup = new Dictionary<string, HashSet<long>>();
+            foreach (var op in allJournaledOps)
+            {
+                if (!availableOpsLookup.TryGetValue(op.Operation.ReplicaId, out var clocks))
+                {
+                    clocks = new HashSet<long>();
+                    availableOpsLookup[op.Operation.ReplicaId] = clocks;
+                }
+                clocks.Add(op.Operation.GlobalClock);
+            }
+
+            foreach (var kvp in requirement.RequirementsByOrigin)
+            {
+                var origin = kvp.Key;
+                var req = kvp.Value;
+
+                if (req.TargetContiguousVersion < req.SourceContiguousVersion)
+                {
+                    long firstRequiredClock = req.TargetContiguousVersion + 1;
+                    
+                    while (req.TargetKnownDots != null && req.TargetKnownDots.Contains(firstRequiredClock) && firstRequiredClock <= req.SourceContiguousVersion)
+                    {
+                        firstRequiredClock++;
+                    }
+
+                    if (firstRequiredClock <= req.SourceContiguousVersion)
+                    {
+                        bool hasRequired = availableOpsLookup.TryGetValue(origin, out var clocks) && clocks.Contains(firstRequiredClock);
+                        if (!hasRequired)
+                        {
+                            journalTruncated = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!journalTruncated && req.SourceMissingDots != null && req.SourceMissingDots.Count > 0)
+                {
+                    foreach (var dot in req.SourceMissingDots)
+                    {
+                        bool hasRequiredDot = availableOpsLookup.TryGetValue(origin, out var clocks) && clocks.Contains(dot);
+                        if (!hasRequiredDot)
+                        {
+                            journalTruncated = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (journalTruncated) break;
+            }
+        }
+
+        if (journalTruncated)
+        {
+            return new JournalSyncResult(Array.Empty<JournaledOperation>(), true);
+        }
+
+        return new JournalSyncResult(allJournaledOps, false);
     }
 }

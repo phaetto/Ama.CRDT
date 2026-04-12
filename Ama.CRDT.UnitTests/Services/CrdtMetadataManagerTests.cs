@@ -41,12 +41,13 @@ public sealed class CrdtMetadataManagerTests
     }
     
     [Theory]
-    [InlineData(true, false, false, false)]
-    [InlineData(false, true, false, false)]
-    [InlineData(false, false, true, false)]
-    [InlineData(false, false, false, true)]
-    [InlineData(false, false, false, false)]
-    public void PublicMethods_WithNullArguments_ShouldThrowArgumentNullException(bool testInitialize, bool testReset, bool testCompact, bool testAdvanceVector)
+    [InlineData(true, false, false, false, false)]
+    [InlineData(false, true, false, false, false)]
+    [InlineData(false, false, true, false, false)]
+    [InlineData(false, false, false, true, false)]
+    [InlineData(false, false, false, false, true)]
+    [InlineData(false, false, false, false, false)]
+    public void PublicMethods_WithNullArguments_ShouldThrowArgumentNullException(bool testInitialize, bool testReset, bool testCompact, bool testAdvanceVector, bool testEvictReplica)
     {
         // Arrange
         var doc = new object();
@@ -95,6 +96,16 @@ public sealed class CrdtMetadataManagerTests
             Should.Throw<ArgumentNullException>(() => manager.AdvanceVersionVector(null!, operation));
             Should.Throw<ArgumentException>(() => manager.AdvanceVersionVector(metadata, null!, 1L));
             Should.Throw<ArgumentException>(() => manager.AdvanceVersionVector(metadata, " ", 1L));
+        }
+
+        if (testEvictReplica)
+        {
+            Should.Throw<ArgumentNullException>(() => manager.EvictReplica(null!, "replica-1"));
+            Should.Throw<ArgumentException>(() => manager.EvictReplica(metadata, null!));
+            Should.Throw<ArgumentException>(() => manager.EvictReplica(metadata, " "));
+            
+            Should.Throw<ArgumentException>(() => manager.EvictReplica(new CrdtDocument<object>(doc, metadata), null!));
+            Should.Throw<ArgumentException>(() => manager.EvictReplica(new CrdtDocument<object>(doc, metadata), " "));
         }
     }
 
@@ -281,6 +292,63 @@ public sealed class CrdtMetadataManagerTests
 
         // Assert - should consume up to 104, completely emptying SeenExceptions
         metadata.VersionVector[replicaId].ShouldBe(104);
+        metadata.SeenExceptions.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void EvictReplica_ShouldRemoveReplicaFromVersionVector()
+    {
+        // Arrange
+        var metadata = new CrdtMetadata();
+        metadata.VersionVector["replica-1"] = 100;
+        metadata.VersionVector["replica-2"] = 200;
+
+        // Act
+        manager.EvictReplica(metadata, "replica-1");
+
+        // Assert
+        metadata.VersionVector.ShouldNotContainKey("replica-1");
+        metadata.VersionVector.ShouldContainKey("replica-2");
+    }
+
+    [Fact]
+    public void EvictReplica_ShouldRemoveExceptionsForReplica()
+    {
+        // Arrange
+        var metadata = new CrdtMetadata();
+        var op1 = CreateOp("replica-1", 101);
+        var op2 = CreateOp("replica-1", 105);
+        var op3 = CreateOp("replica-2", 102);
+
+        metadata.SeenExceptions.Add(op1);
+        metadata.SeenExceptions.Add(op2);
+        metadata.SeenExceptions.Add(op3);
+
+        // Act
+        manager.EvictReplica(metadata, "replica-1");
+
+        // Assert
+        metadata.SeenExceptions.Count.ShouldBe(1);
+        metadata.SeenExceptions.ShouldContain(op3);
+        metadata.SeenExceptions.ShouldNotContain(op1);
+        metadata.SeenExceptions.ShouldNotContain(op2);
+    }
+
+    [Fact]
+    public void EvictReplica_DocumentOverload_ShouldRemoveReplicaState()
+    {
+        // Arrange
+        var metadata = new CrdtMetadata();
+        metadata.VersionVector["replica-1"] = 100;
+        metadata.SeenExceptions.Add(CreateOp("replica-1", 101));
+        
+        var doc = new CrdtDocument<OuterDoc>(new OuterDoc(), metadata);
+
+        // Act
+        manager.EvictReplica(doc, "replica-1");
+
+        // Assert
+        metadata.VersionVector.ShouldNotContainKey("replica-1");
         metadata.SeenExceptions.ShouldBeEmpty();
     }
     
