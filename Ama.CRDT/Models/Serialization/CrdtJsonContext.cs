@@ -80,6 +80,7 @@ using System.Text.Json.Serialization.Metadata;
 [JsonSerializable(typeof(OriginSyncRequirement))]
 [JsonSerializable(typeof(ReplicaSyncRequirement))]
 [JsonSerializable(typeof(BidirectionalSyncRequirements))]
+[JsonSerializable(typeof(JournalSyncResult))]
 [JsonSerializable(typeof(SplitResult))]
 [JsonSerializable(typeof(AddIntent))]
 [JsonSerializable(typeof(AddEdgeIntent))]

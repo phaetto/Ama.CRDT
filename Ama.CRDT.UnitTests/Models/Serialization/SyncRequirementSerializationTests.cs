@@ -1,5 +1,6 @@
 namespace Ama.CRDT.UnitTests.Models.Serialization;
 
+using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
@@ -89,5 +90,23 @@ public sealed class SyncRequirementSerializationTests
         var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
         deserialized.ShouldBe(bidi);
+    }
+
+    [Fact]
+    public void JournalSyncResult_ShouldSerializeAndDeserialize()
+    {
+        var options = TestOptionsHelper.GetDefaultOptions();
+        var typeInfo = (JsonTypeInfo<JournalSyncResult>)options.GetTypeInfo(typeof(JournalSyncResult));
+        
+        // We deserialize from JSON to avoid ambiguous struct constructor bindings across versions.
+        var initialJson = """{"SnapshotRequired":true,"Operations":[]}""";
+        var result = JsonSerializer.Deserialize(initialJson, typeInfo);
+
+        var json = JsonSerializer.Serialize(result, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
+
+        deserialized.SnapshotRequired.ShouldBe(result.SnapshotRequired);
+        deserialized.Operations.ShouldNotBeNull();
+        deserialized.Operations.Count.ShouldBe(0);
     }
 }
