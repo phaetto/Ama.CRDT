@@ -185,4 +185,31 @@ public sealed class DottedVersionVectorTests
         
         dvv1.Equals(null).ShouldBeFalse();
     }
+
+    [Fact]
+    public void DeepClone_ShouldReturnEqualButIndependentInstance()
+    {
+        var original = new DottedVersionVector();
+        original.Add("A", 1);
+        original.Add("A", 3);
+        original.Add("B", 5);
+
+        var clone = original.DeepClone();
+
+        // Ensure clone is logically equal but not the same reference
+        clone.ShouldNotBeSameAs(original);
+        clone.ShouldBe(original);
+
+        // Mutate original and check clone remains unchanged
+        original.Add("A", 2); // This compresses A up to 3 in original
+        
+        clone.Versions["A"].ShouldBe(1);
+        clone.Dots["A"].ShouldContain(3);
+
+        // Mutate clone and check original remains unchanged
+        clone.Add("B", 7);
+        
+        original.Versions["B"].ShouldBe(5);
+        original.Dots.ShouldNotContainKey("B");
+    }
 }

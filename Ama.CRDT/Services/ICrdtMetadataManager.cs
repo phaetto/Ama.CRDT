@@ -185,4 +185,50 @@ public interface ICrdtMetadataManager
     /// </code>
     /// </example>
     void AdvanceVersionVector([DisallowNull] CrdtMetadata metadata, [DisallowNull] string replicaId, long clock);
+
+    /// <summary>
+    /// Explicitly removes all tracking state (Version Vector entries and Seen Exceptions) for a specific replica.
+    /// </summary>
+    /// <remarks>
+    /// In a distributed system, when a replica is permanently removed or evicted from the cluster, its clock will 
+    /// stop advancing. If its ID remains in the metadata, the Global Minimum Version Vector (GMVV) will stall 
+    /// at the evicted replica's last known clock, permanently halting garbage collection. Calling this method 
+    /// allows the GMVV to advance and unblocks the compaction of tombstones and metadata.
+    /// </remarks>
+    /// <param name="metadata">The metadata object to update.</param>
+    /// <param name="replicaId">The ID of the permanently evicted replica.</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="metadata"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="replicaId"/> is null or whitespace.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// // When Node-B permanently leaves the cluster
+    /// metadataManager.EvictReplica(metadata, "Node-B");
+    /// // Now metadata's VersionVector and SeenExceptions will no longer track Node-B,
+    /// // allowing Global Minimum Version Vector tracking and GC to advance.
+    /// ]]>
+    /// </code>
+    /// </example>
+    void EvictReplica([DisallowNull] CrdtMetadata metadata, [DisallowNull] string replicaId);
+
+    /// <summary>
+    /// Explicitly removes all tracking state (Version Vector entries and Seen Exceptions) for a specific replica from a document.
+    /// </summary>
+    /// <typeparam name="T">The type of the document.</typeparam>
+    /// <param name="document">The CRDT document to update.</param>
+    /// <param name="replicaId">The ID of the permanently evicted replica.</param>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/> or <paramref name="document"/>.Metadata is null.</exception>
+    /// <exception cref="ArgumentException">Thrown if <paramref name="replicaId"/> is null or whitespace.</exception>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// var myDoc = GetDocumentFromStorage();
+    /// // When Node-B permanently leaves the cluster
+    /// metadataManager.EvictReplica(myDoc, "Node-B");
+    /// // Now myDoc.Metadata is wiped of Node-B's causal history, 
+    /// // unblocking global garbage collection.
+    /// ]]>
+    /// </code>
+    /// </example>
+    void EvictReplica<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] string replicaId) where T : class;
 }
