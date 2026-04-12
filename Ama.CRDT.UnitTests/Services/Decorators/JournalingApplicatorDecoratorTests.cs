@@ -8,6 +8,7 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Decorators;
 using Ama.CRDT.Services.Journaling;
+using Ama.CRDT.Services.Providers;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -20,11 +21,11 @@ public sealed class JournalingApplicatorDecoratorTests
         // Arrange
         var applicatorMock = new Mock<IAsyncCrdtApplicator>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
+        var providerMock = new Mock<IDocumentIdProvider>();
 
         // Act & Assert
-        Should.Throw<ArgumentNullException>(() => new JournalingApplicatorDecorator(null!, journalMock.Object, aotContexts, DecoratorBehavior.After));
-        Should.Throw<ArgumentNullException>(() => new JournalingApplicatorDecorator(applicatorMock.Object, null!, aotContexts, DecoratorBehavior.After));
+        Should.Throw<ArgumentNullException>(() => new JournalingApplicatorDecorator(null!, journalMock.Object, providerMock.Object, DecoratorBehavior.After));
+        Should.Throw<ArgumentNullException>(() => new JournalingApplicatorDecorator(applicatorMock.Object, null!, providerMock.Object, DecoratorBehavior.After));
         Should.Throw<ArgumentNullException>(() => new JournalingApplicatorDecorator(applicatorMock.Object, journalMock.Object, null!, DecoratorBehavior.After));
     }
 
@@ -34,8 +35,11 @@ public sealed class JournalingApplicatorDecoratorTests
         // Arrange
         var applicatorMock = new Mock<IAsyncCrdtApplicator>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
-        var decorator = new JournalingApplicatorDecorator(applicatorMock.Object, journalMock.Object, aotContexts, DecoratorBehavior.After);
+        var providerMock = new Mock<IDocumentIdProvider>();
+        
+        providerMock.Setup(p => p.GetDocumentId(It.IsAny<TestModel>())).Returns("test-doc-id");
+        
+        var decorator = new JournalingApplicatorDecorator(applicatorMock.Object, journalMock.Object, providerMock.Object, DecoratorBehavior.After);
 
         var document = new CrdtDocument<TestModel>(new TestModel(), new CrdtMetadata());
         
@@ -58,7 +62,7 @@ public sealed class JournalingApplicatorDecoratorTests
         result.ShouldBe(expectedResult);
         
         journalMock.Verify(m => m.AppendAsync(
-            It.IsAny<string>(),
+            "test-doc-id",
             It.Is<IReadOnlyList<CrdtOperation>>(ops => ops.Count == 1 && ops.Contains(appliedOp)), 
             It.IsAny<CancellationToken>()), 
             Times.Once);
@@ -70,8 +74,9 @@ public sealed class JournalingApplicatorDecoratorTests
         // Arrange
         var applicatorMock = new Mock<IAsyncCrdtApplicator>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
-        var decorator = new JournalingApplicatorDecorator(applicatorMock.Object, journalMock.Object, aotContexts, DecoratorBehavior.After);
+        var providerMock = new Mock<IDocumentIdProvider>();
+        
+        var decorator = new JournalingApplicatorDecorator(applicatorMock.Object, journalMock.Object, providerMock.Object, DecoratorBehavior.After);
 
         var document = new CrdtDocument<TestModel>(new TestModel(), new CrdtMetadata());
         
@@ -100,8 +105,9 @@ public sealed class JournalingApplicatorDecoratorTests
         // Arrange
         var applicatorMock = new Mock<IAsyncCrdtApplicator>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
-        var decorator = new JournalingApplicatorDecorator(applicatorMock.Object, journalMock.Object, aotContexts, DecoratorBehavior.After);
+        var providerMock = new Mock<IDocumentIdProvider>();
+        
+        var decorator = new JournalingApplicatorDecorator(applicatorMock.Object, journalMock.Object, providerMock.Object, DecoratorBehavior.After);
 
         var document = new CrdtDocument<TestModel>(new TestModel(), new CrdtMetadata());
         

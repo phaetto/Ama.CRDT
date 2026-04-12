@@ -89,6 +89,9 @@ public static class ServiceCollectionExtensions
         // It's populated by CrdtScopeFactory.
         services.AddScoped<ReplicaContext>();
         
+        services.TryAddScoped<DefaultDocumentIdProvider>();
+        services.TryAddScoped<IDocumentIdProvider>(sp => { ValidateReplicaScope(sp, nameof(DefaultDocumentIdProvider)); return sp.GetRequiredService<DefaultDocumentIdProvider>(); });
+
         // This factory is the entry point for creating replica-specific scopes.
         // It does not require validation itself.
         services.TryAddSingleton<ICrdtScopeFactory, CrdtScopeFactory>();
@@ -399,6 +402,48 @@ public static class ServiceCollectionExtensions
         
         // Override the ICrdtTimestampProvider registration to point to the custom implementation.
         services.AddScoped<ICrdtTimestampProvider>(sp => {
+            ValidateReplicaScope(sp, typeof(TProvider).Name);
+            return sp.GetRequiredService<TProvider>();
+        });
+        
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a custom document ID provider, replacing the default implementation that looks for an 'Id' property.
+    /// This allows for the integration of custom logic to extract or generate document identifiers for operation routing.
+    /// </summary>
+    /// <typeparam name="TProvider">The type of the document ID provider to register. Must implement <see cref="IDocumentIdProvider"/>.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/> to add the service to.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// // A custom document ID provider.
+    /// public sealed class CustomDocumentIdProvider : IDocumentIdProvider
+    /// {
+    ///     public string GetDocumentId<T>(T? obj)
+    ///     {
+    ///         if (obj is MyDocument myDoc) return myDoc.DocumentKey;
+    ///         return "default";
+    ///     }
+    /// }
+    /// 
+    /// // In your DI setup:
+    /// builder.Services.AddCrdtDocumentIdProvider<CustomDocumentIdProvider>();
+    /// ]]>
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddCrdtDocumentIdProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProvider>(this IServiceCollection services)
+        where TProvider : class, IDocumentIdProvider
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        // Register the custom provider implementation natively
+        services.TryAddScoped<TProvider>();
+        
+        // Override the IDocumentIdProvider registration to point to the custom implementation.
+        services.AddScoped<IDocumentIdProvider>(sp => {
             ValidateReplicaScope(sp, typeof(TProvider).Name);
             return sp.GetRequiredService<TProvider>();
         });
