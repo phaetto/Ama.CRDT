@@ -45,27 +45,6 @@ internal static class PocoPathHelper
     }
 
     /// <summary>
-    /// Extracts the Document ID from a POCO by looking for an Id property.
-    /// </summary>
-    public static string GetDocumentId<T>(T? obj, IEnumerable<CrdtAotContext> aotContexts)
-    {
-        ArgumentNullException.ThrowIfNull(aotContexts);
-
-        if (obj is null) return "default";
-
-        var type = obj.GetType();
-        var typeInfo = GetTypeInfo(type, aotContexts);
-
-        if (typeInfo.Properties.TryGetValue("Id", out var prop) && prop.CanRead)
-        {
-            var val = prop.Getter?.Invoke(obj);
-            return val?.ToString() ?? "default";
-        }
-
-        return "default";
-    }
-
-    /// <summary>
     /// An allocation-free ref struct enumerator for splitting JSON paths.
     /// </summary>
     public ref struct PathEnumerator

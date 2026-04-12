@@ -10,6 +10,7 @@ using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Decorators;
 using Ama.CRDT.Services.Journaling;
+using Ama.CRDT.Services.Providers;
 using Moq;
 using Shouldly;
 using Xunit;
@@ -22,11 +23,11 @@ public sealed class JournalingPatcherDecoratorTests
         // Arrange
         var patcherMock = new Mock<IAsyncCrdtPatcher>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
+        var providerMock = new Mock<IDocumentIdProvider>();
 
         // Act & Assert
-        Should.Throw<ArgumentNullException>(() => new JournalingPatcherDecorator(null!, journalMock.Object, aotContexts, DecoratorBehavior.After));
-        Should.Throw<ArgumentNullException>(() => new JournalingPatcherDecorator(patcherMock.Object, null!, aotContexts, DecoratorBehavior.After));
+        Should.Throw<ArgumentNullException>(() => new JournalingPatcherDecorator(null!, journalMock.Object, providerMock.Object, DecoratorBehavior.After));
+        Should.Throw<ArgumentNullException>(() => new JournalingPatcherDecorator(patcherMock.Object, null!, providerMock.Object, DecoratorBehavior.After));
         Should.Throw<ArgumentNullException>(() => new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, null!, DecoratorBehavior.After));
     }
 
@@ -36,8 +37,11 @@ public sealed class JournalingPatcherDecoratorTests
         // Arrange
         var patcherMock = new Mock<IAsyncCrdtPatcher>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
-        var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, aotContexts, DecoratorBehavior.After);
+        var providerMock = new Mock<IDocumentIdProvider>();
+        
+        providerMock.Setup(p => p.GetDocumentId(It.IsAny<TestModel>())).Returns("test-doc-id");
+
+        var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, providerMock.Object, DecoratorBehavior.After);
 
         var document = new CrdtDocument<TestModel>(new TestModel());
         var changed = new TestModel();
@@ -53,7 +57,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Assert
         result.ShouldBe(patch);
         journalMock.Verify(m => m.AppendAsync(
-            It.IsAny<string>(),
+            "test-doc-id",
             It.Is<IReadOnlyList<CrdtOperation>>(ops => ops.Count == 1 && ops.Contains(op)), 
             It.IsAny<CancellationToken>()), 
             Times.Once);
@@ -65,8 +69,11 @@ public sealed class JournalingPatcherDecoratorTests
         // Arrange
         var patcherMock = new Mock<IAsyncCrdtPatcher>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
-        var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, aotContexts, DecoratorBehavior.After);
+        var providerMock = new Mock<IDocumentIdProvider>();
+        
+        providerMock.Setup(p => p.GetDocumentId(It.IsAny<TestModel>())).Returns("test-doc-id");
+
+        var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, providerMock.Object, DecoratorBehavior.After);
 
         var document = new CrdtDocument<TestModel>(new TestModel());
         var changed = new TestModel();
@@ -83,7 +90,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Assert
         result.ShouldBe(patch);
         journalMock.Verify(m => m.AppendAsync(
-            It.IsAny<string>(),
+            "test-doc-id",
             It.Is<IReadOnlyList<CrdtOperation>>(ops => ops.Count == 1 && ops.Contains(op)), 
             It.IsAny<CancellationToken>()), 
             Times.Once);
@@ -95,8 +102,9 @@ public sealed class JournalingPatcherDecoratorTests
         // Arrange
         var patcherMock = new Mock<IAsyncCrdtPatcher>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
-        var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, aotContexts, DecoratorBehavior.After);
+        var providerMock = new Mock<IDocumentIdProvider>();
+        
+        var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, providerMock.Object, DecoratorBehavior.After);
 
         var document = new CrdtDocument<TestModel>(new TestModel());
         var changed = new TestModel();
@@ -118,8 +126,11 @@ public sealed class JournalingPatcherDecoratorTests
         // Arrange
         var patcherMock = new Mock<IAsyncCrdtPatcher>();
         var journalMock = new Mock<ICrdtOperationJournal>();
-        var aotContexts = new[] { new DecoratorsTestCrdtAotContext() };
-        var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, aotContexts, DecoratorBehavior.After);
+        var providerMock = new Mock<IDocumentIdProvider>();
+        
+        providerMock.Setup(p => p.GetDocumentId(It.IsAny<TestModel>())).Returns("test-doc-id");
+
+        var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, providerMock.Object, DecoratorBehavior.After);
 
         var document = new CrdtDocument<TestModel>(new TestModel());
         Expression<Func<TestModel, string?>> expression = m => m.Property;
@@ -136,7 +147,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Assert
         result.ShouldBe(expectedOperation);
         journalMock.Verify(m => m.AppendAsync(
-            It.IsAny<string>(),
+            "test-doc-id",
             It.Is<IReadOnlyList<CrdtOperation>>(ops => ops.Count == 1 && ops.Contains(expectedOperation)), 
             It.IsAny<CancellationToken>()), 
             Times.Once);
