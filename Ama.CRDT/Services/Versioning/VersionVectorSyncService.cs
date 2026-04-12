@@ -259,7 +259,6 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
     public async Task<JournalSyncResult> EvaluateJournalCompletionAsync(IAsyncEnumerable<JournaledOperation> retrievedOperations, ReplicaSyncRequirement requirement, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(retrievedOperations);
-        ArgumentNullException.ThrowIfNull(requirement);
 
         if (!requirement.IsBehind)
         {

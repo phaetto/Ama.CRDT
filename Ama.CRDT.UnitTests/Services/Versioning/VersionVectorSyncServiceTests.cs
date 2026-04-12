@@ -325,7 +325,12 @@ public class VersionVectorSyncServiceTests
 
         result.ShouldNotBeSameAs(dvv);
         result.Versions.ShouldBe(dvv.Versions);
-        result.Dots.ShouldBe(dvv.Dots);
+        
+        result.Dots.Keys.ShouldBe(dvv.Dots.Keys);
+        foreach (var key in dvv.Dots.Keys)
+        {
+            result.Dots[key].ShouldBe(dvv.Dots[key]);
+        }
     }
 
     [Fact]
