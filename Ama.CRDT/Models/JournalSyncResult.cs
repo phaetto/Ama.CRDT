@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 /// <summary>
 /// Represents the result of evaluating journal operations against synchronization requirements.
@@ -23,7 +24,8 @@ public readonly record struct JournalSyncResult
     /// </summary>
     /// <param name="operations">The retrieved operations.</param>
     /// <param name="snapshotRequired">True if a full snapshot is required; otherwise, false.</param>
-    public JournalSyncResult(IReadOnlyList<JournaledOperation> operations, bool snapshotRequired)
+    [JsonConstructor]
+    public JournalSyncResult(IReadOnlyList<JournaledOperation>? operations, bool snapshotRequired)
     {
         Operations = operations ?? Array.Empty<JournaledOperation>();
         SnapshotRequired = snapshotRequired;

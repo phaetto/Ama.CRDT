@@ -968,9 +968,7 @@ Ama.CRDT.Services.Decorators.AsyncCrdtPatcherDecoratorBase.GeneratePatchAsync<T>
 Ama.CRDT.Services.Decorators.CompactingApplicatorDecorator
 Ama.CRDT.Services.Decorators.CompactingApplicatorDecorator.CompactingApplicatorDecorator(Ama.CRDT.Services.IAsyncCrdtApplicator! inner, Ama.CRDT.Services.ICrdtMetadataManager! metadataManager, System.Collections.Generic.IEnumerable<Ama.CRDT.Services.GarbageCollection.ICompactionPolicyFactory!>! compactionPolicyFactories, Ama.CRDT.Models.DecoratorBehavior behavior) -> void
 Ama.CRDT.Services.Decorators.JournalingApplicatorDecorator
-Ama.CRDT.Services.Decorators.JournalingApplicatorDecorator.JournalingApplicatorDecorator(Ama.CRDT.Services.IAsyncCrdtApplicator! innerApplicator, Ama.CRDT.Services.Journaling.ICrdtOperationJournal! journal, System.Collections.Generic.IEnumerable<Ama.CRDT.Models.Aot.CrdtAotContext!>! aotContexts, Ama.CRDT.Models.DecoratorBehavior behavior) -> void
 Ama.CRDT.Services.Decorators.JournalingPatcherDecorator
-Ama.CRDT.Services.Decorators.JournalingPatcherDecorator.JournalingPatcherDecorator(Ama.CRDT.Services.IAsyncCrdtPatcher! innerPatcher, Ama.CRDT.Services.Journaling.ICrdtOperationJournal! journal, System.Collections.Generic.IEnumerable<Ama.CRDT.Models.Aot.CrdtAotContext!>! aotContexts, Ama.CRDT.Models.DecoratorBehavior behavior) -> void
 Ama.CRDT.Services.Decorators.PartitioningApplicatorDecorator
 Ama.CRDT.Services.Decorators.PartitioningApplicatorDecorator.PartitioningApplicatorDecorator(Ama.CRDT.Services.IAsyncCrdtApplicator! innerApplicator, Ama.CRDT.Services.Partitioning.IPartitionStorageService! storageService, Ama.CRDT.Services.Providers.ICrdtStrategyProvider! strategyProvider, Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics! metrics, System.Collections.Generic.IEnumerable<Ama.CRDT.Models.Aot.CrdtAotContext!>! aotContexts, Ama.CRDT.Models.DecoratorBehavior behavior) -> void
 Ama.CRDT.Services.DifferentiateObjectContext

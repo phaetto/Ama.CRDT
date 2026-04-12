@@ -206,7 +206,6 @@ public sealed class CrdtMetadataManager(
     /// <inheritdoc/>
     public void EvictReplica<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] string replicaId) where T : class
     {
-        ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(document.Metadata);
         ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
 

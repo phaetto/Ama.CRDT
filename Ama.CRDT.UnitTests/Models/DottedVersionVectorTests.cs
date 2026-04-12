@@ -192,7 +192,9 @@ public sealed class DottedVersionVectorTests
         var original = new DottedVersionVector();
         original.Add("A", 1);
         original.Add("A", 3);
-        original.Add("B", 5);
+        // Add contiguous versions for B to ensure they map into Versions dictionary instead of Dots
+        original.Add("B", 1);
+        original.Add("B", 2);
 
         var clone = original.DeepClone();
 
@@ -207,9 +209,9 @@ public sealed class DottedVersionVectorTests
         clone.Dots["A"].ShouldContain(3);
 
         // Mutate clone and check original remains unchanged
-        clone.Add("B", 7);
+        clone.Add("B", 3);
         
-        original.Versions["B"].ShouldBe(5);
+        original.Versions["B"].ShouldBe(2);
         original.Dots.ShouldNotContainKey("B");
     }
 }

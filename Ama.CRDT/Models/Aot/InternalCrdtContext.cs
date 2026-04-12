@@ -52,6 +52,7 @@ using Ama.CRDT.Models.Partitioning;
 [CrdtAotType(typeof(PositionalState))]
 [CrdtAotType(typeof(QuorumState))]
 [CrdtAotType(typeof(ReplicaSyncRequirement))]
+[CrdtAotType(typeof(JournalSyncResult))]
 [CrdtAotType(typeof(RgaIdentifier))]
 [CrdtAotType(typeof(RgaItem))]
 [CrdtAotType(typeof(RgaState))]
@@ -145,6 +146,7 @@ using Ama.CRDT.Models.Partitioning;
 [CrdtAotType(typeof(List<LseqItem>))]
 [CrdtAotType(typeof(List<PositionalIdentifier>))]
 [CrdtAotType(typeof(List<RgaItem>))]
+[CrdtAotType(typeof(IReadOnlyList<JournaledOperation>))]
 
 internal partial class InternalCrdtAotContext : CrdtAotContext
 {

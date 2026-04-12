@@ -31,6 +31,8 @@ public partial class NetworkSimulationTestContext : CrdtAotContext
 
 public sealed record SimulationDocument : IEquatable<SimulationDocument>
 {
+    public string Id { get; init; } = "sim-doc-1";
+
     [CrdtLwwStrategy]
     public string Title { get; set; } = string.Empty;
 
@@ -54,14 +56,15 @@ public sealed record SimulationDocument : IEquatable<SimulationDocument>
         var prefsEqual = Preferences.Count == other.Preferences.Count && !Preferences.Except(other.Preferences).Any();
         var logsEqual = Logs.SequenceEqual(other.Logs);
 
-        return Title == other.Title &&
+        return Id == other.Id &&
+               Title == other.Title &&
                ViewCount == other.ViewCount &&
                tagsEqual &&
                prefsEqual &&
                logsEqual;
     }
 
-    public override int GetHashCode() => HashCode.Combine(Title, ViewCount);
+    public override int GetHashCode() => HashCode.Combine(Id, Title, ViewCount);
 }
 
 /// <summary>
