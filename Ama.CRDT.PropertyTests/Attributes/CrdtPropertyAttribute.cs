@@ -1,6 +1,6 @@
-using FsCheck.Xunit;
-
 namespace Ama.CRDT.PropertyTests.Attributes;
+
+using FsCheck.Xunit;
 
 /// <summary>
 /// A global property attribute for FsCheck tests that allows centralizing the configuration.

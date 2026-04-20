@@ -5,6 +5,9 @@ Ama.CRDT.Models.JournalSyncResult.JournalSyncResult() -> void
 Ama.CRDT.Models.JournalSyncResult.JournalSyncResult(System.Collections.Generic.IReadOnlyList<Ama.CRDT.Models.JournaledOperation>? operations, bool snapshotRequired) -> void
 Ama.CRDT.Models.JournalSyncResult.Operations.get -> System.Collections.Generic.IReadOnlyList<Ama.CRDT.Models.JournaledOperation>!
 Ama.CRDT.Models.JournalSyncResult.SnapshotRequired.get -> bool
+Ama.CRDT.Models.Serialization.CrdtAggregateJsonTypeInfoResolver
+Ama.CRDT.Models.Serialization.CrdtAggregateJsonTypeInfoResolver.CrdtAggregateJsonTypeInfoResolver(System.Collections.Generic.IEnumerable<System.Text.Json.Serialization.Metadata.IJsonTypeInfoResolver!>! resolvers) -> void
+Ama.CRDT.Models.Serialization.CrdtAggregateJsonTypeInfoResolver.GetTypeInfo(System.Type! type, System.Text.Json.JsonSerializerOptions! options) -> System.Text.Json.Serialization.Metadata.JsonTypeInfo?
 Ama.CRDT.Services.CrdtMetadataManager.CrdtMetadataManager(Ama.CRDT.Services.Providers.ICrdtStrategyProvider! strategyProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.Providers.IElementComparerProvider! elementComparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext, System.Collections.Generic.IEnumerable<Ama.CRDT.Models.Aot.CrdtAotContext!>! crdtContexts, Ama.CRDT.Services.Serialization.ICrdtSerializer! crdtSerializer) -> void
 Ama.CRDT.Services.CrdtMetadataManager.EvictReplica(Ama.CRDT.Models.CrdtMetadata! metadata, string! replicaId) -> void
 Ama.CRDT.Services.CrdtMetadataManager.EvictReplica<T>(Ama.CRDT.Models.CrdtDocument<T!> document, string! replicaId) -> void
@@ -47,6 +50,7 @@ Ama.CRDT.Services.Versioning.VersionVectorSyncService.EvaluateJournalCompletionA
 Ama.CRDT.Services.Versioning.VersionVectorSyncService.RemoveEvictedReplicas(Ama.CRDT.Models.DottedVersionVector! vector, System.Collections.Generic.IEnumerable<string!>! evictedReplicaIds) -> Ama.CRDT.Models.DottedVersionVector!
 override Ama.CRDT.Models.JournalSyncResult.GetHashCode() -> int
 static Ama.CRDT.Extensions.ServiceCollectionExtensions.AddCrdtDocumentIdProvider<TProvider>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Ama.CRDT.Extensions.ServiceCollectionExtensions.AddCrdtJsonModifier(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<System.Text.Json.Serialization.Metadata.JsonTypeInfo!>! modifier) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Ama.CRDT.Extensions.ServiceCollectionExtensions.AddCrdtSystemTextJson(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Ama.CRDT.Models.JournalSyncResult.operator !=(Ama.CRDT.Models.JournalSyncResult left, Ama.CRDT.Models.JournalSyncResult right) -> bool
 static Ama.CRDT.Models.JournalSyncResult.operator ==(Ama.CRDT.Models.JournalSyncResult left, Ama.CRDT.Models.JournalSyncResult right) -> bool

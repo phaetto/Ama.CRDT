@@ -1,9 +1,9 @@
+namespace Ama.CRDT.Services.Adapters;
+
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
-
-namespace Ama.CRDT.Services.Adapters;
 
 /// <summary>
 /// An adapter that bridges the synchronous <see cref="ICrdtPatcher"/> to the asynchronous <see cref="IAsyncCrdtPatcher"/> pipeline.

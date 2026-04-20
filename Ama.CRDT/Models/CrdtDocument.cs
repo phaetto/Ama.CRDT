@@ -1,6 +1,6 @@
-using System.Text.Json.Serialization;
-
 namespace Ama.CRDT.Models;
+
+using System.Text.Json.Serialization;
 
 /// <summary>
 /// Represents a document containing a data model and its associated CRDT metadata.

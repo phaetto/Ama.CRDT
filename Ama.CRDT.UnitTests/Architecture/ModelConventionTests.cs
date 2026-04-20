@@ -1,9 +1,9 @@
+namespace Ama.CRDT.UnitTests.Architecture;
+
 using Ama.CRDT.Models;
 using Shouldly;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-
-namespace Ama.CRDT.UnitTests.Architecture;
 
 public sealed class ModelConventionTests
 {

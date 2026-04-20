@@ -1,3 +1,5 @@
+namespace Ama.CRDT.UnitTests.Services.Versioning;
+
 using System.Text.Json;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Serialization;
@@ -5,8 +7,6 @@ using Ama.CRDT.Services;
 using Ama.CRDT.Services.Versioning;
 using Shouldly;
 using Xunit;
-
-namespace Ama.CRDT.UnitTests.Services.Versioning;
 
 public class VersionVectorSyncServiceTests
 {
