@@ -212,6 +212,8 @@ public static class ServiceCollectionExtensions
         services.TryAddKeyedSingleton("Ama.CRDT", (sp, key) =>
         {
             var customResolvers = sp.GetKeyedServices<IJsonTypeInfoResolver>("Ama.CRDT");
+            var globalModifiers = sp.GetKeyedServices<Action<JsonTypeInfo>>("Ama.CRDT.Modifiers");
+            
             var resolvers = new List<IJsonTypeInfoResolver> { CrdtJsonContext.Default };
             
             if (customResolvers != null)
@@ -219,9 +221,19 @@ public static class ServiceCollectionExtensions
                 resolvers.AddRange(customResolvers);
             }
 
-            var combinedResolver = JsonTypeInfoResolver.Combine([.. resolvers])
+            // Using the aggregating resolver ensures all resolvers are inquired, meaning polymorphism metadata
+            // from secondary contexts isn't ignored like it is with standard JsonTypeInfoResolver.Combine.
+            IJsonTypeInfoResolver combinedResolver = new CrdtAggregateJsonTypeInfoResolver(resolvers)
                 .WithAddedModifier(CrdtJsonTypeInfoResolver.ApplyCrdtModifiers)
                 .WithAddedModifier(CrdtMetadataJsonResolver.ApplyMetadataModifiers);
+
+            if (globalModifiers != null)
+            {
+                foreach (var modifier in globalModifiers)
+                {
+                    combinedResolver = combinedResolver.WithAddedModifier(modifier);
+                }
+            }
 
             var options = new JsonSerializerOptions
             {
@@ -584,6 +596,22 @@ public static class ServiceCollectionExtensions
         // Registering as a Keyed Service ensures we don't pollute the host application's default JSON resolvers 
         // while allowing our internal serialization pipeline to uniquely retrieve it.
         services.AddKeyedSingleton("Ama.CRDT", resolver);
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a global JSON type info modifier that will be applied to all serialization contracts, 
+    /// regardless of which internal or custom <see cref="IJsonTypeInfoResolver"/> generated them.
+    /// This solves issues where modifiers attached to specific fallback contexts are ignored because another context answered first.
+    /// </summary>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <param name="modifier">The action to modify the <see cref="JsonTypeInfo"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    public static IServiceCollection AddCrdtJsonModifier(this IServiceCollection services, Action<JsonTypeInfo> modifier)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(modifier);
+        services.AddKeyedSingleton("Ama.CRDT.Modifiers", modifier);
         return services;
     }
 

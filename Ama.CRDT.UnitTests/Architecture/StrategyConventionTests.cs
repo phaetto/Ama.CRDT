@@ -1,7 +1,7 @@
+namespace Ama.CRDT.UnitTests.Architecture;
+
 using Ama.CRDT.Services.Strategies;
 using Shouldly;
-
-namespace Ama.CRDT.UnitTests.Architecture;
 
 public class StrategyConventionTests
 {
