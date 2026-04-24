@@ -10,7 +10,7 @@ permissions:
 
 env:
   MAJOR_VERSION: 3
-  MINOR_VERSION: 1
+  MINOR_VERSION: 2
   SOLUTION_FILE: 'Ama.CRDT.slnx'
   PROJECT_PATH_MAIN: 'Ama.CRDT/Ama.CRDT.csproj'
   PROJECT_PATH_STREAMS: 'Ama.CRDT.Partitioning.Streams/Ama.CRDT.Partitioning.Streams.csproj'
