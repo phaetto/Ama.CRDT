@@ -1,2 +1,1 @@
-﻿Ama.CRDT.Partitioning.Streams.Services.Serialization.DefaultPartitionSerializationService.DefaultPartitionSerializationService(Ama.CRDT.Services.Serialization.ICrdtSerializer! crdtSerializer) -> void
-Ama.CRDT.Partitioning.Streams.Services.StreamPartitionStorageService.StreamPartitionStorageService(System.IServiceProvider! serviceProvider, Ama.CRDT.Partitioning.Streams.Services.Serialization.IPartitionSerializationService! serializationService, Ama.CRDT.Services.Metrics.PartitionManagerCrdtMetrics! metrics, Ama.CRDT.Partitioning.Streams.Services.Metrics.StreamsCrdtMetrics! treeMetrics, Ama.CRDT.Services.Serialization.ICrdtSerializer! crdtSerializer) -> void
+﻿

@@ -2042,3 +2042,61 @@ virtual Ama.CRDT.Services.Decorators.AsyncCrdtPatcherDecoratorBase.OnComplexGene
 ~static Ama.CRDT.Models.ApplyPatchResult<T>.operator ==(Ama.CRDT.Models.ApplyPatchResult<T> left, Ama.CRDT.Models.ApplyPatchResult<T> right) -> bool
 ~static Ama.CRDT.Models.CrdtDocument<T>.operator !=(Ama.CRDT.Models.CrdtDocument<T> left, Ama.CRDT.Models.CrdtDocument<T> right) -> bool
 ~static Ama.CRDT.Models.CrdtDocument<T>.operator ==(Ama.CRDT.Models.CrdtDocument<T> left, Ama.CRDT.Models.CrdtDocument<T> right) -> bool
+Ama.CRDT.Models.DottedVersionVector.DeepClone() -> Ama.CRDT.Models.DottedVersionVector!
+Ama.CRDT.Models.JournalSyncResult
+Ama.CRDT.Models.JournalSyncResult.Equals(Ama.CRDT.Models.JournalSyncResult other) -> bool
+Ama.CRDT.Models.JournalSyncResult.JournalSyncResult() -> void
+Ama.CRDT.Models.JournalSyncResult.JournalSyncResult(System.Collections.Generic.IReadOnlyList<Ama.CRDT.Models.JournaledOperation>? operations, bool snapshotRequired) -> void
+Ama.CRDT.Models.JournalSyncResult.Operations.get -> System.Collections.Generic.IReadOnlyList<Ama.CRDT.Models.JournaledOperation>!
+Ama.CRDT.Models.JournalSyncResult.SnapshotRequired.get -> bool
+Ama.CRDT.Models.Serialization.CrdtAggregateJsonTypeInfoResolver
+Ama.CRDT.Models.Serialization.CrdtAggregateJsonTypeInfoResolver.CrdtAggregateJsonTypeInfoResolver(System.Collections.Generic.IEnumerable<System.Text.Json.Serialization.Metadata.IJsonTypeInfoResolver!>! resolvers) -> void
+Ama.CRDT.Models.Serialization.CrdtAggregateJsonTypeInfoResolver.GetTypeInfo(System.Type! type, System.Text.Json.JsonSerializerOptions! options) -> System.Text.Json.Serialization.Metadata.JsonTypeInfo?
+Ama.CRDT.Services.CrdtMetadataManager.CrdtMetadataManager(Ama.CRDT.Services.Providers.ICrdtStrategyProvider! strategyProvider, Ama.CRDT.Services.Providers.ICrdtTimestampProvider! timestampProvider, Ama.CRDT.Services.Providers.IElementComparerProvider! elementComparerProvider, Ama.CRDT.Services.ReplicaContext! replicaContext, System.Collections.Generic.IEnumerable<Ama.CRDT.Models.Aot.CrdtAotContext!>! crdtContexts, Ama.CRDT.Services.Serialization.ICrdtSerializer! crdtSerializer) -> void
+Ama.CRDT.Services.CrdtMetadataManager.EvictReplica(Ama.CRDT.Models.CrdtMetadata! metadata, string! replicaId) -> void
+Ama.CRDT.Services.CrdtMetadataManager.EvictReplica<T>(Ama.CRDT.Models.CrdtDocument<T!> document, string! replicaId) -> void
+Ama.CRDT.Services.Decorators.JournalingApplicatorDecorator.JournalingApplicatorDecorator(Ama.CRDT.Services.IAsyncCrdtApplicator! innerApplicator, Ama.CRDT.Services.Journaling.ICrdtOperationJournal! journal, Ama.CRDT.Services.Providers.IDocumentIdProvider! documentIdProvider, Ama.CRDT.Models.DecoratorBehavior behavior) -> void
+Ama.CRDT.Services.Decorators.JournalingPatcherDecorator.JournalingPatcherDecorator(Ama.CRDT.Services.IAsyncCrdtPatcher! innerPatcher, Ama.CRDT.Services.Journaling.ICrdtOperationJournal! journal, Ama.CRDT.Services.Providers.IDocumentIdProvider! documentIdProvider, Ama.CRDT.Models.DecoratorBehavior behavior) -> void
+Ama.CRDT.Services.ICrdtMetadataManager.EvictReplica(Ama.CRDT.Models.CrdtMetadata! metadata, string! replicaId) -> void
+Ama.CRDT.Services.ICrdtMetadataManager.EvictReplica<T>(Ama.CRDT.Models.CrdtDocument<T!> document, string! replicaId) -> void
+Ama.CRDT.Services.Providers.IDocumentIdProvider
+Ama.CRDT.Services.Providers.IDocumentIdProvider.GetDocumentId<T>(T? obj) -> string!
+Ama.CRDT.Services.Serialization.ICrdtSerializer
+Ama.CRDT.Services.Serialization.ICrdtSerializer.Clone<T>(T original) -> T?
+Ama.CRDT.Services.Serialization.ICrdtSerializer.DeserializeAsync<T>(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T?>!
+Ama.CRDT.Services.Serialization.ICrdtSerializer.DeserializeFromBytes(System.ReadOnlySpan<byte> bytes, System.Type! returnType) -> object?
+Ama.CRDT.Services.Serialization.ICrdtSerializer.DeserializeFromBytes<T>(System.ReadOnlySpan<byte> bytes) -> T?
+Ama.CRDT.Services.Serialization.ICrdtSerializer.DeserializeFromString(string! data, System.Type! returnType) -> object?
+Ama.CRDT.Services.Serialization.ICrdtSerializer.DeserializeFromString<T>(string! data) -> T?
+Ama.CRDT.Services.Serialization.ICrdtSerializer.SerializeAsync(System.IO.Stream! stream, object! value, System.Type! inputType, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Serialization.ICrdtSerializer.SerializeAsync<T>(System.IO.Stream! stream, T value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Serialization.ICrdtSerializer.SerializeToBytes(object! value, System.Type! inputType) -> byte[]!
+Ama.CRDT.Services.Serialization.ICrdtSerializer.SerializeToBytes<T>(T value) -> byte[]!
+Ama.CRDT.Services.Serialization.ICrdtSerializer.SerializeToString(object! value, System.Type! inputType) -> string!
+Ama.CRDT.Services.Serialization.ICrdtSerializer.SerializeToString<T>(T value) -> string!
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.Clone<T>(T original) -> T?
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.DeserializeAsync<T>(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<T?>!
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.DeserializeFromBytes(System.ReadOnlySpan<byte> bytes, System.Type! returnType) -> object?
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.DeserializeFromBytes<T>(System.ReadOnlySpan<byte> bytes) -> T?
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.DeserializeFromString(string! data, System.Type! returnType) -> object?
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.DeserializeFromString<T>(string! data) -> T?
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.JsonCrdtSerializer(System.Text.Json.JsonSerializerOptions! options) -> void
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.SerializeAsync(System.IO.Stream! stream, object! value, System.Type! inputType, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.SerializeAsync<T>(System.IO.Stream! stream, T value, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.SerializeToBytes(object! value, System.Type! inputType) -> byte[]!
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.SerializeToBytes<T>(T value) -> byte[]!
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.SerializeToString(object! value, System.Type! inputType) -> string!
+Ama.CRDT.Services.Serialization.JsonCrdtSerializer.SerializeToString<T>(T value) -> string!
+Ama.CRDT.Services.Versioning.IVersionVectorSyncService.EvaluateJournalCompletionAsync(System.Collections.Generic.IAsyncEnumerable<Ama.CRDT.Models.JournaledOperation>! retrievedOperations, Ama.CRDT.Models.ReplicaSyncRequirement requirement, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.JournalSyncResult>!
+Ama.CRDT.Services.Versioning.IVersionVectorSyncService.RemoveEvictedReplicas(Ama.CRDT.Models.DottedVersionVector! vector, System.Collections.Generic.IEnumerable<string!>! evictedReplicaIds) -> Ama.CRDT.Models.DottedVersionVector!
+Ama.CRDT.Services.Versioning.VersionVectorSyncService.EvaluateJournalCompletionAsync(System.Collections.Generic.IAsyncEnumerable<Ama.CRDT.Models.JournaledOperation>! retrievedOperations, Ama.CRDT.Models.ReplicaSyncRequirement requirement, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Ama.CRDT.Models.JournalSyncResult>!
+Ama.CRDT.Services.Versioning.VersionVectorSyncService.RemoveEvictedReplicas(Ama.CRDT.Models.DottedVersionVector! vector, System.Collections.Generic.IEnumerable<string!>! evictedReplicaIds) -> Ama.CRDT.Models.DottedVersionVector!
+override Ama.CRDT.Models.JournalSyncResult.GetHashCode() -> int
+static Ama.CRDT.Extensions.ServiceCollectionExtensions.AddCrdtDocumentIdProvider<TProvider>(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Ama.CRDT.Extensions.ServiceCollectionExtensions.AddCrdtJsonModifier(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<System.Text.Json.Serialization.Metadata.JsonTypeInfo!>! modifier) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Ama.CRDT.Extensions.ServiceCollectionExtensions.AddCrdtSystemTextJson(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Ama.CRDT.Models.JournalSyncResult.operator !=(Ama.CRDT.Models.JournalSyncResult left, Ama.CRDT.Models.JournalSyncResult right) -> bool
+static Ama.CRDT.Models.JournalSyncResult.operator ==(Ama.CRDT.Models.JournalSyncResult left, Ama.CRDT.Models.JournalSyncResult right) -> bool
+~override Ama.CRDT.Models.JournalSyncResult.Equals(object obj) -> bool
+~override Ama.CRDT.Models.JournalSyncResult.ToString() -> string
