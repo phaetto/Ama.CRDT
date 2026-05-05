@@ -13,7 +13,7 @@ using Ama.CRDT.Models;
 public sealed class VersionVectorSyncService : IVersionVectorSyncService
 {
     /// <inheritdoc/>
-    public ReplicaSyncRequirement CalculateRequirement(ReplicaContext target, ReplicaContext source)
+    public ReplicaSyncRequirement CalculateRequirement(ReplicaContext target, ReplicaContext source, IEnumerable<string>? evictedReplicaIds = null)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(source);
@@ -22,16 +22,28 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
             target.ReplicaId, 
             target.GlobalVersionVector ?? new DottedVersionVector(), 
             source.ReplicaId, 
-            source.GlobalVersionVector ?? new DottedVersionVector());
+            source.GlobalVersionVector ?? new DottedVersionVector(),
+            evictedReplicaIds);
     }
 
     /// <inheritdoc/>
-    public ReplicaSyncRequirement CalculateRequirement(string targetReplicaId, DottedVersionVector targetVector, string sourceReplicaId, DottedVersionVector sourceVector)
+    public ReplicaSyncRequirement CalculateRequirement(string targetReplicaId, DottedVersionVector targetVector, string sourceReplicaId, DottedVersionVector sourceVector, IEnumerable<string>? evictedReplicaIds = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(targetReplicaId);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceReplicaId);
         ArgumentNullException.ThrowIfNull(targetVector);
         ArgumentNullException.ThrowIfNull(sourceVector);
+
+        // Remove evicted replicas before calculating requirements to avoid false-positive snapshot triggers
+        if (evictedReplicaIds != null)
+        {
+            var evictedSet = evictedReplicaIds as ISet<string> ?? new HashSet<string>(evictedReplicaIds);
+            if (evictedSet.Count > 0)
+            {
+                targetVector = RemoveEvictedReplicas(targetVector, evictedSet);
+                sourceVector = RemoveEvictedReplicas(sourceVector, evictedSet);
+            }
+        }
 
         var requirements = new Dictionary<string, OriginSyncRequirement>();
 
@@ -92,7 +104,7 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
     }
 
     /// <inheritdoc/>
-    public BidirectionalSyncRequirements CalculateBidirectionalRequirements(ReplicaContext replicaA, ReplicaContext replicaB)
+    public BidirectionalSyncRequirements CalculateBidirectionalRequirements(ReplicaContext replicaA, ReplicaContext replicaB, IEnumerable<string>? evictedReplicaIds = null)
     {
         ArgumentNullException.ThrowIfNull(replicaA);
         ArgumentNullException.ThrowIfNull(replicaB);
@@ -101,16 +113,17 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
             replicaA.ReplicaId, 
             replicaA.GlobalVersionVector ?? new DottedVersionVector(), 
             replicaB.ReplicaId, 
-            replicaB.GlobalVersionVector ?? new DottedVersionVector());
+            replicaB.GlobalVersionVector ?? new DottedVersionVector(),
+            evictedReplicaIds);
     }
 
     /// <inheritdoc/>
-    public BidirectionalSyncRequirements CalculateBidirectionalRequirements(string replicaAId, DottedVersionVector vectorA, string replicaBId, DottedVersionVector vectorB)
+    public BidirectionalSyncRequirements CalculateBidirectionalRequirements(string replicaAId, DottedVersionVector vectorA, string replicaBId, DottedVersionVector vectorB, IEnumerable<string>? evictedReplicaIds = null)
     {
         return new BidirectionalSyncRequirements
         {
-            ReplicaANeedsFromB = CalculateRequirement(replicaAId, vectorA, replicaBId, vectorB),
-            ReplicaBNeedsFromA = CalculateRequirement(replicaBId, vectorB, replicaAId, vectorA)
+            ReplicaANeedsFromB = CalculateRequirement(replicaAId, vectorA, replicaBId, vectorB, evictedReplicaIds),
+            ReplicaBNeedsFromA = CalculateRequirement(replicaBId, vectorB, replicaAId, vectorA, evictedReplicaIds)
         };
     }
 
@@ -296,18 +309,23 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
                 {
                     long firstRequiredClock = req.TargetContiguousVersion + 1;
                     
-                    while (req.TargetKnownDots != null && req.TargetKnownDots.Contains(firstRequiredClock) && firstRequiredClock <= req.SourceContiguousVersion)
-                    {
-                        firstRequiredClock++;
-                    }
-
                     if (firstRequiredClock <= req.SourceContiguousVersion)
                     {
-                        bool hasRequired = availableOpsLookup.TryGetValue(origin, out var clocks) && clocks.Contains(firstRequiredClock);
-                        if (!hasRequired)
+                        if (availableOpsLookup.TryGetValue(origin, out var clocks))
+                        {
+                            // Validate ALL required clocks are actually present, not just the first one
+                            for (long clock = firstRequiredClock; clock <= req.SourceContiguousVersion; clock++)
+                            {
+                                if ((req.TargetKnownDots == null || !req.TargetKnownDots.Contains(clock)) && !clocks.Contains(clock))
+                                {
+                                    journalTruncated = true;
+                                    break;
+                                }
+                            }
+                        }
+                        else
                         {
                             journalTruncated = true;
-                            break;
                         }
                     }
                 }
