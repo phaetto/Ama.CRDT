@@ -1,5 +1,7 @@
 # Partitioning (Larger-Than-Memory Data)
 
+_**Note**: Partitioning is highly experimental at this moment_
+
 For very large documents, especially those containing massive collections, loading the entire object into memory for every operation can be inefficient or impossible. The partitioning feature allows you to store the document across one or more streams (e.g., files on disk), loading only the relevant parts when applying a patch. This is ideal for scenarios like managing multi-tenant data or huge dictionaries where operations typically only affect a small subset of the data.
 
 You need to select the medium that is used for larger than memory: [See Ama.CRDT.Partitioning.Streams for Streams implementation](../Ama.CRDT.Partitioning.Streams/README.md)

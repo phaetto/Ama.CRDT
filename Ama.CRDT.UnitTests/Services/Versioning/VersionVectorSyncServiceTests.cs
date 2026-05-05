@@ -10,11 +10,11 @@ using Xunit;
 
 public class VersionVectorSyncServiceTests
 {
-    private readonly VersionVectorSyncService _sut;
+    private readonly VersionVectorSyncService sut;
 
     public VersionVectorSyncServiceTests()
     {
-        _sut = new VersionVectorSyncService();
+        sut = new VersionVectorSyncService();
     }
 
     [Fact]
@@ -22,8 +22,8 @@ public class VersionVectorSyncServiceTests
     {
         var context = new ReplicaContext { ReplicaId = "A" };
 
-        Should.Throw<ArgumentNullException>(() => _sut.CalculateRequirement(null!, context));
-        Should.Throw<ArgumentNullException>(() => _sut.CalculateRequirement(context, null!));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateRequirement(null!, context));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateRequirement(context, null!));
     }
 
     [Theory]
@@ -34,8 +34,8 @@ public class VersionVectorSyncServiceTests
     {
         var dvv = new DottedVersionVector();
 
-        Should.Throw<ArgumentException>(() => _sut.CalculateRequirement(invalidId, dvv, "Valid", dvv));
-        Should.Throw<ArgumentException>(() => _sut.CalculateRequirement("Valid", dvv, invalidId, dvv));
+        Should.Throw<ArgumentException>(() => sut.CalculateRequirement(invalidId, dvv, "Valid", dvv));
+        Should.Throw<ArgumentException>(() => sut.CalculateRequirement("Valid", dvv, invalidId, dvv));
     }
 
     [Fact]
@@ -43,8 +43,8 @@ public class VersionVectorSyncServiceTests
     {
         var dvv = new DottedVersionVector();
 
-        Should.Throw<ArgumentNullException>(() => _sut.CalculateRequirement("Target", null!, "Source", dvv));
-        Should.Throw<ArgumentNullException>(() => _sut.CalculateRequirement("Target", dvv, "Source", null!));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateRequirement("Target", null!, "Source", dvv));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateRequirement("Target", dvv, "Source", null!));
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class VersionVectorSyncServiceTests
         var target = new ReplicaContext { ReplicaId = "Target" };
         var source = new ReplicaContext { ReplicaId = "Source" };
 
-        var result = _sut.CalculateRequirement(target, source);
+        var result = sut.CalculateRequirement(target, source);
 
         result.TargetReplicaId.ShouldBe("Target");
         result.SourceReplicaId.ShouldBe("Source");
@@ -67,7 +67,7 @@ public class VersionVectorSyncServiceTests
         var target = new ReplicaContext { ReplicaId = "Target", GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "Origin1", 5 } }, null) };
         var source = new ReplicaContext { ReplicaId = "Source", GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "Origin1", 2 } }, null) };
 
-        var result = _sut.CalculateRequirement(target, source);
+        var result = sut.CalculateRequirement(target, source);
 
         result.IsBehind.ShouldBeFalse();
         result.RequirementsByOrigin.ShouldBeEmpty();
@@ -79,7 +79,7 @@ public class VersionVectorSyncServiceTests
         var target = new ReplicaContext { ReplicaId = "Target", GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "Origin1", 2 } }, null) };
         var source = new ReplicaContext { ReplicaId = "Source", GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "Origin1", 5 } }, null) };
 
-        var result = _sut.CalculateRequirement(target, source);
+        var result = sut.CalculateRequirement(target, source);
 
         result.IsBehind.ShouldBeTrue();
         result.RequirementsByOrigin.Count.ShouldBe(1);
@@ -104,7 +104,7 @@ public class VersionVectorSyncServiceTests
                 new Dictionary<string, ISet<long>> { { "Origin1", new HashSet<long> { 5, 7 } } }) 
         };
 
-        var result = _sut.CalculateRequirement(target, source);
+        var result = sut.CalculateRequirement(target, source);
 
         result.IsBehind.ShouldBeTrue();
         
@@ -134,7 +134,7 @@ public class VersionVectorSyncServiceTests
             GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "Origin1", 5 } }, null) 
         };
 
-        var result = _sut.CalculateRequirement(target, source);
+        var result = sut.CalculateRequirement(target, source);
 
         result.IsBehind.ShouldBeTrue();
         
@@ -166,7 +166,7 @@ public class VersionVectorSyncServiceTests
                 null) 
         };
 
-        var result = _sut.CalculateRequirement(target, source);
+        var result = sut.CalculateRequirement(target, source);
 
         result.IsBehind.ShouldBeTrue();
         result.RequirementsByOrigin.Count.ShouldBe(2); // Only for B and C, since Target is ahead on A
@@ -179,12 +179,37 @@ public class VersionVectorSyncServiceTests
     }
 
     [Fact]
+    public void CalculateRequirement_WithEvictedReplicas_IgnoresEvictedOrigins()
+    {
+        var target = new ReplicaContext 
+        { 
+            ReplicaId = "Target", 
+            GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "EvictedNode", 5 } }, null) 
+        };
+        var source = new ReplicaContext 
+        { 
+            ReplicaId = "Source", 
+            GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "EvictedNode", 10 } }, null) 
+        };
+
+        // Without evicted list, Target needs 6-10 from Source for EvictedNode
+        var req1 = sut.CalculateRequirement(target, source);
+        req1.IsBehind.ShouldBeTrue();
+        req1.RequirementsByOrigin.ContainsKey("EvictedNode").ShouldBeTrue();
+
+        // With evicted list, the requirement should be completely empty and IsBehind false
+        var req2 = sut.CalculateRequirement(target, source, new[] { "EvictedNode" });
+        req2.IsBehind.ShouldBeFalse();
+        req2.RequirementsByOrigin.ShouldBeEmpty();
+    }
+
+    [Fact]
     public void CalculateBidirectionalRequirements_NullArguments_ThrowsArgumentNullException()
     {
         var context = new ReplicaContext { ReplicaId = "A" };
 
-        Should.Throw<ArgumentNullException>(() => _sut.CalculateBidirectionalRequirements(null!, context));
-        Should.Throw<ArgumentNullException>(() => _sut.CalculateBidirectionalRequirements(context, null!));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateBidirectionalRequirements(null!, context));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateBidirectionalRequirements(context, null!));
     }
 
     [Fact]
@@ -202,7 +227,7 @@ public class VersionVectorSyncServiceTests
             GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "OriginX", 3 }, { "OriginY", 5 } }, null) 
         };
 
-        var result = _sut.CalculateBidirectionalRequirements(replicaA, replicaB);
+        var result = sut.CalculateBidirectionalRequirements(replicaA, replicaB);
 
         // A needs from B
         result.ReplicaANeedsFromB.IsBehind.ShouldBeTrue();
@@ -220,13 +245,13 @@ public class VersionVectorSyncServiceTests
     [Fact]
     public void CalculateGlobalMinimumVersionVector_NullClusterVectors_ThrowsArgumentNullException()
     {
-        Should.Throw<ArgumentNullException>(() => _sut.CalculateGlobalMinimumVersionVector(null!));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateGlobalMinimumVersionVector(null!));
     }
 
     [Fact]
     public void CalculateGlobalMinimumVersionVector_EmptyClusterVectors_ReturnsEmptyDictionary()
     {
-        var result = _sut.CalculateGlobalMinimumVersionVector([]);
+        var result = sut.CalculateGlobalMinimumVersionVector([]);
         result.ShouldBeEmpty();
     }
 
@@ -240,7 +265,7 @@ public class VersionVectorSyncServiceTests
             CreateDvv(new Dictionary<string, long> { { "A", 6 }, { "B", 3 } }, null) // Missing C
         };
 
-        var result = _sut.CalculateGlobalMinimumVersionVector(vectors);
+        var result = sut.CalculateGlobalMinimumVersionVector(vectors);
 
         result.Count.ShouldBe(2); // Only A and B should be present, C is 0 because third replica misses it
         result["A"].ShouldBe(4);
@@ -251,13 +276,13 @@ public class VersionVectorSyncServiceTests
     [Fact]
     public void CalculateGlobalMaximumVersionVector_NullClusterVectors_ThrowsArgumentNullException()
     {
-        Should.Throw<ArgumentNullException>(() => _sut.CalculateGlobalMaximumVersionVector(null!));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateGlobalMaximumVersionVector(null!));
     }
 
     [Fact]
     public void CalculateGlobalMaximumVersionVector_EmptyClusterVectors_ReturnsEmpty()
     {
-        var result = _sut.CalculateGlobalMaximumVersionVector([]);
+        var result = sut.CalculateGlobalMaximumVersionVector([]);
         result.Versions.ShouldBeEmpty();
         result.Dots.ShouldBeEmpty();
     }
@@ -272,7 +297,7 @@ public class VersionVectorSyncServiceTests
             CreateDvv(new Dictionary<string, long> { { "C", 2 } }, null)
         };
 
-        var result = _sut.CalculateGlobalMaximumVersionVector(vectors);
+        var result = sut.CalculateGlobalMaximumVersionVector(vectors);
 
         result.Versions.Count.ShouldBe(3);
         result.Versions["A"].ShouldBe(5);
@@ -293,7 +318,7 @@ public class VersionVectorSyncServiceTests
             CreateDvv(new Dictionary<string, long> { { "A", 5 } }, null)
         };
 
-        var result = _sut.CalculateGlobalMaximumVersionVector(vectors);
+        var result = sut.CalculateGlobalMaximumVersionVector(vectors);
 
         result.Versions["A"].ShouldBe(5);
         result.Dots.Count.ShouldBe(1);
@@ -303,14 +328,14 @@ public class VersionVectorSyncServiceTests
     [Fact]
     public void RemoveEvictedReplicas_NullVector_ThrowsArgumentNullException()
     {
-        Should.Throw<ArgumentNullException>(() => _sut.RemoveEvictedReplicas(null!, []));
+        Should.Throw<ArgumentNullException>(() => sut.RemoveEvictedReplicas(null!, []));
     }
 
     [Fact]
     public void RemoveEvictedReplicas_NullEvictedReplicaIds_ThrowsArgumentNullException()
     {
         var dvv = new DottedVersionVector();
-        Should.Throw<ArgumentNullException>(() => _sut.RemoveEvictedReplicas(dvv, null!));
+        Should.Throw<ArgumentNullException>(() => sut.RemoveEvictedReplicas(dvv, null!));
     }
 
     [Fact]
@@ -321,7 +346,7 @@ public class VersionVectorSyncServiceTests
             new Dictionary<string, ISet<long>> { { "A", new HashSet<long> { 3 } } }
         );
 
-        var result = _sut.RemoveEvictedReplicas(dvv, []);
+        var result = sut.RemoveEvictedReplicas(dvv, []);
 
         result.ShouldNotBeSameAs(dvv);
         result.Versions.ShouldBe(dvv.Versions);
@@ -345,7 +370,7 @@ public class VersionVectorSyncServiceTests
             }
         );
 
-        var result = _sut.RemoveEvictedReplicas(dvv, ["B", "C", "D"]); // Includes an ID that's not in the DVV
+        var result = sut.RemoveEvictedReplicas(dvv, ["B", "C", "D"]); // Includes an ID that's not in the DVV
 
         result.Versions.Count.ShouldBe(1);
         result.Versions.ContainsKey("A").ShouldBeTrue();
@@ -362,7 +387,7 @@ public class VersionVectorSyncServiceTests
         var requirement = new ReplicaSyncRequirement();
         var emptyStream = AsAsyncEnumerable(Array.Empty<JournaledOperation>());
 
-        await Should.ThrowAsync<ArgumentNullException>(() => _sut.EvaluateJournalCompletionAsync(null!, requirement));
+        await Should.ThrowAsync<ArgumentNullException>(() => sut.EvaluateJournalCompletionAsync(null!, requirement));
     }
 
     [Fact]
@@ -374,7 +399,7 @@ public class VersionVectorSyncServiceTests
         };
         var emptyStream = AsAsyncEnumerable(Array.Empty<JournaledOperation>());
 
-        var result = await _sut.EvaluateJournalCompletionAsync(emptyStream, requirement);
+        var result = await sut.EvaluateJournalCompletionAsync(emptyStream, requirement);
 
         result.SnapshotRequired.ShouldBeFalse();
         result.Operations.ShouldBeEmpty();
@@ -397,14 +422,14 @@ public class VersionVectorSyncServiceTests
             CreateJOp("A", 3)
         });
 
-        var result = await _sut.EvaluateJournalCompletionAsync(availableOps, requirement);
+        var result = await sut.EvaluateJournalCompletionAsync(availableOps, requirement);
 
         result.SnapshotRequired.ShouldBeFalse();
         result.Operations.Count.ShouldBe(2);
     }
 
     [Fact]
-    public async Task EvaluateJournalCompletionAsync_MissingContiguousOp_ReturnsTruncated()
+    public async Task EvaluateJournalCompletionAsync_MissingFirstContiguousOp_ReturnsTruncated()
     {
         var requirement = new ReplicaSyncRequirement
         {
@@ -420,10 +445,63 @@ public class VersionVectorSyncServiceTests
             CreateJOp("A", 3)
         });
 
-        var result = await _sut.EvaluateJournalCompletionAsync(availableOps, requirement);
+        var result = await sut.EvaluateJournalCompletionAsync(availableOps, requirement);
 
         result.SnapshotRequired.ShouldBeTrue();
         result.Operations.ShouldBeEmpty(); // When truncated, operations are empty to trigger full sync
+    }
+
+    [Fact]
+    public async Task EvaluateJournalCompletionAsync_MissingIntermediateContiguousOp_ReturnsTruncated()
+    {
+        var requirement = new ReplicaSyncRequirement
+        {
+            RequirementsByOrigin = new Dictionary<string, OriginSyncRequirement>
+            {
+                { "A", new OriginSyncRequirement { TargetContiguousVersion = 1, SourceContiguousVersion = 5 } }
+            }
+        };
+
+        // Stream has 2, 4, 5 but missing 3!
+        var availableOps = AsAsyncEnumerable(new[]
+        {
+            CreateJOp("A", 2),
+            CreateJOp("A", 4),
+            CreateJOp("A", 5)
+        });
+
+        var result = await sut.EvaluateJournalCompletionAsync(availableOps, requirement);
+
+        result.SnapshotRequired.ShouldBeTrue();
+        result.Operations.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task EvaluateJournalCompletionAsync_EmptyTargetWithMissingOldOperations_ReturnsTruncated()
+    {
+        // This simulates a "New Node joining mature cluster" true-positive snapshot trigger scenario
+        var requirement = new ReplicaSyncRequirement
+        {
+            RequirementsByOrigin = new Dictionary<string, OriginSyncRequirement>
+            {
+                { "A", new OriginSyncRequirement { TargetContiguousVersion = 0, SourceContiguousVersion = 5000 } }
+            }
+        };
+
+        // Source only has operations 4500 to 5000 because it already compacted older ones
+        var ops = new List<JournaledOperation>();
+        for (long i = 4500; i <= 5000; i++)
+        {
+            ops.Add(CreateJOp("A", i));
+        }
+
+        var availableOps = AsAsyncEnumerable(ops);
+
+        var result = await sut.EvaluateJournalCompletionAsync(availableOps, requirement);
+
+        // Should be truncated because it's missing 1 through 4499
+        result.SnapshotRequired.ShouldBeTrue();
+        result.Operations.ShouldBeEmpty();
     }
 
     [Fact]
@@ -442,7 +520,7 @@ public class VersionVectorSyncServiceTests
             CreateJOp("A", 5)
         });
 
-        var result = await await Task.FromResult(_sut.EvaluateJournalCompletionAsync(availableOps, requirement));
+        var result = await await Task.FromResult(sut.EvaluateJournalCompletionAsync(availableOps, requirement));
 
         result.SnapshotRequired.ShouldBeFalse();
         result.Operations.Count.ShouldBe(1);
@@ -465,7 +543,7 @@ public class VersionVectorSyncServiceTests
             CreateJOp("A", 5)
         });
 
-        var result = await _sut.EvaluateJournalCompletionAsync(availableOps, requirement);
+        var result = await sut.EvaluateJournalCompletionAsync(availableOps, requirement);
 
         result.SnapshotRequired.ShouldBeTrue();
         result.Operations.ShouldBeEmpty();
@@ -488,7 +566,7 @@ public class VersionVectorSyncServiceTests
             CreateJOp("A", 4)
         });
 
-        var result = await _sut.EvaluateJournalCompletionAsync(availableOps, requirement);
+        var result = await sut.EvaluateJournalCompletionAsync(availableOps, requirement);
 
         result.SnapshotRequired.ShouldBeFalse();
         result.Operations.Count.ShouldBe(1);
@@ -511,7 +589,7 @@ public class VersionVectorSyncServiceTests
             CreateJOp("A", 4)
         });
 
-        var result = await _sut.EvaluateJournalCompletionAsync(availableOps, requirement);
+        var result = await sut.EvaluateJournalCompletionAsync(availableOps, requirement);
 
         result.SnapshotRequired.ShouldBeTrue();
         result.Operations.ShouldBeEmpty();
@@ -535,10 +613,41 @@ public class VersionVectorSyncServiceTests
             CreateJOp("A", 2)
         });
 
-        var result = await _sut.EvaluateJournalCompletionAsync(availableOps, requirement);
+        var result = await sut.EvaluateJournalCompletionAsync(availableOps, requirement);
 
         result.SnapshotRequired.ShouldBeTrue();
         result.Operations.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task EvaluateJournalCompletionAsync_CrossSync_NodeAHasOnlyItsOwnJournal_EvaluatesCorrectly()
+    {
+        // Scenario: DVV(A) = (A:1, B:0), DVV(B) = (A:0, B:1)
+        var replicaA = new ReplicaContext { ReplicaId = "A", GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "A", 1 } }, null) };
+        var replicaB = new ReplicaContext { ReplicaId = "B", GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "B", 1 } }, null) };
+
+        // In Node A, we only have the journal of Node A (A:1) available.
+        var nodeAJournalOperations = new[] { CreateJOp("A", 1) };
+
+        // Case 1: Node A evaluates what Node B needs from Node A
+        // Target = B, Source = A. Node B needs A:1.
+        var bNeedsFromA = sut.CalculateRequirement(target: replicaB, source: replicaA);
+        
+        var resultWhenServingB = await sut.EvaluateJournalCompletionAsync(AsAsyncEnumerable(nodeAJournalOperations), bNeedsFromA);
+        
+        // Node A has A:1 in its journal, so SnapshotRequired is false
+        resultWhenServingB.SnapshotRequired.ShouldBeFalse();
+        resultWhenServingB.Operations.Count.ShouldBe(1);
+
+        // Case 2: Node A evaluates what Node A needs from Node B, but against its own local journal.
+        // Target = A, Source = B. Node A needs B:1.
+        var aNeedsFromB = sut.CalculateRequirement(target: replicaA, source: replicaB);
+        
+        var resultWhenEvaluatingSelf = await sut.EvaluateJournalCompletionAsync(AsAsyncEnumerable(nodeAJournalOperations), aNeedsFromB);
+        
+        // Node A's journal does NOT contain B:1, so it flags journal as truncated/missing
+        resultWhenEvaluatingSelf.SnapshotRequired.ShouldBeTrue();
+        resultWhenEvaluatingSelf.Operations.ShouldBeEmpty();
     }
 
     private static DottedVersionVector CreateDvv(IDictionary<string, long> versions, IDictionary<string, ISet<long>>? dots)

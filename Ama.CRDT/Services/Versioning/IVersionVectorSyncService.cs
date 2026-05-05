@@ -15,6 +15,7 @@ public interface IVersionVectorSyncService
     /// </summary>
     /// <param name="target">The context of the replica that may be behind.</param>
     /// <param name="source">The context of the replica that may have newer data.</param>
+    /// <param name="evictedReplicaIds">An optional list of replica IDs that have been removed from the cluster. Their historical operations will be ignored to prevent false-positive snapshot triggers.</param>
     /// <returns>A <see cref="ReplicaSyncRequirement"/> detailing exactly what versions the target is missing from the source.</returns>
     /// <example>
     /// <code>
@@ -48,7 +49,7 @@ public interface IVersionVectorSyncService
     /// ]]>
     /// </code>
     /// </example>
-    ReplicaSyncRequirement CalculateRequirement(ReplicaContext target, ReplicaContext source);
+    ReplicaSyncRequirement CalculateRequirement(ReplicaContext target, ReplicaContext source, IEnumerable<string>? evictedReplicaIds = null);
 
     /// <summary>
     /// Compares two dotted version vectors and determines what data the target replica needs from the source replica.
@@ -57,6 +58,7 @@ public interface IVersionVectorSyncService
     /// <param name="targetVector">The version vector of the replica that may be behind.</param>
     /// <param name="sourceReplicaId">The ID of the replica that may have newer data.</param>
     /// <param name="sourceVector">The version vector of the replica that may have newer data.</param>
+    /// <param name="evictedReplicaIds">An optional list of replica IDs that have been removed from the cluster. Their historical operations will be ignored to prevent false-positive snapshot triggers.</param>
     /// <returns>A <see cref="ReplicaSyncRequirement"/> detailing exactly what versions the target is missing from the source.</returns>
     /// <example>
     /// <code>
@@ -77,13 +79,14 @@ public interface IVersionVectorSyncService
     /// ]]>
     /// </code>
     /// </example>
-    ReplicaSyncRequirement CalculateRequirement(string targetReplicaId, DottedVersionVector targetVector, string sourceReplicaId, DottedVersionVector sourceVector);
+    ReplicaSyncRequirement CalculateRequirement(string targetReplicaId, DottedVersionVector targetVector, string sourceReplicaId, DottedVersionVector sourceVector, IEnumerable<string>? evictedReplicaIds = null);
 
     /// <summary>
     /// Compares two replica contexts bidirectionally, returning the requirements for both to fully synchronize with each other.
     /// </summary>
     /// <param name="replicaA">The first replica context.</param>
     /// <param name="replicaB">The second replica context.</param>
+    /// <param name="evictedReplicaIds">An optional list of replica IDs that have been removed from the cluster. Their historical operations will be ignored to prevent false-positive snapshot triggers.</param>
     /// <returns>A <see cref="BidirectionalSyncRequirements"/> containing the requirements for A to catch up to B, and B to catch up to A.</returns>
     /// <example>
     /// <code>
@@ -103,7 +106,7 @@ public interface IVersionVectorSyncService
     /// ]]>
     /// </code>
     /// </example>
-    BidirectionalSyncRequirements CalculateBidirectionalRequirements(ReplicaContext replicaA, ReplicaContext replicaB);
+    BidirectionalSyncRequirements CalculateBidirectionalRequirements(ReplicaContext replicaA, ReplicaContext replicaB, IEnumerable<string>? evictedReplicaIds = null);
 
     /// <summary>
     /// Compares two dotted version vectors bidirectionally, returning the requirements for both to fully synchronize with each other.
@@ -112,6 +115,7 @@ public interface IVersionVectorSyncService
     /// <param name="vectorA">The version vector of the first replica.</param>
     /// <param name="replicaBId">The ID of the second replica.</param>
     /// <param name="vectorB">The version vector of the second replica.</param>
+    /// <param name="evictedReplicaIds">An optional list of replica IDs that have been removed from the cluster. Their historical operations will be ignored to prevent false-positive snapshot triggers.</param>
     /// <returns>A <see cref="BidirectionalSyncRequirements"/> containing the requirements for A to catch up to B, and B to catch up to A.</returns>
     /// <example>
     /// <code>
@@ -137,7 +141,7 @@ public interface IVersionVectorSyncService
     /// ]]>
     /// </code>
     /// </example>
-    BidirectionalSyncRequirements CalculateBidirectionalRequirements(string replicaAId, DottedVersionVector vectorA, string replicaBId, DottedVersionVector vectorB);
+    BidirectionalSyncRequirements CalculateBidirectionalRequirements(string replicaAId, DottedVersionVector vectorA, string replicaBId, DottedVersionVector vectorB, IEnumerable<string>? evictedReplicaIds = null);
 
     /// <summary>
     /// Calculates the Global Minimum Version Vector from a collection of replica version vectors.

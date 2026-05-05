@@ -1550,19 +1550,11 @@ Ama.CRDT.Services.Strategies.VoteCounterStrategy.Merge(object! data1, Ama.CRDT.M
 Ama.CRDT.Services.Strategies.VoteCounterStrategy.Split(object! originalData, Ama.CRDT.Models.CrdtMetadata! originalMetadata, Ama.CRDT.Models.Aot.CrdtPropertyInfo! partitionableProperty) -> Ama.CRDT.Models.Partitioning.SplitResult
 Ama.CRDT.Services.Strategies.VoteCounterStrategy.VoteCounterStrategy(Ama.CRDT.Services.ReplicaContext! replicaContext, System.Collections.Generic.IEnumerable<Ama.CRDT.Models.Aot.CrdtAotContext!>! aotContexts) -> void
 Ama.CRDT.Services.Versioning.IVersionVectorSyncService
-Ama.CRDT.Services.Versioning.IVersionVectorSyncService.CalculateBidirectionalRequirements(Ama.CRDT.Services.ReplicaContext! replicaA, Ama.CRDT.Services.ReplicaContext! replicaB) -> Ama.CRDT.Models.BidirectionalSyncRequirements
-Ama.CRDT.Services.Versioning.IVersionVectorSyncService.CalculateBidirectionalRequirements(string! replicaAId, Ama.CRDT.Models.DottedVersionVector! vectorA, string! replicaBId, Ama.CRDT.Models.DottedVersionVector! vectorB) -> Ama.CRDT.Models.BidirectionalSyncRequirements
 Ama.CRDT.Services.Versioning.IVersionVectorSyncService.CalculateGlobalMaximumVersionVector(System.Collections.Generic.IEnumerable<Ama.CRDT.Models.DottedVersionVector!>! clusterVectors) -> Ama.CRDT.Models.DottedVersionVector!
 Ama.CRDT.Services.Versioning.IVersionVectorSyncService.CalculateGlobalMinimumVersionVector(System.Collections.Generic.IEnumerable<Ama.CRDT.Models.DottedVersionVector!>! clusterVectors) -> System.Collections.Generic.IReadOnlyDictionary<string!, long>!
-Ama.CRDT.Services.Versioning.IVersionVectorSyncService.CalculateRequirement(Ama.CRDT.Services.ReplicaContext! target, Ama.CRDT.Services.ReplicaContext! source) -> Ama.CRDT.Models.ReplicaSyncRequirement
-Ama.CRDT.Services.Versioning.IVersionVectorSyncService.CalculateRequirement(string! targetReplicaId, Ama.CRDT.Models.DottedVersionVector! targetVector, string! sourceReplicaId, Ama.CRDT.Models.DottedVersionVector! sourceVector) -> Ama.CRDT.Models.ReplicaSyncRequirement
 Ama.CRDT.Services.Versioning.VersionVectorSyncService
-Ama.CRDT.Services.Versioning.VersionVectorSyncService.CalculateBidirectionalRequirements(Ama.CRDT.Services.ReplicaContext! replicaA, Ama.CRDT.Services.ReplicaContext! replicaB) -> Ama.CRDT.Models.BidirectionalSyncRequirements
-Ama.CRDT.Services.Versioning.VersionVectorSyncService.CalculateBidirectionalRequirements(string! replicaAId, Ama.CRDT.Models.DottedVersionVector! vectorA, string! replicaBId, Ama.CRDT.Models.DottedVersionVector! vectorB) -> Ama.CRDT.Models.BidirectionalSyncRequirements
 Ama.CRDT.Services.Versioning.VersionVectorSyncService.CalculateGlobalMaximumVersionVector(System.Collections.Generic.IEnumerable<Ama.CRDT.Models.DottedVersionVector!>! clusterVectors) -> Ama.CRDT.Models.DottedVersionVector!
 Ama.CRDT.Services.Versioning.VersionVectorSyncService.CalculateGlobalMinimumVersionVector(System.Collections.Generic.IEnumerable<Ama.CRDT.Models.DottedVersionVector!>! clusterVectors) -> System.Collections.Generic.IReadOnlyDictionary<string!, long>!
-Ama.CRDT.Services.Versioning.VersionVectorSyncService.CalculateRequirement(Ama.CRDT.Services.ReplicaContext! target, Ama.CRDT.Services.ReplicaContext! source) -> Ama.CRDT.Models.ReplicaSyncRequirement
-Ama.CRDT.Services.Versioning.VersionVectorSyncService.CalculateRequirement(string! targetReplicaId, Ama.CRDT.Models.DottedVersionVector! targetVector, string! sourceReplicaId, Ama.CRDT.Models.DottedVersionVector! sourceVector) -> Ama.CRDT.Models.ReplicaSyncRequirement
 Ama.CRDT.Services.Versioning.VersionVectorSyncService.VersionVectorSyncService() -> void
 const Ama.CRDT.Services.Partitioning.PartitionManager<T>.MaxPartitionDataSize = 8192 -> int
 const Ama.CRDT.Services.Partitioning.PartitionManager<T>.MinPartitionDataSize = 2048 -> int
