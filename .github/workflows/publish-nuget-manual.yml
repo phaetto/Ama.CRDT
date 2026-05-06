@@ -86,3 +86,36 @@ jobs:
 
       - name: Push to NuGet
         run: dotnet nuget push "${{ env.PACKAGE_OUTPUT_DIRECTORY }}/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
+
+      - name: Unlist previous prerelease versions
+        run: |
+          packages=("Ama.CRDT" "Ama.CRDT.Partitioning.Streams")
+          for pkg in "${packages[@]}"; do
+            echo "Fetching versions for $pkg..."
+            # The NuGet V3 API requires lowercase package IDs
+            pkg_lower=$(echo "$pkg" | tr '[:upper:]' '[:lower:]')
+            
+            HTTP_STATUS=$(curl -s -o versions.json -w "%{http_code}" "https://api.nuget.org/v3-flatcontainer/$pkg_lower/index.json")
+            
+            if [ "$HTTP_STATUS" -ne 200 ]; then
+              echo "Failed to fetch versions for $pkg (HTTP $HTTP_STATUS). It might be a new package or a network issue. Skipping..."
+              continue
+            fi
+            
+            # Extract versions that contain a hyphen (SemVer indicator for prerelease)
+            # If you want to ONLY delete CI generated previews, change 'contains("-")' to 'contains("-ci")'
+            prereleases=$(jq -r '.versions[] | select(contains("-"))' versions.json)
+            
+            if [ -z "$prereleases" ]; then
+              echo "No prerelease versions found for $pkg."
+              continue
+            fi
+            
+            for version in $prereleases; do
+              echo "Unlisting $pkg version $version..."
+              dotnet nuget delete "$pkg" "$version" \
+                --api-key ${{ secrets.NUGET_API_KEY }} \
+                --source "https://api.nuget.org/v3/index.json" \
+                --non-interactive || echo "Failed to unlist $pkg $version, but continuing..."
+            done
+          done
