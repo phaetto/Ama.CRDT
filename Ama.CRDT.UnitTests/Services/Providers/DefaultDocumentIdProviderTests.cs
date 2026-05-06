@@ -11,6 +11,9 @@ using Xunit;
 [CrdtAotType(typeof(ModelWithoutId))]
 [CrdtAotType(typeof(ModelWithNullId))]
 [CrdtAotType(typeof(ModelWithEmptyId))]
+[CrdtAotType(typeof(ModelWithStringId))]
+[CrdtAotType(typeof(ModelWithIntId))]
+[CrdtAotType(typeof(ModelWithReadOnlyId))]
 internal partial class DocumentIdTestCrdtContext : CrdtAotContext { }
 
 public class ModelWithId
@@ -31,6 +34,21 @@ public class ModelWithNullId
 public class ModelWithEmptyId
 {
     public string Id { get; set; } = string.Empty;
+}
+
+public class ModelWithStringId
+{
+    public string? Id { get; set; }
+}
+
+public class ModelWithIntId
+{
+    public int Id { get; set; }
+}
+
+public class ModelWithReadOnlyId
+{
+    public string Id { get; } = "readonly";
 }
 
 public class DefaultDocumentIdProviderTests
@@ -97,5 +115,117 @@ public class DefaultDocumentIdProviderTests
         // Act & Assert
         var ex = Should.Throw<InvalidOperationException>(() => provider.GetDocumentId(model));
         ex.Message.ShouldContain("evaluated to an empty or whitespace string");
+    }
+
+    [Fact]
+    public void SetDocumentId_ShouldSetGuidId()
+    {
+        // Arrange
+        var id = Guid.NewGuid();
+        var model = new ModelWithId();
+
+        // Act
+        provider.SetDocumentId(model, id.ToString());
+
+        // Assert
+        model.Id.ShouldBe(id);
+    }
+
+    [Fact]
+    public void SetDocumentId_ShouldSetStringId()
+    {
+        // Arrange
+        var id = "doc-123";
+        var model = new ModelWithStringId();
+
+        // Act
+        provider.SetDocumentId(model, id);
+
+        // Assert
+        model.Id.ShouldBe(id);
+    }
+
+    [Fact]
+    public void SetDocumentId_ShouldSetIntId()
+    {
+        // Arrange
+        var model = new ModelWithIntId();
+
+        // Act
+        provider.SetDocumentId(model, "42");
+
+        // Assert
+        model.Id.ShouldBe(42);
+    }
+
+    [Fact]
+    public void SetDocumentId_ShouldThrowArgumentNullException_WhenObjectIsNull()
+    {
+        ModelWithId? model = null;
+        Should.Throw<ArgumentNullException>(() => provider.SetDocumentId(model!, "id"));
+    }
+
+    [Fact]
+    public void SetDocumentId_ShouldThrowArgumentException_WhenIdIsNullOrWhitespace()
+    {
+        var model = new ModelWithId();
+        Should.Throw<ArgumentException>(() => provider.SetDocumentId(model, "  "));
+    }
+
+    [Fact]
+    public void SetDocumentId_ShouldThrowInvalidOperationException_WhenIdPropertyIsMissing()
+    {
+        var model = new ModelWithoutId();
+        var ex = Should.Throw<InvalidOperationException>(() => provider.SetDocumentId(model, "id"));
+        ex.Message.ShouldContain("does not have a writable 'Id' property");
+    }
+
+    [Fact]
+    public void SetDocumentId_ShouldThrowInvalidOperationException_WhenIdPropertyIsReadOnly()
+    {
+        var model = new ModelWithReadOnlyId();
+        var ex = Should.Throw<InvalidOperationException>(() => provider.SetDocumentId(model, "id"));
+        ex.Message.ShouldContain("does not have a writable 'Id' property");
+    }
+
+    [Fact]
+    public void CreateDocumentWithId_ShouldCreateAndSetGuidId()
+    {
+        // Arrange
+        var id = Guid.NewGuid();
+
+        // Act
+        var model = provider.CreateDocumentWithId<ModelWithId>(id.ToString());
+
+        // Assert
+        model.ShouldNotBeNull();
+        model.Id.ShouldBe(id);
+    }
+
+    [Fact]
+    public void CreateDocumentWithId_ShouldCreateAndSetStringId()
+    {
+        // Arrange
+        var id = "doc-123";
+
+        // Act
+        var model = provider.CreateDocumentWithId<ModelWithStringId>(id);
+
+        // Assert
+        model.ShouldNotBeNull();
+        model.Id.ShouldBe(id);
+    }
+
+    [Fact]
+    public void CreateDocumentWithId_ShouldThrowArgumentException_WhenIdIsNullOrWhitespace()
+    {
+        Should.Throw<ArgumentException>(() => provider.CreateDocumentWithId<ModelWithId>(""));
+    }
+
+    [Fact]
+    public void CreateDocumentWithId_ShouldThrowInvalidOperationException_WhenIdPropertyIsMissing()
+    {
+        var ex = Should.Throw<InvalidOperationException>(() => provider.CreateDocumentWithId<ModelWithoutId>("id"));
+        ex.Message.ShouldContain("does not have a writable 'Id' property");
     }
 }
