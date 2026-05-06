@@ -42,4 +42,37 @@ internal sealed class DefaultDocumentIdProvider : IDocumentIdProvider
 
         return stringVal;
     }
+
+    /// <inheritdoc/>
+    public void SetDocumentId<T>(T obj, string id)
+    {
+        ArgumentNullException.ThrowIfNull(obj);
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        var type = obj.GetType();
+        var typeInfo = PocoPathHelper.GetTypeInfo(type, aotContexts);
+
+        if (!typeInfo.Properties.TryGetValue("Id", out var prop) || !prop.CanWrite)
+        {
+            throw new InvalidOperationException($"Cannot set document ID. Type '{type.Name}' does not have a writable 'Id' property. Please provide a custom IDocumentIdProvider or ensure your document model has a writable 'Id' property.");
+        }
+
+        var convertedId = PocoPathHelper.ConvertValue(id, prop.PropertyType, aotContexts);
+        prop.Setter!(obj, convertedId);
+    }
+
+    /// <inheritdoc/>
+    public T CreateDocumentWithId<T>(string id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        var instance = PocoPathHelper.Instantiate(typeof(T), aotContexts);
+        if (instance is null)
+        {
+            throw new InvalidOperationException($"Cannot instantiate type '{typeof(T).Name}'.");
+        }
+
+        SetDocumentId(instance, id);
+        return (T)instance;
+    }
 }
