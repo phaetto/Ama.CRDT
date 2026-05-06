@@ -1,3 +1,5 @@
+Ama.CRDT.Services.Providers.IDocumentIdProvider.CreateDocumentWithId<T>(string! id) -> T
+Ama.CRDT.Services.Providers.IDocumentIdProvider.SetDocumentId<T>(T obj, string! id) -> void
 Ama.CRDT.Services.Versioning.IVersionVectorSyncService.CalculateBidirectionalRequirements(Ama.CRDT.Services.ReplicaContext! replicaA, Ama.CRDT.Services.ReplicaContext! replicaB, System.Collections.Generic.IEnumerable<string!>? evictedReplicaIds = null) -> Ama.CRDT.Models.BidirectionalSyncRequirements
 Ama.CRDT.Services.Versioning.IVersionVectorSyncService.CalculateBidirectionalRequirements(string! replicaAId, Ama.CRDT.Models.DottedVersionVector! vectorA, string! replicaBId, Ama.CRDT.Models.DottedVersionVector! vectorB, System.Collections.Generic.IEnumerable<string!>? evictedReplicaIds = null) -> Ama.CRDT.Models.BidirectionalSyncRequirements
 Ama.CRDT.Services.Versioning.IVersionVectorSyncService.CalculateRequirement(Ama.CRDT.Services.ReplicaContext! target, Ama.CRDT.Services.ReplicaContext! source, System.Collections.Generic.IEnumerable<string!>? evictedReplicaIds = null) -> Ama.CRDT.Models.ReplicaSyncRequirement
