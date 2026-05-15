@@ -12,8 +12,8 @@ permissions:
   contents: read
 
 env:
-  MAJOR_VERSION: 3
-  MINOR_VERSION: 3
+  MAJOR_VERSION: 4
+  MINOR_VERSION: 0
   SOLUTION_FILE: 'Ama.CRDT.slnx'
   # Fast execution for PRs
   FSCHECK_MAX_TESTS: 100

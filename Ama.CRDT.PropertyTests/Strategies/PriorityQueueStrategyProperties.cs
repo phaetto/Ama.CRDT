@@ -180,7 +180,7 @@ public sealed class PriorityQueueStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var aotContexts = new CrdtAotContext[] { new PriorityQueueTestContext(), new InternalCrdtAotContext() };
+        var aotContexts = new CrdtAotContext[] { new PriorityQueueTestContext(), new CoreCrdtAotContext() };
         var strategy = new PriorityQueueStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(

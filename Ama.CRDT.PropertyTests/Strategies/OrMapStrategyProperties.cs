@@ -164,7 +164,7 @@ public sealed class OrMapStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new OrMapStrategy(mockComparerProvider.Object, replicaContext, new CrdtAotContext[] { new InternalCrdtAotContext(), new OrMapTestContext() });
+        var strategy = new OrMapStrategy(mockComparerProvider.Object, replicaContext, new CrdtAotContext[] { new CoreCrdtAotContext(), new OrMapTestContext() });
         var propertyInfo = new CrdtPropertyInfo(
             nameof(OrMapTestPoco.Map),
             "map",

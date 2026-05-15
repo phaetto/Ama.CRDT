@@ -40,8 +40,8 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
 
         try
         {
-            var json = File.ReadAllText(journalFilePath);
-            var ops = crdtSerializer.DeserializeFromString<List<JournaledOperation>>(json) ?? new List<JournaledOperation>();
+            var bytes = File.ReadAllBytes(journalFilePath);
+            var ops = crdtSerializer.DeserializeFromBytes<List<JournaledOperation>>(bytes) ?? new List<JournaledOperation>();
             
             foreach (var jOp in ops)
             {
@@ -62,8 +62,8 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
     private void SaveJournal()
     {
         var allOps = operationsByOrigin.Values.SelectMany(x => x).ToList();
-        var json = crdtSerializer.SerializeToString(allOps);
-        File.WriteAllText(journalFilePath, json);
+        var bytes = crdtSerializer.SerializeToBytes(allOps);
+        File.WriteAllBytes(journalFilePath, bytes);
     }
 
     public void Append(string documentId, IReadOnlyList<CrdtOperation> operations)

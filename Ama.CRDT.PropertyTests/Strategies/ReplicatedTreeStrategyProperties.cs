@@ -141,7 +141,7 @@ public sealed class ReplicatedTreeStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var aotContexts = new CrdtAotContext[] { new ReplicatedTreeTestContext(), new InternalCrdtAotContext() };
+        var aotContexts = new CrdtAotContext[] { new ReplicatedTreeTestContext(), new CoreCrdtAotContext() };
         var strategy = new ReplicatedTreeStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(
