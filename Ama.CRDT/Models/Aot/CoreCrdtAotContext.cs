@@ -148,6 +148,6 @@ using Ama.CRDT.Models.Partitioning;
 [CrdtAotType(typeof(List<RgaItem>))]
 [CrdtAotType(typeof(IReadOnlyList<JournaledOperation>))]
 
-internal partial class InternalCrdtAotContext : CrdtAotContext
+public partial class CoreCrdtAotContext : CrdtAotContext
 {
 }

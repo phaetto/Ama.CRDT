@@ -96,6 +96,8 @@ public static class CrdtTypeRegistry
     /// Registers a type with a unique discriminator for polymorphic serialization.
     /// Exposing this publicly allows plugin packages (like Streams) to inject their own specific model types.
     /// </summary>
+    /// <param name="discriminator">The string discriminator used to uniquely identify the type.</param>
+    /// <param name="type">The type to be registered.</param>
     public static void Register(string discriminator, Type type)
     {
         if (string.IsNullOrWhiteSpace(discriminator))
@@ -107,7 +109,24 @@ public static class CrdtTypeRegistry
         DiscriminatorMap[type] = discriminator;
     }
 
-    internal static bool TryGetType(string discriminator, out Type type) => TypeMap.TryGetValue(discriminator, out type!);
-    internal static string? GetDiscriminator(Type type) => DiscriminatorMap.TryGetValue(type, out var discriminator) ? discriminator : null;
-    internal static IEnumerable<KeyValuePair<string, Type>> GetAll() => TypeMap;
+    /// <summary>
+    /// Attempts to retrieve the registered type for a given discriminator.
+    /// </summary>
+    /// <param name="discriminator">The string discriminator used to identify the type.</param>
+    /// <param name="type">The type associated with the discriminator, if found.</param>
+    /// <returns><c>true</c> if the type was found; otherwise, <c>false</c>.</returns>
+    public static bool TryGetType(string discriminator, out Type type) => TypeMap.TryGetValue(discriminator, out type!);
+
+    /// <summary>
+    /// Gets the registered discriminator for a specific type.
+    /// </summary>
+    /// <param name="type">The type to look up.</param>
+    /// <returns>The discriminator string if registered; otherwise, <c>null</c>.</returns>
+    public static string? GetDiscriminator(Type type) => DiscriminatorMap.TryGetValue(type, out var discriminator) ? discriminator : null;
+
+    /// <summary>
+    /// Retrieves all currently registered discriminator and type mappings.
+    /// </summary>
+    /// <returns>An enumerable collection of discriminator to type pairs.</returns>
+    public static IEnumerable<KeyValuePair<string, Type>> GetAll() => TypeMap;
 }

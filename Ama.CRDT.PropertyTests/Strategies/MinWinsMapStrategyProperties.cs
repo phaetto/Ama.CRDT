@@ -155,7 +155,7 @@ public sealed class MinWinsMapStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new MinWinsMapStrategy(mockComparerProvider.Object, replicaContext, new CrdtAotContext[] { new InternalCrdtAotContext(), new MinWinsMapTestContext() });
+        var strategy = new MinWinsMapStrategy(mockComparerProvider.Object, replicaContext, new CrdtAotContext[] { new CoreCrdtAotContext(), new MinWinsMapTestContext() });
         var propertyInfo = new CrdtPropertyInfo(
             nameof(MinWinsMapTestPoco.Map),
             "map",

@@ -33,7 +33,7 @@ public sealed class ModelConventionTests
         var solutionDir = GetSolutionDirectory();
         var unitTestsDir = Path.Combine(solutionDir, "Ama.CRDT.UnitTests");
         var crdtJsonContextPath = Path.Combine(solutionDir, "Ama.CRDT", "Models", "Serialization", "CrdtJsonContext.cs");
-        var internalCrdtContextPath = Path.Combine(solutionDir, "Ama.CRDT", "Models", "Aot", "InternalCrdtContext.cs");
+        var internalCrdtContextPath = Path.Combine(solutionDir, "Ama.CRDT", "Models", "Aot", "CoreCrdtAotContext.cs");
         
         // 2. Load all Serialization test files to check for model inclusion
         var testFiles = Directory.GetFiles(unitTestsDir, "*.cs", SearchOption.AllDirectories)

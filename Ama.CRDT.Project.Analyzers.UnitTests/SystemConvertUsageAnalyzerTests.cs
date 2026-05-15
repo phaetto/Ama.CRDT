@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Project.Analyzers.UnitTests;
 
+using Ama.CRDT.Project.Analyzers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Testing;
@@ -63,6 +64,44 @@ public class TestClass
     public void DoWork()
     {
         var value = Convert.ToInt32(""123"");
+    }
+}
+";
+        var test = CreateTest();
+        test.TestCode = source;
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenConvertFromBase64StringIsUsed_ShouldNotReportDiagnostic()
+    {
+        var source = @"
+using System;
+
+public class TestClass
+{
+    public void DoWork()
+    {
+        var value = Convert.FromBase64String(""MTIz"");
+    }
+}
+";
+        var test = CreateTest();
+        test.TestCode = source;
+        await test.RunAsync();
+    }
+
+    [Fact]
+    public async Task WhenConvertToBase64StringIsUsed_ShouldNotReportDiagnostic()
+    {
+        var source = @"
+using System;
+
+public class TestClass
+{
+    public void DoWork()
+    {
+        var value = Convert.ToBase64String(new byte[] { 1, 2, 3 });
     }
 }
 ";

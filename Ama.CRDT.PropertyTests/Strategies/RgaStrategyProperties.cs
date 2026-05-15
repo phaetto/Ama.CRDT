@@ -147,7 +147,7 @@ public sealed class RgaStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var aotContexts = new CrdtAotContext[] { new RgaTestContext(), new InternalCrdtAotContext() };
+        var aotContexts = new CrdtAotContext[] { new RgaTestContext(), new CoreCrdtAotContext() };
         var strategy = new RgaStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(
