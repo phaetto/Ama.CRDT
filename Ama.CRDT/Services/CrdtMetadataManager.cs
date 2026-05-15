@@ -618,6 +618,7 @@ public sealed class CrdtMetadataManager(
     private string GetVoterKey(object voter)
     {
         if (voter is string s) return s;
-        return crdtSerializer.SerializeToString(voter, voter.GetType());
+        var bytes = crdtSerializer.SerializeToBytes(voter, voter.GetType());
+        return Convert.ToBase64String(bytes);
     }
 }

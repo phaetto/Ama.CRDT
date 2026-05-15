@@ -2,6 +2,7 @@
 | --- | --- |
 | `$/.editorconfig` | Configures coding standards, formatting rules, and enables specific .NET analyzer rules such as CA2007 for enforcing `ConfigureAwait` usage. |
 | `$/.github/workflows/ci.yml` | GitHub Actions workflow for building and testing the project on pushes to non-master branches and on pull requests to master. This ensures code quality before merging. |
+| `$/.github/workflows/codeql.yml` | No description provided. |
 | `$/.github/workflows/publish-nuget-manual.yml` | GitHub Actions workflow for manually building, testing, and publishing a stable, non-prerelease version of the `Ama.CRDT` NuGet package. It includes a check to ensure no unshipped public APIs are present in a stable release. |
 | `$/.github/workflows/publish-nuget.yml` | GitHub Actions workflow for building, testing, and publishing the `Ama.CRDT` NuGet package (including its Roslyn analyzers) on pushes to the `master` branch. |
 | `$/.gitignore` | No description provided. |
@@ -229,7 +230,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTestCrdtContext.cs` | A dedicated CrdtContext for `VoteCounterStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTests.cs` | Contains unit tests for the `VoteCounterStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent voting scenarios. |
 | `$/Ama.CRDT.UnitTests/Services/Versioning/VersionVectorSyncServiceTests.cs` | No description provided. |
-| `$/Ama.CRDT.sln` | The Visual Studio solution file that groups all related projects (`Ama.CRDT`, `Ama.CRDT.Analyzers`, unit tests, benchmarks, etc.) together. |
+| `$/Ama.CRDT.slnx` | No description provided. |
 | `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, configured for NuGet packaging, auto-including associated Roslyn analyzers, and now explicitly enforcing `<IsAotCompatible>true</IsAotCompatible>` to bubble up AOT/Trimming warnings during regular builds. |
 | `$/Ama.CRDT/Attributes/AllowedDecoratorBehaviorAttribute.cs` | Attribute used to tag decorator classes with their supported execution behaviors. Meant for use alongside Roslyn Analyzers to ensure DI validation. |
 | `$/Ama.CRDT/Attributes/CrdtAotTypeAttribute.cs` | No description provided. |
@@ -279,16 +280,15 @@
 | `$/Ama.CRDT/Extensions/AsyncCrdtApplicatorExtensions.cs` | Provides extension methods for `IAsyncCrdtApplicator` to streamline common synchronization tasks, such as directly applying an asynchronous stream of missing operations. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods, updated to register `IDocumentIdProvider` natively. |
+| `$/Ama.CRDT/Models/Aot/CoreCrdtAotContext.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Aot/CrdtAotContext.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Aot/CrdtPropertyInfo.cs` | Contains AOT-compatible metadata, now natively including pre-extracted array of strategy type configurations mapped via attribute. |
 | `$/Ama.CRDT/Models/Aot/CrdtTypeInfo.cs` | Contains AOT-compatible metadata and factory methods for a specific type, including logic for lists and dictionaries. |
-| `$/Ama.CRDT/Models/Aot/InternalCrdtContext.cs` | An internal, source-generated AOT context containing metadata for all core library CRDT models (e.g., CrdtOperation, CrdtPatch, Intents, and Partitioning states), registered by default in the DI container. |
 | `$/Ama.CRDT/Models/ApplyPatchResult.cs` | Data structure containing the result of a patch application, including the document and any unapplied operations. |
 | `$/Ama.CRDT/Models/AverageRegisterState.cs` | A wrapper state structure implementing `ICrdtState` for Average Register contributions. |
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
 | `$/Ama.CRDT/Models/BidirectionalSyncRequirements.cs` | A data structure containing the synchronization requirements for two replicas to fully catch up with each other. |
 | `$/Ama.CRDT/Models/CausalTimestamp.cs` | A data structure that bundles a logical timestamp with the causal identity (replica and clock) of the operation, used to track metadata for tombstones and deletions safely for garbage collection. |
-| `$/Ama.CRDT/Models/CompositeMetadataState.cs` | Represents a composite metadata state that holds both the inner base strategy state and isolated decorator states mapped to a single JSON property path, avoiding string mangling. |
 | `$/Ama.CRDT/Models/CounterMapState.cs` | A wrapper state structure implementing `ICrdtState` for Counter-Map trackers. |
 | `$/Ama.CRDT/Models/CrdtDocument.cs` | No description provided. |
 | `$/Ama.CRDT/Models/CrdtGraph.cs` | A data model for a graph structure with vertices and edges, suitable for CRDT management. |
@@ -431,6 +431,7 @@
 | `$/Ama.CRDT/Services/Providers/IElementComparer.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/IElementComparerProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/ReplicaContext.cs` | A scoped service that holds the unique identifier for a CRDT replica, making it available to other scoped services within the same `IServiceScope`. |
+| `$/Ama.CRDT/Services/Serialization/BrotliJsonCrdtSerializer.cs` | A Native AOT compatible implementation of `ICrdtSerializer` utilizing `System.Text.Json` combined with Brotli compression natively provided by the framework, serializing strings as Base64 encoded compressed payloads. |
 | `$/Ama.CRDT/Services/Serialization/ICrdtSerializer.cs` | Defines a format-agnostic abstraction for serializing and deserializing CRDT models and payloads, decoupling the core library from System.Text.Json. |
 | `$/Ama.CRDT/Services/Serialization/JsonCrdtSerializer.cs` | The default Native AOT compatible implementation of `ICrdtSerializer` utilizing `System.Text.Json` and pre-configured `JsonSerializerOptions`. |
 | `$/Ama.CRDT/Services/Strategies/ApplyOperationContext.cs` | Defines the context for an <see cref="ICrdtStrategy.ApplyOperation"/> call, encapsulating all necessary parameters for applying a single CRDT operation to a document. This context is now simplified as strategies use centralized helpers for reflection. |

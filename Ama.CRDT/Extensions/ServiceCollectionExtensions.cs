@@ -39,6 +39,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection"/> to add services to.</param>
     /// <param name="configure">An optional action to configure CRDT strategies and decorators via the Fluent API without using attributes.</param>
+    /// <param name="useBrotliCompression">Set to <c>true</c> to use <see cref="BrotliJsonCrdtSerializer"/> for serializing payloads with compression natively, reducing storage size at the cost of slight CPU overhead.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
     /// <example>
     /// <code>
@@ -49,7 +50,7 @@ public static class ServiceCollectionExtensions
     /// {
     ///     options.Entity<MyDocument>()
     ///         .Property(x => x.Metrics).HasStrategy<MinWinsMapStrategy>();
-    /// });
+    /// }, useBrotliCompression: true);
     ///
     /// var app = builder.Build();
     ///
@@ -69,7 +70,7 @@ public static class ServiceCollectionExtensions
 
         // Setup the default System.Text.Json serialization integration.
         // This is extracted into its own method to allow for future binary serialization abstraction.
-        services.AddCrdtSystemTextJson();
+        services.AddCrdtSystemTextJson(false);
 
         // Build the configuration registry
         var builder = new CrdtModelBuilder();
@@ -77,7 +78,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton(builder.Build());
 
         // Register the internal CRDT AOT Context for reflection-free access to library models
-        services.AddCrdtAotContext<InternalCrdtAotContext>();
+        services.AddCrdtAotContext<CoreCrdtAotContext>();
 
         // Add metrics
         services.TryAddSingleton<PartitionManagerCrdtMetrics>();
@@ -205,8 +206,9 @@ public static class ServiceCollectionExtensions
     /// Called by default by <see cref="AddCrdt"/>, but extracted to allow swapping to binary protocols.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <param name="useBrotliCompression">Set to <c>true</c> to register the Brotli-compressed JSON serializer instead of the default.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
-    public static IServiceCollection AddCrdtSystemTextJson(this IServiceCollection services)
+    public static IServiceCollection AddCrdtSystemTextJson(this IServiceCollection services, bool useBrotliCompression = false)
     {
         // Setup central JSON options for CRDT natively in the DI container.
         services.TryAddKeyedSingleton("Ama.CRDT", (sp, key) =>
@@ -249,7 +251,14 @@ public static class ServiceCollectionExtensions
         });
 
         // Register the concrete STJ implementation of the ICrdtSerializer abstraction
-        services.TryAddSingleton<ICrdtSerializer, JsonCrdtSerializer>();
+        if (useBrotliCompression)
+        {
+            services.Replace(ServiceDescriptor.Singleton<ICrdtSerializer, BrotliJsonCrdtSerializer>());
+        }
+        else
+        {
+            services.Replace(ServiceDescriptor.Singleton<ICrdtSerializer, JsonCrdtSerializer>());
+        }
 
         return services;
     }

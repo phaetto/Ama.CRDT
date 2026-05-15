@@ -156,7 +156,7 @@ public sealed class OrSetStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var aotContexts = new CrdtAotContext[] { new OrSetTestContext(), new InternalCrdtAotContext() };
+        var aotContexts = new CrdtAotContext[] { new OrSetTestContext(), new CoreCrdtAotContext() };
         var strategy = new OrSetStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(

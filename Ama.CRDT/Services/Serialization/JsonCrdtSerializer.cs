@@ -71,34 +71,6 @@ public sealed class JsonCrdtSerializer : ICrdtSerializer
     }
 
     /// <inheritdoc/>
-    public string SerializeToString<T>(T value)
-    {
-        var typeInfo = (JsonTypeInfo<T>)options.GetTypeInfo(typeof(T));
-        return JsonSerializer.Serialize(value, typeInfo);
-    }
-
-    /// <inheritdoc/>
-    public string SerializeToString(object value, Type inputType)
-    {
-        var typeInfo = options.GetTypeInfo(inputType);
-        return JsonSerializer.Serialize(value, typeInfo);
-    }
-
-    /// <inheritdoc/>
-    public T? DeserializeFromString<T>(string data)
-    {
-        var typeInfo = (JsonTypeInfo<T>)options.GetTypeInfo(typeof(T));
-        return JsonSerializer.Deserialize(data, typeInfo);
-    }
-
-    /// <inheritdoc/>
-    public object? DeserializeFromString(string data, Type returnType)
-    {
-        var typeInfo = options.GetTypeInfo(returnType);
-        return JsonSerializer.Deserialize(data, typeInfo);
-    }
-
-    /// <inheritdoc/>
     public T? Clone<T>(T original)
     {
         if (original is null) return default;

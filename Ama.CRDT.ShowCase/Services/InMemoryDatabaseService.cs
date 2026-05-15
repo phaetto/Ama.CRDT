@@ -12,7 +12,7 @@ using Ama.CRDT.Services.Serialization;
 /// </summary>
 public sealed class InMemoryDatabaseService(ICrdtSerializer crdtSerializer) : IInMemoryDatabaseService
 {
-    private readonly ConcurrentDictionary<string, string> documents = new();
+    private readonly ConcurrentDictionary<string, byte[]> documents = new();
     private readonly ConcurrentDictionary<string, CrdtMetadata> metadata = new();
 
     public Task<(T document, CrdtMetadata metadata)> GetStateAsync<T>(string key) where T : class, new()
@@ -22,8 +22,8 @@ public sealed class InMemoryDatabaseService(ICrdtSerializer crdtSerializer) : II
             throw new ArgumentException("Key cannot be null or whitespace.", nameof(key));
         }
 
-        var doc = documents.TryGetValue(key, out var json)
-            ? crdtSerializer.DeserializeFromString<T>(json) ?? new T()
+        var doc = documents.TryGetValue(key, out var bytes)
+            ? crdtSerializer.DeserializeFromBytes<T>(bytes) ?? new T()
             : new T();
 
         var meta = metadata.TryGetValue(key, out var m) ? m : new CrdtMetadata();
@@ -40,9 +40,9 @@ public sealed class InMemoryDatabaseService(ICrdtSerializer crdtSerializer) : II
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(metadata);
 
-        var json = crdtSerializer.SerializeToString(document);
+        var bytes = crdtSerializer.SerializeToBytes(document);
         
-        documents[key] = json;
+        documents[key] = bytes;
         this.metadata[key] = metadata;
 
         return Task.CompletedTask;

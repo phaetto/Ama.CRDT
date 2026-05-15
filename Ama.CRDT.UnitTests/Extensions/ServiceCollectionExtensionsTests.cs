@@ -4,6 +4,7 @@ using System;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Extensions;
+using Ama.CRDT.Services.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
@@ -14,6 +15,37 @@ public class DerivedMessageB : BaseMessage { }
 
 public class ServiceCollectionExtensionsTests
 {
+    [Fact]
+    public void AddCrdt_WithDefaultOptions_RegistersDefaultJsonSerializer()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act
+        services.AddCrdt();
+        var sp = services.BuildServiceProvider();
+
+        // Assert
+        var serializer = sp.GetRequiredService<ICrdtSerializer>();
+        serializer.ShouldBeOfType<JsonCrdtSerializer>();
+    }
+
+    [Fact]
+    public void AddCrdt_WithBrotliCompression_RegistersBrotliJsonSerializer()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act
+        services.AddCrdt(configure: null)
+            .AddCrdtSystemTextJson(useBrotliCompression: true);
+        var sp = services.BuildServiceProvider();
+
+        // Assert
+        var serializer = sp.GetRequiredService<ICrdtSerializer>();
+        serializer.ShouldBeOfType<BrotliJsonCrdtSerializer>();
+    }
+
     [Fact]
     public void AddCrdtSystemTextJson_ShouldInquireAllResolvers_AndMergePolymorphismOptions()
     {
