@@ -17,7 +17,7 @@ on:
         default: '0'
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   SOLUTION_FILE: 'Ama.CRDT.slnx'
@@ -119,3 +119,12 @@ jobs:
                 --non-interactive || echo "Failed to unlist $pkg $version, but continuing..."
             done
           done
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ env.PACKAGE_VERSION }}" \
+            --title "Release v${{ env.PACKAGE_VERSION }}" \
+            --generate-notes \
+            ${{ env.PACKAGE_OUTPUT_DIRECTORY }}/*.nupkg

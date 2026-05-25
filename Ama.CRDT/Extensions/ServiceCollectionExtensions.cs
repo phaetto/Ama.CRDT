@@ -39,7 +39,6 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection"/> to add services to.</param>
     /// <param name="configure">An optional action to configure CRDT strategies and decorators via the Fluent API without using attributes.</param>
-    /// <param name="useBrotliCompression">Set to <c>true</c> to use <see cref="BrotliJsonCrdtSerializer"/> for serializing payloads with compression natively, reducing storage size at the cost of slight CPU overhead.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
     /// <example>
     /// <code>

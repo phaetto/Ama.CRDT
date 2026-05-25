@@ -13,7 +13,7 @@ A .NET library for achieving eventual consistency in distributed systems using C
 - **Advanced Synchronization & Journaling**: Built-in Dotted Version Vectors (DVV) and operation journaling (`ICrdtOperationJournal`) to track causal history, sync disconnected replicas, and request missing data accurately.
 - **Automatic Garbage Collection**: Seamlessly compact tombstones and metadata using time-to-live (TTL) thresholds or mathematically safe Global Minimum Version Vectors (GMVV) natively within the DI pipeline via the `CompactingApplicatorDecorator`.
 - **Clean Data/Metadata Separation**: Keeps your data models pure by storing CRDT state (timestamps, tombstones, version vectors) in a parallel, highly-compactible `CrdtMetadata` object.
-- **Mathematically Proven**: Validated using generative property testing (FsCheck) to guarantee strict convergence, commutativity, and idempotence across all strategies.
+- **Mathematically Proven**: Validated using generative property testing (FsCheck) to guarantee strict convergence, commutativity, and idempotence across all strategies (around 1000 unit, property and integration tests).
 - **Developer Experience**: Ships with built-in **Roslyn Analyzers** to catch configuration errors at compile-time, and integrates natively with `System.Diagnostics.Metrics` for robust observability.
 
 ## Installation
