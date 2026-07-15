@@ -476,7 +476,7 @@
 | `$/CodingStandards.md` | No description provided. |
 | `$/FilesDescription.md` | No description provided. |
 | `$/LICENSE` | No description provided. |
-| `$/README.md` | No description provided. |
+| `$/README.md` | Provides the main entry point and overview for the CRDT library, highlighting core features, usage instructions, missing components (transport, database integrations, security), and links to internal documentation and showcase projects. |
 | `$/Specs/add-approval-quorum-strategy.md` | No description provided. |
 | `$/Specs/add-leader-election-strategy.md` | No description provided. |
 | `$/Specs/add-more-text-specific-strategies.md` | No description provided. |

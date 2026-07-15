@@ -16,6 +16,19 @@ A .NET library for achieving eventual consistency in distributed systems using C
 - **Mathematically Proven**: Validated using generative property testing (FsCheck) to guarantee strict convergence, commutativity, and idempotence across all strategies (around 1000 unit, property and integration tests).
 - **Developer Experience**: Ships with built-in **Roslyn Analyzers** to catch configuration errors at compile-time, and integrates natively with `System.Diagnostics.Metrics` for robust observability.
 
+### What this library is not
+
+Note that this is the mathematical part of CRDTs, providing every tool that a developer would need to build a distributed system (like clocks, DVVs, serialization, strategies), all of them highly tested. This library _does not_:
+
+- **Provide a network or transport layer:** The library is strictly transport-agnostic. It calculates the diffs and patches, but it is entirely up to you to send them across the network via WebSockets, gRPC, HTTP, MQTT, P2P, or any other protocol.
+- **Provide ready-to-use database integrations:** While it offers abstractions for journaling and partitioning (`ICrdtOperationJournal`, `IPartitionStorageService`), it does not ship with built-in ORM integrations (like EF Core, MongoDB, etc.). You must implement how the generated state, metadata, and JSON patches are persisted.
+- **Provide thread-safe access:** With the exception of the Streams package, the core library has not been designed to pool and queue parallel requests. Thread safety and lock management are responsibilities that fall on the consumer or persistence layer.
+- **Provide concurrency models:** For concurrent updates to data (either DB, memory, or external managed services), the responsibility of the choice of concurrency falls on your application layer.
+- **Provide serialized and session-ordered changes:** Patches are never guaranteed to arrive in order, meaning the document state can momentarily reflect intermediate states. This is a fundamental side effect of event-driven, eventually consistent systems.
+- **Handle security or authorization:** The library does not verify if a specific replica or user has the permission to mutate a specific property. Security, authentication, and validation must be implemented at your application's boundary.
+
+I am working on a full P2P version using this library, but it is still in alpha. I have some samples open for comments here if you like to see how it looks: [Ama.Enterprise.Samples](https://github.com/phaetto/Ama.Enterprise.Samples)
+
 ## Installation
 
 You can install Ama.CRDT via the .NET CLI or the NuGet Package Manager in Visual Studio.
