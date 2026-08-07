@@ -131,4 +131,56 @@ public sealed class FixedSizeArrayStrategy(
         // FixedSizeArrayStrategy uses LWW metadata for explicit indices but does not maintain tombstones for deleted elements
         // as the array size is fixed. Therefore, there is no metadata to prune safely.
     }
+
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        if (data1 is null || meta1 is null || data2 is null || meta2 is null || property is null) return;
+        if (property.StrategyAttribute is not CrdtFixedSizeArrayStrategyAttribute attr) return;
+
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var list1 = property.Getter!(data1) as IList;
+        var list2 = property.Getter!(data2) as IList;
+
+        if (list1 == null || list2 == null) return;
+
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+
+        for (var i = 0; i < attr.Size; i++)
+        {
+            var elementPath = $"{path}[{i}]";
+            var hasMeta1 = meta1.States.TryGetValue(elementPath, out var state1);
+            var hasMeta2 = meta2.States.TryGetValue(elementPath, out var state2);
+
+            if (hasMeta2 && state2 is CausalTimestamp ts2 && ts2.Timestamp != null)
+            {
+                bool shouldUpdate = false;
+                if (!hasMeta1 || state1 is not CausalTimestamp ts1 || ts1.Timestamp == null)
+                {
+                    shouldUpdate = true;
+                }
+                else
+                {
+                    // LWW: larger timestamp wins
+                    if (ts2.Timestamp.CompareTo(ts1.Timestamp) > 0)
+                    {
+                        shouldUpdate = true;
+                    }
+                }
+
+                if (shouldUpdate)
+                {
+                    meta1.States[elementPath] = ts2;
+                    
+                    while (list1.Count <= i)
+                    {
+                        list1.Add(PocoPathHelper.GetDefaultValue(elementType, aotContexts));
+                    }
+                    
+                    var val2 = i < list2.Count ? list2[i] : PocoPathHelper.GetDefaultValue(elementType, aotContexts);
+                    list1[i] = val2;
+                }
+            }
+        }
+    }
 }

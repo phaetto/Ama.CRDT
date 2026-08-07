@@ -166,6 +166,60 @@ public sealed class CounterMapStrategy(
     }
 
     /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+
+        var typeInfo = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts);
+        var keyType = typeInfo.DictionaryKeyType ?? typeof(object);
+        var valueType = typeInfo.DictionaryValueType ?? typeof(object);
+        var comparer = comparerProvider.GetComparer(keyType);
+
+        var mergedCounters = new Dictionary<object, PnCounterState>(comparer);
+
+        meta1.States.TryGetValue(path, out var state1);
+        meta2.States.TryGetValue(path, out var state2);
+
+        var mapState1 = state1 as CounterMapState;
+        var mapState2 = state2 as CounterMapState;
+
+        var allKeys = new HashSet<object>(comparer);
+        if (mapState1 != null)
+        {
+            foreach (var k in mapState1.Keys.Keys) allKeys.Add(k);
+        }
+        if (mapState2 != null)
+        {
+            foreach (var k in mapState2.Keys.Keys) allKeys.Add(k);
+        }
+
+        foreach (var key in allKeys)
+        {
+            PnCounterState c1 = default;
+            PnCounterState c2 = default;
+            var has1 = mapState1 != null && mapState1.Keys.TryGetValue(key, out c1);
+            var has2 = mapState2 != null && mapState2.Keys.TryGetValue(key, out c2);
+
+            if (has1 && has2)
+            {
+                mergedCounters[key] = new PnCounterState(Math.Max(c1.P, c2.P), Math.Max(c1.N, c2.N));
+            }
+            else if (has1)
+            {
+                mergedCounters[key] = c1;
+            }
+            else if (has2)
+            {
+                mergedCounters[key] = c2;
+            }
+        }
+
+        meta1.States[path] = new CounterMapState(mergedCounters);
+
+        ReconstructDictionaryForSplitMerge(data1, path, mergedCounters, keyType, valueType, aotContexts);
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
         var dict = partitionableProperty.Getter!(data) as IDictionary;

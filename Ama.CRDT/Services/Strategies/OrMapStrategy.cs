@@ -267,6 +267,101 @@ public sealed class OrMapStrategy(
             }
         }
     }
+
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
+        var comparer = comparerProvider.GetComparer(keyType);
+
+        var dict1 = (IDictionary)property.Getter!(data1)!;
+        var dict2 = (IDictionary)property.Getter!(data2)!;
+
+        var orMap1 = meta1.States.TryGetValue(path, out var s1) && s1 is OrSetState s1State ? s1State : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+        var orMap2 = meta2.States.TryGetValue(path, out var s2) && s2 is OrSetState s2State ? s2State : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+
+        // Merge Adds
+        foreach (var (key, tags) in orMap2.Adds)
+        {
+            if (!orMap1.Adds.TryGetValue(key, out var existingTags))
+            {
+                orMap1.Adds[key] = new HashSet<Guid>(tags);
+            }
+            else
+            {
+                foreach (var tag in tags) existingTags.Add(tag);
+            }
+        }
+
+        // Merge Removes
+        foreach (var (key, tagsDict) in orMap2.Removes)
+        {
+            if (!orMap1.Removes.TryGetValue(key, out var existingDict))
+            {
+                orMap1.Removes[key] = new Dictionary<Guid, CausalTimestamp>(tagsDict);
+            }
+            else
+            {
+                foreach (var (tag, ts) in tagsDict)
+                {
+                    if (!existingDict.TryGetValue(tag, out var existingTs) || ts.CompareTo(existingTs) > 0)
+                    {
+                        existingDict[tag] = ts;
+                    }
+                }
+            }
+        }
+
+        meta1.States[path] = orMap1;
+
+        // Merge LWW Values and Dict1 data
+        foreach (DictionaryEntry entry in dict2)
+        {
+            var key = entry.Key;
+            var value2 = entry.Value;
+            var itemPath = $"{path}['{key.ToString()?.Replace("'", "\\'")}']";
+
+            CausalTimestamp? ts1 = meta1.States.TryGetValue(itemPath, out var ts1Base) && ts1Base is CausalTimestamp ts1Val ? ts1Val : null;
+            CausalTimestamp? ts2 = meta2.States.TryGetValue(itemPath, out var ts2Base) && ts2Base is CausalTimestamp ts2Val ? ts2Val : null;
+
+            if (dict1.Contains(key))
+            {
+                if (ts2.HasValue && (!ts1.HasValue || ts2.Value.CompareTo(ts1.Value) > 0))
+                {
+                    dict1[key] = value2;
+                    meta1.States[itemPath] = ts2.Value;
+                }
+            }
+            else
+            {
+                dict1[key] = value2;
+                if (ts2.HasValue)
+                {
+                    meta1.States[itemPath] = ts2.Value;
+                }
+            }
+        }
+
+        // Apply OR-Set visibility to reconstruct the local dictionary
+        var liveKeys = new HashSet<object>(comparer);
+        foreach (var (key, addTags) in orMap1.Adds)
+        {
+            if (!orMap1.Removes.TryGetValue(key, out var rmTags) || addTags.Except(rmTags.Keys).Any())
+            {
+                liveKeys.Add(key);
+            }
+        }
+
+        var currentKeys = dict1.Keys.Cast<object>().ToList();
+        foreach (var key in currentKeys)
+        {
+            if (!liveKeys.Contains(key))
+            {
+                dict1.Remove(key);
+            }
+        }
+    }
     
     /// <inheritdoc/>
     public IComparable? GetKeyFromOperation(CrdtOperation operation, string partitionablePropertyPath)

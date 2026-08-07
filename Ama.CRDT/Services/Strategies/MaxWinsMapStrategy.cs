@@ -238,6 +238,38 @@ public sealed class MaxWinsMapStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var dict1 = property.Getter!(data1) as IDictionary;
+        var dict2 = property.Getter!(data2) as IDictionary;
+
+        if (dict2 == null) return;
+
+        if (dict1 == null)
+        {
+            dict1 = (IDictionary)PocoPathHelper.Instantiate(property.PropertyType, aotContexts);
+            property.Setter!(data1, dict1);
+        }
+
+        foreach (DictionaryEntry entry in dict2)
+        {
+            if (dict1.Contains(entry.Key))
+            {
+                var v1 = dict1[entry.Key] as IComparable;
+                var v2 = entry.Value as IComparable;
+                if (v1 != null && v2 != null && v2.CompareTo(v1) > 0)
+                {
+                    dict1[entry.Key] = entry.Value;
+                }
+            }
+            else
+            {
+                dict1[entry.Key] = entry.Value;
+            }
+        }
+    }
+
     private static void ReconstructDictionaryForSplitMerge(object root, IDictionary sourceDict, HashSet<IComparable> keysToKeep, CrdtPropertyInfo partitionableProperty, IEnumerable<CrdtAotContext> aotContexts)
     {
         var dict = (IDictionary)PocoPathHelper.Instantiate(partitionableProperty.PropertyType, aotContexts);

@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using System;
 using System.Linq;
@@ -92,5 +93,37 @@ public sealed class GraphStrategy(ReplicaContext replicaContext) : ICrdtStrategy
     {
         // GraphStrategy is a grow-only implementation and does not track tombstones or use metadata.
         // Therefore, there is no state to prune.
+    }
+
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        if (property.Getter is null)
+        {
+            return;
+        }
+
+        var graphObj1 = property.Getter(data1);
+        var graphObj2 = property.Getter(data2);
+
+        if (graphObj1 is not CrdtGraph graph1 || graphObj2 is not CrdtGraph graph2)
+        {
+            return;
+        }
+
+        foreach (var vertex in graph2.Vertices)
+        {
+            if (!graph1.Vertices.Contains(vertex))
+            {
+                graph1.Vertices.Add(vertex);
+            }
+        }
+
+        foreach (var edge in graph2.Edges)
+        {
+            if (!graph1.Edges.Contains(edge))
+            {
+                graph1.Edges.Add(edge);
+            }
+        }
     }
 }

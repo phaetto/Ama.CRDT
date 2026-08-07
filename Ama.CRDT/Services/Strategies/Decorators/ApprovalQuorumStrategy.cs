@@ -150,4 +150,41 @@ public sealed class ApprovalQuorumStrategy(
             innerStrategy.Compact(context);
         }
     }
+
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var declaringType = data1.GetType();
+        var innerStrategy = GetInnerStrategy(declaringType, property);
+        
+        innerStrategy.MergeAsStateCrdt(data1, meta1, data2, meta2, property);
+        
+        var decoratorPath = MetadataPathHelper.GetDecoratorPath(property.JsonName, DecoratorKey);
+        
+        if (!meta2.States.TryGetValue(decoratorPath, out var baseState2) || baseState2 is not QuorumState q2)
+        {
+            return;
+        }
+        
+        if (!meta1.States.TryGetValue(decoratorPath, out var baseState1) || baseState1 is not QuorumState q1)
+        {
+            var comparer = comparerProvider.GetComparer(typeof(object));
+            q1 = new QuorumState(new Dictionary<object, ISet<string>>(comparer));
+            meta1.States[decoratorPath] = q1;
+        }
+        
+        foreach (var kvp in q2.Approvals)
+        {
+            if (!q1.Approvals.TryGetValue(kvp.Key, out var voters1))
+            {
+                voters1 = new HashSet<string>();
+                q1.Approvals[kvp.Key] = voters1;
+            }
+            
+            foreach (var voter in kvp.Value)
+            {
+                voters1.Add(voter);
+            }
+        }
+    }
 }

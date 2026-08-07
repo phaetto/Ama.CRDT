@@ -1,6 +1,7 @@
 namespace Ama.CRDT.Services.Strategies;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 
 /// <summary>
 /// Defines the contract for a strategy that handles a specific type of CRDT data.
@@ -36,4 +37,15 @@ public interface ICrdtStrategy
     /// </summary>
     /// <param name="context">The context for the compaction, containing metadata and the policy determining what is safe to delete.</param>
     void Compact(CompactionContext context);
+
+    /// <summary>
+    /// Merges the state and metadata from a secondary replica into the primary replica.
+    /// This acts as a true State-based CRDT merge operation.
+    /// </summary>
+    /// <param name="data1">The primary document data object to merge into.</param>
+    /// <param name="meta1">The primary metadata object to merge into.</param>
+    /// <param name="data2">The secondary document data object to merge from.</param>
+    /// <param name="meta2">The secondary metadata object to merge from.</param>
+    /// <param name="property">The property info being merged.</param>
+    void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property);
 }

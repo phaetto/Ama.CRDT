@@ -263,6 +263,115 @@ public sealed class ReplicatedTreeStrategy(
         }
     }
     
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+
+        var (parent1, prop1, _) = PocoPathHelper.ResolvePath(data1, path, aotContexts);
+        var (parent2, prop2, _) = PocoPathHelper.ResolvePath(data2, path, aotContexts);
+
+        if (parent1 is null || prop1 is null || parent2 is null || prop2 is null) return;
+
+        var tree1 = prop1.Getter!(parent1) as CrdtTree;
+        var tree2 = prop2.Getter!(parent2) as CrdtTree;
+
+        if (tree1 is null)
+        {
+            tree1 = new CrdtTree();
+            prop1.Setter!(parent1, tree1);
+        }
+        if (tree2 is null)
+        {
+            tree2 = new CrdtTree();
+        }
+
+        meta1.States.TryGetValue(path, out var baseState1);
+        meta2.States.TryGetValue(path, out var baseState2);
+
+        var idType = tree1.Nodes.Keys.FirstOrDefault()?.GetType() ?? tree2.Nodes.Keys.FirstOrDefault()?.GetType() ?? typeof(object);
+        var idComparer = comparerProvider.GetComparer(idType);
+
+        var state1 = baseState1 as OrSetState ?? new OrSetState(new Dictionary<object, ISet<Guid>>(idComparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(idComparer));
+        var state2 = baseState2 as OrSetState ?? new OrSetState(new Dictionary<object, ISet<Guid>>(idComparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(idComparer));
+
+        foreach (var kvp in state2.Adds)
+        {
+            if (!state1.Adds.TryGetValue(kvp.Key, out var tags1))
+            {
+                tags1 = new HashSet<Guid>();
+                state1.Adds[kvp.Key] = tags1;
+            }
+            foreach (var tag in kvp.Value)
+            {
+                tags1.Add(tag);
+            }
+        }
+
+        foreach (var kvp in state2.Removes)
+        {
+            if (!state1.Removes.TryGetValue(kvp.Key, out var rm1))
+            {
+                rm1 = new Dictionary<Guid, CausalTimestamp>();
+                state1.Removes[kvp.Key] = rm1;
+            }
+            foreach (var rmTag in kvp.Value)
+            {
+                if (!rm1.TryGetValue(rmTag.Key, out var existingCausal) || rmTag.Value.CompareTo(existingCausal) > 0)
+                {
+                    rm1[rmTag.Key] = rmTag.Value;
+                }
+            }
+        }
+
+        meta1.States[path] = state1;
+
+        foreach (var kvp in tree2.Nodes)
+        {
+            if (!tree1.Nodes.TryGetValue(kvp.Key, out var node1))
+            {
+                node1 = new TreeNode { Id = kvp.Value.Id, Value = kvp.Value.Value, ParentId = kvp.Value.ParentId };
+                tree1.Nodes[kvp.Key] = node1;
+            }
+
+            var nodePath = $"{path}.Nodes.['{kvp.Key}'].ParentId";
+            meta1.States.TryGetValue(nodePath, out var ts1Obj);
+            meta2.States.TryGetValue(nodePath, out var ts2Obj);
+
+            if (ts2Obj is CausalTimestamp ts2)
+            {
+                if (ts1Obj is not CausalTimestamp ts1 || ts2.CompareTo(ts1) > 0)
+                {
+                    meta1.States[nodePath] = ts2;
+                    node1.ParentId = kvp.Value.ParentId;
+                }
+            }
+        }
+
+        var nodesToRemove = new List<object>();
+        foreach (var kvp in tree1.Nodes)
+        {
+            var nodeId = kvp.Key;
+            bool isLive = false;
+            if (state1.Adds.TryGetValue(nodeId, out var addTags))
+            {
+                if (!state1.Removes.TryGetValue(nodeId, out var rmTags) || addTags.Except(rmTags.Keys).Any())
+                {
+                    isLive = true;
+                }
+            }
+            if (!isLive)
+            {
+                nodesToRemove.Add(nodeId);
+            }
+        }
+        
+        foreach (var nodeId in nodesToRemove)
+        {
+            tree1.Nodes.Remove(nodeId);
+        }
+    }
+
     private static void ApplyAdd(OrSetState state, object nodeId, Guid tag)
     {
         if (!state.Adds.TryGetValue(nodeId, out var addTags))

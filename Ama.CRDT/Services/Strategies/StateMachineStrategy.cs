@@ -131,6 +131,38 @@ public sealed class StateMachineStrategy(
         // Therefore, there is no metadata to prune safely.
     }
 
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{property.JsonName}";
+
+        if (!meta2.States.TryGetValue(path, out var baseState2) || baseState2 is not CausalTimestamp state2)
+        {
+            return;
+        }
+
+        bool shouldUpdate = false;
+        if (!meta1.States.TryGetValue(path, out var baseState1) || baseState1 is not CausalTimestamp state1)
+        {
+            shouldUpdate = true;
+        }
+        else if (state1.Timestamp is null)
+        {
+            shouldUpdate = true;
+        }
+        else if (state2.Timestamp is not null && state2.Timestamp.CompareTo(state1.Timestamp) > 0)
+        {
+            shouldUpdate = true;
+        }
+
+        if (shouldUpdate)
+        {
+            meta1.States[path] = state2;
+            var value2 = PocoPathHelper.GetValue(data2, path, aotContexts);
+            PocoPathHelper.SetValue(data1, path, value2, aotContexts);
+        }
+    }
+
     private bool IsValidTransition(Type validatorType, Type propertyType, object? from, object? to)
     {
         var validator = serviceProvider.GetService(validatorType);

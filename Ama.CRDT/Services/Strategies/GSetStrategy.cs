@@ -222,6 +222,44 @@ public sealed class GSetStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+
+        var list1 = property.Getter?.Invoke(data1) as IEnumerable;
+        var list2 = property.Getter?.Invoke(data2) as IEnumerable;
+
+        if (list2 == null)
+        {
+            return;
+        }
+
+        var (parent, prop, _) = PocoPathHelper.ResolvePath(data1, path, aotContexts);
+        if (parent is not null && prop is not null)
+        {
+            var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+            var comparer = comparerProvider.GetComparer(elementType);
+
+            if (list1 == null)
+            {
+                list1 = (IEnumerable)PocoPathHelper.InstantiateCollection(property.PropertyType, aotContexts);
+                prop.Setter?.Invoke(parent, list1);
+            }
+
+            var allItems = new HashSet<object>(comparer);
+            foreach (var item in list1) allItems.Add(item);
+            foreach (var item in list2) allItems.Add(item);
+
+            var sortedItems = allItems.OrderBy(i => i.ToString(), StringComparer.Ordinal).ToList();
+            PocoPathHelper.ClearCollection(list1, aotContexts);
+            foreach (var item in sortedItems)
+            {
+                PocoPathHelper.AddToCollection(list1, item, aotContexts);
+            }
+        }
+    }
+
     private static void ReconstructListForSplitMerge(object root, string path, IEnumerable sourceList, HashSet<IComparable?> keysToKeep, Type elementType, Type propertyType, IEnumerable<CrdtAotContext> aotContexts)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);

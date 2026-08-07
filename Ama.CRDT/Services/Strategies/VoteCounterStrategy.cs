@@ -337,6 +337,105 @@ public sealed class VoteCounterStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+
+        var dict1 = property.Getter!(data1) as IDictionary;
+        var dict2 = property.Getter!(data2) as IDictionary;
+
+        if (dict2 is null) return;
+
+        if (dict1 is null)
+        {
+            var concreteDictType = dict2.GetType();
+            dict1 = (IDictionary)PocoPathHelper.Instantiate(concreteDictType, aotContexts);
+            property.Setter!(data1, dict1);
+        }
+
+        var propTypeInfo = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts);
+        var dictValueType = propTypeInfo.DictionaryValueType ?? typeof(object);
+
+        var map1 = FlattenVotes(dict1);
+        var map2 = FlattenVotes(dict2);
+        
+        var prefix = $"{path}.['";
+        var winningVoterKeys2 = new HashSet<string>(StringComparer.Ordinal);
+        
+        foreach (var kvp in meta2.States)
+        {
+            if (!kvp.Key.StartsWith(prefix, StringComparison.Ordinal) || !kvp.Key.EndsWith("']", StringComparison.Ordinal)) 
+            {
+                continue;
+            }
+            
+            if (kvp.Value is not CausalTimestamp ts2 || ts2.Timestamp is null) 
+            {
+                continue;
+            }
+            
+            var voterKey = kvp.Key.Substring(prefix.Length, kvp.Key.Length - prefix.Length - 2);
+            var hasTs1 = meta1.States.TryGetValue(kvp.Key, out var state1) && state1 is CausalTimestamp;
+
+            bool isNewer = false;
+            if (!hasTs1)
+            {
+                isNewer = true;
+            }
+            else
+            {
+                var ts1 = (CausalTimestamp)state1!;
+                if (ts1.Timestamp is null)
+                {
+                    isNewer = true;
+                }
+                else
+                {
+                    int cmp = ts2.Timestamp.CompareTo(ts1.Timestamp);
+                    if (cmp > 0)
+                    {
+                        isNewer = true;
+                    }
+                    else if (cmp == 0 && string.CompareOrdinal(ts2.ReplicaId, ts1.ReplicaId) > 0)
+                    {
+                        isNewer = true;
+                    }
+                }
+            }
+
+            if (isNewer)
+            {
+                meta1.States[kvp.Key] = ts2;
+                winningVoterKeys2.Add(voterKey);
+            }
+        }
+
+        foreach (var kvp in map1)
+        {
+            var voter = kvp.Key;
+            var voterKey = GetVoterKey(voter);
+            
+            if (winningVoterKeys2.Contains(voterKey) && !map2.ContainsKey(voter))
+            {
+                RemoveVoterFromAllOptions(dict1, voter, aotContexts);
+            }
+        }
+
+        foreach (var kvp in map2)
+        {
+            var voter = kvp.Key;
+            var option2 = kvp.Value;
+            var voterKey = GetVoterKey(voter);
+            
+            if (winningVoterKeys2.Contains(voterKey))
+            {
+                RemoveVoterFromAllOptions(dict1, voter, aotContexts);
+                AddVoterToOption(dict1, voter, option2, dictValueType, aotContexts);
+            }
+        }
+    }
+
     private void ReconstructDictionaryForSplitMerge(object root, string path, IDictionary sourceDict, HashSet<IComparable> votersToKeep, CrdtPropertyInfo partitionableProperty, IEnumerable<CrdtAotContext> aotContexts)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);

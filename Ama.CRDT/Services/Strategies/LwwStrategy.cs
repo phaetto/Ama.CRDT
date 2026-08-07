@@ -8,6 +8,7 @@ using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
 using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// Implements the Last-Writer-Wins (LWW) strategy for conflict resolution. When a conflict occurs (i.e., multiple replicas modify the same property concurrently),
@@ -103,5 +104,39 @@ public sealed class LwwStrategy(
     {
         // LwwStrategy maintains a single active timestamp per property and does not maintain tombstones.
         // Therefore, there is no metadata to prune safely.
+    }
+
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+
+        meta1.States.TryGetValue(path, out var baseState1);
+        meta2.States.TryGetValue(path, out var baseState2);
+
+        var hasTs1 = baseState1 is CausalTimestamp;
+        var hasTs2 = baseState2 is CausalTimestamp;
+
+        if (hasTs2)
+        {
+            var ts2 = (CausalTimestamp)baseState2!;
+            if (ts2.Timestamp is not null)
+            {
+                if (!hasTs1)
+                {
+                    meta1.States[path] = ts2;
+                    property.Setter!(data1, property.Getter!(data2));
+                }
+                else
+                {
+                    var ts1 = (CausalTimestamp)baseState1!;
+                    if (ts1.Timestamp is null || ts2.Timestamp.CompareTo(ts1.Timestamp) > 0)
+                    {
+                        meta1.States[path] = ts2;
+                        property.Setter!(data1, property.Getter!(data2));
+                    }
+                }
+            }
+        }
     }
 }

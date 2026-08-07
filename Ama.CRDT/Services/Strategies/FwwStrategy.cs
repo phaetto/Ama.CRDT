@@ -147,4 +147,32 @@ public sealed class FwwStrategy(
             context.Metadata.States.Remove(key);
         }
     }
+
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+
+        var hasState1 = meta1.States.TryGetValue(path, out var state1) && state1 is CausalTimestamp;
+        var hasState2 = meta2.States.TryGetValue(path, out var state2) && state2 is CausalTimestamp;
+
+        if (!hasState2)
+        {
+            return;
+        }
+
+        var causal2 = (CausalTimestamp)state2!;
+        var causal1 = hasState1 ? (CausalTimestamp)state1! : default;
+
+        bool shouldTake2 = !hasState1 || 
+                           (causal1.Timestamp == null) || 
+                           (causal2.Timestamp != null && causal1.Timestamp != null && causal2.Timestamp.CompareTo(causal1.Timestamp) < 0);
+
+        if (shouldTake2)
+        {
+            var val2 = PocoPathHelper.GetValue<object>(data2, path, aotContexts);
+            PocoPathHelper.SetValue(data1, path, val2, aotContexts);
+            meta1.States[path] = causal2;
+        }
+    }
 }

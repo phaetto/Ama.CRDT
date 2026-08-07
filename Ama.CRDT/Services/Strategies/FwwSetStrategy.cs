@@ -217,6 +217,55 @@ public sealed class FwwSetStrategy(
     }
 
     /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        if (data1 is null || meta1 is null || data2 is null || meta2 is null || property is null) return;
+
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+        var comparer = comparerProvider.GetComparer(elementType);
+
+        if (!meta1.States.TryGetValue(path, out var baseState1) || baseState1 is not FwwSetState state1)
+        {
+            state1 = new FwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
+            meta1.States[path] = state1;
+        }
+
+        if (!meta2.States.TryGetValue(path, out var baseState2) || baseState2 is not FwwSetState state2)
+        {
+            return; // Nothing to merge from meta2
+        }
+
+        bool changed = false;
+
+        // Merge Adds
+        foreach (var kvp in state2.Adds)
+        {
+            if (!state1.Adds.TryGetValue(kvp.Key, out var ts1) || kvp.Value.CompareTo(ts1) < 0)
+            {
+                state1.Adds[kvp.Key] = kvp.Value;
+                changed = true;
+            }
+        }
+
+        // Merge Removes
+        foreach (var kvp in state2.Removes)
+        {
+            if (!state1.Removes.TryGetValue(kvp.Key, out var ts1) || kvp.Value.Timestamp.CompareTo(ts1.Timestamp) < 0)
+            {
+                state1.Removes[kvp.Key] = kvp.Value;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            ReconstructListForSplitMerge(data1, path, state1, elementType, aotContexts);
+        }
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
         var list = partitionableProperty.Getter!(data) as IList;

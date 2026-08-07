@@ -306,6 +306,49 @@ public sealed class ArrayLcsStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+
+        var list1 = property.CanRead ? property.Getter!(data1) as IList : null;
+        var list2 = property.CanRead ? property.Getter!(data2) as IList : null;
+
+        var positions1 = meta1.States.TryGetValue(path, out var s1) && s1 is PositionalState p1 ? p1.Trackers : new List<PositionalIdentifier>();
+        var positions2 = meta2.States.TryGetValue(path, out var s2) && s2 is PositionalState p2 ? p2.Trackers : new List<PositionalIdentifier>();
+
+        var map = new Dictionary<PositionalIdentifier, object>();
+        
+        if (list1 != null)
+        {
+            for (int i = 0; i < Math.Min(list1.Count, positions1.Count); i++)
+            {
+                map[positions1[i]] = list1[i];
+            }
+        }
+        
+        if (list2 != null)
+        {
+            for (int i = 0; i < Math.Min(list2.Count, positions2.Count); i++)
+            {
+                map[positions2[i]] = list2[i];
+            }
+        }
+
+        var mergedPositions = map.Keys.OrderBy(p => p).ToList();
+
+        if (list1 != null)
+        {
+            list1.Clear();
+            foreach (var pos in mergedPositions)
+            {
+                list1.Add(map[pos]);
+            }
+        }
+        
+        meta1.States[path] = new PositionalState(mergedPositions);
+    }
+
     private void ApplyUpsert(IList list, List<PositionalIdentifier> positions, CrdtOperation operation, CrdtPropertyInfo collectionProperty)
     {
         if (PocoPathHelper.ConvertValue(operation.Value, typeof(PositionalItem), aotContexts) is not PositionalItem item) return;

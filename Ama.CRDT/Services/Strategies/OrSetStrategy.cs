@@ -228,6 +228,47 @@ public sealed class OrSetStrategy(
     }
 
     /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+        var comparer = comparerProvider.GetComparer(elementType);
+
+        var orSet1 = meta1.States.TryGetValue(path, out var s1) && s1 is OrSetState s1State ? s1State : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+        var orSet2 = meta2.States.TryGetValue(path, out var s2) && s2 is OrSetState s2State ? s2State : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+
+        foreach (var (key, tags) in orSet2.Adds)
+        {
+            if (!orSet1.Adds.TryGetValue(key, out var set)) 
+            { 
+                set = new HashSet<Guid>(); 
+                orSet1.Adds[key] = set; 
+            }
+            foreach (var t in tags) set.Add(t);
+        }
+
+        foreach (var (key, tagsDict) in orSet2.Removes)
+        {
+            if (!orSet1.Removes.TryGetValue(key, out var dict)) 
+            { 
+                dict = new Dictionary<Guid, CausalTimestamp>(); 
+                orSet1.Removes[key] = dict; 
+            }
+            foreach (var t in tagsDict)
+            {
+                if (!dict.TryGetValue(t.Key, out var existing) || t.Value.CompareTo(existing) > 0)
+                {
+                    dict[t.Key] = t.Value;
+                }
+            }
+        }
+
+        meta1.States[path] = orSet1;
+
+        ReconstructListForSplitMerge(data1, path, orSet1, elementType, property.PropertyType);
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
         var collection = PocoPathHelper.GetValue<IEnumerable>(data, partitionableProperty.Name, aotContexts);

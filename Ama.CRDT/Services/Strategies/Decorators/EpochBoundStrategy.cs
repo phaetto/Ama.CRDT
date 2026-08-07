@@ -184,6 +184,49 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         }
     }
 
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = property.JsonName;
+        var epoch1 = GetEpochForPath(meta1, path, out var basePath1);
+        var epoch2 = GetEpochForPath(meta2, path, out var basePath2);
+        
+        var declaringType = data1.GetType();
+        var innerStrategy = GetInnerStrategy(declaringType, property);
+
+        if (epoch1 > epoch2)
+        {
+            return;
+        }
+
+        if (epoch2 > epoch1)
+        {
+            ClearMetadataForPath(meta1, basePath1);
+            
+            var decoratorPath = MetadataPathHelper.GetDecoratorPath(path, DecoratorKey);
+            meta1.States[decoratorPath] = new EpochState(epoch2);
+            
+            var propVal = PocoPathHelper.GetValue(data1, path, aotContexts);
+            if (propVal is System.Collections.IList list && !list.IsFixedSize)
+            {
+                list.Clear();
+            }
+            else if (propVal is System.Collections.IDictionary dict)
+            {
+                dict.Clear();
+            }
+            else
+            {
+                if (property.CanWrite)
+                {
+                    PocoPathHelper.SetValue(data1, path, null, aotContexts);
+                }
+            }
+        }
+        
+        innerStrategy.MergeAsStateCrdt(data1, meta1, data2, meta2, property);
+    }
+
     private static int GetEpochForPath(CrdtMetadata metadata, string fullPath, out string matchingPath)
     {
         int maxEpoch = 0;
