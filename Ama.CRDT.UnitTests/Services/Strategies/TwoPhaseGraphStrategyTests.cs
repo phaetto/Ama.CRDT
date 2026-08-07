@@ -1,8 +1,10 @@
 namespace Ama.CRDT.UnitTests.Services.Strategies;
 
+using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -55,6 +57,20 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
     {
         scopeA.Dispose();
         scopeB.Dispose();
+    }
+
+    private static CrdtPropertyInfo CreatePropertyInfo()
+    {
+        return new CrdtPropertyInfo(
+            "Graph",
+            "graph",
+            typeof(CrdtGraph),
+            true,
+            true,
+            obj => ((TwoPhaseGraphTestModel)obj).Graph,
+            (obj, val) => ((TwoPhaseGraphTestModel)obj).Graph = (CrdtGraph)val!,
+            new CrdtTwoPhaseGraphStrategyAttribute(),
+            Array.Empty<CrdtStrategyDecoratorAttribute>());
     }
 
     [Fact]
@@ -249,5 +265,46 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
 
         state.EdgeTombstones.ShouldNotContainKey(edgeA);
         state.EdgeTombstones.ShouldContainKey(edgeB);
+    }
+    
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeAddsAndTombstonesCorrectly()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<TwoPhaseGraphStrategy>().Single();
+        var propInfo = CreatePropertyInfo();
+
+        var data1 = new TwoPhaseGraphTestModel();
+        var meta1 = new CrdtMetadata();
+        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.graph", OperationType.Upsert, new GraphVertexPayload("V1"), timestampProvider.Create(100), 1);
+        strategy.ApplyOperation(new ApplyOperationContext(data1, meta1, op1));
+
+        var data2 = new TwoPhaseGraphTestModel();
+        var meta2 = new CrdtMetadata();
+        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.graph", OperationType.Upsert, new GraphVertexPayload("V2"), timestampProvider.Create(200), 2);
+        strategy.ApplyOperation(new ApplyOperationContext(data2, meta2, op2));
+
+        // Add an edge in data2
+        var edge = new Edge("V1", "V2", null);
+        var op3 = new CrdtOperation(Guid.NewGuid(), "B", "$.graph", OperationType.Upsert, new GraphEdgePayload(edge), timestampProvider.Create(300), 3);
+        strategy.ApplyOperation(new ApplyOperationContext(data2, meta2, op3));
+
+        // Remove V1 in data1
+        var op4 = new CrdtOperation(Guid.NewGuid(), "A", "$.graph", OperationType.Remove, new GraphVertexPayload("V1"), timestampProvider.Create(400), 4);
+        strategy.ApplyOperation(new ApplyOperationContext(data1, meta1, op4));
+
+        // Act
+        strategy.MergeAsStateCrdt(data1, meta1, data2, meta2, propInfo);
+
+        // Assert
+        data1.Graph.Vertices.ShouldNotContain("V1"); // Removed in data1 at 400
+        data1.Graph.Vertices.ShouldContain("V2"); // Added in data2
+        data1.Graph.Edges.ShouldContain(edge); // Added in data2
+
+        var state1 = (TwoPhaseGraphState)meta1.States["$.graph"];
+        state1.VertexAdds.ShouldContain("V1");
+        state1.VertexAdds.ShouldContain("V2");
+        state1.VertexTombstones.ShouldContainKey("V1");
+        state1.EdgeAdds.ShouldContain(edge);
     }
 }

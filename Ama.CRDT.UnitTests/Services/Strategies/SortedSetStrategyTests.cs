@@ -607,8 +607,8 @@ public sealed class SortedSetStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Dave", "Dave"), timestampProvider.Now(), 0)));
         strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Alice", "Alice"), timestampProvider.Now(), 0)));
         
-        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Charlie", "Charlie"), timestampProvider.Now(), 0)));
-        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now(), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[0]", OperationType.Upsert, new TestUser("Charlie", "Charlie"), timestampProvider.Now(), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now(), 0)));
 
         var result = strategy.MergeDisjoint(doc1, meta1, doc2, meta2, propInfo);
 
@@ -677,6 +677,38 @@ public sealed class SortedSetStrategyTests : IDisposable
         set.Removes.ShouldContainKey("dead_unsafe");
 
         set.Removes.ShouldNotContainKey("dead_no_add");
+    }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldCombineDataAndSort()
+    {
+        var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
+        var doc1 = new ConvergenceTestModel();
+        var meta1 = metadataManagerA.Initialize(doc1);
+        var doc2 = new ConvergenceTestModel();
+        var meta2 = metadataManagerA.Initialize(doc2);
+        var propInfo = new CrdtPropertyInfo(
+            "Users",
+            "users",
+            typeof(List<TestUser>),
+            true,
+            false,
+            obj => ((ConvergenceTestModel)obj).Users,
+            null,
+            new CrdtSortedSetStrategyAttribute(),
+            Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
+
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Dave", "Dave"), timestampProvider.Now(), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Alice", "Alice"), timestampProvider.Now(), 0)));
+        
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[0]", OperationType.Upsert, new TestUser("Charlie", "Charlie"), timestampProvider.Now(), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now(), 0)));
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+
+        // Assert
+        doc1.Users.Select(u => u.Name).ShouldBe(["Alice", "Bob", "Charlie", "Dave"]);
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

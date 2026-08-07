@@ -377,6 +377,23 @@ public sealed class GSetStrategyTests : IDisposable
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
     
+    [Fact]
+    public void MergeAsStateCrdt_ShouldUnionBothSetsAndSort()
+    {
+        // Arrange
+        var doc1 = new TestModel { Tags = { "C", "A" } };
+        var meta1 = new CrdtMetadata();
+
+        var doc2 = new TestModel { Tags = { "B", "C", "D" } };
+        var meta2 = new CrdtMetadata();
+
+        // Act
+        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, GetTagsPropertyInfo());
+
+        // Assert
+        doc1.Tags.ShouldBe(new[] { "A", "B", "C", "D" });
+    }
+
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {
         if (length == 1) return list.Select(t => new T[] { t });

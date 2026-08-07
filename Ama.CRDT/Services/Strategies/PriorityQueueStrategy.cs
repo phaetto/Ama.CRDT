@@ -47,10 +47,7 @@ public sealed class PriorityQueueStrategy(
         var originalDict = originalList?.Cast<object>().ToDictionary(item => item, item => item, comparer) ?? new Dictionary<object, object>(comparer);
         var modifiedDict = modifiedList?.Cast<object>().ToDictionary(item => item, item => item, comparer) ?? new Dictionary<object, object>(comparer);
 
-        if (!originalMeta.States.TryGetValue(path, out var baseMetaState) || baseMetaState is not LwwSetState originalMetaState)
-        {
-            originalMetaState = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
-        }
+        var originalMetaState = GetOrUpdateState(originalMeta, path, comparer);
         var originalAdds = originalMetaState.Adds;
         var originalRemoves = originalMetaState.Removes;
 
@@ -127,11 +124,7 @@ public sealed class PriorityQueueStrategy(
         
         var comparer = comparerProvider.GetComparer(elementType);
         
-        if (!metadata.States.TryGetValue(operation.JsonPath, out var baseMeta) || baseMeta is not LwwSetState meta)
-        {
-            meta = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
-            metadata.States[operation.JsonPath] = meta;
-        }
+        var meta = GetOrUpdateState(metadata, operation.JsonPath, comparer);
         var adds = meta.Adds;
         var removes = meta.Removes;
 
@@ -208,7 +201,7 @@ public sealed class PriorityQueueStrategy(
     /// <inheritdoc/>
     public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var path = $"$.{property.JsonName}";
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
@@ -228,8 +221,8 @@ public sealed class PriorityQueueStrategy(
             dict2[item] = item;
         }
 
-        var metaState1 = meta1.States.TryGetValue(path, out var s1) && s1 is LwwSetState ls1 ? ls1 : new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
-        var metaState2 = meta2.States.TryGetValue(path, out var s2) && s2 is LwwSetState ls2 ? ls2 : new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
+        var metaState1 = GetOrUpdateState(meta1, path, comparer);
+        var metaState2 = GetOrUpdateState(meta2, path, comparer);
 
         foreach (var (key, ts2) in metaState2.Adds)
         {
@@ -273,6 +266,42 @@ public sealed class PriorityQueueStrategy(
         }
 
         SortList(list1, property);
+    }
+    
+    private LwwSetState GetOrUpdateState(CrdtMetadata metadata, string path, IEqualityComparer<object> comparer)
+    {
+        if (metadata.States.TryGetValue(path, out var baseState) && baseState is LwwSetState state)
+        {
+            if (state.Adds is Dictionary<object, ICrdtTimestamp> dict && dict.Comparer == EqualityComparer<object>.Default)
+            {
+                var newAdds = new Dictionary<object, ICrdtTimestamp>(comparer);
+                foreach (var kvp in state.Adds)
+                {
+                    if (!newAdds.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
+                    {
+                        newAdds[kvp.Key] = kvp.Value;
+                    }
+                }
+                
+                var newRemoves = new Dictionary<object, CausalTimestamp>(comparer);
+                foreach (var kvp in state.Removes)
+                {
+                    if (!newRemoves.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
+                    {
+                        newRemoves[kvp.Key] = kvp.Value;
+                    }
+                }
+
+                var newState = new LwwSetState(newAdds, newRemoves);
+                metadata.States[path] = newState;
+                return newState;
+            }
+            return state;
+        }
+
+        var emptyState = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
+        metadata.States[path] = emptyState;
+        return emptyState;
     }
     
     private bool ApplyUpsert(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, CausalTimestamp> removes, object value, CrdtOperation operation, IEqualityComparer<object> comparer)

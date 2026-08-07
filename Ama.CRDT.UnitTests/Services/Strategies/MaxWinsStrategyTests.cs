@@ -271,6 +271,34 @@ public sealed class MaxWinsStrategyTests : IDisposable
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
     
+    [Fact]
+    public void MergeAsStateCrdt_ShouldUpdateData1_WhenData2HasHigherValue()
+    {
+        // Arrange
+        var data1 = new TestModel { HighScore = 100 };
+        var data2 = new TestModel { HighScore = 200 };
+
+        // Act
+        strategyA.MergeAsStateCrdt(data1, new CrdtMetadata(), data2, new CrdtMetadata(), property);
+
+        // Assert
+        data1.HighScore.ShouldBe(200);
+    }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldNotUpdateData1_WhenData2HasLowerValue()
+    {
+        // Arrange
+        var data1 = new TestModel { HighScore = 200 };
+        var data2 = new TestModel { HighScore = 100 };
+
+        // Act
+        strategyA.MergeAsStateCrdt(data1, new CrdtMetadata(), data2, new CrdtMetadata(), property);
+
+        // Assert
+        data1.HighScore.ShouldBe(200);
+    }
+
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {
         if (length == 1) return list.Select(t => new T[] { t });

@@ -353,6 +353,42 @@ public sealed class FwwStrategyTests : IDisposable
         metadata.States.ShouldContainKey("$.Value");
     }
     
+    [Fact]
+    public void MergeAsStateCrdt_WhenSecondaryHasOlderTimestamp_ShouldTakeSecondaryState()
+    {
+        // Arrange
+        var doc1 = new TestModel { Value = 10 };
+        var meta1 = new CrdtMetadata { States = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(200L), "r1", 1) } };
+        
+        var doc2 = new TestModel { Value = 20 };
+        var meta2 = new CrdtMetadata { States = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(100L), "r2", 2) } };
+
+        // Act
+        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, GetValuePropertyInfo());
+
+        // Assert
+        doc1.Value.ShouldBe(20);
+        ((CausalTimestamp)meta1.States["$.value"]).Timestamp.ShouldBe(timestampProvider.Create(100L));
+    }
+
+    [Fact]
+    public void MergeAsStateCrdt_WhenPrimaryHasOlderTimestamp_ShouldKeepPrimaryState()
+    {
+        // Arrange
+        var doc1 = new TestModel { Value = 10 };
+        var meta1 = new CrdtMetadata { States = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(100L), "r1", 2) } };
+        
+        var doc2 = new TestModel { Value = 20 };
+        var meta2 = new CrdtMetadata { States = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(200L), "r2", 1) } };
+
+        // Act
+        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, GetValuePropertyInfo());
+
+        // Assert
+        doc1.Value.ShouldBe(10);
+        ((CausalTimestamp)meta1.States["$.value"]).Timestamp.ShouldBe(timestampProvider.Create(100L));
+    }
+
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {
         if (length == 1) return list.Select(t => new T[] { t });

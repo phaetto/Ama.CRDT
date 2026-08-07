@@ -304,6 +304,46 @@ public sealed class MinWinsMapStrategyTests
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
 
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeDictionaries_AndKeepMinimumValues()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<MinWinsMapStrategy>();
+
+        var doc1 = new TestModel { Map = new Dictionary<string, int> { { "a", 10 }, { "b", 5 }, { "c", 100 } } };
+        var doc2 = new TestModel { Map = new Dictionary<string, int> { { "a", 5 }, { "b", 10 }, { "d", 50 } } };
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1, new CrdtMetadata(), doc2, new CrdtMetadata(), propInfo);
+
+        // Assert
+        doc1.Map.Count.ShouldBe(4);
+        doc1.Map["a"].ShouldBe(5);
+        doc1.Map["b"].ShouldBe(5);
+        doc1.Map["c"].ShouldBe(100);
+        doc1.Map["d"].ShouldBe(50);
+    }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldInitializeDict1_WhenData1HasNullDictionary()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<MinWinsMapStrategy>();
+
+        var doc1 = new TestModel { Map = null! };
+        var doc2 = new TestModel { Map = new Dictionary<string, int> { { "a", 10 } } };
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1, new CrdtMetadata(), doc2, new CrdtMetadata(), propInfo);
+
+        // Assert
+        doc1.Map.ShouldNotBeNull();
+        doc1.Map.Count.ShouldBe(1);
+        doc1.Map["a"].ShouldBe(10);
+    }
+
     internal sealed class TestModel
     {
         [CrdtMinWinsMapStrategy]

@@ -314,6 +314,74 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
 
+    [Fact]
+    public void MergeAsStateCrdt_ShouldTakeMaxClockAndClampValue()
+    {
+        // Arrange
+        var propInfo = new CrdtPropertyInfo(
+            "Level",
+            "level",
+            typeof(int),
+            true,
+            true,
+            obj => ((BoundedCounterTestModel)obj).Level,
+            (obj, val) => ((BoundedCounterTestModel)obj).Level = (int)val!,
+            new CrdtBoundedCounterStrategyAttribute(0, 100),
+            []);
+
+        var doc1 = new BoundedCounterTestModel { Level = 50 };
+        var meta1 = new CrdtMetadata();
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.level", OperationType.Increment, 10m, timestampProvider.Create(1L), 1)) { Property = propInfo, FinalSegment = "level" });
+
+        var doc2 = new BoundedCounterTestModel { Level = 50 };
+        var meta2 = new CrdtMetadata();
+        // apply op to doc2 (replica B, clock 2, +70) => unbounded 120 -> clamps to 100
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.level", OperationType.Increment, 70m, timestampProvider.Create(2L), 2)) { Property = propInfo, FinalSegment = "level" });
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+
+        // Assert
+        doc1.Level.ShouldBe(100);
+        var state = meta1.States["$.level"].ShouldBeOfType<CausalTimestamp>();
+        state.Clock.ShouldBe(2);
+        state.ReplicaId.ShouldBe("B");
+    }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldTieBreakByReplicaId()
+    {
+        // Arrange
+        var propInfo = new CrdtPropertyInfo(
+            "Level",
+            "level",
+            typeof(int),
+            true,
+            true,
+            obj => ((BoundedCounterTestModel)obj).Level,
+            (obj, val) => ((BoundedCounterTestModel)obj).Level = (int)val!,
+            new CrdtBoundedCounterStrategyAttribute(0, 100),
+            []);
+
+        var doc1 = new BoundedCounterTestModel { Level = 50 };
+        var meta1 = new CrdtMetadata();
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.level", OperationType.Increment, 10m, timestampProvider.Create(1L), 1)) { Property = propInfo, FinalSegment = "level" });
+
+        var doc2 = new BoundedCounterTestModel { Level = 50 };
+        var meta2 = new CrdtMetadata();
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.level", OperationType.Increment, -20m, timestampProvider.Create(1L), 1)) { Property = propInfo, FinalSegment = "level" });
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+
+        // Assert
+        // B > A, so B wins tie break. Unbounded value should be 50 - 20 = 30.
+        doc1.Level.ShouldBe(30);
+        var state = meta1.States["$.level"].ShouldBeOfType<CausalTimestamp>();
+        state.Clock.ShouldBe(1);
+        state.ReplicaId.ShouldBe("B");
+    }
+
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {
         if (length == 1) return list.Select(t => new T[] { t });

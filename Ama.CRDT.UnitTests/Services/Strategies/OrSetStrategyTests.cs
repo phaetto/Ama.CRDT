@@ -442,6 +442,41 @@ public sealed class OrSetStrategyTests : IDisposable
         queueState.Removes.ShouldContainKey("dead_unsafe");
     }
 
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeDataAndMetadataCorrectly()
+    {
+        // Arrange
+        var propInfo = new OrSetStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
+        var ts = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        
+        var doc1 = new TestModel();
+        var meta1 = metadataManagerA.Initialize(doc1);
+        
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("A", Guid.NewGuid()), ts.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("B", Guid.NewGuid()), ts.Now(), 0)));
+
+        var doc2 = new TestModel { Tags = new List<string>(doc1.Tags) };
+        var meta2 = meta1.DeepClone();
+
+        // doc1 adds "C"
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("C", Guid.NewGuid()), ts.Now(), 0)));
+        
+        // doc2 removes "A" and adds "D"
+        var tagsA = ((OrSetState)meta2.States["$.tags"]).Adds["A"];
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.tags", OperationType.Remove, new OrSetRemoveItem("A", tagsA), ts.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.tags", OperationType.Upsert, new OrSetAddItem("D", Guid.NewGuid()), ts.Now(), 0)));
+
+        // Act
+        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+
+        // Assert
+        doc1.Tags.ShouldBe(new[] { "B", "C", "D" }, ignoreOrder: true); // "A" was removed in doc2
+        var mergedState = (OrSetState)meta1.States["$.tags"];
+        mergedState.Adds.ContainsKey("C").ShouldBeTrue();
+        mergedState.Adds.ContainsKey("D").ShouldBeTrue();
+        mergedState.Removes.ContainsKey("A").ShouldBeTrue();
+    }
+
     private sealed class TestTimestampProvider : ICrdtTimestampProvider
     {
         private long currentTime = 1;

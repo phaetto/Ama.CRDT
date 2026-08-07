@@ -1,14 +1,14 @@
 namespace Ama.CRDT.Models.Aot;
 
-using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Intents.Decorators;
 using Ama.CRDT.Models.Partitioning;
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 
 /// <summary>
 /// An internal AOT-generated context containing metadata for all core CRDT models.
@@ -147,6 +147,10 @@ using Ama.CRDT.Models.Partitioning;
 [CrdtAotType(typeof(List<PositionalIdentifier>))]
 [CrdtAotType(typeof(List<RgaItem>))]
 [CrdtAotType(typeof(IReadOnlyList<JournaledOperation>))]
+[CrdtAotType(typeof(CounterState))]
+[CrdtAotType(typeof(GCounterState))]
+[CrdtAotType(typeof(IDictionary<string, PnCounterState>))]
+[CrdtAotType(typeof(IDictionary<string, decimal>))]
 
 public partial class CoreCrdtAotContext : CrdtAotContext
 {

@@ -159,7 +159,7 @@ public sealed class ApprovalQuorumStrategy(
         
         innerStrategy.MergeAsStateCrdt(data1, meta1, data2, meta2, property);
         
-        var decoratorPath = MetadataPathHelper.GetDecoratorPath(property.JsonName, DecoratorKey);
+        var decoratorPath = MetadataPathHelper.GetDecoratorPath($"$.{property.JsonName}", DecoratorKey);
         
         if (!meta2.States.TryGetValue(decoratorPath, out var baseState2) || baseState2 is not QuorumState q2)
         {

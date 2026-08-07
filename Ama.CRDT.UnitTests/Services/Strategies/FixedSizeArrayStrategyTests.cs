@@ -320,6 +320,53 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
     
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeAccordingToLww()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<FixedSizeArrayStrategy>().Single();
+        var doc1 = new FixedSizeArrayTestModel { Values = [10, 20, 30] };
+        var meta1 = metadataManagerA.Initialize(doc1);
+        var crdtDoc1 = new CrdtDocument<FixedSizeArrayTestModel>(doc1, meta1);
+
+        var doc2 = new FixedSizeArrayTestModel { Values = [10, 20, 30] };
+        var meta2 = metadataManagerA.Initialize(doc2);
+        var crdtDoc2 = new CrdtDocument<FixedSizeArrayTestModel>(doc2, meta2);
+
+        // Doc1 changes index 0
+        Thread.Sleep(5);
+        var patch1 = patcherA.GeneratePatch(crdtDoc1, new FixedSizeArrayTestModel { Values = [11, 20, 30] });
+        applicatorA.ApplyPatch(crdtDoc1, patch1);
+
+        // Doc2 changes index 0 and 1
+        Thread.Sleep(5);
+        var patch2 = patcherB.GeneratePatch(crdtDoc2, new FixedSizeArrayTestModel { Values = [12, 22, 30] });
+        applicatorA.ApplyPatch(crdtDoc2, patch2);
+
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FixedSizeArrayTestModel.Values), "values", typeof(List<int>), true, true,
+            obj => ((FixedSizeArrayTestModel)obj).Values,
+            (obj, val) => ((FixedSizeArrayTestModel)obj).Values = (List<int>)val!,
+            new CrdtFixedSizeArrayStrategyAttribute(3), []);
+
+        // Act: Merge Doc2 into Doc1
+        // Since Doc2 has later timestamps (LWW), Doc2's changes should win
+        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+
+        // Assert
+        doc1.Values.ShouldBe([12, 22, 30]);
+
+        // Also test merging older into newer (should not overwrite)
+        // Reset state
+        var doc3 = new FixedSizeArrayTestModel { Values = [10, 20, 30] };
+        var meta3 = metadataManagerA.Initialize(doc3);
+        var crdtDoc3 = new CrdtDocument<FixedSizeArrayTestModel>(doc3, meta3);
+        applicatorA.ApplyPatch(crdtDoc3, patch2); // apply newer first
+        
+        strategy.MergeAsStateCrdt(doc3, meta3, doc1, meta1, propInfo); // merge older patch1
+        doc3.Values.ShouldBe([12, 22, 30]); // should still be newer
+    }
+
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {
         if (length == 1) return list.Select(t => new T[] { t });

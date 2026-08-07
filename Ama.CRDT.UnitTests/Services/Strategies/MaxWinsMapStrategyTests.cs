@@ -296,6 +296,26 @@ public sealed class MaxWinsMapStrategyTests
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
 
+    [Fact]
+    public void MergeAsStateCrdt_ShouldTakeMaxValuesForKey()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
+
+        var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 10 }, { "b", 50 } });
+        var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 20 }, { "c", 30 } });
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapPropInfo);
+
+        // Assert
+        doc1.Data.Map.Count.ShouldBe(3);
+        doc1.Data.Map["a"].ShouldBe(20); // Max wins
+        doc1.Data.Map["b"].ShouldBe(50);
+        doc1.Data.Map["c"].ShouldBe(30);
+    }
+
     internal sealed class TestModel
     {
         [CrdtMaxWinsMapStrategy]

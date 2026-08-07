@@ -406,6 +406,35 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         state.Tombstones.ShouldContainKey("B");
         state.Tombstones.ShouldContainKey("C");
     }
+    
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeAddsAndTombstones()
+    {
+        // Arrange
+        var propInfo = CreatePropertyInfo();
+
+        var data1 = new TwoPhaseSetTestModel();
+        var meta1 = new CrdtMetadata();
+        strategyA.ApplyOperation(new ApplyOperationContext(data1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Upsert, "Tag1", timestampProvider.Now(), 1)));
+        strategyA.ApplyOperation(new ApplyOperationContext(data1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Remove, "Tag1", timestampProvider.Now(), 2)));
+        strategyA.ApplyOperation(new ApplyOperationContext(data1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Upsert, "Tag2", timestampProvider.Now(), 3)));
+
+        var data2 = new TwoPhaseSetTestModel();
+        var meta2 = new CrdtMetadata();
+        strategyA.ApplyOperation(new ApplyOperationContext(data2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.tags", OperationType.Upsert, "Tag2", timestampProvider.Now(), 1)));
+        strategyA.ApplyOperation(new ApplyOperationContext(data2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.tags", OperationType.Upsert, "Tag3", timestampProvider.Now(), 2)));
+
+        // Act
+        strategyA.MergeAsStateCrdt(data1, meta1, data2, meta2, propInfo);
+
+        // Assert
+        data1.Tags.ShouldBe(new[] { "Tag2", "Tag3" }, ignoreOrder: true);
+        var state1 = (TwoPhaseSetState)meta1.States["$.tags"];
+        state1.Adds.ShouldContain("Tag1");
+        state1.Adds.ShouldContain("Tag2");
+        state1.Adds.ShouldContain("Tag3");
+        state1.Tombstones.ShouldContainKey("Tag1");
+    }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {

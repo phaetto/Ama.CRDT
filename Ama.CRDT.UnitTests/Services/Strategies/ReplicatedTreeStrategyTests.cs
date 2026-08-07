@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -310,5 +311,53 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
         state.Adds[nodeId].ShouldNotContain(tagSafe); // Add tag removed along with remove tag
         state.Adds[nodeId].ShouldContain(tagUnsafe);
         state.Adds[nodeId].ShouldContain(tagOther);
+    }
+    
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeNodesAndMetadata()
+    {
+        // Arrange
+        var rootId = Guid.NewGuid();
+        var nodeAId = Guid.NewGuid();
+        var nodeBId = Guid.NewGuid();
+
+        var doc1 = new TestModel();
+        var meta1 = metadataManager.Initialize(doc1);
+        var doc1Wrapper = new CrdtDocument<TestModel>(doc1, meta1);
+        
+        var op1 = patcherA.GenerateOperation(doc1Wrapper, m => m.Tree, new AddNodeIntent(new TreeNode { Id = rootId, Value = "Root" }));
+        applicator.ApplyPatch(doc1Wrapper, new CrdtPatch([op1]));
+        var op2 = patcherA.GenerateOperation(doc1Wrapper, m => m.Tree, new AddNodeIntent(new TreeNode { Id = nodeAId, Value = "A", ParentId = rootId }));
+        applicator.ApplyPatch(doc1Wrapper, new CrdtPatch([op2]));
+
+        var doc2 = new TestModel();
+        var meta2 = metadataManager.Initialize(doc2);
+        var doc2Wrapper = new CrdtDocument<TestModel>(doc2, meta2);
+
+        var op3 = patcherB.GenerateOperation(doc2Wrapper, m => m.Tree, new AddNodeIntent(new TreeNode { Id = rootId, Value = "Root" }));
+        applicator.ApplyPatch(doc2Wrapper, new CrdtPatch([op3]));
+        var op4 = patcherB.GenerateOperation(doc2Wrapper, m => m.Tree, new AddNodeIntent(new TreeNode { Id = nodeBId, Value = "B", ParentId = rootId }));
+        applicator.ApplyPatch(doc2Wrapper, new CrdtPatch([op4]));
+
+        var strategy = scopeA.ServiceProvider.GetRequiredService<IEnumerable<CRDT.Services.Strategies.ICrdtStrategy>>().OfType<CRDT.Services.Strategies.ReplicatedTreeStrategy>().Single();
+        var propInfo = new CrdtPropertyInfo(
+            "Tree",
+            "tree",
+            typeof(CrdtTree),
+            true,
+            false,
+            obj => ((TestModel)obj).Tree,
+            (obj, val) => ((TestModel)obj).Tree = (CrdtTree)val!,
+            new CrdtReplicatedTreeStrategyAttribute(),
+            Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+
+        // Assert
+        doc1.Tree.Nodes.Count.ShouldBe(3);
+        doc1.Tree.Nodes.ShouldContainKey(rootId);
+        doc1.Tree.Nodes.ShouldContainKey(nodeAId);
+        doc1.Tree.Nodes.ShouldContainKey(nodeBId);
     }
 }

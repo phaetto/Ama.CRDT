@@ -340,18 +340,34 @@ public sealed class LseqStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Split_WithLessThanTwoItems_ShouldThrowInvalidOperationException()
+    public void MergeAsStateCrdt_ShouldMergeItemsAndMetadataCorrectly()
     {
         // Arrange
         var doc0 = new LseqTestModel { Items = new List<string>() };
-        var crdtDoc = new CrdtDocument<LseqTestModel>(doc0, metadataManagerA.Initialize(doc0));
-        var modified = new LseqTestModel { Items = new List<string> { "SingleItem" } };
-        var patch = patcherA.GeneratePatch(crdtDoc, modified);
-        applicatorA.ApplyPatch(crdtDoc, patch);
+        
+        var doc1 = new LseqTestModel { Items = new List<string>() };
+        var crdtDoc1 = new CrdtDocument<LseqTestModel>(doc1, metadataManagerA.Initialize(doc1));
+        
+        var doc2 = new LseqTestModel { Items = new List<string>() };
+        var crdtDoc2 = new CrdtDocument<LseqTestModel>(doc2, metadataManagerA.Initialize(doc2));
 
-        // Act & Assert
-        Should.Throw<InvalidOperationException>(() => 
-            lseqStrategy.SplitToDisjoint(crdtDoc.Data, crdtDoc.Metadata, itemsProperty));
+        var patch1 = patcherA.GeneratePatch(new CrdtDocument<LseqTestModel>(doc0, metadataManagerA.Initialize(doc0)), new LseqTestModel { Items = new List<string> { "A", "C" } });
+        applicatorA.ApplyPatch(crdtDoc1, patch1);
+
+        var patch2 = patcherB.GeneratePatch(new CrdtDocument<LseqTestModel>(doc0, metadataManagerA.Initialize(doc0)), new LseqTestModel { Items = new List<string> { "B" } });
+        applicatorA.ApplyPatch(crdtDoc2, patch2);
+
+        // Act
+        lseqStrategy.MergeAsStateCrdt(crdtDoc1.Data, crdtDoc1.Metadata, crdtDoc2.Data, crdtDoc2.Metadata, itemsProperty);
+
+        // Assert
+        crdtDoc1.Data.Items.Count.ShouldBe(3);
+        crdtDoc1.Data.Items.ShouldContain("A");
+        crdtDoc1.Data.Items.ShouldContain("B");
+        crdtDoc1.Data.Items.ShouldContain("C");
+
+        var mergedState = (LseqState)crdtDoc1.Metadata.States["$.items"];
+        mergedState.Trackers.Count.ShouldBe(3);
     }
 
     [Fact]

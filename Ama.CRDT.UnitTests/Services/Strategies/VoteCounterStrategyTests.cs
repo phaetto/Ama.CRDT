@@ -416,4 +416,62 @@ public sealed class VoteCounterStrategyTests : IDisposable
         mockPolicy.Verify(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == tsDeadSafe)), Times.Once);
         mockPolicy.Verify(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => c.Timestamp == tsDeadUnsafe)), Times.Once);
     }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeNewVotes()
+    {
+        var doc1 = new Poll();
+        var meta1 = new CrdtMetadata();
+
+        var doc2 = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
+        var meta2 = new CrdtMetadata();
+        meta2.States["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(100L), "r2", 1);
+
+        var propInfo = GetPollVotesPropertyInfo();
+
+        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+
+        doc1.Votes["OptionA"].ShouldContain("Voter1");
+        meta1.States["$.votes.['Voter1']"].ShouldBeOfType<CausalTimestamp>().Timestamp.ShouldBe(timestampProvider.Create(100L));
+    }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldResolveConflictsUsingLww()
+    {
+        var doc1 = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
+        var meta1 = new CrdtMetadata();
+        meta1.States["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(100L), "r1", 1);
+
+        var doc2 = new Poll { Votes = { ["OptionB"] = new HashSet<string> { "Voter1" } } };
+        var meta2 = new CrdtMetadata();
+        meta2.States["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(200L), "r2", 2);
+
+        var propInfo = GetPollVotesPropertyInfo();
+
+        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+
+        doc1.Votes.ContainsKey("OptionA").ShouldBeFalse();
+        doc1.Votes["OptionB"].ShouldContain("Voter1");
+        meta1.States["$.votes.['Voter1']"].ShouldBeOfType<CausalTimestamp>().Timestamp.ShouldBe(timestampProvider.Create(200L));
+    }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldIgnoreOlderState()
+    {
+        var doc1 = new Poll { Votes = { ["OptionB"] = new HashSet<string> { "Voter1" } } };
+        var meta1 = new CrdtMetadata();
+        meta1.States["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(200L), "r1", 2);
+
+        var doc2 = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
+        var meta2 = new CrdtMetadata();
+        meta2.States["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(100L), "r2", 1);
+
+        var propInfo = GetPollVotesPropertyInfo();
+
+        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+
+        doc1.Votes.ContainsKey("OptionA").ShouldBeFalse();
+        doc1.Votes["OptionB"].ShouldContain("Voter1");
+        meta1.States["$.votes.['Voter1']"].ShouldBeOfType<CausalTimestamp>().Timestamp.ShouldBe(timestampProvider.Create(200L));
+    }
 }

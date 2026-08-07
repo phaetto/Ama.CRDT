@@ -187,7 +187,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
     /// <inheritdoc/>
     public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
     {
-        var path = property.JsonName;
+        var path = $"$.{property.JsonName}";
         var epoch1 = GetEpochForPath(meta1, path, out var basePath1);
         var epoch2 = GetEpochForPath(meta2, path, out var basePath2);
         

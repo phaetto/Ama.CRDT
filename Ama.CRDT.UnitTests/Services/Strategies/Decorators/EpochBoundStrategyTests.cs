@@ -286,4 +286,50 @@ public sealed class EpochBoundStrategyTests : IDisposable
         // Assert
         metadata.States["$.status|Epoch"].ShouldBeOfType<EpochState>().Epoch.ShouldBe(5);
     }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldIgnore_WhenLocalEpochIsHigher()
+    {
+        // Arrange
+        var strategy = strategyProvider.GetStrategy(typeof(ShoppingCart), StatusProperty);
+        
+        var data1 = new ShoppingCart { Status = "Local" };
+        var meta1 = new CrdtMetadata();
+        meta1.States["$.status|Epoch"] = new EpochState(2);
+
+        var data2 = new ShoppingCart { Status = "Remote" };
+        var meta2 = new CrdtMetadata();
+        meta2.States["$.status|Epoch"] = new EpochState(1);
+
+        // Act
+        strategy.MergeAsStateCrdt(data1, meta1, data2, meta2, StatusProperty);
+
+        // Assert
+        data1.Status.ShouldBe("Local");
+        meta1.States["$.status|Epoch"].ShouldBeOfType<EpochState>().Epoch.ShouldBe(2);
+    }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldClearStateAndTakeNewEpoch_WhenRemoteEpochIsHigher()
+    {
+        // Arrange
+        var strategy = strategyProvider.GetStrategy(typeof(ShoppingCart), StatusProperty);
+        
+        var data1 = new ShoppingCart { Status = "Local" };
+        var meta1 = new CrdtMetadata();
+        meta1.States["$.status|Epoch"] = new EpochState(1);
+        meta1.States["$.status|SomeInnerState"] = new EpochState(1); // Dummy inner state to test clearing
+
+        var data2 = new ShoppingCart { Status = "Remote" };
+        var meta2 = new CrdtMetadata();
+        meta2.States["$.status|Epoch"] = new EpochState(2);
+
+        // Act
+        strategy.MergeAsStateCrdt(data1, meta1, data2, meta2, StatusProperty);
+
+        // Assert
+        data1.Status.ShouldBeNull(); // It clears the property before inner merge
+        meta1.States.ShouldNotContainKey("$.status|SomeInnerState"); // Inner state must be cleared
+        meta1.States["$.status|Epoch"].ShouldBeOfType<EpochState>().Epoch.ShouldBe(2);
+    }
 }

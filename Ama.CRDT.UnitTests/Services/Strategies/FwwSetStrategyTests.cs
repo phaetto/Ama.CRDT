@@ -505,6 +505,57 @@ public sealed class FwwSetStrategyTests : IDisposable
 
         finalState.Removes.ShouldContainKey("item5");
     }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldCombineStateUsingFww()
+    {
+        // Arrange
+        var propInfo = new CrdtPropertyInfo(
+            nameof(FwwSetTestModel.Tags), "tags", typeof(List<string>), true, true,
+            obj => ((FwwSetTestModel)obj).Tags,
+            (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
+            new CrdtFwwSetStrategyAttribute(), []);
+
+        var doc1 = new FwwSetTestModel();
+        var meta1 = metadataManagerA.Initialize(doc1);
+        
+        var doc2 = new FwwSetTestModel();
+        var meta2 = metadataManagerA.Initialize(doc2);
+
+        var tsOlder = timestampProvider.Create(100);
+        var tsNewer = timestampProvider.Create(200);
+
+        // Doc1: Add "A" (newer), Remove "B" (older)
+        var adds1 = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default) { { "A", tsNewer } };
+        var rems1 = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default) { { "B", new CausalTimestamp(tsOlder, "A", 1) } };
+        meta1.States["$.tags"] = new FwwSetState(adds1, rems1);
+        doc1.Tags.Add("A");
+
+        // Doc2: Add "A" (older), Add "B" (newer), Add "C" (older)
+        var adds2 = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default) { 
+            { "A", tsOlder }, 
+            { "B", tsNewer },
+            { "C", tsOlder }
+        };
+        var rems2 = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default);
+        meta2.States["$.tags"] = new FwwSetState(adds2, rems2);
+        doc2.Tags.AddRange(["A", "B", "C"]);
+
+        // Act
+        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+
+        // Assert
+        // "A": doc1 had newer, doc2 had older. FWW -> older wins -> A should have tsOlder.
+        // "B": doc1 removed older, doc2 added newer. FWW -> older wins -> Remove wins -> B shouldn't be in list.
+        // "C": doc2 added older. -> C should be in list.
+        doc1.Tags.ShouldBe(["A", "C"], ignoreOrder: true);
+
+        var state = meta1.States["$.tags"].ShouldBeOfType<FwwSetState>();
+        state.Adds["A"].ShouldBe(tsOlder);
+        state.Removes.ShouldContainKey("B");
+        state.Removes["B"].Timestamp.ShouldBe(tsOlder);
+        state.Adds["C"].ShouldBe(tsOlder);
+    }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {

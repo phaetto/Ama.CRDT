@@ -257,4 +257,33 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         // Assert
         metadata.States.ShouldContainKey("$.configValue|Quorum");
     }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeApprovals()
+    {
+        // Arrange
+        var strategy = strategyProvider.GetStrategy(typeof(ProposalDocument), ConfigValueProperty);
+        
+        var data1 = new ProposalDocument { ConfigValue = "Old" };
+        var meta1 = new CrdtMetadata();
+        var q1 = new Dictionary<object, ISet<string>>();
+        q1["ProposedNew"] = new HashSet<string> { "ReplicaA" };
+        meta1.States["$.configValue|Quorum"] = new QuorumState(q1);
+
+        var data2 = new ProposalDocument { ConfigValue = "Old" };
+        var meta2 = new CrdtMetadata();
+        var q2 = new Dictionary<object, ISet<string>>();
+        q2["ProposedNew"] = new HashSet<string> { "ReplicaB" };
+        meta2.States["$.configValue|Quorum"] = new QuorumState(q2);
+
+        // Act
+        strategy.MergeAsStateCrdt(data1, meta1, data2, meta2, ConfigValueProperty);
+
+        // Assert
+        var mergedState = meta1.States["$.configValue|Quorum"].ShouldBeOfType<QuorumState>();
+        mergedState.Approvals.ShouldContainKey("ProposedNew");
+        mergedState.Approvals["ProposedNew"].ShouldContain("ReplicaA");
+        mergedState.Approvals["ProposedNew"].ShouldContain("ReplicaB");
+        mergedState.Approvals["ProposedNew"].Count.ShouldBe(2);
+    }
 }
