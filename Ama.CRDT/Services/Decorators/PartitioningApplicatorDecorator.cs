@@ -262,7 +262,7 @@ public sealed class PartitioningApplicatorDecorator : AsyncCrdtApplicatorDecorat
         SplitResult splitResult;
         using (new MetricTimer(this.metrics.StrategySplitDuration))
         {
-            splitResult = strategy.Split(crdtDoc.Data!, crdtDoc.Metadata!, prop);
+            splitResult = strategy.SplitToDisjoint(crdtDoc.Data!, crdtDoc.Metadata!, prop);
         }
 
         var originalKey = dataPartitionToSplit.StartKey;
@@ -321,7 +321,7 @@ public sealed class PartitioningApplicatorDecorator : AsyncCrdtApplicatorDecorat
         var targetDocument = await this.storageService.LoadPartitionContentAsync<TDoc>(logicalKey, propertyName, targetPartition, cancellationToken).ConfigureAwait(false);
         var sourceDocument = await this.storageService.LoadPartitionContentAsync<TDoc>(logicalKey, propertyName, sourcePartition, cancellationToken).ConfigureAwait(false);
         
-        var mergedContent = strategy.Merge(targetDocument.Data!, targetDocument.Metadata!, sourceDocument.Data!, sourceDocument.Metadata!, prop);
+        var mergedContent = strategy.MergeDisjoint(targetDocument.Data!, targetDocument.Metadata!, sourceDocument.Data!, sourceDocument.Metadata!, prop);
         var mergedEmpty = new DataPartition(targetPartition.StartKey, sourcePartition.EndKey, 0, 0, 0, 0);
         var mergedPartition = await this.storageService.SavePartitionContentAsync(logicalKey, propertyName, mergedEmpty, (TDoc)mergedContent.Data, mergedContent.Metadata, cancellationToken).ConfigureAwait(false);
 

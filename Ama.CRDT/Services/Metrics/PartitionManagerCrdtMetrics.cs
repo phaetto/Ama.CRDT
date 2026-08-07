@@ -46,7 +46,7 @@ public sealed class PartitionManagerCrdtMetrics
         MergePartitionDuration = meter.CreateHistogram<double>("crdt.partition_manager.merge_partition.duration", "ms", "The duration of the partition merge operation.");
 
         ApplicatorApplyPatchDuration = meter.CreateHistogram<double>("crdt.partition_manager.applicator.apply_patch.duration", "ms", "The duration of the ICrdtApplicator.ApplyPatch call.");
-        StrategySplitDuration = meter.CreateHistogram<double>("crdt.partition_manager.strategy.split.duration", "ms", "The duration of the IPartitionableCrdtStrategy.Split call.");
+        StrategySplitDuration = meter.CreateHistogram<double>("crdt.partition_manager.strategy.split.duration", "ms", "The duration of the IPartitionableCrdtStrategy.SplitToDisjoint call.");
 
         GetPartitionDuration = meter.CreateHistogram<double>("crdt.partition_manager.get_partition.duration", "ms", "The duration of retrieving a single partition.");
         GetPartitionContentDuration = meter.CreateHistogram<double>("crdt.partition_manager.get_partition_content.duration", "ms", "The duration of retrieving the content of a single partition.");

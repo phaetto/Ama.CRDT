@@ -351,7 +351,7 @@ public sealed class CounterMapStrategyTests
         }
 
         // Act
-        var result = strategy.Split(doc.Data, doc.Metadata, propInfo);
+        var result = strategy.SplitToDisjoint(doc.Data, doc.Metadata, propInfo);
 
         // Assert
         result.SplitKey.ShouldBe("c");
@@ -405,7 +405,7 @@ public sealed class CounterMapStrategyTests
             new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now(), 0)));
 
         // Act
-        var merged = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo);
+        var merged = strategy.MergeDisjoint(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo);
 
         // Assert
         var mergedDoc = (CounterMapTestModel)merged.Data;

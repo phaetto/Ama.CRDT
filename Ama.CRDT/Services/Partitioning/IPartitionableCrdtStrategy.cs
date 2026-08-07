@@ -46,7 +46,7 @@ public interface IPartitionableCrdtStrategy : ICrdtStrategy
     /// <param name="originalMetadata">The metadata of the partition being split.</param>
     /// <param name="partitionableProperty">The property info of the partitionable collection.</param>
     /// <returns>A <see cref="SplitResult"/> containing the content for the two new partitions and the range key at which the split occurred.</returns>
-    SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty);
+    SplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty);
 
     /// <summary>
     /// Merges the data and metadata of two adjacent partitions into a single partition.
@@ -57,5 +57,5 @@ public interface IPartitionableCrdtStrategy : ICrdtStrategy
     /// <param name="meta2">The metadata of the second partition.</param>
     /// <param name="partitionableProperty">The property info of the partitionable collection.</param>
     /// <returns>A <see cref="PartitionContent"/> object containing the merged data and metadata.</returns>
-    PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty);
+    PartitionContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty);
 }

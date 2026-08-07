@@ -164,7 +164,7 @@ public sealed class OrMapStrategyTests
         propertyInfo.ShouldNotBeNull();
 
         // Act
-        var result = strategy.Split(originalDoc.Data, originalDoc.Metadata, propertyInfo);
+        var result = strategy.SplitToDisjoint(originalDoc.Data, originalDoc.Metadata, propertyInfo);
 
         // Assert
         var doc1 = result.Partition1.Data as TestModel;
@@ -202,7 +202,7 @@ public sealed class OrMapStrategyTests
         propertyInfo.ShouldNotBeNull();
 
         // Act
-        var result = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propertyInfo);
+        var result = strategy.MergeDisjoint(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propertyInfo);
 
         // Assert
         var mergedDoc = result.Data as TestModel;

@@ -317,7 +317,7 @@ public sealed class LwwSetStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0)));
 
-        var result = strategyA.Split(doc, meta, tagsPropInfo);
+        var result = strategyA.SplitToDisjoint(doc, meta, tagsPropInfo);
 
         result.SplitKey.ShouldBe("c");
 
@@ -345,7 +345,7 @@ public sealed class LwwSetStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0)));
 
-        var result = strategyA.Merge(doc1, meta1, doc2, meta2, tagsPropInfo);
+        var result = strategyA.MergeDisjoint(doc1, meta1, doc2, meta2, tagsPropInfo);
 
         var mergedDoc = (TestModel)result.Data;
         mergedDoc.Tags.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);

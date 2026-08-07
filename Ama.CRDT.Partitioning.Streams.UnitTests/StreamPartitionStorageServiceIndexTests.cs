@@ -224,7 +224,7 @@ public sealed class StreamPartitionStorageServiceIndexTests
         await strategy.InsertPropertyPartitionAsync(PropertyName, p2);
         await strategy.InsertPropertyPartitionAsync(PropertyName, p3);
         await strategy.InsertPropertyPartitionAsync(PropertyName, p4);
-        await strategy.InsertPropertyPartitionAsync(PropertyName, p5); // Split occurs here
+        await strategy.InsertPropertyPartitionAsync(PropertyName, p5); // SplitToDisjoint occurs here
         // Root: [p2]
         // Leaves: [p0, p1] <-> [p2, p3, p4, p5]
         

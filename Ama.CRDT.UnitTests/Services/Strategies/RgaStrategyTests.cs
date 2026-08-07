@@ -234,10 +234,10 @@ public sealed class RgaStrategyTests : IDisposable
             .OfType<RgaStrategy>()
             .First();
 
-        // Act - Split
-        var splitResult = strategy.Split(doc, meta, property);
+        // Act - SplitToDisjoint
+        var splitResult = strategy.SplitToDisjoint(doc, meta, property);
 
-        // Assert Split
+        // Assert SplitToDisjoint
         splitResult.SplitKey.ShouldNotBeNull();
         splitResult.SplitKey.ShouldBeOfType<RgaIdentifier>();
 
@@ -247,15 +247,15 @@ public sealed class RgaStrategyTests : IDisposable
         // Total items should still be 5
         (leftData.Items.Count + rightData.Items.Count).ShouldBe(5);
 
-        // Act - Merge
-        var mergedContent = strategy.Merge(
+        // Act - MergeDisjoint
+        var mergedContent = strategy.MergeDisjoint(
             splitResult.Partition1.Data, splitResult.Partition1.Metadata,
             splitResult.Partition2.Data, splitResult.Partition2.Metadata,
             property);
 
         var mergedData = (RgaTestModel)mergedContent.Data;
 
-        // Assert Merge
+        // Assert MergeDisjoint
         mergedData.Items.ShouldBe(new List<string> { "A", "B", "C", "D", "E" });
     }
 

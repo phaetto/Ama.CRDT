@@ -281,7 +281,7 @@ public sealed class FwwMapStrategy(
     }
 
     /// <inheritdoc/>
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
+    public SplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
         if (originalData is null) throw new ArgumentNullException(nameof(originalData));
         if (originalMetadata is null) throw new ArgumentNullException(nameof(originalMetadata));
@@ -324,7 +324,7 @@ public sealed class FwwMapStrategy(
     }
 
     /// <inheritdoc/>
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
+    public PartitionContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         if (data1 is null) throw new ArgumentNullException(nameof(data1));
         if (meta1 is null) throw new ArgumentNullException(nameof(meta1));
