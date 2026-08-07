@@ -3,8 +3,8 @@
 | `$/.editorconfig` | Configures coding standards, formatting rules, and enables specific .NET analyzer rules such as CA2007 for enforcing `ConfigureAwait` usage. |
 | `$/.github/workflows/ci.yml` | GitHub Actions workflow for building and testing the project on pushes to non-master branches and on pull requests to master. This ensures code quality before merging. |
 | `$/.github/workflows/codeql.yml` | No description provided. |
-| `$/.github/workflows/publish-nuget-manual.yml` | GitHub Actions workflow for manually building, testing, and publishing a stable, non-prerelease version of the `Ama.CRDT` NuGet package. It includes a check to ensure no unshipped public APIs are present in a stable release. |
-| `$/.github/workflows/publish-nuget.yml` | GitHub Actions workflow for building, testing, and publishing the `Ama.CRDT` NuGet package (including its Roslyn analyzers) on pushes to the `master` branch. |
+| `$/.github/workflows/publish-preview-to-nuget.yml` | No description provided. |
+| `$/.github/workflows/publish-release-to-nuget-manual.yml` | No description provided. |
 | `$/.gitignore` | No description provided. |
 | `$/Ama.CRDT.Analyzers.UnitTests/Ama.CRDT.Analyzers.UnitTests.csproj` | The project file for the unit tests of the Roslyn analyzers. |
 | `$/Ama.CRDT.Analyzers.UnitTests/CrdtDecoratorBehaviorAnalyzerTests.cs` | Contains unit tests for `CrdtDecoratorBehaviorAnalyzer`, verifying it correctly allows valid behavior DI registrations and reports diagnostics for unsupported ones. |
