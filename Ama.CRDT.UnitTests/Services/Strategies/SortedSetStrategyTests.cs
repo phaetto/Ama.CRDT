@@ -574,7 +574,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[2]", OperationType.Upsert, new TestUser("Charlie", "Charlie"), timestampProvider.Now(), 0)));
         strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[3]", OperationType.Upsert, new TestUser("Dave", "Dave"), timestampProvider.Now(), 0)));
 
-        var result = strategy.Split(doc, meta, propInfo);
+        var result = strategy.SplitToDisjoint(doc, meta, propInfo);
 
         result.SplitKey.ShouldBe("Charlie");
 
@@ -610,7 +610,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Charlie", "Charlie"), timestampProvider.Now(), 0)));
         strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now(), 0)));
 
-        var result = strategy.Merge(doc1, meta1, doc2, meta2, propInfo);
+        var result = strategy.MergeDisjoint(doc1, meta1, doc2, meta2, propInfo);
 
         var mergedDoc = (ConvergenceTestModel)result.Data;
         mergedDoc.Users.Select(u => u.Name).ShouldBe(["Alice", "Bob", "Charlie", "Dave"]); // Already sorted correctly by Name

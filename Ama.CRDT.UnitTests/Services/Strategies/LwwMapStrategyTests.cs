@@ -315,7 +315,7 @@ public sealed class LwwMapStrategyTests
         });
 
         // Act
-        var result = strategy.Split(doc.Data, doc.Metadata, mapProperty);
+        var result = strategy.SplitToDisjoint(doc.Data, doc.Metadata, mapProperty);
 
         // Assert
         result.SplitKey.ShouldBe("c");
@@ -357,7 +357,7 @@ public sealed class LwwMapStrategyTests
         });
 
         // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.Split(doc.Data, doc.Metadata, mapProperty));
+        Should.Throw<InvalidOperationException>(() => strategy.SplitToDisjoint(doc.Data, doc.Metadata, mapProperty));
     }
 
     [Fact]
@@ -382,7 +382,7 @@ public sealed class LwwMapStrategyTests
         });
 
         // Act
-        var result = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapProperty);
+        var result = strategy.MergeDisjoint(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapProperty);
 
         // Assert
         var mergedDoc = (LwwMapTestModel)result.Data;

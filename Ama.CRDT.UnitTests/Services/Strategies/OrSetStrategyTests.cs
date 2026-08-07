@@ -356,7 +356,7 @@ public sealed class OrSetStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("c", Guid.NewGuid()), ts.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("d", Guid.NewGuid()), ts.Now(), 0)));
 
-        var result = strategyA.Split(doc, meta, propInfo);
+        var result = strategyA.SplitToDisjoint(doc, meta, propInfo);
 
         result.SplitKey.ShouldBe("c");
 
@@ -386,7 +386,7 @@ public sealed class OrSetStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("c", Guid.NewGuid()), ts.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("d", Guid.NewGuid()), ts.Now(), 0)));
 
-        var result = strategyA.Merge(doc1, meta1, doc2, meta2, propInfo);
+        var result = strategyA.MergeDisjoint(doc1, meta1, doc2, meta2, propInfo);
 
         var mergedDoc = (TestModel)result.Data;
         mergedDoc.Tags.ShouldBe(["a", "b", "c", "d"], ignoreOrder: true);

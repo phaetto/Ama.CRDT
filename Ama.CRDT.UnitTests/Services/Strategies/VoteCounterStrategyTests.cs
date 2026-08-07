@@ -346,7 +346,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("c", "O2"), timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("d", "O2"), timestampProvider.Now(), 0)));
 
-        var result = strategyA.Split(doc, meta, propInfo);
+        var result = strategyA.SplitToDisjoint(doc, meta, propInfo);
 
         result.SplitKey.ShouldBe("c");
 
@@ -375,7 +375,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("c", "O2"), timestampProvider.Now(), 0)));
         strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("d", "O2"), timestampProvider.Now(), 0)));
 
-        var result = strategyA.Merge(doc1, meta1, doc2, meta2, propInfo);
+        var result = strategyA.MergeDisjoint(doc1, meta1, doc2, meta2, propInfo);
 
         var mergedDoc = (Poll)result.Data;
         mergedDoc.Votes["O1"].ShouldBe(["a", "b"], ignoreOrder: true);

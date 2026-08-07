@@ -406,7 +406,7 @@ public sealed class FwwMapStrategyTests
         });
 
         // Act
-        var result = strategy.Split(doc.Data, doc.Metadata, prop);
+        var result = strategy.SplitToDisjoint(doc.Data, doc.Metadata, prop);
 
         // Assert
         result.SplitKey.ShouldBe("c");
@@ -455,7 +455,7 @@ public sealed class FwwMapStrategyTests
         });
 
         // Act & Assert
-        Should.Throw<InvalidOperationException>(() => strategy.Split(doc.Data, doc.Metadata, prop));
+        Should.Throw<InvalidOperationException>(() => strategy.SplitToDisjoint(doc.Data, doc.Metadata, prop));
     }
 
     [Fact]
@@ -486,7 +486,7 @@ public sealed class FwwMapStrategyTests
         });
 
         // Act
-        var result = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, prop);
+        var result = strategy.MergeDisjoint(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, prop);
 
         // Assert
         var mergedDoc = (FwwMapTestModel)result.Data;

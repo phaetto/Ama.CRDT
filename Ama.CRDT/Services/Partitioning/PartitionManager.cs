@@ -417,7 +417,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         SplitResult splitResult;
         using (new MetricTimer(metrics.StrategySplitDuration))
         {
-            splitResult = strategy.Split(crdtDoc.Data!, crdtDoc.Metadata!, prop);
+            splitResult = strategy.SplitToDisjoint(crdtDoc.Data!, crdtDoc.Metadata!, prop);
         }
 
         var originalKey = dataPartitionToSplit.StartKey;

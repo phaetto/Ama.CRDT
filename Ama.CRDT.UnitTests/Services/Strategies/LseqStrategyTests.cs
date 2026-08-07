@@ -283,7 +283,7 @@ public sealed class LseqStrategyTests : IDisposable
         var originalIdentifiers = itemsState.Trackers.Select(i => i.Identifier).ToList();
 
         // Act
-        var splitResult = lseqStrategy.Split(crdtDoc.Data, crdtDoc.Metadata, itemsProperty);
+        var splitResult = lseqStrategy.SplitToDisjoint(crdtDoc.Data, crdtDoc.Metadata, itemsProperty);
 
         // Assert
         splitResult.SplitKey.ShouldBeOfType<LseqIdentifier>();
@@ -319,10 +319,10 @@ public sealed class LseqStrategyTests : IDisposable
         var patch = patcherA.GeneratePatch(crdtDoc, modified);
         applicatorA.ApplyPatch(crdtDoc, patch);
 
-        var splitResult = lseqStrategy.Split(crdtDoc.Data, crdtDoc.Metadata, itemsProperty);
+        var splitResult = lseqStrategy.SplitToDisjoint(crdtDoc.Data, crdtDoc.Metadata, itemsProperty);
 
         // Act
-        var mergedResult = lseqStrategy.Merge(
+        var mergedResult = lseqStrategy.MergeDisjoint(
             splitResult.Partition1.Data, splitResult.Partition1.Metadata, 
             splitResult.Partition2.Data, splitResult.Partition2.Metadata, 
             itemsProperty);
@@ -351,7 +351,7 @@ public sealed class LseqStrategyTests : IDisposable
 
         // Act & Assert
         Should.Throw<InvalidOperationException>(() => 
-            lseqStrategy.Split(crdtDoc.Data, crdtDoc.Metadata, itemsProperty));
+            lseqStrategy.SplitToDisjoint(crdtDoc.Data, crdtDoc.Metadata, itemsProperty));
     }
 
     [Fact]

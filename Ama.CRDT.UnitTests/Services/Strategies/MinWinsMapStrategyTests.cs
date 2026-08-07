@@ -210,7 +210,7 @@ public sealed class MinWinsMapStrategyTests
         strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now(), 0)) { Target = doc.Data, Property = propInfo });
         strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now(), 0)) { Target = doc.Data, Property = propInfo });
 
-        var result = strategy.Split(doc.Data, doc.Metadata, propInfo);
+        var result = strategy.SplitToDisjoint(doc.Data, doc.Metadata, propInfo);
 
         result.SplitKey.ShouldBe("c");
 
@@ -236,7 +236,7 @@ public sealed class MinWinsMapStrategyTests
         strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 5), timestampProvider.Now(), 0)) { Target = doc2.Data, Property = propInfo }); // lower value
         strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now(), 0)) { Target = doc2.Data, Property = propInfo });
 
-        var merged = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo);
+        var merged = strategy.MergeDisjoint(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo);
 
         var mergedDoc = (TestModel)merged.Data;
         mergedDoc.Map.Keys.ShouldBe(["a", "b", "c"], ignoreOrder: true);

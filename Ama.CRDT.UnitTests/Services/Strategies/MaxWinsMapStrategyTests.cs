@@ -203,7 +203,7 @@ public sealed class MaxWinsMapStrategyTests
         strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now(), 0)));
         strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now(), 0)));
 
-        var result = strategy.Split(doc.Data, doc.Metadata, mapPropInfo);
+        var result = strategy.SplitToDisjoint(doc.Data, doc.Metadata, mapPropInfo);
 
         result.SplitKey.ShouldBe("c");
 
@@ -229,7 +229,7 @@ public sealed class MaxWinsMapStrategyTests
         strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 50), timestampProvider.Now(), 0))); // higher value
         strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now(), 0)));
 
-        var merged = strategy.Merge(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapPropInfo);
+        var merged = strategy.MergeDisjoint(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapPropInfo);
 
         var mergedDoc = (TestModel)merged.Data;
         mergedDoc.Map.Keys.ShouldBe(["a", "b", "c"], ignoreOrder: true);

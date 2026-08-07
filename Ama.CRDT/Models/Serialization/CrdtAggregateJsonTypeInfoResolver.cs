@@ -43,7 +43,7 @@ public sealed class CrdtAggregateJsonTypeInfoResolver : IJsonTypeInfoResolver
                 }
                 else
                 {
-                    // Merge polymorphism options from subsequent resolvers.
+                    // MergeDisjoint polymorphism options from subsequent resolvers.
                     // This is crucial for fixing the issue where secondary contexts are ignored
                     // by JsonTypeInfoResolver.Combine when resolving common base polymorphic types.
                     if (info.PolymorphismOptions != null)

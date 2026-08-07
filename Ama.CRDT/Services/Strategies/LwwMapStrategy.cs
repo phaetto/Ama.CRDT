@@ -256,7 +256,7 @@ public sealed class LwwMapStrategy(
     }
 
     /// <inheritdoc/>
-    public SplitResult Split(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
+    public SplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
         if (originalData is null) throw new ArgumentNullException(nameof(originalData));
         if (originalMetadata is null) throw new ArgumentNullException(nameof(originalMetadata));
@@ -298,7 +298,7 @@ public sealed class LwwMapStrategy(
     }
 
     /// <inheritdoc/>
-    public PartitionContent Merge(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
+    public PartitionContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         if (data1 is null) throw new ArgumentNullException(nameof(data1));
         if (meta1 is null) throw new ArgumentNullException(nameof(meta1));
@@ -315,7 +315,7 @@ public sealed class LwwMapStrategy(
         
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        // CrdtMetadata.Merge blindly overwrites nested maps with the last passed metadata for that path.
+        // CrdtMetadata.MergeDisjoint blindly overwrites nested maps with the last passed metadata for that path.
         // We need to properly combine the specific disjoint keys of the partitioned map here manually.
         var items1 = meta1.States.TryGetValue(path, out var s1) && s1 is LwwMapState ls1 ? ls1.Keys : new Dictionary<object, CausalTimestamp>(comparer);
         var items2 = meta2.States.TryGetValue(path, out var s2) && s2 is LwwMapState ls2 ? ls2.Keys : new Dictionary<object, CausalTimestamp>(comparer);
