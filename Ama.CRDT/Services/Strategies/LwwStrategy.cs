@@ -109,10 +109,14 @@ public sealed class LwwStrategy(
     /// <inheritdoc/>
     public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        MergeState(data1, meta1, data2, meta2, property, $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}");
+    }
 
-        meta1.States.TryGetValue(path, out var baseState1);
-        meta2.States.TryGetValue(path, out var baseState2);
+    /// <inheritdoc/>
+    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property, string propertyPath)
+    {
+        meta1.States.TryGetValue(propertyPath, out var baseState1);
+        meta2.States.TryGetValue(propertyPath, out var baseState2);
 
         var hasTs1 = baseState1 is CausalTimestamp;
         var hasTs2 = baseState2 is CausalTimestamp;
@@ -124,7 +128,7 @@ public sealed class LwwStrategy(
             {
                 if (!hasTs1)
                 {
-                    meta1.States[path] = ts2;
+                    meta1.States[propertyPath] = ts2;
                     property.Setter!(data1, property.Getter!(data2));
                 }
                 else
@@ -132,7 +136,7 @@ public sealed class LwwStrategy(
                     var ts1 = (CausalTimestamp)baseState1!;
                     if (ts1.Timestamp is null || ts2.Timestamp.CompareTo(ts1.Timestamp) > 0)
                     {
-                        meta1.States[path] = ts2;
+                        meta1.States[propertyPath] = ts2;
                         property.Setter!(data1, property.Getter!(data2));
                     }
                 }

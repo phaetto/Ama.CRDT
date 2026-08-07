@@ -20,6 +20,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
     private readonly IServiceScope scope;
     private readonly ICrdtPatcher patcher;
     private readonly ICrdtApplicator applicator;
+    private readonly ICrdtMerger merger;
     private readonly ICrdtMetadataManager metadataManager;
     private readonly ICrdtTimestampProvider timestampProvider;
 
@@ -39,6 +40,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         scope = scopeFactory.CreateScope("test-replica-1");
         patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         applicator = scope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        merger = scope.ServiceProvider.GetRequiredService<ICrdtMerger>();
         metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
     }
@@ -787,5 +789,167 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         result.UnappliedOperations.ShouldBeEmpty();
         doc.Metadata.VersionVector["test-replica-2"].ShouldBe(1);
         model.Users.ContainsKey("missing_user").ShouldBeFalse();
+    }
+
+    [Fact]
+    public void ComplexComposition_Merger_ShouldDeepMergeNestedObjects()
+    {
+        using var scope2 = scope.ServiceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test-replica-2");
+        var patcher2 = scope2.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var applicator2 = scope2.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        var metadataManager2 = scope2.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+
+        // Arrange
+        var model1 = new TestRoot();
+        var meta1 = metadataManager.Initialize(model1);
+        var doc1 = new CrdtDocument<TestRoot>(model1, meta1);
+        
+        var model2 = new TestRoot();
+        var meta2 = metadataManager2.Initialize(model2);
+        var doc2 = new CrdtDocument<TestRoot>(model2, meta2);
+
+        var baseTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        // Replica 1 modifies Count
+        var mod1 = new TestRoot { Level1 = new TestLevel1 { Level2 = new TestLevel2 { Count = 42 } } };
+        var patch1 = patcher.GeneratePatch(doc1, mod1, timestampProvider.Create(baseTime + 1000));
+        applicator.ApplyPatch(doc1, patch1);
+
+        // Replica 2 modifies Message
+        var mod2 = new TestRoot { Level1 = new TestLevel1 { Level2 = new TestLevel2 { Message = "Merged!" } } };
+        var patch2 = patcher2.GeneratePatch(doc2, mod2, timestampProvider.Create(baseTime + 2000));
+        applicator2.ApplyPatch(doc2, patch2);
+
+        // Act
+        merger.MergeState(doc1, doc2);
+
+        // Assert
+        doc1.Data.Level1.ShouldNotBeNull();
+        doc1.Data.Level1!.Level2.ShouldNotBeNull();
+        doc1.Data.Level1.Level2!.Count.ShouldBe(42);
+        doc1.Data.Level1.Level2.Message.ShouldBe("Merged!");
+    }
+
+    [Fact]
+    public void ComplexComposition_Merger_ShouldSynchronizeAllStrategies()
+    {
+        using var scope2 = scope.ServiceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test-replica-2");
+        var patcher2 = scope2.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var applicator2 = scope2.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        var metadataManager2 = scope2.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+
+        // Arrange
+        var model1 = new ComplexDocument();
+        var meta1 = metadataManager.Initialize(model1);
+        var doc1 = new CrdtDocument<ComplexDocument>(model1, meta1);
+        
+        var model2 = new ComplexDocument();
+        var meta2 = metadataManager2.Initialize(model2);
+        var doc2 = new CrdtDocument<ComplexDocument>(model2, meta2);
+
+        var baseTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        // Replica 1 changes
+        var mod1 = new ComplexDocument { Title = "R1 Title", Status = DocStatus.Published };
+        mod1.Metrics["cpu"] = 80;
+        mod1.Log.Add("r1-log");
+        mod1.Network.Vertices.Add("NodeA");
+        var patch1 = patcher.GeneratePatch(doc1, mod1, timestampProvider.Create(baseTime + 1000));
+        applicator.ApplyPatch(doc1, patch1);
+
+        // Replica 2 changes
+        var mod2 = new ComplexDocument { Title = "R2 Title", Status = DocStatus.Published };
+        mod2.Metrics["mem"] = 1024;
+        mod2.Log.Add("r2-log");
+        mod2.Network.Vertices.Add("NodeB");
+        var patch2 = patcher2.GeneratePatch(doc2, mod2, timestampProvider.Create(baseTime + 2000));
+        applicator2.ApplyPatch(doc2, patch2);
+
+        // Act
+        merger.MergeState(doc1, doc2);
+
+        // Assert
+        doc1.Data.Title.ShouldBe("R2 Title"); // Highest timestamp wins (LWW)
+        doc1.Data.Metrics["cpu"].ShouldBe(80);
+        doc1.Data.Metrics["mem"].ShouldBe(1024);
+        doc1.Data.Log.ShouldContain("r1-log");
+        doc1.Data.Log.ShouldContain("r2-log");
+        doc1.Data.Network.Vertices.ShouldContain("NodeA");
+        doc1.Data.Network.Vertices.ShouldContain("NodeB");
+        doc1.Data.Status.ShouldBe(DocStatus.Published);
+    }
+
+    [Fact]
+    public void ComplexComposition_Merger_ShouldDeepMergeDictionaries()
+    {
+        using var scope2 = scope.ServiceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("test-replica-2");
+        var patcher2 = scope2.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var applicator2 = scope2.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        var metadataManager2 = scope2.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+
+        // Arrange - Shared Initial State
+        var model1 = new ComplexCollectionDocument();
+        model1.Users["u1"] = new ComplexItem { Id = "u1", Name = "Alice", Score = 10 };
+        var meta1 = metadataManager.Initialize(model1);
+        var doc1 = new CrdtDocument<ComplexCollectionDocument>(model1, meta1);
+
+        var model2 = new ComplexCollectionDocument();
+        model2.Users["u1"] = new ComplexItem { Id = "u1", Name = "Alice", Score = 10 };
+        var meta2 = metadataManager2.Initialize(model2);
+        var doc2 = new CrdtDocument<ComplexCollectionDocument>(model2, meta2);
+
+        var baseTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        // Replica 1 updates Name
+        var ts1 = timestampProvider.Create(baseTime + 1000);
+        var op1 = patcher.GenerateOperation(doc1, d => d.Users["u1"].Name, new SetIntent("Alice Smith"), ts1);
+        applicator.ApplyPatch(doc1, new CrdtPatch([op1]));
+
+        // Replica 2 updates Score
+        var ts2 = timestampProvider.Create(baseTime + 1500);
+        var op2 = patcher2.GenerateOperation(doc2, d => d.Users["u1"].Score, new SetIntent(99), ts2);
+        applicator2.ApplyPatch(doc2, new CrdtPatch([op2]));
+
+        // Act
+        merger.MergeState(doc1, doc2);
+
+        // Assert
+        doc1.Data.Users["u1"].Name.ShouldBe("Alice Smith");
+        doc1.Data.Users["u1"].Score.ShouldBe(99);
+    }
+
+    [Fact]
+    public void ComplexComposition_Merger_ShouldCombineCausalHistories()
+    {
+        // Arrange
+        var model1 = new TestRoot();
+        var meta1 = metadataManager.Initialize(model1);
+        var doc1 = new CrdtDocument<TestRoot>(model1, meta1);
+        
+        var model2 = new TestRoot();
+        var meta2 = metadataManager.Initialize(model2);
+        var doc2 = new CrdtDocument<TestRoot>(model2, meta2);
+
+        doc1.Metadata.VersionVector["r1"] = 5;
+        doc1.Metadata.VersionVector["r2"] = 2;
+
+        doc2.Metadata.VersionVector["r1"] = 3;
+        doc2.Metadata.VersionVector["r2"] = 7;
+        doc2.Metadata.VersionVector["r3"] = 1;
+
+        var opId = Guid.NewGuid();
+        var exceptionOp = new CrdtOperation(opId, "r4", "$.level1", OperationType.Upsert, null, timestampProvider.Create(1), 1);
+        doc2.Metadata.SeenExceptions.Add(exceptionOp);
+
+        // Act
+        merger.MergeState(doc1, doc2);
+
+        // Assert max is taken for Version Vectors
+        doc1.Metadata.VersionVector["r1"].ShouldBe(5);
+        doc1.Metadata.VersionVector["r2"].ShouldBe(7);
+        doc1.Metadata.VersionVector["r3"].ShouldBe(1);
+
+        // Assert seen exceptions are unioned
+        doc1.Metadata.SeenExceptions.ShouldContain(exceptionOp);
     }
 }
