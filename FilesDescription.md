@@ -154,12 +154,15 @@
 | `$/Ama.CRDT.UnitTests/Models/Serialization/TestJsonSerializerContext.cs` | Provides test-specific `JsonSerializerContext` to enable AOT-compatible testing for internal mock classes and test-defined generics. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/TestOptionsHelper.cs` | Helper for tests to initialize `JsonSerializerOptions` that merge the core library `CrdtJsonContext` with `TestJsonSerializerContext`. |
 | `$/Ama.CRDT.UnitTests/Services/Adapters/AsyncCrdtApplicatorAdapterTests.cs` | Contains unit tests for `AsyncCrdtApplicatorAdapter`, verifying its bridging of synchronous execution to asynchronous interfaces and cancellation handling. |
+| `$/Ama.CRDT.UnitTests/Services/Adapters/AsyncCrdtMergerAdapterTests.cs` | Contains unit tests for `AsyncCrdtMergerAdapter`, validating correct delegation to the synchronous inner merger and cancellation handling. |
 | `$/Ama.CRDT.UnitTests/Services/Adapters/AsyncCrdtPatcherAdapterTests.cs` | Contains unit tests for `AsyncCrdtPatcherAdapter`, validating proper adaptation of patch and operation generation with cancellation checks. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtApplicatorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtComposableArchitectureTests.cs` | Contains integration tests for the CRDT composable architecture, verifying that the Patcher and Applicator correctly handle deep nesting, complex model traversal, intent-based operation generation, and resolution across multiple nested CRDT strategies (LSEQ, Min-Wins Map, State Machine, Graph, etc.). |
+| `$/Ama.CRDT.UnitTests/Services/CrdtMergerTests.cs` | Contains unit tests for `CrdtMerger`, verifying the synchronous LUB state merge logic and causal history merging. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtMetadataManagerTests.cs` | Contains unit tests for the `CrdtMetadataManager`, verifying LWW pruning and version vector advancement logic. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtPatcherTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/CompactingApplicatorDecoratorTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Decorators/CompactingMergerDecoratorTests.cs` | Contains unit tests for `CompactingMergerDecorator`, verifying that it triggers metadata compaction following a state merge. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/DecoratorsTestCrdtContext.cs` | A dedicated AOT context for the decorators unit tests to provide reflection-free property metadata for test-specific models. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/JournalingApplicatorDecoratorTests.cs` | Contains unit tests for `JournalingApplicatorDecorator`, validating that only successfully applied CRDT operations are dispatched to the operation journal. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/JournalingPatcherDecoratorTests.cs` | Contains unit tests for `JournalingPatcherDecorator`, verifying that generated patches, intents, and explicit operations are properly captured and journaled. |
@@ -382,14 +385,18 @@
 | `$/Ama.CRDT/PublicAPI.Shipped.txt` | Tracks the shipped public API surface of the library to detect breaking changes. This file should be updated when new APIs are officially released in a stable version. |
 | `$/Ama.CRDT/PublicAPI.Unshipped.txt` | Tracks new public APIs that have not yet been included in a stable release. This file must be empty before a manual, stable publish. Build will fail if new public APIs are added without being added to this file first. |
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtApplicatorAdapter.cs` | No description provided. |
+| `$/Ama.CRDT/Services/Adapters/AsyncCrdtMergerAdapter.cs` | An adapter that bridges the synchronous `ICrdtMerger` to the asynchronous `IAsyncCrdtMerger` pipeline. |
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtPatcherAdapter.cs` | An adapter that bridges the synchronous `ICrdtPatcher` to the asynchronous `IAsyncCrdtPatcher` pipeline, acting as the base layer in the patcher decorator chain. |
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | No description provided. |
+| `$/Ama.CRDT/Services/CrdtMerger.cs` | Synchronous implementation of `ICrdtMerger` that leverages object tree traversal to compute the state merge mathematically using strategy providers. |
 | `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implements the `ICrdtMetadataManager` for managing and compacting CRDT metadata. It provides helper methods like Initialize(document) to create a metadata object from a POCO by reflecting on its properties, and Reset(metadata, document) to clear and re-initialize an existing metadata object. The initialization logic correctly traverses nested objects and collections. |
 | `$/Ama.CRDT/Services/CrdtPatcher.cs` | Generates CRDT operations dynamically utilizing AOT context and `CrdtPropertyKey` identifiers. |
 | `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext` holding the unique replica ID. |
 | `$/Ama.CRDT/Services/Decorators/AsyncCrdtApplicatorDecoratorBase.cs` | An abstract base class for `IAsyncCrdtApplicator` decorators. Uses the `DecoratorBehavior` enum in its constructor to strictly control the Template Method execution flow, making bugs around pipeline ordering structurally impossible. |
+| `$/Ama.CRDT/Services/Decorators/AsyncCrdtMergerDecoratorBase.cs` | An abstract base class for `IAsyncCrdtMerger` decorators supporting execution flow management via `DecoratorBehavior`. |
 | `$/Ama.CRDT/Services/Decorators/AsyncCrdtPatcherDecoratorBase.cs` | An abstract base class for `IAsyncCrdtPatcher` decorators. Uses the `DecoratorBehavior` enum in its constructor to safely structure patch and operation generation overrides. |
 | `$/Ama.CRDT/Services/Decorators/CompactingApplicatorDecorator.cs` | A decorator for `IAsyncCrdtApplicator` that automatically runs garbage collection on the document's metadata. Refactored to declare `DecoratorBehavior.After` flow using the new base class attributes. |
+| `$/Ama.CRDT/Services/Decorators/CompactingMergerDecorator.cs` | A decorator for `IAsyncCrdtMerger` that runs metadata compaction after successfully merging document states. |
 | `$/Ama.CRDT/Services/Decorators/JournalingApplicatorDecorator.cs` | Decorator for intercepting patch applications, updated to use `IDocumentIdProvider` via dependency injection. |
 | `$/Ama.CRDT/Services/Decorators/JournalingPatcherDecorator.cs` | Decorator for intercepting patch generations, updated to use `IDocumentIdProvider` via dependency injection. |
 | `$/Ama.CRDT/Services/Decorators/PartitioningApplicatorDecorator.cs` | A global decorator implementation of `IAsyncCrdtApplicator` that acts as a `Complex` interceptor to manage recursive partition splitting and merging. Refactored to completely avoid Tuples in favor of struct DTOs and strict behavioral flow. |
@@ -404,8 +411,10 @@
 | `$/Ama.CRDT/Services/Helpers/MetadataPathHelper.cs` | Provides formalized methods for constructing and evaluating metadata state paths, ensuring decorator strategies isolate their state safely without string mangling bugs. |
 | `$/Ama.CRDT/Services/Helpers/PocoPathHelper.cs` | Helper class for parsing JSON paths, refactored to extract `GetDocumentId` functionality into `IDocumentIdProvider`. |
 | `$/Ama.CRDT/Services/IAsyncCrdtApplicator.cs` | Defines the asynchronous contract for a service that applies a CRDT patch to a document. |
+| `$/Ama.CRDT/Services/IAsyncCrdtMerger.cs` | Defines the asynchronous contract for merging two complete CRDT document states. |
 | `$/Ama.CRDT/Services/IAsyncCrdtPatcher.cs` | Defines the asynchronous contract for a service that compares two versions of a data model and generates a CRDT patch. |
 | `$/Ama.CRDT/Services/ICrdtApplicator.cs` | No description provided. |
+| `$/Ama.CRDT/Services/ICrdtMerger.cs` | Defines the synchronous contract for a service that merges two complete CRDT document states based on the CvRDT paradigm. |
 | `$/Ama.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing CRDT metadata. Its responsibilities include initializing, resetting, cloning, merging, and compacting metadata state such as LWW timestamps, positional trackers, and version vectors. This service is critical for enabling conflict-free merges by externalizing the state needed for resolution. |
 | `$/Ama.CRDT/Services/ICrdtPatcher.cs` | Defines the contract for a service that compares two versions of a data model and generates a CRDT patch, as well as an intent-based method for creating patches directly. |
 | `$/Ama.CRDT/Services/ICrdtScopeFactory.cs` | Defines the contract for a factory that creates isolated `IServiceScope` instances for CRDT replicas, each configured with a unique replica ID. |

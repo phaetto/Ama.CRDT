@@ -315,8 +315,6 @@ public sealed class LwwMapStrategy(
         
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        // CrdtMetadata.MergeDisjoint blindly overwrites nested maps with the last passed metadata for that path.
-        // We need to properly combine the specific disjoint keys of the partitioned map here manually.
         var items1 = meta1.States.TryGetValue(path, out var s1) && s1 is LwwMapState ls1 ? ls1.Keys : new Dictionary<object, CausalTimestamp>(comparer);
         var items2 = meta2.States.TryGetValue(path, out var s2) && s2 is LwwMapState ls2 ? ls2.Keys : new Dictionary<object, CausalTimestamp>(comparer);
 
@@ -335,7 +333,7 @@ public sealed class LwwMapStrategy(
         var sortedItems = mergedItems.ToList();
         sortedItems.Sort((a, b) => ((IComparable)a.Key).CompareTo((IComparable)b.Key));
         
-        ReconstructDictionaryForMerge(mergedDoc, path, sortedItems, data1, meta1, data2, meta2, aotContexts);
+        ReconstructDictionaryForMerge(mergedDoc, data1, data2, partitionableProperty, path, sortedItems, meta1, meta2, aotContexts);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
@@ -343,18 +341,23 @@ public sealed class LwwMapStrategy(
     /// <inheritdoc/>
     public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
     {
+        MergeState(data1, meta1, data2, meta2, property, $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}");
+    }
+
+    /// <inheritdoc/>
+    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property, string propertyPath)
+    {
         if (data1 is null) throw new ArgumentNullException(nameof(data1));
         if (meta1 is null) throw new ArgumentNullException(nameof(meta1));
         if (data2 is null) throw new ArgumentNullException(nameof(data2));
         if (meta2 is null) throw new ArgumentNullException(nameof(meta2));
         if (property is null) throw new ArgumentNullException(nameof(property));
 
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
         var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
-        var items1 = meta1.States.TryGetValue(path, out var s1) && s1 is LwwMapState ls1 ? ls1.Keys : new Dictionary<object, CausalTimestamp>(comparer);
-        var items2 = meta2.States.TryGetValue(path, out var s2) && s2 is LwwMapState ls2 ? ls2.Keys : new Dictionary<object, CausalTimestamp>(comparer);
+        var items1 = meta1.States.TryGetValue(propertyPath, out var s1) && s1 is LwwMapState ls1 ? ls1.Keys : new Dictionary<object, CausalTimestamp>(comparer);
+        var items2 = meta2.States.TryGetValue(propertyPath, out var s2) && s2 is LwwMapState ls2 ? ls2.Keys : new Dictionary<object, CausalTimestamp>(comparer);
 
         var mergedItems = new Dictionary<object, CausalTimestamp>(comparer);
         foreach (var kvp in items1) mergedItems[kvp.Key] = kvp.Value;
@@ -371,9 +374,9 @@ public sealed class LwwMapStrategy(
 
         // Reconstruct the dictionary in data1 before modifying meta1,
         // because ReconstructDictionaryForMerge needs to know the original meta1 timestamps.
-        ReconstructDictionaryForMerge(data1, path, sortedItems, data1, meta1, data2, meta2, aotContexts);
+        ReconstructDictionaryForMerge(data1, data1, data2, property, propertyPath, sortedItems, meta1, meta2, aotContexts);
 
-        meta1.States[path] = new LwwMapState(mergedItems);
+        meta1.States[propertyPath] = new LwwMapState(mergedItems);
     }
 
     private static void ReconstructDictionaryForSplitMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object originalData, IEnumerable<CrdtAotContext> aotContexts)
@@ -402,21 +405,18 @@ public sealed class LwwMapStrategy(
         }
     }
 
-    private static void ReconstructDictionaryForMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, IEnumerable<CrdtAotContext> aotContexts)
+    private static void ReconstructDictionaryForMerge(object targetParent, object source1Parent, object source2Parent, CrdtPropertyInfo property, string path, List<KeyValuePair<object, CausalTimestamp>> items, CrdtMetadata meta1, CrdtMetadata meta2, IEnumerable<CrdtAotContext> aotContexts)
     {
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);
-        var (parent1, property1, _) = PocoPathHelper.ResolvePath(data1, path, aotContexts);
-        var (parent2, property2, _) = PocoPathHelper.ResolvePath(data2, path, aotContexts);
-
-        if (parent is null || property is null) return;
-
-        var dict1 = property1 != null ? property1.Getter!(parent1!) as IDictionary : null;
-        var dict2 = property2 != null ? property2.Getter!(parent2!) as IDictionary : null;
+        var dict1 = source1Parent != null ? property.Getter!(source1Parent) as IDictionary : null;
+        var dict2 = source2Parent != null ? property.Getter!(source2Parent) as IDictionary : null;
 
         var typeInfo = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts);
         var keyType = typeInfo.DictionaryKeyType ?? typeof(object);
+        var valueType = typeInfo.DictionaryValueType ?? typeof(object);
+        var isComplex = valueType.IsClass && valueType != typeof(string);
+
         var dict = (IDictionary)PocoPathHelper.Instantiate(property.PropertyType, aotContexts);
-        property.Setter!(parent, dict);
+        property.Setter!(targetParent, dict);
 
         var items1 = meta1.States.TryGetValue(path, out var s1) && s1 is LwwMapState ls1 ? ls1.Keys : null;
         var items2 = meta2.States.TryGetValue(path, out var s2) && s2 is LwwMapState ls2 ? ls2.Keys : null;
@@ -431,20 +431,28 @@ public sealed class LwwMapStrategy(
 
             if (inDict1 && inDict2)
             {
-                var ts1 = items1?.TryGetValue(item.Key, out var t1) == true ? (CausalTimestamp?)t1 : null;
-                var ts2 = items2?.TryGetValue(item.Key, out var t2) == true ? (CausalTimestamp?)t2 : null;
-
-                if (ts2 != null && ts1 != null && ts2.Value.CompareTo(ts1.Value) > 0)
+                if (isComplex)
                 {
-                    dict[typedKey] = dict2![typedKey];
-                }
-                else if (ts2 != null && ts1 == null)
-                {
-                    dict[typedKey] = dict2![typedKey];
+                    // For complex objects, keep dict1's reference so CrdtMerger can deeply merge into it dynamically.
+                    dict[typedKey] = dict1![typedKey];
                 }
                 else
                 {
-                    dict[typedKey] = dict1![typedKey];
+                    var ts1 = items1?.TryGetValue(item.Key, out var t1) == true ? (CausalTimestamp?)t1 : null;
+                    var ts2 = items2?.TryGetValue(item.Key, out var t2) == true ? (CausalTimestamp?)t2 : null;
+
+                    if (ts2 != null && ts1 != null && ts2.Value.CompareTo(ts1.Value) > 0)
+                    {
+                        dict[typedKey] = dict2![typedKey];
+                    }
+                    else if (ts2 != null && ts1 == null)
+                    {
+                        dict[typedKey] = dict2![typedKey];
+                    }
+                    else
+                    {
+                        dict[typedKey] = dict1![typedKey];
+                    }
                 }
             }
             else if (inDict1)

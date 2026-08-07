@@ -111,6 +111,13 @@ public static class ServiceCollectionExtensions
         // Base asynchronous pipeline executor. Translates IAsyncCrdtPatcher to ICrdtPatcher.
         services.TryAddScoped<IAsyncCrdtPatcher>(sp => new AsyncCrdtPatcherAdapter(sp.GetRequiredService<ICrdtPatcher>()));
         
+        // Register the Merger services
+        services.TryAddScoped<CrdtMerger>();
+        services.TryAddScoped<ICrdtMerger>(sp => { ValidateReplicaScope(sp, nameof(CrdtMerger)); return sp.GetRequiredService<CrdtMerger>(); });
+
+        // Base asynchronous pipeline executor. Translates IAsyncCrdtMerger to ICrdtMerger.
+        services.TryAddScoped<IAsyncCrdtMerger>(sp => new AsyncCrdtMergerAdapter(sp.GetRequiredService<ICrdtMerger>()));
+        
         services.TryAddScoped<CrdtStrategyProvider>();
         services.TryAddScoped<ICrdtStrategyProvider>(sp => { ValidateReplicaScope(sp, nameof(CrdtStrategyProvider)); return sp.GetRequiredService<CrdtStrategyProvider>(); });
         
@@ -306,6 +313,29 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         return services.DecorateService<IAsyncCrdtPatcher, TDecorator>(behavior);
+    }
+
+    /// <summary>
+    /// Decorates the previously registered <see cref="IAsyncCrdtMerger"/> with the specified decorator type.
+    /// This allows building a pipeline for State-based merges (e.g., adding compacting logic after merging).
+    /// </summary>
+    /// <typeparam name="TDecorator">The decorator implementation of <see cref="IAsyncCrdtMerger"/>.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <param name="behavior">The explicitly required behavior for this decorator, if it needs to be overridden or directly instantiated by DI.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    /// <example>
+    /// <code>
+    /// <![CDATA[
+    /// builder.Services.AddCrdt()
+    ///                 .AddCrdtMergerDecorator<CompactingMergerDecorator>(DecoratorBehavior.After);
+    /// ]]>
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddCrdtMergerDecorator<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(this IServiceCollection services, DecoratorBehavior behavior)
+        where TDecorator : class, IAsyncCrdtMerger
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return services.DecorateService<IAsyncCrdtMerger, TDecorator>(behavior);
     }
 
     /// <summary>
