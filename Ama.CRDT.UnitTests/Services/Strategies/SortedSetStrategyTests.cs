@@ -705,7 +705,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now(), 0)));
 
         // Act
-        strategy.MergeState(doc1, meta1, doc2, meta2, propInfo);
+        strategy.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, propInfo, "$.users"));
 
         // Assert
         doc1.Users.Select(u => u.Name).ShouldBe(["Alice", "Bob", "Charlie", "Dave"]);

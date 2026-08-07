@@ -166,9 +166,9 @@ public sealed class CounterMapStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
 
         var typeInfo = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts);
         var keyType = typeInfo.DictionaryKeyType ?? typeof(object);
@@ -177,8 +177,8 @@ public sealed class CounterMapStrategy(
 
         var mergedCounters = new Dictionary<object, PnCounterState>(comparer);
 
-        meta1.States.TryGetValue(path, out var state1);
-        meta2.States.TryGetValue(path, out var state2);
+        meta1.States.TryGetValue(propertyPath, out var state1);
+        meta2.States.TryGetValue(propertyPath, out var state2);
 
         var mapState1 = state1 as CounterMapState;
         var mapState2 = state2 as CounterMapState;
@@ -214,9 +214,9 @@ public sealed class CounterMapStrategy(
             }
         }
 
-        meta1.States[path] = new CounterMapState(mergedCounters);
+        meta1.States[propertyPath] = new CounterMapState(mergedCounters);
 
-        ReconstructDictionaryForSplitMerge(data1, path, mergedCounters, keyType, valueType, aotContexts);
+        ReconstructDictionaryForSplitMerge(data1, propertyPath, mergedCounters, keyType, valueType, aotContexts);
     }
 
     /// <inheritdoc/>

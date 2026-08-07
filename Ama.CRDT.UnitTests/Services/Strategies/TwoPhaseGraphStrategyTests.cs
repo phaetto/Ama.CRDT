@@ -294,7 +294,7 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(data1, meta1, op4));
 
         // Act
-        strategy.MergeState(data1, meta1, data2, meta2, propInfo);
+        strategy.MergeState(new MergeStateContext(data1, meta1, data2, meta2, propInfo, "$.graph"));
 
         // Assert
         data1.Graph.Vertices.ShouldNotContain("V1"); // Removed in data1 at 400

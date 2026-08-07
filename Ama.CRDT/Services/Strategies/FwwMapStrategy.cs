@@ -203,12 +203,12 @@ public sealed class FwwMapStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
+
         if (data1 is null || meta1 is null || data2 is null || meta2 is null || property is null) return;
 
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
-        
         var dict1 = property.Getter!(data1) as IDictionary;
         var dict2 = property.Getter!(data2) as IDictionary;
 
@@ -222,13 +222,13 @@ public sealed class FwwMapStrategy(
         var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
-        if (!meta1.States.TryGetValue(path, out var baseState1) || baseState1 is not FwwMapState mapState1)
+        if (!meta1.States.TryGetValue(propertyPath, out var baseState1) || baseState1 is not FwwMapState mapState1)
         {
             mapState1 = new FwwMapState(new Dictionary<object, CausalTimestamp>(comparer));
-            meta1.States[path] = mapState1;
+            meta1.States[propertyPath] = mapState1;
         }
 
-        if (!meta2.States.TryGetValue(path, out var baseState2) || baseState2 is not FwwMapState mapState2)
+        if (!meta2.States.TryGetValue(propertyPath, out var baseState2) || baseState2 is not FwwMapState mapState2)
         {
             return; // Nothing to merge from meta2
         }

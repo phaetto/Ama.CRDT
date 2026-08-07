@@ -133,12 +133,13 @@ public sealed class FixedSizeArrayStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
+
         if (data1 is null || meta1 is null || data2 is null || meta2 is null || property is null) return;
         if (property.StrategyAttribute is not CrdtFixedSizeArrayStrategyAttribute attr) return;
 
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
         var list1 = property.Getter!(data1) as IList;
         var list2 = property.Getter!(data2) as IList;
 
@@ -148,7 +149,7 @@ public sealed class FixedSizeArrayStrategy(
 
         for (var i = 0; i < attr.Size; i++)
         {
-            var elementPath = $"{path}[{i}]";
+            var elementPath = $"{propertyPath}[{i}]";
             var hasMeta1 = meta1.States.TryGetValue(elementPath, out var state1);
             var hasMeta2 = meta2.States.TryGetValue(elementPath, out var state2);
 

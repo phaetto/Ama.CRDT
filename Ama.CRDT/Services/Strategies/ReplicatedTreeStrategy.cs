@@ -264,22 +264,19 @@ public sealed class ReplicatedTreeStrategy(
     }
     
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var (data1, meta1, data2, meta2, property, path) = context;
 
-        var (parent1, prop1, _) = PocoPathHelper.ResolvePath(data1, path, aotContexts);
-        var (parent2, prop2, _) = PocoPathHelper.ResolvePath(data2, path, aotContexts);
+        if (data1 is null || data2 is null) return;
 
-        if (parent1 is null || prop1 is null || parent2 is null || prop2 is null) return;
-
-        var tree1 = prop1.Getter!(parent1) as CrdtTree;
-        var tree2 = prop2.Getter!(parent2) as CrdtTree;
+        var tree1 = property.Getter!(data1) as CrdtTree;
+        var tree2 = property.Getter!(data2) as CrdtTree;
 
         if (tree1 is null)
         {
             tree1 = new CrdtTree();
-            prop1.Setter!(parent1, tree1);
+            property.Setter!(data1, tree1);
         }
         if (tree2 is null)
         {

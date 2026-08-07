@@ -358,7 +358,8 @@ public sealed class LseqStrategyTests : IDisposable
         applicatorA.ApplyPatch(crdtDoc2, patch2);
 
         // Act
-        lseqStrategy.MergeState(crdtDoc1.Data, crdtDoc1.Metadata, crdtDoc2.Data, crdtDoc2.Metadata, itemsProperty);
+        var context = new MergeStateContext(crdtDoc1.Data, crdtDoc1.Metadata, crdtDoc2.Data, crdtDoc2.Metadata, itemsProperty, "$.items");
+        lseqStrategy.MergeState(context);
 
         // Assert
         crdtDoc1.Data.Items.Count.ShouldBe(3);

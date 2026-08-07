@@ -339,19 +339,9 @@ public sealed class LwwMapStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        MergeState(data1, meta1, data2, meta2, property, $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}");
-    }
-
-    /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property, string propertyPath)
-    {
-        if (data1 is null) throw new ArgumentNullException(nameof(data1));
-        if (meta1 is null) throw new ArgumentNullException(nameof(meta1));
-        if (data2 is null) throw new ArgumentNullException(nameof(data2));
-        if (meta2 is null) throw new ArgumentNullException(nameof(meta2));
-        if (property is null) throw new ArgumentNullException(nameof(property));
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
 
         var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);

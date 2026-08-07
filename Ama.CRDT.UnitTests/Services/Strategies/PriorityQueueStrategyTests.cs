@@ -472,7 +472,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", path, OperationType.Upsert, itemA50, ts4, 0)));
 
         // Act
-        strategy.MergeState(doc1, meta1, doc2, meta2, propInfo);
+        strategy.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, propInfo!, path));
 
         // Assert
         // B is removed

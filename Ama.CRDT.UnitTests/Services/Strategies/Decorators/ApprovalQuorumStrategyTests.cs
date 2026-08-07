@@ -277,7 +277,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         meta2.States["$.configValue|Quorum"] = new QuorumState(q2);
 
         // Act
-        strategy.MergeState(data1, meta1, data2, meta2, ConfigValueProperty);
+        strategy.MergeState(new MergeStateContext(data1, meta1, data2, meta2, ConfigValueProperty, "$.configValue"));
 
         // Assert
         var mergedState = meta1.States["$.configValue|Quorum"].ShouldBeOfType<QuorumState>();

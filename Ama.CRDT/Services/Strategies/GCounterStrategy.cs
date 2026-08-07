@@ -115,17 +115,17 @@ public sealed class GCounterStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
 
-        if (!meta1.States.TryGetValue(path, out var state1) || state1 is not GCounterState gState1)
+        if (!meta1.States.TryGetValue(propertyPath, out var state1) || state1 is not GCounterState gState1)
         {
             gState1 = new GCounterState(new Dictionary<string, decimal>());
-            meta1.States[path] = gState1;
+            meta1.States[propertyPath] = gState1;
         }
 
-        if (!meta2.States.TryGetValue(path, out var state2) || state2 is not GCounterState gState2)
+        if (!meta2.States.TryGetValue(propertyPath, out var state2) || state2 is not GCounterState gState2)
         {
             return;
         }
@@ -144,8 +144,8 @@ public sealed class GCounterStrategy(
 
         if (netDiff > 0m)
         {
-            var val1 = PocoPathHelper.GetValue<decimal>(data1, path, aotContexts);
-            PocoPathHelper.SetValue(data1, path, val1 + netDiff, aotContexts);
+            var val1 = PocoPathHelper.GetValue<decimal>(data1, propertyPath, aotContexts);
+            PocoPathHelper.SetValue(data1, propertyPath, val1 + netDiff, aotContexts);
         }
     }
 }

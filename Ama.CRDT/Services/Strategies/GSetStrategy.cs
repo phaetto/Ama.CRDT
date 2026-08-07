@@ -223,9 +223,9 @@ public sealed class GSetStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
 
         var list1 = property.Getter?.Invoke(data1) as IEnumerable;
         var list2 = property.Getter?.Invoke(data2) as IEnumerable;
@@ -235,7 +235,7 @@ public sealed class GSetStrategy(
             return;
         }
 
-        var (parent, prop, _) = PocoPathHelper.ResolvePath(data1, path, aotContexts);
+        var (parent, prop, _) = PocoPathHelper.ResolvePath(data1, propertyPath, aotContexts);
         if (parent is not null && prop is not null)
         {
             var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);

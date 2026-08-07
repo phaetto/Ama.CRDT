@@ -93,8 +93,11 @@ public sealed class RgaStrategy(
         var leftData = PocoPathHelper.Instantiate(originalData.GetType(), aotContexts);
         var rightData = PocoPathHelper.Instantiate(originalData.GetType(), aotContexts);
 
-        ReconstructList(leftData, path, RebuildRgaOrder(leftItems));
-        ReconstructList(rightData, path, RebuildRgaOrder(rightItems));
+        var (leftParent, leftProp, _) = PocoPathHelper.ResolvePath(leftData, path, aotContexts);
+        if (leftParent != null && leftProp != null) ReconstructList(leftParent, leftProp, RebuildRgaOrder(leftItems));
+
+        var (rightParent, rightProp, _) = PocoPathHelper.ResolvePath(rightData, path, aotContexts);
+        if (rightParent != null && rightProp != null) ReconstructList(rightParent, rightProp, RebuildRgaOrder(rightItems));
 
         return new SplitResult(
             new PartitionContent(leftData, leftMeta),
@@ -121,15 +124,16 @@ public sealed class RgaStrategy(
         mergedMeta.States[path] = new RgaState(mergedItems);
 
         var mergedData = PocoPathHelper.Instantiate(data1.GetType(), aotContexts);
-        ReconstructList(mergedData, path, mergedItems);
+        var (mergedParent, mergedProp, _) = PocoPathHelper.ResolvePath(mergedData, path, aotContexts);
+        if (mergedParent != null && mergedProp != null) ReconstructList(mergedParent, mergedProp, mergedItems);
 
         return new PartitionContent(mergedData, mergedMeta);
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var (data1, meta1, data2, meta2, property, path) = context;
 
         meta1.States.TryGetValue(path, out var baseState1);
         meta2.States.TryGetValue(path, out var baseState2);
@@ -163,7 +167,7 @@ public sealed class RgaStrategy(
 
         meta1.States[path] = new RgaState(mergedItems);
 
-        ReconstructList(data1, path, mergedItems);
+        ReconstructList(data1, property, mergedItems);
     }
 
     /// <inheritdoc />
@@ -572,11 +576,8 @@ public sealed class RgaStrategy(
         return result;
     }
 
-    private void ReconstructList(object root, string path, List<RgaItem> rgaItems)
+    private void ReconstructList(object parent, CrdtPropertyInfo property, List<RgaItem> rgaItems)
     {
-        var (parent, property, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);
-        if (parent is null || property is null) return;
-
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var list = property.Getter!(parent) as IList;
 

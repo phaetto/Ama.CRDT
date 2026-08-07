@@ -149,12 +149,12 @@ public sealed class FwwStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{property.JsonName}";
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
 
-        var hasState1 = meta1.States.TryGetValue(path, out var state1) && state1 is CausalTimestamp;
-        var hasState2 = meta2.States.TryGetValue(path, out var state2) && state2 is CausalTimestamp;
+        var hasState1 = meta1.States.TryGetValue(propertyPath, out var state1) && state1 is CausalTimestamp;
+        var hasState2 = meta2.States.TryGetValue(propertyPath, out var state2) && state2 is CausalTimestamp;
 
         if (!hasState2)
         {
@@ -170,9 +170,9 @@ public sealed class FwwStrategy(
 
         if (shouldTake2)
         {
-            var val2 = PocoPathHelper.GetValue<object>(data2, path, aotContexts);
-            PocoPathHelper.SetValue(data1, path, val2, aotContexts);
-            meta1.States[path] = causal2;
+            var val2 = PocoPathHelper.GetValue<object>(data2, propertyPath, aotContexts);
+            PocoPathHelper.SetValue(data1, propertyPath, val2, aotContexts);
+            meta1.States[propertyPath] = causal2;
         }
     }
 }

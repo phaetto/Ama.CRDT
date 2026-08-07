@@ -128,9 +128,9 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext, IEnume
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var (data1, meta1, data2, meta2, property, path) = context;
 
         meta1.States.TryGetValue(path, out var state1);
         meta2.States.TryGetValue(path, out var state2);

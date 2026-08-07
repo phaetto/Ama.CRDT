@@ -308,7 +308,7 @@ public sealed class GCounterStrategyTests : IDisposable
         var meta2 = new CrdtMetadata { States = { ["$.count"] = new GCounterState(new Dictionary<string, decimal> { ["r1"] = 5m, ["r2"] = 5m }) } };
 
         // Act
-        strategy.MergeState(doc1, meta1, doc2, meta2, GetCountPropertyInfo());
+        strategy.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, GetCountPropertyInfo(), "$.count"));
 
         // Assert
         doc1.Count.ShouldBe(15);

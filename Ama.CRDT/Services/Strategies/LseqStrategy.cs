@@ -403,12 +403,12 @@ public sealed class LseqStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
 
-        var items1 = meta1.States.TryGetValue(path, out var s1) && s1 is LseqState ls1 ? ls1.Trackers : new List<LseqItem>();
-        var items2 = meta2.States.TryGetValue(path, out var s2) && s2 is LseqState ls2 ? ls2.Trackers : new List<LseqItem>();
+        var items1 = meta1.States.TryGetValue(propertyPath, out var s1) && s1 is LseqState ls1 ? ls1.Trackers : new List<LseqItem>();
+        var items2 = meta2.States.TryGetValue(propertyPath, out var s2) && s2 is LseqState ls2 ? ls2.Trackers : new List<LseqItem>();
 
         var mergedItemsDict = new Dictionary<LseqIdentifier, LseqItem>();
         foreach (var item in items1) mergedItemsDict[item.Identifier] = item;
@@ -417,9 +417,9 @@ public sealed class LseqStrategy(
         var mergedItems = mergedItemsDict.Values.ToList();
         mergedItems.Sort((a, b) => a.Identifier.CompareTo(b.Identifier));
 
-        meta1.States[path] = new LseqState(mergedItems);
+        meta1.States[propertyPath] = new LseqState(mergedItems);
 
-        ReconstructListForSplitMerge(data1, path, mergedItems, aotContexts);
+        ReconstructListForSplitMerge(data1, propertyPath, mergedItems, aotContexts);
     }
 
     private LseqIdentifier GenerateIdentifierBetween(LseqIdentifier? prev, LseqIdentifier? next, string replicaId)

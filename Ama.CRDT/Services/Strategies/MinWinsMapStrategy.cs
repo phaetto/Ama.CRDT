@@ -132,8 +132,9 @@ public sealed class MinWinsMapStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
         var dict2 = property.Getter!(data2) as IDictionary;
         if (dict2 == null)
         {

@@ -152,14 +152,16 @@ public sealed class ApprovalQuorumStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
+        
         var declaringType = data1.GetType();
         var innerStrategy = GetInnerStrategy(declaringType, property);
         
-        innerStrategy.MergeState(data1, meta1, data2, meta2, property);
+        innerStrategy.MergeState(context);
         
-        var decoratorPath = MetadataPathHelper.GetDecoratorPath($"$.{property.JsonName}", DecoratorKey);
+        var decoratorPath = MetadataPathHelper.GetDecoratorPath(propertyPath, DecoratorKey);
         
         if (!meta2.States.TryGetValue(decoratorPath, out var baseState2) || baseState2 is not QuorumState q2)
         {

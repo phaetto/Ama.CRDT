@@ -40,27 +40,8 @@ public interface ICrdtStrategy
 
     /// <summary>
     /// Merges the state and metadata from a secondary replica into the primary replica.
-    /// This acts as a true State-based CRDT merge operation.
-    /// </summary>
-    /// <param name="data1">The primary document data object to merge into.</param>
-    /// <param name="meta1">The primary metadata object to merge into.</param>
-    /// <param name="data2">The secondary document data object to merge from.</param>
-    /// <param name="meta2">The secondary metadata object to merge from.</param>
-    /// <param name="property">The property info being merged.</param>
-    void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property);
-
-    /// <summary>
-    /// Merges the state and metadata from a secondary replica into the primary replica, fully aware of its JSON path.
     /// This acts as a true State-based CRDT merge operation and resolves deep-nested object references safely.
     /// </summary>
-    /// <param name="data1">The primary document data object to merge into.</param>
-    /// <param name="meta1">The primary metadata object to merge into.</param>
-    /// <param name="data2">The secondary document data object to merge from.</param>
-    /// <param name="meta2">The secondary metadata object to merge from.</param>
-    /// <param name="property">The property info being merged.</param>
-    /// <param name="propertyPath">The fully resolved JSON path to the property.</param>
-    void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property, string propertyPath)
-    {
-        MergeState(data1, meta1, data2, meta2, property);
-    }
+    /// <param name="context">The context for the merge operation.</param>
+    void MergeState(MergeStateContext context);
 }

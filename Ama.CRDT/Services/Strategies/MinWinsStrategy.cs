@@ -110,8 +110,9 @@ public sealed class MinWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
         var val1 = property.Getter!(data1);
         var val2 = property.Getter!(data2);
 

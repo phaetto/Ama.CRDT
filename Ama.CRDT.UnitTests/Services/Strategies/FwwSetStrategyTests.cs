@@ -542,7 +542,7 @@ public sealed class FwwSetStrategyTests : IDisposable
         doc2.Tags.AddRange(["A", "B", "C"]);
 
         // Act
-        strategyA.MergeState(doc1, meta1, doc2, meta2, propInfo);
+        strategyA.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, propInfo, "$.tags"));
 
         // Assert
         // "A": doc1 had newer, doc2 had older. FWW -> older wins -> A should have tsOlder.

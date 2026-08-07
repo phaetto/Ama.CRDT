@@ -357,20 +357,20 @@ public sealed class LwwSetStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var (data1, meta1, _, meta2, property, propertyPath) = context;
 
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        if (!meta1.States.TryGetValue(path, out var baseState1) || baseState1 is not LwwSetState state1)
+        if (!meta1.States.TryGetValue(propertyPath, out var baseState1) || baseState1 is not LwwSetState state1)
         {
             state1 = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
-            meta1.States[path] = state1;
+            meta1.States[propertyPath] = state1;
         }
 
-        if (meta2.States.TryGetValue(path, out var baseState2) && baseState2 is LwwSetState state2)
+        if (meta2.States.TryGetValue(propertyPath, out var baseState2) && baseState2 is LwwSetState state2)
         {
             foreach (var kvp in state2.Adds)
             {

@@ -185,11 +185,11 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{property.JsonName}";
-        var epoch1 = GetEpochForPath(meta1, path, out var basePath1);
-        var epoch2 = GetEpochForPath(meta2, path, out var basePath2);
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
+        var epoch1 = GetEpochForPath(meta1, propertyPath, out var basePath1);
+        var epoch2 = GetEpochForPath(meta2, propertyPath, out var basePath2);
         
         var declaringType = data1.GetType();
         var innerStrategy = GetInnerStrategy(declaringType, property);
@@ -203,10 +203,10 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         {
             ClearMetadataForPath(meta1, basePath1);
             
-            var decoratorPath = MetadataPathHelper.GetDecoratorPath(path, DecoratorKey);
+            var decoratorPath = MetadataPathHelper.GetDecoratorPath(propertyPath, DecoratorKey);
             meta1.States[decoratorPath] = new EpochState(epoch2);
             
-            var propVal = PocoPathHelper.GetValue(data1, path, aotContexts);
+            var propVal = PocoPathHelper.GetValue(data1, propertyPath, aotContexts);
             if (propVal is System.Collections.IList list && !list.IsFixedSize)
             {
                 list.Clear();
@@ -219,12 +219,12 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
             {
                 if (property.CanWrite)
                 {
-                    PocoPathHelper.SetValue(data1, path, null, aotContexts);
+                    PocoPathHelper.SetValue(data1, propertyPath, null, aotContexts);
                 }
             }
         }
         
-        innerStrategy.MergeState(data1, meta1, data2, meta2, property);
+        innerStrategy.MergeState(context);
     }
 
     private static int GetEpochForPath(CrdtMetadata metadata, string fullPath, out string matchingPath)

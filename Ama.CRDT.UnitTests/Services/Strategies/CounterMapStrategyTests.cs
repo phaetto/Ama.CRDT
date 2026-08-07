@@ -478,7 +478,7 @@ public sealed class CounterMapStrategyTests
         strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("c", 7m), timestampProvider.Now(), 3)));
 
         // Act
-        strategy.MergeState(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo);
+        strategy.MergeState(new MergeStateContext(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo, "$.map"));
 
         // Assert
         // "a" positive = max(5, 3) = 5. negative = max(2, 6) = 6. Net = -1.
