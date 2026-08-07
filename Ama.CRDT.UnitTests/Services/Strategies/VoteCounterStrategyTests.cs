@@ -429,7 +429,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
 
         var propInfo = GetPollVotesPropertyInfo();
 
-        strategyA.MergeState(doc1, meta1, doc2, meta2, propInfo);
+        strategyA.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, propInfo, "$.votes"));
 
         doc1.Votes["OptionA"].ShouldContain("Voter1");
         meta1.States["$.votes.['Voter1']"].ShouldBeOfType<CausalTimestamp>().Timestamp.ShouldBe(timestampProvider.Create(100L));
@@ -448,7 +448,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
 
         var propInfo = GetPollVotesPropertyInfo();
 
-        strategyA.MergeState(doc1, meta1, doc2, meta2, propInfo);
+        strategyA.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, propInfo, "$.votes"));
 
         doc1.Votes.ContainsKey("OptionA").ShouldBeFalse();
         doc1.Votes["OptionB"].ShouldContain("Voter1");
@@ -468,7 +468,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
 
         var propInfo = GetPollVotesPropertyInfo();
 
-        strategyA.MergeState(doc1, meta1, doc2, meta2, propInfo);
+        strategyA.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, propInfo, "$.votes"));
 
         doc1.Votes.ContainsKey("OptionA").ShouldBeFalse();
         doc1.Votes["OptionB"].ShouldContain("Voter1");

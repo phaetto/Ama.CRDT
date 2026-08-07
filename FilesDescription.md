@@ -470,6 +470,7 @@
 | `$/Ama.CRDT/Services/Strategies/LwwStrategy.cs` | Implements the LWW strategy. It now uses centralized reflection helpers from `PocoPathHelper` to apply changes to nodes. |
 | `$/Ama.CRDT/Services/Strategies/MaxWinsMapStrategy.cs` | Implements a value-based Max-Wins Map strategy. For each key, conflicts are resolved by choosing the highest value, making the map's keys grow-only. |
 | `$/Ama.CRDT/Services/Strategies/MaxWinsStrategy.cs` | Implements the Max-Wins Register strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get the current value and apply updates. |
+| `$/Ama.CRDT/Services/Strategies/MergeStateContext.cs` | Defines the context for an `ICrdtStrategy.MergeState` call, encapsulating parameters like primary/secondary data and fully resolved property paths. |
 | `$/Ama.CRDT/Services/Strategies/MinWinsMapStrategy.cs` | Implements a value-based Min-Wins Map strategy. For each key, conflicts are resolved by choosing the lowest value, making the map's keys grow-only. |
 | `$/Ama.CRDT/Services/Strategies/MinWinsStrategy.cs` | Implements the Min-Wins Register strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get the current value and apply updates. |
 | `$/Ama.CRDT/Services/Strategies/OrMapStrategy.cs` | Implements the OR-Map (Observed-Remove Map) CRDT strategy. It uses centralized reflection helpers and supports partitioning. |

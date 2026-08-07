@@ -799,12 +799,11 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         var applicator2 = scope2.ServiceProvider.GetRequiredService<ICrdtApplicator>();
         var metadataManager2 = scope2.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
 
-        // Arrange
-        var model1 = new TestRoot();
+        var model1 = new TestRoot { Level1 = new TestLevel1 { Level2 = new TestLevel2() } };
         var meta1 = metadataManager.Initialize(model1);
         var doc1 = new CrdtDocument<TestRoot>(model1, meta1);
         
-        var model2 = new TestRoot();
+        var model2 = new TestRoot { Level1 = new TestLevel1 { Level2 = new TestLevel2() } };
         var meta2 = metadataManager2.Initialize(model2);
         var doc2 = new CrdtDocument<TestRoot>(model2, meta2);
 

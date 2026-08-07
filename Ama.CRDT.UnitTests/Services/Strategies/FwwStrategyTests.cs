@@ -364,7 +364,7 @@ public sealed class FwwStrategyTests : IDisposable
         var meta2 = new CrdtMetadata { States = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(100L), "r2", 2) } };
 
         // Act
-        strategyA.MergeState(doc1, meta1, doc2, meta2, GetValuePropertyInfo());
+        strategyA.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, GetValuePropertyInfo(), "$.value"));
 
         // Assert
         doc1.Value.ShouldBe(20);
@@ -382,7 +382,7 @@ public sealed class FwwStrategyTests : IDisposable
         var meta2 = new CrdtMetadata { States = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(200L), "r2", 1) } };
 
         // Act
-        strategyA.MergeState(doc1, meta1, doc2, meta2, GetValuePropertyInfo());
+        strategyA.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, GetValuePropertyInfo(), "$.value"));
 
         // Assert
         doc1.Value.ShouldBe(10);

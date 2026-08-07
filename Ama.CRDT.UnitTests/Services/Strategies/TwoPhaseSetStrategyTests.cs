@@ -425,7 +425,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(data2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.tags", OperationType.Upsert, "Tag3", timestampProvider.Now(), 2)));
 
         // Act
-        strategyA.MergeState(data1, meta1, data2, meta2, propInfo);
+        strategyA.MergeState(new MergeStateContext(data1, meta1, data2, meta2, propInfo, "$.tags"));
 
         // Assert
         data1.Tags.ShouldBe(new[] { "Tag2", "Tag3" }, ignoreOrder: true);

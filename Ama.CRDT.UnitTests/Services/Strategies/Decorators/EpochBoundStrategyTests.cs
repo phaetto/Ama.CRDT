@@ -302,7 +302,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
         meta2.States["$.status|Epoch"] = new EpochState(1);
 
         // Act
-        strategy.MergeState(data1, meta1, data2, meta2, StatusProperty);
+        strategy.MergeState(new MergeStateContext(data1, meta1, data2, meta2, StatusProperty, "$.status"));
 
         // Assert
         data1.Status.ShouldBe("Local");
@@ -325,7 +325,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
         meta2.States["$.status|Epoch"] = new EpochState(2);
 
         // Act
-        strategy.MergeState(data1, meta1, data2, meta2, StatusProperty);
+        strategy.MergeState(new MergeStateContext(data1, meta1, data2, meta2, StatusProperty, "$.status"));
 
         // Assert
         data1.Status.ShouldBeNull(); // It clears the property before inner merge

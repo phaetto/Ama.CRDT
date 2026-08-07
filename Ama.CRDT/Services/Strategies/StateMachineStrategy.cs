@@ -132,9 +132,9 @@ public sealed class StateMachineStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{property.JsonName}";
+        var (data1, meta1, data2, meta2, _, path) = context;
 
         if (!meta2.States.TryGetValue(path, out var baseState2) || baseState2 is not CausalTimestamp state2)
         {

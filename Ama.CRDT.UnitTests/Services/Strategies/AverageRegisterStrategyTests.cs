@@ -336,7 +336,8 @@ public sealed class AverageRegisterStrategyTests : IDisposable
         });
 
         // Act
-        strategyA.MergeState(data1, meta1, data2, meta2, property);
+        var context = new MergeStateContext(data1, meta1, data2, meta2, property, Path);
+        strategyA.MergeState(context);
 
         // Assert
         var state = meta1.States[Path].ShouldBeOfType<AverageRegisterState>();

@@ -228,9 +228,9 @@ public sealed class OrSetStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var (data1, meta1, data2, meta2, property, path) = context;
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
@@ -265,7 +265,7 @@ public sealed class OrSetStrategy(
 
         meta1.States[path] = orSet1;
 
-        ReconstructListForSplitMerge(data1, path, orSet1, elementType, property.PropertyType);
+        ReconstructList(data1, property, orSet1, elementType);
     }
 
     /// <inheritdoc/>
@@ -357,8 +357,11 @@ public sealed class OrSetStrategy(
         var doc1 = PocoPathHelper.Instantiate(documentType, aotContexts);
         var doc2 = PocoPathHelper.Instantiate(documentType, aotContexts);
 
-        ReconstructListForSplitMerge(doc1, path, (OrSetState)meta1.States[path], elementType, partitionableProperty.PropertyType);
-        ReconstructListForSplitMerge(doc2, path, (OrSetState)meta2.States[path], elementType, partitionableProperty.PropertyType);
+        var (parent1, prop1, _) = PocoPathHelper.ResolvePath(doc1, path, aotContexts);
+        if (parent1 != null && prop1 != null) ReconstructList(parent1, prop1, (OrSetState)meta1.States[path], elementType);
+
+        var (parent2, prop2, _) = PocoPathHelper.ResolvePath(doc2, path, aotContexts);
+        if (parent2 != null && prop2 != null) ReconstructList(parent2, prop2, (OrSetState)meta2.States[path], elementType);
 
         return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
     }
@@ -406,18 +409,19 @@ public sealed class OrSetStrategy(
         var mergedState = new OrSetState(adds, rems);
         mergedMeta.States[path] = mergedState;
 
-        ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType, partitionableProperty.PropertyType);
+        var (mergedParent, mergedProp, _) = PocoPathHelper.ResolvePath(mergedDoc, path, aotContexts);
+        if (mergedParent != null && mergedProp != null) ReconstructList(mergedParent, mergedProp, mergedState, elementType);
 
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
-    private void ReconstructListForSplitMerge(object root, string path, OrSetState state, Type elementType, Type propertyType)
+    private void ReconstructList(object parent, CrdtPropertyInfo property, OrSetState state, Type elementType)
     {
-        var collection = PocoPathHelper.GetValue<object>(root, path, aotContexts);
+        var collection = property.Getter!(parent);
         if (collection is null)
         {
-            collection = PocoPathHelper.InstantiateCollection(propertyType, aotContexts);
-            PocoPathHelper.SetValue(root, path, collection, aotContexts);
+            collection = PocoPathHelper.InstantiateCollection(property.PropertyType, aotContexts);
+            property.Setter!(parent, collection);
         }
 
         PocoPathHelper.ClearCollection(collection, aotContexts);

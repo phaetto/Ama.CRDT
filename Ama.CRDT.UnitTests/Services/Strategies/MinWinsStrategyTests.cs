@@ -288,7 +288,7 @@ public sealed class MinWinsStrategyTests : IDisposable
         var data2 = new TestModel { BestTime = 100 };
 
         // Act
-        strategyA.MergeState(data1, new CrdtMetadata(), data2, new CrdtMetadata(), property);
+        strategyA.MergeState(new MergeStateContext(data1, new CrdtMetadata(), data2, new CrdtMetadata(), property, "$.bestTime"));
 
         // Assert
         data1.BestTime.ShouldBe(100);
@@ -302,7 +302,7 @@ public sealed class MinWinsStrategyTests : IDisposable
         var data2 = new TestModel { BestTime = 200 };
 
         // Act
-        strategyA.MergeState(data1, new CrdtMetadata(), data2, new CrdtMetadata(), property);
+        strategyA.MergeState(new MergeStateContext(data1, new CrdtMetadata(), data2, new CrdtMetadata(), property, "$.bestTime"));
 
         // Assert
         data1.BestTime.ShouldBe(100);

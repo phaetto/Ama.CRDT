@@ -239,8 +239,10 @@ public sealed class MaxWinsMapStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
+        var (data1, _, data2, _, property, _) = context;
+
         var dict1 = property.Getter!(data1) as IDictionary;
         var dict2 = property.Getter!(data2) as IDictionary;
 

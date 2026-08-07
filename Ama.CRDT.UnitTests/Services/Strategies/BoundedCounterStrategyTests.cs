@@ -339,7 +339,8 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.level", OperationType.Increment, 70m, timestampProvider.Create(2L), 2)) { Property = propInfo, FinalSegment = "level" });
 
         // Act
-        strategy.MergeState(doc1, meta1, doc2, meta2, propInfo);
+        var context = new MergeStateContext(doc1, meta1, doc2, meta2, propInfo, "$.level");
+        strategy.MergeState(context);
 
         // Assert
         doc1.Level.ShouldBe(100);
@@ -372,7 +373,8 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.level", OperationType.Increment, -20m, timestampProvider.Create(1L), 1)) { Property = propInfo, FinalSegment = "level" });
 
         // Act
-        strategy.MergeState(doc1, meta1, doc2, meta2, propInfo);
+        var context = new MergeStateContext(doc1, meta1, doc2, meta2, propInfo, "$.level");
+        strategy.MergeState(context);
 
         // Assert
         // B > A, so B wins tie break. Unbounded value should be 50 - 20 = 30.

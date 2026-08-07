@@ -338,9 +338,9 @@ public sealed class VoteCounterStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
 
         var dict1 = property.Getter!(data1) as IDictionary;
         var dict2 = property.Getter!(data2) as IDictionary;
@@ -360,7 +360,7 @@ public sealed class VoteCounterStrategy(
         var map1 = FlattenVotes(dict1);
         var map2 = FlattenVotes(dict2);
         
-        var prefix = $"{path}.['";
+        var prefix = $"{propertyPath}.['";
         var winningVoterKeys2 = new HashSet<string>(StringComparer.Ordinal);
         
         foreach (var kvp in meta2.States)

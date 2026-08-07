@@ -407,7 +407,7 @@ public sealed class OrMapStrategyTests
         strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("d", 4, Guid.NewGuid()), timestampProvider.Create(3), 0)));
 
         // Act
-        strategy.MergeState(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo!);
+        strategy.MergeState(new MergeStateContext(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo!, "$.map"));
 
         // Assert
         doc1.Data.Map.Keys.OrderBy(k => k).ShouldBe(new[] { "a", "c", "d" });

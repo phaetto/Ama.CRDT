@@ -467,7 +467,7 @@ public sealed class OrSetStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.tags", OperationType.Upsert, new OrSetAddItem("D", Guid.NewGuid()), ts.Now(), 0)));
 
         // Act
-        strategyA.MergeState(doc1, meta1, doc2, meta2, propInfo);
+        strategyA.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, propInfo!, "$.tags"));
 
         // Assert
         doc1.Tags.ShouldBe(new[] { "B", "C", "D" }, ignoreOrder: true); // "A" was removed in doc2

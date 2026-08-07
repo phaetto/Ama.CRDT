@@ -79,7 +79,15 @@ public sealed class CrdtMerger(
                 else if (context.PrimaryObj is not null && context.SecondaryObj is not null)
                 {
                     // Delegate merging mathematical bounds to the specific strategy
-                    strategy.MergeState(context.PrimaryObj, context.PrimaryMeta, context.SecondaryObj, context.SecondaryMeta, propertyInfo, currentPath);
+                    var mergeContext = new MergeStateContext(
+                        context.PrimaryObj,
+                        context.PrimaryMeta,
+                        context.SecondaryObj,
+                        context.SecondaryMeta,
+                        propertyInfo,
+                        currentPath
+                    );
+                    strategy.MergeState(mergeContext);
 
                     // Recurse into dictionaries for deep merging of complex values inside the maps
                     if (pValue1 is System.Collections.IDictionary dict1 && pValue2 is System.Collections.IDictionary dict2)

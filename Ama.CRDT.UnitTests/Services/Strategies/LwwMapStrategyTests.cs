@@ -420,7 +420,7 @@ public sealed class LwwMapStrategyTests
         });
 
         // Act
-        strategy.MergeState(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapProperty);
+        strategy.MergeState(new MergeStateContext(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapProperty, "$.map"));
 
         // Assert
         doc1.Data.Map.Count.ShouldBe(3);

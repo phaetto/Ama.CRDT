@@ -432,7 +432,7 @@ public sealed class LwwSetStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.tags", OperationType.Upsert, "C", timestampProvider.Create(5), 5)));
 
         // Act
-        strategyA.MergeState(doc1, meta1, doc2, meta2, tagsPropInfo);
+        strategyA.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, tagsPropInfo, "$.tags"));
 
         // Assert
         doc1.Tags.ShouldBe(["A", "C"], ignoreOrder: true);

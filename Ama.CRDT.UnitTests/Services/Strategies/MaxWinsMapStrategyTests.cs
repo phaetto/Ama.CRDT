@@ -307,7 +307,7 @@ public sealed class MaxWinsMapStrategyTests
         var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 20 }, { "c", 30 } });
 
         // Act
-        strategy.MergeState(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapPropInfo);
+        strategy.MergeState(new MergeStateContext(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapPropInfo, "$.map"));
 
         // Assert
         doc1.Data.Map.Count.ShouldBe(3);

@@ -107,14 +107,10 @@ public sealed class LwwStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        MergeState(data1, meta1, data2, meta2, property, $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}");
-    }
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
 
-    /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property, string propertyPath)
-    {
         meta1.States.TryGetValue(propertyPath, out var baseState1);
         meta2.States.TryGetValue(propertyPath, out var baseState2);
 

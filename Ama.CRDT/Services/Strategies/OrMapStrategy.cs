@@ -269,17 +269,17 @@ public sealed class OrMapStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
         var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
         var dict1 = (IDictionary)property.Getter!(data1)!;
         var dict2 = (IDictionary)property.Getter!(data2)!;
 
-        var orMap1 = meta1.States.TryGetValue(path, out var s1) && s1 is OrSetState s1State ? s1State : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
-        var orMap2 = meta2.States.TryGetValue(path, out var s2) && s2 is OrSetState s2State ? s2State : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+        var orMap1 = meta1.States.TryGetValue(propertyPath, out var s1) && s1 is OrSetState s1State ? s1State : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+        var orMap2 = meta2.States.TryGetValue(propertyPath, out var s2) && s2 is OrSetState s2State ? s2State : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
 
         // Merge Adds
         foreach (var (key, tags) in orMap2.Adds)
@@ -313,14 +313,14 @@ public sealed class OrMapStrategy(
             }
         }
 
-        meta1.States[path] = orMap1;
+        meta1.States[propertyPath] = orMap1;
 
         // Merge LWW Values and Dict1 data
         foreach (DictionaryEntry entry in dict2)
         {
             var key = entry.Key;
             var value2 = entry.Value;
-            var itemPath = $"{path}['{key.ToString()?.Replace("'", "\\'")}']";
+            var itemPath = $"{propertyPath}['{key.ToString()?.Replace("'", "\\'")}']";
 
             CausalTimestamp? ts1 = meta1.States.TryGetValue(itemPath, out var ts1Base) && ts1Base is CausalTimestamp ts1Val ? ts1Val : null;
             CausalTimestamp? ts2 = meta2.States.TryGetValue(itemPath, out var ts2Base) && ts2Base is CausalTimestamp ts2Val ? ts2Val : null;

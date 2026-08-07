@@ -217,22 +217,22 @@ public sealed class FwwSetStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(MergeStateContext context)
     {
-        if (data1 is null || meta1 is null || data2 is null || meta2 is null || property is null) return;
+        var (data1, meta1, data2, meta2, property, propertyPath) = context;
 
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        if (data1 is null || meta1 is null || data2 is null || meta2 is null || property is null) return;
         
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        if (!meta1.States.TryGetValue(path, out var baseState1) || baseState1 is not FwwSetState state1)
+        if (!meta1.States.TryGetValue(propertyPath, out var baseState1) || baseState1 is not FwwSetState state1)
         {
             state1 = new FwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
-            meta1.States[path] = state1;
+            meta1.States[propertyPath] = state1;
         }
 
-        if (!meta2.States.TryGetValue(path, out var baseState2) || baseState2 is not FwwSetState state2)
+        if (!meta2.States.TryGetValue(propertyPath, out var baseState2) || baseState2 is not FwwSetState state2)
         {
             return; // Nothing to merge from meta2
         }
@@ -261,7 +261,7 @@ public sealed class FwwSetStrategy(
 
         if (changed)
         {
-            ReconstructListForSplitMerge(data1, path, state1, elementType, aotContexts);
+            ReconstructListForSplitMerge(data1, propertyPath, state1, elementType, aotContexts);
         }
     }
 

@@ -315,7 +315,7 @@ public sealed class MinWinsMapStrategyTests
         var doc2 = new TestModel { Map = new Dictionary<string, int> { { "a", 5 }, { "b", 10 }, { "d", 50 } } };
 
         // Act
-        strategy.MergeState(doc1, new CrdtMetadata(), doc2, new CrdtMetadata(), propInfo);
+        strategy.MergeState(new MergeStateContext(doc1, new CrdtMetadata(), doc2, new CrdtMetadata(), propInfo, "$.map"));
 
         // Assert
         doc1.Map.Count.ShouldBe(4);
@@ -336,7 +336,7 @@ public sealed class MinWinsMapStrategyTests
         var doc2 = new TestModel { Map = new Dictionary<string, int> { { "a", 10 } } };
 
         // Act
-        strategy.MergeState(doc1, new CrdtMetadata(), doc2, new CrdtMetadata(), propInfo);
+        strategy.MergeState(new MergeStateContext(doc1, new CrdtMetadata(), doc2, new CrdtMetadata(), propInfo, "$.map"));
 
         // Assert
         doc1.Map.ShouldNotBeNull();

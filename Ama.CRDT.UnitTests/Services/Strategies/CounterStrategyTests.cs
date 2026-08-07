@@ -323,7 +323,7 @@ public sealed class CounterStrategyTests : IDisposable
         });
 
         // Act
-        strategy.MergeState(data1, meta1, data2, meta2, ScoreProperty);
+        strategy.MergeState(new MergeStateContext(data1, meta1, data2, meta2, ScoreProperty, "$.score"));
 
         // Assert
         data1.Score.ShouldBe(15);
@@ -343,7 +343,7 @@ public sealed class CounterStrategyTests : IDisposable
         var meta2 = new CrdtMetadata();
 
         // Act
-        strategy.MergeState(data1, meta1, data2, meta2, ScoreProperty);
+        strategy.MergeState(new MergeStateContext(data1, meta1, data2, meta2, ScoreProperty, "$.score"));
 
         // Assert
         data1.Score.ShouldBe(10); // Unchanged

@@ -8,6 +8,7 @@ using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
+using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;
@@ -352,7 +353,7 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
             Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
 
         // Act
-        strategy.MergeState(doc1, meta1, doc2, meta2, propInfo);
+        strategy.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, propInfo!, "$.tree"));
 
         // Assert
         doc1.Tree.Nodes.Count.ShouldBe(3);

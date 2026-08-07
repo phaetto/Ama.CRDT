@@ -388,7 +388,7 @@ public sealed class GSetStrategyTests : IDisposable
         var meta2 = new CrdtMetadata();
 
         // Act
-        strategyA.MergeState(doc1, meta1, doc2, meta2, GetTagsPropertyInfo());
+        strategyA.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, GetTagsPropertyInfo(), "$.tags"));
 
         // Assert
         doc1.Tags.ShouldBe(new[] { "A", "B", "C", "D" });

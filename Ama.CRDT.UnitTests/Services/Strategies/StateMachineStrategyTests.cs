@@ -300,7 +300,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var meta2 = new CrdtMetadata { States = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(200), "B", 2) } };
 
         // Act
-        strategyA.MergeState(data1, meta1, data2, meta2, propInfo);
+        strategyA.MergeState(new MergeStateContext(data1, meta1, data2, meta2, propInfo, "$.status"));
 
         // Assert
         data1.Status.ShouldBe("PROCESSING");
@@ -319,7 +319,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var meta2 = new CrdtMetadata { States = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(200), "B", 2) } };
 
         // Act
-        strategyA.MergeState(data1, meta1, data2, meta2, propInfo);
+        strategyA.MergeState(new MergeStateContext(data1, meta1, data2, meta2, propInfo, "$.status"));
 
         // Assert
         data1.Status.ShouldBe("PROCESSING");

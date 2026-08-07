@@ -283,14 +283,14 @@ public sealed class LwwStrategyTests : IDisposable
         meta3.States["$.value"] = new CausalTimestamp(timestampProvider.Create(50L), "C", 3);
 
         // Act - merge doc2 into doc1 (doc2 is newer)
-        strategyA.MergeState(doc1, meta1, doc2, meta2, valueProperty);
+        strategyA.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, valueProperty, "$.value"));
 
         // Assert
         doc1.Value.ShouldBe(20);
         ((CausalTimestamp)meta1.States["$.value"]).Timestamp.ShouldBe(timestampProvider.Create(200L));
 
         // Act - merge doc3 into doc1 (doc3 is older)
-        strategyA.MergeState(doc1, meta1, doc3, meta3, valueProperty);
+        strategyA.MergeState(new MergeStateContext(doc1, meta1, doc3, meta3, valueProperty, "$.value"));
 
         // Assert
         doc1.Value.ShouldBe(20); // Should not change

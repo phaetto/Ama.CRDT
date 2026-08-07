@@ -359,7 +359,7 @@ public sealed class RgaStrategyTests : IDisposable
             Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
 
         // Act
-        strategy.MergeState(doc1, meta1, doc2, meta2, property);
+        strategy.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, property, "$.items"));
 
         // Assert
         doc1.Items.Count.ShouldBe(4);

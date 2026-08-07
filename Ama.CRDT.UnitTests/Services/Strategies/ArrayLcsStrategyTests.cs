@@ -409,7 +409,8 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
 
         // Act
-        strategy.MergeState(modelA, metaA, modelB, metaB, propertyInfo);
+        var context = new MergeStateContext(modelA, metaA, modelB, metaB, propertyInfo, "$.tags");
+        strategy.MergeState(context);
 
         // Assert
         modelA.Tags.ShouldBe(new List<string> { "A", "B", "C", "X" });
