@@ -287,4 +287,42 @@ public sealed class StateMachineStrategyTests : IDisposable
         // Assert
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
+    
+    [Fact]
+    public void MergeAsStateCrdt_WithNewerState_ShouldUpdatePrimary()
+    {
+        // Arrange
+        var propInfo = CreatePropertyInfo();
+        var data1 = new StateMachineTestModel { Status = "PENDING" };
+        var meta1 = new CrdtMetadata { States = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
+
+        var data2 = new StateMachineTestModel { Status = "PROCESSING" };
+        var meta2 = new CrdtMetadata { States = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(200), "B", 2) } };
+
+        // Act
+        strategyA.MergeAsStateCrdt(data1, meta1, data2, meta2, propInfo);
+
+        // Assert
+        data1.Status.ShouldBe("PROCESSING");
+        ((CausalTimestamp)meta1.States["$.status"]).Timestamp.ShouldBe(timestampProvider.Create(200));
+    }
+
+    [Fact]
+    public void MergeAsStateCrdt_WithOlderState_ShouldNotUpdatePrimary()
+    {
+        // Arrange
+        var propInfo = CreatePropertyInfo();
+        var data1 = new StateMachineTestModel { Status = "PROCESSING" };
+        var meta1 = new CrdtMetadata { States = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(300), "A", 3) } };
+
+        var data2 = new StateMachineTestModel { Status = "SHIPPED" };
+        var meta2 = new CrdtMetadata { States = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(200), "B", 2) } };
+
+        // Act
+        strategyA.MergeAsStateCrdt(data1, meta1, data2, meta2, propInfo);
+
+        // Assert
+        data1.Status.ShouldBe("PROCESSING");
+        ((CausalTimestamp)meta1.States["$.status"]).Timestamp.ShouldBe(timestampProvider.Create(300));
+    }
 }

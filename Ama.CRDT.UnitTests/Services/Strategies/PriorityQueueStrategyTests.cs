@@ -429,6 +429,60 @@ public sealed class PriorityQueueStrategyTests : IDisposable
 
         queueState.Removes.ShouldNotContainKey(itemDeadNoAdd);
     }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeDataAndMetadataCorrectly()
+    {
+        // Arrange
+        var propInfo = new PriorityQueueStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)];
+        var tsProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<PriorityQueueStrategy>().Single();
+        
+        var doc1 = new TestModel { Items = [] };
+        var meta1 = metadataManagerA.Initialize(doc1);
+        
+        var itemA = new Item("A", 10);
+        var itemB = new Item("B", 20);
+        
+        var path = $"$.{propInfo.JsonName}";
+        
+        var ts1 = tsProvider.Create(1);
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemA, ts1, 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemB, ts1, 0)));
+
+        var doc2 = new TestModel { Items = doc1.Items.Select(i => new Item(i.Id, i.Priority)).ToList() };
+        var meta2 = meta1.DeepClone();
+
+        // doc1 updates A's priority to 15
+        var itemA15 = new Item("A", 15);
+        var ts2 = tsProvider.Create(2);
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemA15, ts2, 0)));
+        
+        // doc1 adds C
+        var itemC = new Item("C", 30);
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemC, ts2, 0)));
+
+        // doc2 removes B
+        var ts3 = tsProvider.Create(3);
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", path, OperationType.Remove, itemB, ts3, 0)));
+        
+        // doc2 updates A's priority to 50 (wins over doc1's 15)
+        var itemA50 = new Item("A", 50);
+        var ts4 = tsProvider.Create(4);
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", path, OperationType.Upsert, itemA50, ts4, 0)));
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+
+        // Assert
+        // B is removed
+        // A's priority is 50
+        // C is 30
+        // Priority ordering: A(50), C(30)
+        doc1.Items.Select(i => i.Id).ShouldBe(new[] { "A", "C" });
+        doc1.Items.Single(i => i.Id == "A").Priority.ShouldBe(50);
+        doc1.Items.Single(i => i.Id == "C").Priority.ShouldBe(30);
+    }
     
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {

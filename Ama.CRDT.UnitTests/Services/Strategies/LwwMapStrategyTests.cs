@@ -399,6 +399,41 @@ public sealed class LwwMapStrategyTests
     }
 
     [Fact]
+    public void MergeAsStateCrdt_ShouldMergeStateAndDataCorrectly()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
+
+        var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "overlap", 100 } });
+        doc1.Metadata.States["$.map"] = new LwwMapState(new Dictionary<object, CausalTimestamp>
+        {
+            { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
+            { "overlap", new CausalTimestamp(timestampProvider.Create(100), "A", 100) }
+        });
+
+        var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "overlap", 200 } });
+        doc2.Metadata.States["$.map"] = new LwwMapState(new Dictionary<object, CausalTimestamp>
+        {
+            { "c", new CausalTimestamp(timestampProvider.Create(3), "B", 3) },
+            { "overlap", new CausalTimestamp(timestampProvider.Create(200), "B", 200) } // Higher timestamp
+        });
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapProperty);
+
+        // Assert
+        doc1.Data.Map.Count.ShouldBe(3);
+        doc1.Data.Map["a"].ShouldBe(1);
+        doc1.Data.Map["c"].ShouldBe(3);
+        doc1.Data.Map["overlap"].ShouldBe(200);
+
+        var mergedMapState = (LwwMapState)doc1.Metadata.States["$.map"];
+        mergedMapState.Keys.Count.ShouldBe(3);
+        mergedMapState.Keys["overlap"].ShouldBe(new CausalTimestamp(timestampProvider.Create(200), "B", 200));
+    }
+
+    [Fact]
     public void Compact_ShouldRemoveTombstones_WhenPolicyAllows()
     {
         // Arrange

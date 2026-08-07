@@ -102,6 +102,8 @@ using System.Text.Json.Serialization.Metadata;
 [JsonSerializable(typeof(SetIntent))]
 [JsonSerializable(typeof(VoteIntent))]
 [JsonSerializable(typeof(EpochClearIntent))]
+[JsonSerializable(typeof(CounterState))]
+[JsonSerializable(typeof(GCounterState))]
 [SuppressMessage("ApiDesign", "RS0016:Add public types and members to the declared API", Justification = "System.Text.Json source generator emits public properties that do not need to be tracked in the public API.")]
 [SuppressMessage("ApiDesign", "RS0041:Symbol uses some oblivious reference types", Justification = "System.Text.Json source generator does not emit nullable annotations for its properties.")]
 public partial class CrdtJsonContext : JsonSerializerContext

@@ -538,4 +538,52 @@ public sealed class FwwMapStrategyTests
         finalState.Keys.ShouldContainKey("dead_unsafe");
         finalState.Keys.ShouldNotContainKey("dead_safe");
     }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldCombineStateUsingFww()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
+        
+        var prop = new CrdtPropertyInfo(
+            nameof(FwwMapTestModel.Map), "map", typeof(Dictionary<string, int>), true, true,
+            obj => ((FwwMapTestModel)obj).Map,
+            (obj, val) => ((FwwMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtFwwMapStrategyAttribute(), []);
+
+        var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "b", 2 } });
+        var ts1 = timestampProvider.Create(100);
+        var ts2 = timestampProvider.Create(200);
+        
+        doc1.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
+        {
+            { "a", new CausalTimestamp(ts2, "A", 2) }, // later timestamp
+            { "b", new CausalTimestamp(ts1, "A", 1) }
+        });
+
+        var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 99 }, { "c", 3 } });
+        var ts3 = timestampProvider.Create(50); // older than ts2
+        var ts4 = timestampProvider.Create(150);
+        
+        doc2.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
+        {
+            { "a", new CausalTimestamp(ts3, "B", 1) }, // older timestamp (wins in FWW)
+            { "c", new CausalTimestamp(ts4, "B", 2) }
+        });
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, prop);
+
+        // Assert
+        doc1.Data.Map.Count.ShouldBe(3);
+        doc1.Data.Map["a"].ShouldBe(99); // ts3 (50) < ts2 (200), FWW wins
+        doc1.Data.Map["b"].ShouldBe(2);  // existing
+        doc1.Data.Map["c"].ShouldBe(3);  // new from doc2
+
+        var state = doc1.Metadata.States["$.map"].ShouldBeOfType<FwwMapState>();
+        state.Keys["a"].Timestamp.ShouldBe(ts3);
+        state.Keys["b"].Timestamp.ShouldBe(ts1);
+        state.Keys["c"].Timestamp.ShouldBe(ts4);
+    }
 }

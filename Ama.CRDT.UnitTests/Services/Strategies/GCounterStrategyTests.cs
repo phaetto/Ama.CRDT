@@ -297,6 +297,26 @@ public sealed class GCounterStrategyTests : IDisposable
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
     
+    [Fact]
+    public void MergeAsStateCrdt_ShouldCombineContributionsAndAddNetDifference()
+    {
+        // Arrange
+        var doc1 = new TestModel { Count = 10 };
+        var meta1 = new CrdtMetadata { States = { ["$.count"] = new GCounterState(new Dictionary<string, decimal> { ["r1"] = 10m }) } };
+
+        var doc2 = new TestModel { Count = 15 };
+        var meta2 = new CrdtMetadata { States = { ["$.count"] = new GCounterState(new Dictionary<string, decimal> { ["r1"] = 5m, ["r2"] = 5m }) } };
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, GetCountPropertyInfo());
+
+        // Assert
+        doc1.Count.ShouldBe(15);
+        var state = (GCounterState)meta1.States["$.count"];
+        state.Contributions["r1"].ShouldBe(10m);
+        state.Contributions["r2"].ShouldBe(5m);
+    }
+
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {
         if (length == 1) return list.Select(t => new T[] { t });

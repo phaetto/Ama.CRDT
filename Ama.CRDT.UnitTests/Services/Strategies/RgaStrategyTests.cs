@@ -318,4 +318,54 @@ public sealed class RgaStrategyTests : IDisposable
         trackers.ShouldContain(i => i.Identifier == idC); // Not deleted because unsafe version
         trackers.ShouldContain(i => i.Identifier == idD); // Not deleted because unsafe replica
     }
+    
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeTwoStatesCorrectly()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetRequiredService<IEnumerable<ICrdtStrategy>>()
+            .OfType<RgaStrategy>()
+            .First();
+
+        var doc1 = new RgaTestModel();
+        var meta1 = metadataManagerA.Initialize(doc1);
+        var doc1Wrapper = new CrdtDocument<RgaTestModel>(doc1, meta1);
+        
+        var op1 = patcherA.GenerateOperation(doc1Wrapper, m => m.Items, new AddIntent("A"));
+        applicatorA.ApplyPatch(doc1Wrapper, new CrdtPatch([op1]));
+        
+        var op2 = patcherA.GenerateOperation(doc1Wrapper, m => m.Items, new AddIntent("B"));
+        applicatorA.ApplyPatch(doc1Wrapper, new CrdtPatch([op2]));
+
+        var doc2 = new RgaTestModel();
+        var meta2 = metadataManagerA.Initialize(doc2);
+        var doc2Wrapper = new CrdtDocument<RgaTestModel>(doc2, meta2);
+        
+        var op3 = patcherB.GenerateOperation(doc2Wrapper, m => m.Items, new AddIntent("C"));
+        applicatorA.ApplyPatch(doc2Wrapper, new CrdtPatch([op3]));
+        
+        var op4 = patcherB.GenerateOperation(doc2Wrapper, m => m.Items, new AddIntent("D"));
+        applicatorA.ApplyPatch(doc2Wrapper, new CrdtPatch([op4]));
+
+        var property = new CrdtPropertyInfo(
+            "Items",
+            "items",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((RgaTestModel)obj).Items,
+            (obj, val) => ((RgaTestModel)obj).Items = (List<string>)val!,
+            new CrdtRgaStrategyAttribute(),
+            Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, property);
+
+        // Assert
+        doc1.Items.Count.ShouldBe(4);
+        doc1.Items.ShouldContain("A");
+        doc1.Items.ShouldContain("B");
+        doc1.Items.ShouldContain("C");
+        doc1.Items.ShouldContain("D");
+    }
 }

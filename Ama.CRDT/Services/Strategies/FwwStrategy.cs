@@ -151,7 +151,7 @@ public sealed class FwwStrategy(
     /// <inheritdoc/>
     public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
     {
-        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var path = $"$.{property.JsonName}";
 
         var hasState1 = meta1.States.TryGetValue(path, out var state1) && state1 is CausalTimestamp;
         var hasState2 = meta2.States.TryGetValue(path, out var state2) && state2 is CausalTimestamp;

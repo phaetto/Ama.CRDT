@@ -370,6 +370,53 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
 
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeStatesAndDataCorrectly()
+    {
+        // Arrange
+        var ancestor = new TestModel { Tags = new List<string> { "A", "C" } };
+        var metaAncestor = metadataManagerA.Initialize(ancestor);
+        var docAncestor = new CrdtDocument<TestModel>(ancestor, metaAncestor);
+
+        // Replica A adds "B" between "A" and "C"
+        var replicaA = new TestModel { Tags = new List<string> { "A", "B", "C" } };
+        var patchA = patcherA.GeneratePatch(docAncestor, replicaA);
+        
+        var modelA = new TestModel { Tags = new List<string>(ancestor.Tags) };
+        var metaA = metaAncestor.DeepClone();
+        applicatorA.ApplyPatch(new CrdtDocument<TestModel>(modelA, metaA), patchA);
+
+        // Replica B adds "X" at the end
+        var replicaB = new TestModel { Tags = new List<string> { "A", "C", "X" } };
+        var patchB = patcherB.GeneratePatch(docAncestor, replicaB);
+        
+        var modelB = new TestModel { Tags = new List<string>(ancestor.Tags) };
+        var metaB = metaAncestor.DeepClone();
+        applicatorA.ApplyPatch(new CrdtDocument<TestModel>(modelB, metaB), patchB);
+
+        var propertyInfo = new CrdtPropertyInfo(
+            nameof(TestModel.Tags),
+            "tags",
+            typeof(List<string>),
+            true,
+            true,
+            obj => ((TestModel)obj).Tags,
+            (obj, val) => ((TestModel)obj).Tags = (List<string>)val!,
+            new CrdtArrayLcsStrategyAttribute(),
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
+
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
+
+        // Act
+        strategy.MergeAsStateCrdt(modelA, metaA, modelB, metaB, propertyInfo);
+
+        // Assert
+        modelA.Tags.ShouldBe(new List<string> { "A", "B", "C", "X" });
+        var posState = metaA.States["$.tags"].ShouldBeOfType<PositionalState>();
+        posState.Trackers.Count.ShouldBe(4);
+    }
+
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {
         if (length == 1) return list.Select(t => new T[] { t });

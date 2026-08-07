@@ -375,6 +375,47 @@ public sealed class OrMapStrategyTests
         state.Removes.ShouldContainKey("dead_unsafe");
     }
 
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeDataAndMetadataCorrectly()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<OrMapStrategy>();
+
+        var doc1 = CreateDocument(new Dictionary<string, int>());
+        var propInfo = new OrMapStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))?.Properties[nameof(TestModel.Map)];
+
+        // doc1 adds 'a'=1, 'b'=2
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("a", 1, Guid.NewGuid()), timestampProvider.Create(1), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("b", 2, Guid.NewGuid()), timestampProvider.Create(1), 0)));
+        
+        var doc2Data = new TestModel { Map = new Dictionary<string, int>(doc1.Data.Map) };
+        var doc2Meta = doc1.Metadata.DeepClone();
+        var doc2 = new CrdtDocument<TestModel>(doc2Data, doc2Meta!);
+
+        // doc1 updates 'a'=10 (ts=2)
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("a", 10, Guid.NewGuid()), timestampProvider.Create(2), 0)));
+        // doc1 adds 'c'=3
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("c", 3, Guid.NewGuid()), timestampProvider.Create(2), 0)));
+
+        // doc2 removes 'b'
+        var bTags = ((OrSetState)doc2.Metadata.States["$.map"]).Adds["b"];
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new OrMapRemoveItem("b", bTags), timestampProvider.Create(3), 0)));
+        // doc2 updates 'a'=20 (ts=4)
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("a", 20, Guid.NewGuid()), timestampProvider.Create(4), 0)));
+        // doc2 adds 'd'=4
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("d", 4, Guid.NewGuid()), timestampProvider.Create(3), 0)));
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo!);
+
+        // Assert
+        doc1.Data.Map.Keys.OrderBy(k => k).ShouldBe(new[] { "a", "c", "d" });
+        doc1.Data.Map["a"].ShouldBe(20); // doc2 updated to 20 with ts=4 vs doc1's ts=2
+        doc1.Data.Map["c"].ShouldBe(3);
+        doc1.Data.Map["d"].ShouldBe(4);
+    }
+
     internal sealed class TestModel
     {
         [CrdtOrMapStrategy]

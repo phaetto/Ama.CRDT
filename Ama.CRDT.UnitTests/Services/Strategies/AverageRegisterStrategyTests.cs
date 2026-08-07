@@ -303,7 +303,50 @@ public sealed class AverageRegisterStrategyTests : IDisposable
         state.Contributions["r1"].Value.ShouldBe(5m);
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
-    
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeContributionsAndRecalculateAverage()
+    {
+        // Arrange
+        var property = new CrdtPropertyInfo(
+            nameof(TestModel.Rating),
+            "rating",
+            typeof(decimal),
+            true,
+            true,
+            obj => ((TestModel)obj).Rating,
+            (obj, val) => ((TestModel)obj).Rating = (decimal)val!,
+            null,
+            Array.Empty<CrdtStrategyDecoratorAttribute>()
+        );
+
+        var data1 = new TestModel { Rating = 5m };
+        var meta1 = new CrdtMetadata();
+        meta1.States[Path] = new AverageRegisterState(new Dictionary<string, AverageRegisterValue>
+        {
+            { "r1", new AverageRegisterValue(5m, timestampProvider.Create(1L)) }
+        });
+
+        var data2 = new TestModel { Rating = 10m };
+        var meta2 = new CrdtMetadata();
+        meta2.States[Path] = new AverageRegisterState(new Dictionary<string, AverageRegisterValue>
+        {
+            { "r1", new AverageRegisterValue(2m, timestampProvider.Create(0L)) }, // Older, should be ignored
+            { "r2", new AverageRegisterValue(10m, timestampProvider.Create(2L)) } // Newer, should be merged
+        });
+
+        // Act
+        strategyA.MergeAsStateCrdt(data1, meta1, data2, meta2, property);
+
+        // Assert
+        var state = meta1.States[Path].ShouldBeOfType<AverageRegisterState>();
+        state.Contributions.Count.ShouldBe(2);
+        state.Contributions["r1"].Value.ShouldBe(5m); // Kept newer from meta1
+        state.Contributions["r2"].Value.ShouldBe(10m); // Merged from meta2
+
+        data1.Rating.ShouldBe(7.5m); // (5 + 10) / 2
+    }
+
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {
         if (length == 1) return list.Select(t => new T[] { t });

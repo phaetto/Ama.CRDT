@@ -445,4 +445,55 @@ public sealed class CounterMapStrategyTests
         state.Keys["a"].P.ShouldBe(10);
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergePnCountersCorrectly()
+    {
+        // Arrange
+        using var scope = scopeFactory.CreateScope("A");
+        var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
+
+        var propInfo = new CrdtPropertyInfo(
+            "Map",
+            "map",
+            typeof(Dictionary<string, int>),
+            true,
+            true,
+            obj => ((CounterMapTestModel)obj).Map,
+            (obj, val) => ((CounterMapTestModel)obj).Map = (Dictionary<string, int>)val!,
+            new CrdtCounterMapStrategyAttribute(),
+            []);
+
+        var doc1 = CreateDocument(new Dictionary<string, int>());
+        var doc2 = CreateDocument(new Dictionary<string, int>());
+
+        // doc1 Setup: "a" gets +5, -2. "b" gets +10.
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 5m), timestampProvider.Now(), 1)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", -2m), timestampProvider.Now(), 2)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("b", 10m), timestampProvider.Now(), 3)));
+
+        // doc2 Setup: "a" gets +3, -6. "c" gets +7.
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 3m), timestampProvider.Now(), 1)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", -6m), timestampProvider.Now(), 2)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("c", 7m), timestampProvider.Now(), 3)));
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo);
+
+        // Assert
+        // "a" positive = max(5, 3) = 5. negative = max(2, 6) = 6. Net = -1.
+        // "b" positive = max(10, 0) = 10. negative = 0. Net = 10.
+        // "c" positive = max(0, 7) = 7. negative = 0. Net = 7.
+        doc1.Data.Map["a"].ShouldBe(-1);
+        doc1.Data.Map["b"].ShouldBe(10);
+        doc1.Data.Map["c"].ShouldBe(7);
+
+        var mergedState = (CounterMapState)doc1.Metadata.States["$.map"];
+        mergedState.Keys["a"].P.ShouldBe(5m);
+        mergedState.Keys["a"].N.ShouldBe(6m);
+        mergedState.Keys["b"].P.ShouldBe(10m);
+        mergedState.Keys["b"].N.ShouldBe(0m);
+        mergedState.Keys["c"].P.ShouldBe(7m);
+        mergedState.Keys["c"].N.ShouldBe(0m);
+    }
 }

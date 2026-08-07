@@ -250,4 +250,60 @@ public sealed class GraphStrategyTests : IDisposable
         // Assert
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
+
+    [Fact]
+    public void MergeAsStateCrdt_WithValidGraphs_MergesVerticesAndEdges()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
+        
+        var doc1 = new TestModel();
+        doc1.Graph.Vertices.Add("A");
+        doc1.Graph.Edges.Add(new Edge("A", "B", "connects"));
+
+        var doc2 = new TestModel();
+        doc2.Graph.Vertices.Add("B");
+        doc2.Graph.Vertices.Add("C");
+        doc2.Graph.Edges.Add(new Edge("B", "C", "connects"));
+
+        var meta1 = new CrdtMetadata();
+        var meta2 = new CrdtMetadata();
+
+        var propertyInfo = new CrdtPropertyInfo("Graph", "graph", typeof(CrdtGraph), true, true, obj => ((TestModel)obj).Graph, (obj, val) => ((TestModel)obj).Graph = (CrdtGraph)val!, new CrdtGraphStrategyAttribute(), Array.Empty<CrdtStrategyDecoratorAttribute>());
+
+        // Act
+        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propertyInfo);
+
+        // Assert
+        doc1.Graph.Vertices.ShouldBe(new HashSet<object> { "A", "B", "C" }, ignoreOrder: true);
+        doc1.Graph.Edges.ShouldBe(new HashSet<Edge> { new Edge("A", "B", "connects"), new Edge("B", "C", "connects") }, ignoreOrder: true);
+    }
+
+    [Fact]
+    public void MergeAsStateCrdt_WithInvalidProperty_DoesNothing()
+    {
+        // Arrange
+        var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
+        
+        var doc1 = new TestModel();
+        doc1.Graph.Vertices.Add("A");
+        
+        var doc2 = new TestModel();
+        doc2.Graph.Vertices.Add("B");
+        
+        var meta1 = new CrdtMetadata();
+        var meta2 = new CrdtMetadata();
+
+        var propertyInfoNullGetter = new CrdtPropertyInfo("Graph", "graph", typeof(CrdtGraph), true, true, null, null, new CrdtGraphStrategyAttribute(), Array.Empty<CrdtStrategyDecoratorAttribute>());
+
+        // Act & Assert (Null Getter)
+        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propertyInfoNullGetter);
+        doc1.Graph.Vertices.ShouldBe(new HashSet<object> { "A" });
+
+        var propertyInfoWrongType = new CrdtPropertyInfo("Graph", "graph", typeof(string), true, true, obj => "Not a graph", null, new CrdtGraphStrategyAttribute(), Array.Empty<CrdtStrategyDecoratorAttribute>());
+        
+        // Act & Assert (Wrong Type)
+        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propertyInfoWrongType);
+        doc1.Graph.Vertices.ShouldBe(new HashSet<object> { "A" });
+    }
 }

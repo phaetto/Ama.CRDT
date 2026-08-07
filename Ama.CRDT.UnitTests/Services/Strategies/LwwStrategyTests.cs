@@ -265,7 +265,38 @@ public sealed class LwwStrategyTests : IDisposable
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
         ((CausalTimestamp)metadata.States["$.Value"]).Timestamp.ShouldBe(timestampProvider.Create(200L));
     }
-    
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldTakeMaxTimestampAndValue()
+    {
+        // Arrange
+        var doc1 = new TestModel { Value = 10 };
+        var meta1 = new CrdtMetadata();
+        meta1.States["$.value"] = new CausalTimestamp(timestampProvider.Create(100L), "A", 1);
+
+        var doc2 = new TestModel { Value = 20 };
+        var meta2 = new CrdtMetadata();
+        meta2.States["$.value"] = new CausalTimestamp(timestampProvider.Create(200L), "B", 2);
+
+        var doc3 = new TestModel { Value = 30 };
+        var meta3 = new CrdtMetadata();
+        meta3.States["$.value"] = new CausalTimestamp(timestampProvider.Create(50L), "C", 3);
+
+        // Act - merge doc2 into doc1 (doc2 is newer)
+        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, valueProperty);
+
+        // Assert
+        doc1.Value.ShouldBe(20);
+        ((CausalTimestamp)meta1.States["$.value"]).Timestamp.ShouldBe(timestampProvider.Create(200L));
+
+        // Act - merge doc3 into doc1 (doc3 is older)
+        strategyA.MergeAsStateCrdt(doc1, meta1, doc3, meta3, valueProperty);
+
+        // Assert
+        doc1.Value.ShouldBe(20); // Should not change
+        ((CausalTimestamp)meta1.States["$.value"]).Timestamp.ShouldBe(timestampProvider.Create(200L));
+    }
+
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {
         if (length == 1) return list.Select(t => new T[] { t });

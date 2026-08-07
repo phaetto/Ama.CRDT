@@ -303,6 +303,53 @@ public sealed class CounterStrategyTests : IDisposable
         mockPolicy.Verify(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>()), Times.Never);
     }
 
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeContributionsAndCalculateNetDifference()
+    {
+        // Arrange
+        var data1 = new TestModel { Score = 10 };
+        var meta1 = new CrdtMetadata();
+        meta1.States["$.score"] = new CounterState(new Dictionary<string, PnCounterState>
+        {
+            ["replica-A"] = new PnCounterState(10, 0)
+        });
+
+        var data2 = new TestModel { Score = 15 };
+        var meta2 = new CrdtMetadata();
+        meta2.States["$.score"] = new CounterState(new Dictionary<string, PnCounterState>
+        {
+            ["replica-A"] = new PnCounterState(10, 0),
+            ["replica-B"] = new PnCounterState(7, 2) // net diff +5
+        });
+
+        // Act
+        strategy.MergeAsStateCrdt(data1, meta1, data2, meta2, ScoreProperty);
+
+        // Assert
+        data1.Score.ShouldBe(15);
+        var state1 = meta1.States["$.score"].ShouldBeOfType<CounterState>();
+        state1.Contributions.Count.ShouldBe(2);
+        state1.Contributions["replica-B"].P.ShouldBe(7);
+        state1.Contributions["replica-B"].N.ShouldBe(2);
+    }
+
+    [Fact]
+    public void MergeAsStateCrdt_ShouldDoNothing_WhenMeta2HasNoState()
+    {
+        // Arrange
+        var data1 = new TestModel { Score = 10 };
+        var meta1 = new CrdtMetadata();
+        var data2 = new TestModel { Score = 15 };
+        var meta2 = new CrdtMetadata();
+
+        // Act
+        strategy.MergeAsStateCrdt(data1, meta1, data2, meta2, ScoreProperty);
+
+        // Assert
+        data1.Score.ShouldBe(10); // Unchanged
+        meta1.States.Count.ShouldBe(1); // It initializes $.score empty state
+    }
+
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {
         if (length == 1) return list.Select(t => new T[] { t });

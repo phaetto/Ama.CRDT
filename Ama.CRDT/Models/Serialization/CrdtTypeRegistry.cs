@@ -62,6 +62,8 @@ public static class CrdtTypeRegistry
         Register("epoch-payload", typeof(EpochPayload));
         Register("quorum-payload", typeof(QuorumPayload));
         Register("tree-node", typeof(TreeNode));
+        Register("counter-state", typeof(CounterState));
+        Register("gcounter-state", typeof(GCounterState));
 
         // Partitioning
         Register("comp-key", typeof(CompositePartitionKey));

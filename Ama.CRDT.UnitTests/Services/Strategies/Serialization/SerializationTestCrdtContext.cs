@@ -53,6 +53,8 @@ using System.Collections.Generic;
 [CrdtAotType(typeof(int))]
 [CrdtAotType(typeof(Guid))]
 [CrdtAotType(typeof(string))]
+[CrdtAotType(typeof(CounterState))]
+[CrdtAotType(typeof(GCounterState))]
 [CrdtAotType(typeof(IDictionary<object, CausalTimestamp>))]
 [CrdtAotType(typeof(Dictionary<object, CausalTimestamp>))]
 [CrdtAotType(typeof(IDictionary<object, ICrdtTimestamp>))]
@@ -65,6 +67,10 @@ using System.Collections.Generic;
 [CrdtAotType(typeof(Dictionary<Guid, CausalTimestamp>))]
 [CrdtAotType(typeof(IDictionary<object, PnCounterState>))]
 [CrdtAotType(typeof(Dictionary<object, PnCounterState>))]
+[CrdtAotType(typeof(IDictionary<string, PnCounterState>))]
+[CrdtAotType(typeof(Dictionary<string, PnCounterState>))]
+[CrdtAotType(typeof(IDictionary<string, decimal>))]
+[CrdtAotType(typeof(Dictionary<string, decimal>))]
 internal partial class SerializationTestCrdtAotContext : CrdtAotContext
 {
 }

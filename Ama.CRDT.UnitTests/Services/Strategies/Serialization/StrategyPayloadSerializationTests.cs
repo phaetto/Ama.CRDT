@@ -371,6 +371,8 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     [Fact] public void VotePayload_ShouldSerializeAndDeserialize() => TestPayloadSerialization<VotePayload>();
     [Fact] public void EpochPayload_ShouldSerializeAndDeserialize() => TestPayloadSerialization<EpochPayload>();
     [Fact] public void QuorumPayload_ShouldSerializeAndDeserialize() => TestPayloadSerialization<QuorumPayload>();
+    [Fact] public void CounterState_ShouldSerializeAndDeserialize() => TestPayloadSerialization<CounterState>();
+    [Fact] public void GCounterState_ShouldSerializeAndDeserialize() => TestPayloadSerialization<GCounterState>();
 
     private void TestPayloadSerialization<T>()
     {

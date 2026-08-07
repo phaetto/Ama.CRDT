@@ -413,6 +413,35 @@ public sealed class LwwSetStrategyTests : IDisposable
         ((LwwSetState)meta.States["$.tags"]).Removes.ShouldNotContainKey("item4");
     }
 
+    [Fact]
+    public void MergeAsStateCrdt_ShouldMergeStatesAndReconstructList()
+    {
+        // Arrange
+        var doc1 = new TestModel();
+        var meta1 = metadataManagerA.Initialize(doc1);
+        var doc2 = new TestModel();
+        var meta2 = metadataManagerA.Initialize(doc2);
+
+        // Setup doc1: Adds A(t=1), Adds B(t=2)
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "A", timestampProvider.Create(1), 1)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "B", timestampProvider.Create(2), 2)));
+
+        // Setup doc2: Adds A(t=3), Removes B(t=4), Adds C(t=5)
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.tags", OperationType.Upsert, "A", timestampProvider.Create(3), 3)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.tags", OperationType.Remove, "B", timestampProvider.Create(4), 4)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.tags", OperationType.Upsert, "C", timestampProvider.Create(5), 5)));
+
+        // Act
+        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, tagsPropInfo);
+
+        // Assert
+        doc1.Tags.ShouldBe(["A", "C"], ignoreOrder: true);
+        var state = (LwwSetState)meta1.States["$.tags"];
+        state.Adds["A"].ShouldBe(timestampProvider.Create(3));
+        state.Removes["B"].Timestamp.ShouldBe(timestampProvider.Create(4));
+        state.Adds["C"].ShouldBe(timestampProvider.Create(5));
+    }
+
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
     {
         if (length == 1) return list.Select(t => new T[] { t });

@@ -187,6 +187,16 @@ public sealed class CrdtMetadataSerializationTests
             ["key1"] = new PnCounterState(10m, 5m)
         }));
 
+        metadata.States.Add("$.counter1", new CounterState(new Dictionary<string, PnCounterState>
+        {
+            ["replica1"] = new PnCounterState(10m, 5m)
+        }));
+
+        metadata.States.Add("$.gcounter1", new GCounterState(new Dictionary<string, decimal>
+        {
+            ["replica1"] = 42m
+        }));
+
         var edge = new Edge("v1", "v2", null);
         metadata.States.Add("$.graph1", new TwoPhaseGraphState(
             new HashSet<object> { "v1", "v2" },
