@@ -214,7 +214,7 @@ public sealed class RgaStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Partitioning_SplitAndMerge_ShouldRestoreOriginalState()
+    public void Partitioning_SplitAndMergeDisjoint_ShouldRestoreOriginalState()
     {
         // Arrange
         var doc = new RgaTestModel { Items = ["A", "B", "C", "D", "E"] };
@@ -320,7 +320,7 @@ public sealed class RgaStrategyTests : IDisposable
     }
     
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeTwoStatesCorrectly()
+    public void MergeState_ShouldMergeTwoStatesCorrectly()
     {
         // Arrange
         var strategy = scopeA.ServiceProvider.GetRequiredService<IEnumerable<ICrdtStrategy>>()
@@ -359,7 +359,7 @@ public sealed class RgaStrategyTests : IDisposable
             Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
 
         // Act
-        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, property);
+        strategy.MergeState(doc1, meta1, doc2, meta2, property);
 
         // Assert
         doc1.Items.Count.ShouldBe(4);

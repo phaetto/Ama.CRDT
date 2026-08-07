@@ -95,7 +95,7 @@ public sealed class GraphStrategy(ReplicaContext replicaContext) : ICrdtStrategy
         // Therefore, there is no state to prune.
     }
 
-    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
     {
         if (property.Getter is null)
         {

@@ -381,7 +381,7 @@ public sealed class FwwSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Split_ShouldDivideDataAndMetadataEqually()
+    public void SplitToDisjoint_ShouldDivideDataAndMetadataEqually()
     {
         var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
@@ -415,7 +415,7 @@ public sealed class FwwSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Merge_ShouldCombineDataAndMetadata()
+    public void MergeDisjoint_ShouldCombineDataAndMetadata()
     {
         var doc1 = new FwwSetTestModel();
         var meta1 = metadataManagerA.Initialize(doc1);
@@ -507,7 +507,7 @@ public sealed class FwwSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldCombineStateUsingFww()
+    public void MergeState_ShouldCombineStateUsingFww()
     {
         // Arrange
         var propInfo = new CrdtPropertyInfo(
@@ -542,7 +542,7 @@ public sealed class FwwSetStrategyTests : IDisposable
         doc2.Tags.AddRange(["A", "B", "C"]);
 
         // Act
-        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+        strategyA.MergeState(doc1, meta1, doc2, meta2, propInfo);
 
         // Assert
         // "A": doc1 had newer, doc2 had older. FWW -> older wins -> A should have tsOlder.

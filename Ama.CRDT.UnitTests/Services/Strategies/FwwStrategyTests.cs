@@ -354,7 +354,7 @@ public sealed class FwwStrategyTests : IDisposable
     }
     
     [Fact]
-    public void MergeAsStateCrdt_WhenSecondaryHasOlderTimestamp_ShouldTakeSecondaryState()
+    public void MergeState_WhenSecondaryHasOlderTimestamp_ShouldTakeSecondaryState()
     {
         // Arrange
         var doc1 = new TestModel { Value = 10 };
@@ -364,7 +364,7 @@ public sealed class FwwStrategyTests : IDisposable
         var meta2 = new CrdtMetadata { States = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(100L), "r2", 2) } };
 
         // Act
-        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, GetValuePropertyInfo());
+        strategyA.MergeState(doc1, meta1, doc2, meta2, GetValuePropertyInfo());
 
         // Assert
         doc1.Value.ShouldBe(20);
@@ -372,7 +372,7 @@ public sealed class FwwStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_WhenPrimaryHasOlderTimestamp_ShouldKeepPrimaryState()
+    public void MergeState_WhenPrimaryHasOlderTimestamp_ShouldKeepPrimaryState()
     {
         // Arrange
         var doc1 = new TestModel { Value = 10 };
@@ -382,7 +382,7 @@ public sealed class FwwStrategyTests : IDisposable
         var meta2 = new CrdtMetadata { States = { ["$.value"] = new CausalTimestamp(timestampProvider.Create(200L), "r2", 1) } };
 
         // Act
-        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, GetValuePropertyInfo());
+        strategyA.MergeState(doc1, meta1, doc2, meta2, GetValuePropertyInfo());
 
         // Assert
         doc1.Value.ShouldBe(10);

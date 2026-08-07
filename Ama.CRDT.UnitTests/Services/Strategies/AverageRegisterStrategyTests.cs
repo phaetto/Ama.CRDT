@@ -305,7 +305,7 @@ public sealed class AverageRegisterStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeContributionsAndRecalculateAverage()
+    public void MergeState_ShouldMergeContributionsAndRecalculateAverage()
     {
         // Arrange
         var property = new CrdtPropertyInfo(
@@ -336,7 +336,7 @@ public sealed class AverageRegisterStrategyTests : IDisposable
         });
 
         // Act
-        strategyA.MergeAsStateCrdt(data1, meta1, data2, meta2, property);
+        strategyA.MergeState(data1, meta1, data2, meta2, property);
 
         // Assert
         var state = meta1.States[Path].ShouldBeOfType<AverageRegisterState>();

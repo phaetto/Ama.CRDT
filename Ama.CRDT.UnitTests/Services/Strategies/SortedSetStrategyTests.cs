@@ -553,7 +553,7 @@ public sealed class SortedSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Split_ShouldDivideDataEquallyAndMaintainSort()
+    public void SplitToDisjoint_ShouldDivideDataEquallyAndMaintainSort()
     {
         var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
         var doc = new ConvergenceTestModel();
@@ -586,7 +586,7 @@ public sealed class SortedSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Merge_ShouldCombineDataAndSort()
+    public void MergeDisjoint_ShouldCombineDataAndSort()
     {
         var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
         var doc1 = new ConvergenceTestModel();
@@ -680,7 +680,7 @@ public sealed class SortedSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldCombineDataAndSort()
+    public void MergeState_ShouldCombineDataAndSort()
     {
         var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
         var doc1 = new ConvergenceTestModel();
@@ -705,7 +705,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now(), 0)));
 
         // Act
-        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+        strategy.MergeState(doc1, meta1, doc2, meta2, propInfo);
 
         // Assert
         doc1.Users.Select(u => u.Name).ShouldBe(["Alice", "Bob", "Charlie", "Dave"]);

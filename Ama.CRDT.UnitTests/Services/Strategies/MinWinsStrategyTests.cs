@@ -281,28 +281,28 @@ public sealed class MinWinsStrategyTests : IDisposable
     }
     
     [Fact]
-    public void MergeAsStateCrdt_ShouldUpdateData1_WhenData2HasLowerValue()
+    public void MergeState_ShouldUpdateData1_WhenData2HasLowerValue()
     {
         // Arrange
         var data1 = new TestModel { BestTime = 200 };
         var data2 = new TestModel { BestTime = 100 };
 
         // Act
-        strategyA.MergeAsStateCrdt(data1, new CrdtMetadata(), data2, new CrdtMetadata(), property);
+        strategyA.MergeState(data1, new CrdtMetadata(), data2, new CrdtMetadata(), property);
 
         // Assert
         data1.BestTime.ShouldBe(100);
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldNotUpdateData1_WhenData2HasHigherValue()
+    public void MergeState_ShouldNotUpdateData1_WhenData2HasHigherValue()
     {
         // Arrange
         var data1 = new TestModel { BestTime = 100 };
         var data2 = new TestModel { BestTime = 200 };
 
         // Act
-        strategyA.MergeAsStateCrdt(data1, new CrdtMetadata(), data2, new CrdtMetadata(), property);
+        strategyA.MergeState(data1, new CrdtMetadata(), data2, new CrdtMetadata(), property);
 
         // Assert
         data1.BestTime.ShouldBe(100);

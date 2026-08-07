@@ -288,7 +288,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldIgnore_WhenLocalEpochIsHigher()
+    public void MergeState_ShouldIgnore_WhenLocalEpochIsHigher()
     {
         // Arrange
         var strategy = strategyProvider.GetStrategy(typeof(ShoppingCart), StatusProperty);
@@ -302,7 +302,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
         meta2.States["$.status|Epoch"] = new EpochState(1);
 
         // Act
-        strategy.MergeAsStateCrdt(data1, meta1, data2, meta2, StatusProperty);
+        strategy.MergeState(data1, meta1, data2, meta2, StatusProperty);
 
         // Assert
         data1.Status.ShouldBe("Local");
@@ -310,7 +310,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldClearStateAndTakeNewEpoch_WhenRemoteEpochIsHigher()
+    public void MergeState_ShouldClearStateAndTakeNewEpoch_WhenRemoteEpochIsHigher()
     {
         // Arrange
         var strategy = strategyProvider.GetStrategy(typeof(ShoppingCart), StatusProperty);
@@ -325,7 +325,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
         meta2.States["$.status|Epoch"] = new EpochState(2);
 
         // Act
-        strategy.MergeAsStateCrdt(data1, meta1, data2, meta2, StatusProperty);
+        strategy.MergeState(data1, meta1, data2, meta2, StatusProperty);
 
         // Assert
         data1.Status.ShouldBeNull(); // It clears the property before inner merge

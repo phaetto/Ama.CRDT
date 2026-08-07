@@ -304,7 +304,7 @@ public sealed class CounterStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeContributionsAndCalculateNetDifference()
+    public void MergeState_ShouldMergeContributionsAndCalculateNetDifference()
     {
         // Arrange
         var data1 = new TestModel { Score = 10 };
@@ -323,7 +323,7 @@ public sealed class CounterStrategyTests : IDisposable
         });
 
         // Act
-        strategy.MergeAsStateCrdt(data1, meta1, data2, meta2, ScoreProperty);
+        strategy.MergeState(data1, meta1, data2, meta2, ScoreProperty);
 
         // Assert
         data1.Score.ShouldBe(15);
@@ -334,7 +334,7 @@ public sealed class CounterStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldDoNothing_WhenMeta2HasNoState()
+    public void MergeState_ShouldDoNothing_WhenMeta2HasNoState()
     {
         // Arrange
         var data1 = new TestModel { Score = 10 };
@@ -343,7 +343,7 @@ public sealed class CounterStrategyTests : IDisposable
         var meta2 = new CrdtMetadata();
 
         // Act
-        strategy.MergeAsStateCrdt(data1, meta1, data2, meta2, ScoreProperty);
+        strategy.MergeState(data1, meta1, data2, meta2, ScoreProperty);
 
         // Assert
         data1.Score.ShouldBe(10); // Unchanged

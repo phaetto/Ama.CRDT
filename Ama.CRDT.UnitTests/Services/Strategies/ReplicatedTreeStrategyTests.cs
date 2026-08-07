@@ -314,7 +314,7 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
     }
     
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeNodesAndMetadata()
+    public void MergeState_ShouldMergeNodesAndMetadata()
     {
         // Arrange
         var rootId = Guid.NewGuid();
@@ -352,7 +352,7 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
             Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
 
         // Act
-        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+        strategy.MergeState(doc1, meta1, doc2, meta2, propInfo);
 
         // Assert
         doc1.Tree.Nodes.Count.ShouldBe(3);

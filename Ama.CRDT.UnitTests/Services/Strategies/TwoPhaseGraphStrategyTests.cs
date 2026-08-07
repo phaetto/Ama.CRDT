@@ -268,7 +268,7 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
     }
     
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeAddsAndTombstonesCorrectly()
+    public void MergeState_ShouldMergeAddsAndTombstonesCorrectly()
     {
         // Arrange
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<TwoPhaseGraphStrategy>().Single();
@@ -294,7 +294,7 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(data1, meta1, op4));
 
         // Act
-        strategy.MergeAsStateCrdt(data1, meta1, data2, meta2, propInfo);
+        strategy.MergeState(data1, meta1, data2, meta2, propInfo);
 
         // Assert
         data1.Graph.Vertices.ShouldNotContain("V1"); // Removed in data1 at 400

@@ -271,7 +271,7 @@ public sealed class GSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Split_ShouldDivideDataEqually()
+    public void SplitToDisjoint_ShouldDivideDataEqually()
     {
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
@@ -294,7 +294,7 @@ public sealed class GSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Merge_ShouldCombineData()
+    public void MergeDisjoint_ShouldCombineData()
     {
         var doc1 = new TestModel();
         var meta1 = metadataManagerA.Initialize(doc1);
@@ -378,7 +378,7 @@ public sealed class GSetStrategyTests : IDisposable
     }
     
     [Fact]
-    public void MergeAsStateCrdt_ShouldUnionBothSetsAndSort()
+    public void MergeState_ShouldUnionBothSetsAndSort()
     {
         // Arrange
         var doc1 = new TestModel { Tags = { "C", "A" } };
@@ -388,7 +388,7 @@ public sealed class GSetStrategyTests : IDisposable
         var meta2 = new CrdtMetadata();
 
         // Act
-        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, GetTagsPropertyInfo());
+        strategyA.MergeState(doc1, meta1, doc2, meta2, GetTagsPropertyInfo());
 
         // Assert
         doc1.Tags.ShouldBe(new[] { "A", "B", "C", "D" });

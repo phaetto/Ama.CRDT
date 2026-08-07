@@ -203,7 +203,7 @@ public sealed class FwwMapStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
     {
         if (data1 is null || meta1 is null || data2 is null || meta2 is null || property is null) return;
 

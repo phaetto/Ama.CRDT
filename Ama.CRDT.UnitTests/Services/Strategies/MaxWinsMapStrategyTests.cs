@@ -191,7 +191,7 @@ public sealed class MaxWinsMapStrategyTests
     }
 
     [Fact]
-    public void Split_ShouldDivideDataEqually()
+    public void SplitToDisjoint_ShouldDivideDataEqually()
     {
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
@@ -215,7 +215,7 @@ public sealed class MaxWinsMapStrategyTests
     }
 
     [Fact]
-    public void Merge_ShouldCombineDataAndResolveConflicts()
+    public void MergeDisjoint_ShouldCombineDataAndResolveConflicts()
     {
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<MaxWinsMapStrategy>();
@@ -297,7 +297,7 @@ public sealed class MaxWinsMapStrategyTests
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldTakeMaxValuesForKey()
+    public void MergeState_ShouldTakeMaxValuesForKey()
     {
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
@@ -307,7 +307,7 @@ public sealed class MaxWinsMapStrategyTests
         var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 20 }, { "c", 30 } });
 
         // Act
-        strategy.MergeAsStateCrdt(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapPropInfo);
+        strategy.MergeState(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, mapPropInfo);
 
         // Assert
         doc1.Data.Map.Count.ShouldBe(3);

@@ -344,7 +344,7 @@ public sealed class OrSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Split_ShouldDivideDataAndMetadataEqually()
+    public void SplitToDisjoint_ShouldDivideDataAndMetadataEqually()
     {
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
@@ -371,7 +371,7 @@ public sealed class OrSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Merge_ShouldCombineDataAndMetadata()
+    public void MergeDisjoint_ShouldCombineDataAndMetadata()
     {
         var doc1 = new TestModel();
         var meta1 = metadataManagerA.Initialize(doc1);
@@ -443,7 +443,7 @@ public sealed class OrSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeDataAndMetadataCorrectly()
+    public void MergeState_ShouldMergeDataAndMetadataCorrectly()
     {
         // Arrange
         var propInfo = new OrSetStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
@@ -467,7 +467,7 @@ public sealed class OrSetStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.tags", OperationType.Upsert, new OrSetAddItem("D", Guid.NewGuid()), ts.Now(), 0)));
 
         // Act
-        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+        strategyA.MergeState(doc1, meta1, doc2, meta2, propInfo);
 
         // Assert
         doc1.Tags.ShouldBe(new[] { "B", "C", "D" }, ignoreOrder: true); // "A" was removed in doc2

@@ -431,7 +431,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeDataAndMetadataCorrectly()
+    public void MergeState_ShouldMergeDataAndMetadataCorrectly()
     {
         // Arrange
         var propInfo = new PriorityQueueStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)];
@@ -472,7 +472,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", path, OperationType.Upsert, itemA50, ts4, 0)));
 
         // Act
-        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+        strategy.MergeState(doc1, meta1, doc2, meta2, propInfo);
 
         // Assert
         // B is removed

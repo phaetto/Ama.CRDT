@@ -321,7 +321,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
     }
     
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeAccordingToLww()
+    public void MergeState_ShouldMergeAccordingToLww()
     {
         // Arrange
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<FixedSizeArrayStrategy>().Single();
@@ -351,7 +351,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
 
         // Act: Merge Doc2 into Doc1
         // Since Doc2 has later timestamps (LWW), Doc2's changes should win
-        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+        strategy.MergeState(doc1, meta1, doc2, meta2, propInfo);
 
         // Assert
         doc1.Values.ShouldBe([12, 22, 30]);
@@ -363,7 +363,7 @@ public sealed class FixedSizeArrayStrategyTests : IDisposable
         var crdtDoc3 = new CrdtDocument<FixedSizeArrayTestModel>(doc3, meta3);
         applicatorA.ApplyPatch(crdtDoc3, patch2); // apply newer first
         
-        strategy.MergeAsStateCrdt(doc3, meta3, doc1, meta1, propInfo); // merge older patch1
+        strategy.MergeState(doc3, meta3, doc1, meta1, propInfo); // merge older patch1
         doc3.Values.ShouldBe([12, 22, 30]); // should still be newer
     }
 

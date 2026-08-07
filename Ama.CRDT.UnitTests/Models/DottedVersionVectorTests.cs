@@ -132,7 +132,7 @@ public sealed class DottedVersionVectorTests
     }
 
     [Fact]
-    public void Merge_WithOtherVector_ShouldCombineStateCorrectly()
+    public void MergeDisjoint_WithOtherVector_ShouldCombineStateCorrectly()
     {
         var dvv1 = new DottedVersionVector();
         dvv1.Add("A", 1);

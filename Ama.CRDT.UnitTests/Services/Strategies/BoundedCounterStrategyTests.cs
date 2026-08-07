@@ -315,7 +315,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldTakeMaxClockAndClampValue()
+    public void MergeState_ShouldTakeMaxClockAndClampValue()
     {
         // Arrange
         var propInfo = new CrdtPropertyInfo(
@@ -339,7 +339,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.level", OperationType.Increment, 70m, timestampProvider.Create(2L), 2)) { Property = propInfo, FinalSegment = "level" });
 
         // Act
-        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+        strategy.MergeState(doc1, meta1, doc2, meta2, propInfo);
 
         // Assert
         doc1.Level.ShouldBe(100);
@@ -349,7 +349,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldTieBreakByReplicaId()
+    public void MergeState_ShouldTieBreakByReplicaId()
     {
         // Arrange
         var propInfo = new CrdtPropertyInfo(
@@ -372,7 +372,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.level", OperationType.Increment, -20m, timestampProvider.Create(1L), 1)) { Property = propInfo, FinalSegment = "level" });
 
         // Act
-        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+        strategy.MergeState(doc1, meta1, doc2, meta2, propInfo);
 
         // Assert
         // B > A, so B wins tie break. Unbounded value should be 50 - 20 = 30.

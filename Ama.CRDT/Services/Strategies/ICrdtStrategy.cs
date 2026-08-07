@@ -47,5 +47,5 @@ public interface ICrdtStrategy
     /// <param name="data2">The secondary document data object to merge from.</param>
     /// <param name="meta2">The secondary metadata object to merge from.</param>
     /// <param name="property">The property info being merged.</param>
-    void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property);
+    void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property);
 }

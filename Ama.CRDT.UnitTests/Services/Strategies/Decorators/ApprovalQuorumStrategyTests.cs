@@ -259,7 +259,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeApprovals()
+    public void MergeState_ShouldMergeApprovals()
     {
         // Arrange
         var strategy = strategyProvider.GetStrategy(typeof(ProposalDocument), ConfigValueProperty);
@@ -277,7 +277,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         meta2.States["$.configValue|Quorum"] = new QuorumState(q2);
 
         // Act
-        strategy.MergeAsStateCrdt(data1, meta1, data2, meta2, ConfigValueProperty);
+        strategy.MergeState(data1, meta1, data2, meta2, ConfigValueProperty);
 
         // Assert
         var mergedState = meta1.States["$.configValue|Quorum"].ShouldBeOfType<QuorumState>();

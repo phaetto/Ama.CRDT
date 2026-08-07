@@ -298,7 +298,7 @@ public sealed class GCounterStrategyTests : IDisposable
     }
     
     [Fact]
-    public void MergeAsStateCrdt_ShouldCombineContributionsAndAddNetDifference()
+    public void MergeState_ShouldCombineContributionsAndAddNetDifference()
     {
         // Arrange
         var doc1 = new TestModel { Count = 10 };
@@ -308,7 +308,7 @@ public sealed class GCounterStrategyTests : IDisposable
         var meta2 = new CrdtMetadata { States = { ["$.count"] = new GCounterState(new Dictionary<string, decimal> { ["r1"] = 5m, ["r2"] = 5m }) } };
 
         // Act
-        strategy.MergeAsStateCrdt(doc1, meta1, doc2, meta2, GetCountPropertyInfo());
+        strategy.MergeState(doc1, meta1, doc2, meta2, GetCountPropertyInfo());
 
         // Assert
         doc1.Count.ShouldBe(15);
