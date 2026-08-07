@@ -356,6 +356,37 @@ public sealed class LwwSetStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+        var comparer = comparerProvider.GetComparer(elementType);
+
+        if (!meta1.States.TryGetValue(path, out var baseState1) || baseState1 is not LwwSetState state1)
+        {
+            state1 = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
+            meta1.States[path] = state1;
+        }
+
+        if (meta2.States.TryGetValue(path, out var baseState2) && baseState2 is LwwSetState state2)
+        {
+            foreach (var kvp in state2.Adds)
+            {
+                if (!state1.Adds.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
+                    state1.Adds[kvp.Key] = kvp.Value;
+            }
+            foreach (var kvp in state2.Removes)
+            {
+                if (!state1.Removes.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
+                    state1.Removes[kvp.Key] = kvp.Value;
+            }
+        }
+
+        ReconstructListForSplitMerge(data1, property, state1, elementType, aotContexts);
+    }
+
     private static void ReconstructListForSplitMerge(object root, CrdtPropertyInfo partitionableProperty, LwwSetState state, Type elementType, IEnumerable<CrdtAotContext> aotContexts)
     {
         var collection = partitionableProperty.Getter!(root);

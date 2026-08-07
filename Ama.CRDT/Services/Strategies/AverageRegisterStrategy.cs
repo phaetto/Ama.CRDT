@@ -100,6 +100,36 @@ public sealed class AverageRegisterStrategy(
         // Therefore, there is no metadata to prune safely.
     }
 
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        
+        if (!meta1.States.TryGetValue(path, out var state1) || state1 is not AverageRegisterState avgState1)
+        {
+            avgState1 = new AverageRegisterState(new Dictionary<string, AverageRegisterValue>());
+            meta1.States[path] = avgState1;
+        }
+        
+        if (!meta2.States.TryGetValue(path, out var state2) || state2 is not AverageRegisterState avgState2)
+        {
+            return;
+        }
+
+        var contributions1 = avgState1.Contributions;
+        var contributions2 = avgState2.Contributions;
+
+        foreach (var kvp in contributions2)
+        {
+            if (!contributions1.TryGetValue(kvp.Key, out var existing) || kvp.Value.Timestamp.CompareTo(existing.Timestamp) > 0)
+            {
+                contributions1[kvp.Key] = kvp.Value;
+            }
+        }
+
+        RecalculateAndApplyAverage(data1, path, contributions1);
+    }
+
     private void RecalculateAndApplyAverage(object root, string jsonPath, IDictionary<string, AverageRegisterValue> contributions)
     {
         if (contributions.Count == 0)

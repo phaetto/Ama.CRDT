@@ -340,6 +340,42 @@ public sealed class LwwMapStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
 
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        if (data1 is null) throw new ArgumentNullException(nameof(data1));
+        if (meta1 is null) throw new ArgumentNullException(nameof(meta1));
+        if (data2 is null) throw new ArgumentNullException(nameof(data2));
+        if (meta2 is null) throw new ArgumentNullException(nameof(meta2));
+        if (property is null) throw new ArgumentNullException(nameof(property));
+
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
+        var comparer = comparerProvider.GetComparer(keyType);
+
+        var items1 = meta1.States.TryGetValue(path, out var s1) && s1 is LwwMapState ls1 ? ls1.Keys : new Dictionary<object, CausalTimestamp>(comparer);
+        var items2 = meta2.States.TryGetValue(path, out var s2) && s2 is LwwMapState ls2 ? ls2.Keys : new Dictionary<object, CausalTimestamp>(comparer);
+
+        var mergedItems = new Dictionary<object, CausalTimestamp>(comparer);
+        foreach (var kvp in items1) mergedItems[kvp.Key] = kvp.Value;
+        foreach (var kvp in items2)
+        {
+            if (!mergedItems.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
+            {
+                mergedItems[kvp.Key] = kvp.Value;
+            }
+        }
+
+        var sortedItems = mergedItems.ToList();
+        sortedItems.Sort((a, b) => ((IComparable)a.Key).CompareTo((IComparable)b.Key));
+
+        // Reconstruct the dictionary in data1 before modifying meta1,
+        // because ReconstructDictionaryForMerge needs to know the original meta1 timestamps.
+        ReconstructDictionaryForMerge(data1, path, sortedItems, data1, meta1, data2, meta2, aotContexts);
+
+        meta1.States[path] = new LwwMapState(mergedItems);
+    }
+
     private static void ReconstructDictionaryForSplitMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object originalData, IEnumerable<CrdtAotContext> aotContexts)
     {
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, path, aotContexts);

@@ -154,6 +154,41 @@ public sealed class TwoPhaseSetStrategy(
     }
 
     /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{property.JsonName}";
+
+        if (!meta2.States.TryGetValue(path, out var baseState2) || baseState2 is not TwoPhaseSetState state2)
+        {
+            return;
+        }
+
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+        var comparer = comparerProvider.GetComparer(elementType);
+
+        if (!meta1.States.TryGetValue(path, out var baseState1) || baseState1 is not TwoPhaseSetState state1)
+        {
+            state1 = new TwoPhaseSetState(new HashSet<object>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
+            meta1.States[path] = state1;
+        }
+
+        foreach (var item in state2.Adds)
+        {
+            state1.Adds.Add(item);
+        }
+
+        foreach (var item in state2.Tombstones)
+        {
+            if (!state1.Tombstones.TryGetValue(item.Key, out var existing) || item.Value.Timestamp.CompareTo(existing.Timestamp) > 0)
+            {
+                state1.Tombstones[item.Key] = item.Value;
+            }
+        }
+
+        ReconstructListForSplitMerge(data1, path, state1, elementType, property.PropertyType);
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
         var list = PocoPathHelper.GetValue<IList>(data, partitionableProperty.Name, aotContexts);

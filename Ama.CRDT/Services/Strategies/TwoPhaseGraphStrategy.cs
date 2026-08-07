@@ -182,4 +182,78 @@ public sealed class TwoPhaseGraphStrategy(
             }
         }
     }
+
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{property.JsonName}";
+
+        if (!meta2.States.TryGetValue(path, out var baseState2) || baseState2 is not TwoPhaseGraphState state2)
+        {
+            return;
+        }
+
+        if (!meta1.States.TryGetValue(path, out var baseState1) || baseState1 is not TwoPhaseGraphState state1)
+        {
+            var vertexComparer = comparerProvider.GetComparer(typeof(object));
+            var edgeComparer = comparerProvider.GetComparer(typeof(Edge));
+
+            state1 = new TwoPhaseGraphState(
+                new HashSet<object>(vertexComparer), 
+                new Dictionary<object, CausalTimestamp>(vertexComparer),
+                new HashSet<object>(edgeComparer), 
+                new Dictionary<object, CausalTimestamp>(edgeComparer));
+            meta1.States[path] = state1;
+        }
+
+        foreach (var v in state2.VertexAdds)
+        {
+            state1.VertexAdds.Add(v);
+        }
+
+        foreach (var kvp in state2.VertexTombstones)
+        {
+            if (!state1.VertexTombstones.TryGetValue(kvp.Key, out var existing) || kvp.Value.Timestamp.CompareTo(existing.Timestamp) > 0)
+            {
+                state1.VertexTombstones[kvp.Key] = kvp.Value;
+            }
+        }
+
+        foreach (var e in state2.EdgeAdds)
+        {
+            state1.EdgeAdds.Add(e);
+        }
+
+        foreach (var kvp in state2.EdgeTombstones)
+        {
+            if (!state1.EdgeTombstones.TryGetValue(kvp.Key, out var existing) || kvp.Value.Timestamp.CompareTo(existing.Timestamp) > 0)
+            {
+                state1.EdgeTombstones[kvp.Key] = kvp.Value;
+            }
+        }
+
+        var graphObj = PocoPathHelper.GetValue(data1, path, aotContexts);
+        if (graphObj is not CrdtGraph graph)
+        {
+            graph = new CrdtGraph();
+            PocoPathHelper.SetValue(data1, path, graph, aotContexts);
+        }
+
+        graph.Vertices.Clear();
+        foreach (var v in state1.VertexAdds)
+        {
+            if (!state1.VertexTombstones.ContainsKey(v))
+            {
+                graph.Vertices.Add(v);
+            }
+        }
+
+        graph.Edges.Clear();
+        foreach (var e in state1.EdgeAdds)
+        {
+            if (!state1.EdgeTombstones.ContainsKey(e))
+            {
+                graph.Edges.Add((Edge)e);
+            }
+        }
+    }
 }

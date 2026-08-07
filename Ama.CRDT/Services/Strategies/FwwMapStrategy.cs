@@ -203,6 +203,72 @@ public sealed class FwwMapStrategy(
     }
 
     /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        if (data1 is null || meta1 is null || data2 is null || meta2 is null || property is null) return;
+
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        
+        var dict1 = property.Getter!(data1) as IDictionary;
+        var dict2 = property.Getter!(data2) as IDictionary;
+
+        if (dict1 == null)
+        {
+            dict1 = (IDictionary)PocoPathHelper.Instantiate(property.PropertyType, aotContexts)!;
+            property.Setter!(data1, dict1);
+        }
+        if (dict2 == null) return;
+
+        var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
+        var comparer = comparerProvider.GetComparer(keyType);
+
+        if (!meta1.States.TryGetValue(path, out var baseState1) || baseState1 is not FwwMapState mapState1)
+        {
+            mapState1 = new FwwMapState(new Dictionary<object, CausalTimestamp>(comparer));
+            meta1.States[path] = mapState1;
+        }
+
+        if (!meta2.States.TryGetValue(path, out var baseState2) || baseState2 is not FwwMapState mapState2)
+        {
+            return; // Nothing to merge from meta2
+        }
+
+        foreach (var kvp in mapState2.Keys)
+        {
+            var itemKey = kvp.Key;
+            var ts2 = kvp.Value;
+
+            bool shouldUpdate = false;
+            if (!mapState1.Keys.TryGetValue(itemKey, out var ts1))
+            {
+                shouldUpdate = true;
+            }
+            else if (ts2.Timestamp.CompareTo(ts1.Timestamp) < 0) // FWW: lowest wins
+            {
+                shouldUpdate = true;
+            }
+
+            if (shouldUpdate)
+            {
+                mapState1.Keys[itemKey] = ts2;
+
+                var typedKey = PocoPathHelper.ConvertValue(itemKey, keyType, aotContexts);
+                if (typedKey != null)
+                {
+                    if (dict2.Contains(typedKey))
+                    {
+                        dict1[typedKey] = dict2[typedKey];
+                    }
+                    else
+                    {
+                        dict1.Remove(typedKey);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <inheritdoc/>
     public IComparable? GetStartKey(object data, CrdtPropertyInfo partitionableProperty)
     {
         if (data is null || partitionableProperty is null) return null;

@@ -126,6 +126,46 @@ public sealed class RgaStrategy(
         return new PartitionContent(mergedData, mergedMeta);
     }
 
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+
+        meta1.States.TryGetValue(path, out var baseState1);
+        meta2.States.TryGetValue(path, out var baseState2);
+
+        var items1 = (baseState1 as RgaState)?.Trackers ?? new List<RgaItem>();
+        var items2 = (baseState2 as RgaState)?.Trackers ?? new List<RgaItem>();
+
+        var mergedItemsDict = new Dictionary<RgaIdentifier, RgaItem>();
+        foreach (var item in items1)
+        {
+            mergedItemsDict[item.Identifier] = item;
+        }
+
+        foreach (var item in items2)
+        {
+            if (mergedItemsDict.TryGetValue(item.Identifier, out var existing))
+            {
+                if (!existing.IsDeleted && item.IsDeleted)
+                {
+                    mergedItemsDict[item.Identifier] = item;
+                }
+            }
+            else
+            {
+                mergedItemsDict[item.Identifier] = item;
+            }
+        }
+
+        var mergedItems = mergedItemsDict.Values.ToList();
+        mergedItems = RebuildRgaOrder(mergedItems);
+
+        meta1.States[path] = new RgaState(mergedItems);
+
+        ReconstructList(data1, path, mergedItems);
+    }
+
     /// <inheritdoc />
     public void GeneratePatch(GeneratePatchContext context)
     {

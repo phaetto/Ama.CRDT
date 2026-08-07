@@ -126,4 +126,40 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext, IEnume
         // BoundedCounterStrategy does not maintain tombstones, only the current unbounded value.
         // Therefore, there is no metadata to prune safely using the ICompactionPolicy.
     }
+
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+
+        meta1.States.TryGetValue(path, out var state1);
+        meta2.States.TryGetValue(path, out var state2);
+
+        if (state2 is not CausalTimestamp ts2) return;
+        
+        bool update = false;
+        if (state1 is not CausalTimestamp ts1)
+        {
+            update = true;
+        }
+        else
+        {
+            if (ts2.Clock > ts1.Clock) update = true;
+            else if (ts2.Clock == ts1.Clock && string.CompareOrdinal(ts2.ReplicaId, ts1.ReplicaId) > 0) update = true;
+        }
+
+        if (update)
+        {
+            meta1.States[path] = ts2;
+            if (ts2.Timestamp is UnboundedCounterValue counter2)
+            {
+                var attribute = property.StrategyAttribute as CrdtBoundedCounterStrategyAttribute;
+                if (attribute != null)
+                {
+                    var clampedValue = Math.Max(attribute.Min, Math.Min(attribute.Max, counter2.Value));
+                    PocoPathHelper.SetValue(data1, path, clampedValue, aotContexts);
+                }
+            }
+        }
+    }
 }

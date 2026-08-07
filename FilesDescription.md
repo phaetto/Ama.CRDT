@@ -290,6 +290,7 @@
 | `$/Ama.CRDT/Models/BidirectionalSyncRequirements.cs` | A data structure containing the synchronization requirements for two replicas to fully catch up with each other. |
 | `$/Ama.CRDT/Models/CausalTimestamp.cs` | A data structure that bundles a logical timestamp with the causal identity (replica and clock) of the operation, used to track metadata for tombstones and deletions safely for garbage collection. |
 | `$/Ama.CRDT/Models/CounterMapState.cs` | A wrapper state structure implementing `ICrdtState` for Counter-Map trackers. |
+| `$/Ama.CRDT/Models/CounterState.cs` | Represents the metadata state for properties managed by the `CounterStrategy`. Tracks positive and negative increment vectors per replica to mathematically enable State CRDT merges. |
 | `$/Ama.CRDT/Models/CrdtDocument.cs` | No description provided. |
 | `$/Ama.CRDT/Models/CrdtGraph.cs` | A data model for a graph structure with vertices and edges, suitable for CRDT management. |
 | `$/Ama.CRDT/Models/CrdtMetadata.cs` | Encapsulates CRDT state for various strategies using dedicated, serializable record types instead of tuples. For serialization, use the recommended options from `CrdtJsonContext`. |
@@ -308,6 +309,7 @@
 | `$/Ama.CRDT/Models/FwwMapState.cs` | A wrapper state structure implementing `ICrdtState` for FWW-Map trackers. |
 | `$/Ama.CRDT/Models/FwwSetState.cs` | A wrapper state structure implementing `ICrdtState` for FWW-Set trackers. |
 | `$/Ama.CRDT/Models/FwwTimestamp.cs` | A wrapper state structure implementing `ICrdtState` for First-Writer-Wins single timestamps. |
+| `$/Ama.CRDT/Models/GCounterState.cs` | Represents the metadata state for properties managed by the `GCounterStrategy`. Tracks absolute growth vector increments per replica to mathematically enable State CRDT merges. |
 | `$/Ama.CRDT/Models/GraphEdgePayload.cs` | A data structure for the payload of a graph edge operation. |
 | `$/Ama.CRDT/Models/GraphVertexPayload.cs` | A data structure for the payload of a graph vertex operation. |
 | `$/Ama.CRDT/Models/ICrdtMetadataState.cs` | No description provided. |
@@ -435,24 +437,24 @@
 | `$/Ama.CRDT/Services/Serialization/ICrdtSerializer.cs` | Defines a format-agnostic abstraction for serializing and deserializing CRDT models and payloads, decoupling the core library from System.Text.Json. |
 | `$/Ama.CRDT/Services/Serialization/JsonCrdtSerializer.cs` | The default Native AOT compatible implementation of `ICrdtSerializer` utilizing `System.Text.Json` and pre-configured `JsonSerializerOptions`. |
 | `$/Ama.CRDT/Services/Strategies/ApplyOperationContext.cs` | Defines the context for an <see cref="ICrdtStrategy.ApplyOperation"/> call, encapsulating all necessary parameters for applying a single CRDT operation to a document. This context is now simplified as strategies use centralized helpers for reflection. |
-| `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements a CRDT strategy for arrays using LCS. Refactored to eliminate reflection and rely purely on AOT contexts. |
-| `$/Ama.CRDT/Services/Strategies/AverageRegisterStrategy.cs` | Implements the Average Register strategy. It now uses centralized reflection helpers from `PocoPathHelper` to apply the calculated average value. |
+| `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Array LCS strategy updated to include the `MergeAsStateCrdt` implementation for mathematical state merging of sequence elements. |
+| `$/Ama.CRDT/Services/Strategies/AverageRegisterStrategy.cs` | Average Register strategy updated to include the `MergeAsStateCrdt` implementation by choosing maximum timestamps of contributions. |
 | `$/Ama.CRDT/Services/Strategies/BoundedCounterStrategy.cs` | Implements a counter that is clamped within a specified minimum and maximum value. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/CompactionContext.cs` | Defines the context for an `ICrdtStrategy.Compact` call, encapsulating parameters for garbage collection. |
 | `$/Ama.CRDT/Services/Strategies/CounterMapStrategy.cs` | Implements the Counter-Map strategy, where each key in a dictionary is treated as an independent PN-Counter. |
 | `$/Ama.CRDT/Services/Strategies/CounterStrategy.cs` | Implements the CRDT Counter strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get the current value and apply the increment. |
 | `$/Ama.CRDT/Services/Strategies/Decorators/ApprovalQuorumStrategy.cs` | A decorator strategy that tracks pending proposals and requires a quorum of replicas to propose the exact same operation before it is applied. |
 | `$/Ama.CRDT/Services/Strategies/Decorators/EpochBoundStrategy.cs` | No description provided. |
-| `$/Ama.CRDT/Services/Strategies/FixedSizeArrayStrategy.cs` | Implements a strategy for fixed-size arrays where each index is an LWW-Register. It now uses centralized reflection helpers from `PocoPathHelper`. |
-| `$/Ama.CRDT/Services/Strategies/FwwMapStrategy.cs` | Implements the FWW-Map strategy, a partitioned dictionary resolving conflicts by timestamp. Refactored to eliminate reflection and rely purely on AOT contexts. |
-| `$/Ama.CRDT/Services/Strategies/FwwSetStrategy.cs` | Implements the FWW-Set strategy, a partitioned collection resolving conflicts by timestamp. Refactored to eliminate reflection and rely purely on AOT contexts. |
+| `$/Ama.CRDT/Services/Strategies/FixedSizeArrayStrategy.cs` | Added `MergeAsStateCrdt` implementation for mathematical state merging. |
+| `$/Ama.CRDT/Services/Strategies/FwwMapStrategy.cs` | Added `MergeAsStateCrdt` implementation for mathematical state merging. |
+| `$/Ama.CRDT/Services/Strategies/FwwSetStrategy.cs` | Added `MergeAsStateCrdt` implementation for mathematical state merging. |
 | `$/Ama.CRDT/Services/Strategies/FwwStrategy.cs` | Implements the First-Writer-Wins (FWW) strategy for conflict resolution, resolving concurrent modifications by selecting the value with the lowest timestamp. |
 | `$/Ama.CRDT/Services/Strategies/GCounterStrategy.cs` | Implements the G-Counter (Grow-Only Counter) strategy, which only allows for positive increments. |
 | `$/Ama.CRDT/Services/Strategies/GSetStrategy.cs` | Implements the G-Set (Grow-Only Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get collection element types. |
 | `$/Ama.CRDT/Services/Strategies/GenerateOperationContext.cs` | Defines the context for explicitly generating intent-based operations in strategies. |
 | `$/Ama.CRDT/Services/Strategies/GeneratePatchContext.cs` | Defines the context object for the `ICrdtStrategy.GeneratePatch` method, encapsulating all necessary parameters. |
 | `$/Ama.CRDT/Services/Strategies/GraphStrategy.cs` | Implements a CRDT strategy for graph data structures, treating vertices and edges as a grow-only set, suitable for modeling relationships and networks. |
-| `$/Ama.CRDT/Services/Strategies/ICrdtStrategy.cs` | Defines the contract for a strategy, including `GeneratePatch` for creating operations, explicit intent operations generation, and `ApplyOperation` for data manipulation, using context objects for parameters. |
+| `$/Ama.CRDT/Services/Strategies/ICrdtStrategy.cs` | Defines the core contract for strategies, now updated with a `MergeAsStateCrdt` method for enabling state-based synchronization capabilities. |
 | `$/Ama.CRDT/Services/Strategies/LseqStrategy.cs` | Implements the LSEQ strategy for ordered sequences. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/LwwMapStrategy.cs` | Implements the LWW-Map (Last-Writer-Wins Map) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get dictionary key/value types. |
 | `$/Ama.CRDT/Services/Strategies/LwwSetStrategy.cs` | Implements the LWW-Set (Last-Writer-Wins Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper`. |

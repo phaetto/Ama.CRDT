@@ -204,6 +204,76 @@ public sealed class PriorityQueueStrategy(
             state.Adds.Remove(item); // Ensure we also drop the Add timestamp so it doesn't resurrect.
         }
     }
+
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+        var comparer = comparerProvider.GetComparer(elementType);
+
+        var list1 = property.Getter!(data1) as IList;
+        var list2 = property.Getter!(data2) as IList;
+        if (list1 is null || list2 is null) return;
+
+        var dict1 = new Dictionary<object, object>(comparer);
+        foreach (var item in list1.Cast<object>())
+        {
+            dict1[item] = item;
+        }
+
+        var dict2 = new Dictionary<object, object>(comparer);
+        foreach (var item in list2.Cast<object>())
+        {
+            dict2[item] = item;
+        }
+
+        var metaState1 = meta1.States.TryGetValue(path, out var s1) && s1 is LwwSetState ls1 ? ls1 : new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
+        var metaState2 = meta2.States.TryGetValue(path, out var s2) && s2 is LwwSetState ls2 ? ls2 : new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
+
+        foreach (var (key, ts2) in metaState2.Adds)
+        {
+            if (!metaState1.Adds.TryGetValue(key, out var ts1) || ts2.CompareTo(ts1) > 0)
+            {
+                metaState1.Adds[key] = ts2;
+                // If dict2 has a newer payload for this item, keep it.
+                if (dict2.TryGetValue(key, out var item2))
+                {
+                    dict1[key] = item2;
+                }
+            }
+        }
+
+        foreach (var (key, ts2) in metaState2.Removes)
+        {
+            if (!metaState1.Removes.TryGetValue(key, out var ts1) || ts2.CompareTo(ts1) > 0)
+            {
+                metaState1.Removes[key] = ts2;
+            }
+        }
+
+        meta1.States[path] = metaState1;
+
+        // Rebuild list
+        list1.Clear();
+        foreach (var kvp in metaState1.Adds)
+        {
+            var itemKey = kvp.Key;
+            var addTs = kvp.Value;
+
+            if (metaState1.Removes.TryGetValue(itemKey, out var removeTs) && addTs.CompareTo(removeTs.Timestamp) <= 0)
+            {
+                continue; // It's removed
+            }
+
+            if (dict1.TryGetValue(itemKey, out var itemValue))
+            {
+                list1.Add(itemValue);
+            }
+        }
+
+        SortList(list1, property);
+    }
     
     private bool ApplyUpsert(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, CausalTimestamp> removes, object value, CrdtOperation operation, IEqualityComparer<object> comparer)
     {

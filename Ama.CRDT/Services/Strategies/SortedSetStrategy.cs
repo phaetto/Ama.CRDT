@@ -466,6 +466,42 @@ public sealed class SortedSetStrategy(
         return new PartitionContent(mergedDoc, mergedMeta);
     }
     
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var path = $"$.{char.ToLowerInvariant(property.Name[0])}{property.Name[1..]}";
+
+        var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
+        var comparer = comparerProvider.GetComparer(elementType);
+
+        var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
+        var rems = new Dictionary<object, CausalTimestamp>(comparer);
+
+        if (meta1.States.TryGetValue(path, out var baseState1) && baseState1 is LwwSetState state1)
+        {
+            foreach (var kvp in state1.Adds) adds[kvp.Key] = kvp.Value;
+            foreach (var kvp in state1.Removes) rems[kvp.Key] = kvp.Value;
+        }
+        if (meta2.States.TryGetValue(path, out var baseState2) && baseState2 is LwwSetState state2)
+        {
+            foreach (var kvp in state2.Adds)
+            {
+                if (!adds.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
+                    adds[kvp.Key] = kvp.Value;
+            }
+            foreach (var kvp in state2.Removes)
+            {
+                if (!rems.TryGetValue(kvp.Key, out var existing) || kvp.Value.Timestamp.CompareTo(existing.Timestamp) > 0)
+                    rems[kvp.Key] = kvp.Value;
+            }
+        }
+
+        var mergedState = new LwwSetState(adds, rems);
+        meta1.States[path] = mergedState;
+
+        ReconstructListForSplitMerge(data1, path, mergedState, elementType, property.PropertyType, aotContexts);
+    }
+
     internal List<LcsDiffEntry> Diff(List<object> from, List<object> to, IEqualityComparer<object> itemComparer)
     {
         var n = from.Count;

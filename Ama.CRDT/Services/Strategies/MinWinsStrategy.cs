@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using System;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Attributes.Strategies.Semantic;
@@ -106,5 +107,22 @@ public sealed class MinWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
     public void Compact(CompactionContext context)
     {
         // MinWinsStrategy relies solely on value comparisons and does not maintain metadata or tombstones.
+    }
+
+    /// <inheritdoc/>
+    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    {
+        var val1 = property.Getter!(data1);
+        var val2 = property.Getter!(data2);
+
+        if (val2 is null)
+        {
+            return;
+        }
+
+        if (val1 is null || ((IComparable)val1).CompareTo(val2) > 0)
+        {
+            property.Setter!(data1, val2);
+        }
     }
 }
