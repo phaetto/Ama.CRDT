@@ -335,7 +335,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Split_ShouldDivideDataAndMetadataEqually()
+    public void SplitToDisjoint_ShouldDivideDataAndMetadataEqually()
     {
         var doc = new Poll();
         var meta = metadataManagerA.Initialize(doc);
@@ -361,7 +361,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Merge_ShouldCombineDataAndMetadata()
+    public void MergeDisjoint_ShouldCombineDataAndMetadata()
     {
         var doc1 = new Poll();
         var meta1 = metadataManagerA.Initialize(doc1);
@@ -418,7 +418,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeNewVotes()
+    public void MergeState_ShouldMergeNewVotes()
     {
         var doc1 = new Poll();
         var meta1 = new CrdtMetadata();
@@ -429,14 +429,14 @@ public sealed class VoteCounterStrategyTests : IDisposable
 
         var propInfo = GetPollVotesPropertyInfo();
 
-        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+        strategyA.MergeState(doc1, meta1, doc2, meta2, propInfo);
 
         doc1.Votes["OptionA"].ShouldContain("Voter1");
         meta1.States["$.votes.['Voter1']"].ShouldBeOfType<CausalTimestamp>().Timestamp.ShouldBe(timestampProvider.Create(100L));
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldResolveConflictsUsingLww()
+    public void MergeState_ShouldResolveConflictsUsingLww()
     {
         var doc1 = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
         var meta1 = new CrdtMetadata();
@@ -448,7 +448,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
 
         var propInfo = GetPollVotesPropertyInfo();
 
-        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+        strategyA.MergeState(doc1, meta1, doc2, meta2, propInfo);
 
         doc1.Votes.ContainsKey("OptionA").ShouldBeFalse();
         doc1.Votes["OptionB"].ShouldContain("Voter1");
@@ -456,7 +456,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldIgnoreOlderState()
+    public void MergeState_ShouldIgnoreOlderState()
     {
         var doc1 = new Poll { Votes = { ["OptionB"] = new HashSet<string> { "Voter1" } } };
         var meta1 = new CrdtMetadata();
@@ -468,7 +468,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
 
         var propInfo = GetPollVotesPropertyInfo();
 
-        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, propInfo);
+        strategyA.MergeState(doc1, meta1, doc2, meta2, propInfo);
 
         doc1.Votes.ContainsKey("OptionA").ShouldBeFalse();
         doc1.Votes["OptionB"].ShouldContain("Voter1");

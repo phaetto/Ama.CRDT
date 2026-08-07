@@ -307,7 +307,7 @@ public sealed class LwwSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Split_ShouldDivideDataAndMetadataEqually()
+    public void SplitToDisjoint_ShouldDivideDataAndMetadataEqually()
     {
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
@@ -332,7 +332,7 @@ public sealed class LwwSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Merge_ShouldCombineDataAndMetadata()
+    public void MergeDisjoint_ShouldCombineDataAndMetadata()
     {
         var doc1 = new TestModel();
         var meta1 = metadataManagerA.Initialize(doc1);
@@ -414,7 +414,7 @@ public sealed class LwwSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeStatesAndReconstructList()
+    public void MergeState_ShouldMergeStatesAndReconstructList()
     {
         // Arrange
         var doc1 = new TestModel();
@@ -432,7 +432,7 @@ public sealed class LwwSetStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.tags", OperationType.Upsert, "C", timestampProvider.Create(5), 5)));
 
         // Act
-        strategyA.MergeAsStateCrdt(doc1, meta1, doc2, meta2, tagsPropInfo);
+        strategyA.MergeState(doc1, meta1, doc2, meta2, tagsPropInfo);
 
         // Assert
         doc1.Tags.ShouldBe(["A", "C"], ignoreOrder: true);

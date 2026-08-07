@@ -383,7 +383,7 @@ public sealed class FwwMapStrategyTests
     }
 
     [Fact]
-    public void Split_ShouldDivideDataAndMetadata()
+    public void SplitToDisjoint_ShouldDivideDataAndMetadata()
     {
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
@@ -435,7 +435,7 @@ public sealed class FwwMapStrategyTests
     }
 
     [Fact]
-    public void Split_WithLessThanTwoItems_ShouldThrow()
+    public void SplitToDisjoint_WithLessThanTwoItems_ShouldThrow()
     {
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
@@ -459,7 +459,7 @@ public sealed class FwwMapStrategyTests
     }
 
     [Fact]
-    public void Merge_ShouldCombineDataAndMetadata_UsingFww()
+    public void MergeDisjoint_ShouldCombineDataAndMetadata_UsingFww()
     {
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
@@ -540,7 +540,7 @@ public sealed class FwwMapStrategyTests
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldCombineStateUsingFww()
+    public void MergeState_ShouldCombineStateUsingFww()
     {
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
@@ -573,7 +573,7 @@ public sealed class FwwMapStrategyTests
         });
 
         // Act
-        strategy.MergeAsStateCrdt(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, prop);
+        strategy.MergeState(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, prop);
 
         // Assert
         doc1.Data.Map.Count.ShouldBe(3);

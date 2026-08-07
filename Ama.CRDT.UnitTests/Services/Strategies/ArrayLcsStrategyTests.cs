@@ -371,7 +371,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeStatesAndDataCorrectly()
+    public void MergeState_ShouldMergeStatesAndDataCorrectly()
     {
         // Arrange
         var ancestor = new TestModel { Tags = new List<string> { "A", "C" } };
@@ -409,7 +409,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
 
         // Act
-        strategy.MergeAsStateCrdt(modelA, metaA, modelB, metaB, propertyInfo);
+        strategy.MergeState(modelA, metaA, modelB, metaB, propertyInfo);
 
         // Assert
         modelA.Tags.ShouldBe(new List<string> { "A", "B", "C", "X" });

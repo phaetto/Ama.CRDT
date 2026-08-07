@@ -261,7 +261,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Split_ShouldDivideDataAndMetadataEqually()
+    public void SplitToDisjoint_ShouldDivideDataAndMetadataEqually()
     {
         var doc = new TwoPhaseSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
@@ -287,7 +287,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Merge_ShouldCombineDataAndMetadata()
+    public void MergeDisjoint_ShouldCombineDataAndMetadata()
     {
         var doc1 = new TwoPhaseSetTestModel();
         var meta1 = metadataManagerA.Initialize(doc1);
@@ -408,7 +408,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     }
     
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeAddsAndTombstones()
+    public void MergeState_ShouldMergeAddsAndTombstones()
     {
         // Arrange
         var propInfo = CreatePropertyInfo();
@@ -425,7 +425,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         strategyA.ApplyOperation(new ApplyOperationContext(data2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.tags", OperationType.Upsert, "Tag3", timestampProvider.Now(), 2)));
 
         // Act
-        strategyA.MergeAsStateCrdt(data1, meta1, data2, meta2, propInfo);
+        strategyA.MergeState(data1, meta1, data2, meta2, propInfo);
 
         // Assert
         data1.Tags.ShouldBe(new[] { "Tag2", "Tag3" }, ignoreOrder: true);

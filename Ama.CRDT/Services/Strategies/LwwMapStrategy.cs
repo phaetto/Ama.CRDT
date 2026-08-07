@@ -341,7 +341,7 @@ public sealed class LwwMapStrategy(
     }
 
     /// <inheritdoc/>
-    public void MergeAsStateCrdt(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
+    public void MergeState(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo property)
     {
         if (data1 is null) throw new ArgumentNullException(nameof(data1));
         if (meta1 is null) throw new ArgumentNullException(nameof(meta1));

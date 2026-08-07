@@ -289,7 +289,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     }
     
     [Fact]
-    public void MergeAsStateCrdt_WithNewerState_ShouldUpdatePrimary()
+    public void MergeState_WithNewerState_ShouldUpdatePrimary()
     {
         // Arrange
         var propInfo = CreatePropertyInfo();
@@ -300,7 +300,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var meta2 = new CrdtMetadata { States = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(200), "B", 2) } };
 
         // Act
-        strategyA.MergeAsStateCrdt(data1, meta1, data2, meta2, propInfo);
+        strategyA.MergeState(data1, meta1, data2, meta2, propInfo);
 
         // Assert
         data1.Status.ShouldBe("PROCESSING");
@@ -308,7 +308,7 @@ public sealed class StateMachineStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_WithOlderState_ShouldNotUpdatePrimary()
+    public void MergeState_WithOlderState_ShouldNotUpdatePrimary()
     {
         // Arrange
         var propInfo = CreatePropertyInfo();
@@ -319,7 +319,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var meta2 = new CrdtMetadata { States = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(200), "B", 2) } };
 
         // Act
-        strategyA.MergeAsStateCrdt(data1, meta1, data2, meta2, propInfo);
+        strategyA.MergeState(data1, meta1, data2, meta2, propInfo);
 
         // Assert
         data1.Status.ShouldBe("PROCESSING");

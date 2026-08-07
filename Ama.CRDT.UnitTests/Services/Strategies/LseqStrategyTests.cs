@@ -265,7 +265,7 @@ public sealed class LseqStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Split_WithFourItems_ShouldSplitIntoTwoPartitions()
+    public void SplitToDisjoint_WithFourItems_ShouldSplitIntoTwoPartitions()
     {
         // Arrange
         var doc0 = new LseqTestModel { Items = new List<string>() };
@@ -310,7 +310,7 @@ public sealed class LseqStrategyTests : IDisposable
     }
 
     [Fact]
-    public void Merge_WithTwoAdjacentPartitions_ShouldCombineItemsAndMetadata()
+    public void MergeDisjoint_WithTwoAdjacentPartitions_ShouldCombineItemsAndMetadata()
     {
         // Arrange
         var doc0 = new LseqTestModel { Items = new List<string>() };
@@ -340,7 +340,7 @@ public sealed class LseqStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeItemsAndMetadataCorrectly()
+    public void MergeState_ShouldMergeItemsAndMetadataCorrectly()
     {
         // Arrange
         var doc0 = new LseqTestModel { Items = new List<string>() };
@@ -358,7 +358,7 @@ public sealed class LseqStrategyTests : IDisposable
         applicatorA.ApplyPatch(crdtDoc2, patch2);
 
         // Act
-        lseqStrategy.MergeAsStateCrdt(crdtDoc1.Data, crdtDoc1.Metadata, crdtDoc2.Data, crdtDoc2.Metadata, itemsProperty);
+        lseqStrategy.MergeState(crdtDoc1.Data, crdtDoc1.Metadata, crdtDoc2.Data, crdtDoc2.Metadata, itemsProperty);
 
         // Assert
         crdtDoc1.Data.Items.Count.ShouldBe(3);

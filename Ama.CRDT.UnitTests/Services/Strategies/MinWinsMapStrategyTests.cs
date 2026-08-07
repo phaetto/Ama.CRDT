@@ -198,7 +198,7 @@ public sealed class MinWinsMapStrategyTests
     }
 
     [Fact]
-    public void Split_ShouldDivideDataEqually()
+    public void SplitToDisjoint_ShouldDivideDataEqually()
     {
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<MinWinsMapStrategy>();
@@ -222,7 +222,7 @@ public sealed class MinWinsMapStrategyTests
     }
 
     [Fact]
-    public void Merge_ShouldCombineDataAndResolveConflicts()
+    public void MergeDisjoint_ShouldCombineDataAndResolveConflicts()
     {
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<MinWinsMapStrategy>();
@@ -305,7 +305,7 @@ public sealed class MinWinsMapStrategyTests
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldMergeDictionaries_AndKeepMinimumValues()
+    public void MergeState_ShouldMergeDictionaries_AndKeepMinimumValues()
     {
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
@@ -315,7 +315,7 @@ public sealed class MinWinsMapStrategyTests
         var doc2 = new TestModel { Map = new Dictionary<string, int> { { "a", 5 }, { "b", 10 }, { "d", 50 } } };
 
         // Act
-        strategy.MergeAsStateCrdt(doc1, new CrdtMetadata(), doc2, new CrdtMetadata(), propInfo);
+        strategy.MergeState(doc1, new CrdtMetadata(), doc2, new CrdtMetadata(), propInfo);
 
         // Assert
         doc1.Map.Count.ShouldBe(4);
@@ -326,7 +326,7 @@ public sealed class MinWinsMapStrategyTests
     }
 
     [Fact]
-    public void MergeAsStateCrdt_ShouldInitializeDict1_WhenData1HasNullDictionary()
+    public void MergeState_ShouldInitializeDict1_WhenData1HasNullDictionary()
     {
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
@@ -336,7 +336,7 @@ public sealed class MinWinsMapStrategyTests
         var doc2 = new TestModel { Map = new Dictionary<string, int> { { "a", 10 } } };
 
         // Act
-        strategy.MergeAsStateCrdt(doc1, new CrdtMetadata(), doc2, new CrdtMetadata(), propInfo);
+        strategy.MergeState(doc1, new CrdtMetadata(), doc2, new CrdtMetadata(), propInfo);
 
         // Assert
         doc1.Map.ShouldNotBeNull();
