@@ -27,7 +27,7 @@ Note that this is the mathematical part of CRDTs, providing every tool that a de
 - **Provide serialized and session-ordered changes:** Patches are never guaranteed to arrive in order, meaning the document state can momentarily reflect intermediate states. This is a fundamental side effect of event-driven, eventually consistent systems.
 - **Handle security or authorization:** The library does not verify if a specific replica or user has the permission to mutate a specific property. Security, authentication, and validation must be implemented at your application's boundary.
 
-I am working on a full P2P version using this library, but it is still in alpha. I have some samples open for comments here if you like to see how it looks: [Ama.Enterprise.Samples](https://github.com/phaetto/Ama.Enterprise.Samples)
+I am working on a [full P2P version using this library](https://github.com/phaetto/Ama.Enterprise) and you can see there what it takes to have a full synced system using the current algorithms.
 
 ## Installation
 
