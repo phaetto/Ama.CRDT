@@ -33,12 +33,12 @@ public abstract class AsyncCrdtMergerDecoratorBase : IAsyncCrdtMerger
         {
             case DecoratorBehavior.Before:
                 await OnBeforeMergeAsync(primary, secondary, cancellationToken).ConfigureAwait(false);
-                await this.innerMerger.MergeStateAsync(primary, secondary, cancellationToken).ConfigureAwait(false);
+                await this.innerMerger.MergeStateAsync(primary, secondary, CancellationToken.None).ConfigureAwait(false);
                 break;
 
             case DecoratorBehavior.After:
                 await this.innerMerger.MergeStateAsync(primary, secondary, cancellationToken).ConfigureAwait(false);
-                await OnAfterMergeAsync(primary, secondary, cancellationToken).ConfigureAwait(false);
+                await OnAfterMergeAsync(primary, secondary, CancellationToken.None).ConfigureAwait(false);
                 break;
 
             case DecoratorBehavior.Complex:
@@ -60,6 +60,7 @@ public abstract class AsyncCrdtMergerDecoratorBase : IAsyncCrdtMerger
 
     /// <summary>
     /// Invoked strictly after the inner merger successfully executes. Only triggers if behavior is <see cref="DecoratorBehavior.After"/>.
+    /// Will always run with CancellationToken.None to prevent torn commits.
     /// </summary>
     protected virtual Task OnAfterMergeAsync<T>(CrdtDocument<T> primary, CrdtDocument<T> secondary, CancellationToken cancellationToken) where T : class
     {

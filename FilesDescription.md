@@ -161,6 +161,9 @@
 | `$/Ama.CRDT.UnitTests/Services/CrdtMergerTests.cs` | Contains unit tests for `CrdtMerger`, verifying the synchronous LUB state merge logic and causal history merging. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtMetadataManagerTests.cs` | Contains unit tests for the `CrdtMetadataManager`, verifying LWW pruning and version vector advancement logic. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtPatcherTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Decorators/AsyncCrdtApplicatorDecoratorBaseTests.cs` | Contains unit tests for `AsyncCrdtApplicatorDecoratorBase`, specifically verifying atomicity shielding behavior using `CancellationToken.None` in the After and Before phases. |
+| `$/Ama.CRDT.UnitTests/Services/Decorators/AsyncCrdtMergerDecoratorBaseTests.cs` | Contains unit tests for `AsyncCrdtMergerDecoratorBase`, specifically verifying atomicity shielding behavior using `CancellationToken.None` in the After and Before phases. |
+| `$/Ama.CRDT.UnitTests/Services/Decorators/AsyncCrdtPatcherDecoratorBaseTests.cs` | Contains unit tests for `AsyncCrdtPatcherDecoratorBase`, verifying atomicity shielding behavior in the After phase and proper cancellation propagation in Before and Complex phases. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/CompactingApplicatorDecoratorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/CompactingMergerDecoratorTests.cs` | Contains unit tests for `CompactingMergerDecorator`, verifying that it triggers metadata compaction following a state merge. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/DecoratorsTestCrdtContext.cs` | A dedicated AOT context for the decorators unit tests to provide reflection-free property metadata for test-specific models. |

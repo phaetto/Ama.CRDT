@@ -36,11 +36,11 @@ public abstract class AsyncCrdtApplicatorDecoratorBase : IAsyncCrdtApplicator
         {
             case DecoratorBehavior.Before:
                 await OnBeforeApplyAsync(document, patch, cancellationToken).ConfigureAwait(false);
-                return await this.innerApplicator.ApplyPatchAsync(document, patch, cancellationToken).ConfigureAwait(false);
+                return await this.innerApplicator.ApplyPatchAsync(document, patch, CancellationToken.None).ConfigureAwait(false);
 
             case DecoratorBehavior.After:
                 var result = await this.innerApplicator.ApplyPatchAsync(document, patch, cancellationToken).ConfigureAwait(false);
-                await OnAfterApplyAsync(document, patch, result, cancellationToken).ConfigureAwait(false);
+                await OnAfterApplyAsync(document, patch, result, CancellationToken.None).ConfigureAwait(false);
                 return result;
 
             case DecoratorBehavior.Complex:
@@ -61,6 +61,7 @@ public abstract class AsyncCrdtApplicatorDecoratorBase : IAsyncCrdtApplicator
 
     /// <summary>
     /// Invoked strictly after the inner applicator successfully executes. Only triggers if behavior is <see cref="DecoratorBehavior.After"/>.
+    /// Will always run with CancellationToken.None to prevent torn commits.
     /// </summary>
     protected virtual Task OnAfterApplyAsync<TDoc>(CrdtDocument<TDoc> document, CrdtPatch patch, ApplyPatchResult<TDoc> result, CancellationToken cancellationToken) where TDoc : class
     {

@@ -38,7 +38,7 @@ public abstract class AsyncCrdtPatcherDecoratorBase : IAsyncCrdtPatcher
                 return await this.innerPatcher.GeneratePatchAsync(from, changed, cancellationToken).ConfigureAwait(false);
             case DecoratorBehavior.After:
                 var result = await this.innerPatcher.GeneratePatchAsync(from, changed, cancellationToken).ConfigureAwait(false);
-                await OnAfterGeneratePatchAsync(from, changed, result, cancellationToken).ConfigureAwait(false);
+                await OnAfterGeneratePatchAsync(from, changed, result, CancellationToken.None).ConfigureAwait(false);
                 return result;
             case DecoratorBehavior.Complex:
                 return await OnComplexGeneratePatchAsync(this.innerPatcher, from, changed, cancellationToken).ConfigureAwait(false);
@@ -57,7 +57,7 @@ public abstract class AsyncCrdtPatcherDecoratorBase : IAsyncCrdtPatcher
                 return await this.innerPatcher.GeneratePatchAsync(from, changed, changeTimestamp, cancellationToken).ConfigureAwait(false);
             case DecoratorBehavior.After:
                 var result = await this.innerPatcher.GeneratePatchAsync(from, changed, changeTimestamp, cancellationToken).ConfigureAwait(false);
-                await OnAfterGeneratePatchAsync(from, changed, changeTimestamp, result, cancellationToken).ConfigureAwait(false);
+                await OnAfterGeneratePatchAsync(from, changed, changeTimestamp, result, CancellationToken.None).ConfigureAwait(false);
                 return result;
             case DecoratorBehavior.Complex:
                 return await OnComplexGeneratePatchAsync(this.innerPatcher, from, changed, changeTimestamp, cancellationToken).ConfigureAwait(false);
@@ -76,7 +76,8 @@ public abstract class AsyncCrdtPatcherDecoratorBase : IAsyncCrdtPatcher
                 return await this.innerPatcher.GenerateOperationAsync(document, propertyExpression, intent, cancellationToken).ConfigureAwait(false);
             case DecoratorBehavior.After:
                 var result = await this.innerPatcher.GenerateOperationAsync(document, propertyExpression, intent, cancellationToken).ConfigureAwait(false);
-                await OnAfterGenerateOperationAsync(document, propertyExpression, intent, result, cancellationToken).ConfigureAwait(false);
+                // Shield After phase.
+                await OnAfterGenerateOperationAsync(document, propertyExpression, intent, result, CancellationToken.None).ConfigureAwait(false);
                 return result;
             case DecoratorBehavior.Complex:
                 return await OnComplexGenerateOperationAsync(this.innerPatcher, document, propertyExpression, intent, cancellationToken).ConfigureAwait(false);
@@ -95,7 +96,8 @@ public abstract class AsyncCrdtPatcherDecoratorBase : IAsyncCrdtPatcher
                 return await this.innerPatcher.GenerateOperationAsync(document, propertyExpression, intent, timestamp, cancellationToken).ConfigureAwait(false);
             case DecoratorBehavior.After:
                 var result = await this.innerPatcher.GenerateOperationAsync(document, propertyExpression, intent, timestamp, cancellationToken).ConfigureAwait(false);
-                await OnAfterGenerateOperationAsync(document, propertyExpression, intent, timestamp, result, cancellationToken).ConfigureAwait(false);
+                // Shield After phase.
+                await OnAfterGenerateOperationAsync(document, propertyExpression, intent, timestamp, result, CancellationToken.None).ConfigureAwait(false);
                 return result;
             case DecoratorBehavior.Complex:
                 return await OnComplexGenerateOperationAsync(this.innerPatcher, document, propertyExpression, intent, timestamp, cancellationToken).ConfigureAwait(false);
