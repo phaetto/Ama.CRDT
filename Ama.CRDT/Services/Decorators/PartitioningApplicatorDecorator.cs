@@ -10,6 +10,7 @@ using Ama.CRDT.Services.Metrics;
 using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -24,8 +25,8 @@ using System.Threading.Tasks;
 [AllowedDecoratorBehavior(DecoratorBehavior.Complex)]
 public sealed class PartitioningApplicatorDecorator : AsyncCrdtApplicatorDecoratorBase
 {
-    private const int MaxPartitionDataSize = 8192;
-    private const int MinPartitionDataSize = MaxPartitionDataSize / 4;
+    public const int MaxPartitionItemCount = 100;
+    public const int MinPartitionItemCount = MaxPartitionItemCount / 4;
 
     private readonly IPartitionStorageService storageService;
     private readonly ICrdtStrategyProvider strategyProvider;
@@ -144,11 +145,12 @@ public sealed class PartitioningApplicatorDecorator : AsyncCrdtApplicatorDecorat
                 
                 if (updatedPartition is DataPartition updatedDataPartition)
                 {
-                    if (updatedDataPartition.DataLength > MaxPartitionDataSize)
+                    var itemCount = GetItemCount(config.Property, dataDoc.Data!);
+                    if (itemCount > MaxPartitionItemCount)
                     {
                         await SplitPartitionAsync<TDoc>(updatedDataPartition, propertyName, config.Strategy, config.Property, cancellationToken).ConfigureAwait(false);
                     }
-                    else if (updatedDataPartition.DataLength < MinPartitionDataSize)
+                    else if (itemCount < MinPartitionItemCount)
                     {
                         var partitionCount = await this.storageService.GetPropertyPartitionCountAsync(logicalKey, propertyName, cancellationToken).ConfigureAwait(false);
                         if (partitionCount > 1)
@@ -258,7 +260,8 @@ public sealed class PartitioningApplicatorDecorator : AsyncCrdtApplicatorDecorat
         this.metrics.PartitionsSplit.Add(1);
 
         var crdtDoc = await this.storageService.LoadPartitionContentAsync<TDoc>(dataPartitionToSplit.StartKey.LogicalKey, propertyName, dataPartitionToSplit, cancellationToken).ConfigureAwait(false);
-        
+        var originalCount = GetItemCount(prop, crdtDoc.Data!);
+
         SplitResult splitResult;
         using (new MetricTimer(this.metrics.StrategySplitDuration))
         {
@@ -279,12 +282,14 @@ public sealed class PartitioningApplicatorDecorator : AsyncCrdtApplicatorDecorat
         await this.storageService.InsertPropertyPartitionAsync(propertyName, p1, cancellationToken).ConfigureAwait(false);
         await this.storageService.InsertPropertyPartitionAsync(propertyName, p2, cancellationToken).ConfigureAwait(false);
 
-        if (p1 is DataPartition dp1 && dp1.DataLength > MaxPartitionDataSize && dp1.DataLength < dataPartitionToSplit.DataLength)
+        var p1Count = GetItemCount(prop, (TDoc)splitResult.Partition1.Data);
+        if (p1 is DataPartition dp1 && p1Count > MaxPartitionItemCount && p1Count < originalCount)
         {
             await SplitPartitionAsync<TDoc>(dp1, propertyName, strategy, prop, cancellationToken).ConfigureAwait(false);
         }
 
-        if (p2 is DataPartition dp2 && dp2.DataLength > MaxPartitionDataSize && dp2.DataLength < dataPartitionToSplit.DataLength)
+        var p2Count = GetItemCount(prop, (TDoc)splitResult.Partition2.Data);
+        if (p2 is DataPartition dp2 && p2Count > MaxPartitionItemCount && p2Count < originalCount)
         {
             await SplitPartitionAsync<TDoc>(dp2, propertyName, strategy, prop, cancellationToken).ConfigureAwait(false);
         }
@@ -364,6 +369,25 @@ public sealed class PartitioningApplicatorDecorator : AsyncCrdtApplicatorDecorat
             throw new InvalidOperationException($"Partition key property '{partitionKeyProperty.Name}' must implement IComparable.");
         }
         return logicalKey;
+    }
+
+    private static int GetItemCount<TDoc>(CrdtPropertyInfo prop, TDoc dataObject)
+    {
+        var collection = prop.Getter?.Invoke(dataObject!);
+        if (collection == null) return 0;
+
+        if (collection is ICollection col) return col.Count;
+
+        if (collection is IEnumerable en)
+        {
+            int count = 0;
+            var enumerator = en.GetEnumerator();
+            while (enumerator.MoveNext()) count++;
+            (enumerator as IDisposable)?.Dispose();
+            return count;
+        }
+
+        return 0;
     }
 
     private readonly record struct PartitionPropertyConfig(CrdtPropertyInfo Property, IPartitionableCrdtStrategy Strategy);
