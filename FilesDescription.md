@@ -164,7 +164,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Decorators/CompactingApplicatorDecoratorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/CompactingMergerDecoratorTests.cs` | Contains unit tests for `CompactingMergerDecorator`, verifying that it triggers metadata compaction following a state merge. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/DecoratorsTestCrdtContext.cs` | A dedicated AOT context for the decorators unit tests to provide reflection-free property metadata for test-specific models. |
-| `$/Ama.CRDT.UnitTests/Services/Decorators/JournalingApplicatorDecoratorTests.cs` | Contains unit tests for `JournalingApplicatorDecorator`, validating that only successfully applied CRDT operations are dispatched to the operation journal. |
+| `$/Ama.CRDT.UnitTests/Services/Decorators/JournalingApplicatorDecoratorTests.cs` | Contains unit tests for `JournalingApplicatorDecorator`, validating that operations are properly captured and journaled before application without unapplied filtering. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/JournalingPatcherDecoratorTests.cs` | Contains unit tests for `JournalingPatcherDecorator`, verifying that generated patches, intents, and explicit operations are properly captured and journaled. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/PartitioningApplicatorDecoratorTests.cs` | Contains unit tests for `PartitioningApplicatorDecorator`, validating the patch interception logic, partition splitting and merging, and ensuring operations are properly delegated to the inner `IAsyncCrdtApplicator`. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/TestModel.cs` | A simple data model used for unit testing decorator services. |
@@ -397,7 +397,7 @@
 | `$/Ama.CRDT/Services/Decorators/AsyncCrdtPatcherDecoratorBase.cs` | An abstract base class for `IAsyncCrdtPatcher` decorators. Uses the `DecoratorBehavior` enum in its constructor to safely structure patch and operation generation overrides. |
 | `$/Ama.CRDT/Services/Decorators/CompactingApplicatorDecorator.cs` | A decorator for `IAsyncCrdtApplicator` that automatically runs garbage collection on the document's metadata. Refactored to declare `DecoratorBehavior.After` flow using the new base class attributes. |
 | `$/Ama.CRDT/Services/Decorators/CompactingMergerDecorator.cs` | A decorator for `IAsyncCrdtMerger` that runs metadata compaction after successfully merging document states. |
-| `$/Ama.CRDT/Services/Decorators/JournalingApplicatorDecorator.cs` | Decorator for intercepting patch applications, updated to use `IDocumentIdProvider` via dependency injection. |
+| `$/Ama.CRDT/Services/Decorators/JournalingApplicatorDecorator.cs` | Decorator for intercepting patch applications, updated to record all operations to the journal before the underlying application logic executes. |
 | `$/Ama.CRDT/Services/Decorators/JournalingPatcherDecorator.cs` | Decorator for intercepting patch generations, updated to use `IDocumentIdProvider` via dependency injection. |
 | `$/Ama.CRDT/Services/Decorators/PartitioningApplicatorDecorator.cs` | A global decorator implementation of `IAsyncCrdtApplicator` that acts as a `Complex` interceptor to manage recursive partition splitting and merging. Refactored to completely avoid Tuples in favor of struct DTOs and strict behavioral flow. |
 | `$/Ama.CRDT/Services/DifferentiateObjectContext.cs` | Defines the context object for the `ICrdtPatcher.DifferentiateObject` method, encapsulating all necessary parameters. |

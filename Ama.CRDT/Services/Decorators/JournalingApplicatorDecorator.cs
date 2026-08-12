@@ -12,9 +12,9 @@ using Ama.CRDT.Services.Journaling;
 
 /// <summary>
 /// A decorator for <see cref="IAsyncCrdtApplicator"/> that intercepts patch applications
-/// and forwards successfully applied operations to an <see cref="ICrdtOperationJournal"/>.
+/// and forwards all operations to an <see cref="ICrdtOperationJournal"/> before they are applied.
 /// </summary>
-[AllowedDecoratorBehavior(DecoratorBehavior.After)]
+[AllowedDecoratorBehavior(DecoratorBehavior.Before)]
 public sealed class JournalingApplicatorDecorator : AsyncCrdtApplicatorDecoratorBase
 {
     private readonly ICrdtOperationJournal journal;
@@ -24,9 +24,9 @@ public sealed class JournalingApplicatorDecorator : AsyncCrdtApplicatorDecorator
     /// Initializes a new instance of the <see cref="JournalingApplicatorDecorator"/> class.
     /// </summary>
     /// <param name="innerApplicator">The inner applicator to delegate the actual patch application to.</param>
-    /// <param name="journal">The journal service to record successfully applied operations.</param>
+    /// <param name="journal">The journal service to record operations before application.</param>
     /// <param name="documentIdProvider">The provider for extracting document IDs.</param>
-    /// <param name="behavior">The explicitly chosen execution phase (enforced to be After).</param>
+    /// <param name="behavior">The explicitly chosen execution phase (enforced to be Before).</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="innerApplicator"/>, <paramref name="journal"/> or <paramref name="documentIdProvider"/> is null.</exception>
     public JournalingApplicatorDecorator(
         IAsyncCrdtApplicator innerApplicator, 
@@ -42,18 +42,12 @@ public sealed class JournalingApplicatorDecorator : AsyncCrdtApplicatorDecorator
     }
 
     /// <inheritdoc/>
-    protected override async Task OnAfterApplyAsync<TDoc>(CrdtDocument<TDoc> document, CrdtPatch patch, ApplyPatchResult<TDoc> result, CancellationToken cancellationToken)
+    protected override async Task OnBeforeApplyAsync<TDoc>(CrdtDocument<TDoc> document, CrdtPatch patch, CancellationToken cancellationToken)
     {
         if (patch.Operations is { Count: > 0 })
         {
-            var unappliedIds = new HashSet<Guid>(result.UnappliedOperations.Select(u => u.Operation.Id));
-            var appliedOperations = patch.Operations.Where(op => !unappliedIds.Contains(op.Id)).ToList();
-
-            if (appliedOperations.Count > 0)
-            {
-                var docId = this.documentIdProvider.GetDocumentId(document.Data);
-                await this.journal.AppendAsync(docId, appliedOperations, cancellationToken).ConfigureAwait(false);
-            }
+            var docId = this.documentIdProvider.GetDocumentId(document.Data);
+            await this.journal.AppendAsync(docId, patch.Operations, cancellationToken).ConfigureAwait(false);
         }
     }
 }

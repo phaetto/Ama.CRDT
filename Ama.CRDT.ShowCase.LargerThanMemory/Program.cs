@@ -17,7 +17,7 @@ builder.ConfigureServices((context, services) =>
         .AddCrdtAotContext<LargerThanMemoryCrdtAotContext>()
         .AddCrdtJsonTypeInfoResolver(LargerThanMemoryJsonContext.Default)
         .AddCrdtJournaling<FileSystemOperationJournal>()
-        .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.After)
+        .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.Before)
         .AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After)
         .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>(DecoratorBehavior.Complex)
         .AddCrdtStreamPartitioning<FileSystemPartitionStreamProvider>();
