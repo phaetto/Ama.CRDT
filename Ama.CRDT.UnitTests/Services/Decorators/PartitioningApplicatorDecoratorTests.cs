@@ -83,7 +83,7 @@ public sealed class PartitioningApplicatorDecoratorTests
         mockStorage.Setup(x => x.LoadHeaderPartitionContentAsync<MultiPartitionedModel>(logicalKey, headerPartition, default)).ReturnsAsync(crdtDoc);
 
         // Returns a normal sized partition when saved
-        var updatedPartition = new DataPartition(existingPartition.StartKey, existingPartition.EndKey, 0, 4000, 0, 0); // DataLength = 4000 < 8192
+        var updatedPartition = new DataPartition(existingPartition.StartKey, existingPartition.EndKey, 0, 100, 0, 0);
         mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, existingPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync(updatedPartition);
 
@@ -108,7 +108,12 @@ public sealed class PartitioningApplicatorDecoratorTests
         var existingPartition = new DataPartition(new CompositePartitionKey(logicalKey, "item1"), null, 0, 0, 0, 0);
         var headerPartition = new HeaderPartition(new CompositePartitionKey(logicalKey, null), 0, 0, 0, 0);
 
-        var doc = new MultiPartitionedModel { TenantId = logicalKey, Items = { { "item1", "val1" }, { "item2", "val2" } } }; // Items to allow split
+        var doc = new MultiPartitionedModel { TenantId = logicalKey };
+        // Populate > MaxPartitionItemCount to trigger a split based on item count
+        for (int i = 0; i < 105; i++)
+        {
+            doc.Items.Add($"item{i}", $"val{i}");
+        }
         var crdtDoc = new CrdtDocument<MultiPartitionedModel>(doc, metaManager.Initialize(doc));
 
         mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositePartitionKey>(), propName, default)).ReturnsAsync(existingPartition);
@@ -118,8 +123,8 @@ public sealed class PartitioningApplicatorDecoratorTests
         mockStorage.Setup(x => x.GetHeaderPartitionAsync(logicalKey, default)).ReturnsAsync(headerPartition);
         mockStorage.Setup(x => x.LoadHeaderPartitionContentAsync<MultiPartitionedModel>(logicalKey, headerPartition, default)).ReturnsAsync(crdtDoc);
 
-        // First save returns a huge partition that breaches 8192
-        var largePartition = new DataPartition(existingPartition.StartKey, existingPartition.EndKey, 0, 9000, 0, 0);
+        // First save returns a partition that will be split due to item count (DataLength size parameter is ignored)
+        var largePartition = new DataPartition(existingPartition.StartKey, existingPartition.EndKey, 0, 0, 0, 0);
         mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, existingPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync(largePartition);
 
@@ -127,7 +132,7 @@ public sealed class PartitioningApplicatorDecoratorTests
         mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, It.Is<IPartition>(p => p != null && !p.Equals(existingPartition)), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync((IComparable k, string pName, IPartition p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
 
-        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("item3", "val3", Guid.NewGuid()), timestampProvider.Now(), 0)]);
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("item_new", "val_new", Guid.NewGuid()), timestampProvider.Now(), 0)]);
 
         // Act
         await decorator.ApplyPatchAsync(crdtDoc, patch);
@@ -152,6 +157,8 @@ public sealed class PartitioningApplicatorDecoratorTests
 
         var doc1 = new MultiPartitionedModel { TenantId = logicalKey, Items = { { "item1", "val1" } } };
         var crdtDoc1 = new CrdtDocument<MultiPartitionedModel>(doc1, metaManager.Initialize(doc1));
+        
+        // Use a document that will be evaluated as having < MinPartitionItemCount (1 item < 25)
         var doc2 = new MultiPartitionedModel { TenantId = logicalKey, Items = { { "item5", "val5" } } };
         var crdtDoc2 = new CrdtDocument<MultiPartitionedModel>(doc2, metaManager.Initialize(doc2));
 
@@ -175,11 +182,11 @@ public sealed class PartitioningApplicatorDecoratorTests
         mockStorage.Setup(x => x.GetHeaderPartitionAsync(logicalKey, default)).ReturnsAsync(headerPartition);
         mockStorage.Setup(x => x.LoadHeaderPartitionContentAsync<MultiPartitionedModel>(logicalKey, headerPartition, default)).ReturnsAsync(crdtDoc1);
 
-        // When applying the patch, simulate the partition dropping to a very small size (< 2048)
+        // When applying the patch, simulate the partition returning representing fewer than 25 items
         mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, dp2, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync(smallPartition);
 
-        // Simulating the merge logic
+        // Simulating the merge logic - Partition count > 1 allows merges
         mockStorage.Setup(x => x.GetPropertyPartitionCountAsync(logicalKey, propName, default)).ReturnsAsync(2);
         
         // Return dp1 as the previous partition via index lookup for the merge resolution

@@ -158,8 +158,15 @@ public sealed class PartitionManagerTests
         var (manager, mockStorage) = CreateManager(withPolicy: true);
         var initialObject = new MultiPartitionedModel { TenantId = "tenant-1" };
         
-        var oversizePartition = new DataPartition(new CompositePartitionKey("tenant-1", null), null, 0, PartitionManager<MultiPartitionedModel>.MaxPartitionDataSize + 1000, 0, 0);
-        var compactedPartition = new DataPartition(new CompositePartitionKey("tenant-1", null), null, 0, PartitionManager<MultiPartitionedModel>.MaxPartitionDataSize - 1000, 0, 0);
+        // Add enough items to trigger a split based on item count
+        for (int i = 0; i < PartitionManager<MultiPartitionedModel>.MaxPartitionItemCount + 1; i++)
+        {
+            initialObject.Items.Add($"k{i}", $"v{i}");
+            initialObject.Tags.Add($"k{i}", $"v{i}");
+        }
+        
+        var oversizePartition = new DataPartition(new CompositePartitionKey("tenant-1", null), null, 0, 0, 0, 0);
+        var compactedPartition = new DataPartition(new CompositePartitionKey("tenant-1", null), null, 0, 0, 0, 0);
 
         mockStorage.Setup(x => x.SaveHeaderPartitionContentAsync(It.IsAny<IComparable>(), It.IsAny<HeaderPartition>(), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync((IComparable k, HeaderPartition p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
@@ -172,6 +179,7 @@ public sealed class PartitionManagerTests
             .ReturnsAsync(oversizePartition)   // Tags
             .ReturnsAsync(compactedPartition); // Tags - Piggybacked
 
+        // Returning a document with 0 items simulates that compaction successfully reduced the partition's data size
         mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(It.IsAny<IComparable>(), It.IsAny<string>(), It.IsAny<IPartition>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CrdtDocument<MultiPartitionedModel>(new MultiPartitionedModel(), new CrdtMetadata()));
 

@@ -24,8 +24,8 @@ using System.Threading.Tasks;
 /// <typeparam name="T">The type of the data model managed by the CRDT.</typeparam>
 public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, new()
 {
-    public const int MaxPartitionDataSize = 8192;
-    public const int MinPartitionDataSize = MaxPartitionDataSize / 4;
+    public const int MaxPartitionItemCount = 100;
+    public const int MinPartitionItemCount = MaxPartitionItemCount / 4;
 
     private readonly IPartitionStorageService storageService;
     private readonly ICrdtMetadataManager metadataManager;
@@ -370,7 +370,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
             dataPartition = (DataPartition)await storageService.SavePartitionContentAsync(logicalKey, prop.Name, dataPartition, dataObject, dataMetadata, cancellationToken).ConfigureAwait(false);
             await storageService.InsertPropertyPartitionAsync(prop.Name, dataPartition, cancellationToken).ConfigureAwait(false);
 
-            if (dataPartition.DataLength > MaxPartitionDataSize)
+            if (GetItemCount(prop, dataObject) > MaxPartitionItemCount)
             {
                 await SplitPartitionAsync(dataPartition, prop.Name, strategy, prop, cancellationToken).ConfigureAwait(false);
             }
@@ -385,6 +385,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         metrics.PartitionsSplit.Add(1);
 
         var crdtDoc = await storageService.LoadPartitionContentAsync<T>(dataPartitionToSplit.StartKey.LogicalKey, propertyName, dataPartitionToSplit, cancellationToken).ConfigureAwait(false);
+        var itemCount = GetItemCount(prop, crdtDoc.Data!);
         
         // 1. Attempt Piggybacked Compaction to avoid the split entirely
         if (compactionPolicyFactories.Any())
@@ -403,7 +404,7 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
                 crdtDoc.Metadata!,
                 cancellationToken).ConfigureAwait(false);
 
-            if (compactedPartition is DataPartition dp && dp.DataLength <= MaxPartitionDataSize)
+            if (compactedPartition is DataPartition dp && GetItemCount(prop, crdtDoc.Data!) <= MaxPartitionItemCount)
             {
                 await storageService.DeletePropertyPartitionAsync(propertyName, dataPartitionToSplit, cancellationToken).ConfigureAwait(false);
                 await storageService.InsertPropertyPartitionAsync(propertyName, dp, cancellationToken).ConfigureAwait(false);
@@ -434,12 +435,14 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
         await storageService.InsertPropertyPartitionAsync(propertyName, p1, cancellationToken).ConfigureAwait(false);
         await storageService.InsertPropertyPartitionAsync(propertyName, p2, cancellationToken).ConfigureAwait(false);
 
-        if (p1 is DataPartition dp1 && dp1.DataLength > MaxPartitionDataSize && dp1.DataLength < dataPartitionToSplit.DataLength)
+        var p1Count = GetItemCount(prop, (T)splitResult.Partition1.Data);
+        if (p1 is DataPartition dp1 && p1Count > MaxPartitionItemCount && p1Count < itemCount)
         {
             await SplitPartitionAsync(dp1, propertyName, strategy, prop, cancellationToken).ConfigureAwait(false);
         }
 
-        if (p2 is DataPartition dp2 && dp2.DataLength > MaxPartitionDataSize && dp2.DataLength < dataPartitionToSplit.DataLength)
+        var p2Count = GetItemCount(prop, (T)splitResult.Partition2.Data);
+        if (p2 is DataPartition dp2 && p2Count > MaxPartitionItemCount && p2Count < itemCount)
         {
             await SplitPartitionAsync(dp2, propertyName, strategy, prop, cancellationToken).ConfigureAwait(false);
         }
@@ -502,5 +505,24 @@ public sealed class PartitionManager<T> : IPartitionManager<T> where T : class, 
             throw new ArgumentException($"Property '{propertyName}' is not a partitionable property on type '{typeof(T).Name}'.", nameof(propertyName));
         }
         return propertyPath;
+    }
+
+    private static int GetItemCount(CrdtPropertyInfo prop, T dataObject)
+    {
+        var collection = prop.Getter?.Invoke(dataObject);
+        if (collection == null) return 0;
+
+        if (collection is ICollection col) return col.Count;
+
+        if (collection is IEnumerable en)
+        {
+            int count = 0;
+            var enumerator = en.GetEnumerator();
+            while (enumerator.MoveNext()) count++;
+            (enumerator as IDisposable)?.Dispose();
+            return count;
+        }
+
+        return 0;
     }
 }
