@@ -35,7 +35,7 @@ internal static class Program
         services.AddSingleton<ICrdtOperationJournal>(sp => sp.GetRequiredService<MemoryJournal>());
 
         // Decorate pipeline to automatically journal changes and trigger garbage collection routines
-        services.AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.After);
+        services.AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.Before);
         services.AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After);
         services.AddCrdtApplicatorDecorator<CompactingApplicatorDecorator>(DecoratorBehavior.After);
 
