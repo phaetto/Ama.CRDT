@@ -3,7 +3,7 @@ namespace Ama.CRDT.Models.Serialization;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
 
 /// <summary>
 /// A static class that configures JSON serialization modifiers for CRDT types.

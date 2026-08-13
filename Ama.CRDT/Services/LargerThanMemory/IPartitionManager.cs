@@ -1,7 +1,7 @@
-namespace Ama.CRDT.Services.Partitioning;
+namespace Ama.CRDT.Services.LargerThanMemory;
 
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
 using System;
 using System.Collections.Generic;
 using System.Threading;

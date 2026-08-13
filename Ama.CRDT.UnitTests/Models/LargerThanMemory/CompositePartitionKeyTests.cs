@@ -1,6 +1,6 @@
-namespace Ama.CRDT.UnitTests.Models.Partitioning;
+namespace Ama.CRDT.UnitTests.Models.LargerThanMemory;
 
-using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
 using Shouldly;
 using System.Collections.Generic;
 using Xunit;

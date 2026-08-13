@@ -8,7 +8,7 @@ using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
-using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.LargerThanMemory;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;

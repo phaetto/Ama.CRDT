@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.LargerThanMemory;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
 using Ama.CRDT.ShowCase.LargerThanMemory.Services;
 using Microsoft.Extensions.DependencyInjection;

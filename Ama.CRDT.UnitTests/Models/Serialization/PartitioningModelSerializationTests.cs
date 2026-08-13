@@ -3,7 +3,7 @@ namespace Ama.CRDT.UnitTests.Models.Serialization;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
 using Shouldly;
 using Xunit;
 

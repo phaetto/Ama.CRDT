@@ -1,14 +1,15 @@
-namespace Ama.CRDT.UnitTests.Services.Partitioning;
+namespace Ama.CRDT.UnitTests.Services.LargerThanMemory;
 
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
-using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
-using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.LargerThanMemory;
+using Ama.CRDT.UnitTests.Services.Partitioning;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using System;

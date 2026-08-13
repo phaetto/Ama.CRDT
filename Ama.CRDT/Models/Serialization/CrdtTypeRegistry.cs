@@ -5,7 +5,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
-using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
 
 /// <summary>
 /// A centralized registry mapping discriminator strings to CRDT serialization types.

@@ -2,7 +2,7 @@ namespace Ama.CRDT.UnitTests.Services.Decorators;
 
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models.Aot;
-using Ama.CRDT.UnitTests.Services.Partitioning;
+using Ama.CRDT.UnitTests.Services.LargerThanMemory;
 
 /// <summary>
 /// A dedicated CrdtAotContext for the decorators unit tests to provide AOT-compatible 

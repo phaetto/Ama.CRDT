@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Partitioning;
 using System.Collections.Generic;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.UnitTests.Services.LargerThanMemory;
 
 /// <summary>
 /// A dedicated CrdtAotContext for the Partitioning unit tests to provide AOT-compatible 

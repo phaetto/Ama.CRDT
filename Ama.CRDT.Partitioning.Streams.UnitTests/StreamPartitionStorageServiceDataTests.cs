@@ -2,12 +2,12 @@ namespace Ama.CRDT.Partitioning.Streams.UnitTests;
 
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
 using Ama.CRDT.Partitioning.Streams.Extensions;
 using Ama.CRDT.Partitioning.Streams.Services;
 using Ama.CRDT.Partitioning.Streams.Services.Serialization;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.LargerThanMemory;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Shouldly;

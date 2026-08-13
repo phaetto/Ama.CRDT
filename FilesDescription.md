@@ -143,7 +143,7 @@
 | `$/Ama.CRDT.UnitTests/Extensions/ServiceCollectionExtensionsTests.cs` | Unit tests for `ServiceCollectionExtensions`, validating global modifier execution and the new aggregate JSON type info resolver. |
 | `$/Ama.CRDT.UnitTests/Models/DottedVersionVectorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/EpochTimestampTests.cs` | Contains unit tests for the `EpochTimestamp` implementation of `ICrdtTimestamp`. |
-| `$/Ama.CRDT.UnitTests/Models/Partitioning/CompositePartitionKeyTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Models/LargerThanMemory/CompositePartitionKeyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CoreModelSerializationTests.cs` | Contains unit tests for serializing core library models like `ApplyPatchResult`, `JournaledOperation`, `UnappliedOperation`, and `DottedVersionVector`. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtDocumentSerializationTests.cs` | Contains unit tests for serializing the `CrdtDocument<T>` struct, including scenarios with null data or metadata, and compact serialization options. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtMetadataSerializationTests.cs` | Contains unit tests for the serialization and deserialization of the `CrdtMetadata` class, verifying both default and compact serialization options and ensuring polymorphic and complex data (e.g., non-string dictionary keys, nested collections) is handled correctly. |
@@ -178,9 +178,9 @@
 | `$/Ama.CRDT.UnitTests/Services/Helpers/Models.cs` | Contains simple data models for unit testing path conversion and resolution helpers. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs, and testing new centralized reflection helpers for getting/setting values and retrieving type information. |
 | `$/Ama.CRDT.UnitTests/Services/Journaling/JournalManagerTests.cs` | Contains unit tests for `JournalManager`, verifying the retrieval of missing operations based on synchronization requirements, range bounds, and missing dots. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionManagerTests.cs` | Contains unit tests for `PartitionManager`, focusing on verifying storage initialization, partition querying, and index management via `IPartitionStorageService`. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionStorageServiceContractTests.cs` | Contains mock unit tests to verify the `IPartitionStorageService` interface contract. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitioningTestCrdtContext.cs` | A dedicated CrdtContext for `Partitioning` unit tests to provide AOT-compatible property metadata. |
+| `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/PartitionManagerTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/PartitionStorageServiceContractTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/PartitioningTestCrdtContext.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Providers/CrdtFluentConfigurationTests.cs` | Contains unit tests verifying the Fluent Builder API (`CrdtModelBuilder`) correctly maps CRDT strategies and that the `CrdtStrategyProvider` prioritizes these mappings over attributes. |
 | `$/Ama.CRDT.UnitTests/Services/Providers/DefaultDocumentIdProviderTests.cs` | Contains unit tests for `DefaultDocumentIdProvider`, verifying correct document ID extraction and proper exception throwing for missing or invalid IDs. |
 | `$/Ama.CRDT.UnitTests/Services/ServicesTestCrdtContext.cs` | A dedicated AOT context for the services unit tests, providing reflection-free metadata for test-specific models and collections. |
@@ -343,6 +343,12 @@
 | `$/Ama.CRDT/Models/Intents/VoteIntent.cs` | Represents the intent to explicitly cast a vote for a specific option. |
 | `$/Ama.CRDT/Models/JournalSyncResult.cs` | DTO representing the result of evaluating journal operations against synchronization requirements, avoiding tuple usage. |
 | `$/Ama.CRDT/Models/JournaledOperation.cs` | An envelope record struct used by the operation journal interfaces to bundle a core `CrdtOperation` with its target `DocumentId` (logical key), facilitating correct data routing when synchronizing independent documents. |
+| `$/Ama.CRDT/Models/LargerThanMemory/CompositePartitionKey.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/DataPartition.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/HeaderPartition.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/IPartition.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/PartitionContent.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/SplitResult.cs` | No description provided. |
 | `$/Ama.CRDT/Models/LseqIdentifier.cs` | A record struct for the dense, ordered identifier used in LSEQ, composed of a path of `LseqPathSegment` instances. |
 | `$/Ama.CRDT/Models/LseqItem.cs` | A record struct that pairs an LseqIdentifier with its corresponding value in the LSEQ metadata. |
 | `$/Ama.CRDT/Models/LseqPathSegment.cs` | Represents a single, serializable segment in an LSEQ identifier's path, containing a position and a replica ID. |
@@ -354,12 +360,6 @@
 | `$/Ama.CRDT/Models/OrSetItem.cs` | Contains payload record structs (`OrSetAddItem`, `OrSetRemoveItem`) for OR-Set (Observed-Remove Set) operations, bundling values with unique tags. |
 | `$/Ama.CRDT/Models/OrSetState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/OriginSyncRequirement.cs` | A data structure representing the causality gap for a specific origin replica between a target and a source. |
-| `$/Ama.CRDT/Models/Partitioning/CompositePartitionKey.cs` | Represents a composite key for partitioning, consisting of a logical key and a range key. It now uses `IComparable` for keys to support natural sorting of different key types and implements `IComparable` for consistent ordering. |
-| `$/Ama.CRDT/Models/Partitioning/DataPartition.cs` | No description provided. |
-| `$/Ama.CRDT/Models/Partitioning/HeaderPartition.cs` | No description provided. |
-| `$/Ama.CRDT/Models/Partitioning/IPartition.cs` | No description provided. |
-| `$/Ama.CRDT/Models/Partitioning/PartitionContent.cs` | A data structure representing the data and metadata content of a single partition. |
-| `$/Ama.CRDT/Models/Partitioning/SplitResult.cs` | A data structure representing the result of a partition split operation, containing the content for the two new partitions and the key that divides them. It now uses `IComparable` for the split key to support various key types. |
 | `$/Ama.CRDT/Models/PnCounterState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
@@ -424,12 +424,12 @@
 | `$/Ama.CRDT/Services/Journaling/ICrdtOperationJournal.cs` | Defines a contract for an operation journal that captures explicitly generated and successfully applied CRDT operations, and allows retrieval of operations. |
 | `$/Ama.CRDT/Services/Journaling/IJournalManager.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Journaling/JournalManager.cs` | Implements `IJournalManager` to retrieve missing operations based on `ReplicaSyncRequirement` by querying an underlying `ICrdtOperationJournal`. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IPartitionManager.cs` | No description provided. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IPartitionStorageService.cs` | No description provided. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IPartitionableCrdtStrategy.cs` | No description provided. |
+| `$/Ama.CRDT/Services/LargerThanMemory/PartitionManager.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Metrics/MetricTimer.cs` | A helper `IDisposable` struct that uses a `Stopwatch` to measure the duration of a code block and records it to a `Histogram` upon disposal. |
 | `$/Ama.CRDT/Services/Metrics/PartitionManagerCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `PartitionManager`. |
-| `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` | Defines the contract for managing a partitioned CRDT document, now supporting asynchronous streaming of partitions via `IAsyncEnumerable` and efficient counting of data partitions for a given logical key. It provides a user-friendly API using property names (`nameof`) and specific methods for header partitions. |
-| `$/Ama.CRDT/Services/Partitioning/IPartitionStorageService.cs` | Defines a high-level abstraction for saving and loading partitioned CRDT data and metadata, hiding underlying stream operations. |
-| `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning. It defines methods for splitting and merging partition data and metadata, and for extracting partition keys from operations and data models. |
-| `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a partitioned CRDT document, allowing it to scale beyond memory. It now explicitly separates logic for header and property partitions, using dedicated stream providers and strategy methods to avoid ambiguity. |
 | `$/Ama.CRDT/Services/Providers/CrdtEntityBuilder.cs` | A fluent builder to configure CRDT strategies for a specific entity type, avoiding reflections by directly evaluating Expression trees in an AOT-friendly way. |
 | `$/Ama.CRDT/Services/Providers/CrdtModelBuilder.cs` | A fluent builder used to configure CRDT strategies and decorators for C# types mapping to `CrdtPropertyKey`. |
 | `$/Ama.CRDT/Services/Providers/CrdtModelRegistry.cs` | A registry that holds the configurations of CRDT strategies, operating on `CrdtPropertyKey`. |

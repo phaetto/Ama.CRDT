@@ -1,4 +1,4 @@
-namespace Ama.CRDT.Models.Partitioning;
+namespace Ama.CRDT.Models.LargerThanMemory;
 
 /// <summary>
 /// A data structure representing the data and metadata content of a single partition.
