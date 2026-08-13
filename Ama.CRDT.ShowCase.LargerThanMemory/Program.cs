@@ -1,6 +1,6 @@
 using Ama.CRDT.Extensions;
+using Ama.CRDT.LargerThanMemory.Streams.Extensions;
 using Ama.CRDT.Models;
-using Ama.CRDT.Partitioning.Streams.Extensions;
 using Ama.CRDT.Services.Decorators;
 using Ama.CRDT.ShowCase.LargerThanMemory;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
@@ -20,7 +20,7 @@ builder.ConfigureServices((context, services) =>
         .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.Before)
         .AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After)
         .AddCrdtApplicatorDecorator<LargerThanMemoryApplicatorDecorator>(DecoratorBehavior.Complex)
-        .AddCrdtStreamPartitioning<FileSystemPartitionStreamProvider>()
+        .AddCrdtStreamChunking<FileSystemChunkStreamProvider>()
         .AddCrdtChunkedDocument<BlogPost>()
         .AddCrdtVirtualDocumentProjector<BlogPost, BlogPostSqliteProjector>();
 

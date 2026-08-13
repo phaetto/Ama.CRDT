@@ -1,4 +1,4 @@
-namespace Ama.CRDT.Partitioning.Streams.Services;
+namespace Ama.CRDT.LargerThanMemory.Streams.Services;
 
 using System;
 using System.IO;
@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 /// Defines a contract for a service that provides data and index streams for partitioned documents.
 /// This allows for extensible storage strategies, such as using separate files or blob storage containers for headers and properties.
 /// </summary>
-public interface IPartitionStreamProvider
+public interface IChunkStreamProvider
 {
     /// <summary>
     /// Gets the index stream for a specific partitionable property.

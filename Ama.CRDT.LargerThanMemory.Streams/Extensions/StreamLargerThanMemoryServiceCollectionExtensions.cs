@@ -3,14 +3,14 @@ using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Ama.CRDT.Partitioning.Streams.UnitTests")]
 
-namespace Ama.CRDT.Partitioning.Streams.Extensions;
+namespace Ama.CRDT.LargerThanMemory.Streams.Extensions;
 
 using Ama.CRDT.Extensions;
-using Ama.CRDT.Partitioning.Streams.Models;
+using Ama.CRDT.LargerThanMemory.Streams.Models;
+using Ama.CRDT.LargerThanMemory.Streams.Services;
+using Ama.CRDT.LargerThanMemory.Streams.Services.Metrics;
+using Ama.CRDT.LargerThanMemory.Streams.Services.Serialization;
 using Ama.CRDT.Partitioning.Streams.Models.Serialization;
-using Ama.CRDT.Partitioning.Streams.Services;
-using Ama.CRDT.Partitioning.Streams.Services.Metrics;
-using Ama.CRDT.Partitioning.Streams.Services.Serialization;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.LargerThanMemory;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,16 +20,16 @@ using System;
 /// <summary>
 /// Provides extension methods for setting up CRDT stream partitioning services in an <see cref="IServiceCollection"/>.
 /// </summary>
-public static class StreamPartitioningServiceCollectionExtensions
+public static class StreamLargerThanMemoryServiceCollectionExtensions
 {
     /// <summary>
     /// Registers the stream partitioning services and the custom stream provider for Ama.CRDT.
     /// </summary>
-    /// <typeparam name="TProvider">The type of the stream provider to register. Must implement <see cref="IPartitionStreamProvider"/>.</typeparam>
+    /// <typeparam name="TProvider">The type of the stream provider to register. Must implement <see cref="IChunkStreamProvider"/>.</typeparam>
     /// <param name="services">The <see cref="IServiceCollection"/> to add the services to.</param>
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
-    public static IServiceCollection AddCrdtStreamPartitioning<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProvider>(this IServiceCollection services)
-        where TProvider : class, IPartitionStreamProvider
+    public static IServiceCollection AddCrdtStreamChunking<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProvider>(this IServiceCollection services)
+        where TProvider : class, IChunkStreamProvider
     {
         // Explicitly register external stream-specific models to the polymorphic converter 
         services.AddCrdtSerializableType<BPlusTreeNode>("bplus-tree-node");
@@ -46,13 +46,13 @@ public static class StreamPartitioningServiceCollectionExtensions
         // Register core services natively to enable the AOT DI source generator,
         // and resolve them via factories on interfaces to enforce replica scope validation.
         services.AddScoped<TProvider>();
-        services.AddScoped<IPartitionStreamProvider>(sp => { ValidateReplicaScope(sp, typeof(TProvider).Name); return sp.GetRequiredService<TProvider>(); });
+        services.AddScoped<IChunkStreamProvider>(sp => { ValidateReplicaScope(sp, typeof(TProvider).Name); return sp.GetRequiredService<TProvider>(); });
 
-        services.TryAddScoped<DefaultPartitionSerializationService>();
-        services.TryAddScoped<IPartitionSerializationService>(sp => { ValidateReplicaScope(sp, nameof(DefaultPartitionSerializationService)); return sp.GetRequiredService<DefaultPartitionSerializationService>(); });
+        services.TryAddScoped<DefaultChunkSerializationService>();
+        services.TryAddScoped<IChunkSerializationService>(sp => { ValidateReplicaScope(sp, nameof(DefaultChunkSerializationService)); return sp.GetRequiredService<DefaultChunkSerializationService>(); });
         
-        services.TryAddScoped<StreamPartitionStorageService>();
-        services.TryAddScoped<IChunkStorageService>(sp => { ValidateReplicaScope(sp, nameof(StreamPartitionStorageService)); return sp.GetRequiredService<StreamPartitionStorageService>(); });
+        services.TryAddScoped<StreamChunkStorageService>();
+        services.TryAddScoped<IChunkStorageService>(sp => { ValidateReplicaScope(sp, nameof(StreamChunkStorageService)); return sp.GetRequiredService<StreamChunkStorageService>(); });
 
         return services;
     }

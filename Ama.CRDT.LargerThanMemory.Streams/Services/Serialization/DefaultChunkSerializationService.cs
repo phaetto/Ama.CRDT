@@ -1,6 +1,6 @@
-namespace Ama.CRDT.Partitioning.Streams.Services.Serialization;
+namespace Ama.CRDT.LargerThanMemory.Streams.Services.Serialization;
 
-using Ama.CRDT.Partitioning.Streams.Models;
+using Ama.CRDT.LargerThanMemory.Streams.Models;
 using Ama.CRDT.Services.Serialization;
 using System;
 using System.IO;
@@ -8,10 +8,10 @@ using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
-/// The default implementation of <see cref="IPartitionSerializationService"/>, fully Native AOT compatible,
+/// The default implementation of <see cref="IChunkSerializationService"/>, fully Native AOT compatible,
 /// now utilizing the decoupled <see cref="ICrdtSerializer"/> abstraction.
 /// </summary>
-public sealed class DefaultPartitionSerializationService(ICrdtSerializer crdtSerializer) : IPartitionSerializationService
+public sealed class DefaultChunkSerializationService(ICrdtSerializer crdtSerializer) : IChunkSerializationService
 {
     private readonly ICrdtSerializer crdtSerializer = crdtSerializer ?? throw new ArgumentNullException(nameof(crdtSerializer));
 
