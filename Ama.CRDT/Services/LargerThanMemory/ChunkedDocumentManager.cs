@@ -23,7 +23,7 @@ using System.Threading.Tasks;
 /// It uses a user-friendly API with property names and translates them to internal property paths for strategy execution.
 /// </summary>
 /// <typeparam name="T">The type of the data model managed by the CRDT.</typeparam>
-public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtualDocumentCollection<T>, IVirtualDocumentPatchHandler<T> where T : class, new()
+public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtualDocumentCollectionReader<T>, IVirtualDocumentPatchHandler<T> where T : class, new()
 {
     public const int MaxChunkItemCount = 100;
     public const int MinChunkItemCount = MaxChunkItemCount / 4;
@@ -33,6 +33,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
     private readonly LargerThanMemoryManagerCrdtMetrics metrics; 
     private readonly IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories;
     private readonly IEnumerable<CrdtAotContext> aotContexts;
+    private readonly IEnumerable<IVirtualDocumentProjector<T>> projectors;
 
     private readonly CrdtPropertyInfo? partitionKeyProperty;
     private readonly IReadOnlyDictionary<string, (CrdtPropertyInfo Property, IChunkableCollectionStrategy Strategy)> chunkableProperties;
@@ -45,7 +46,8 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
         ReplicaContext replicaContext,
         LargerThanMemoryManagerCrdtMetrics metrics,
         IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories,
-        IEnumerable<CrdtAotContext> aotContexts)
+        IEnumerable<CrdtAotContext> aotContexts,
+        IEnumerable<IVirtualDocumentProjector<T>>? projectors = null)
     {
         ArgumentNullException.ThrowIfNull(storageService);
         ArgumentNullException.ThrowIfNull(metadataManager);
@@ -64,6 +66,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
         this.metrics = metrics;
         this.compactionPolicyFactories = compactionPolicyFactories;
         this.aotContexts = aotContexts;
+        this.projectors = projectors ?? Array.Empty<IVirtualDocumentProjector<T>>();
 
         this.partitionKeyProperty = FindPartitionKeyProperty(typeof(T), aotContexts);
         this.chunkableProperties = FindChunkablePropertiesAndStrategies(strategyProvider, aotContexts);
@@ -82,6 +85,14 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
 
         await InitializeHeaderAsync(logicalKey, initialObject, cancellationToken).ConfigureAwait(false);
         await InitializePropertiesAsync(logicalKey, initialObject, cancellationToken).ConfigureAwait(false);
+
+        if (this.projectors.Any())
+        {
+            foreach (var projector in this.projectors)
+            {
+                await projector.ProjectHeaderAsync(logicalKey, initialObject, cancellationToken).ConfigureAwait(false);
+            }
+        }
     }
     
     /// <inheritdoc/>
@@ -470,6 +481,14 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
                 dataDoc.Metadata.SeenExceptions = new HashSet<CrdtOperation>();
 
                 var updatedPartition = await PersistPartitionChangesAsync(logicalKey, partition, dataDoc.Data!, dataDoc.Metadata, propertyName, cancellationToken).ConfigureAwait(false);
+
+                if (this.projectors.Any())
+                {
+                    foreach (var projector in this.projectors)
+                    {
+                        await projector.ProjectChunkAsync(logicalKey, propertyName, updatedPartition, dataDoc.Data!, cancellationToken).ConfigureAwait(false);
+                    }
+                }
                 
                 if (updatedPartition is CollectionChunk updatedDataPartition)
                 {
@@ -495,6 +514,14 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
         if (headerModified)
         {
             await PersistPartitionChangesAsync(logicalKey, headerPartition, headerDoc.Data!, headerDoc.Metadata!, null, cancellationToken).ConfigureAwait(false);
+            
+            if (this.projectors.Any())
+            {
+                foreach (var projector in this.projectors)
+                {
+                    await projector.ProjectHeaderAsync(logicalKey, headerDoc.Data!, cancellationToken).ConfigureAwait(false);
+                }
+            }
         }
         
         return new ApplyPatchResult<T>(headerDoc, unappliedOperations);

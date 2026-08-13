@@ -433,7 +433,9 @@
 | `$/Ama.CRDT/Services/LargerThanMemory/IVirtualCollectionStrategy.cs` | Defines a CRDT strategy that supports externalizing its elements into a Key-Value store or segmented storage, exposing key generation logic. |
 | `$/Ama.CRDT/Services/LargerThanMemory/IVirtualDocumentCollection.cs` | No description provided. |
 | `$/Ama.CRDT/Services/LargerThanMemory/IVirtualDocumentPatchHandler.cs` | Defines a contract for handling patch application for virtualized CRDT documents (e.g., Chunked or KV partitioned). Implemented by the respective Virtual Document Managers to intercept and correctly route document patches to external storage. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IVirtualDocumentProjector.cs` | Defines a projection hook interface for CQRS systems, allowing users to intercept completely converged POCO updates for custom Read Models immediately after patches apply. |
 | `$/Ama.CRDT/Services/LargerThanMemory/KvDocumentManager.cs` | Manages a True Key-Value virtualized CRDT document, ensuring infinite scaling without chunk bounds. Now implements `IVirtualDocumentPatchHandler` to route operations directly to database rows. |
+| `$/Ama.CRDT/Services/LargerThanMemory/VirtualDocumentProjector.cs` | Provides a base abstract class implementation of `IVirtualDocumentProjector<T>`, letting users selectively implement projection methods without boilerplate. |
 | `$/Ama.CRDT/Services/Metrics/LargerThanMemoryManagerCrdtMetrics.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Metrics/MetricTimer.cs` | A helper `IDisposable` struct that uses a `Stopwatch` to measure the duration of a code block and records it to a `Histogram` upon disposal. |
 | `$/Ama.CRDT/Services/Providers/CrdtEntityBuilder.cs` | A fluent builder to configure CRDT strategies for a specific entity type, avoiding reflections by directly evaluating Expression trees in an AOT-friendly way. |

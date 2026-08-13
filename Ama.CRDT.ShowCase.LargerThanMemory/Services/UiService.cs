@@ -30,7 +30,7 @@ public sealed class UiService
     private Guid selectedBlogPostId;
 
     private IServiceScope currentScope;
-    private IVirtualDocumentCollection<BlogPost> documentCollection;
+    private IVirtualDocumentCollectionReader<BlogPost> documentCollection;
     private IChunkDocumentManager<BlogPost> chunkManager;
     private string currentReplicaId;
     
@@ -314,7 +314,7 @@ public sealed class UiService
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         
         currentScope = scopeFactory.CreateScope(replicaId, replicaDvvs[replicaId]);
-        documentCollection = currentScope.ServiceProvider.GetRequiredService<IVirtualDocumentCollection<BlogPost>>();
+        documentCollection = currentScope.ServiceProvider.GetRequiredService<IVirtualDocumentCollectionReader<BlogPost>>();
         chunkManager = currentScope.ServiceProvider.GetRequiredService<IChunkDocumentManager<BlogPost>>();
         
         if (topPane is not null)

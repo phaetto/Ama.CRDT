@@ -22,13 +22,14 @@ using System.Threading.Tasks;
 /// Uses <see cref="IVirtualCollectionStrategy"/> to route individual operations directly to database rows, eliminating write amplification.
 /// </summary>
 /// <typeparam name="T">The type of the data model managed by the CRDT.</typeparam>
-public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocumentCollection<T>, IVirtualDocumentPatchHandler<T> where T : class, new()
+public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocumentCollectionReader<T>, IVirtualDocumentPatchHandler<T> where T : class, new()
 {
     private readonly IKvStorageService storageService;
     private readonly ICrdtMetadataManager metadataManager;
     private readonly LargerThanMemoryManagerCrdtMetrics metrics; 
     private readonly IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories;
     private readonly IEnumerable<CrdtAotContext> aotContexts;
+    private readonly IEnumerable<IVirtualDocumentProjector<T>> projectors;
 
     private readonly CrdtPropertyInfo? partitionKeyProperty;
     private readonly IReadOnlyDictionary<string, (CrdtPropertyInfo Property, IVirtualCollectionStrategy Strategy)> virtualProperties;
@@ -41,7 +42,8 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
         ReplicaContext replicaContext,
         LargerThanMemoryManagerCrdtMetrics metrics,
         IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories,
-        IEnumerable<CrdtAotContext> aotContexts)
+        IEnumerable<CrdtAotContext> aotContexts,
+        IEnumerable<IVirtualDocumentProjector<T>>? projectors = null)
     {
         ArgumentNullException.ThrowIfNull(storageService);
         ArgumentNullException.ThrowIfNull(metadataManager);
@@ -60,6 +62,7 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
         this.metrics = metrics;
         this.compactionPolicyFactories = compactionPolicyFactories;
         this.aotContexts = aotContexts;
+        this.projectors = projectors ?? Array.Empty<IVirtualDocumentProjector<T>>();
 
         this.partitionKeyProperty = FindPartitionKeyProperty(typeof(T), aotContexts);
         this.virtualProperties = FindVirtualPropertiesAndStrategies(strategyProvider, aotContexts);
@@ -78,6 +81,14 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
 
         await InitializeHeaderAsync(logicalKey, initialObject, cancellationToken).ConfigureAwait(false);
         await InitializePropertiesAsync(logicalKey, cancellationToken).ConfigureAwait(false);
+
+        if (this.projectors.Any())
+        {
+            foreach (var projector in this.projectors)
+            {
+                await projector.ProjectHeaderAsync(logicalKey, initialObject, cancellationToken).ConfigureAwait(false);
+            }
+        }
     }
 
     /// <inheritdoc/>
@@ -145,6 +156,41 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
         EnsureConfigured();
 
         await this.storageService.SaveItemAsync(logicalKey, propertyName, itemKey, itemDocument.Data!, itemDocument.Metadata!, cancellationToken).ConfigureAwait(false);
+
+        if (this.projectors.Any())
+        {
+            var propertyPath = ToPropertyPath(propertyName);
+            var config = this.virtualProperties[propertyPath];
+            var collection = config.Property.Getter!(itemDocument.Data!);
+            bool isDeleted = true;
+            object? extractedItem = null;
+
+            if (collection is IDictionary dict && dict.Count > 0)
+            {
+                var en = dict.GetEnumerator();
+                en.MoveNext();
+                extractedItem = en.Value;
+                isDeleted = false;
+            }
+            else if (collection is IEnumerable en)
+            {
+                var enumerator = en.GetEnumerator();
+                if (enumerator.MoveNext())
+                {
+                    extractedItem = enumerator.Current;
+                    isDeleted = false;
+                }
+                (enumerator as IDisposable)?.Dispose();
+            }
+
+            foreach (var projector in this.projectors)
+            {
+                if (isDeleted)
+                    await projector.ProjectItemDeleteAsync(logicalKey, propertyName, itemKey, cancellationToken).ConfigureAwait(false);
+                else if (extractedItem != null)
+                    await projector.ProjectItemUpsertAsync(logicalKey, propertyName, itemKey, extractedItem, cancellationToken).ConfigureAwait(false);
+            }
+        }
     }
 
     /// <inheritdoc/>
@@ -156,6 +202,11 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
         EnsureConfigured();
 
         await this.storageService.DeleteItemAsync(logicalKey, propertyName, itemKey, cancellationToken).ConfigureAwait(false);
+
+        foreach (var projector in this.projectors)
+        {
+            await projector.ProjectItemDeleteAsync(logicalKey, propertyName, itemKey, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc/>
@@ -428,6 +479,42 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
                 {
                     await this.storageService.SaveItemAsync(logicalKey, propertyName, itemKey, itemDoc.Data!, itemDoc.Metadata, cancellationToken).ConfigureAwait(false);
                 }
+
+                if (this.projectors.Any())
+                {
+                    var collection = config.Property.Getter!(itemDoc.Data!);
+                    bool isDeleted = true;
+                    object? extractedItem = null;
+
+                    if (collection is IDictionary dict)
+                    {
+                        if (dict.Count > 0)
+                        {
+                            var en = dict.GetEnumerator();
+                            en.MoveNext();
+                            extractedItem = en.Value;
+                            isDeleted = false;
+                        }
+                    }
+                    else if (collection is IEnumerable en)
+                    {
+                        var enumerator = en.GetEnumerator();
+                        if (enumerator.MoveNext())
+                        {
+                            extractedItem = enumerator.Current;
+                            isDeleted = false;
+                        }
+                        (enumerator as IDisposable)?.Dispose();
+                    }
+
+                    foreach (var projector in this.projectors)
+                    {
+                        if (isDeleted)
+                            await projector.ProjectItemDeleteAsync(logicalKey, propertyName, itemKey, cancellationToken).ConfigureAwait(false);
+                        else if (extractedItem != null)
+                            await projector.ProjectItemUpsertAsync(logicalKey, propertyName, itemKey, extractedItem, cancellationToken).ConfigureAwait(false);
+                    }
+                }
                 
                 headerModified = true;
             }
@@ -438,6 +525,14 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
             using (new MetricTimer(this.metrics.PersistChangesDuration))
             {
                 await this.storageService.SaveHeaderAsync(logicalKey, headerDoc.Data!, headerDoc.Metadata!, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (this.projectors.Any())
+            {
+                foreach (var projector in this.projectors)
+                {
+                    await projector.ProjectHeaderAsync(logicalKey, headerDoc.Data!, cancellationToken).ConfigureAwait(false);
+                }
             }
         }
         
