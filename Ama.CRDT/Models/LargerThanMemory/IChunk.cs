@@ -3,7 +3,7 @@ namespace Ama.CRDT.Models.LargerThanMemory;
 /// <summary>
 /// Defines the common properties for a partition in a partitioned data store.
 /// </summary>
-public interface IPartition
+public interface IChunk
 {
     /// <summary>
     /// Gets the byte offset in the data stream where this partition's data begins.
@@ -29,5 +29,5 @@ public interface IPartition
     /// Gets the key used to index this partition in the B+ Tree.
     /// </summary>
     /// <returns>The composite partition key for indexing.</returns>
-    CompositePartitionKey GetPartitionKey();
+    CompositeChunkKey GetPartitionKey();
 }

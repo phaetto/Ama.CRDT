@@ -29,7 +29,7 @@ using System.Linq;
 public sealed class OrMapStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -430,7 +430,7 @@ public sealed class OrMapStrategy(
     }
 
     /// <inheritdoc/>
-    public SplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
+    public ChunkSplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
         var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
@@ -504,11 +504,11 @@ public sealed class OrMapStrategy(
         foreach(var k in keysToRemoveFrom1) meta1.States.Remove(k);
         foreach(var k in keysToRemoveFrom2) meta2.States.Remove(k);
 
-        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), comparableSplitKey);
+        return new ChunkSplitResult(new ChunkContent(doc1, meta1), new ChunkContent(doc2, meta2), comparableSplitKey);
     }
 
     /// <inheritdoc/>
-    public PartitionContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
+    public ChunkContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
         
@@ -616,7 +616,7 @@ public sealed class OrMapStrategy(
     
         partitionableProperty.Setter!(mergedDoc, mergedDict);
 
-        return new PartitionContent(mergedDoc, mergedMeta);
+        return new ChunkContent(mergedDoc, mergedMeta);
     }
     
     private bool ApplyUpsert(IDictionary dict, CrdtMetadata metadata, OrSetState state, CrdtOperation operation, Type keyType, Type valueType)

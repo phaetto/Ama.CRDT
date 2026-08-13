@@ -343,12 +343,12 @@
 | `$/Ama.CRDT/Models/Intents/VoteIntent.cs` | Represents the intent to explicitly cast a vote for a specific option. |
 | `$/Ama.CRDT/Models/JournalSyncResult.cs` | DTO representing the result of evaluating journal operations against synchronization requirements, avoiding tuple usage. |
 | `$/Ama.CRDT/Models/JournaledOperation.cs` | An envelope record struct used by the operation journal interfaces to bundle a core `CrdtOperation` with its target `DocumentId` (logical key), facilitating correct data routing when synchronizing independent documents. |
-| `$/Ama.CRDT/Models/LargerThanMemory/CompositePartitionKey.cs` | No description provided. |
-| `$/Ama.CRDT/Models/LargerThanMemory/DataPartition.cs` | No description provided. |
-| `$/Ama.CRDT/Models/LargerThanMemory/HeaderPartition.cs` | No description provided. |
-| `$/Ama.CRDT/Models/LargerThanMemory/IPartition.cs` | No description provided. |
-| `$/Ama.CRDT/Models/LargerThanMemory/PartitionContent.cs` | No description provided. |
-| `$/Ama.CRDT/Models/LargerThanMemory/SplitResult.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/ChunkContent.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/ChunkSplitResult.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/CompositeChunkKey.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/DataChunk.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/HeaderChunk.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/IChunk.cs` | No description provided. |
 | `$/Ama.CRDT/Models/LseqIdentifier.cs` | A record struct for the dense, ordered identifier used in LSEQ, composed of a path of `LseqPathSegment` instances. |
 | `$/Ama.CRDT/Models/LseqItem.cs` | A record struct that pairs an LseqIdentifier with its corresponding value in the LSEQ metadata. |
 | `$/Ama.CRDT/Models/LseqPathSegment.cs` | Represents a single, serializable segment in an LSEQ identifier's path, containing a position and a replica ID. |
@@ -402,7 +402,7 @@
 | `$/Ama.CRDT/Services/Decorators/CompactingMergerDecorator.cs` | A decorator for `IAsyncCrdtMerger` that runs metadata compaction after successfully merging document states. |
 | `$/Ama.CRDT/Services/Decorators/JournalingApplicatorDecorator.cs` | Decorator for intercepting patch applications, updated to record all operations to the journal before the underlying application logic executes. |
 | `$/Ama.CRDT/Services/Decorators/JournalingPatcherDecorator.cs` | Decorator for intercepting patch generations, updated to use `IDocumentIdProvider` via dependency injection. |
-| `$/Ama.CRDT/Services/Decorators/PartitioningApplicatorDecorator.cs` | A global decorator implementation of `IAsyncCrdtApplicator` that acts as a `Complex` interceptor to manage recursive partition splitting and merging. Refactored to completely avoid Tuples in favor of struct DTOs and strict behavioral flow. |
+| `$/Ama.CRDT/Services/Decorators/PartitioningApplicatorDecorator.cs` | A global decorator that acts as a "Complex" interceptor for patch applications. It delegates virtual document operations (Chunked or KV) to the registered `IVirtualDocumentPatchHandler{TDoc}`, enabling infinite scaling of CRDT collections without tying the applicator to a specific storage backend. |
 | `$/Ama.CRDT/Services/DifferentiateObjectContext.cs` | Defines the context object for the `ICrdtPatcher.DifferentiateObject` method, encapsulating all necessary parameters. |
 | `$/Ama.CRDT/Services/GarbageCollection/CompactionCandidate.cs` | Represents the metadata payload (e.g., Timestamp, ReplicaId, Version) of a tombstone or deleted item being evaluated for garbage collection. |
 | `$/Ama.CRDT/Services/GarbageCollection/GlobalMinimumVersionPolicy.cs` | Implements a mathematically safe compaction policy based on the Global Minimum Version Vector (GMVV) across a cluster of replicas. |
@@ -424,9 +424,18 @@
 | `$/Ama.CRDT/Services/Journaling/ICrdtOperationJournal.cs` | Defines a contract for an operation journal that captures explicitly generated and successfully applied CRDT operations, and allows retrieval of operations. |
 | `$/Ama.CRDT/Services/Journaling/IJournalManager.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Journaling/JournalManager.cs` | Implements `IJournalManager` to retrieve missing operations based on `ReplicaSyncRequirement` by querying an underlying `ICrdtOperationJournal`. |
+| `$/Ama.CRDT/Services/LargerThanMemory/ChunkedDocumentManager.cs` | Manages querying, initialization, and patch application of a CRDT document that is chunked, allowing it to scale beyond available memory by storing data and an index in streams. Now implements `IVirtualDocumentPatchHandler`. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IChunkStorageService.cs` | Provides a high-level abstraction for saving and loading disjoint chunks of data and metadata for larger-than-memory CRDTs. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IChunkableCollectionStrategy.cs` | Extends `IVirtualCollectionStrategy` with the ability to physically split and merge disjoint chunks of data for block/stream storage. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IKvDocumentManager.cs` | Defines the contract for managing a CRDT document using a True Key-Value backend. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IKvStorageService.cs` | Provides a True Key-Value storage abstraction for CRDT data and metadata, mapping items 1-to-1 with database rows without chunking. |
 | `$/Ama.CRDT/Services/LargerThanMemory/IPartitionManager.cs` | No description provided. |
 | `$/Ama.CRDT/Services/LargerThanMemory/IPartitionStorageService.cs` | No description provided. |
 | `$/Ama.CRDT/Services/LargerThanMemory/IPartitionableCrdtStrategy.cs` | No description provided. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IVirtualCollectionStrategy.cs` | Defines a CRDT strategy that supports externalizing its elements into a Key-Value store or segmented storage, exposing key generation logic. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IVirtualDocumentManager.cs` | Defines the contract for querying and managing a CRDT document that is scaled beyond memory using virtual collections and chunks. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IVirtualDocumentPatchHandler.cs` | Defines a contract for handling patch application for virtualized CRDT documents (e.g., Chunked or KV partitioned). Implemented by the respective Virtual Document Managers to intercept and correctly route document patches to external storage. |
+| `$/Ama.CRDT/Services/LargerThanMemory/KvDocumentManager.cs` | Manages a True Key-Value virtualized CRDT document, ensuring infinite scaling without chunk bounds. Now implements `IVirtualDocumentPatchHandler` to route operations directly to database rows. |
 | `$/Ama.CRDT/Services/LargerThanMemory/PartitionManager.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Metrics/MetricTimer.cs` | A helper `IDisposable` struct that uses a `Stopwatch` to measure the duration of a code block and records it to a `Histogram` upon disposal. |
 | `$/Ama.CRDT/Services/Metrics/PartitionManagerCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `PartitionManager`. |

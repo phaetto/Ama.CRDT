@@ -11,8 +11,8 @@ public sealed class CompositePartitionKeyTests
     public void CompareTo_WithDifferentLogicalKeys_ShouldSortByLogicalKey()
     {
         // Arrange
-        var key1 = new CompositePartitionKey("tenant-a", "m");
-        var key2 = new CompositePartitionKey("tenant-b", "a");
+        var key1 = new CompositeChunkKey("tenant-a", "m");
+        var key2 = new CompositeChunkKey("tenant-b", "a");
 
         // Act & Assert
         key1.CompareTo(key2).ShouldBeLessThan(0);
@@ -23,8 +23,8 @@ public sealed class CompositePartitionKeyTests
     public void CompareTo_WithSameLogicalKeys_ShouldSortByRangeKey()
     {
         // Arrange
-        var key1 = new CompositePartitionKey("tenant-a", "a");
-        var key2 = new CompositePartitionKey("tenant-a", "m");
+        var key1 = new CompositeChunkKey("tenant-a", "a");
+        var key2 = new CompositeChunkKey("tenant-a", "m");
 
         // Act & Assert
         key1.CompareTo(key2).ShouldBeLessThan(0);
@@ -35,8 +35,8 @@ public sealed class CompositePartitionKeyTests
     public void CompareTo_WithNumericStrings_ShouldSortLexicographically()
     {
         // Arrange
-        var key1 = new CompositePartitionKey("tenant", "2");
-        var key2 = new CompositePartitionKey("tenant", "10");
+        var key1 = new CompositeChunkKey("tenant", "2");
+        var key2 = new CompositeChunkKey("tenant", "10");
 
         // Act & Assert
         // Lexicographically, "10" comes before "2".
@@ -48,8 +48,8 @@ public sealed class CompositePartitionKeyTests
     public void CompareTo_WithNullRangeKey_ShouldComeFirst()
     {
         // Arrange
-        var key1 = new CompositePartitionKey("tenant-a", null); // Header partition
-        var key2 = new CompositePartitionKey("tenant-a", "a");  // First data partition
+        var key1 = new CompositeChunkKey("tenant-a", null); // Header partition
+        var key2 = new CompositeChunkKey("tenant-a", "a");  // First data partition
 
         // Act & Assert
         key1.CompareTo(key2).ShouldBeLessThan(0);
@@ -60,8 +60,8 @@ public sealed class CompositePartitionKeyTests
     public void CompareTo_WithTwoNullRangeKeys_ShouldBeEqual()
     {
         // Arrange
-        var key1 = new CompositePartitionKey("tenant-a", null);
-        var key2 = new CompositePartitionKey("tenant-a", null);
+        var key1 = new CompositeChunkKey("tenant-a", null);
+        var key2 = new CompositeChunkKey("tenant-a", null);
 
         // Act & Assert
         key1.CompareTo(key2).ShouldBe(0);
@@ -71,10 +71,10 @@ public sealed class CompositePartitionKeyTests
     public void Equals_ShouldWorkCorrectly()
     {
         // Arrange
-        var key1a = new CompositePartitionKey("tenant-a", "1");
-        var key1b = new CompositePartitionKey("tenant-a", "1");
-        var key2 = new CompositePartitionKey("tenant-a", "2");
-        var key3 = new CompositePartitionKey("tenant-b", "1");
+        var key1a = new CompositeChunkKey("tenant-a", "1");
+        var key1b = new CompositeChunkKey("tenant-a", "1");
+        var key2 = new CompositeChunkKey("tenant-a", "2");
+        var key3 = new CompositeChunkKey("tenant-b", "1");
 
         // Act & Assert
         key1a.ShouldBe(key1b);
@@ -86,13 +86,13 @@ public sealed class CompositePartitionKeyTests
     public void ListSort_ShouldUseCompareToCorrectly()
     {
         // Arrange
-        var k1 = new CompositePartitionKey("B", "10");
-        var k2 = new CompositePartitionKey("A", null); // header for A
-        var k3 = new CompositePartitionKey("A", "200");
-        var k4 = new CompositePartitionKey("B", null); // header for B
-        var k5 = new CompositePartitionKey("A", "50");
+        var k1 = new CompositeChunkKey("B", "10");
+        var k2 = new CompositeChunkKey("A", null); // header for A
+        var k3 = new CompositeChunkKey("A", "200");
+        var k4 = new CompositeChunkKey("B", null); // header for B
+        var k5 = new CompositeChunkKey("A", "50");
 
-        var list = new List<CompositePartitionKey> { k1, k2, k3, k4, k5 };
+        var list = new List<CompositeChunkKey> { k1, k2, k3, k4, k5 };
 
         // Act
         list.Sort();

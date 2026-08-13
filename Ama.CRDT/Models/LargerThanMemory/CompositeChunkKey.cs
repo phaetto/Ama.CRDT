@@ -5,11 +5,11 @@ namespace Ama.CRDT.Models.LargerThanMemory;
 /// </summary>
 /// <param name="LogicalKey">The key that identifies a logical document (e.g., Tenant ID). Must implement <see cref="IComparable"/>.</param>
 /// <param name="RangeKey">The key that identifies a range within the logical document (e.g., a dictionary key). A null value typically identifies a header partition. Must implement <see cref="IComparable"/> if not null.</param>
-public readonly record struct CompositePartitionKey(IComparable LogicalKey, IComparable? RangeKey)
-    : IComparable<CompositePartitionKey>, IComparable
+public readonly record struct CompositeChunkKey(IComparable LogicalKey, IComparable? RangeKey)
+    : IComparable<CompositeChunkKey>, IComparable
 {
     /// <inheritdoc/>
-    public int CompareTo(CompositePartitionKey other)
+    public int CompareTo(CompositeChunkKey other)
     {
         var logicalKeyCompare = LogicalKey.CompareTo(other.LogicalKey);
         if (logicalKeyCompare != 0)
@@ -29,11 +29,11 @@ public readonly record struct CompositePartitionKey(IComparable LogicalKey, ICom
     public int CompareTo(object? obj)
     {
         if (obj is null) return 1;
-        if (obj is CompositePartitionKey other)
+        if (obj is CompositeChunkKey other)
         {
             return CompareTo(other);
         }
-        throw new ArgumentException($"Object must be of type {nameof(CompositePartitionKey)}");
+        throw new ArgumentException($"Object must be of type {nameof(CompositeChunkKey)}");
     }
 
     /// <inheritdoc/>

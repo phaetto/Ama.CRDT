@@ -80,13 +80,13 @@ public sealed class DefaultPartitionSerializationServiceTests
         {
             IsLeaf = true,
         };
-        var startKey1 = new CompositePartitionKey(logicalKey, "10");
-        var startKey2 = new CompositePartitionKey(logicalKey, "20");
+        var startKey1 = new CompositeChunkKey(logicalKey, "10");
+        var startKey2 = new CompositeChunkKey(logicalKey, "20");
 
         originalNode.Keys.Add(startKey1);
         originalNode.Keys.Add(startKey2);
-        originalNode.Partitions.Add(new DataPartition(startKey1, startKey2, 1L, 10, 10L, 10));
-        originalNode.Partitions.Add(new DataPartition(startKey2, null, 2L, 20, 20L, 20));
+        originalNode.Partitions.Add(new CollectionChunk(startKey1, startKey2, 1L, 10, 10L, 10));
+        originalNode.Partitions.Add(new CollectionChunk(startKey2, null, 2L, 20, 20L, 20));
         
         await using var stream = new MemoryStream();
 
@@ -101,8 +101,8 @@ public sealed class DefaultPartitionSerializationServiceTests
         readNode.Partitions.Count.ShouldBe(2);
         readNode.ChildrenOffsets.ShouldBeEmpty();
 
-        readNode.Keys[0].ShouldBeOfType<CompositePartitionKey>().ShouldBe(startKey1);
-        readNode.Partitions[0].ShouldBeOfType<DataPartition>().StartKey.ShouldBe(startKey1);
+        readNode.Keys[0].ShouldBeOfType<CompositeChunkKey>().ShouldBe(startKey1);
+        readNode.Partitions[0].ShouldBeOfType<CollectionChunk>().StartKey.ShouldBe(startKey1);
     }
 
     [Fact]
@@ -114,11 +114,11 @@ public sealed class DefaultPartitionSerializationServiceTests
         {
             IsLeaf = true,
         };
-        var headerKey = new CompositePartitionKey(logicalKey, null);
-        var dataKey = new CompositePartitionKey(logicalKey, "data");
+        var headerKey = new CompositeChunkKey(logicalKey, null);
+        var dataKey = new CompositeChunkKey(logicalKey, "data");
 
-        var headerPartition = new HeaderPartition(headerKey, 1L, 10, 10L, 10);
-        var dataPartition = new DataPartition(dataKey, null, 2L, 20, 20L, 20);
+        var headerPartition = new HeaderChunk(headerKey, 1L, 10, 10L, 10);
+        var dataPartition = new CollectionChunk(dataKey, null, 2L, 20, 20L, 20);
 
         originalNode.Keys.Add(headerKey);
         originalNode.Keys.Add(dataKey);
@@ -134,8 +134,8 @@ public sealed class DefaultPartitionSerializationServiceTests
         // Assert
         readNode.ShouldNotBeNull();
         readNode.Partitions.Count.ShouldBe(2);
-        readNode.Partitions[0].ShouldBeOfType<HeaderPartition>().ShouldBe(headerPartition);
-        readNode.Partitions[1].ShouldBeOfType<DataPartition>().ShouldBe(dataPartition);
+        readNode.Partitions[0].ShouldBeOfType<HeaderChunk>().ShouldBe(headerPartition);
+        readNode.Partitions[1].ShouldBeOfType<CollectionChunk>().ShouldBe(dataPartition);
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public sealed class DefaultPartitionSerializationServiceTests
         {
             IsLeaf = false,
         };
-        originalNode.Keys.Add(new CompositePartitionKey(logicalKey, 100));
+        originalNode.Keys.Add(new CompositeChunkKey(logicalKey, 100));
         originalNode.ChildrenOffsets.Add(1234L);
         originalNode.ChildrenOffsets.Add(5678L);
 
@@ -173,10 +173,10 @@ public sealed class DefaultPartitionSerializationServiceTests
         // Arrange
         const long offset = 50;
         const string logicalKey = "test";
-        var startKey = new CompositePartitionKey(logicalKey, 1);
+        var startKey = new CompositeChunkKey(logicalKey, 1);
         var originalNode = new BPlusTreeNode { IsLeaf = true };
         originalNode.Keys.Add(startKey);
-        originalNode.Partitions.Add(new DataPartition(startKey, null, 1, 1, 1, 1));
+        originalNode.Partitions.Add(new CollectionChunk(startKey, null, 1, 1, 1, 1));
 
         await using var stream = new MemoryStream();
         stream.SetLength(offset); // Pre-allocate space or simulate existing data
@@ -188,7 +188,7 @@ public sealed class DefaultPartitionSerializationServiceTests
         // Assert
         stream.Length.ShouldBe(offset + bytesWritten);
         readNode.ShouldNotBeNull();
-        readNode.Keys[0].ShouldBeOfType<CompositePartitionKey>().ShouldBe(startKey);
+        readNode.Keys[0].ShouldBeOfType<CompositeChunkKey>().ShouldBe(startKey);
     }
     
     [Fact]
@@ -198,17 +198,17 @@ public sealed class DefaultPartitionSerializationServiceTests
         const string logicalKey = "test";
         var originalNode = new BPlusTreeNode { IsLeaf = true };
         
-        var keyString = new CompositePartitionKey(logicalKey, "apple");
-        var keyInt = new CompositePartitionKey(logicalKey, 123);
-        var keyPosId = new CompositePartitionKey(logicalKey, new PositionalIdentifier("1.5", Guid.NewGuid()));
+        var keyString = new CompositeChunkKey(logicalKey, "apple");
+        var keyInt = new CompositeChunkKey(logicalKey, 123);
+        var keyPosId = new CompositeChunkKey(logicalKey, new PositionalIdentifier("1.5", Guid.NewGuid()));
         
         originalNode.Keys.Add(keyString);
         originalNode.Keys.Add(keyInt);
         originalNode.Keys.Add(keyPosId);
         
-        originalNode.Partitions.Add(new DataPartition(keyString, null, 1L, 1, 1L, 1));
-        originalNode.Partitions.Add(new DataPartition(keyInt, null, 2L, 2, 2L, 2));
-        originalNode.Partitions.Add(new DataPartition(keyPosId, null, 3L, 3, 3L, 3));
+        originalNode.Partitions.Add(new CollectionChunk(keyString, null, 1L, 1, 1L, 1));
+        originalNode.Partitions.Add(new CollectionChunk(keyInt, null, 2L, 2, 2L, 2));
+        originalNode.Partitions.Add(new CollectionChunk(keyPosId, null, 3L, 3, 3L, 3));
 
         await using var stream = new MemoryStream();
 
@@ -220,7 +220,7 @@ public sealed class DefaultPartitionSerializationServiceTests
         readNode.ShouldNotBeNull();
         readNode.Keys.Count.ShouldBe(3);
         
-        var readKeys = readNode.Keys.Cast<CompositePartitionKey>().ToList();
+        var readKeys = readNode.Keys.Cast<CompositeChunkKey>().ToList();
         
         readKeys[0].LogicalKey.ShouldBe(logicalKey);
         readKeys[0].RangeKey.ShouldBeOfType<string>().ShouldBe("apple");
@@ -236,13 +236,13 @@ public sealed class DefaultPartitionSerializationServiceTests
     public async Task SerializeAndDeserializeObject_ShouldSucceed()
     {
         // Arrange
-        var original = new HeaderPartition(new CompositePartitionKey("logical", null), 1, 2, 3, 4);
+        var original = new HeaderChunk(new CompositeChunkKey("logical", null), 1, 2, 3, 4);
         await using var stream = new MemoryStream();
 
         // Act
         await service.SerializeObjectAsync(stream, original);
         stream.Position = 0;
-        var deserialized = await service.DeserializeObjectAsync<HeaderPartition>(stream);
+        var deserialized = await service.DeserializeObjectAsync<HeaderChunk>(stream);
 
         // Assert
         deserialized.ShouldBe(original);
@@ -252,7 +252,7 @@ public sealed class DefaultPartitionSerializationServiceTests
     public void CloneObject_ShouldCreateDeepCopy()
     {
         // Arrange
-        var original = new HeaderPartition(new CompositePartitionKey("logical", null), 1, 2, 3, 4);
+        var original = new HeaderChunk(new CompositeChunkKey("logical", null), 1, 2, 3, 4);
 
         // Act
         var cloned = service.CloneObject(original);

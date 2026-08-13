@@ -29,7 +29,7 @@ using Ama.CRDT.Models.LargerThanMemory;
 public sealed class TwoPhaseSetStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     
@@ -219,7 +219,7 @@ public sealed class TwoPhaseSetStrategy(
     }
 
     /// <inheritdoc/>
-    public SplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
+    public ChunkSplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
         var documentType = originalData.GetType();
         var path = $"$.{partitionableProperty.JsonName}";
@@ -267,11 +267,11 @@ public sealed class TwoPhaseSetStrategy(
         ReconstructListForSplitMerge(doc1, path, (TwoPhaseSetState)meta1.States[path], elementType, partitionableProperty.PropertyType);
         ReconstructListForSplitMerge(doc2, path, (TwoPhaseSetState)meta2.States[path], elementType, partitionableProperty.PropertyType);
 
-        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
+        return new ChunkSplitResult(new ChunkContent(doc1, meta1), new ChunkContent(doc2, meta2), splitKey);
     }
 
     /// <inheritdoc/>
-    public PartitionContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
+    public ChunkContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         var documentType = data1.GetType();
         var path = $"$.{partitionableProperty.JsonName}";
@@ -307,7 +307,7 @@ public sealed class TwoPhaseSetStrategy(
 
         ReconstructListForSplitMerge(mergedDoc, path, mergedState, elementType, partitionableProperty.PropertyType);
 
-        return new PartitionContent(mergedDoc, mergedMeta);
+        return new ChunkContent(mergedDoc, mergedMeta);
     }
 
     private void ReconstructListForSplitMerge(object root, string path, TwoPhaseSetState state, Type elementType, Type propertyType)

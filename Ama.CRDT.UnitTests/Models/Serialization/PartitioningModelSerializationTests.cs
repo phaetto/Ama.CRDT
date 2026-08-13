@@ -12,10 +12,10 @@ public sealed class PartitioningModelSerializationTests
     [Fact]
     public void CompositePartitionKey_ShouldSerializeAndDeserialize()
     {
-        var key = new CompositePartitionKey("tenant-1", 42);
+        var key = new CompositeChunkKey("tenant-1", 42);
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var typeInfo = (JsonTypeInfo<CompositePartitionKey>)options.GetTypeInfo(typeof(CompositePartitionKey));
+        var typeInfo = (JsonTypeInfo<CompositeChunkKey>)options.GetTypeInfo(typeof(CompositeChunkKey));
         
         var json = JsonSerializer.Serialize(key, typeInfo);
         var deserialized = JsonSerializer.Deserialize(json, typeInfo);
@@ -28,12 +28,12 @@ public sealed class PartitioningModelSerializationTests
     [Fact]
     public void DataPartition_ShouldSerializeAndDeserialize()
     {
-        var startKey = new CompositePartitionKey("doc1", "a");
-        var endKey = new CompositePartitionKey("doc1", "z");
-        var partition = new DataPartition(startKey, endKey, 100, 50, 200, 25);
+        var startKey = new CompositeChunkKey("doc1", "a");
+        var endKey = new CompositeChunkKey("doc1", "z");
+        var partition = new CollectionChunk(startKey, endKey, 100, 50, 200, 25);
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var typeInfo = (JsonTypeInfo<DataPartition>)options.GetTypeInfo(typeof(DataPartition));
+        var typeInfo = (JsonTypeInfo<CollectionChunk>)options.GetTypeInfo(typeof(CollectionChunk));
         
         var json = JsonSerializer.Serialize(partition, typeInfo);
         var deserialized = JsonSerializer.Deserialize(json, typeInfo);
@@ -44,11 +44,11 @@ public sealed class PartitioningModelSerializationTests
     [Fact]
     public void HeaderPartition_ShouldSerializeAndDeserialize()
     {
-        var key = new CompositePartitionKey("doc1", null);
-        var partition = new HeaderPartition(key, 0, 100, 100, 50);
+        var key = new CompositeChunkKey("doc1", null);
+        var partition = new HeaderChunk(key, 0, 100, 100, 50);
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var typeInfo = (JsonTypeInfo<HeaderPartition>)options.GetTypeInfo(typeof(HeaderPartition));
+        var typeInfo = (JsonTypeInfo<HeaderChunk>)options.GetTypeInfo(typeof(HeaderChunk));
         
         var json = JsonSerializer.Serialize(partition, typeInfo);
         var deserialized = JsonSerializer.Deserialize(json, typeInfo);
@@ -63,10 +63,10 @@ public sealed class PartitioningModelSerializationTests
         var metadata = new CrdtMetadata();
         metadata.States["$.prop"] = new CausalTimestamp(new EpochTimestamp(1), "R1", 1);
         
-        var content = new PartitionContent(data, metadata);
+        var content = new ChunkContent(data, metadata);
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var typeInfo = (JsonTypeInfo<PartitionContent>)options.GetTypeInfo(typeof(PartitionContent));
+        var typeInfo = (JsonTypeInfo<ChunkContent>)options.GetTypeInfo(typeof(ChunkContent));
         
         var json = JsonSerializer.Serialize(content, typeInfo);
         var deserialized = JsonSerializer.Deserialize(json, typeInfo);
@@ -78,14 +78,14 @@ public sealed class PartitioningModelSerializationTests
     [Fact]
     public void SplitResult_ShouldSerializeAndDeserialize()
     {
-        var content1 = new PartitionContent("data1", new CrdtMetadata());
-        var content2 = new PartitionContent("data2", new CrdtMetadata());
+        var content1 = new ChunkContent("data1", new CrdtMetadata());
+        var content2 = new ChunkContent("data2", new CrdtMetadata());
         var splitKey = "split-key";
 
-        var result = new SplitResult(content1, content2, splitKey);
+        var result = new ChunkSplitResult(content1, content2, splitKey);
 
         var options = TestOptionsHelper.GetDefaultOptions();
-        var typeInfo = (JsonTypeInfo<SplitResult>)options.GetTypeInfo(typeof(SplitResult));
+        var typeInfo = (JsonTypeInfo<ChunkSplitResult>)options.GetTypeInfo(typeof(ChunkSplitResult));
         
         var json = JsonSerializer.Serialize(result, typeInfo);
         var deserialized = JsonSerializer.Deserialize(json, typeInfo);

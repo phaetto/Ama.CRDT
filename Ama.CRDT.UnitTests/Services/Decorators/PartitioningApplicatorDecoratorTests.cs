@@ -54,7 +54,7 @@ public sealed class PartitioningApplicatorDecoratorTests
         timestampProvider = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
         
         var strategyProvider = scope.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
-        var metrics = scope.ServiceProvider.GetRequiredService<PartitionManagerCrdtMetrics>();
+        var metrics = scope.ServiceProvider.GetRequiredService<LargerThanMemoryManagerCrdtMetrics>();
         var aotContexts = new CrdtAotContext[] { new DecoratorsTestCrdtAotContext(), new PartitioningTestCrdtAotContext() };
 
         decorator = new PartitioningApplicatorDecorator(
@@ -72,19 +72,19 @@ public sealed class PartitioningApplicatorDecoratorTests
         // Arrange
         var logicalKey = "tenant-1";
         var propName = nameof(MultiPartitionedModel.Items);
-        var existingPartition = new DataPartition(new CompositePartitionKey(logicalKey, "key1"), null, 0, 1000, 0, 0);
-        var headerPartition = new HeaderPartition(new CompositePartitionKey(logicalKey, null), 0, 0, 0, 0);
+        var existingPartition = new CollectionChunk(new CompositeChunkKey(logicalKey, "key1"), null, 0, 1000, 0, 0);
+        var headerPartition = new HeaderChunk(new CompositeChunkKey(logicalKey, null), 0, 0, 0, 0);
 
         var doc = new MultiPartitionedModel { TenantId = logicalKey, Items = { { "key1", "val1" } } };
         var crdtDoc = new CrdtDocument<MultiPartitionedModel>(doc, metaManager.Initialize(doc));
 
-        mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositePartitionKey>(), propName, default)).ReturnsAsync(existingPartition);
-        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, It.IsAny<IPartition>(), default)).ReturnsAsync(crdtDoc);
+        mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositeChunkKey>(), propName, default)).ReturnsAsync(existingPartition);
+        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, It.IsAny<IChunk>(), default)).ReturnsAsync(crdtDoc);
         mockStorage.Setup(x => x.GetHeaderPartitionAsync(logicalKey, default)).ReturnsAsync(headerPartition);
         mockStorage.Setup(x => x.LoadHeaderPartitionContentAsync<MultiPartitionedModel>(logicalKey, headerPartition, default)).ReturnsAsync(crdtDoc);
 
         // Returns a normal sized partition when saved
-        var updatedPartition = new DataPartition(existingPartition.StartKey, existingPartition.EndKey, 0, 100, 0, 0);
+        var updatedPartition = new CollectionChunk(existingPartition.StartKey, existingPartition.EndKey, 0, 100, 0, 0);
         mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, existingPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync(updatedPartition);
 
@@ -96,8 +96,8 @@ public sealed class PartitioningApplicatorDecoratorTests
         // Assert
         mockInnerApplicator.Verify(x => x.ApplyPatchAsync(It.IsAny<CrdtDocument<MultiPartitionedModel>>(), It.IsAny<CrdtPatch>(), default), Times.Once);
         mockStorage.Verify(x => x.UpdatePropertyPartitionAsync(propName, updatedPartition, default), Times.Once);
-        mockStorage.Verify(x => x.DeletePropertyPartitionAsync(It.IsAny<string>(), It.IsAny<IPartition>(), default), Times.Never);
-        mockStorage.Verify(x => x.InsertPropertyPartitionAsync(It.IsAny<string>(), It.IsAny<IPartition>(), default), Times.Never);
+        mockStorage.Verify(x => x.DeletePropertyPartitionAsync(It.IsAny<string>(), It.IsAny<IChunk>(), default), Times.Never);
+        mockStorage.Verify(x => x.InsertPropertyPartitionAsync(It.IsAny<string>(), It.IsAny<IChunk>(), default), Times.Never);
     }
 
     [Fact]
@@ -106,8 +106,8 @@ public sealed class PartitioningApplicatorDecoratorTests
         // Arrange
         var logicalKey = "tenant-1";
         var propName = nameof(MultiPartitionedModel.Items);
-        var existingPartition = new DataPartition(new CompositePartitionKey(logicalKey, "item1"), null, 0, 0, 0, 0);
-        var headerPartition = new HeaderPartition(new CompositePartitionKey(logicalKey, null), 0, 0, 0, 0);
+        var existingPartition = new CollectionChunk(new CompositeChunkKey(logicalKey, "item1"), null, 0, 0, 0, 0);
+        var headerPartition = new HeaderChunk(new CompositeChunkKey(logicalKey, null), 0, 0, 0, 0);
 
         var doc = new MultiPartitionedModel { TenantId = logicalKey };
         // Populate > MaxPartitionItemCount to trigger a split based on item count
@@ -117,21 +117,21 @@ public sealed class PartitioningApplicatorDecoratorTests
         }
         var crdtDoc = new CrdtDocument<MultiPartitionedModel>(doc, metaManager.Initialize(doc));
 
-        mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositePartitionKey>(), propName, default)).ReturnsAsync(existingPartition);
+        mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositeChunkKey>(), propName, default)).ReturnsAsync(existingPartition);
         
-        // Use It.IsAny<IPartition> so when SplitPartitionAsync loads the largePartition, it doesn't return a default/null struct.
-        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, It.IsAny<IPartition>(), default)).ReturnsAsync(crdtDoc);
+        // Use It.IsAny<IChunk> so when SplitPartitionAsync loads the largePartition, it doesn't return a default/null struct.
+        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, It.IsAny<IChunk>(), default)).ReturnsAsync(crdtDoc);
         mockStorage.Setup(x => x.GetHeaderPartitionAsync(logicalKey, default)).ReturnsAsync(headerPartition);
         mockStorage.Setup(x => x.LoadHeaderPartitionContentAsync<MultiPartitionedModel>(logicalKey, headerPartition, default)).ReturnsAsync(crdtDoc);
 
         // First save returns a partition that will be split due to item count (DataLength size parameter is ignored)
-        var largePartition = new DataPartition(existingPartition.StartKey, existingPartition.EndKey, 0, 0, 0, 0);
+        var largePartition = new CollectionChunk(existingPartition.StartKey, existingPartition.EndKey, 0, 0, 0, 0);
         mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, existingPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync(largePartition);
 
         // Follow up saves during the split return cleanly
-        mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, It.Is<IPartition>(p => p != null && !p.Equals(existingPartition)), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
-            .ReturnsAsync((IComparable k, string pName, IPartition p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
+        mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, It.Is<IChunk>(p => p != null && !p.Equals(existingPartition)), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
+            .ReturnsAsync((IComparable k, string pName, IChunk p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
 
         var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("item_new", "val_new", Guid.NewGuid()), timestampProvider.Now(), 0)]);
 
@@ -142,7 +142,7 @@ public sealed class PartitioningApplicatorDecoratorTests
         mockInnerApplicator.Verify(x => x.ApplyPatchAsync(It.IsAny<CrdtDocument<MultiPartitionedModel>>(), It.IsAny<CrdtPatch>(), default), Times.Once);
         mockStorage.Verify(x => x.SavePartitionContentAsync(logicalKey, propName, existingPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default), Times.Once);
         mockStorage.Verify(x => x.DeletePropertyPartitionAsync(propName, largePartition, default), Times.Once);
-        mockStorage.Verify(x => x.InsertPropertyPartitionAsync(propName, It.IsAny<IPartition>(), default), Times.Exactly(2));
+        mockStorage.Verify(x => x.InsertPropertyPartitionAsync(propName, It.IsAny<IChunk>(), default), Times.Exactly(2));
     }
 
     [Fact]
@@ -152,9 +152,9 @@ public sealed class PartitioningApplicatorDecoratorTests
         var logicalKey = "tenant-1";
         var propName = nameof(MultiPartitionedModel.Items);
         
-        var dp1 = new DataPartition(new CompositePartitionKey(logicalKey, "item1"), new CompositePartitionKey(logicalKey, "item5"), 0, 0, 0, 0);
-        var dp2 = new DataPartition(new CompositePartitionKey(logicalKey, "item5"), null, 0, 0, 0, 0);
-        var headerPartition = new HeaderPartition(new CompositePartitionKey(logicalKey, null), 0, 0, 0, 0);
+        var dp1 = new CollectionChunk(new CompositeChunkKey(logicalKey, "item1"), new CompositeChunkKey(logicalKey, "item5"), 0, 0, 0, 0);
+        var dp2 = new CollectionChunk(new CompositeChunkKey(logicalKey, "item5"), null, 0, 0, 0, 0);
+        var headerPartition = new HeaderChunk(new CompositeChunkKey(logicalKey, null), 0, 0, 0, 0);
 
         var doc1 = new MultiPartitionedModel { TenantId = logicalKey, Items = { { "item1", "val1" } } };
         var crdtDoc1 = new CrdtDocument<MultiPartitionedModel>(doc1, metaManager.Initialize(doc1));
@@ -163,18 +163,18 @@ public sealed class PartitioningApplicatorDecoratorTests
         var doc2 = new MultiPartitionedModel { TenantId = logicalKey, Items = { { "item5", "val5" } } };
         var crdtDoc2 = new CrdtDocument<MultiPartitionedModel>(doc2, metaManager.Initialize(doc2));
 
-        var smallPartition = new DataPartition(dp2.StartKey, dp2.EndKey, 0, 100, 0, 0);
+        var smallPartition = new CollectionChunk(dp2.StartKey, dp2.EndKey, 0, 100, 0, 0);
 
-        mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositePartitionKey>(), propName, default))
-            .ReturnsAsync((CompositePartitionKey k, string p, CancellationToken c) => 
+        mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositeChunkKey>(), propName, default))
+            .ReturnsAsync((CompositeChunkKey k, string p, CancellationToken c) => 
             {
                 if (k.RangeKey as string == "item1") return dp1;
                 if (k.RangeKey as string == "item5") return smallPartition;
                 return dp2; // default for "item6" during ApplyPatch
             });
 
-        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, It.IsAny<IPartition>(), default))
-            .ReturnsAsync((IComparable k, string p, IPartition part, CancellationToken c) => 
+        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, It.IsAny<IChunk>(), default))
+            .ReturnsAsync((IComparable k, string p, IChunk part, CancellationToken c) => 
             {
                 if (part != null && part.Equals(dp1)) return crdtDoc1;
                 return crdtDoc2; // for dp2 and smallPartition
@@ -194,8 +194,8 @@ public sealed class PartitioningApplicatorDecoratorTests
         mockStorage.Setup(x => x.GetPropertyPartitionByIndexAsync(logicalKey, 0, propName, default)).ReturnsAsync(dp1);
 
         // The save for the final merged partition
-        mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, It.Is<IPartition>(p => p != null && p is DataPartition && ((DataPartition)p).StartKey.Equals(dp1.StartKey) && ((DataPartition)p).EndKey == null), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
-            .ReturnsAsync((IComparable k, string pName, IPartition p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
+        mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, It.Is<IChunk>(p => p != null && p is CollectionChunk && ((CollectionChunk)p).StartKey.Equals(dp1.StartKey) && ((CollectionChunk)p).EndKey == null), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
+            .ReturnsAsync((IComparable k, string pName, IChunk p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
 
         var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Remove, new OrMapRemoveItem("item6", new HashSet<Guid>()), timestampProvider.Now(), 0)]);
 
@@ -206,7 +206,7 @@ public sealed class PartitioningApplicatorDecoratorTests
         mockInnerApplicator.Verify(x => x.ApplyPatchAsync(It.IsAny<CrdtDocument<MultiPartitionedModel>>(), It.IsAny<CrdtPatch>(), default), Times.Once);
         mockStorage.Verify(x => x.DeletePropertyPartitionAsync(propName, dp1, default), Times.Once);
         mockStorage.Verify(x => x.DeletePropertyPartitionAsync(propName, smallPartition, default), Times.Once);
-        mockStorage.Verify(x => x.InsertPropertyPartitionAsync(propName, It.Is<IPartition>(p => p != null && p is DataPartition && ((DataPartition)p).StartKey.Equals(dp1.StartKey)), default), Times.Once);
+        mockStorage.Verify(x => x.InsertPropertyPartitionAsync(propName, It.Is<IChunk>(p => p != null && p is CollectionChunk && ((CollectionChunk)p).StartKey.Equals(dp1.StartKey)), default), Times.Once);
     }
 
     [Fact]
@@ -215,8 +215,8 @@ public sealed class PartitioningApplicatorDecoratorTests
         // Arrange
         var logicalKey = "tenant-metadata-test";
         var propName = nameof(MultiPartitionedModel.Items);
-        var existingPartition = new DataPartition(new CompositePartitionKey(logicalKey, "k1"), null, 0, 1000, 0, 0);
-        var headerPartition = new HeaderPartition(new CompositePartitionKey(logicalKey, null), 0, 0, 0, 0);
+        var existingPartition = new CollectionChunk(new CompositeChunkKey(logicalKey, "k1"), null, 0, 1000, 0, 0);
+        var headerPartition = new HeaderChunk(new CompositeChunkKey(logicalKey, null), 0, 0, 0, 0);
 
         var doc = new MultiPartitionedModel { TenantId = logicalKey };
         
@@ -233,8 +233,8 @@ public sealed class PartitioningApplicatorDecoratorTests
         mockStorage.Setup(x => x.GetHeaderPartitionAsync(logicalKey, default)).ReturnsAsync(headerPartition);
         mockStorage.Setup(x => x.LoadHeaderPartitionContentAsync<MultiPartitionedModel>(logicalKey, headerPartition, default)).ReturnsAsync(headerCrdtDoc);
         
-        mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositePartitionKey>(), propName, default)).ReturnsAsync(existingPartition);
-        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, It.IsAny<IPartition>(), default)).ReturnsAsync(dataCrdtDoc);
+        mockStorage.Setup(x => x.GetPropertyPartitionAsync(It.IsAny<CompositeChunkKey>(), propName, default)).ReturnsAsync(existingPartition);
+        mockStorage.Setup(x => x.LoadPartitionContentAsync<MultiPartitionedModel>(logicalKey, propName, It.IsAny<IChunk>(), default)).ReturnsAsync(dataCrdtDoc);
 
         mockStorage.Setup(x => x.SavePartitionContentAsync(logicalKey, propName, existingPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync(existingPartition);

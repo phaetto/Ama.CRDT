@@ -11,7 +11,7 @@ public sealed record BPlusTreeNode
     public List<IComparable> Keys { get; set; } = new();
     
     // For leaf nodes
-    public List<IPartition> Partitions { get; set; } = new();
+    public List<IChunk> Partitions { get; set; } = new();
     
     // For internal nodes
     public List<long> ChildrenOffsets { get; set; } = new();

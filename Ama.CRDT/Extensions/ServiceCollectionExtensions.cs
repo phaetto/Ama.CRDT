@@ -80,7 +80,7 @@ public static class ServiceCollectionExtensions
         services.AddCrdtAotContext<CoreCrdtAotContext>();
 
         // Add metrics
-        services.TryAddSingleton<PartitionManagerCrdtMetrics>();
+        services.TryAddSingleton<LargerThanMemoryManagerCrdtMetrics>();
 
         // Pure utility services that don't depend on replica scope
         services.TryAddSingleton<IVersionVectorSyncService, VersionVectorSyncService>();
