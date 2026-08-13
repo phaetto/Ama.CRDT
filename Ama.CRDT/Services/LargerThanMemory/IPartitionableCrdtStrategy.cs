@@ -1,8 +1,8 @@
-namespace Ama.CRDT.Services.Partitioning;
+namespace Ama.CRDT.Services.LargerThanMemory;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
-using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
 using Ama.CRDT.Services.Strategies;
 using System;
 

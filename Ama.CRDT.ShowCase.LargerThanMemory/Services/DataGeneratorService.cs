@@ -3,7 +3,7 @@ namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.LargerThanMemory;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
 using System;
 using System.Collections.Generic;

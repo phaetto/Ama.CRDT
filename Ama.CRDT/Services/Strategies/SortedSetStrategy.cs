@@ -5,10 +5,8 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
-using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
-using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.GarbageCollection;
 using System;
 using System.Collections;
@@ -17,6 +15,8 @@ using System.Linq;
 using System.Text;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Attributes.Strategies.Semantic;
+using Ama.CRDT.Services.LargerThanMemory;
+using Ama.CRDT.Models.LargerThanMemory;
 
 /// <summary>
 /// Implements a CRDT strategy for collections that are treated as sorted sets. It utilizes Last-Writer-Wins (LWW) conflict resolution logic under the hood and ensures the collection remains sorted after operations.

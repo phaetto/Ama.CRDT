@@ -1,5 +1,4 @@
-namespace Ama.CRDT.Models.Partitioning;
-
+namespace Ama.CRDT.Models.LargerThanMemory;
 /// <summary>
 /// Represents a composite key used for partitioning, consisting of a logical key for data isolation
 /// and a range key for splitting large collections.

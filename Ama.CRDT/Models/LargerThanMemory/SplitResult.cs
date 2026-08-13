@@ -1,5 +1,4 @@
-namespace Ama.CRDT.Models.Partitioning;
-
+namespace Ama.CRDT.Models.LargerThanMemory;
 /// <summary>
 /// Represents the result of a partition split operation.
 /// </summary>

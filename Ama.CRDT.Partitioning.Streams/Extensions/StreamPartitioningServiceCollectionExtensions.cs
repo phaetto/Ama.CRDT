@@ -12,7 +12,7 @@ using Ama.CRDT.Partitioning.Streams.Services;
 using Ama.CRDT.Partitioning.Streams.Services.Metrics;
 using Ama.CRDT.Partitioning.Streams.Services.Serialization;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.LargerThanMemory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System;

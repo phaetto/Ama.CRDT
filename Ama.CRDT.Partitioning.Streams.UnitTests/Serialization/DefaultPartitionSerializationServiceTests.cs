@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
 using Ama.CRDT.Partitioning.Streams.Extensions;
 using Ama.CRDT.Partitioning.Streams.Models;
 using Ama.CRDT.Partitioning.Streams.Services;

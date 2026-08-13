@@ -1,7 +1,6 @@
 namespace Ama.CRDT.Services.Strategies;
 
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Aot;
 
 /// <summary>
 /// Defines the contract for a strategy that handles a specific type of CRDT data.

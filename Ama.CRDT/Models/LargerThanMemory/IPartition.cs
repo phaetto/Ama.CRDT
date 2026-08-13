@@ -1,4 +1,4 @@
-namespace Ama.CRDT.Models.Partitioning;
+namespace Ama.CRDT.Models.LargerThanMemory;
 
 /// <summary>
 /// Defines the common properties for a partition in a partitioned data store.

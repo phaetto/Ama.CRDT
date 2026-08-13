@@ -1,8 +1,8 @@
-namespace Ama.CRDT.UnitTests.Services.Partitioning;
+namespace Ama.CRDT.UnitTests.Services.LargerThanMemory;
 
 using Ama.CRDT.Models;
-using Ama.CRDT.Models.Partitioning;
-using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
+using Ama.CRDT.Services.LargerThanMemory;
 using Moq;
 using Shouldly;
 using System.Threading;
