@@ -108,18 +108,20 @@
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/README.md` | Provides an overview and user guide for the Collaborative Editing showcase, highlighting the use of the RGA Strategy, Explicit Intents, Operation Journaling, and GMVV-based Garbage Collection. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Services/MemoryJournal.cs` | An in-memory operation journal implementation providing missing operation histories and journal truncation based on the cluster's GMVV. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Services/NetworkBroker.cs` | Simulates a network passing CRDT patches to different editors in real-time. |
-| `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application, configured for Native AOT, explicit trimming, and trim analysis. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application, now including a reference to `Microsoft.Data.Sqlite`. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/BlogPost.cs` | The root data model for the showcase, representing a blog post. It is decorated with `[PartitionKey]` and its `Comments` list uses `[CrdtArrayLcsStrategy]` to enable partitioning. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/Comment.cs` | A simple record representing a comment in the blog post. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/LargerThanMemoryCrdtContext.cs` | Provides a Native AOT compatible `CrdtContext` generated for the models used in the Larger-Than-Memory showcase, allowing execution without runtime reflection. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/LargerThanMemoryJsonContext.cs` | AOT JSON serialization context for the larger-than-memory showcase models. |
-| `$/Ama.CRDT.ShowCase.LargerThanMemory/Program.cs` | The main entry point for the showcase application, responsible for setting up dependency injection and starting the simulation. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Program.cs` | The main entry point for the showcase application, now explicitly registering the SQLite Read Repository and CQRS Virtual Document Projector pipeline. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/README.md` | Provides an overview of the larger-than-memory showcase, explaining how to run it, the features it demonstrates (partitioning, journaling, disconnected sync), and how to interact with the terminal UI. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/BlogPostReadRepository.cs` | A straightforward SQLite read repository for providing ultra-fast, paginated access to projected CQRS data in the terminal interface. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/BlogPostSqliteProjector.cs` | An implementation of `IVirtualDocumentProjector<T>` that listens to incoming CRDT applications and pushes the result natively to a per-replica SQLite DB for real-time reads. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/DataGeneratorService.cs` | A service responsible for programmatically generating a configurable number of blog posts, each with a random number of comments, to demonstrate the system's ability to handle large, partitioned datasets. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/FileSystemOperationJournal.cs` | An example implementation of `ICrdtOperationJournal` that persists applied CRDT operations to a local JSON file per replica, demonstrating how to save operations for external sync protocols or offline usage. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/FileSystemPartitionStreamProvider.cs` | An implementation of `IPartitionStreamProvider` that stores CRDT index and data files on the local filesystem, organized into directories for each replica. It now explicitly separates header and property streams. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/SimpleFaker.cs` | A lightweight, Native AOT-compatible random data generator used for generating showcase items, replacing the `Bogus` library. |
-| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/UiService.cs` | Implements the `Terminal.Gui`-based user interface for browsing blog posts. It displays post titles, content, and comments, demonstrating on-demand loading of data from partitions. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/UiService.cs` | Implements the user interface, updated to prove CQRS viability by cleanly reading all its presentation data via SQLite off the main CRDT flow. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/SimulationRunner.cs` | Orchestrates the showcase by checking for existing data, triggering the data generation process if needed, and launching the user interface. It uses `IPartitionManager` to discover existing documents at startup. |
 | `$/Ama.CRDT.ShowCase/Ama.CRDT.ShowCase.csproj` | The project file for the showcase console application. |
 | `$/Ama.CRDT.ShowCase/Models/ShowcaseCrdtContext.cs` | AOT reflection context for the showcase models to be used by the internal reflection-free routines. |
@@ -285,7 +287,7 @@
 | `$/Ama.CRDT/Attributes/Strategies/Semantic/StateBasedAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/AsyncCrdtApplicatorExtensions.cs` | Provides extension methods for `IAsyncCrdtApplicator` to streamline common synchronization tasks, such as directly applying an asynchronous stream of missing operations. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
-| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods, updated to include specialized type-binding registrations (`AddCrdtChunkedDocument<T>` and `AddCrdtKvDocument<T>`) for multiple virtual document managers. |
+| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods, updated to include `AddCrdtVirtualDocumentProjector` for hooking CQRS projectors into the larger-than-memory subsystem. |
 | `$/Ama.CRDT/Models/Aot/CoreCrdtAotContext.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Aot/CrdtAotContext.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Aot/CrdtPropertyInfo.cs` | Contains AOT-compatible metadata, now natively including pre-extracted array of strategy type configurations mapped via attribute. |

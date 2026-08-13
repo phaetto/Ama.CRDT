@@ -21,8 +21,10 @@ builder.ConfigureServices((context, services) =>
         .AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After)
         .AddCrdtApplicatorDecorator<LargerThanMemoryApplicatorDecorator>(DecoratorBehavior.Complex)
         .AddCrdtStreamPartitioning<FileSystemPartitionStreamProvider>()
-        .AddCrdtChunkedDocument<BlogPost>();
+        .AddCrdtChunkedDocument<BlogPost>()
+        .AddCrdtVirtualDocumentProjector<BlogPost, BlogPostSqliteProjector>();
 
+    services.AddScoped<BlogPostReadRepository>();
     services.AddScoped<DataGeneratorService>();
     services.AddScoped<UiService>();
     

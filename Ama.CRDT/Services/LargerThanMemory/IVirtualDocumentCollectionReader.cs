@@ -9,7 +9,7 @@ using Ama.CRDT.Models;
 /// <summary>
 /// Provides a unified, read-only abstraction for accessing Larger-Than-Memory CRDT documents,
 /// completely hiding the underlying storage mechanism (e.g., Chunked vs. True Key-Value).
-/// This interface should be used by UI or application logic to query virtualized data transparently.
+/// This interface should be used by background batch applications that need to access the whole dataset wihtour paging/querying.
 /// </summary>
 /// <typeparam name="T">The root document type.</typeparam>
 public interface IVirtualDocumentCollectionReader<T> where T : class, new()

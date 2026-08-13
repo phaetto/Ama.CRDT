@@ -735,6 +735,23 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Registers a projection hook for a virtual CRDT document, allowing CQRS Read Models to be updated automatically
+    /// immediately after the document states are successfully synchronized in the database.
+    /// </summary>
+    /// <typeparam name="TDocument">The CRDT document type.</typeparam>
+    /// <typeparam name="TProjector">The projector implementation type.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    public static IServiceCollection AddCrdtVirtualDocumentProjector<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDocument, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProjector>(this IServiceCollection services)
+        where TDocument : class, new()
+        where TProjector : class, IVirtualDocumentProjector<TDocument>
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IVirtualDocumentProjector<TDocument>, TProjector>());
+        return services;
+    }
+
     private static IServiceCollection DecorateService<TInterface, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDecorator>(this IServiceCollection services, DecoratorBehavior behavior)
         where TInterface : class
         where TDecorator : class, TInterface
