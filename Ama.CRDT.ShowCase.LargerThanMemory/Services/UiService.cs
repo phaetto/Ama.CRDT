@@ -32,6 +32,7 @@ public sealed class UiService
     private IServiceScope currentScope;
     private IVirtualDocumentCollectionReader<BlogPost> documentCollection;
     private IChunkDocumentManager<BlogPost> chunkManager;
+    private BlogPostReadRepository readRepository;
     private string currentReplicaId;
     
     // Session tracking to prevent background tasks from clashing when switching posts quickly
@@ -54,9 +55,8 @@ public sealed class UiService
     
     private long totalCommentCount = -1;
     private long totalTagCount = -1;
-    
-    private IAsyncEnumerator<string>? tagEnumerator;
-    private IAsyncEnumerator<KeyValuePair<DateTimeOffset, Comment>>? commentEnumerator;
+    private int tagsOffset = 0;
+    private int commentsOffset = 0;
 
     private bool isLoadingTags = false;
     private bool isLoadingComments = false;
@@ -184,7 +184,7 @@ public sealed class UiService
             new MenuBarItem("_Replica", CreateReplicaMenuItems())
         });
 
-        var leftPane = new FrameView("Blog Posts")
+        var leftPane = new FrameView("Blog Posts (via SQLite Projection)")
         {
             X = 0,
             Y = 1,
@@ -218,7 +218,7 @@ public sealed class UiService
             Height = Dim.Fill(1),
         };
 
-        var postContentLabel = new Label("Content:") { X = 0, Y = 0 };
+        var postContentLabel = new Label("Content (Projected):") { X = 0, Y = 0 };
         postContentView = new TextView()
         {
             X = 0,
@@ -228,7 +228,7 @@ public sealed class UiService
             ReadOnly = true
         };
 
-        var tagsLabel = new Label("Tags (Loaded On-Demand):") { X = 0, Y = Pos.Bottom(postContentView) + 1 };
+        var tagsLabel = new Label("Tags (Projected):") { X = 0, Y = Pos.Bottom(postContentView) + 1 };
         tagsListView = new ListView(new List<string>())
         {
             X = 0,
@@ -237,7 +237,7 @@ public sealed class UiService
             Height = Dim.Percent(20),
         };
 
-        var commentsLabel = new Label("Comments (Loaded On-Demand):") { X = 0, Y = Pos.Bottom(tagsListView) + 1 };
+        var commentsLabel = new Label("Comments (Projected):") { X = 0, Y = Pos.Bottom(tagsListView) + 1 };
         commentListView = new ListView(new List<string>())
         {
             X = 0,
@@ -262,7 +262,6 @@ public sealed class UiService
         Application.Run();
         Application.Shutdown();
         
-        _ = DisposeEnumeratorsAsync();
         currentScope?.Dispose();
     }
 
@@ -316,6 +315,7 @@ public sealed class UiService
         currentScope = scopeFactory.CreateScope(replicaId, replicaDvvs[replicaId]);
         documentCollection = currentScope.ServiceProvider.GetRequiredService<IVirtualDocumentCollectionReader<BlogPost>>();
         chunkManager = currentScope.ServiceProvider.GetRequiredService<IChunkDocumentManager<BlogPost>>();
+        readRepository = currentScope.ServiceProvider.GetRequiredService<BlogPostReadRepository>();
         
         if (topPane is not null)
         {
@@ -326,7 +326,6 @@ public sealed class UiService
         {
             try
             {
-                await DisposeEnumeratorsAsync().ConfigureAwait(false);
                 UpdateSyncStatusUI();
                 await LoadBlogPostHeadersAsync().ConfigureAwait(false);
             }
@@ -409,7 +408,7 @@ public sealed class UiService
 
     private async Task LoadBlogPostHeadersAsync()
     {
-        if (documentCollection is null || blogPostIds is null) return;
+        if (readRepository is null || blogPostIds is null) return;
 
         Application.MainLoop.Invoke(() =>
         {
@@ -425,25 +424,18 @@ public sealed class UiService
             SafeSetListViewSource(commentListView, new List<string>());
         });
 
-        var uniqueKeys = await documentCollection.GetAllLogicalKeysAsync().ConfigureAwait(false);
-        
-        var newHeaders = new List<BlogPostHeader>();
+        // Fast retrieval completely avoiding chunk CRDT evaluations by directly querying SQLite
+        var posts = await readRepository.GetPostsAsync().ConfigureAwait(false);
+        var newHeaders = posts.Select(p => new BlogPostHeader(p.Id, p.Title)).ToList();
         
         lock (blogPostIds) 
         {
-            foreach(var key in uniqueKeys.Cast<Guid>()) {
-                if (!blogPostIds.Contains(key)) {
-                    blogPostIds.Add(key);
-                }
-            }
-        }
-
-        foreach (var id in blogPostIds)
-        {
-            var post = await documentCollection.GetDocumentHeaderAsync(id).ConfigureAwait(false);
-            if (post != null)
+            foreach(var post in newHeaders) 
             {
-                newHeaders.Add(new BlogPostHeader(post.Value.Data.Id, post.Value.Data.Title ?? "Untitled"));
+                if (!blogPostIds.Contains(post.Id)) 
+                {
+                    blogPostIds.Add(post.Id);
+                }
             }
         }
 
@@ -479,7 +471,7 @@ public sealed class UiService
 
     private void LoadPostDetails(int itemIndex)
     {
-        if (documentCollection is null || commentListView is null || itemIndex < 0 || blogPostHeaders is null || itemIndex >= blogPostHeaders.Count)
+        if (readRepository is null || commentListView is null || itemIndex < 0 || blogPostHeaders is null || itemIndex >= blogPostHeaders.Count)
         {
             currentPostSessionId = Guid.NewGuid();
             Application.MainLoop.Invoke(() => 
@@ -516,7 +508,10 @@ public sealed class UiService
         {
             try
             {
-                var post = await documentCollection.GetDocumentHeaderAsync(selectedBlogPostId).ConfigureAwait(false);
+                // Load highly structured data extremely fast using our standard SQL Read Model projection
+                tagsOffset = 0;
+                commentsOffset = 0;
+                var post = await readRepository.GetPostAsync(selectedBlogPostId).ConfigureAwait(false);
 
                 if (currentPostSessionId != sessionId) return;
 
@@ -526,8 +521,8 @@ public sealed class UiService
 
                     if (post != null)
                     {
-                        rightPane.Title = post.Value.Data.Title ?? "Unknown";
-                        postContentView.Text = string.IsNullOrEmpty(post.Value.Data.Content) ? " " : post.Value.Data.Content;
+                        rightPane.Title = post.Title ?? "Unknown";
+                        postContentView.Text = string.IsNullOrEmpty(post.Content) ? " " : post.Content;
                     }
 
                     // Clear the placeholders so LoadMore can populate them cleanly
@@ -537,48 +532,35 @@ public sealed class UiService
 
                 if (currentPostSessionId != sessionId) return;
 
-                await DisposeEnumeratorsAsync().ConfigureAwait(false);
-                
                 // Reset states
                 isLoadingTags = false;
                 isLoadingComments = false;
-                totalTagCount = -1;
-                totalCommentCount = -1;
                 
-                tagEnumerator = documentCollection.GetElementsAsync<string>(selectedBlogPostId, TagsPropertyName).GetAsyncEnumerator();
-                commentEnumerator = documentCollection.GetElementsAsync<KeyValuePair<DateTimeOffset, Comment>>(selectedBlogPostId, CommentsPropertyName).GetAsyncEnumerator();
-
-                // Fetch the first 10 items without blocking on total count (which requires scanning chunks)
-                await LoadMoreTagsAsync(sessionId).ConfigureAwait(false);
-                await LoadMoreCommentsAsync(sessionId).ConfigureAwait(false);
-                
-                if (currentPostSessionId != sessionId) return;
-
-                // Now compute total counts in the background so the UI doesn't hang.
-                var tagCount = await documentCollection.GetElementCountAsync(selectedBlogPostId, TagsPropertyName).ConfigureAwait(false);
-                var commentCount = await documentCollection.GetElementCountAsync(selectedBlogPostId, CommentsPropertyName).ConfigureAwait(false);
+                totalTagCount = await readRepository.GetTagsCountAsync(selectedBlogPostId).ConfigureAwait(false);
+                totalCommentCount = await readRepository.GetCommentsCountAsync(selectedBlogPostId).ConfigureAwait(false);
 
                 if (currentPostSessionId == sessionId)
                 {
                     Application.MainLoop.Invoke(() => 
                     {
                         if (currentPostSessionId != sessionId) return;
-                        
-                        totalTagCount = tagCount;
-                        totalCommentCount = commentCount;
 
-                        if (displayedTags.Count > 0 && displayedTags[0].StartsWith("---"))
+                        if (displayedTags.Count == 0)
                         {
-                            displayedTags[0] = $"--- Showing Tags ({totalTagCount} total) ---";
+                            displayedTags.Add($"--- Showing Tags ({totalTagCount} total) ---");
                             SafeSetListViewSource(tagsListView, displayedTags);
                         }
-                        if (displayedComments.Count > 0 && displayedComments[0].StartsWith("---"))
+                        if (displayedComments.Count == 0)
                         {
-                            displayedComments[0] = $"--- Showing Comments ({totalCommentCount} total) ---";
+                            displayedComments.Add($"--- Showing Comments ({totalCommentCount} total) ---");
                             SafeSetListViewSource(commentListView, displayedComments);
                         }
                     });
                 }
+                
+                // Fetch the first 10 items directly out of SQLite using standard pagination offsets
+                await LoadMoreTagsAsync(sessionId).ConfigureAwait(false);
+                await LoadMoreCommentsAsync(sessionId).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -613,30 +595,17 @@ public sealed class UiService
 
     private async Task LoadMoreTagsAsync(Guid sessionId)
     {
-        if (tagEnumerator == null || isLoadingTags || currentPostSessionId != sessionId) return;
+        if (isLoadingTags || currentPostSessionId != sessionId) return;
         
         isLoadingTags = true;
         try 
         {
-            var enumerator = tagEnumerator;
-            var loaded = new List<string>();
-            
-            for (int i = 0; i < 10; i++)
-            {
-                if (currentPostSessionId != sessionId) return;
-
-                if (await enumerator.MoveNextAsync().ConfigureAwait(false))
-                {
-                    loaded.Add(enumerator.Current);
-                }
-                else
-                {
-                    break;
-                }
-            }
+            var loaded = await readRepository.GetTagsAsync(selectedBlogPostId, 10, tagsOffset).ConfigureAwait(false);
 
             if (loaded.Count > 0 && currentPostSessionId == sessionId)
             {
+                tagsOffset += loaded.Count;
+                
                 Application.MainLoop.Invoke(() =>
                 {
                     if (currentPostSessionId != sessionId) return;
@@ -644,8 +613,7 @@ public sealed class UiService
                     var scrollToIndex = displayedTags.Count;
                     if (displayedTags.Count == 0)
                     {
-                        var countText = totalTagCount < 0 ? "..." : totalTagCount.ToString();
-                        displayedTags.Add($"--- Showing Tags ({countText} total) ---");
+                        displayedTags.Add($"--- Showing Tags ({totalTagCount} total) ---");
                         scrollToIndex = 0;
                     }
                     
@@ -671,32 +639,18 @@ public sealed class UiService
 
     private async Task LoadMoreCommentsAsync(Guid sessionId)
     {
-        if (commentEnumerator == null || isLoadingComments || currentPostSessionId != sessionId) return;
+        if (isLoadingComments || currentPostSessionId != sessionId) return;
         
         isLoadingComments = true;
         try 
         {
-            var enumerator = commentEnumerator;
-            var loaded = new List<Comment>();
-            
-            for (int i = 0; i < 10; i++)
-            {
-                if (currentPostSessionId != sessionId) return;
-
-                if (await enumerator.MoveNextAsync().ConfigureAwait(false))
-                {
-                    loaded.Add(enumerator.Current.Value);
-                }
-                else
-                {
-                    break;
-                }
-            }
+            var loaded = await readRepository.GetCommentsAsync(selectedBlogPostId, 10, commentsOffset).ConfigureAwait(false);
 
             if (loaded.Count > 0 && currentPostSessionId == sessionId)
             {
+                commentsOffset += loaded.Count;
+                
                 var formatted = loaded
-                    .OrderByDescending(c => c.CreatedAt)
                     .Select(c => $"[{c.CreatedAt:g}] {c.Author}: {c.Text}")
                     .ToList();
 
@@ -707,8 +661,7 @@ public sealed class UiService
                     var scrollToIndex = displayedComments.Count;
                     if (displayedComments.Count == 0)
                     {
-                        var countText = totalCommentCount < 0 ? "..." : totalCommentCount.ToString();
-                        displayedComments.Add($"--- Showing Comments ({countText} total) ---");
+                        displayedComments.Add($"--- Showing Comments ({totalCommentCount} total) ---");
                         scrollToIndex = 0;
                     }
 
@@ -736,12 +689,13 @@ public sealed class UiService
     {
         if (currentPostSessionId != sessionId) return;
 
-        await DisposeTagEnumeratorAsync().ConfigureAwait(false);
-        tagEnumerator = documentCollection.GetElementsAsync<string>(selectedBlogPostId, TagsPropertyName).GetAsyncEnumerator();
+        tagsOffset = 0;
+        totalTagCount = await readRepository.GetTagsCountAsync(selectedBlogPostId).ConfigureAwait(false);
         
         Application.MainLoop.Invoke(() => {
             if (currentPostSessionId != sessionId) return;
             displayedTags.Clear();
+            displayedTags.Add($"--- Showing Tags ({totalTagCount} total) ---");
             SafeSetListViewSource(tagsListView, displayedTags);
         });
         
@@ -752,36 +706,17 @@ public sealed class UiService
     {
         if (currentPostSessionId != sessionId) return;
 
-        await DisposeCommentEnumeratorAsync().ConfigureAwait(false);
-        commentEnumerator = documentCollection.GetElementsAsync<KeyValuePair<DateTimeOffset, Comment>>(selectedBlogPostId, CommentsPropertyName).GetAsyncEnumerator();
+        commentsOffset = 0;
+        totalCommentCount = await readRepository.GetCommentsCountAsync(selectedBlogPostId).ConfigureAwait(false);
         
         Application.MainLoop.Invoke(() => {
             if (currentPostSessionId != sessionId) return;
             displayedComments.Clear();
+            displayedComments.Add($"--- Showing Comments ({totalCommentCount} total) ---");
             SafeSetListViewSource(commentListView, displayedComments);
         });
         
         await LoadMoreCommentsAsync(sessionId).ConfigureAwait(false);
-    }
-
-    private async Task DisposeTagEnumeratorAsync()
-    {
-        var e = tagEnumerator;
-        tagEnumerator = null;
-        if (e != null) await e.DisposeAsync().ConfigureAwait(false);
-    }
-
-    private async Task DisposeCommentEnumeratorAsync()
-    {
-        var e = commentEnumerator;
-        commentEnumerator = null;
-        if (e != null) await e.DisposeAsync().ConfigureAwait(false);
-    }
-
-    private async Task DisposeEnumeratorsAsync()
-    {
-        await DisposeTagEnumeratorAsync().ConfigureAwait(false);
-        await DisposeCommentEnumeratorAsync().ConfigureAwait(false);
     }
 
     private void ShowNewPostDialog()
@@ -815,7 +750,8 @@ public sealed class UiService
                     
                     var patch = patcher.GeneratePatch(emptyDoc.Value, newPost);
                     
-                    // Operations generated during patch apply will be captured automatically by the JournalingApplicatorDecorator
+                    // Operations generated during patch apply will be captured automatically by the JournalingApplicatorDecorator.
+                    // The IVirtualDocumentProjector will also receive the applied states to populate SQLite natively in the background.
                     await applicator.ApplyPatchAsync(emptyDoc.Value, patch).ConfigureAwait(false);
 
                     Application.MainLoop.Invoke(() => {
@@ -882,17 +818,15 @@ public sealed class UiService
                         new BlogPost { Id = selectedBlogPostId, Comments = new Dictionary<DateTimeOffset, Comment>() }, 
                         headerContent.Value.Metadata);
                     
+                    // We only load the header dynamically and compute explicit intents to modify chunks.
                     var operation = patcher.GenerateOperation(fromDoc, x => x.Comments, new MapSetIntent(comment.CreatedAt, comment));
                     var patch = new CrdtPatch(new[] { operation });
                     
-                    // Journal decorator automatically saves
+                    // The IVirtualDocumentProjector will be invoked implicitly by the chunking storage hook!
                     await applicator.ApplyPatchAsync(fromDoc, patch).ConfigureAwait(false);
 
-                    var commentCount = await documentCollection.GetElementCountAsync(selectedBlogPostId, CommentsPropertyName).ConfigureAwait(false);
-                    
                     Application.MainLoop.Invoke(() => {
                         SaveReplicaStates();
-                        totalCommentCount = commentCount;
                         UpdateSyncStatusUI();
                     });
                     
@@ -946,14 +880,11 @@ public sealed class UiService
                     var operation = patcher.GenerateOperation(fromDoc, x => x.Tags, new AddIntent(newTag));
                     var patch = new CrdtPatch(new[] { operation });
                     
-                    // Journal decorator automatically saves
+                    // The IVirtualDocumentProjector will be invoked implicitly by the chunking storage hook!
                     await applicator.ApplyPatchAsync(fromDoc, patch).ConfigureAwait(false);
-
-                    var tagCount = await documentCollection.GetElementCountAsync(selectedBlogPostId, TagsPropertyName).ConfigureAwait(false);
 
                     Application.MainLoop.Invoke(() => {
                         SaveReplicaStates();
-                        totalTagCount = tagCount;
                         UpdateSyncStatusUI();
                     });
                     
@@ -1031,7 +962,8 @@ public sealed class UiService
                                 await Task.CompletedTask.ConfigureAwait(false);
                             }
 
-                            // Using ApplyOperationsAsync guarantees that out-of-order operations are retried and dependencies resolved properly
+                            // Using ApplyOperationsAsync guarantees that out-of-order operations are retried and dependencies resolved properly.
+                            // Additionally, this causes the underlying applicator to automatically push to our SQLite projector!
                             await targetApplicator.ApplyOperationsAsync(headerDoc.Value, GetDocumentOpsStreamAsync()).ConfigureAwait(false);
                             syncCount++;
                         }
