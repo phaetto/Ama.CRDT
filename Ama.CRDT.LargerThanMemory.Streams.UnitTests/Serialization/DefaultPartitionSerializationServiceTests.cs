@@ -1,16 +1,16 @@
-namespace Ama.CRDT.Partitioning.Streams.UnitTests.Serialization;
+namespace Ama.CRDT.LargerThanMemory.Streams.UnitTests.Serialization;
 
 using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Ama.CRDT.Extensions;
+using Ama.CRDT.LargerThanMemory.Streams.Extensions;
+using Ama.CRDT.LargerThanMemory.Streams.Models;
+using Ama.CRDT.LargerThanMemory.Streams.Services;
+using Ama.CRDT.LargerThanMemory.Streams.Services.Serialization;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.LargerThanMemory;
-using Ama.CRDT.Partitioning.Streams.Extensions;
-using Ama.CRDT.Partitioning.Streams.Models;
-using Ama.CRDT.Partitioning.Streams.Services;
-using Ama.CRDT.Partitioning.Streams.Services.Serialization;
 using Ama.CRDT.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
@@ -18,23 +18,23 @@ using Xunit;
 
 public sealed class DefaultPartitionSerializationServiceTests
 {
-    private readonly IPartitionSerializationService service;
+    private readonly IChunkSerializationService service;
 
     public DefaultPartitionSerializationServiceTests()
     {
         var services = new ServiceCollection();
         services.AddCrdt();
-        services.AddCrdtStreamPartitioning<DummyPartitionStreamProvider>();
+        services.AddCrdtStreamChunking<DummyPartitionStreamProvider>();
 
         // Need a scope context to resolve validated CRDT services
         var serviceProvider = services.BuildServiceProvider();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         var scope = scopeFactory.CreateScope("test-replica");
 
-        service = scope.ServiceProvider.GetRequiredService<IPartitionSerializationService>();
+        service = scope.ServiceProvider.GetRequiredService<IChunkSerializationService>();
     }
 
-    private sealed class DummyPartitionStreamProvider : IPartitionStreamProvider
+    private sealed class DummyPartitionStreamProvider : IChunkStreamProvider
     {
         public Task<Stream> GetPropertyIndexStreamAsync(string propertyName, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<Stream> GetPropertyDataStreamAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default) => throw new NotImplementedException();

@@ -1,8 +1,8 @@
-namespace Ama.CRDT.Partitioning.Streams.UnitTests.Services;
+namespace Ama.CRDT.LargerThanMemory.Streams.UnitTests.Services;
 
 using System.Collections.Generic;
-using Ama.CRDT.Partitioning.Streams.Models;
-using Ama.CRDT.Partitioning.Streams.Services;
+using Ama.CRDT.LargerThanMemory.Streams.Models;
+using Ama.CRDT.LargerThanMemory.Streams.Services;
 using Shouldly;
 using Xunit;
 

@@ -1,5 +1,6 @@
 namespace Ama.CRDT.Partitioning.Streams.Models.Serialization;
 
+using Ama.CRDT.LargerThanMemory.Streams.Models;
 using System.Text.Json.Serialization;
 
 /// <summary>

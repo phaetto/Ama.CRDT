@@ -1,8 +1,6 @@
-namespace Ama.CRDT.Partitioning.Streams.Services;
+namespace Ama.CRDT.LargerThanMemory.Streams.Services;
 
 using Ama.CRDT.Models;
-using Ama.CRDT.Partitioning.Streams.Services.Metrics;
-using Ama.CRDT.Partitioning.Streams.Services.Serialization;
 using Ama.CRDT.Services.Metrics;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -13,23 +11,25 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Ama.CRDT.Partitioning.Streams.Models;
 using Ama.CRDT.Services.Serialization;
 using Ama.CRDT.Services.LargerThanMemory;
 using Ama.CRDT.Models.LargerThanMemory;
+using Ama.CRDT.LargerThanMemory.Streams.Services.Serialization;
+using Ama.CRDT.LargerThanMemory.Streams.Models;
+using Ama.CRDT.LargerThanMemory.Streams.Services.Metrics;
 
 /// <summary>
 /// An implementation of <see cref="IChunkStorageService"/> that coordinates raw streams and an internal B+ Tree index
 /// to persist and search chunk data. This centralizes space allocation, caching, and serialization operations.
 /// </summary>
-public sealed class StreamPartitionStorageService : IChunkStorageService
+public sealed class StreamChunkStorageService : IChunkStorageService
 {
     private const int HeaderSize = 1024; // Reserve 1KB for B+ Tree header
     private const string HeaderIdentifier = "__HEADER__";
     private const int MaxCacheSize = 100;
 
-    private readonly IPartitionStreamProvider streamProvider;
-    private readonly IPartitionSerializationService serializationService;
+    private readonly IChunkStreamProvider streamProvider;
+    private readonly IChunkSerializationService serializationService;
     private readonly ICrdtSerializer crdtSerializer;
     private readonly LargerThanMemoryManagerCrdtMetrics metrics;
     private readonly StreamsCrdtMetrics treeMetrics;
@@ -42,9 +42,9 @@ public sealed class StreamPartitionStorageService : IChunkStorageService
     private readonly Dictionary<CacheKey, LinkedListNode<KeyValuePair<CacheKey, BPlusTreeNode>>> nodeCache = new();
     private readonly LinkedList<KeyValuePair<CacheKey, BPlusTreeNode>> lruList = new();
 
-    public StreamPartitionStorageService(
+    public StreamChunkStorageService(
         IServiceProvider serviceProvider,
-        IPartitionSerializationService serializationService,
+        IChunkSerializationService serializationService,
         LargerThanMemoryManagerCrdtMetrics metrics,
         StreamsCrdtMetrics treeMetrics,
         ICrdtSerializer crdtSerializer)
@@ -55,9 +55,9 @@ public sealed class StreamPartitionStorageService : IChunkStorageService
         ArgumentNullException.ThrowIfNull(treeMetrics);
         ArgumentNullException.ThrowIfNull(crdtSerializer);
 
-        this.streamProvider = serviceProvider.GetService<IPartitionStreamProvider>() ??
+        this.streamProvider = serviceProvider.GetService<IChunkStreamProvider>() ??
             throw new InvalidOperationException(
-                $"No implementation for '{nameof(IPartitionStreamProvider)}' was found. " +
+                $"No implementation for '{nameof(IChunkStreamProvider)}' was found. " +
                 $"When using partitioning features, you must register a custom stream provider. " +
                 $"Use the 'services.AddCrdtPartitionStreamProvider<TProvider>()' extension method to register your implementation.");
         

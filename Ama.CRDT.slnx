@@ -23,8 +23,8 @@
   </Folder>
   <Project Path="Ama.CRDT.Benchmarks/Ama.CRDT.Benchmarks.csproj" />
   <Project Path="Ama.CRDT.IntegrationTests/Ama.CRDT.IntegrationTests.csproj" />
-  <Project Path="Ama.CRDT.Partitioning.Streams.UnitTests/Ama.CRDT.Partitioning.Streams.UnitTests.csproj" />
-  <Project Path="Ama.CRDT.Partitioning.Streams/Ama.CRDT.Partitioning.Streams.csproj" />
+  <Project Path="Ama.CRDT.LargerThanMemory.Streams.UnitTests/Ama.CRDT.LargerThanMemory.Streams.UnitTests.csproj" />
+  <Project Path="Ama.CRDT.LargerThanMemory.Streams/Ama.CRDT.LargerThanMemory.Streams.csproj" />
   <Project Path="Ama.CRDT.PropertyTests/Ama.CRDT.PropertyTests.csproj" />
   <Project Path="Ama.CRDT.UnitTests/Ama.CRDT.UnitTests.csproj" />
   <Project Path="Ama.CRDT/Ama.CRDT.csproj" />

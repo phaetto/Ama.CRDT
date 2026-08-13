@@ -13,7 +13,7 @@ env:
   MINOR_VERSION: 0
   SOLUTION_FILE: 'Ama.CRDT.slnx'
   PROJECT_PATH_MAIN: 'Ama.CRDT/Ama.CRDT.csproj'
-  PROJECT_PATH_STREAMS: 'Ama.CRDT.Partitioning.Streams/Ama.CRDT.Partitioning.Streams.csproj'
+  PROJECT_PATH_STREAMS: 'Ama.CRDT.LargerThanMemory.Streams/Ama.CRDT.LargerThanMemory.Streams.csproj'
   PACKAGE_OUTPUT_DIRECTORY: '${{ github.workspace }}/nuget'
   # Fast execution for standard preview pushes
   FSCHECK_MAX_TESTS: 100
@@ -87,7 +87,7 @@ jobs:
 
       - name: Unlist previous prerelease versions
         run: |
-          packages=("Ama.CRDT" "Ama.CRDT.Partitioning.Streams")
+          packages=("Ama.CRDT" "Ama.CRDT.LargerThanMemory.Streams")
           for pkg in "${packages[@]}"; do
             echo "Fetching versions for $pkg..."
             # The NuGet V3 API requires lowercase package IDs

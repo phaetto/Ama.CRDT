@@ -41,7 +41,7 @@ dotnet add package Ama.CRDT
 
 If you need the stream-based larger-than-memory storage, also install:
 ```bash
-dotnet add package Ama.CRDT.Partitioning.Streams
+dotnet add package Ama.CRDT.LargerThanMemory.Streams
 ```
 
 ### NuGet Package Manager

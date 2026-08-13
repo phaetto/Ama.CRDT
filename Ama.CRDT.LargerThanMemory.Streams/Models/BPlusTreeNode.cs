@@ -1,4 +1,4 @@
-namespace Ama.CRDT.Partitioning.Streams.Models;
+namespace Ama.CRDT.LargerThanMemory.Streams.Models;
 
 using Ama.CRDT.Models.LargerThanMemory;
 

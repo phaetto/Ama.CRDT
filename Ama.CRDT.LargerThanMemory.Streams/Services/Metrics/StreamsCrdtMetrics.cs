@@ -1,4 +1,4 @@
-namespace Ama.CRDT.Partitioning.Streams.Services.Metrics;
+namespace Ama.CRDT.LargerThanMemory.Streams.Services.Metrics;
 
 using System;
 using System.Diagnostics.Metrics;

@@ -10,7 +10,7 @@
 
 	<PropertyGroup>
 		<IsPackable>true</IsPackable>
-		<PackageId>Ama.CRDT.Partitioning.Streams</PackageId>
+		<PackageId>Ama.CRDT.LargerThanMemory.Streams</PackageId>
 		<Version>0.1.0</Version>
 		<Authors>Alexander Mantzoukas</Authors>
 		<Description>A .NET library for implementing Conflict-free Replicated Data Types (CRDTs) for larger than memory streams using B+ Trees.</Description>

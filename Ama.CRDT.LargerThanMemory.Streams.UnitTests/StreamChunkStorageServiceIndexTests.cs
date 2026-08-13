@@ -1,9 +1,9 @@
-namespace Ama.CRDT.Partitioning.Streams.UnitTests;
+namespace Ama.CRDT.LargerThanMemory.Streams.UnitTests;
 
 using Ama.CRDT.Extensions;
+using Ama.CRDT.LargerThanMemory.Streams.Extensions;
+using Ama.CRDT.LargerThanMemory.Streams.Services;
 using Ama.CRDT.Models.LargerThanMemory;
-using Ama.CRDT.Partitioning.Streams.Extensions;
-using Ama.CRDT.Partitioning.Streams.Services;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.LargerThanMemory;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,7 +19,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
-public sealed class StreamPartitionStorageServiceIndexTests
+public sealed class StreamChunkStorageServiceIndexTests
 {
     private readonly IChunkStorageService strategy;
     private readonly InMemoryPartitionStreamProvider streamProvider;
@@ -28,11 +28,11 @@ public sealed class StreamPartitionStorageServiceIndexTests
     private const int Degree = 3; 
     private const int MaxKeys = 2 * Degree - 1; // 5
 
-    public StreamPartitionStorageServiceIndexTests()
+    public StreamChunkStorageServiceIndexTests()
     {
         var services = new ServiceCollection();
         services.AddCrdt();
-        services.AddCrdtStreamPartitioning<InMemoryPartitionStreamProvider>();
+        services.AddCrdtStreamChunking<InMemoryPartitionStreamProvider>();
 
         var meterFactoryMock = new Mock<IMeterFactory>();
         meterFactoryMock.Setup(f => f.Create(It.IsAny<MeterOptions>())).Returns(new Meter("TestMeter"));
@@ -44,10 +44,10 @@ public sealed class StreamPartitionStorageServiceIndexTests
         var scope = scopeFactory.CreateScope("test-replica");
 
         strategy = scope.ServiceProvider.GetRequiredService<IChunkStorageService>();
-        streamProvider = (InMemoryPartitionStreamProvider)scope.ServiceProvider.GetRequiredService<IPartitionStreamProvider>();
+        streamProvider = (InMemoryPartitionStreamProvider)scope.ServiceProvider.GetRequiredService<IChunkStreamProvider>();
     }
 
-    private sealed class InMemoryPartitionStreamProvider : IPartitionStreamProvider
+    private sealed class InMemoryPartitionStreamProvider : IChunkStreamProvider
     {
         private readonly ConcurrentDictionary<string, MemoryStream> streams = new();
         private const string HeaderIdentifier = "__HEADER__";

@@ -1,6 +1,6 @@
 namespace Ama.CRDT.ShowCase.LargerThanMemory.Services;
 
-using Ama.CRDT.Partitioning.Streams.Services;
+using Ama.CRDT.LargerThanMemory.Streams.Services;
 using Ama.CRDT.Services;
 using System;
 using System.Collections.Concurrent;
@@ -9,12 +9,12 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-public sealed partial class FileSystemPartitionStreamProvider : IPartitionStreamProvider, IDisposable
+public sealed partial class FileSystemChunkStreamProvider : IChunkStreamProvider, IDisposable
 {
     private readonly string replicaBasePath;
     private readonly ConcurrentDictionary<string, Stream> openStreams = new();
 
-    public FileSystemPartitionStreamProvider(ReplicaContext replicaContext)
+    public FileSystemChunkStreamProvider(ReplicaContext replicaContext)
     {
         ArgumentNullException.ThrowIfNull(replicaContext);
         ArgumentException.ThrowIfNullOrWhiteSpace(replicaContext.ReplicaId);

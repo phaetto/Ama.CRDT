@@ -1,6 +1,6 @@
-namespace Ama.CRDT.Partitioning.Streams.Services.Serialization;
+namespace Ama.CRDT.LargerThanMemory.Streams.Services.Serialization;
 
-using Ama.CRDT.Partitioning.Streams.Models;
+using Ama.CRDT.LargerThanMemory.Streams.Models;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 /// <summary>
 /// Defines a contract for serializing and deserializing partition data and B+ Tree index components to and from a stream.
 /// </summary>
-public interface IPartitionSerializationService
+public interface IChunkSerializationService
 {
     /// <summary>
     /// Writes the B+ Tree header to the stream.

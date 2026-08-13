@@ -1,11 +1,11 @@
-namespace Ama.CRDT.Partitioning.Streams.UnitTests;
+namespace Ama.CRDT.LargerThanMemory.Streams.UnitTests;
 
 using Ama.CRDT.Extensions;
+using Ama.CRDT.LargerThanMemory.Streams.Extensions;
+using Ama.CRDT.LargerThanMemory.Streams.Services;
+using Ama.CRDT.LargerThanMemory.Streams.Services.Serialization;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.LargerThanMemory;
-using Ama.CRDT.Partitioning.Streams.Extensions;
-using Ama.CRDT.Partitioning.Streams.Services;
-using Ama.CRDT.Partitioning.Streams.Services.Serialization;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.LargerThanMemory;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,11 +18,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
-public class StreamPartitionStorageServiceDataTests
+public class StreamChunkStorageServiceDataTests
 {
     public class TestData { public string Id { get; set; } = "1"; }
 
-    private sealed class DummyPartitionStreamProvider : IPartitionStreamProvider
+    private sealed class DummyPartitionStreamProvider : IChunkStreamProvider
     {
         public Task<Stream> GetPropertyIndexStreamAsync(string propertyName, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<Stream> GetPropertyDataStreamAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default) => throw new NotImplementedException();
@@ -36,13 +36,13 @@ public class StreamPartitionStorageServiceDataTests
         // Arrange
         var services = new ServiceCollection();
         services.AddCrdt();
-        services.AddCrdtStreamPartitioning<DummyPartitionStreamProvider>();
+        services.AddCrdtStreamChunking<DummyPartitionStreamProvider>();
 
         var meterFactoryMock = new Mock<IMeterFactory>();
         meterFactoryMock.Setup(f => f.Create(It.IsAny<MeterOptions>())).Returns(new Meter("TestMeter"));
         services.AddSingleton(meterFactoryMock.Object);
 
-        var streamProviderMock = new Mock<IPartitionStreamProvider>();
+        var streamProviderMock = new Mock<IChunkStreamProvider>();
         var mockStream = new MemoryStream();
         streamProviderMock.Setup(x => x.GetPropertyDataStreamAsync(It.IsAny<IComparable>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(mockStream);
@@ -50,7 +50,7 @@ public class StreamPartitionStorageServiceDataTests
         // Replace the dummy stream provider with the mock
         services.AddScoped(_ => streamProviderMock.Object);
 
-        var serializationMock = new Mock<IPartitionSerializationService>();
+        var serializationMock = new Mock<IChunkSerializationService>();
         serializationMock.Setup(x => x.SerializeObjectAsync(It.IsAny<Stream>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
             .Callback<Stream, object, CancellationToken>((s, o, c) =>
             {
@@ -65,7 +65,7 @@ public class StreamPartitionStorageServiceDataTests
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         var scope = scopeFactory.CreateScope("test-replica");
 
-        var service = (StreamPartitionStorageService)scope.ServiceProvider.GetRequiredService<IChunkStorageService>();
+        var service = (StreamChunkStorageService)scope.ServiceProvider.GetRequiredService<IChunkStorageService>();
 
         var originalPartition = new CollectionChunk(new CompositeChunkKey("A", "B"), null, 0, 0, 0, 0);
         var data = new TestData();
