@@ -709,7 +709,7 @@ public static class ServiceCollectionExtensions
 
         services.TryAddScoped<ChunkedDocumentManager<T>>();
         services.TryAddScoped<IChunkDocumentManager<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
-        services.TryAddScoped<IVirtualDocumentCollection<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentCollectionReader<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
         services.TryAddScoped<IVirtualDocumentPatchHandler<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
 
         return services;
@@ -728,7 +728,7 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddScoped<KvDocumentManager<T>>();
-        services.TryAddScoped<IVirtualDocumentCollection<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentCollectionReader<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
         services.TryAddScoped<IKvDocumentManager<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
         services.TryAddScoped<IVirtualDocumentPatchHandler<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
 
