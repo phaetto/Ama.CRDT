@@ -127,9 +127,6 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<CrdtMetadataManager>();
         services.TryAddScoped<ICrdtMetadataManager>(sp => { ValidateReplicaScope(sp, nameof(CrdtMetadataManager)); return sp.GetRequiredService<CrdtMetadataManager>(); });
 
-        // Register Partitioning services
-        services.TryAddScoped(typeof(IPartitionManager<>), typeof(PartitionManager<>));
-
         // Register the default timestamp provider with validation.
         // This can be overridden by AddCrdtTimestampProvider.
         services.TryAddScoped<EpochTimestampProvider>();
@@ -281,7 +278,7 @@ public static class ServiceCollectionExtensions
     /// <code>
     /// <![CDATA[
     /// builder.Services.AddCrdt()
-    ///                 .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>(DecoratorBehavior.Complex);
+    ///                 .AddCrdtApplicatorDecorator<LargerThanMemoryApplicatorDecorator>(DecoratorBehavior.Complex);
     /// ]]>
     /// </code>
     /// </example>
@@ -695,6 +692,46 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(implementationFactory);
         services.TryAddEnumerable(ServiceDescriptor.Scoped<ICompactionPolicyFactory, TFactory>(implementationFactory));
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a CRDT document type to be managed as a chunked virtual document.
+    /// This enables infinite scaling of collections by storing them as disjoint streams (chunks).
+    /// </summary>
+    /// <typeparam name="T">The CRDT document type.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    public static IServiceCollection AddCrdtChunkedDocument<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this IServiceCollection services)
+        where T : class, new()
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddScoped<ChunkedDocumentManager<T>>();
+        services.TryAddScoped<IChunkDocumentManager<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentCollection<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentPatchHandler<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a CRDT document type to be managed as a Key-Value virtual document.
+    /// This enables infinite scaling without chunk bounds by routing individual operations directly to database rows.
+    /// </summary>
+    /// <typeparam name="T">The CRDT document type.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    public static IServiceCollection AddCrdtKvDocument<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this IServiceCollection services)
+        where T : class, new()
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddScoped<KvDocumentManager<T>>();
+        services.TryAddScoped<IVirtualDocumentCollection<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
+        services.TryAddScoped<IKvDocumentManager<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentPatchHandler<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
+
         return services;
     }
 

@@ -12,6 +12,6 @@ using Ama.CRDT.UnitTests.Services.LargerThanMemory;
 [CrdtAotType(typeof(MultiPartitionedModel))]
 [CrdtAotType(typeof(PartitionStorageServiceContractTests.TestData))]
 [CrdtAotType(typeof(Dictionary<string, string>))]
-internal partial class PartitioningTestCrdtAotContext : CrdtAotContext
+internal partial class LargerThanMemoryTestCrdtAotContext : CrdtAotContext
 {
 }

@@ -65,14 +65,14 @@ public class StreamPartitionStorageServiceDataTests
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         var scope = scopeFactory.CreateScope("test-replica");
 
-        var service = (StreamPartitionStorageService)scope.ServiceProvider.GetRequiredService<IPartitionStorageService>();
+        var service = (StreamPartitionStorageService)scope.ServiceProvider.GetRequiredService<IChunkStorageService>();
 
         var originalPartition = new CollectionChunk(new CompositeChunkKey("A", "B"), null, 0, 0, 0, 0);
         var data = new TestData();
         var meta = new CrdtMetadata();
 
         // Act
-        var result = (CollectionChunk)await service.SavePartitionContentAsync("A", "prop", originalPartition, data, meta);
+        var result = (CollectionChunk)await service.SaveChunkContentAsync("A", "prop", originalPartition, data, meta);
 
         // Assert
         result.DataOffset.ShouldBe(1024);

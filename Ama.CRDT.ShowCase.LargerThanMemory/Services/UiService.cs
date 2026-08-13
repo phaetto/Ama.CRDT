@@ -30,8 +30,12 @@ public sealed class UiService
     private Guid selectedBlogPostId;
 
     private IServiceScope currentScope;
-    private IPartitionManager<BlogPost> partitionManager;
+    private IVirtualDocumentCollection<BlogPost> documentCollection;
+    private IChunkDocumentManager<BlogPost> chunkManager;
     private string currentReplicaId;
+    
+    // Session tracking to prevent background tasks from clashing when switching posts quickly
+    private Guid currentPostSessionId = Guid.Empty;
 
     // Track simulated Global Version Vectors to show causality gaps
     private readonly Dictionary<string, DottedVersionVector> replicaDvvs;
@@ -48,11 +52,14 @@ public sealed class UiService
     private readonly List<string> displayedTags = new();
     private readonly List<BlogPostHeader> blogPostHeaders = new();
     
-    private long totalCommentPartitionCount = 0;
-    private int currentCommentPartitionIndex = -1;
+    private long totalCommentCount = -1;
+    private long totalTagCount = -1;
     
-    private long totalTagPartitionCount = 0;
-    private int currentTagPartitionIndex = -1;
+    private IAsyncEnumerator<string>? tagEnumerator;
+    private IAsyncEnumerator<KeyValuePair<DateTimeOffset, Comment>>? commentEnumerator;
+
+    private bool isLoadingTags = false;
+    private bool isLoadingComments = false;
     
     private sealed record BlogPostHeader(Guid Id, string Title);
 
@@ -242,7 +249,7 @@ public sealed class UiService
 
         var statusBar = new StatusBar(new[]
         {
-            new StatusItem(Key.F2, "~F2~ Load Next Partitions", LoadNextPartitions),
+            new StatusItem(Key.F2, "~F2~ Load More Data", LoadMoreData),
             new StatusItem(Key.F5, "~F5~ Sync Current Replica", SyncReplicas),
             new StatusItem(Key.CtrlMask | Key.Q, "~^Q~ Quit", () => Application.RequestStop())
         });
@@ -254,6 +261,8 @@ public sealed class UiService
 
         Application.Run();
         Application.Shutdown();
+        
+        _ = DisposeEnumeratorsAsync();
         currentScope?.Dispose();
     }
 
@@ -297,19 +306,35 @@ public sealed class UiService
     private void SwitchReplica(string replicaId)
     {
         currentReplicaId = replicaId;
+        currentPostSessionId = Guid.NewGuid(); // Cancel pending backgrounds
+
+        // Ensure dependency injection and scopes are resolved synchronously on the UI thread
+        // prior to allowing background tasks to attempt using them to prevent race condition NREs.
         currentScope?.Dispose();
         var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         
         currentScope = scopeFactory.CreateScope(replicaId, replicaDvvs[replicaId]);
-        partitionManager = currentScope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
+        documentCollection = currentScope.ServiceProvider.GetRequiredService<IVirtualDocumentCollection<BlogPost>>();
+        chunkManager = currentScope.ServiceProvider.GetRequiredService<IChunkDocumentManager<BlogPost>>();
         
         if (topPane is not null)
         {
             topPane.Title = $"CRDT Showcase - Viewing: {replicaId}";
         }
         
-        UpdateSyncStatusUI();
-        LoadBlogPostHeadersAsync();
+        Task.Run(async () =>
+        {
+            try
+            {
+                await DisposeEnumeratorsAsync().ConfigureAwait(false);
+                UpdateSyncStatusUI();
+                await LoadBlogPostHeadersAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Application.MainLoop.Invoke(() => MessageBox.ErrorQuery("Error", ex.Message, "Ok"));
+            }
+        });
     }
 
     private void UpdateSyncStatusUI()
@@ -382,9 +407,9 @@ public sealed class UiService
         Application.Run(dialog);
     }
 
-    private async void LoadBlogPostHeadersAsync()
+    private async Task LoadBlogPostHeadersAsync()
     {
-        if (partitionManager is null || blogPostIds is null) return;
+        if (documentCollection is null || blogPostIds is null) return;
 
         Application.MainLoop.Invoke(() =>
         {
@@ -400,21 +425,25 @@ public sealed class UiService
             SafeSetListViewSource(commentListView, new List<string>());
         });
 
-        var uniqueKeys = await partitionManager.GetAllLogicalKeysAsync();
+        var uniqueKeys = await documentCollection.GetAllLogicalKeysAsync().ConfigureAwait(false);
         
         var newHeaders = new List<BlogPostHeader>();
-        foreach(var key in uniqueKeys.Cast<Guid>()) {
-            if (!blogPostIds.Contains(key)) {
-                blogPostIds.Add(key);
+        
+        lock (blogPostIds) 
+        {
+            foreach(var key in uniqueKeys.Cast<Guid>()) {
+                if (!blogPostIds.Contains(key)) {
+                    blogPostIds.Add(key);
+                }
             }
         }
 
         foreach (var id in blogPostIds)
         {
-            var content = await partitionManager.GetHeaderPartitionContentAsync(id);
-            if (content.HasValue)
+            var post = await documentCollection.GetDocumentHeaderAsync(id).ConfigureAwait(false);
+            if (post != null)
             {
-                newHeaders.Add(new BlogPostHeader(content.Value.Data.Id, content.Value.Data.Title ?? "Untitled"));
+                newHeaders.Add(new BlogPostHeader(post.Value.Data.Id, post.Value.Data.Title ?? "Untitled"));
             }
         }
 
@@ -448,10 +477,11 @@ public sealed class UiService
         LoadPostDetails(args.Item);
     }
 
-    private async void LoadPostDetails(int itemIndex)
+    private void LoadPostDetails(int itemIndex)
     {
-        if (partitionManager is null || commentListView is null || itemIndex < 0 || blogPostHeaders is null || itemIndex >= blogPostHeaders.Count)
+        if (documentCollection is null || commentListView is null || itemIndex < 0 || blogPostHeaders is null || itemIndex >= blogPostHeaders.Count)
         {
+            currentPostSessionId = Guid.NewGuid();
             Application.MainLoop.Invoke(() => 
             {
                 rightPane.Title = "Selected Post";
@@ -467,105 +497,291 @@ public sealed class UiService
         var selectedHeader = blogPostHeaders[itemIndex];
         selectedBlogPostId = selectedHeader.Id;
 
-        var headerContent = await partitionManager.GetHeaderPartitionContentAsync(selectedBlogPostId);
-        var tagCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, TagsPropertyName);
-        var commentCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
+        // Establish a unique session ID for this load to gracefully cancel pending background enumerators
+        var sessionId = Guid.NewGuid();
+        currentPostSessionId = sessionId;
 
+        // Give immediate visual feedback that we are loading!
         Application.MainLoop.Invoke(() =>
         {
-            if (headerContent.HasValue)
-            {
-                var post = headerContent.Value.Data;
-                rightPane.Title = post.Title ?? "Unknown";
-                postContentView.Text = string.IsNullOrEmpty(post.Content) ? " " : post.Content;
-            }
-
-            totalTagPartitionCount = tagCount;
-            currentTagPartitionIndex = (int)totalTagPartitionCount;
+            rightPane.Title = "Loading...";
+            postContentView.Text = "Loading...";
             displayedTags.Clear();
-            SafeSetListViewSource(tagsListView, new List<string>());
-
-            totalCommentPartitionCount = commentCount;
-            currentCommentPartitionIndex = (int)totalCommentPartitionCount;
+            SafeSetListViewSource(tagsListView, new List<string> { "Loading..." });
             displayedComments.Clear();
-            SafeSetListViewSource(commentListView, new List<string>());
-            
-            LoadNextPartitions();
+            SafeSetListViewSource(commentListView, new List<string> { "Loading..." });
         });
-    }
 
-    private void LoadNextPartitions()
-    {
-        LoadNextTagPartition();
-        LoadNextCommentPartition();
-    }
-
-    private async void LoadNextTagPartition()
-    {
-        if (currentTagPartitionIndex - 1 < 0) return;
-
-        currentTagPartitionIndex--;
-        var indexToLoad = currentTagPartitionIndex;
-        var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, indexToLoad, TagsPropertyName);
-
-        if (partition is null) return;
-
-        var content = await partitionManager.GetDataPartitionContentAsync(partition.GetPartitionKey(), TagsPropertyName);
-
-        Application.MainLoop.Invoke(() =>
+        Task.Run(async () => 
         {
-            if (content.HasValue && content.Value.Data?.Tags is { Count: > 0 } tags)
+            try
             {
-                var scrollToIndex = displayedTags.Count;
-                
-                displayedTags.Add($"--- Partition {indexToLoad + 1}/{totalTagPartitionCount} ({tags.Count} tags) ---");
-                displayedTags.AddRange(tags);
+                var post = await documentCollection.GetDocumentHeaderAsync(selectedBlogPostId).ConfigureAwait(false);
 
-                SafeSetListViewSource(tagsListView, displayedTags);
+                if (currentPostSessionId != sessionId) return;
 
-                if (scrollToIndex < tagsListView.Source.Count)
+                Application.MainLoop.Invoke(() =>
                 {
-                    try { tagsListView.TopItem = scrollToIndex; } catch {}
-                    try { tagsListView.SelectedItem = scrollToIndex; } catch {}
+                    if (currentPostSessionId != sessionId) return;
+
+                    if (post != null)
+                    {
+                        rightPane.Title = post.Value.Data.Title ?? "Unknown";
+                        postContentView.Text = string.IsNullOrEmpty(post.Value.Data.Content) ? " " : post.Value.Data.Content;
+                    }
+
+                    // Clear the placeholders so LoadMore can populate them cleanly
+                    displayedTags.Clear();
+                    displayedComments.Clear();
+                });
+
+                if (currentPostSessionId != sessionId) return;
+
+                await DisposeEnumeratorsAsync().ConfigureAwait(false);
+                
+                // Reset states
+                isLoadingTags = false;
+                isLoadingComments = false;
+                totalTagCount = -1;
+                totalCommentCount = -1;
+                
+                tagEnumerator = documentCollection.GetElementsAsync<string>(selectedBlogPostId, TagsPropertyName).GetAsyncEnumerator();
+                commentEnumerator = documentCollection.GetElementsAsync<KeyValuePair<DateTimeOffset, Comment>>(selectedBlogPostId, CommentsPropertyName).GetAsyncEnumerator();
+
+                // Fetch the first 10 items without blocking on total count (which requires scanning chunks)
+                await LoadMoreTagsAsync(sessionId).ConfigureAwait(false);
+                await LoadMoreCommentsAsync(sessionId).ConfigureAwait(false);
+                
+                if (currentPostSessionId != sessionId) return;
+
+                // Now compute total counts in the background so the UI doesn't hang.
+                var tagCount = await documentCollection.GetElementCountAsync(selectedBlogPostId, TagsPropertyName).ConfigureAwait(false);
+                var commentCount = await documentCollection.GetElementCountAsync(selectedBlogPostId, CommentsPropertyName).ConfigureAwait(false);
+
+                if (currentPostSessionId == sessionId)
+                {
+                    Application.MainLoop.Invoke(() => 
+                    {
+                        if (currentPostSessionId != sessionId) return;
+                        
+                        totalTagCount = tagCount;
+                        totalCommentCount = commentCount;
+
+                        if (displayedTags.Count > 0 && displayedTags[0].StartsWith("---"))
+                        {
+                            displayedTags[0] = $"--- Showing Tags ({totalTagCount} total) ---";
+                            SafeSetListViewSource(tagsListView, displayedTags);
+                        }
+                        if (displayedComments.Count > 0 && displayedComments[0].StartsWith("---"))
+                        {
+                            displayedComments[0] = $"--- Showing Comments ({totalCommentCount} total) ---";
+                            SafeSetListViewSource(commentListView, displayedComments);
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                // Only prompt if this session wasn't already deliberately canceled by a user click
+                if (currentPostSessionId == sessionId) 
+                {
+                    Application.MainLoop.Invoke(() => MessageBox.ErrorQuery("Error", ex.Message, "Ok"));
                 }
             }
         });
     }
 
-    private async void LoadNextCommentPartition()
+    private void LoadMoreData()
     {
-        if (currentCommentPartitionIndex - 1 < 0) return;
-
-        currentCommentPartitionIndex--;
-        var indexToLoad = currentCommentPartitionIndex;
-        var partition = await partitionManager.GetDataPartitionByIndexAsync(selectedBlogPostId, indexToLoad, CommentsPropertyName);
-
-        if (partition is null) return;
-
-        var content = await partitionManager.GetDataPartitionContentAsync(partition.GetPartitionKey(), CommentsPropertyName);
-
-        Application.MainLoop.Invoke(() =>
+        var sessionId = currentPostSessionId;
+        Task.Run(async () =>
         {
-            if (content.HasValue && content.Value.Data?.Comments is { Count: > 0 } comments)
+            try
             {
-                var scrollToIndex = displayedComments.Count;
-                var newComments = comments.Values
+                await LoadMoreTagsAsync(sessionId).ConfigureAwait(false);
+                await LoadMoreCommentsAsync(sessionId).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                if (currentPostSessionId == sessionId)
+                {
+                    Application.MainLoop.Invoke(() => MessageBox.ErrorQuery("Error", ex.Message, "Ok"));
+                }
+            }
+        });
+    }
+
+    private async Task LoadMoreTagsAsync(Guid sessionId)
+    {
+        if (tagEnumerator == null || isLoadingTags || currentPostSessionId != sessionId) return;
+        
+        isLoadingTags = true;
+        try 
+        {
+            var enumerator = tagEnumerator;
+            var loaded = new List<string>();
+            
+            for (int i = 0; i < 10; i++)
+            {
+                if (currentPostSessionId != sessionId) return;
+
+                if (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                {
+                    loaded.Add(enumerator.Current);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if (loaded.Count > 0 && currentPostSessionId == sessionId)
+            {
+                Application.MainLoop.Invoke(() =>
+                {
+                    if (currentPostSessionId != sessionId) return;
+
+                    var scrollToIndex = displayedTags.Count;
+                    if (displayedTags.Count == 0)
+                    {
+                        var countText = totalTagCount < 0 ? "..." : totalTagCount.ToString();
+                        displayedTags.Add($"--- Showing Tags ({countText} total) ---");
+                        scrollToIndex = 0;
+                    }
+                    
+                    displayedTags.AddRange(loaded);
+                    SafeSetListViewSource(tagsListView, displayedTags);
+
+                    if (scrollToIndex < tagsListView.Source.Count)
+                    {
+                        try { tagsListView.TopItem = scrollToIndex; } catch {}
+                        try { tagsListView.SelectedItem = scrollToIndex; } catch {}
+                    }
+                });
+            }
+        }
+        finally
+        {
+            if (currentPostSessionId == sessionId)
+            {
+                isLoadingTags = false;
+            }
+        }
+    }
+
+    private async Task LoadMoreCommentsAsync(Guid sessionId)
+    {
+        if (commentEnumerator == null || isLoadingComments || currentPostSessionId != sessionId) return;
+        
+        isLoadingComments = true;
+        try 
+        {
+            var enumerator = commentEnumerator;
+            var loaded = new List<Comment>();
+            
+            for (int i = 0; i < 10; i++)
+            {
+                if (currentPostSessionId != sessionId) return;
+
+                if (await enumerator.MoveNextAsync().ConfigureAwait(false))
+                {
+                    loaded.Add(enumerator.Current.Value);
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            if (loaded.Count > 0 && currentPostSessionId == sessionId)
+            {
+                var formatted = loaded
                     .OrderByDescending(c => c.CreatedAt)
                     .Select(c => $"[{c.CreatedAt:g}] {c.Author}: {c.Text}")
                     .ToList();
-                
-                displayedComments.Add($"--- Partition {indexToLoad + 1}/{totalCommentPartitionCount} ({comments.Count} comments) ---");
-                displayedComments.AddRange(newComments);
 
-                SafeSetListViewSource(commentListView, displayedComments);
-
-                if (scrollToIndex < commentListView.Source.Count)
+                Application.MainLoop.Invoke(() =>
                 {
-                    try { commentListView.TopItem = scrollToIndex; } catch {}
-                    try { commentListView.SelectedItem = scrollToIndex; } catch {}
-                }
+                    if (currentPostSessionId != sessionId) return;
+
+                    var scrollToIndex = displayedComments.Count;
+                    if (displayedComments.Count == 0)
+                    {
+                        var countText = totalCommentCount < 0 ? "..." : totalCommentCount.ToString();
+                        displayedComments.Add($"--- Showing Comments ({countText} total) ---");
+                        scrollToIndex = 0;
+                    }
+
+                    displayedComments.AddRange(formatted);
+                    SafeSetListViewSource(commentListView, displayedComments);
+
+                    if (scrollToIndex < commentListView.Source.Count)
+                    {
+                        try { commentListView.TopItem = scrollToIndex; } catch {}
+                        try { commentListView.SelectedItem = scrollToIndex; } catch {}
+                    }
+                });
             }
+        }
+        finally 
+        {
+            if (currentPostSessionId == sessionId)
+            {
+                isLoadingComments = false;
+            }
+        }
+    }
+
+    private async Task RefreshTagsAsync(Guid sessionId)
+    {
+        if (currentPostSessionId != sessionId) return;
+
+        await DisposeTagEnumeratorAsync().ConfigureAwait(false);
+        tagEnumerator = documentCollection.GetElementsAsync<string>(selectedBlogPostId, TagsPropertyName).GetAsyncEnumerator();
+        
+        Application.MainLoop.Invoke(() => {
+            if (currentPostSessionId != sessionId) return;
+            displayedTags.Clear();
+            SafeSetListViewSource(tagsListView, displayedTags);
         });
+        
+        await LoadMoreTagsAsync(sessionId).ConfigureAwait(false);
+    }
+
+    private async Task RefreshCommentsAsync(Guid sessionId)
+    {
+        if (currentPostSessionId != sessionId) return;
+
+        await DisposeCommentEnumeratorAsync().ConfigureAwait(false);
+        commentEnumerator = documentCollection.GetElementsAsync<KeyValuePair<DateTimeOffset, Comment>>(selectedBlogPostId, CommentsPropertyName).GetAsyncEnumerator();
+        
+        Application.MainLoop.Invoke(() => {
+            if (currentPostSessionId != sessionId) return;
+            displayedComments.Clear();
+            SafeSetListViewSource(commentListView, displayedComments);
+        });
+        
+        await LoadMoreCommentsAsync(sessionId).ConfigureAwait(false);
+    }
+
+    private async Task DisposeTagEnumeratorAsync()
+    {
+        var e = tagEnumerator;
+        tagEnumerator = null;
+        if (e != null) await e.DisposeAsync().ConfigureAwait(false);
+    }
+
+    private async Task DisposeCommentEnumeratorAsync()
+    {
+        var e = commentEnumerator;
+        commentEnumerator = null;
+        if (e != null) await e.DisposeAsync().ConfigureAwait(false);
+    }
+
+    private async Task DisposeEnumeratorsAsync()
+    {
+        await DisposeTagEnumeratorAsync().ConfigureAwait(false);
+        await DisposeCommentEnumeratorAsync().ConfigureAwait(false);
     }
 
     private void ShowNewPostDialog()
@@ -579,32 +795,46 @@ public sealed class UiService
         var btnOk = new Button("Create", is_default: true);
         var btnCancel = new Button("Cancel");
 
-        btnOk.Clicked += async () => {
+        btnOk.Clicked += () => {
             Application.RequestStop();
             var title = titleText.Text?.ToString();
             var content = contentText.Text?.ToString();
             if (string.IsNullOrWhiteSpace(title)) return;
 
-            var id = Guid.NewGuid();
-            var newPost = new BlogPost { Id = id, Title = title, Content = content ?? "" };
-            
-            await partitionManager.InitializeAsync(new BlogPost { Id = id });
-            var emptyDoc = await partitionManager.GetHeaderPartitionContentAsync(id);
-            var patcher = currentScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-            var applicator = currentScope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
-            
-            var patch = patcher.GeneratePatch(emptyDoc.Value, newPost);
-            
-            // Operations generated during patch apply will be captured automatically by the JournalingApplicatorDecorator
-            await applicator.ApplyPatchAsync(emptyDoc.Value, patch);
+            Task.Run(async () =>
+            {
+                try
+                {
+                    var id = Guid.NewGuid();
+                    var newPost = new BlogPost { Id = id, Title = title, Content = content ?? "" };
+                    
+                    await chunkManager.InitializeAsync(new BlogPost { Id = id }).ConfigureAwait(false);
+                    var emptyDoc = await documentCollection.GetDocumentHeaderAsync(id).ConfigureAwait(false);
+                    var patcher = currentScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+                    var applicator = currentScope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
+                    
+                    var patch = patcher.GeneratePatch(emptyDoc.Value, newPost);
+                    
+                    // Operations generated during patch apply will be captured automatically by the JournalingApplicatorDecorator
+                    await applicator.ApplyPatchAsync(emptyDoc.Value, patch).ConfigureAwait(false);
 
-            Application.MainLoop.Invoke(() => {
-                SaveReplicaStates();
-                if (!blogPostIds.Contains(id)) {
-                    blogPostIds.Add(id);
+                    Application.MainLoop.Invoke(() => {
+                        SaveReplicaStates();
+                        lock (blogPostIds)
+                        {
+                            if (!blogPostIds.Contains(id)) {
+                                blogPostIds.Add(id);
+                            }
+                        }
+                        UpdateSyncStatusUI();
+                    });
+                    
+                    await LoadBlogPostHeadersAsync().ConfigureAwait(false);
                 }
-                UpdateSyncStatusUI();
-                LoadBlogPostHeadersAsync();
+                catch (Exception ex)
+                {
+                    Application.MainLoop.Invoke(() => MessageBox.ErrorQuery("Error", ex.Message, "Ok"));
+                }
             });
         };
         btnCancel.Clicked += () => Application.RequestStop();
@@ -631,37 +861,47 @@ public sealed class UiService
         var btnOk = new Button("Add", is_default: true);
         var btnCancel = new Button("Cancel");
 
-        btnOk.Clicked += async () => {
+        btnOk.Clicked += () => {
             Application.RequestStop();
             var author = authorText.Text?.ToString();
             var content = contentText.Text?.ToString();
             if (string.IsNullOrWhiteSpace(author) || string.IsNullOrWhiteSpace(content)) return;
 
-            var comment = new Comment(Guid.NewGuid(), author, content, DateTimeOffset.UtcNow);
-            
-            var headerContent = await partitionManager.GetHeaderPartitionContentAsync(selectedBlogPostId);
-            var patcher = currentScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-            var applicator = currentScope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
-            
-            var fromDoc = new CrdtDocument<BlogPost>(
-                new BlogPost { Id = selectedBlogPostId, Comments = new Dictionary<DateTimeOffset, Comment>() }, 
-                headerContent.Value.Metadata);
-            
-            var operation = patcher.GenerateOperation(fromDoc, x => x.Comments, new MapSetIntent(comment.CreatedAt, comment));
-            var patch = new CrdtPatch(new[] { operation });
-            
-            // Journal decorator automatically saves
-            await applicator.ApplyPatchAsync(fromDoc, patch);
+            var sessionId = currentPostSessionId;
+            Task.Run(async () =>
+            {
+                try
+                {
+                    var comment = new Comment(Guid.NewGuid(), author, content, DateTimeOffset.UtcNow);
+                    
+                    var headerContent = await documentCollection.GetDocumentHeaderAsync(selectedBlogPostId).ConfigureAwait(false);
+                    var patcher = currentScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+                    var applicator = currentScope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
+                    
+                    var fromDoc = new CrdtDocument<BlogPost>(
+                        new BlogPost { Id = selectedBlogPostId, Comments = new Dictionary<DateTimeOffset, Comment>() }, 
+                        headerContent.Value.Metadata);
+                    
+                    var operation = patcher.GenerateOperation(fromDoc, x => x.Comments, new MapSetIntent(comment.CreatedAt, comment));
+                    var patch = new CrdtPatch(new[] { operation });
+                    
+                    // Journal decorator automatically saves
+                    await applicator.ApplyPatchAsync(fromDoc, patch).ConfigureAwait(false);
 
-            var commentCount = await partitionManager.GetDataPartitionCountAsync(selectedBlogPostId, CommentsPropertyName);
-            
-            Application.MainLoop.Invoke(() => {
-                SaveReplicaStates();
-                totalCommentPartitionCount = commentCount;
-                currentCommentPartitionIndex = (int)totalCommentPartitionCount;
-                displayedComments.Clear();
-                UpdateSyncStatusUI();
-                LoadNextCommentPartition();
+                    var commentCount = await documentCollection.GetElementCountAsync(selectedBlogPostId, CommentsPropertyName).ConfigureAwait(false);
+                    
+                    Application.MainLoop.Invoke(() => {
+                        SaveReplicaStates();
+                        totalCommentCount = commentCount;
+                        UpdateSyncStatusUI();
+                    });
+                    
+                    await RefreshCommentsAsync(sessionId).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Application.MainLoop.Invoke(() => MessageBox.ErrorQuery("Error", ex.Message, "Ok"));
+                }
             });
         };
         btnCancel.Clicked += () => Application.RequestStop();
@@ -686,30 +926,42 @@ public sealed class UiService
         var btnOk = new Button("Add", is_default: true);
         var btnCancel = new Button("Cancel");
 
-        btnOk.Clicked += async () => {
+        btnOk.Clicked += () => {
             Application.RequestStop();
             var newTag = tagText.Text?.ToString();
             if (string.IsNullOrWhiteSpace(newTag)) return;
 
-            var headerContent = await partitionManager.GetHeaderPartitionContentAsync(selectedBlogPostId);
-            var patcher = currentScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
-            var applicator = currentScope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
-            
-            var header = headerContent.Value.Data;
-            var fromDoc = new CrdtDocument<BlogPost>(header, headerContent.Value.Metadata);
-            
-            var operation = patcher.GenerateOperation(fromDoc, x => x.Tags, new AddIntent(newTag));
-            var patch = new CrdtPatch(new[] { operation });
-            
-            // Journal decorator automatically saves
-            await applicator.ApplyPatchAsync(fromDoc, patch);
+            var sessionId = currentPostSessionId;
+            Task.Run(async () =>
+            {
+                try
+                {
+                    var headerContent = await documentCollection.GetDocumentHeaderAsync(selectedBlogPostId).ConfigureAwait(false);
+                    var patcher = currentScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+                    var applicator = currentScope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
+                    
+                    var header = headerContent.Value.Data;
+                    var fromDoc = new CrdtDocument<BlogPost>(header, headerContent.Value.Metadata);
+                    
+                    var operation = patcher.GenerateOperation(fromDoc, x => x.Tags, new AddIntent(newTag));
+                    var patch = new CrdtPatch(new[] { operation });
+                    
+                    // Journal decorator automatically saves
+                    await applicator.ApplyPatchAsync(fromDoc, patch).ConfigureAwait(false);
 
-            Application.MainLoop.Invoke(() => {
-                SaveReplicaStates();
-                UpdateSyncStatusUI();
-                var index = blogPostHeaders.FindIndex(h => h.Id == selectedBlogPostId);
-                if (index >= 0) {
-                    LoadPostDetails(index);
+                    var tagCount = await documentCollection.GetElementCountAsync(selectedBlogPostId, TagsPropertyName).ConfigureAwait(false);
+
+                    Application.MainLoop.Invoke(() => {
+                        SaveReplicaStates();
+                        totalTagCount = tagCount;
+                        UpdateSyncStatusUI();
+                    });
+                    
+                    await RefreshTagsAsync(sessionId).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Application.MainLoop.Invoke(() => MessageBox.ErrorQuery("Error", ex.Message, "Ok"));
                 }
             });
         };
@@ -721,72 +973,83 @@ public sealed class UiService
         Application.Run(dialog);
     }
 
-    private async void SyncReplicas()
+    private void SyncReplicas()
     {
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        var vvSyncService = serviceProvider.GetRequiredService<IVersionVectorSyncService>();
-        int syncCount = 0;
-
-        foreach (var replica in replicaIds.Where(r => r != currentReplicaId))
+        Task.Run(async () => 
         {
-            var req = vvSyncService.CalculateRequirement(currentReplicaId, replicaDvvs[currentReplicaId], replica, replicaDvvs[replica]);
-            if (!req.IsBehind) continue;
-
-            // Fetch missing operations directly from the source replica's journal
-            using var sourceScope = scopeFactory.CreateScope(replica, replicaDvvs[replica]);
-            var sourceJournalManager = sourceScope.ServiceProvider.GetRequiredService<IJournalManager>();
-            var missingOpsStream = sourceJournalManager.GetMissingOperationsAsync(req);
-
-            var opsByDocument = new Dictionary<string, List<CrdtOperation>>();
-            await foreach (var jOp in missingOpsStream)
+            try
             {
-                if (!opsByDocument.TryGetValue(jOp.DocumentId, out var opList))
+                var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+                var vvSyncService = serviceProvider.GetRequiredService<IVersionVectorSyncService>();
+                int syncCount = 0;
+
+                foreach (var replica in replicaIds.Where(r => r != currentReplicaId))
                 {
-                    opList = new List<CrdtOperation>();
-                    opsByDocument[jOp.DocumentId] = opList;
-                }
-                opList.Add(jOp.Operation);
-            }
+                    var req = vvSyncService.CalculateRequirement(currentReplicaId, replicaDvvs[currentReplicaId], replica, replicaDvvs[replica]);
+                    if (!req.IsBehind) continue;
 
-            if (opsByDocument.Count > 0)
-            {
-                var keys = new HashSet<IComparable>(await partitionManager.GetAllLogicalKeysAsync());
-                var targetApplicator = currentScope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
+                    // Fetch missing operations directly from the source replica's journal
+                    using var sourceScope = scopeFactory.CreateScope(replica, replicaDvvs[replica]);
+                    var sourceJournalManager = sourceScope.ServiceProvider.GetRequiredService<IJournalManager>();
+                    var missingOpsStream = sourceJournalManager.GetMissingOperationsAsync(req);
 
-                foreach (var kvp in opsByDocument)
-                {
-                    if (!Guid.TryParse(kvp.Key, out var logicalKey)) continue;
-
-                    if (!keys.Contains(logicalKey))
+                    var opsByDocument = new Dictionary<string, List<CrdtOperation>>();
+                    await foreach (var jOp in missingOpsStream.ConfigureAwait(false))
                     {
-                        await partitionManager.InitializeAsync(new BlogPost { Id = logicalKey });
-                        keys.Add(logicalKey);
-                    }
-                    
-                    var headerDoc = await partitionManager.GetHeaderPartitionContentAsync(logicalKey);
-                    
-                    async IAsyncEnumerable<JournaledOperation> GetDocumentOpsStreamAsync()
-                    {
-                        foreach (var op in kvp.Value)
+                        if (!opsByDocument.TryGetValue(jOp.DocumentId, out var opList))
                         {
-                            yield return new JournaledOperation(kvp.Key, op);
+                            opList = new List<CrdtOperation>();
+                            opsByDocument[jOp.DocumentId] = opList;
                         }
-                        
-                        await Task.CompletedTask;
+                        opList.Add(jOp.Operation);
                     }
 
-                    // Using ApplyOperationsAsync guarantees that out-of-order operations are retried and dependencies resolved properly
-                    await targetApplicator.ApplyOperationsAsync(headerDoc.Value, GetDocumentOpsStreamAsync());
-                    syncCount++;
-                }
-            }
-        }
+                    if (opsByDocument.Count > 0)
+                    {
+                        var keys = new HashSet<IComparable>(await documentCollection.GetAllLogicalKeysAsync().ConfigureAwait(false));
+                        var targetApplicator = currentScope.ServiceProvider.GetRequiredService<IAsyncCrdtApplicator>();
 
-        Application.MainLoop.Invoke(() => {
-            SaveReplicaStates();
-            MessageBox.Query("Sync Complete", $"Successfully pulled and applied patches for {syncCount} documents to '{currentReplicaId}'.", "Ok");
-            UpdateSyncStatusUI();
-            LoadBlogPostHeadersAsync();
+                        foreach (var kvp in opsByDocument)
+                        {
+                            if (!Guid.TryParse(kvp.Key, out var logicalKey)) continue;
+
+                            if (!keys.Contains(logicalKey))
+                            {
+                                await chunkManager.InitializeAsync(new BlogPost { Id = logicalKey }).ConfigureAwait(false);
+                                keys.Add(logicalKey);
+                            }
+                            
+                            var headerDoc = await documentCollection.GetDocumentHeaderAsync(logicalKey).ConfigureAwait(false);
+                            
+                            async IAsyncEnumerable<JournaledOperation> GetDocumentOpsStreamAsync()
+                            {
+                                foreach (var op in kvp.Value)
+                                {
+                                    yield return new JournaledOperation(kvp.Key, op);
+                                }
+                                
+                                await Task.CompletedTask.ConfigureAwait(false);
+                            }
+
+                            // Using ApplyOperationsAsync guarantees that out-of-order operations are retried and dependencies resolved properly
+                            await targetApplicator.ApplyOperationsAsync(headerDoc.Value, GetDocumentOpsStreamAsync()).ConfigureAwait(false);
+                            syncCount++;
+                        }
+                    }
+                }
+
+                Application.MainLoop.Invoke(() => {
+                    SaveReplicaStates();
+                    MessageBox.Query("Sync Complete", $"Successfully pulled and applied patches for {syncCount} documents to '{currentReplicaId}'.", "Ok");
+                    UpdateSyncStatusUI();
+                });
+                
+                await LoadBlogPostHeadersAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Application.MainLoop.Invoke(() => MessageBox.ErrorQuery("Error", ex.Message, "Ok"));
+            }
         });
     }
 }

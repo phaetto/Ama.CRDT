@@ -52,7 +52,7 @@ public static class StreamPartitioningServiceCollectionExtensions
         services.TryAddScoped<IPartitionSerializationService>(sp => { ValidateReplicaScope(sp, nameof(DefaultPartitionSerializationService)); return sp.GetRequiredService<DefaultPartitionSerializationService>(); });
         
         services.TryAddScoped<StreamPartitionStorageService>();
-        services.TryAddScoped<IPartitionStorageService>(sp => { ValidateReplicaScope(sp, nameof(StreamPartitionStorageService)); return sp.GetRequiredService<StreamPartitionStorageService>(); });
+        services.TryAddScoped<IChunkStorageService>(sp => { ValidateReplicaScope(sp, nameof(StreamPartitionStorageService)); return sp.GetRequiredService<StreamPartitionStorageService>(); });
 
         return services;
     }
