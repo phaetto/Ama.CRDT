@@ -19,10 +19,10 @@ using Ama.CRDT.Services.LargerThanMemory;
 using Ama.CRDT.Models.LargerThanMemory;
 
 /// <summary>
-/// An implementation of <see cref="IPartitionStorageService"/> that coordinates raw streams and an internal B+ Tree index
-/// to persist and search partition data. This centralizes space allocation, caching, and serialization operations.
+/// An implementation of <see cref="IChunkStorageService"/> that coordinates raw streams and an internal B+ Tree index
+/// to persist and search chunk data. This centralizes space allocation, caching, and serialization operations.
 /// </summary>
-public sealed class StreamPartitionStorageService : IPartitionStorageService
+public sealed class StreamPartitionStorageService : IChunkStorageService
 {
     private const int HeaderSize = 1024; // Reserve 1KB for B+ Tree header
     private const string HeaderIdentifier = "__HEADER__";
@@ -67,25 +67,25 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         this.crdtSerializer = crdtSerializer;
     }
 
-    #region Data Stream Operations (IPartitionStorageService core)
+    #region Data Stream Operations (IChunkStorageService core)
 
     /// <inheritdoc/>
-    public async Task<CrdtDocument<TData>> LoadPartitionContentAsync<TData>(IComparable logicalKey, string propertyName, IChunk partition, CancellationToken cancellationToken = default) where TData : class
+    public async Task<CrdtDocument<TData>> LoadChunkContentAsync<TData>(IComparable logicalKey, string propertyName, IChunk chunk, CancellationToken cancellationToken = default) where TData : class
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
-        ArgumentNullException.ThrowIfNull(partition);
+        ArgumentNullException.ThrowIfNull(chunk);
 
         var streamLock = GetLock(GetDataLockKey(logicalKey, propertyName));
         using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
         using var timer = new MetricTimer(metrics.StreamReadDuration);
         var dataStream = await streamProvider.GetPropertyDataStreamAsync(logicalKey, propertyName, cancellationToken).ConfigureAwait(false);
-        return await LoadContentInternalAsync<TData>(partition, dataStream, cancellationToken).ConfigureAwait(false);
+        return await LoadContentInternalAsync<TData>(chunk, dataStream, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    public async Task<CrdtDocument<TData>> LoadHeaderPartitionContentAsync<TData>(IComparable logicalKey, HeaderChunk partition, CancellationToken cancellationToken = default) where TData : class
+    public async Task<CrdtDocument<TData>> LoadHeaderChunkContentAsync<TData>(IComparable logicalKey, HeaderChunk chunk, CancellationToken cancellationToken = default) where TData : class
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
 
@@ -94,19 +94,19 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
         using var timer = new MetricTimer(metrics.StreamReadDuration);
         var dataStream = await streamProvider.GetHeaderDataStreamAsync(logicalKey, cancellationToken).ConfigureAwait(false);
-        return await LoadContentInternalAsync<TData>(partition, dataStream, cancellationToken).ConfigureAwait(false);
+        return await LoadContentInternalAsync<TData>(chunk, dataStream, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<CrdtDocument<TData>> LoadContentInternalAsync<TData>(IChunk partition, Stream dataStream, CancellationToken cancellationToken) where TData : class
+    private async Task<CrdtDocument<TData>> LoadContentInternalAsync<TData>(IChunk chunk, Stream dataStream, CancellationToken cancellationToken) where TData : class
     {
-        var docBuffer = new byte[partition.DataLength];
-        dataStream.Seek(partition.DataOffset, SeekOrigin.Begin);
+        var docBuffer = new byte[chunk.DataLength];
+        dataStream.Seek(chunk.DataOffset, SeekOrigin.Begin);
         await dataStream.ReadExactlyAsync(docBuffer, cancellationToken).ConfigureAwait(false);
         using var docStream = new MemoryStream(docBuffer);
         var doc = await serializationService.DeserializeObjectAsync<TData>(docStream, cancellationToken).ConfigureAwait(false);
         
-        var metaBuffer = new byte[partition.MetadataLength];
-        dataStream.Seek(partition.MetadataOffset, SeekOrigin.Begin);
+        var metaBuffer = new byte[chunk.MetadataLength];
+        dataStream.Seek(chunk.MetadataOffset, SeekOrigin.Begin);
         await dataStream.ReadExactlyAsync(metaBuffer, cancellationToken).ConfigureAwait(false);
         using var metaStream = new MemoryStream(metaBuffer);
         var meta = await serializationService.DeserializeObjectAsync<CrdtMetadata>(metaStream, cancellationToken).ConfigureAwait(false);
@@ -115,11 +115,11 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     }
 
     /// <inheritdoc/>
-    public async Task<IChunk> SavePartitionContentAsync<TData>(IComparable logicalKey, string propertyName, IChunk partitionToUpdate, TData data, CrdtMetadata metadata, CancellationToken cancellationToken = default) where TData : class
+    public async Task<IChunk> SaveChunkContentAsync<TData>(IComparable logicalKey, string propertyName, IChunk chunkToUpdate, TData data, CrdtMetadata metadata, CancellationToken cancellationToken = default) where TData : class
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
-        ArgumentNullException.ThrowIfNull(partitionToUpdate);
+        ArgumentNullException.ThrowIfNull(chunkToUpdate);
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(metadata);
 
@@ -130,10 +130,10 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         var dataStream = await streamProvider.GetPropertyDataStreamAsync(logicalKey, propertyName, cancellationToken).ConfigureAwait(false);
         var header = await ReadOrCreateDataHeaderAsync(dataStream, cancellationToken).ConfigureAwait(false);
         
-        long oldDataOffset = partitionToUpdate is CollectionChunk dp1 && dp1.DataOffset > 0 ? dp1.DataOffset : -1;
-        long oldDataLength = partitionToUpdate.DataLength;
-        long oldMetaOffset = partitionToUpdate is CollectionChunk dp2 && dp2.MetadataOffset > 0 ? dp2.MetadataOffset : -1;
-        long oldMetaLength = partitionToUpdate.MetadataLength;
+        long oldDataOffset = chunkToUpdate is CollectionChunk dp1 && dp1.DataOffset > 0 ? dp1.DataOffset : -1;
+        long oldDataLength = chunkToUpdate.DataLength;
+        long oldMetaOffset = chunkToUpdate is CollectionChunk dp2 && dp2.MetadataOffset > 0 ? dp2.MetadataOffset : -1;
+        long oldMetaLength = chunkToUpdate.MetadataLength;
 
         var newDataWriteResult = await WriteToStreamAsync(dataStream, data, header, oldDataOffset, oldDataLength, cancellationToken).ConfigureAwait(false);
         header = newDataWriteResult.Header;
@@ -143,15 +143,15 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
         await WriteDataHeaderAsync(dataStream, header, cancellationToken).ConfigureAwait(false);
 
-        return partitionToUpdate switch
+        return chunkToUpdate switch
         {
             CollectionChunk dp => dp with { DataOffset = newDataWriteResult.Offset, DataLength = newDataWriteResult.Length, MetadataOffset = newMetaWriteResult.Offset, MetadataLength = newMetaWriteResult.Length },
-            _ => throw new NotSupportedException($"Unknown partition type: {partitionToUpdate.GetType().Name}")
+            _ => throw new NotSupportedException($"Unknown chunk type: {chunkToUpdate.GetType().Name}")
         };
     }
 
     /// <inheritdoc/>
-    public async Task<HeaderChunk> SaveHeaderPartitionContentAsync<TData>(IComparable logicalKey, HeaderChunk partitionToUpdate, TData data, CrdtMetadata metadata, CancellationToken cancellationToken = default) where TData : class
+    public async Task<HeaderChunk> SaveHeaderChunkContentAsync<TData>(IComparable logicalKey, HeaderChunk chunkToUpdate, TData data, CrdtMetadata metadata, CancellationToken cancellationToken = default) where TData : class
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
         ArgumentNullException.ThrowIfNull(data);
@@ -164,10 +164,10 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         var dataStream = await streamProvider.GetHeaderDataStreamAsync(logicalKey, cancellationToken).ConfigureAwait(false);
         var header = await ReadOrCreateDataHeaderAsync(dataStream, cancellationToken).ConfigureAwait(false);
         
-        long oldDataOffset = partitionToUpdate.DataOffset > 0 ? partitionToUpdate.DataOffset : -1;
-        long oldDataLength = partitionToUpdate.DataLength;
-        long oldMetaOffset = partitionToUpdate.MetadataOffset > 0 ? partitionToUpdate.MetadataOffset : -1;
-        long oldMetaLength = partitionToUpdate.MetadataLength;
+        long oldDataOffset = chunkToUpdate.DataOffset > 0 ? chunkToUpdate.DataOffset : -1;
+        long oldDataLength = chunkToUpdate.DataLength;
+        long oldMetaOffset = chunkToUpdate.MetadataOffset > 0 ? chunkToUpdate.MetadataOffset : -1;
+        long oldMetaLength = chunkToUpdate.MetadataLength;
 
         var newDataWriteResult = await WriteToStreamAsync(dataStream, data, header, oldDataOffset, oldDataLength, cancellationToken).ConfigureAwait(false);
         header = newDataWriteResult.Header;
@@ -177,7 +177,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
         await WriteDataHeaderAsync(dataStream, header, cancellationToken).ConfigureAwait(false);
 
-        return partitionToUpdate with { DataOffset = newDataWriteResult.Offset, DataLength = newDataWriteResult.Length, MetadataOffset = newMetaWriteResult.Offset, MetadataLength = newMetaWriteResult.Length };
+        return chunkToUpdate with { DataOffset = newDataWriteResult.Offset, DataLength = newDataWriteResult.Length, MetadataOffset = newMetaWriteResult.Offset, MetadataLength = newMetaWriteResult.Length };
     }
 
     private async Task<StreamWriteResult> WriteToStreamAsync(
@@ -278,7 +278,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
     #endregion
 
-    #region Index Stream Operations (Formerly IPartitioningStrategy)
+    #region Index Stream Operations
 
     /// <inheritdoc/>
     public async Task InitializePropertyIndexAsync(string propertyName, CancellationToken cancellationToken = default) 
@@ -300,96 +300,84 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
     }
 
     /// <inheritdoc/>
-    public async Task InsertPropertyPartitionAsync(string propertyName, IChunk partition, CancellationToken cancellationToken = default) 
+    public async Task InsertPropertyChunkAsync(string propertyName, IChunk chunk, CancellationToken cancellationToken = default) 
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
-        ArgumentNullException.ThrowIfNull(partition);
+        ArgumentNullException.ThrowIfNull(chunk);
 
         var streamLock = GetLock(GetIndexLockKey(propertyName));
         using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        await InsertPartitionInternalAsync(partition, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
+        await InsertChunkInternalAsync(chunk, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    public async Task InsertHeaderPartitionAsync(IComparable logicalKey, HeaderChunk headerPartition, CancellationToken cancellationToken = default) 
+    public async Task InsertHeaderChunkAsync(IComparable logicalKey, HeaderChunk headerChunk, CancellationToken cancellationToken = default) 
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
 
         var streamLock = GetLock(GetIndexLockKey(HeaderIdentifier));
         using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        await InsertPartitionInternalAsync(headerPartition, HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken).ConfigureAwait(false);
+        await InsertChunkInternalAsync(headerChunk, HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    public async Task UpdatePropertyPartitionAsync(string propertyName, IChunk partition, CancellationToken cancellationToken = default) 
+    public async Task UpdatePropertyChunkAsync(string propertyName, IChunk chunk, CancellationToken cancellationToken = default) 
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
-        ArgumentNullException.ThrowIfNull(partition);
+        ArgumentNullException.ThrowIfNull(chunk);
 
         var streamLock = GetLock(GetIndexLockKey(propertyName));
         using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        await UpdatePartitionInternalAsync(partition, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
+        await UpdateChunkInternalAsync(chunk, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    public async Task UpdateHeaderPartitionAsync(IComparable logicalKey, HeaderChunk headerPartition, CancellationToken cancellationToken = default) 
+    public async Task UpdateHeaderChunkAsync(IComparable logicalKey, HeaderChunk headerChunk, CancellationToken cancellationToken = default) 
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
 
         var streamLock = GetLock(GetIndexLockKey(HeaderIdentifier));
         using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        await UpdatePartitionInternalAsync(headerPartition, HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken).ConfigureAwait(false);
+        await UpdateChunkInternalAsync(headerChunk, HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    public async Task DeletePropertyPartitionAsync(string propertyName, IChunk partition, CancellationToken cancellationToken = default) 
+    public async Task DeletePropertyChunkAsync(string propertyName, IChunk chunk, CancellationToken cancellationToken = default) 
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
-        ArgumentNullException.ThrowIfNull(partition);
+        ArgumentNullException.ThrowIfNull(chunk);
 
         var streamLock = GetLock(GetIndexLockKey(propertyName));
         using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        await DeletePartitionInternalAsync(partition, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
+        await DeleteChunkInternalAsync(chunk, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    public IAsyncEnumerable<IChunk> GetPartitionsAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default) 
+    public IAsyncEnumerable<IChunk> GetChunksAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default) 
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
-        return GetAllPartitionsInternalAsync(propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), logicalKey, cancellationToken);
+        return GetAllChunksInternalAsync(propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), logicalKey, cancellationToken);
     }
 
     /// <inheritdoc/>
-    public async Task<IChunk?> GetPropertyPartitionAsync(CompositeChunkKey key, string propertyName, CancellationToken cancellationToken = default) 
+    public async Task<IChunk?> GetPropertyChunkAsync(CompositeChunkKey key, string propertyName, CancellationToken cancellationToken = default) 
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
 
         var streamLock = GetLock(GetIndexLockKey(propertyName));
         using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        return await FindPartitionInternalAsync(key, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
+        return await FindChunkInternalAsync(key, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    public async Task<long> GetPropertyPartitionCountAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default) 
-    {
-        ArgumentNullException.ThrowIfNull(logicalKey);
-        ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
-
-        var streamLock = GetLock(GetIndexLockKey(propertyName));
-        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
-
-        return await GetPartitionCountInternalAsync(propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), logicalKey, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <inheritdoc/>
-    public async Task<IChunk?> GetPropertyPartitionByIndexAsync(IComparable logicalKey, long index, string propertyName, CancellationToken cancellationToken = default) 
+    public async Task<long> GetPropertyChunkCountAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default) 
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
@@ -397,24 +385,36 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         var streamLock = GetLock(GetIndexLockKey(propertyName));
         using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        return await GetDataPartitionByIndexInternalAsync(logicalKey, index, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
+        return await GetChunkCountInternalAsync(propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), logicalKey, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    public async Task<HeaderChunk?> GetHeaderPartitionAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
+    public async Task<IChunk?> GetPropertyChunkByIndexAsync(IComparable logicalKey, long index, string propertyName, CancellationToken cancellationToken = default) 
+    {
+        ArgumentNullException.ThrowIfNull(logicalKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
+
+        var streamLock = GetLock(GetIndexLockKey(propertyName));
+        using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
+
+        return await GetDataChunkByIndexInternalAsync(logicalKey, index, propertyName, ct => streamProvider.GetPropertyIndexStreamAsync(propertyName, ct), cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async Task<HeaderChunk?> GetHeaderChunkAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
 
         var streamLock = GetLock(GetIndexLockKey(HeaderIdentifier));
         using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        var result = await FindPartitionInternalAsync(new CompositeChunkKey(logicalKey, null), HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken).ConfigureAwait(false);
+        var result = await FindChunkInternalAsync(new CompositeChunkKey(logicalKey, null), HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, cancellationToken).ConfigureAwait(false);
         return result is HeaderChunk hp ? hp : null;
     }
 
     /// <inheritdoc/>
-    public IAsyncEnumerable<IChunk> GetAllHeaderPartitionsAsync(CancellationToken cancellationToken = default) 
-        => GetAllPartitionsInternalAsync(HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, null, cancellationToken);
+    public IAsyncEnumerable<IChunk> GetAllHeaderChunksAsync(CancellationToken cancellationToken = default) 
+        => GetAllChunksInternalAsync(HeaderIdentifier, streamProvider.GetHeaderIndexStreamAsync, null, cancellationToken);
 
     #endregion
 
@@ -442,7 +442,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         }
     }
     
-    private async Task<IChunk?> FindPartitionInternalAsync(CompositeChunkKey key, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
+    private async Task<IChunk?> FindChunkInternalAsync(CompositeChunkKey key, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
         using var timer = new MetricTimer(treeMetrics.FindDuration);
         var indexStream = await getIndexStream(cancellationToken).ConfigureAwait(false);
@@ -455,7 +455,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         return await FindInNodeAsync(indexStream, header.RootNodeOffset, key, propertyName, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task InsertPartitionInternalAsync(IChunk partition, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
+    private async Task InsertChunkInternalAsync(IChunk chunk, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
         using var timer = new MetricTimer(treeMetrics.InsertDuration);
         var indexStream = await getIndexStream(cancellationToken).ConfigureAwait(false);
@@ -476,18 +476,18 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             header = newRootWriteResult.Header;
             header = header with { RootNodeOffset = newRootWriteResult.Offset };
             
-            var finalRootWriteResult = await InsertNonFullAsync(indexStream, header, newRoot, newRootWriteResult.Offset, partition, propertyName, cancellationToken).ConfigureAwait(false);
+            var finalRootWriteResult = await InsertNonFullAsync(indexStream, header, newRoot, newRootWriteResult.Offset, chunk, propertyName, cancellationToken).ConfigureAwait(false);
             header = finalRootWriteResult.Header with { RootNodeOffset = finalRootWriteResult.Offset };
         }
         else
         {
-            var newRootWriteResult = await InsertNonFullAsync(indexStream, header, root, header.RootNodeOffset, partition, propertyName, cancellationToken).ConfigureAwait(false);
+            var newRootWriteResult = await InsertNonFullAsync(indexStream, header, root, header.RootNodeOffset, chunk, propertyName, cancellationToken).ConfigureAwait(false);
             header = newRootWriteResult.Header with { RootNodeOffset = newRootWriteResult.Offset };
         }
         await serializationService.WriteHeaderAsync(indexStream, header, HeaderSize, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task UpdatePartitionInternalAsync(IChunk partition, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
+    private async Task UpdateChunkInternalAsync(IChunk chunk, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
         using var timer = new MetricTimer(treeMetrics.UpdateDuration);
         var indexStream = await getIndexStream(cancellationToken).ConfigureAwait(false);
@@ -495,12 +495,12 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken).ConfigureAwait(false);
         if (header.RootNodeOffset == -1) throw new InvalidOperationException("Index strategy has not been initialized correctly, root node is missing.");
         
-        var rootWriteResult = await UpdateInNodeAsync(indexStream, header, header.RootNodeOffset, partition, propertyName, cancellationToken).ConfigureAwait(false);
+        var rootWriteResult = await UpdateInNodeAsync(indexStream, header, header.RootNodeOffset, chunk, propertyName, cancellationToken).ConfigureAwait(false);
         var headerToWrite = rootWriteResult.Header with { RootNodeOffset = rootWriteResult.Offset };
         await serializationService.WriteHeaderAsync(indexStream, headerToWrite, HeaderSize, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task DeletePartitionInternalAsync(IChunk partition, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
+    private async Task DeleteChunkInternalAsync(IChunk chunk, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
         using var timer = new MetricTimer(treeMetrics.DeleteDuration);
         var indexStream = await getIndexStream(cancellationToken).ConfigureAwait(false);
@@ -508,7 +508,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken).ConfigureAwait(false);
         if (header.RootNodeOffset == -1) throw new InvalidOperationException("Cannot delete from an empty tree.");
         
-        var rootWriteResult = await DeleteRecursiveAsync(indexStream, header, header.RootNodeOffset, partition, propertyName, cancellationToken).ConfigureAwait(false);
+        var rootWriteResult = await DeleteRecursiveAsync(indexStream, header, header.RootNodeOffset, chunk, propertyName, cancellationToken).ConfigureAwait(false);
         var newRootOffset = rootWriteResult.Offset;
         var finalHeader = rootWriteResult.Header;
 
@@ -527,18 +527,18 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         await serializationService.WriteHeaderAsync(indexStream, headerToWrite, HeaderSize, cancellationToken).ConfigureAwait(false);
     }
     
-    private async IAsyncEnumerable<IChunk> GetAllPartitionsInternalAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, IComparable? logicalKey = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    private async IAsyncEnumerable<IChunk> GetAllChunksInternalAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, IComparable? logicalKey = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var streamLock = GetLock(GetIndexLockKey(propertyName));
         using var releaser = await streamLock.LockAsync(cancellationToken).ConfigureAwait(false);
 
-        await foreach (var partition in GetAllPartitionsNoLockAsync(propertyName, getIndexStream, logicalKey, cancellationToken).WithCancellation(cancellationToken))
+        await foreach (var chunk in GetAllChunksNoLockAsync(propertyName, getIndexStream, logicalKey, cancellationToken).WithCancellation(cancellationToken))
         {
-            yield return partition;
+            yield return chunk;
         }
     }
 
-    private async IAsyncEnumerable<IChunk> GetAllPartitionsNoLockAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, IComparable? logicalKey = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    private async IAsyncEnumerable<IChunk> GetAllChunksNoLockAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, IComparable? logicalKey = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         using var timer = new MetricTimer(treeMetrics.GetAllDuration);
         var indexStream = await getIndexStream(cancellationToken).ConfigureAwait(false);
@@ -548,13 +548,13 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         var header = await serializationService.ReadHeaderAsync(indexStream, HeaderSize, cancellationToken).ConfigureAwait(false);
         if (header.RootNodeOffset == -1) yield break;
         
-        await foreach (var partition in TraverseAndYieldPartitionsAsync(indexStream, header.RootNodeOffset, propertyName, logicalKey, cancellationToken).WithCancellation(cancellationToken))
+        await foreach (var chunk in TraverseAndYieldChunksAsync(indexStream, header.RootNodeOffset, propertyName, logicalKey, cancellationToken).WithCancellation(cancellationToken))
         {
-            yield return partition;
+            yield return chunk;
         }
     }
 
-    private async Task<long> GetPartitionCountInternalAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, IComparable? logicalKey = null, CancellationToken cancellationToken = default)
+    private async Task<long> GetChunkCountInternalAsync(string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, IComparable? logicalKey = null, CancellationToken cancellationToken = default)
     {
         using var timer = new MetricTimer(treeMetrics.GetPartitionCountDuration);
         var indexStream = await getIndexStream(cancellationToken).ConfigureAwait(false);
@@ -564,28 +564,28 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         if (logicalKey is null) return header.PartitionCount;
 
         long count = 0;
-        await foreach (var partition in GetAllPartitionsNoLockAsync(propertyName, getIndexStream, logicalKey, cancellationToken).WithCancellation(cancellationToken)) count++;
+        await foreach (var chunk in GetAllChunksNoLockAsync(propertyName, getIndexStream, logicalKey, cancellationToken).WithCancellation(cancellationToken)) count++;
         return count;
     }
 
-    private async Task<IChunk?> GetDataPartitionByIndexInternalAsync(IComparable logicalKey, long index, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
+    private async Task<IChunk?> GetDataChunkByIndexInternalAsync(IComparable logicalKey, long index, string propertyName, Func<CancellationToken, Task<Stream>> getIndexStream, CancellationToken cancellationToken)
     {
         using var timer = new MetricTimer(treeMetrics.GetDataPartitionByIndexDuration);
         if (index < 0) return null;
 
         long currentIndex = -1;
-        await foreach (var partition in GetAllPartitionsNoLockAsync(propertyName, getIndexStream, logicalKey, cancellationToken).WithCancellation(cancellationToken))
+        await foreach (var chunk in GetAllChunksNoLockAsync(propertyName, getIndexStream, logicalKey, cancellationToken).WithCancellation(cancellationToken))
         {
-            if (partition is CollectionChunk)
+            if (chunk is CollectionChunk)
             {
                 currentIndex++;
-                if (currentIndex == index) return partition;
+                if (currentIndex == index) return chunk;
             }
         }
         return null;
     }
 
-    private async IAsyncEnumerable<IChunk> TraverseAndYieldPartitionsAsync(Stream indexStream, long nodeOffset, string propertyName, IComparable? logicalKey, [EnumeratorCancellation] CancellationToken cancellationToken)
+    private async IAsyncEnumerable<IChunk> TraverseAndYieldChunksAsync(Stream indexStream, long nodeOffset, string propertyName, IComparable? logicalKey, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         if (nodeOffset == -1) yield break;
 
@@ -593,20 +593,20 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
         if (node.IsLeaf)
         {
-            foreach (var partition in node.Partitions)
+            foreach (var chunk in node.Partitions)
             {
                 if (logicalKey == null)
                 {
-                    yield return partition;
+                    yield return chunk;
                 }
                 else
                 {
-                    var partitionKey = partition.GetPartitionKey();
-                    int cmp = partitionKey.LogicalKey.CompareTo(logicalKey);
+                    var chunkKey = chunk.GetPartitionKey();
+                    int cmp = chunkKey.LogicalKey.CompareTo(logicalKey);
 
                     if (cmp == 0)
                     {
-                        yield return partition;
+                        yield return chunk;
                     }
                     else if (cmp > 0)
                     {
@@ -649,29 +649,29 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
                 if (shouldTraverse)
                 {
-                    await foreach (var partition in TraverseAndYieldPartitionsAsync(indexStream, node.ChildrenOffsets[i], propertyName, logicalKey, cancellationToken).WithCancellation(cancellationToken))
+                    await foreach (var chunk in TraverseAndYieldChunksAsync(indexStream, node.ChildrenOffsets[i], propertyName, logicalKey, cancellationToken).WithCancellation(cancellationToken))
                     {
-                        yield return partition;
+                        yield return chunk;
                     }
                 }
             }
         }
     }
 
-    private async Task<NodeWriteResult> DeleteRecursiveAsync(Stream indexStream, BTreeHeader header, long nodeOffset, IChunk partitionToDelete, string propertyName, CancellationToken cancellationToken)
+    private async Task<NodeWriteResult> DeleteRecursiveAsync(Stream indexStream, BTreeHeader header, long nodeOffset, IChunk chunkToDelete, string propertyName, CancellationToken cancellationToken)
     {
         var node = await ReadNodeAsync(indexStream, nodeOffset, propertyName, cancellationToken).ConfigureAwait(false);
         int t = header.Degree;
         bool nodeModified = false;
         var currentHeader = header;
-        var key = partitionToDelete.GetPartitionKey();
+        var key = chunkToDelete.GetPartitionKey();
 
         if (node.IsLeaf)
         {
-            bool isDeletingHeader = partitionToDelete is HeaderChunk;
+            bool isDeletingHeader = chunkToDelete is HeaderChunk;
             int keyIndex = node.Partitions.FindIndex(p => p.GetPartitionKey().CompareTo(key) == 0 && p is HeaderChunk == isDeletingHeader);
             
-            if (keyIndex == -1) throw new KeyNotFoundException($"Could not find a partition with key '{key}' to delete.");
+            if (keyIndex == -1) throw new KeyNotFoundException($"Could not find a chunk with key '{key}' to delete.");
 
             node.Keys.RemoveAt(keyIndex);
             node.Partitions.RemoveAt(keyIndex);
@@ -734,7 +734,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             }
         }
 
-        var newChildWriteResult = await DeleteRecursiveAsync(indexStream, currentHeader, childOffset, partitionToDelete, propertyName, cancellationToken).ConfigureAwait(false);
+        var newChildWriteResult = await DeleteRecursiveAsync(indexStream, currentHeader, childOffset, chunkToDelete, propertyName, cancellationToken).ConfigureAwait(false);
         currentHeader = newChildWriteResult.Header;
         if (newChildWriteResult.Offset != childOffset)
         {
@@ -873,9 +873,9 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         return new MergeResult(mergedWriteResult.Header, mergedWriteResult.Offset, mergedNode);
     }
 
-    private async Task<NodeWriteResult> InsertNonFullAsync(Stream indexStream, BTreeHeader header, BPlusTreeNode node, long nodeOffset, IChunk partition, string propertyName, CancellationToken cancellationToken)
+    private async Task<NodeWriteResult> InsertNonFullAsync(Stream indexStream, BTreeHeader header, BPlusTreeNode node, long nodeOffset, IChunk chunk, string propertyName, CancellationToken cancellationToken)
     {
-        var key = partition.GetPartitionKey();
+        var key = chunk.GetPartitionKey();
         var currentHeader = header;
         
         if (node.IsLeaf)
@@ -883,7 +883,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             int i = 0;
             while (i < node.Keys.Count && key.CompareTo(node.Keys[i]) >= 0) i++;
             node.Keys.Insert(i, key);
-            node.Partitions.Insert(i, partition);
+            node.Partitions.Insert(i, chunk);
             
             currentHeader = currentHeader with { PartitionCount = currentHeader.PartitionCount + 1 };
             return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken).ConfigureAwait(false);
@@ -907,7 +907,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             
             var childToInsertInOffset = node.ChildrenOffsets[i];
             var childToInsertIn = await ReadNodeAsync(indexStream, childToInsertInOffset, propertyName, cancellationToken).ConfigureAwait(false);
-            var childWriteResult = await InsertNonFullAsync(indexStream, currentHeader, childToInsertIn, childToInsertInOffset, partition, propertyName, cancellationToken).ConfigureAwait(false);
+            var childWriteResult = await InsertNonFullAsync(indexStream, currentHeader, childToInsertIn, childToInsertInOffset, chunk, propertyName, cancellationToken).ConfigureAwait(false);
             currentHeader = childWriteResult.Header;
 
             if (childWriteResult.Offset != childToInsertInOffset)
@@ -972,21 +972,21 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
 
         if (node.IsLeaf)
         {
-            IChunk? candidatePartition = null;
+            IChunk? candidateChunk = null;
 
             for (int i = node.Keys.Count - 1; i >= 0; i--)
             {
                 if (key.CompareTo(node.Keys[i]) >= 0)
                 {
-                    candidatePartition = node.Partitions[i];
+                    candidateChunk = node.Partitions[i];
                     break;
                 }
             }
 
-            if (candidatePartition is not null && candidatePartition.GetPartitionKey().LogicalKey.CompareTo(key.LogicalKey) == 0)
+            if (candidateChunk is not null && candidateChunk.GetPartitionKey().LogicalKey.CompareTo(key.LogicalKey) == 0)
             {
-                if (key.RangeKey is null && candidatePartition is not HeaderChunk) return null;
-                return candidatePartition;
+                if (key.RangeKey is null && candidateChunk is not HeaderChunk) return null;
+                return candidateChunk;
             }
             return null;
         }
@@ -997,25 +997,25 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
         return await FindInNodeAsync(indexStream, node.ChildrenOffsets[childIndex], key, propertyName, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<NodeWriteResult> UpdateInNodeAsync(Stream indexStream, BTreeHeader header, long nodeOffset, IChunk partition, string propertyName, CancellationToken cancellationToken)
+    private async Task<NodeWriteResult> UpdateInNodeAsync(Stream indexStream, BTreeHeader header, long nodeOffset, IChunk chunk, string propertyName, CancellationToken cancellationToken)
     {
         var node = await ReadNodeAsync(indexStream, nodeOffset, propertyName, cancellationToken).ConfigureAwait(false);
-        var key = partition.GetPartitionKey();
+        var key = chunk.GetPartitionKey();
         var currentHeader = header;
 
         if (node.IsLeaf)
         {
-            bool isUpdatingHeader = partition is HeaderChunk;
+            bool isUpdatingHeader = chunk is HeaderChunk;
             int indexToUpdate = node.Partitions.FindIndex(p => p.GetPartitionKey().CompareTo(key) == 0 && p is HeaderChunk == isUpdatingHeader);
 
             if (indexToUpdate != -1)
             {
-                node.Partitions[indexToUpdate] = partition;
+                node.Partitions[indexToUpdate] = chunk;
                 return await AllocateAndWriteNodeAsync(indexStream, currentHeader, node, propertyName, nodeOffset, cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                throw new KeyNotFoundException($"Could not find a partition with key '{partition.GetPartitionKey()}' to update.");
+                throw new KeyNotFoundException($"Could not find a chunk with key '{chunk.GetPartitionKey()}' to update.");
             }
         }
         else
@@ -1024,7 +1024,7 @@ public sealed class StreamPartitionStorageService : IPartitionStorageService
             while (childIndex < node.Keys.Count && key.CompareTo(node.Keys[childIndex]) >= 0) childIndex++;
 
             long childOffset = node.ChildrenOffsets[childIndex];
-            var childWriteResult = await UpdateInNodeAsync(indexStream, currentHeader, childOffset, partition, propertyName, cancellationToken).ConfigureAwait(false);
+            var childWriteResult = await UpdateInNodeAsync(indexStream, currentHeader, childOffset, chunk, propertyName, cancellationToken).ConfigureAwait(false);
             currentHeader = childWriteResult.Header;
 
             if (childWriteResult.Offset != childOffset)

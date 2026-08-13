@@ -26,7 +26,7 @@ public sealed class SimulationRunner(IServiceProvider serviceProvider, ICrdtScop
         List<Guid> allBlogPostIds;
         using (var scope = scopeFactory.CreateScope(replicaIds.First(), replicaDvvs[replicaIds.First()]))
         {
-            var partitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
+            var partitionManager = scope.ServiceProvider.GetRequiredService<IVirtualDocumentCollection<BlogPost>>();
             var keys = await partitionManager.GetAllLogicalKeysAsync();
             allBlogPostIds = keys.Cast<Guid>().ToList();
         }
@@ -56,7 +56,7 @@ public sealed class SimulationRunner(IServiceProvider serviceProvider, ICrdtScop
 
             using (var scope = scopeFactory.CreateScope(replicaIds.First(), replicaDvvs[replicaIds.First()]))
             {
-                var partitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
+                var partitionManager = scope.ServiceProvider.GetRequiredService<IVirtualDocumentCollection<BlogPost>>();
                 var keys = await partitionManager.GetAllLogicalKeysAsync();
                 allBlogPostIds = keys.Cast<Guid>().ToList();
             }

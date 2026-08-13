@@ -42,7 +42,7 @@ public sealed class LseqStrategyTests : IDisposable
     private readonly IServiceScope scopeA;
     private readonly IServiceScope scopeB;
     private readonly IServiceScope scopeC;
-    private readonly IPartitionableCrdtStrategy lseqStrategy;
+    private readonly IChunkableCollectionStrategy lseqStrategy;
     private readonly CrdtPropertyInfo itemsProperty;
 
     public LseqStrategyTests()
@@ -76,7 +76,7 @@ public sealed class LseqStrategyTests : IDisposable
             new CrdtLseqStrategyAttribute(),
             Array.Empty<CrdtStrategyDecoratorAttribute>()
         );
-        lseqStrategy = (IPartitionableCrdtStrategy)strategyProvider.GetStrategy(typeof(LseqTestModel), itemsProperty);
+        lseqStrategy = (IChunkableCollectionStrategy)strategyProvider.GetStrategy(typeof(LseqTestModel), itemsProperty);
     }
 
     public void Dispose()

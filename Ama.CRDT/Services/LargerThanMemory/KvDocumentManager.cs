@@ -13,6 +13,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -21,7 +22,7 @@ using System.Threading.Tasks;
 /// Uses <see cref="IVirtualCollectionStrategy"/> to route individual operations directly to database rows, eliminating write amplification.
 /// </summary>
 /// <typeparam name="T">The type of the data model managed by the CRDT.</typeparam>
-public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocumentPatchHandler<T> where T : class, new()
+public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocumentCollection<T>, IVirtualDocumentPatchHandler<T> where T : class, new()
 {
     private readonly IKvStorageService storageService;
     private readonly ICrdtMetadataManager metadataManager;
@@ -91,6 +92,18 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
     }
 
     /// <inheritdoc/>
+    public Task<CrdtDocument<T>?> GetDocumentHeaderAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
+    {
+        return GetHeaderAsync(logicalKey, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public Task<CrdtDocument<T>?> GetFullDocumentAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
+    {
+        return GetFullDocumentInternalAsync(logicalKey, cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<CrdtDocument<T>?> GetItemAsync(IComparable logicalKey, string propertyName, IComparable itemKey, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
@@ -148,6 +161,12 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
     /// <inheritdoc/>
     public async Task<T?> GetFullObjectAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
     {
+        var doc = await GetFullDocumentInternalAsync(logicalKey, cancellationToken).ConfigureAwait(false);
+        return doc?.Data;
+    }
+
+    private async Task<CrdtDocument<T>?> GetFullDocumentInternalAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
+    {
         ArgumentNullException.ThrowIfNull(logicalKey);
         EnsureConfigured();
 
@@ -160,6 +179,7 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
         }
 
         var fullObject = headerDoc.Value.Data!;
+        var mergedMetadata = headerDoc.Value.Metadata!;
 
         foreach (var (_, (prop, _)) in this.virtualProperties)
         {
@@ -172,6 +192,9 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
             await foreach (var kvp in this.storageService.GetItemsAsync<T>(logicalKey, prop.Name, cancellationToken).WithCancellation(cancellationToken))
             {
                 var itemDoc = kvp.Value;
+                
+                mergedMetadata = CrdtMetadata.Merge(mergedMetadata, itemDoc.Metadata!);
+
                 var itemCollection = prop.Getter!(itemDoc.Data!);
                 
                 if (collection is not null && itemCollection is IEnumerable penum)
@@ -195,7 +218,7 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
             }
         }
 
-        return fullObject;
+        return new CrdtDocument<T>(fullObject, mergedMetadata);
     }
 
     /// <inheritdoc/>
@@ -208,6 +231,40 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
         using var _ = new MetricTimer(this.metrics.GetAllDataPartitionsDuration);
         
         return this.storageService.GetItemsAsync<T>(logicalKey, propertyName, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async IAsyncEnumerable<TElement> GetElementsAsync<TElement>(IComparable logicalKey, string propertyName, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(logicalKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
+        EnsureConfigured();
+
+        var propertyPath = ToPropertyPath(propertyName);
+        var prop = this.virtualProperties[propertyPath].Property;
+
+        await foreach (var kvp in GetAllItemsAsync(logicalKey, propertyName, cancellationToken).WithCancellation(cancellationToken))
+        {
+            var itemDoc = kvp.Value;
+            var collection = prop.Getter!(itemDoc.Data!);
+            
+            if (collection is IEnumerable enumerable)
+            {
+                foreach (var item in enumerable)
+                {
+                    if (item is TElement element)
+                    {
+                        yield return element;
+                    }
+                }
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task<long> GetElementCountAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default)
+    {
+        return GetItemCountAsync(logicalKey, propertyName, cancellationToken);
     }
 
     /// <inheritdoc/>

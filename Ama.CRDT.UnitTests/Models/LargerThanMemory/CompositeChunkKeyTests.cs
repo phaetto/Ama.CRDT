@@ -5,7 +5,7 @@ using Shouldly;
 using System.Collections.Generic;
 using Xunit;
 
-public sealed class CompositePartitionKeyTests
+public sealed class CompositeChunkKeyTests
 {
     [Fact]
     public void CompareTo_WithDifferentLogicalKeys_ShouldSortByLogicalKey()

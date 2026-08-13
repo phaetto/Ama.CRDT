@@ -15,11 +15,11 @@ using System.Threading.Tasks;
 /// enabling infinite scaling of CRDT collections without tying the applicator to a specific storage backend.
 /// </summary>
 [AllowedDecoratorBehavior(DecoratorBehavior.Complex)]
-public sealed class PartitioningApplicatorDecorator : AsyncCrdtApplicatorDecoratorBase
+public sealed class LargerThanMemoryApplicatorDecorator : AsyncCrdtApplicatorDecoratorBase
 {
     private readonly IServiceProvider serviceProvider;
 
-    public PartitioningApplicatorDecorator(
+    public LargerThanMemoryApplicatorDecorator(
         IAsyncCrdtApplicator innerApplicator,
         IServiceProvider serviceProvider,
         DecoratorBehavior behavior) : base(innerApplicator, behavior)

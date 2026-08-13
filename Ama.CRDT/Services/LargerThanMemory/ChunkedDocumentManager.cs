@@ -23,7 +23,7 @@ using System.Threading.Tasks;
 /// It uses a user-friendly API with property names and translates them to internal property paths for strategy execution.
 /// </summary>
 /// <typeparam name="T">The type of the data model managed by the CRDT.</typeparam>
-public sealed class ChunkedDocumentManager<T> : IVirtualDocumentManager<T>, IVirtualDocumentPatchHandler<T> where T : class, new()
+public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtualDocumentCollection<T>, IVirtualDocumentPatchHandler<T> where T : class, new()
 {
     public const int MaxChunkItemCount = 100;
     public const int MinChunkItemCount = MaxChunkItemCount / 4;
@@ -85,7 +85,25 @@ public sealed class ChunkedDocumentManager<T> : IVirtualDocumentManager<T>, IVir
     }
     
     /// <inheritdoc/>
+    public Task<CrdtDocument<T>?> GetDocumentHeaderAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
+    {
+        return GetHeaderChunkContentAsync(logicalKey, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public Task<CrdtDocument<T>?> GetFullDocumentAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
+    {
+        return GetFullDocumentInternalAsync(logicalKey, cancellationToken);
+    }
+
+    /// <inheritdoc/>
     public async Task<T?> GetFullObjectAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
+    {
+        var doc = await GetFullDocumentInternalAsync(logicalKey, cancellationToken).ConfigureAwait(false);
+        return doc?.Data;
+    }
+
+    private async Task<CrdtDocument<T>?> GetFullDocumentInternalAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
         EnsureConfigured();
@@ -99,6 +117,7 @@ public sealed class ChunkedDocumentManager<T> : IVirtualDocumentManager<T>, IVir
         }
 
         var fullObject = headerDoc.Value.Data!;
+        var mergedMetadata = headerDoc.Value.Metadata!;
 
         foreach (var (_, (prop, _)) in this.chunkableProperties)
         {
@@ -111,6 +130,8 @@ public sealed class ChunkedDocumentManager<T> : IVirtualDocumentManager<T>, IVir
             await foreach(var chunk in GetAllDataChunksAsync(logicalKey, prop.Name, cancellationToken).WithCancellation(cancellationToken))
             {
                 var chunkDoc = await this.storageService.LoadChunkContentAsync<T>(logicalKey, prop.Name, chunk, cancellationToken).ConfigureAwait(false);
+
+                mergedMetadata = CrdtMetadata.Merge(mergedMetadata, chunkDoc.Metadata!);
 
                 var chunkCollection = prop.Getter!(chunkDoc.Data!);
                 
@@ -135,7 +156,54 @@ public sealed class ChunkedDocumentManager<T> : IVirtualDocumentManager<T>, IVir
             }
         }
 
-        return fullObject;
+        return new CrdtDocument<T>(fullObject, mergedMetadata);
+    }
+
+    /// <inheritdoc/>
+    public async IAsyncEnumerable<TElement> GetElementsAsync<TElement>(IComparable logicalKey, string propertyName, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(logicalKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
+        EnsureConfigured();
+
+        var propertyPath = ToPropertyPath(propertyName);
+        var prop = this.chunkableProperties[propertyPath].Property;
+
+        await foreach (var chunk in GetAllDataChunksAsync(logicalKey, propertyName, cancellationToken).WithCancellation(cancellationToken))
+        {
+            var chunkDoc = await this.storageService.LoadChunkContentAsync<T>(logicalKey, propertyName, chunk, cancellationToken).ConfigureAwait(false);
+            var collection = prop.Getter!(chunkDoc.Data!);
+
+            if (collection is IEnumerable enumerable)
+            {
+                foreach (var item in enumerable)
+                {
+                    if (item is TElement element)
+                    {
+                        yield return element;
+                    }
+                }
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<long> GetElementCountAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(logicalKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
+        EnsureConfigured();
+
+        var propertyPath = ToPropertyPath(propertyName);
+        var prop = this.chunkableProperties[propertyPath].Property;
+
+        long totalCount = 0;
+        await foreach (var chunk in GetAllDataChunksAsync(logicalKey, propertyName, cancellationToken).WithCancellation(cancellationToken))
+        {
+            var chunkDoc = await this.storageService.LoadChunkContentAsync<T>(logicalKey, propertyName, chunk, cancellationToken).ConfigureAwait(false);
+            totalCount += GetItemCount(prop, chunkDoc.Data!);
+        }
+        return totalCount;
     }
 
     /// <inheritdoc/>

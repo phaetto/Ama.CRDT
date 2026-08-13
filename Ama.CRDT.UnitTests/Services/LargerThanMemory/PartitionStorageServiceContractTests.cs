@@ -20,7 +20,7 @@ public class PartitionStorageServiceContractTests
     public async Task CanMockSavePartitionContentAsync()
     {
         // Arrange
-        var mockService = new Mock<IPartitionStorageService>();
+        var mockService = new Mock<IChunkStorageService>();
         var logicalKey = "test-key";
         var propertyName = "TestProperty";
         var partition = new CollectionChunk(new CompositeChunkKey(logicalKey, "range"), null, 0, 0, 0, 0);
@@ -28,35 +28,35 @@ public class PartitionStorageServiceContractTests
         var metadata = new CrdtMetadata();
         var updatedPartition = new CollectionChunk(new CompositeChunkKey(logicalKey, "range"), null, 10, 20, 30, 40);
 
-        mockService.Setup(x => x.SavePartitionContentAsync(logicalKey, propertyName, partition, data, metadata, It.IsAny<CancellationToken>()))
+        mockService.Setup(x => x.SaveChunkContentAsync(logicalKey, propertyName, partition, data, metadata, It.IsAny<CancellationToken>()))
             .ReturnsAsync(updatedPartition);
 
         // Act
-        var result = await mockService.Object.SavePartitionContentAsync(logicalKey, propertyName, partition, data, metadata);
+        var result = await mockService.Object.SaveChunkContentAsync(logicalKey, propertyName, partition, data, metadata);
 
         // Assert
         result.ShouldBe(updatedPartition);
-        mockService.Verify(x => x.SavePartitionContentAsync(logicalKey, propertyName, partition, data, metadata, It.IsAny<CancellationToken>()), Times.Once);
+        mockService.Verify(x => x.SaveChunkContentAsync(logicalKey, propertyName, partition, data, metadata, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task CanMockLoadHeaderPartitionContentAsync()
     {
         // Arrange
-        var mockService = new Mock<IPartitionStorageService>();
+        var mockService = new Mock<IChunkStorageService>();
         var logicalKey = "test-key";
         var partition = new HeaderChunk(new CompositeChunkKey(logicalKey, null), 0, 10, 10, 20);
         var doc = new CrdtDocument<TestData>(new TestData { Id = "1" }, new CrdtMetadata());
 
-        mockService.Setup(x => x.LoadHeaderPartitionContentAsync<TestData>(logicalKey, partition, It.IsAny<CancellationToken>()))
+        mockService.Setup(x => x.LoadHeaderChunkContentAsync<TestData>(logicalKey, partition, It.IsAny<CancellationToken>()))
             .ReturnsAsync(doc);
 
         // Act
-        var result = await mockService.Object.LoadHeaderPartitionContentAsync<TestData>(logicalKey, partition);
+        var result = await mockService.Object.LoadHeaderChunkContentAsync<TestData>(logicalKey, partition);
 
         // Assert
         result.Data.ShouldNotBeNull();
         result.Data.Id.ShouldBe("1");
-        mockService.Verify(x => x.LoadHeaderPartitionContentAsync<TestData>(logicalKey, partition, It.IsAny<CancellationToken>()), Times.Once);
+        mockService.Verify(x => x.LoadHeaderChunkContentAsync<TestData>(logicalKey, partition, It.IsAny<CancellationToken>()), Times.Once);
     }
 }

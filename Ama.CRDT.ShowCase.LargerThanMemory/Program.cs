@@ -19,8 +19,9 @@ builder.ConfigureServices((context, services) =>
         .AddCrdtJournaling<FileSystemOperationJournal>()
         .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.Before)
         .AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After)
-        .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>(DecoratorBehavior.Complex)
-        .AddCrdtStreamPartitioning<FileSystemPartitionStreamProvider>();
+        .AddCrdtApplicatorDecorator<LargerThanMemoryApplicatorDecorator>(DecoratorBehavior.Complex)
+        .AddCrdtStreamPartitioning<FileSystemPartitionStreamProvider>()
+        .AddCrdtChunkedDocument<BlogPost>();
 
     services.AddScoped<DataGeneratorService>();
     services.AddScoped<UiService>();

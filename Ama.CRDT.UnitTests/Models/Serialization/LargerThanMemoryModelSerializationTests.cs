@@ -7,7 +7,7 @@ using Ama.CRDT.Models.LargerThanMemory;
 using Shouldly;
 using Xunit;
 
-public sealed class PartitioningModelSerializationTests
+public sealed class LargerThanMemoryModelSerializationTests
 {
     [Fact]
     public void CompositePartitionKey_ShouldSerializeAndDeserialize()
