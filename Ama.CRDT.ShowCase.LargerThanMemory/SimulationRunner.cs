@@ -62,12 +62,22 @@ public sealed class SimulationRunner(IServiceProvider serviceProvider, ICrdtScop
             }
 
             Console.WriteLine($"--- Bootstrapping Other Replicas ---");
-            var sourceDir = Path.Combine(Environment.CurrentDirectory, "data", replicaIds.First());
+            var sourceReplica = replicaIds.First();
+            var sourceDir = Path.Combine(Environment.CurrentDirectory, "data", sourceReplica);
+            var sourceDbPath = Path.Combine(Environment.CurrentDirectory, $"projections_{sourceReplica}.db");
+
             foreach (var replicaId in replicaIds.Skip(1))
             {
                 var destDir = Path.Combine(Environment.CurrentDirectory, "data", replicaId);
                 CopyDirectory(sourceDir, destDir, true);
-                Console.WriteLine($"Copied data from {replicaIds.First()} to {replicaId}");
+                
+                var destDbPath = Path.Combine(Environment.CurrentDirectory, $"projections_{replicaId}.db");
+                if (File.Exists(sourceDbPath))
+                {
+                    File.Copy(sourceDbPath, destDbPath, true);
+                }
+
+                Console.WriteLine($"Copied data and projections from {sourceReplica} to {replicaId}");
             }
         }
         else

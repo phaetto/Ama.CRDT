@@ -20,8 +20,6 @@ using Terminal.Gui;
 
 public sealed class UiService
 {
-    private const string CommentsPropertyName = nameof(BlogPost.Comments);
-    private const string TagsPropertyName = nameof(BlogPost.Tags);
     public const string DvvStateFilePath = "replica_dvvs.json";
 
     private readonly IServiceProvider serviceProvider;
