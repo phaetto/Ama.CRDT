@@ -29,7 +29,7 @@ using Ama.CRDT.Models.LargerThanMemory;
 public sealed class GSetStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -155,7 +155,7 @@ public sealed class GSetStrategy(
     }
 
     /// <inheritdoc/>
-    public SplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
+    public ChunkSplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
         var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
@@ -187,11 +187,11 @@ public sealed class GSetStrategy(
         ReconstructListForSplitMerge(doc1, path, list, keys1, elementType, partitionableProperty.PropertyType, aotContexts);
         ReconstructListForSplitMerge(doc2, path, list, keys2, elementType, partitionableProperty.PropertyType, aotContexts);
 
-        return new SplitResult(new PartitionContent(doc1, originalMetadata.DeepClone()), new PartitionContent(doc2, originalMetadata.DeepClone()), splitKey!);
+        return new ChunkSplitResult(new ChunkContent(doc1, originalMetadata.DeepClone()), new ChunkContent(doc2, originalMetadata.DeepClone()), splitKey!);
     }
 
     /// <inheritdoc/>
-    public PartitionContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
+    public ChunkContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         var documentType = data1.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
@@ -219,7 +219,7 @@ public sealed class GSetStrategy(
             property.Setter?.Invoke(parent, mergedList);
         }
 
-        return new PartitionContent(mergedDoc, mergedMeta);
+        return new ChunkContent(mergedDoc, mergedMeta);
     }
 
     /// <inheritdoc/>

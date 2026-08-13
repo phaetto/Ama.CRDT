@@ -32,7 +32,7 @@ using System.Linq;
 public sealed class FwwMapStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -347,7 +347,7 @@ public sealed class FwwMapStrategy(
     }
 
     /// <inheritdoc/>
-    public SplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
+    public ChunkSplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
         if (originalData is null) throw new ArgumentNullException(nameof(originalData));
         if (originalMetadata is null) throw new ArgumentNullException(nameof(originalMetadata));
@@ -386,11 +386,11 @@ public sealed class FwwMapStrategy(
         ReconstructDictionaryForSplitMerge(doc1, path, items1, originalData, aotContexts);
         ReconstructDictionaryForSplitMerge(doc2, path, items2, originalData, aotContexts);
 
-        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
+        return new ChunkSplitResult(new ChunkContent(doc1, meta1), new ChunkContent(doc2, meta2), splitKey);
     }
 
     /// <inheritdoc/>
-    public PartitionContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
+    public ChunkContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         if (data1 is null) throw new ArgumentNullException(nameof(data1));
         if (meta1 is null) throw new ArgumentNullException(nameof(meta1));
@@ -427,7 +427,7 @@ public sealed class FwwMapStrategy(
         
         ReconstructDictionaryForMerge(mergedDoc, path, sortedItems, data1, meta1, data2, meta2, aotContexts);
 
-        return new PartitionContent(mergedDoc, mergedMeta);
+        return new ChunkContent(mergedDoc, mergedMeta);
     }
 
     private static void ReconstructDictionaryForSplitMerge(object root, string path, List<KeyValuePair<object, CausalTimestamp>> items, object originalData, IEnumerable<CrdtAotContext> aotContexts)

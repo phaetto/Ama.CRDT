@@ -23,10 +23,10 @@ public class PartitionStorageServiceContractTests
         var mockService = new Mock<IPartitionStorageService>();
         var logicalKey = "test-key";
         var propertyName = "TestProperty";
-        var partition = new DataPartition(new CompositePartitionKey(logicalKey, "range"), null, 0, 0, 0, 0);
+        var partition = new CollectionChunk(new CompositeChunkKey(logicalKey, "range"), null, 0, 0, 0, 0);
         var data = new TestData { Id = "1" };
         var metadata = new CrdtMetadata();
-        var updatedPartition = new DataPartition(new CompositePartitionKey(logicalKey, "range"), null, 10, 20, 30, 40);
+        var updatedPartition = new CollectionChunk(new CompositeChunkKey(logicalKey, "range"), null, 10, 20, 30, 40);
 
         mockService.Setup(x => x.SavePartitionContentAsync(logicalKey, propertyName, partition, data, metadata, It.IsAny<CancellationToken>()))
             .ReturnsAsync(updatedPartition);
@@ -45,7 +45,7 @@ public class PartitionStorageServiceContractTests
         // Arrange
         var mockService = new Mock<IPartitionStorageService>();
         var logicalKey = "test-key";
-        var partition = new HeaderPartition(new CompositePartitionKey(logicalKey, null), 0, 10, 10, 20);
+        var partition = new HeaderChunk(new CompositeChunkKey(logicalKey, null), 0, 10, 10, 20);
         var doc = new CrdtDocument<TestData>(new TestData { Id = "1" }, new CrdtMetadata());
 
         mockService.Setup(x => x.LoadHeaderPartitionContentAsync<TestData>(logicalKey, partition, It.IsAny<CancellationToken>()))

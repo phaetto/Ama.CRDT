@@ -67,12 +67,12 @@ public class StreamPartitionStorageServiceDataTests
 
         var service = (StreamPartitionStorageService)scope.ServiceProvider.GetRequiredService<IPartitionStorageService>();
 
-        var originalPartition = new DataPartition(new CompositePartitionKey("A", "B"), null, 0, 0, 0, 0);
+        var originalPartition = new CollectionChunk(new CompositeChunkKey("A", "B"), null, 0, 0, 0, 0);
         var data = new TestData();
         var meta = new CrdtMetadata();
 
         // Act
-        var result = (DataPartition)await service.SavePartitionContentAsync("A", "prop", originalPartition, data, meta);
+        var result = (CollectionChunk)await service.SavePartitionContentAsync("A", "prop", originalPartition, data, meta);
 
         // Assert
         result.DataOffset.ShouldBe(1024);

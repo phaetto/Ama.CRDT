@@ -30,7 +30,7 @@ using System.Linq;
 public sealed class RgaStrategy(
     IElementComparerProvider elementComparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -64,7 +64,7 @@ public sealed class RgaStrategy(
     }
 
     /// <inheritdoc />
-    public SplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
+    public ChunkSplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
         
@@ -99,15 +99,15 @@ public sealed class RgaStrategy(
         var (rightParent, rightProp, _) = PocoPathHelper.ResolvePath(rightData, path, aotContexts);
         if (rightParent != null && rightProp != null) ReconstructList(rightParent, rightProp, RebuildRgaOrder(rightItems));
 
-        return new SplitResult(
-            new PartitionContent(leftData, leftMeta),
-            new PartitionContent(rightData, rightMeta),
+        return new ChunkSplitResult(
+            new ChunkContent(leftData, leftMeta),
+            new ChunkContent(rightData, rightMeta),
             splitKey
         );
     }
 
     /// <inheritdoc />
-    public PartitionContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
+    public ChunkContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
@@ -127,7 +127,7 @@ public sealed class RgaStrategy(
         var (mergedParent, mergedProp, _) = PocoPathHelper.ResolvePath(mergedData, path, aotContexts);
         if (mergedParent != null && mergedProp != null) ReconstructList(mergedParent, mergedProp, mergedItems);
 
-        return new PartitionContent(mergedData, mergedMeta);
+        return new ChunkContent(mergedData, mergedMeta);
     }
 
     /// <inheritdoc/>

@@ -66,9 +66,9 @@ public static class CrdtTypeRegistry
         Register("gcounter-state", typeof(GCounterState));
 
         // Partitioning
-        Register("comp-key", typeof(CompositePartitionKey));
-        Register("header-partition", typeof(HeaderPartition));
-        Register("data-partition", typeof(DataPartition));
+        Register("comp-key", typeof(CompositeChunkKey));
+        Register("header-partition", typeof(HeaderChunk));
+        Register("data-partition", typeof(CollectionChunk));
 
         // Timestamps
         Register("epoch", typeof(EpochTimestamp));

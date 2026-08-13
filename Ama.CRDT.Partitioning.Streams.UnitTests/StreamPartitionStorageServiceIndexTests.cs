@@ -87,7 +87,7 @@ public sealed class StreamPartitionStorageServiceIndexTests
         var indexLength = await streamProvider.GetIndexStreamLengthAsync(PropertyName);
         indexLength.ShouldBeGreaterThan(0);
         
-        var result = await strategy.GetPropertyPartitionAsync(new CompositePartitionKey(LogicalKey, 1), PropertyName);
+        var result = await strategy.GetPropertyPartitionAsync(new CompositeChunkKey(LogicalKey, 1), PropertyName);
         result.ShouldBeNull();
     }
     
@@ -96,7 +96,7 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializePropertyIndexAsync(PropertyName);
-        var p1 = new DataPartition(new CompositePartitionKey(LogicalKey, 1), null, 1, 1, 1, 1);
+        var p1 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 1), null, 1, 1, 1, 1);
         await strategy.InsertPropertyPartitionAsync(PropertyName, p1);
         var streamBytesBefore = streamProvider.GetIndexStreamBytes(PropertyName);
 
@@ -107,7 +107,7 @@ public sealed class StreamPartitionStorageServiceIndexTests
         var streamBytesAfter = streamProvider.GetIndexStreamBytes(PropertyName);
         streamBytesAfter.ShouldBe(streamBytesBefore);
 
-        var found = await strategy.GetPropertyPartitionAsync(new CompositePartitionKey(LogicalKey, 1), PropertyName);
+        var found = await strategy.GetPropertyPartitionAsync(new CompositeChunkKey(LogicalKey, 1), PropertyName);
         found.ShouldBe(p1);
     }
     
@@ -116,11 +116,11 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializePropertyIndexAsync(PropertyName);
-        var partition = new DataPartition(new CompositePartitionKey(LogicalKey, 10), null, 1L, 1, 1L, 1);
+        var partition = new CollectionChunk(new CompositeChunkKey(LogicalKey, 10), null, 1L, 1, 1L, 1);
         
         // Act
         await strategy.InsertPropertyPartitionAsync(PropertyName, partition);
-        var found = await strategy.GetPropertyPartitionAsync(new CompositePartitionKey(LogicalKey, 10), PropertyName);
+        var found = await strategy.GetPropertyPartitionAsync(new CompositeChunkKey(LogicalKey, 10), PropertyName);
 
         // Assert
         found.ShouldNotBeNull();
@@ -132,10 +132,10 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializePropertyIndexAsync(PropertyName);
-        var partitions = new List<IPartition>();
+        var partitions = new List<IChunk>();
         for (var i = 1; i <= MaxKeys + 1; i++)
         {
-            partitions.Add(new DataPartition(new CompositePartitionKey(LogicalKey, i * 10), null, (long)i, i, (long)i, i));
+            partitions.Add(new CollectionChunk(new CompositeChunkKey(LogicalKey, i * 10), null, (long)i, i, (long)i, i));
         }
 
         // Act
@@ -159,11 +159,11 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializePropertyIndexAsync(PropertyName);
-        var originalKey = new CompositePartitionKey(LogicalKey, 10);
-        var originalPartition = new DataPartition(originalKey, null, 1L, 1, 1L, 1);
+        var originalKey = new CompositeChunkKey(LogicalKey, 10);
+        var originalPartition = new CollectionChunk(originalKey, null, 1L, 1, 1L, 1);
         await strategy.InsertPropertyPartitionAsync(PropertyName, originalPartition);
         
-        var updatedPartition = new DataPartition(originalKey, null, 99L, 99, 99L, 99);
+        var updatedPartition = new CollectionChunk(originalKey, null, 99L, 99, 99L, 99);
 
         // Act
         await strategy.UpdatePropertyPartitionAsync(PropertyName, updatedPartition);
@@ -180,8 +180,8 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializePropertyIndexAsync(PropertyName);
-        var p1 = new DataPartition(new CompositePartitionKey(LogicalKey, 10), null, 1L, 1, 1L, 1);
-        var p2 = new DataPartition(new CompositePartitionKey(LogicalKey, 20), null, 2L, 2, 2L, 2);
+        var p1 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 10), null, 1L, 1, 1L, 1);
+        var p2 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 20), null, 2L, 2, 2L, 2);
         await strategy.InsertPropertyPartitionAsync(PropertyName, p1);
 
         // Act & Assert
@@ -193,8 +193,8 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializePropertyIndexAsync(PropertyName);
-        var p1 = new DataPartition(new CompositePartitionKey(LogicalKey, 10), null, 1L, 1, 1L, 1);
-        var p2 = new DataPartition(new CompositePartitionKey(LogicalKey, 20), null, 2L, 2, 2L, 2);
+        var p1 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 10), null, 1L, 1, 1L, 1);
+        var p2 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 20), null, 2L, 2, 2L, 2);
         await strategy.InsertPropertyPartitionAsync(PropertyName, p1);
         await strategy.InsertPropertyPartitionAsync(PropertyName, p2);
 
@@ -213,12 +213,12 @@ public sealed class StreamPartitionStorageServiceIndexTests
         // Arrange: Insert just enough to have two leaf nodes after a split, then delete to cause a merge
         await strategy.InitializePropertyIndexAsync(PropertyName);
         
-        var p0 = new DataPartition(new CompositePartitionKey(LogicalKey, 0), null, 0,0,0,0);
-        var p1 = new DataPartition(new CompositePartitionKey(LogicalKey, 1), null, 1,1,1,1);
-        var p2 = new DataPartition(new CompositePartitionKey(LogicalKey, 2), null, 2,2,2,2);
-        var p3 = new DataPartition(new CompositePartitionKey(LogicalKey, 3), null, 3,3,3,3);
-        var p4 = new DataPartition(new CompositePartitionKey(LogicalKey, 4), null, 4,4,4,4);
-        var p5 = new DataPartition(new CompositePartitionKey(LogicalKey, 5), null, 5,5,5,5);
+        var p0 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 0), null, 0,0,0,0);
+        var p1 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 1), null, 1,1,1,1);
+        var p2 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 2), null, 2,2,2,2);
+        var p3 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 3), null, 3,3,3,3);
+        var p4 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 4), null, 4,4,4,4);
+        var p5 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 5), null, 5,5,5,5);
         await strategy.InsertPropertyPartitionAsync(PropertyName, p0);
         await strategy.InsertPropertyPartitionAsync(PropertyName, p1);
         await strategy.InsertPropertyPartitionAsync(PropertyName, p2);
@@ -241,7 +241,7 @@ public sealed class StreamPartitionStorageServiceIndexTests
         
         // Assert
         var remaining = await ToListAsync(strategy.GetPartitionsAsync(LogicalKey, PropertyName));
-        var expected = new List<IPartition> { p0, p2 };
+        var expected = new List<IChunk> { p0, p2 };
 
         remaining.Count.ShouldBe(expected.Count);
         remaining.ShouldBe(expected, ignoreOrder: true);
@@ -253,7 +253,7 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializePropertyIndexAsync(PropertyName);
-        var p1 = new DataPartition(new CompositePartitionKey(LogicalKey, 10), null, 1L, 1, 1L, 1);
+        var p1 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 10), null, 1L, 1, 1L, 1);
         await strategy.InsertPropertyPartitionAsync(PropertyName, p1);
 
         // Act
@@ -270,7 +270,7 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializePropertyIndexAsync(PropertyName);
-        var p1 = new DataPartition(new CompositePartitionKey(LogicalKey, 10), null, 1L, 1, 1L, 1);
+        var p1 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 10), null, 1L, 1, 1L, 1);
 
         // Act & Assert
         await Should.ThrowAsync<KeyNotFoundException>(async () => await strategy.DeletePropertyPartitionAsync(PropertyName, p1));
@@ -281,9 +281,9 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializePropertyIndexAsync(PropertyName);
-        var key = new CompositePartitionKey(LogicalKey, null);
-        var header = new HeaderPartition(key, 1,1,1,1);
-        var data = new DataPartition(key, null, 2,2,2,2); 
+        var key = new CompositeChunkKey(LogicalKey, null);
+        var header = new HeaderChunk(key, 1,1,1,1);
+        var data = new CollectionChunk(key, null, 2,2,2,2); 
 
         // We insert them both into the SAME index just to test the B-Tree logic's polymorphic handling
         await strategy.InsertPropertyPartitionAsync(PropertyName, header);
@@ -425,7 +425,7 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializePropertyIndexAsync(PropertyName);
-        var partitionsToInsert = new List<IPartition>();
+        var partitionsToInsert = new List<IChunk>();
         partitionsToInsert.AddRange(GeneratePartitions("doc2", 0, 5));
         partitionsToInsert.AddRange(GeneratePartitions("doc1", 0, 5));
         partitionsToInsert.AddRange(GeneratePartitions("doc3", 0, 5));
@@ -463,8 +463,8 @@ public sealed class StreamPartitionStorageServiceIndexTests
         await strategy.InitializePropertyIndexAsync(PropertyName);
 
         var logicalKeys = Enumerable.Range(0, totalLogicalKeys).Select(i => $"doc-{i:D3}").ToList();
-        var allPartitions = new List<IPartition>();
-        var allExpectedPartitions = new Dictionary<string, List<IPartition>>();
+        var allPartitions = new List<IChunk>();
+        var allExpectedPartitions = new Dictionary<string, List<IChunk>>();
         
         foreach (var key in logicalKeys)
         {
@@ -532,13 +532,13 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializePropertyIndexAsync(PropertyName);
-        var p10 = new DataPartition(new CompositePartitionKey(LogicalKey, 10), null, 1, 1, 1, 1);
-        var p20 = new DataPartition(new CompositePartitionKey(LogicalKey, 20), null, 2, 2, 2, 2);
+        var p10 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 10), null, 1, 1, 1, 1);
+        var p20 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 20), null, 2, 2, 2, 2);
         await strategy.InsertPropertyPartitionAsync(PropertyName, p10);
         await strategy.InsertPropertyPartitionAsync(PropertyName, p20);
 
         // Act
-        var found = await strategy.GetPropertyPartitionAsync(new CompositePartitionKey(LogicalKey, 15), PropertyName);
+        var found = await strategy.GetPropertyPartitionAsync(new CompositeChunkKey(LogicalKey, 15), PropertyName);
         
         // Assert
         found.ShouldBe(p10);
@@ -549,16 +549,16 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializePropertyIndexAsync(PropertyName);
-        var header = new HeaderPartition(new CompositePartitionKey(LogicalKey, null), 1,1,1,1);
-        var p10 = new DataPartition(new CompositePartitionKey(LogicalKey, 10), null, 1, 1, 1, 1);
+        var header = new HeaderChunk(new CompositeChunkKey(LogicalKey, null), 1,1,1,1);
+        var p10 = new CollectionChunk(new CompositeChunkKey(LogicalKey, 10), null, 1, 1, 1, 1);
         
         await strategy.InsertPropertyPartitionAsync(PropertyName, header);
         await strategy.InsertPropertyPartitionAsync(PropertyName, p10);
         
-        var foundHeader = await strategy.GetPropertyPartitionAsync(new CompositePartitionKey(LogicalKey, 5), PropertyName);
+        var foundHeader = await strategy.GetPropertyPartitionAsync(new CompositeChunkKey(LogicalKey, 5), PropertyName);
         foundHeader.ShouldBe(header);
         
-        var foundNull = await strategy.GetPropertyPartitionAsync(new CompositePartitionKey("another_key", 5), PropertyName);
+        var foundNull = await strategy.GetPropertyPartitionAsync(new CompositeChunkKey("another_key", 5), PropertyName);
         foundNull.ShouldBeNull();
     }
     
@@ -569,13 +569,13 @@ public sealed class StreamPartitionStorageServiceIndexTests
         await strategy.InitializePropertyIndexAsync(PropertyName);
         
         var random = new Random(42);
-        var expectedPartitions = new Dictionary<CompositePartitionKey, IPartition>();
+        var expectedPartitions = new Dictionary<CompositeChunkKey, IChunk>();
         const int initialCount = 1000;
         const int deleteCount = 500;
         const int reinsertCount = 250;
 
         // Phase 1: Initial Bulk Insertion
-        var initialPartitions = Enumerable.Range(0, initialCount).Select(i => new DataPartition(new CompositePartitionKey(LogicalKey, i), null, (long)i, i, (long)i, i)).Cast<IPartition>();
+        var initialPartitions = Enumerable.Range(0, initialCount).Select(i => new CollectionChunk(new CompositeChunkKey(LogicalKey, i), null, (long)i, i, (long)i, i)).Cast<IChunk>();
         foreach (var p in initialPartitions)
         {
             await strategy.InsertPropertyPartitionAsync(PropertyName, p);
@@ -597,7 +597,7 @@ public sealed class StreamPartitionStorageServiceIndexTests
 
 
         // Phase 3: Re-insertion and New Insertions
-        var partitionsToReinsert = Enumerable.Range(initialCount, reinsertCount).Select(i => new DataPartition(new CompositePartitionKey(LogicalKey, i), null, (long)i, i, (long)i, i)).Cast<IPartition>();
+        var partitionsToReinsert = Enumerable.Range(initialCount, reinsertCount).Select(i => new CollectionChunk(new CompositeChunkKey(LogicalKey, i), null, (long)i, i, (long)i, i)).Cast<IChunk>();
         foreach (var p in partitionsToReinsert)
         {
             await strategy.InsertPropertyPartitionAsync(PropertyName, p);
@@ -630,7 +630,7 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializeHeaderIndexAsync();
-        var partition = new HeaderPartition(new CompositePartitionKey(LogicalKey, null), 1L, 1, 1L, 1);
+        var partition = new HeaderChunk(new CompositeChunkKey(LogicalKey, null), 1L, 1, 1L, 1);
         
         // Act
         await strategy.InsertHeaderPartitionAsync(LogicalKey, partition);
@@ -646,11 +646,11 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializeHeaderIndexAsync();
-        var originalKey = new CompositePartitionKey(LogicalKey, null);
-        var originalPartition = new HeaderPartition(originalKey, 1L, 1, 1L, 1);
+        var originalKey = new CompositeChunkKey(LogicalKey, null);
+        var originalPartition = new HeaderChunk(originalKey, 1L, 1, 1L, 1);
         await strategy.InsertHeaderPartitionAsync(LogicalKey, originalPartition);
         
-        var updatedPartition = new HeaderPartition(originalKey, 99L, 99, 99L, 99);
+        var updatedPartition = new HeaderChunk(originalKey, 99L, 99, 99L, 99);
 
         // Act
         await strategy.UpdateHeaderPartitionAsync(LogicalKey, updatedPartition);
@@ -667,9 +667,9 @@ public sealed class StreamPartitionStorageServiceIndexTests
     {
         // Arrange
         await strategy.InitializeHeaderIndexAsync();
-        var p1 = new HeaderPartition(new CompositePartitionKey("doc1", null), 1, 1, 1, 1);
-        var p2 = new HeaderPartition(new CompositePartitionKey("doc2", null), 2, 2, 2, 2);
-        var p3 = new HeaderPartition(new CompositePartitionKey("doc3", null), 3, 3, 3, 3);
+        var p1 = new HeaderChunk(new CompositeChunkKey("doc1", null), 1, 1, 1, 1);
+        var p2 = new HeaderChunk(new CompositeChunkKey("doc2", null), 2, 2, 2, 2);
+        var p3 = new HeaderChunk(new CompositeChunkKey("doc3", null), 3, 3, 3, 3);
 
         await strategy.InsertHeaderPartitionAsync("doc1", p1);
         await strategy.InsertHeaderPartitionAsync("doc2", p2);
@@ -680,27 +680,27 @@ public sealed class StreamPartitionStorageServiceIndexTests
 
         // Assert
         allPartitions.Count.ShouldBe(3);
-        allPartitions.ShouldBe(new IPartition[] { p1, p2, p3 }, ignoreOrder: true);
+        allPartitions.ShouldBe(new IChunk[] { p1, p2, p3 }, ignoreOrder: true);
     }
 
-    private async Task<List<IPartition>> InsertRangeAsync(IComparable logicalKey, int start, int count)
+    private async Task<List<IChunk>> InsertRangeAsync(IComparable logicalKey, int start, int count)
     {
-        var partitions = new List<IPartition>();
+        var partitions = new List<IChunk>();
         for (var i = start; i < start + count; i++)
         {
-            var p = new DataPartition(new CompositePartitionKey(logicalKey, i * 10), null, (long)i, i, (long)i, i);
+            var p = new CollectionChunk(new CompositeChunkKey(logicalKey, i * 10), null, (long)i, i, (long)i, i);
             partitions.Add(p);
             await strategy.InsertPropertyPartitionAsync(PropertyName, p);
         }
         return partitions;
     }
     
-    private List<IPartition> GeneratePartitions(IComparable logicalKey, int start, int count)
+    private List<IChunk> GeneratePartitions(IComparable logicalKey, int start, int count)
     {
-        var partitions = new List<IPartition>();
+        var partitions = new List<IChunk>();
         for (var i = start; i < start + count; i++)
         {
-            var p = new DataPartition(new CompositePartitionKey(logicalKey, i * 10), null, (long)i, i, (long)i, i);
+            var p = new CollectionChunk(new CompositeChunkKey(logicalKey, i * 10), null, (long)i, i, (long)i, i);
             partitions.Add(p);
         }
         return partitions;
