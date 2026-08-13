@@ -58,14 +58,6 @@ public interface IKvDocumentManager<T> where T : class, new()
     Task DeleteItemAsync(IComparable logicalKey, string propertyName, IComparable itemKey, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Retrieves the complete, reconstructed object for a given logical key by streaming
-    /// all item rows and appending them to the root document.
-    /// </summary>
-    /// <param name="logicalKey">The logical key identifying the document.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    Task<T?> GetFullObjectAsync(IComparable logicalKey, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Retrieves all items for a given logical key and property as an asynchronously enumerable sequence.
     /// </summary>
     /// <param name="logicalKey">The logical key identifying the document.</param>

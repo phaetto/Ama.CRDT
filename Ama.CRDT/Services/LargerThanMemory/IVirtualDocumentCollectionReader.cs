@@ -23,15 +23,6 @@ public interface IVirtualDocumentCollectionReader<T> where T : class, new()
     Task<CrdtDocument<T>?> GetDocumentHeaderAsync(IComparable logicalKey, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Retrieves the complete, reconstructed CRDT document for a given logical key by streaming
-    /// all items from all virtual properties and appending them to the root document along with their merged metadata.
-    /// </summary>
-    /// <param name="logicalKey">The logical key identifying the document.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The fully populated root CRDT document, or null if not found.</returns>
-    Task<CrdtDocument<T>?> GetFullDocumentAsync(IComparable logicalKey, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Streams all elements of a specific virtual collection for a given logical key.
     /// </summary>
     /// <typeparam name="TElement">The expected type of the elements (e.g., a POCO or a <see cref="KeyValuePair{TKey, TValue}"/>).</typeparam>

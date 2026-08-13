@@ -65,15 +65,6 @@ public interface IChunkDocumentManager<T> where T : class, new()
     Task<CrdtDocument<T>?> GetDataChunkContentAsync(CompositeChunkKey key, string propertyName, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Retrieves the complete, reconstructed object for a given logical key. It loads the root object and
-    /// then loads and merges all data from all virtualized properties.
-    /// </summary>
-    /// <param name="logicalKey">The logical key identifying the document.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the fully reconstructed object, or null if not found.</returns>
-    Task<T?> GetFullObjectAsync(IComparable logicalKey, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Retrieves all data chunks for a given logical key and property as an asynchronously enumerable sequence.
     /// This method streams chunks and is suitable for large datasets.
     /// </summary>

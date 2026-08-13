@@ -209,13 +209,6 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
         }
     }
 
-    /// <inheritdoc/>
-    public async Task<T?> GetFullObjectAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
-    {
-        var doc = await GetFullDocumentInternalAsync(logicalKey, cancellationToken).ConfigureAwait(false);
-        return doc?.Data;
-    }
-
     private async Task<CrdtDocument<T>?> GetFullDocumentInternalAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
