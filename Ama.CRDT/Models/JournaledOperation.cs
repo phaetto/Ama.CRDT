@@ -1,5 +1,7 @@
 namespace Ama.CRDT.Models;
 
+using System;
+
 /// <summary>
 /// Represents an envelope for a <see cref="CrdtOperation"/> that includes the logical 
 /// identity (Document ID) of the document it belongs to. This is used by the journal 
@@ -7,4 +9,4 @@ namespace Ama.CRDT.Models;
 /// </summary>
 /// <param name="DocumentId">The logical key or ID of the root document.</param>
 /// <param name="Operation">The CRDT operation.</param>
-public readonly record struct JournaledOperation(string DocumentId, CrdtOperation Operation);
+public readonly record struct JournaledOperation(IComparable DocumentId, CrdtOperation Operation);

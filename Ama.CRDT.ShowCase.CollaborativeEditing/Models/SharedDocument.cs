@@ -7,6 +7,9 @@ using Ama.CRDT.Attributes.Strategies;
 
 public sealed class SharedDocument : IEquatable<SharedDocument>
 {
+    // Journaling requires an ID
+    public string Id { get; } = "shared-document";
+
     /// <summary>
     /// Represents the text lines of our document as an ordered list.
     /// The RgaStrategy (Replicated Growable Array) is the industry standard for 

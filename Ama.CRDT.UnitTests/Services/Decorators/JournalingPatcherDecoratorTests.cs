@@ -39,7 +39,7 @@ public sealed class JournalingPatcherDecoratorTests
         var journalMock = new Mock<ICrdtOperationJournal>();
         var providerMock = new Mock<IDocumentIdProvider>();
         
-        providerMock.Setup(p => p.GetDocumentId(It.IsAny<TestModel>())).Returns("test-doc-id");
+        providerMock.Setup(p => p.GetDocumentId(It.IsAny<TestModel>())).Returns((IComparable)"test-doc-id");
 
         var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, providerMock.Object, DecoratorBehavior.After);
 
@@ -57,7 +57,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Assert
         result.ShouldBe(patch);
         journalMock.Verify(m => m.AppendAsync(
-            "test-doc-id",
+            (IComparable)"test-doc-id",
             It.Is<IReadOnlyList<CrdtOperation>>(ops => ops.Count == 1 && ops.Contains(op)), 
             It.IsAny<CancellationToken>()), 
             Times.Once);
@@ -71,7 +71,7 @@ public sealed class JournalingPatcherDecoratorTests
         var journalMock = new Mock<ICrdtOperationJournal>();
         var providerMock = new Mock<IDocumentIdProvider>();
         
-        providerMock.Setup(p => p.GetDocumentId(It.IsAny<TestModel>())).Returns("test-doc-id");
+        providerMock.Setup(p => p.GetDocumentId(It.IsAny<TestModel>())).Returns((IComparable)"test-doc-id");
 
         var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, providerMock.Object, DecoratorBehavior.After);
 
@@ -90,7 +90,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Assert
         result.ShouldBe(patch);
         journalMock.Verify(m => m.AppendAsync(
-            "test-doc-id",
+            (IComparable)"test-doc-id",
             It.Is<IReadOnlyList<CrdtOperation>>(ops => ops.Count == 1 && ops.Contains(op)), 
             It.IsAny<CancellationToken>()), 
             Times.Once);
@@ -117,7 +117,7 @@ public sealed class JournalingPatcherDecoratorTests
         await decorator.GeneratePatchAsync(document, changed);
 
         // Assert
-        journalMock.Verify(m => m.AppendAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<CrdtOperation>>(), It.IsAny<CancellationToken>()), Times.Never);
+        journalMock.Verify(m => m.AppendAsync(It.IsAny<IComparable>(), It.IsAny<IReadOnlyList<CrdtOperation>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public sealed class JournalingPatcherDecoratorTests
         var journalMock = new Mock<ICrdtOperationJournal>();
         var providerMock = new Mock<IDocumentIdProvider>();
         
-        providerMock.Setup(p => p.GetDocumentId(It.IsAny<TestModel>())).Returns("test-doc-id");
+        providerMock.Setup(p => p.GetDocumentId(It.IsAny<TestModel>())).Returns((IComparable)"test-doc-id");
 
         var decorator = new JournalingPatcherDecorator(patcherMock.Object, journalMock.Object, providerMock.Object, DecoratorBehavior.After);
 
@@ -147,7 +147,7 @@ public sealed class JournalingPatcherDecoratorTests
         // Assert
         result.ShouldBe(expectedOperation);
         journalMock.Verify(m => m.AppendAsync(
-            "test-doc-id",
+            (IComparable)"test-doc-id",
             It.Is<IReadOnlyList<CrdtOperation>>(ops => ops.Count == 1 && ops.Contains(expectedOperation)), 
             It.IsAny<CancellationToken>()), 
             Times.Once);

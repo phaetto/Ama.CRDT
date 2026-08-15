@@ -37,7 +37,7 @@ public sealed class JournalingApplicatorDecoratorTests
         var journalMock = new Mock<ICrdtOperationJournal>();
         var providerMock = new Mock<IDocumentIdProvider>();
         
-        providerMock.Setup(p => p.GetDocumentId(It.IsAny<TestModel>())).Returns("test-doc-id");
+        providerMock.Setup(p => p.GetDocumentId(It.IsAny<TestModel>())).Returns((IComparable)"test-doc-id");
         
         var decorator = new JournalingApplicatorDecorator(applicatorMock.Object, journalMock.Object, providerMock.Object, DecoratorBehavior.Before);
 
@@ -60,7 +60,7 @@ public sealed class JournalingApplicatorDecoratorTests
         result.ShouldBe(expectedResult);
         
         journalMock.Verify(m => m.AppendAsync(
-            "test-doc-id",
+            (IComparable)"test-doc-id",
             It.Is<IReadOnlyList<CrdtOperation>>(ops => ops.Count == 2 && ops.Contains(op1) && ops.Contains(op2)), 
             It.IsAny<CancellationToken>()), 
             Times.Once);
@@ -90,7 +90,7 @@ public sealed class JournalingApplicatorDecoratorTests
 
         // Assert
         result.ShouldBe(expectedResult);
-        journalMock.Verify(m => m.AppendAsync(It.IsAny<string>(), It.IsAny<IReadOnlyList<CrdtOperation>>(), It.IsAny<CancellationToken>()), Times.Never);
+        journalMock.Verify(m => m.AppendAsync(It.IsAny<IComparable>(), It.IsAny<IReadOnlyList<CrdtOperation>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private static CrdtOperation CreateOperationWithId(Guid id)

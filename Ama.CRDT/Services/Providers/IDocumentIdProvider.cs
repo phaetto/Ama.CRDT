@@ -13,10 +13,10 @@ public interface IDocumentIdProvider
     /// </summary>
     /// <typeparam name="T">The type of the document.</typeparam>
     /// <param name="obj">The document object.</param>
-    /// <returns>A string representing the unique identifier of the document.</returns>
+    /// <returns>An IComparable representing the unique identifier of the document.</returns>
     /// <exception cref="ArgumentNullException">Thrown if the provided object is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown if a valid identifier cannot be extracted from the object.</exception>
-    string GetDocumentId<T>(T? obj);
+    IComparable GetDocumentId<T>(T? obj);
 
     /// <summary>
     /// Sets the document identifier on the specified object.
@@ -26,7 +26,7 @@ public interface IDocumentIdProvider
     /// <param name="id">The unique identifier to set.</param>
     /// <exception cref="ArgumentNullException">Thrown if the provided object or id is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown if the 'Id' property cannot be written to.</exception>
-    void SetDocumentId<T>(T obj, string id);
+    void SetDocumentId<T>(T obj, IComparable id);
 
     /// <summary>
     /// Creates a new instance of the document and sets its identifier.
@@ -36,5 +36,5 @@ public interface IDocumentIdProvider
     /// <returns>A new instance of the document with the specified identifier.</returns>
     /// <exception cref="ArgumentNullException">Thrown if the provided id is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown if the object cannot be instantiated or the 'Id' property cannot be written to.</exception>
-    T CreateDocumentWithId<T>(string id);
+    T CreateDocumentWithId<T>(IComparable id);
 }

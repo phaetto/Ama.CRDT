@@ -1,6 +1,5 @@
 namespace Ama.CRDT.Services.LargerThanMemory;
 
-using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.LargerThanMemory;
@@ -13,7 +12,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,9 +31,9 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
     private readonly LargerThanMemoryManagerCrdtMetrics metrics; 
     private readonly IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories;
     private readonly IEnumerable<CrdtAotContext> aotContexts;
+    private readonly IDocumentIdProvider documentIdProvider;
     private readonly IEnumerable<IVirtualDocumentProjector<T>> projectors;
 
-    private readonly CrdtPropertyInfo? partitionKeyProperty;
     private readonly IReadOnlyDictionary<string, (CrdtPropertyInfo Property, IChunkableCollectionStrategy Strategy)> chunkableProperties;
     private readonly IReadOnlyDictionary<string, string> propertyNamePathCache;
 
@@ -47,6 +45,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
         LargerThanMemoryManagerCrdtMetrics metrics,
         IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories,
         IEnumerable<CrdtAotContext> aotContexts,
+        IDocumentIdProvider documentIdProvider,
         IEnumerable<IVirtualDocumentProjector<T>>? projectors = null)
     {
         ArgumentNullException.ThrowIfNull(storageService);
@@ -55,6 +54,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
         ArgumentNullException.ThrowIfNull(metrics);
         ArgumentNullException.ThrowIfNull(compactionPolicyFactories);
         ArgumentNullException.ThrowIfNull(aotContexts);
+        ArgumentNullException.ThrowIfNull(documentIdProvider);
 
         if (replicaContext == null || string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
         {
@@ -66,9 +66,9 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
         this.metrics = metrics;
         this.compactionPolicyFactories = compactionPolicyFactories;
         this.aotContexts = aotContexts;
+        this.documentIdProvider = documentIdProvider;
         this.projectors = projectors ?? Array.Empty<IVirtualDocumentProjector<T>>();
 
-        this.partitionKeyProperty = FindPartitionKeyProperty(typeof(T), aotContexts);
         this.chunkableProperties = FindChunkablePropertiesAndStrategies(strategyProvider, aotContexts);
         this.propertyNamePathCache = this.chunkableProperties.ToDictionary(kvp => kvp.Value.Property.Name, kvp => kvp.Key);
     }
@@ -109,7 +109,9 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
             return null;
         }
 
-        return await this.storageService.LoadHeaderChunkContentAsync<T>(logicalKey, (HeaderChunk)headerChunk, cancellationToken).ConfigureAwait(false);
+        var headerDoc = await this.storageService.LoadHeaderChunkContentAsync<T>(logicalKey, (HeaderChunk)headerChunk, cancellationToken).ConfigureAwait(false);
+        this.documentIdProvider.SetDocumentId(headerDoc.Data!, logicalKey);
+        return headerDoc;
     }
 
     /// <inheritdoc/>
@@ -140,6 +142,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
             await foreach(var chunk in GetAllDataChunksAsync(logicalKey, prop.Name, cancellationToken).WithCancellation(cancellationToken))
             {
                 var chunkDoc = await this.storageService.LoadChunkContentAsync<T>(logicalKey, prop.Name, chunk, cancellationToken).ConfigureAwait(false);
+                this.documentIdProvider.SetDocumentId(chunkDoc.Data!, logicalKey);
 
                 mergedMetadata = CrdtMetadata.Merge(mergedMetadata, chunkDoc.Metadata!);
 
@@ -182,6 +185,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
         await foreach (var chunk in GetAllDataChunksAsync(logicalKey, propertyName, cancellationToken).WithCancellation(cancellationToken))
         {
             var chunkDoc = await this.storageService.LoadChunkContentAsync<T>(logicalKey, propertyName, chunk, cancellationToken).ConfigureAwait(false);
+            this.documentIdProvider.SetDocumentId(chunkDoc.Data!, logicalKey);
             var collection = prop.Getter!(chunkDoc.Data!);
 
             if (collection is IEnumerable enumerable)
@@ -211,6 +215,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
         await foreach (var chunk in GetAllDataChunksAsync(logicalKey, propertyName, cancellationToken).WithCancellation(cancellationToken))
         {
             var chunkDoc = await this.storageService.LoadChunkContentAsync<T>(logicalKey, propertyName, chunk, cancellationToken).ConfigureAwait(false);
+            this.documentIdProvider.SetDocumentId(chunkDoc.Data!, logicalKey);
             totalCount += GetItemCount(prop, chunkDoc.Data!);
         }
         return totalCount;
@@ -253,6 +258,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
         }
 
         var dataDoc = await this.storageService.LoadChunkContentAsync<T>(key.LogicalKey, propertyName, chunk, cancellationToken).ConfigureAwait(false);
+        this.documentIdProvider.SetDocumentId(dataDoc.Data!, key.LogicalKey);
 
         var headerDoc = await GetDocumentHeaderAsync(key.LogicalKey, cancellationToken).ConfigureAwait(false);
         if (headerDoc is null)
@@ -350,6 +356,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
             if (headerChunk is HeaderChunk hp)
             {
                 var headerDoc = await this.storageService.LoadHeaderChunkContentAsync<T>(logicalKey, hp, cancellationToken).ConfigureAwait(false);
+                this.documentIdProvider.SetDocumentId(headerDoc.Data!, logicalKey);
                 foreach (var factory in this.compactionPolicyFactories)
                 {
                     var policy = factory.CreatePolicy();
@@ -375,6 +382,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
                 foreach (var dataChunk in chunksToCompact)
                 {
                     var crdtDoc = await this.storageService.LoadChunkContentAsync<T>(logicalKey, prop.Name, dataChunk, cancellationToken).ConfigureAwait(false);
+                    this.documentIdProvider.SetDocumentId(crdtDoc.Data!, logicalKey);
                     
                     foreach (var factory in this.compactionPolicyFactories)
                     {
@@ -400,7 +408,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
     /// <inheritdoc/>
     public async Task<ApplyPatchResult<T>?> TryApplyPatchAsync(IAsyncCrdtApplicator innerApplicator, CrdtDocument<T> document, CrdtPatch patch, CancellationToken cancellationToken = default)
     {
-        if (this.partitionKeyProperty is null || this.chunkableProperties.Count == 0)
+        if (this.chunkableProperties.Count == 0)
         {
             return null;
         }
@@ -421,6 +429,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
         var headerPartition = await this.storageService.GetHeaderChunkAsync(logicalKey, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException($"Could not find header chunk for logical key '{logicalKey}'.");
         var headerDoc = await this.storageService.LoadHeaderChunkContentAsync<T>(logicalKey, (HeaderChunk)headerPartition, cancellationToken).ConfigureAwait(false);
+        this.documentIdProvider.SetDocumentId(headerDoc.Data!, logicalKey);
 
         var groupedOperations = GroupOperationsByProperty(patch.Operations, this.chunkableProperties);
         bool headerModified = groupedOperations.HeaderOps.Count > 0;
@@ -446,6 +455,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
                 var ops = partitionOps.Value;
 
                 var dataDoc = await this.storageService.LoadChunkContentAsync<T>(logicalKey, propertyName, partition, cancellationToken).ConfigureAwait(false);
+                this.documentIdProvider.SetDocumentId(dataDoc.Data!, logicalKey);
 
                 // Temporarily inject global synchronization state into the data partition's metadata 
                 dataDoc.Metadata!.VersionVector = headerDoc.Metadata!.VersionVector;
@@ -511,10 +521,6 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
 
     private void EnsureConfigured()
     {
-        if (this.partitionKeyProperty is null)
-        {
-            throw new NotSupportedException($"The type '{typeof(T).Name}' must be decorated with the [{nameof(PartitionKeyAttribute)}] to be used with virtualized collections.");
-        }
         if (this.chunkableProperties.Count == 0)
         {
             throw new NotSupportedException($"The type '{typeof(T).Name}' does not have any properties with a CRDT strategy that supports chunking (implements {nameof(IChunkableCollectionStrategy)}).");
@@ -566,7 +572,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
 
             var initialCollection = prop.Getter!(initialObject);
             var dataObject = new T();
-            this.partitionKeyProperty!.Setter!(dataObject, logicalKey);
+            this.documentIdProvider.SetDocumentId(dataObject, logicalKey);
             prop.Setter!(dataObject, initialCollection);
 
             var dataMetadata = this.metadataManager.Initialize(dataObject);
@@ -593,6 +599,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
         this.metrics.PartitionsSplit.Add(1);
 
         var crdtDoc = await this.storageService.LoadChunkContentAsync<T>(dataChunkToSplit.StartKey.LogicalKey, propertyName, dataChunkToSplit, cancellationToken).ConfigureAwait(false);
+        this.documentIdProvider.SetDocumentId(crdtDoc.Data!, dataChunkToSplit.StartKey.LogicalKey);
         var itemCount = GetItemCount(prop, crdtDoc.Data!);
         
         // 1. Attempt Piggybacked Compaction to avoid the split entirely
@@ -635,6 +642,9 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
 
         var p1Empty = new CollectionChunk(p1Key, p2Key, 0, 0, 0, 0);
         var p2Empty = new CollectionChunk(p2Key, dataChunkToSplit.EndKey, 0, 0, 0, 0);
+
+        this.documentIdProvider.SetDocumentId((T)splitResult.Partition1.Data, originalKey.LogicalKey);
+        this.documentIdProvider.SetDocumentId((T)splitResult.Partition2.Data, originalKey.LogicalKey);
 
         var p1 = await this.storageService.SaveChunkContentAsync(originalKey.LogicalKey, propertyName, p1Empty, (T)splitResult.Partition1.Data, splitResult.Partition1.Metadata, cancellationToken).ConfigureAwait(false);
         var p2 = await this.storageService.SaveChunkContentAsync(originalKey.LogicalKey, propertyName, p2Empty, (T)splitResult.Partition2.Data, splitResult.Partition2.Metadata, cancellationToken).ConfigureAwait(false);
@@ -760,9 +770,12 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
         }
         
         var targetDocument = await this.storageService.LoadChunkContentAsync<T>(logicalKey, propertyName, targetPartition, cancellationToken).ConfigureAwait(false);
+        this.documentIdProvider.SetDocumentId(targetDocument.Data!, logicalKey);
         var sourceDocument = await this.storageService.LoadChunkContentAsync<T>(logicalKey, propertyName, sourcePartition, cancellationToken).ConfigureAwait(false);
+        this.documentIdProvider.SetDocumentId(sourceDocument.Data!, logicalKey);
         
         var mergedContent = strategy.MergeDisjoint(targetDocument.Data!, targetDocument.Metadata!, sourceDocument.Data!, sourceDocument.Metadata!, prop);
+        this.documentIdProvider.SetDocumentId((T)mergedContent.Data, logicalKey);
         var mergedEmpty = new CollectionChunk(targetPartition.StartKey, sourcePartition.EndKey, 0, 0, 0, 0);
         var mergedPartition = await this.storageService.SaveChunkContentAsync(logicalKey, propertyName, mergedEmpty, (T)mergedContent.Data, mergedContent.Metadata, cancellationToken).ConfigureAwait(false);
 
@@ -798,12 +811,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
 
     private IComparable GetLogicalKey(T obj)
     {
-        var logicalKeyObj = this.partitionKeyProperty!.Getter?.Invoke(obj) ?? throw new InvalidOperationException($"Partition key property '{this.partitionKeyProperty.Name}' cannot be null.");
-        if (logicalKeyObj is not IComparable logicalKey)
-        {
-            throw new InvalidOperationException($"Partition key property '{this.partitionKeyProperty.Name}' must implement IComparable.");
-        }
-        return logicalKey;
+        return this.documentIdProvider.GetDocumentId(obj);
     }
     
     private static IReadOnlyDictionary<string, (CrdtPropertyInfo Property, IChunkableCollectionStrategy Strategy)> FindChunkablePropertiesAndStrategies(ICrdtStrategyProvider strategyProvider, IEnumerable<CrdtAotContext> aotContexts)
@@ -819,17 +827,6 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
             })
             .Where(x => x.Strategy is IChunkableCollectionStrategy)
             .ToDictionary(x => x.Path, x => (x.Property, (IChunkableCollectionStrategy)x.Strategy!));
-    }
-    
-    private static CrdtPropertyInfo? FindPartitionKeyProperty(Type type, IEnumerable<CrdtAotContext> aotContexts)
-    {
-        var attr = type.GetCustomAttribute<PartitionKeyAttribute>();
-        if (attr is null) return null;
-        
-        var typeInfo = PocoPathHelper.GetTypeInfo(type, aotContexts);
-        if (!typeInfo.Properties.TryGetValue(attr.PropertyName, out var property)) return null;
-        
-        return property;
     }
 
     private string ToPropertyPath(string propertyName)

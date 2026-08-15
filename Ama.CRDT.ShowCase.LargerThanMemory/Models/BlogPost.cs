@@ -1,10 +1,9 @@
 namespace Ama.CRDT.ShowCase.LargerThanMemory.Models;
 
-using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
+using System;
 using System.Collections.Generic;
 
-[PartitionKey(nameof(Id))]
 public sealed class BlogPost
 {
     public Guid Id { get; set; }

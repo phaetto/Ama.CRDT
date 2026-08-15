@@ -2,6 +2,7 @@ using Ama.CRDT.Extensions;
 using Ama.CRDT.LargerThanMemory.Streams.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.Decorators;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.ShowCase.LargerThanMemory;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
 using Ama.CRDT.ShowCase.LargerThanMemory.Services;
@@ -23,6 +24,8 @@ builder.ConfigureServices((context, services) =>
         .AddCrdtStreamChunking<FileSystemChunkStreamProvider>()
         .AddCrdtChunkedDocument<BlogPost>()
         .AddCrdtVirtualDocumentProjector<BlogPost, BlogPostSqliteProjector>();
+
+    services.AddSingleton<IDocumentIdProvider, BlogPostDocumentIdProvider>();
 
     services.AddScoped<BlogPostReadRepository>();
     services.AddScoped<DataGeneratorService>();

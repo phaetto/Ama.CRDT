@@ -16,7 +16,7 @@ internal sealed class DefaultDocumentIdProvider : IDocumentIdProvider
     }
 
     /// <inheritdoc/>
-    public string GetDocumentId<T>(T? obj)
+    public IComparable GetDocumentId<T>(T? obj)
     {
         ArgumentNullException.ThrowIfNull(obj);
 
@@ -34,20 +34,19 @@ internal sealed class DefaultDocumentIdProvider : IDocumentIdProvider
             throw new InvalidOperationException($"The 'Id' property on type '{type.Name}' evaluated to null. Document IDs cannot be null.");
         }
 
-        var stringVal = val.ToString();
-        if (string.IsNullOrWhiteSpace(stringVal))
+        if (val is not IComparable comp)
         {
-            throw new InvalidOperationException($"The 'Id' property on type '{type.Name}' evaluated to an empty or whitespace string.");
+            throw new InvalidOperationException($"The 'Id' property on type '{type.Name}' does not implement IComparable. Document IDs must implement IComparable.");
         }
 
-        return stringVal;
+        return comp;
     }
 
     /// <inheritdoc/>
-    public void SetDocumentId<T>(T obj, string id)
+    public void SetDocumentId<T>(T obj, IComparable id)
     {
         ArgumentNullException.ThrowIfNull(obj);
-        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        ArgumentNullException.ThrowIfNull(id);
 
         var type = obj.GetType();
         var typeInfo = PocoPathHelper.GetTypeInfo(type, aotContexts);
@@ -62,9 +61,9 @@ internal sealed class DefaultDocumentIdProvider : IDocumentIdProvider
     }
 
     /// <inheritdoc/>
-    public T CreateDocumentWithId<T>(string id)
+    public T CreateDocumentWithId<T>(IComparable id)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        ArgumentNullException.ThrowIfNull(id);
 
         var instance = PocoPathHelper.Instantiate(typeof(T), aotContexts);
         if (instance is null)

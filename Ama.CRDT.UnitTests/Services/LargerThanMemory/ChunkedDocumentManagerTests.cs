@@ -1,6 +1,5 @@
 namespace Ama.CRDT.UnitTests.Services.LargerThanMemory;
 
-using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
@@ -21,7 +20,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
-[PartitionKey(nameof(TenantId))]
 public sealed class MultiPartitionedModel
 {
     public string TenantId { get; set; } = "";
@@ -32,6 +30,29 @@ public sealed class MultiPartitionedModel
     
     [CrdtOrMapStrategy]
     public Dictionary<string, string> Tags { get; set; } = new();
+}
+
+public sealed class MultiPartitionedModelIdProvider : IDocumentIdProvider
+{
+    public IComparable GetDocumentId<T>(T? obj)
+    {
+        ArgumentNullException.ThrowIfNull(obj);
+        if (obj is MultiPartitionedModel model) return model.TenantId;
+        throw new NotSupportedException();
+    }
+
+    public void SetDocumentId<T>(T obj, IComparable id)
+    {
+        ArgumentNullException.ThrowIfNull(obj);
+        if (obj is MultiPartitionedModel model && id is string strId) model.TenantId = strId;
+        else throw new NotSupportedException();
+    }
+
+    public T CreateDocumentWithId<T>(IComparable id)
+    {
+        if (typeof(T) == typeof(MultiPartitionedModel) && id is string strId) return (T)(object)new MultiPartitionedModel { TenantId = strId };
+        throw new NotSupportedException();
+    }
 }
 
 public sealed class ChunkedDocumentManagerTests
@@ -47,6 +68,7 @@ public sealed class ChunkedDocumentManagerTests
             .AddCrdt()
             .AddSingleton<CrdtAotContext, LargerThanMemoryTestCrdtAotContext>()
             .AddSingleton(meterFactoryMock.Object)
+            .AddSingleton<IDocumentIdProvider, MultiPartitionedModelIdProvider>()
             .AddSingleton(mockStorage.Object);
 
         if (withPolicy)
@@ -67,6 +89,8 @@ public sealed class ChunkedDocumentManagerTests
         var metrics = scope.ServiceProvider.GetRequiredService<LargerThanMemoryManagerCrdtMetrics>();
         var aotContexts = scope.ServiceProvider.GetServices<CrdtAotContext>();
         var policies = scope.ServiceProvider.GetServices<ICompactionPolicyFactory>();
+        var documentIdProvider = scope.ServiceProvider.GetRequiredService<IDocumentIdProvider>();
+        var projectors = scope.ServiceProvider.GetServices<IVirtualDocumentProjector<MultiPartitionedModel>>();
 
         var manager = new ChunkedDocumentManager<MultiPartitionedModel>(
             mockStorage.Object,
@@ -75,7 +99,9 @@ public sealed class ChunkedDocumentManagerTests
             replicaContext,
             metrics,
             policies,
-            aotContexts
+            aotContexts,
+            documentIdProvider,
+            projectors
         );
 
         return (manager, mockStorage, scope.ServiceProvider);
