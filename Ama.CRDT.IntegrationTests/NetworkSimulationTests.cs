@@ -74,7 +74,7 @@ public sealed class InMemoryJournal : ICrdtOperationJournal
 {
     public List<JournaledOperation> Operations { get; } = new List<JournaledOperation>();
 
-    public void Append(string documentId, IReadOnlyList<CrdtOperation> operations)
+    public void Append(IComparable documentId, IReadOnlyList<CrdtOperation> operations)
     {
         lock (Operations)
         {
@@ -90,7 +90,7 @@ public sealed class InMemoryJournal : ICrdtOperationJournal
         }
     }
 
-    public Task AppendAsync(string documentId, IReadOnlyList<CrdtOperation> operations, CancellationToken cancellationToken = default)
+    public Task AppendAsync(IComparable documentId, IReadOnlyList<CrdtOperation> operations, CancellationToken cancellationToken = default)
     {
         Append(documentId, operations);
         return Task.CompletedTask;

@@ -922,7 +922,7 @@ public sealed class UiService
                     var sourceJournalManager = sourceScope.ServiceProvider.GetRequiredService<IJournalManager>();
                     var missingOpsStream = sourceJournalManager.GetMissingOperationsAsync(req);
 
-                    var opsByDocument = new Dictionary<string, List<CrdtOperation>>();
+                    var opsByDocument = new Dictionary<IComparable, List<CrdtOperation>>();
                     await foreach (var jOp in missingOpsStream.ConfigureAwait(false))
                     {
                         if (!opsByDocument.TryGetValue(jOp.DocumentId, out var opList))
@@ -940,7 +940,15 @@ public sealed class UiService
 
                         foreach (var kvp in opsByDocument)
                         {
-                            if (!Guid.TryParse(kvp.Key, out var logicalKey)) continue;
+                            Guid logicalKey;
+                            if (kvp.Key is Guid parsedGuid)
+                            {
+                                logicalKey = parsedGuid;
+                            }
+                            else if (!Guid.TryParse(kvp.Key?.ToString(), out logicalKey))
+                            {
+                                continue;
+                            }
 
                             if (!keys.Contains(logicalKey))
                             {
@@ -954,7 +962,7 @@ public sealed class UiService
                             {
                                 foreach (var op in kvp.Value)
                                 {
-                                    yield return new JournaledOperation(kvp.Key, op);
+                                    yield return new JournaledOperation(logicalKey, op);
                                 }
                                 
                                 await Task.CompletedTask.ConfigureAwait(false);

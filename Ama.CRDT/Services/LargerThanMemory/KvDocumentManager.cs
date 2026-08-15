@@ -1,6 +1,5 @@
 namespace Ama.CRDT.Services.LargerThanMemory;
 
-using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Services;
@@ -12,7 +11,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,9 +27,9 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
     private readonly LargerThanMemoryManagerCrdtMetrics metrics; 
     private readonly IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories;
     private readonly IEnumerable<CrdtAotContext> aotContexts;
+    private readonly IDocumentIdProvider documentIdProvider;
     private readonly IEnumerable<IVirtualDocumentProjector<T>> projectors;
 
-    private readonly CrdtPropertyInfo? partitionKeyProperty;
     private readonly IReadOnlyDictionary<string, (CrdtPropertyInfo Property, IVirtualCollectionStrategy Strategy)> virtualProperties;
     private readonly IReadOnlyDictionary<string, string> propertyNamePathCache;
 
@@ -43,6 +41,7 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
         LargerThanMemoryManagerCrdtMetrics metrics,
         IEnumerable<ICompactionPolicyFactory> compactionPolicyFactories,
         IEnumerable<CrdtAotContext> aotContexts,
+        IDocumentIdProvider documentIdProvider,
         IEnumerable<IVirtualDocumentProjector<T>>? projectors = null)
     {
         ArgumentNullException.ThrowIfNull(storageService);
@@ -51,6 +50,7 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
         ArgumentNullException.ThrowIfNull(metrics);
         ArgumentNullException.ThrowIfNull(compactionPolicyFactories);
         ArgumentNullException.ThrowIfNull(aotContexts);
+        ArgumentNullException.ThrowIfNull(documentIdProvider);
 
         if (replicaContext == null || string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
         {
@@ -62,9 +62,9 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
         this.metrics = metrics;
         this.compactionPolicyFactories = compactionPolicyFactories;
         this.aotContexts = aotContexts;
+        this.documentIdProvider = documentIdProvider;
         this.projectors = projectors ?? Array.Empty<IVirtualDocumentProjector<T>>();
 
-        this.partitionKeyProperty = FindPartitionKeyProperty(typeof(T), aotContexts);
         this.virtualProperties = FindVirtualPropertiesAndStrategies(strategyProvider, aotContexts);
         this.propertyNamePathCache = this.virtualProperties.ToDictionary(kvp => kvp.Value.Property.Name, kvp => kvp.Key);
     }
@@ -379,7 +379,7 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
     /// <inheritdoc/>
     public async Task<ApplyPatchResult<T>?> TryApplyPatchAsync(IAsyncCrdtApplicator innerApplicator, CrdtDocument<T> document, CrdtPatch patch, CancellationToken cancellationToken = default)
     {
-        if (this.partitionKeyProperty is null || this.virtualProperties.Count == 0)
+        if (this.virtualProperties.Count == 0)
         {
             return null;
         }
@@ -437,7 +437,7 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
                 else
                 {
                     var dataObject = new T();
-                    this.partitionKeyProperty.Setter!(dataObject, logicalKey);
+                    this.documentIdProvider.SetDocumentId(dataObject, logicalKey);
                     var dataMetadata = this.metadataManager.Initialize(dataObject);
                     itemDoc = new CrdtDocument<T>(dataObject, dataMetadata);
                 }
@@ -523,10 +523,6 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
 
     private void EnsureConfigured()
     {
-        if (this.partitionKeyProperty is null)
-        {
-            throw new NotSupportedException($"The type '{typeof(T).Name}' must be decorated with the [{nameof(PartitionKeyAttribute)}] to be used with virtualized collections.");
-        }
         if (this.virtualProperties.Count == 0)
         {
             throw new NotSupportedException($"The type '{typeof(T).Name}' does not have any properties with a CRDT strategy that supports virtual collections (implements {nameof(IVirtualCollectionStrategy)}).");
@@ -634,12 +630,7 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
 
     private IComparable GetLogicalKey(T obj)
     {
-        var logicalKeyObj = this.partitionKeyProperty!.Getter?.Invoke(obj) ?? throw new InvalidOperationException($"Partition key property '{this.partitionKeyProperty.Name}' cannot be null.");
-        if (logicalKeyObj is not IComparable logicalKey)
-        {
-            throw new InvalidOperationException($"Partition key property '{this.partitionKeyProperty.Name}' must implement IComparable.");
-        }
-        return logicalKey;
+        return this.documentIdProvider.GetDocumentId(obj);
     }
     
     private static IReadOnlyDictionary<string, (CrdtPropertyInfo Property, IVirtualCollectionStrategy Strategy)> FindVirtualPropertiesAndStrategies(ICrdtStrategyProvider strategyProvider, IEnumerable<CrdtAotContext> aotContexts)
@@ -655,17 +646,6 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
             })
             .Where(x => x.Strategy is IVirtualCollectionStrategy)
             .ToDictionary(x => x.Path, x => (x.Property, (IVirtualCollectionStrategy)x.Strategy!));
-    }
-    
-    private static CrdtPropertyInfo? FindPartitionKeyProperty(Type type, IEnumerable<CrdtAotContext> aotContexts)
-    {
-        var attr = type.GetCustomAttribute<PartitionKeyAttribute>();
-        if (attr is null) return null;
-        
-        var typeInfo = PocoPathHelper.GetTypeInfo(type, aotContexts);
-        if (!typeInfo.Properties.TryGetValue(attr.PropertyName, out var property)) return null;
-        
-        return property;
     }
 
     private string ToPropertyPath(string propertyName)
