@@ -10,7 +10,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 
 public sealed class DataGeneratorService(
-    IChunkDocumentManager<BlogPost> partitionManager,
+    IVirtualDocumentManager<BlogPost> partitionManager,
     IAsyncCrdtApplicator crdtApplicator,
     ICrdtPatcher patcher,
     ICrdtMetadataManager metadataManager)
@@ -45,7 +45,7 @@ public sealed class DataGeneratorService(
             await partitionManager.InitializeAsync(blogPost);
 
             // Get the initial document with its server-side generated metadata. This is cheap as the collection is empty.
-            var crdtDocument = await partitionManager.GetHeaderChunkContentAsync(blogPost.Id);
+            var crdtDocument = await partitionManager.GetDocumentHeaderAsync(blogPost.Id);
             var metadata = crdtDocument.Value.Metadata;
 
             // Generate tags and create a patch to showcase Array LCS strategy

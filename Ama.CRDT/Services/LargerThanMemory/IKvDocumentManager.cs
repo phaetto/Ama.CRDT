@@ -11,23 +11,8 @@ using System.Threading.Tasks;
 /// It treats virtual collection elements as individual rows in the storage, bypassing chunk splits and merges.
 /// </summary>
 /// <typeparam name="T">The type of the data model managed by the CRDT.</typeparam>
-public interface IKvDocumentManager<T> where T : class, new()
+public interface IKvDocumentManager<T> : IVirtualDocumentManager<T> where T : class, new()
 {
-    /// <summary>
-    /// Initializes a new virtualized CRDT document.
-    /// The virtual collections will start empty in the Key-Value store.
-    /// </summary>
-    /// <param name="initialObject">The initial object to populate the document header with.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    Task InitializeAsync(T initialObject, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Retrieves the deserialized content (data and metadata) of the document header.
-    /// </summary>
-    /// <param name="logicalKey">The logical key identifying the document.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    Task<CrdtDocument<T>?> GetHeaderAsync(IComparable logicalKey, CancellationToken cancellationToken = default);
-
     /// <summary>
     /// Retrieves the deserialized content (data and metadata) of a single virtual property item.
     /// The item is automatically attached to the header document to provide a valid target for operation application.
@@ -72,16 +57,4 @@ public interface IKvDocumentManager<T> where T : class, new()
     /// <param name="propertyName">The name of the virtual property.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     Task<long> GetItemCountAsync(IComparable logicalKey, string propertyName, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Retrieves all unique logical keys currently present in the database index.
-    /// </summary>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    Task<IEnumerable<IComparable>> GetAllLogicalKeysAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Explicitly triggers a garbage collection compaction pass across the header and all individual KV items.
-    /// </summary>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    Task CompactAsync(CancellationToken cancellationToken = default);
 }

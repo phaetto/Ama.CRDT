@@ -23,7 +23,7 @@ using System.Threading.Tasks;
 /// It uses a user-friendly API with property names and translates them to internal property paths for strategy execution.
 /// </summary>
 /// <typeparam name="T">The type of the data model managed by the CRDT.</typeparam>
-public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtualDocumentCollectionReader<T>, IVirtualDocumentPatchHandler<T> where T : class, new()
+public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtualDocumentPatchHandler<T> where T : class, new()
 {
     public const int MaxChunkItemCount = 100;
     public const int MinChunkItemCount = MaxChunkItemCount / 4;
@@ -96,25 +96,31 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
     }
     
     /// <inheritdoc/>
-    public Task<CrdtDocument<T>?> GetDocumentHeaderAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
+    public async Task<CrdtDocument<T>?> GetDocumentHeaderAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
     {
-        return GetHeaderChunkContentAsync(logicalKey, cancellationToken);
+        ArgumentNullException.ThrowIfNull(logicalKey);
+        EnsureConfigured();
+
+        using var _ = new MetricTimer(this.metrics.GetPartitionContentDuration);
+
+        var headerChunk = await GetHeaderChunkAsync(logicalKey, cancellationToken).ConfigureAwait(false);
+        if (headerChunk is null)
+        {
+            return null;
+        }
+
+        return await this.storageService.LoadHeaderChunkContentAsync<T>(logicalKey, (HeaderChunk)headerChunk, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
-    public Task<CrdtDocument<T>?> GetFullDocumentAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
-    {
-        return GetFullDocumentInternalAsync(logicalKey, cancellationToken);
-    }
-
-    private async Task<CrdtDocument<T>?> GetFullDocumentInternalAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
+    public async Task<CrdtDocument<T>?> GetFullDocumentAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
         EnsureConfigured();
 
         using var _ = new MetricTimer(this.metrics.GetFullObjectDuration);
 
-        var headerDoc = await GetHeaderChunkContentAsync(logicalKey, cancellationToken).ConfigureAwait(false);
+        var headerDoc = await GetDocumentHeaderAsync(logicalKey, cancellationToken).ConfigureAwait(false);
         if (headerDoc is null)
         {
             return null;
@@ -221,23 +227,6 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
     }
 
     /// <inheritdoc/>
-    public async Task<CrdtDocument<T>?> GetHeaderChunkContentAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(logicalKey);
-        EnsureConfigured();
-
-        using var _ = new MetricTimer(this.metrics.GetPartitionContentDuration);
-
-        var headerChunk = await GetHeaderChunkAsync(logicalKey, cancellationToken).ConfigureAwait(false);
-        if (headerChunk is null)
-        {
-            return null;
-        }
-
-        return await this.storageService.LoadHeaderChunkContentAsync<T>(logicalKey, (HeaderChunk)headerChunk, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <inheritdoc/>
     public async Task<IChunk?> GetDataChunkAsync(CompositeChunkKey key, string propertyName, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
@@ -265,7 +254,7 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
 
         var dataDoc = await this.storageService.LoadChunkContentAsync<T>(key.LogicalKey, propertyName, chunk, cancellationToken).ConfigureAwait(false);
 
-        var headerDoc = await GetHeaderChunkContentAsync(key.LogicalKey, cancellationToken).ConfigureAwait(false);
+        var headerDoc = await GetDocumentHeaderAsync(key.LogicalKey, cancellationToken).ConfigureAwait(false);
         if (headerDoc is null)
         {
             throw new InvalidOperationException($"Could not find header chunk for logical key '{key.LogicalKey}'.");
