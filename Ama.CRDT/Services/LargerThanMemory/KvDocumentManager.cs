@@ -22,7 +22,7 @@ using System.Threading.Tasks;
 /// Uses <see cref="IVirtualCollectionStrategy"/> to route individual operations directly to database rows, eliminating write amplification.
 /// </summary>
 /// <typeparam name="T">The type of the data model managed by the CRDT.</typeparam>
-public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocumentCollectionReader<T>, IVirtualDocumentPatchHandler<T> where T : class, new()
+public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocumentPatchHandler<T> where T : class, new()
 {
     private readonly IKvStorageService storageService;
     private readonly ICrdtMetadataManager metadataManager;
@@ -92,7 +92,7 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
     }
 
     /// <inheritdoc/>
-    public async Task<CrdtDocument<T>?> GetHeaderAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
+    public async Task<CrdtDocument<T>?> GetDocumentHeaderAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(logicalKey);
         EnsureConfigured();
@@ -103,15 +103,60 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
     }
 
     /// <inheritdoc/>
-    public Task<CrdtDocument<T>?> GetDocumentHeaderAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
+    public async Task<CrdtDocument<T>?> GetFullDocumentAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
     {
-        return GetHeaderAsync(logicalKey, cancellationToken);
-    }
+        ArgumentNullException.ThrowIfNull(logicalKey);
+        EnsureConfigured();
 
-    /// <inheritdoc/>
-    public Task<CrdtDocument<T>?> GetFullDocumentAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
-    {
-        return GetFullDocumentInternalAsync(logicalKey, cancellationToken);
+        using var _ = new MetricTimer(this.metrics.GetFullObjectDuration);
+
+        var headerDoc = await GetDocumentHeaderAsync(logicalKey, cancellationToken).ConfigureAwait(false);
+        if (headerDoc is null)
+        {
+            return null;
+        }
+
+        var fullObject = headerDoc.Value.Data!;
+        var mergedMetadata = headerDoc.Value.Metadata!;
+
+        foreach (var (_, (prop, _)) in this.virtualProperties)
+        {
+            var collection = prop.Getter!(fullObject);
+            if (collection is not null)
+            {
+                PocoPathHelper.ClearCollection(collection, this.aotContexts);
+            }
+
+            await foreach (var kvp in this.storageService.GetItemsAsync<T>(logicalKey, prop.Name, cancellationToken).WithCancellation(cancellationToken))
+            {
+                var itemDoc = kvp.Value;
+                
+                mergedMetadata = CrdtMetadata.Merge(mergedMetadata, itemDoc.Metadata!);
+
+                var itemCollection = prop.Getter!(itemDoc.Data!);
+                
+                if (collection is not null && itemCollection is IEnumerable penum)
+                {
+                    var typeInfo = PocoPathHelper.GetTypeInfo(collection.GetType(), this.aotContexts);
+                    if (typeInfo.IsCollection && typeInfo.CollectionAdd != null)
+                    {
+                        foreach(var item in penum)
+                        {
+                            typeInfo.CollectionAdd(collection, item);
+                        }
+                    }
+                    else if (typeInfo.IsDictionary && collection is IDictionary dict && itemCollection is IDictionary pdict)
+                    {
+                        foreach (DictionaryEntry item in pdict)
+                        {
+                            dict.Add(item.Key, item.Value);
+                        }
+                    }
+                }
+            }
+        }
+
+        return new CrdtDocument<T>(fullObject, mergedMetadata);
     }
 
     /// <inheritdoc/>
@@ -130,7 +175,7 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
             return null;
         }
 
-        var headerDoc = await GetHeaderAsync(logicalKey, cancellationToken).ConfigureAwait(false);
+        var headerDoc = await GetDocumentHeaderAsync(logicalKey, cancellationToken).ConfigureAwait(false);
         if (headerDoc is null)
         {
             throw new InvalidOperationException($"Could not find header document for logical key '{logicalKey}'.");
@@ -207,62 +252,6 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
         {
             await projector.ProjectItemDeleteAsync(logicalKey, propertyName, itemKey, cancellationToken).ConfigureAwait(false);
         }
-    }
-
-    private async Task<CrdtDocument<T>?> GetFullDocumentInternalAsync(IComparable logicalKey, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(logicalKey);
-        EnsureConfigured();
-
-        using var _ = new MetricTimer(this.metrics.GetFullObjectDuration);
-
-        var headerDoc = await GetHeaderAsync(logicalKey, cancellationToken).ConfigureAwait(false);
-        if (headerDoc is null)
-        {
-            return null;
-        }
-
-        var fullObject = headerDoc.Value.Data!;
-        var mergedMetadata = headerDoc.Value.Metadata!;
-
-        foreach (var (_, (prop, _)) in this.virtualProperties)
-        {
-            var collection = prop.Getter!(fullObject);
-            if (collection is not null)
-            {
-                PocoPathHelper.ClearCollection(collection, this.aotContexts);
-            }
-
-            await foreach (var kvp in this.storageService.GetItemsAsync<T>(logicalKey, prop.Name, cancellationToken).WithCancellation(cancellationToken))
-            {
-                var itemDoc = kvp.Value;
-                
-                mergedMetadata = CrdtMetadata.Merge(mergedMetadata, itemDoc.Metadata!);
-
-                var itemCollection = prop.Getter!(itemDoc.Data!);
-                
-                if (collection is not null && itemCollection is IEnumerable penum)
-                {
-                    var typeInfo = PocoPathHelper.GetTypeInfo(collection.GetType(), this.aotContexts);
-                    if (typeInfo.IsCollection && typeInfo.CollectionAdd != null)
-                    {
-                        foreach(var item in penum)
-                        {
-                            typeInfo.CollectionAdd(collection, item);
-                        }
-                    }
-                    else if (typeInfo.IsDictionary && collection is IDictionary dict && itemCollection is IDictionary pdict)
-                    {
-                        foreach (DictionaryEntry item in pdict)
-                        {
-                            dict.Add(item.Key, item.Value);
-                        }
-                    }
-                }
-            }
-        }
-
-        return new CrdtDocument<T>(fullObject, mergedMetadata);
     }
 
     /// <inheritdoc/>
@@ -348,7 +337,7 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
         foreach (var logicalKey in logicalKeys)
         {
             // Compact the Header
-            var headerDoc = await GetHeaderAsync(logicalKey, cancellationToken).ConfigureAwait(false);
+            var headerDoc = await GetDocumentHeaderAsync(logicalKey, cancellationToken).ConfigureAwait(false);
             if (headerDoc is not null)
             {
                 foreach (var factory in this.compactionPolicyFactories)

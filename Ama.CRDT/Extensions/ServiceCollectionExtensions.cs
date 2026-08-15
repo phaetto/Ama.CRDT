@@ -511,7 +511,7 @@ public static class ServiceCollectionExtensions
     /// <![CDATA[
     /// public readonly record struct MyCustomTimestamp(long Value) : ICrdtTimestamp
     /// {
-    ///     public int CompareTo(ICrdtTimestamp other)
+    ///     public int CompareTo(ICrdtTimestamp internal other)
     ///     {
     ///         if (other is MyCustomTimestamp otherTimestamp)
     ///         {
@@ -709,6 +709,7 @@ public static class ServiceCollectionExtensions
 
         services.TryAddScoped<ChunkedDocumentManager<T>>();
         services.TryAddScoped<IChunkDocumentManager<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentManager<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
         services.TryAddScoped<IVirtualDocumentCollectionReader<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
         services.TryAddScoped<IVirtualDocumentPatchHandler<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
 
@@ -728,8 +729,9 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddScoped<KvDocumentManager<T>>();
-        services.TryAddScoped<IVirtualDocumentCollectionReader<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
         services.TryAddScoped<IKvDocumentManager<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentManager<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentCollectionReader<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
         services.TryAddScoped<IVirtualDocumentPatchHandler<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
 
         return services;
