@@ -5,10 +5,10 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
-using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
-using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.LargerThanMemory;
 using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
@@ -31,7 +31,7 @@ using System.Linq;
 public sealed class OrSetStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     
@@ -312,7 +312,7 @@ public sealed class OrSetStrategy(
     }
 
     /// <inheritdoc/>
-    public SplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
+    public ChunkSplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
         var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
@@ -363,11 +363,11 @@ public sealed class OrSetStrategy(
         var (parent2, prop2, _) = PocoPathHelper.ResolvePath(doc2, path, aotContexts);
         if (parent2 != null && prop2 != null) ReconstructList(parent2, prop2, (OrSetState)meta2.States[path], elementType);
 
-        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
+        return new ChunkSplitResult(new ChunkContent(doc1, meta1), new ChunkContent(doc2, meta2), splitKey);
     }
 
     /// <inheritdoc/>
-    public PartitionContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
+    public ChunkContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         var documentType = data1.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
@@ -412,7 +412,7 @@ public sealed class OrSetStrategy(
         var (mergedParent, mergedProp, _) = PocoPathHelper.ResolvePath(mergedDoc, path, aotContexts);
         if (mergedParent != null && mergedProp != null) ReconstructList(mergedParent, mergedProp, mergedState, elementType);
 
-        return new PartitionContent(mergedDoc, mergedMeta);
+        return new ChunkContent(mergedDoc, mergedMeta);
     }
 
     private void ReconstructList(object parent, CrdtPropertyInfo property, OrSetState state, Type elementType)

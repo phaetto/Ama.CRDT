@@ -5,7 +5,7 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Intents.Decorators;
-using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -66,11 +66,11 @@ using System.Collections.Immutable;
 [CrdtAotType(typeof(VotePayload))]
 [CrdtAotType(typeof(EpochPayload))]
 [CrdtAotType(typeof(QuorumPayload))]
-[CrdtAotType(typeof(CompositePartitionKey))]
-[CrdtAotType(typeof(DataPartition))]
-[CrdtAotType(typeof(HeaderPartition))]
-[CrdtAotType(typeof(PartitionContent))]
-[CrdtAotType(typeof(SplitResult))]
+[CrdtAotType(typeof(CompositeChunkKey))]
+[CrdtAotType(typeof(CollectionChunk))]
+[CrdtAotType(typeof(HeaderChunk))]
+[CrdtAotType(typeof(ChunkContent))]
+[CrdtAotType(typeof(ChunkSplitResult))]
 [CrdtAotType(typeof(AddEdgeIntent))]
 [CrdtAotType(typeof(AddIntent))]
 [CrdtAotType(typeof(AddNodeIntent))]
@@ -141,7 +141,7 @@ using System.Collections.Immutable;
 [CrdtAotType(typeof(IDictionary<object, TreeNode>))]
 [CrdtAotType(typeof(Dictionary<object, TreeNode>))]
 [CrdtAotType(typeof(IDictionary<object, PnCounterState>))]
-[CrdtAotType(typeof(CompositePartitionKey?))]
+[CrdtAotType(typeof(CompositeChunkKey?))]
 [CrdtAotType(typeof(RgaIdentifier?))]
 [CrdtAotType(typeof(List<LseqItem>))]
 [CrdtAotType(typeof(List<PositionalIdentifier>))]

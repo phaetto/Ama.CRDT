@@ -7,7 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services;
-using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.LargerThanMemory;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
 using Ama.CRDT.ShowCase.LargerThanMemory.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,7 +26,7 @@ public sealed class SimulationRunner(IServiceProvider serviceProvider, ICrdtScop
         List<Guid> allBlogPostIds;
         using (var scope = scopeFactory.CreateScope(replicaIds.First(), replicaDvvs[replicaIds.First()]))
         {
-            var partitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
+            var partitionManager = scope.ServiceProvider.GetRequiredService<IVirtualDocumentCollectionReader<BlogPost>>();
             var keys = await partitionManager.GetAllLogicalKeysAsync();
             allBlogPostIds = keys.Cast<Guid>().ToList();
         }
@@ -56,18 +56,28 @@ public sealed class SimulationRunner(IServiceProvider serviceProvider, ICrdtScop
 
             using (var scope = scopeFactory.CreateScope(replicaIds.First(), replicaDvvs[replicaIds.First()]))
             {
-                var partitionManager = scope.ServiceProvider.GetRequiredService<IPartitionManager<BlogPost>>();
+                var partitionManager = scope.ServiceProvider.GetRequiredService<IVirtualDocumentCollectionReader<BlogPost>>();
                 var keys = await partitionManager.GetAllLogicalKeysAsync();
                 allBlogPostIds = keys.Cast<Guid>().ToList();
             }
 
             Console.WriteLine($"--- Bootstrapping Other Replicas ---");
-            var sourceDir = Path.Combine(Environment.CurrentDirectory, "data", replicaIds.First());
+            var sourceReplica = replicaIds.First();
+            var sourceDir = Path.Combine(Environment.CurrentDirectory, "data", sourceReplica);
+            var sourceDbPath = Path.Combine(Environment.CurrentDirectory, $"projections_{sourceReplica}.db");
+
             foreach (var replicaId in replicaIds.Skip(1))
             {
                 var destDir = Path.Combine(Environment.CurrentDirectory, "data", replicaId);
                 CopyDirectory(sourceDir, destDir, true);
-                Console.WriteLine($"Copied data from {replicaIds.First()} to {replicaId}");
+                
+                var destDbPath = Path.Combine(Environment.CurrentDirectory, $"projections_{replicaId}.db");
+                if (File.Exists(sourceDbPath))
+                {
+                    File.Copy(sourceDbPath, destDbPath, true);
+                }
+
+                Console.WriteLine($"Copied data and projections from {sourceReplica} to {replicaId}");
             }
         }
         else

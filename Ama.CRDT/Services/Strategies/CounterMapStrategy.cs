@@ -4,9 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
-using Ama.CRDT.Models.Partitioning;
 using Ama.CRDT.Services.Helpers;
-using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
@@ -14,6 +12,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Ama.CRDT.Services;
 using Ama.CRDT.Attributes.Strategies.Semantic;
+using Ama.CRDT.Services.LargerThanMemory;
+using Ama.CRDT.Models.LargerThanMemory;
 
 /// <summary>
 /// Implements the Counter-Map strategy, where each key in a dictionary is an independent PN-Counter.
@@ -28,7 +28,7 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 public sealed class CounterMapStrategy(
     IElementComparerProvider comparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
 
@@ -281,7 +281,7 @@ public sealed class CounterMapStrategy(
     }
 
     /// <inheritdoc/>
-    public SplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
+    public ChunkSplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
         var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
@@ -334,11 +334,11 @@ public sealed class CounterMapStrategy(
         ReconstructDictionaryForSplitMerge(doc1, path, counters1, keyType, valueType, aotContexts);
         ReconstructDictionaryForSplitMerge(doc2, path, counters2, keyType, valueType, aotContexts);
 
-        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
+        return new ChunkSplitResult(new ChunkContent(doc1, meta1), new ChunkContent(doc2, meta2), splitKey);
     }
 
     /// <inheritdoc/>
-    public PartitionContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
+    public ChunkContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         var documentType = data1.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
@@ -367,7 +367,7 @@ public sealed class CounterMapStrategy(
 
         ReconstructDictionaryForSplitMerge(mergedDoc, path, mergedCounters, keyType, valueType, aotContexts);
 
-        return new PartitionContent(mergedDoc, mergedMeta);
+        return new ChunkContent(mergedDoc, mergedMeta);
     }
 
     private static void ReconstructDictionaryForSplitMerge(object root, string path, IDictionary<object, PnCounterState> counters, Type keyType, Type valueType, IEnumerable<CrdtAotContext> aotContexts)

@@ -66,8 +66,10 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         File.WriteAllBytes(journalFilePath, bytes);
     }
 
-    public void Append(string documentId, IReadOnlyList<CrdtOperation> operations)
+    public void Append(IComparable documentId, IReadOnlyList<CrdtOperation> operations)
     {
+        ArgumentNullException.ThrowIfNull(documentId);
+
         lock (lockObj)
         {
             bool added = false;
@@ -94,7 +96,7 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         }
     }
 
-    public Task AppendAsync(string documentId, IReadOnlyList<CrdtOperation> operations, CancellationToken cancellationToken = default)
+    public Task AppendAsync(IComparable documentId, IReadOnlyList<CrdtOperation> operations, CancellationToken cancellationToken = default)
     {
         Append(documentId, operations);
         return Task.CompletedTask;

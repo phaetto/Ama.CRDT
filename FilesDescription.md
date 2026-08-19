@@ -32,27 +32,27 @@
 | `$/Ama.CRDT.IntegrationTests/Ama.CRDT.IntegrationTests.csproj` | No description provided. |
 | `$/Ama.CRDT.IntegrationTests/ClockSkewSimulationTests.cs` | Contains integration tests verifying CRDT convergence and behavior under severe network time drift and clock skew scenarios, ensuring time-independent mathematical commutativity properties. |
 | `$/Ama.CRDT.IntegrationTests/NetworkSimulationTests.cs` | Contains integration tests simulating complex network scenarios (out-of-order delivery, partitions, long-term offline nodes, duplicate delivery, and high concurrency conflicts) to guarantee CRDT convergence and idempotency over time. |
-| `$/Ama.CRDT.Partitioning.Streams.UnitTests/Ama.CRDT.Partitioning.Streams.UnitTests.csproj` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams.UnitTests/Serialization/DefaultPartitionSerializationServiceTests.cs` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams.UnitTests/Services/StreamSpaceAllocatorTests.cs` | Contains unit tests for the `StreamSpaceAllocator` class, verifying block allocation, free list reuse with best-fit logic, and free list size limits. |
-| `$/Ama.CRDT.Partitioning.Streams.UnitTests/StreamPartitionStorageServiceDataTests.cs` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams.UnitTests/StreamPartitionStorageServiceIndexTests.cs` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams/Ama.CRDT.Partitioning.Streams.csproj` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams/Extensions/StreamPartitioningServiceCollectionExtensions.cs` | Provides dependency injection extension methods to register the new stream-based partitioning module. |
-| `$/Ama.CRDT.Partitioning.Streams/Models/BPlusTreeNode.cs` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams/Models/BTreeHeader.cs` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams/Models/DataStreamHeader.cs` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams/Models/FreeSpaceState.cs` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams/Models/Serialization/StreamsJsonContext.cs` | Provides AOT-compatible source generation context for Stream Partitioning internal models. |
-| `$/Ama.CRDT.Partitioning.Streams/PublicAPI.Shipped.txt` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams/PublicAPI.Unshipped.txt` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams/README.md` | Details the features and provides usage examples for setting up dependency injection and integrating stream providers for partition persistence. |
-| `$/Ama.CRDT.Partitioning.Streams/Services/IPartitionStreamProvider.cs` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams/Services/Metrics/StreamsCrdtMetrics.cs` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams/Services/Serialization/DefaultPartitionSerializationService.cs` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams/Services/Serialization/IPartitionSerializationService.cs` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams/Services/StreamPartitionStorageService.cs` | No description provided. |
-| `$/Ama.CRDT.Partitioning.Streams/Services/StreamSpaceAllocator.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/Ama.CRDT.LargerThanMemory.Streams.UnitTests.csproj` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/Serialization/DefaultPartitionSerializationServiceTests.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/Services/StreamSpaceAllocatorTests.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/StreamChunkStorageServiceDataTests.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/StreamChunkStorageServiceIndexTests.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Ama.CRDT.LargerThanMemory.Streams.csproj` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Extensions/StreamLargerThanMemoryServiceCollectionExtensions.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Models/BPlusTreeNode.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Models/BTreeHeader.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Models/DataStreamHeader.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Models/FreeSpaceState.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Models/Serialization/StreamsJsonContext.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/PublicAPI.Shipped.txt` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/PublicAPI.Unshipped.txt` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/README.md` | Contains the updated README for the newly renamed `Ama.CRDT.LargerThanMemory.Streams` package. Highlights include updated configuration examples, namespaces, performance counter commands, and references to `IChunkStreamProvider`. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Services/IChunkStreamProvider.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Services/Metrics/StreamsCrdtMetrics.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Services/Serialization/DefaultChunkSerializationService.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Services/Serialization/IChunkSerializationService.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Services/StreamChunkStorageService.cs` | No description provided. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Services/StreamSpaceAllocator.cs` | No description provided. |
 | `$/Ama.CRDT.Project.Analyzers.UnitTests/Ama.CRDT.Project.Analyzers.UnitTests.csproj` | No description provided. |
 | `$/Ama.CRDT.Project.Analyzers.UnitTests/PropertyInfoUsageAnalyzerTests.cs` | Contains unit tests for `PropertyInfoUsageAnalyzer`, verifying that it catches dynamic reflection methods while ignoring AOT-safe metadata access. Removed outdated tests targeting compiler trimmer attributes. |
 | `$/Ama.CRDT.Project.Analyzers.UnitTests/SystemConvertUsageAnalyzerTests.cs` | No description provided. |
@@ -108,18 +108,21 @@
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/README.md` | Provides an overview and user guide for the Collaborative Editing showcase, highlighting the use of the RGA Strategy, Explicit Intents, Operation Journaling, and GMVV-based Garbage Collection. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Services/MemoryJournal.cs` | An in-memory operation journal implementation providing missing operation histories and journal truncation based on the cluster's GMVV. |
 | `$/Ama.CRDT.ShowCase.CollaborativeEditing/Services/NetworkBroker.cs` | Simulates a network passing CRDT patches to different editors in real-time. |
-| `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application, configured for Native AOT, explicit trimming, and trim analysis. |
-| `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/BlogPost.cs` | The root data model for the showcase, representing a blog post. It is decorated with `[PartitionKey]` and its `Comments` list uses `[CrdtArrayLcsStrategy]` to enable partitioning. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Ama.CRDT.ShowCase.LargerThanMemory.csproj` | The project file for the larger-than-memory showcase console application, now including a reference to `Microsoft.Data.Sqlite`. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/BlogPost.cs` | Updated to remove the deprecated `PartitionKey` attribute. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/Comment.cs` | A simple record representing a comment in the blog post. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/LargerThanMemoryCrdtContext.cs` | Provides a Native AOT compatible `CrdtContext` generated for the models used in the Larger-Than-Memory showcase, allowing execution without runtime reflection. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Models/LargerThanMemoryJsonContext.cs` | AOT JSON serialization context for the larger-than-memory showcase models. |
-| `$/Ama.CRDT.ShowCase.LargerThanMemory/Program.cs` | The main entry point for the showcase application, responsible for setting up dependency injection and starting the simulation. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Program.cs` | Updated DI setup to explicitly register the custom `BlogPostDocumentIdProvider` to replace the default one. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/README.md` | Provides an overview of the larger-than-memory showcase, explaining how to run it, the features it demonstrates (partitioning, journaling, disconnected sync), and how to interact with the terminal UI. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/BlogPostDocumentIdProvider.cs` | Added a custom implementation of `IDocumentIdProvider` for `BlogPost` explicitly bypassing reflection to ensure fast ID extractions. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/BlogPostReadRepository.cs` | A straightforward SQLite read repository for providing ultra-fast, paginated access to projected CQRS data in the terminal interface. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/BlogPostSqliteProjector.cs` | An implementation of `IVirtualDocumentProjector<T>` that listens to incoming CRDT applications and pushes the result natively to a per-replica SQLite DB for real-time reads. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/DataGeneratorService.cs` | A service responsible for programmatically generating a configurable number of blog posts, each with a random number of comments, to demonstrate the system's ability to handle large, partitioned datasets. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/FileSystemChunkStreamProvider.cs` | No description provided. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/FileSystemOperationJournal.cs` | An example implementation of `ICrdtOperationJournal` that persists applied CRDT operations to a local JSON file per replica, demonstrating how to save operations for external sync protocols or offline usage. |
-| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/FileSystemPartitionStreamProvider.cs` | An implementation of `IPartitionStreamProvider` that stores CRDT index and data files on the local filesystem, organized into directories for each replica. It now explicitly separates header and property streams. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/SimpleFaker.cs` | A lightweight, Native AOT-compatible random data generator used for generating showcase items, replacing the `Bogus` library. |
-| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/UiService.cs` | Implements the `Terminal.Gui`-based user interface for browsing blog posts. It displays post titles, content, and comments, demonstrating on-demand loading of data from partitions. |
+| `$/Ama.CRDT.ShowCase.LargerThanMemory/Services/UiService.cs` | Implements the user interface, updated to prove CQRS viability by cleanly reading all its presentation data via SQLite off the main CRDT flow. |
 | `$/Ama.CRDT.ShowCase.LargerThanMemory/SimulationRunner.cs` | Orchestrates the showcase by checking for existing data, triggering the data generation process if needed, and launching the user interface. It uses `IPartitionManager` to discover existing documents at startup. |
 | `$/Ama.CRDT.ShowCase/Ama.CRDT.ShowCase.csproj` | The project file for the showcase console application. |
 | `$/Ama.CRDT.ShowCase/Models/ShowcaseCrdtContext.cs` | AOT reflection context for the showcase models to be used by the internal reflection-free routines. |
@@ -143,13 +146,13 @@
 | `$/Ama.CRDT.UnitTests/Extensions/ServiceCollectionExtensionsTests.cs` | Unit tests for `ServiceCollectionExtensions`, validating global modifier execution and the new aggregate JSON type info resolver. |
 | `$/Ama.CRDT.UnitTests/Models/DottedVersionVectorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/EpochTimestampTests.cs` | Contains unit tests for the `EpochTimestamp` implementation of `ICrdtTimestamp`. |
-| `$/Ama.CRDT.UnitTests/Models/Partitioning/CompositePartitionKeyTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Models/LargerThanMemory/CompositeChunkKeyTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CoreModelSerializationTests.cs` | Contains unit tests for serializing core library models like `ApplyPatchResult`, `JournaledOperation`, `UnappliedOperation`, and `DottedVersionVector`. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtDocumentSerializationTests.cs` | Contains unit tests for serializing the `CrdtDocument<T>` struct, including scenarios with null data or metadata, and compact serialization options. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtMetadataSerializationTests.cs` | Contains unit tests for the serialization and deserialization of the `CrdtMetadata` class, verifying both default and compact serialization options and ensuring polymorphic and complex data (e.g., non-string dictionary keys, nested collections) is handled correctly. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtTimestampJsonConverterTests.cs` | Contains unit tests for the `CrdtTimestampJsonConverter`, verifying polymorphic serialization and deserialization of `ICrdtTimestamp` implementations. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/IntentModelSerializationTests.cs` | Contains unit tests for serializing all explicit intent models to ensure they map successfully to JSON. |
-| `$/Ama.CRDT.UnitTests/Models/Serialization/PartitioningModelSerializationTests.cs` | Contains unit tests for serializing partitioning models including `CompositePartitionKey`, `DataPartition`, `HeaderPartition`, `PartitionContent`, and `SplitResult`. |
+| `$/Ama.CRDT.UnitTests/Models/Serialization/LargerThanMemoryModelSerializationTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/SyncRequirementSerializationTests.cs` | Contains unit tests for serializing synchronization requirement models like `ReplicaSyncRequirement`, `OriginSyncRequirement`, and `BidirectionalSyncRequirements`. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/TestJsonSerializerContext.cs` | Provides test-specific `JsonSerializerContext` to enable AOT-compatible testing for internal mock classes and test-defined generics. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/TestOptionsHelper.cs` | Helper for tests to initialize `JsonSerializerOptions` that merge the core library `CrdtJsonContext` with `TestJsonSerializerContext`. |
@@ -169,7 +172,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Decorators/DecoratorsTestCrdtContext.cs` | A dedicated AOT context for the decorators unit tests to provide reflection-free property metadata for test-specific models. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/JournalingApplicatorDecoratorTests.cs` | Contains unit tests for `JournalingApplicatorDecorator`, validating that operations are properly captured and journaled before application without unapplied filtering. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/JournalingPatcherDecoratorTests.cs` | Contains unit tests for `JournalingPatcherDecorator`, verifying that generated patches, intents, and explicit operations are properly captured and journaled. |
-| `$/Ama.CRDT.UnitTests/Services/Decorators/PartitioningApplicatorDecoratorTests.cs` | Contains unit tests for `PartitioningApplicatorDecorator`, validating the patch interception logic, partition splitting and merging, and ensuring operations are properly delegated to the inner `IAsyncCrdtApplicator`. |
+| `$/Ama.CRDT.UnitTests/Services/Decorators/LargerThanMemoryApplicatorDecoratorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/TestModel.cs` | A simple data model used for unit testing decorator services. |
 | `$/Ama.CRDT.UnitTests/Services/GarbageCollection/GlobalMinimumVersionPolicyTests.cs` | Contains unit tests for `GlobalMinimumVersionPolicy`, verifying correct GMVV-based causal evaluation for safe compaction of candidates. |
 | `$/Ama.CRDT.UnitTests/Services/GarbageCollection/ThresholdCompactionPolicyTests.cs` | Contains unit tests for `ThresholdCompactionPolicy`, testing time-to-live logic using wall-clock timestamps and logical version thresholds. |
@@ -178,9 +181,10 @@
 | `$/Ama.CRDT.UnitTests/Services/Helpers/Models.cs` | Contains simple data models for unit testing path conversion and resolution helpers. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs, and testing new centralized reflection helpers for getting/setting values and retrieving type information. |
 | `$/Ama.CRDT.UnitTests/Services/Journaling/JournalManagerTests.cs` | Contains unit tests for `JournalManager`, verifying the retrieval of missing operations based on synchronization requirements, range bounds, and missing dots. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionManagerTests.cs` | Contains unit tests for `PartitionManager`, focusing on verifying storage initialization, partition querying, and index management via `IPartitionStorageService`. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitionStorageServiceContractTests.cs` | Contains mock unit tests to verify the `IPartitionStorageService` interface contract. |
-| `$/Ama.CRDT.UnitTests/Services/Partitioning/PartitioningTestCrdtContext.cs` | A dedicated CrdtContext for `Partitioning` unit tests to provide AOT-compatible property metadata. |
+| `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/ChunkedDocumentManagerTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/PartitionManagerTests.cs` | Updated test mock models to drop `PartitionKey` and introduced `MultiPartitionedModelIdProvider` to satisfy `ChunkedDocumentManager` requirements explicitly. |
+| `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/PartitionStorageServiceContractTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/PartitioningTestCrdtContext.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Providers/CrdtFluentConfigurationTests.cs` | Contains unit tests verifying the Fluent Builder API (`CrdtModelBuilder`) correctly maps CRDT strategies and that the `CrdtStrategyProvider` prioritizes these mappings over attributes. |
 | `$/Ama.CRDT.UnitTests/Services/Providers/DefaultDocumentIdProviderTests.cs` | Contains unit tests for `DefaultDocumentIdProvider`, verifying correct document ID extraction and proper exception throwing for missing or invalid IDs. |
 | `$/Ama.CRDT.UnitTests/Services/ServicesTestCrdtContext.cs` | A dedicated AOT context for the services unit tests, providing reflection-free metadata for test-specific models and collections. |
@@ -247,7 +251,6 @@
 | `$/Ama.CRDT/Attributes/CrdtSupportedTypeAttribute.cs` | An attribute used to decorate a CRDT strategy class, specifying a property type (e.g., `int`, `IEnumerable`) that it supports. This enables compile-time validation via Roslyn analyzers. |
 | `$/Ama.CRDT/Attributes/Decorators/CrdtApprovalQuorumAttribute.cs` | A decorator attribute that requires a specified number of approvals from different replicas before applying the underlying CRDT operation. |
 | `$/Ama.CRDT/Attributes/Decorators/CrdtEpochBoundAttribute.cs` | No description provided. |
-| `$/Ama.CRDT/Attributes/PartitionKeyAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/Strategies/CrdtArrayLcsStrategyAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/Strategies/CrdtAverageRegisterStrategyAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/Strategies/CrdtBoundedCounterStrategyAttribute.cs` | No description provided. |
@@ -285,7 +288,7 @@
 | `$/Ama.CRDT/Attributes/Strategies/Semantic/StateBasedAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/AsyncCrdtApplicatorExtensions.cs` | Provides extension methods for `IAsyncCrdtApplicator` to streamline common synchronization tasks, such as directly applying an asynchronous stream of missing operations. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
-| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods, updated to register `IDocumentIdProvider` natively. |
+| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods, updated to include `AddCrdtVirtualDocumentProjector` for hooking CQRS projectors into the larger-than-memory subsystem. |
 | `$/Ama.CRDT/Models/Aot/CoreCrdtAotContext.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Aot/CrdtAotContext.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Aot/CrdtPropertyInfo.cs` | Contains AOT-compatible metadata, now natively including pre-extracted array of strategy type configurations mapped via attribute. |
@@ -343,6 +346,12 @@
 | `$/Ama.CRDT/Models/Intents/VoteIntent.cs` | Represents the intent to explicitly cast a vote for a specific option. |
 | `$/Ama.CRDT/Models/JournalSyncResult.cs` | DTO representing the result of evaluating journal operations against synchronization requirements, avoiding tuple usage. |
 | `$/Ama.CRDT/Models/JournaledOperation.cs` | An envelope record struct used by the operation journal interfaces to bundle a core `CrdtOperation` with its target `DocumentId` (logical key), facilitating correct data routing when synchronizing independent documents. |
+| `$/Ama.CRDT/Models/LargerThanMemory/ChunkContent.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/ChunkSplitResult.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/CollectionChunk.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/CompositeChunkKey.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/HeaderChunk.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LargerThanMemory/IChunk.cs` | No description provided. |
 | `$/Ama.CRDT/Models/LseqIdentifier.cs` | A record struct for the dense, ordered identifier used in LSEQ, composed of a path of `LseqPathSegment` instances. |
 | `$/Ama.CRDT/Models/LseqItem.cs` | A record struct that pairs an LseqIdentifier with its corresponding value in the LSEQ metadata. |
 | `$/Ama.CRDT/Models/LseqPathSegment.cs` | Represents a single, serializable segment in an LSEQ identifier's path, containing a position and a replica ID. |
@@ -354,12 +363,6 @@
 | `$/Ama.CRDT/Models/OrSetItem.cs` | Contains payload record structs (`OrSetAddItem`, `OrSetRemoveItem`) for OR-Set (Observed-Remove Set) operations, bundling values with unique tags. |
 | `$/Ama.CRDT/Models/OrSetState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/OriginSyncRequirement.cs` | A data structure representing the causality gap for a specific origin replica between a target and a source. |
-| `$/Ama.CRDT/Models/Partitioning/CompositePartitionKey.cs` | Represents a composite key for partitioning, consisting of a logical key and a range key. It now uses `IComparable` for keys to support natural sorting of different key types and implements `IComparable` for consistent ordering. |
-| `$/Ama.CRDT/Models/Partitioning/DataPartition.cs` | No description provided. |
-| `$/Ama.CRDT/Models/Partitioning/HeaderPartition.cs` | No description provided. |
-| `$/Ama.CRDT/Models/Partitioning/IPartition.cs` | No description provided. |
-| `$/Ama.CRDT/Models/Partitioning/PartitionContent.cs` | A data structure representing the data and metadata content of a single partition. |
-| `$/Ama.CRDT/Models/Partitioning/SplitResult.cs` | A data structure representing the result of a partition split operation, containing the content for the two new partitions and the key that divides them. It now uses `IComparable` for the split key to support various key types. |
 | `$/Ama.CRDT/Models/PnCounterState.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
@@ -402,7 +405,7 @@
 | `$/Ama.CRDT/Services/Decorators/CompactingMergerDecorator.cs` | A decorator for `IAsyncCrdtMerger` that runs metadata compaction after successfully merging document states. |
 | `$/Ama.CRDT/Services/Decorators/JournalingApplicatorDecorator.cs` | Decorator for intercepting patch applications, updated to record all operations to the journal before the underlying application logic executes. |
 | `$/Ama.CRDT/Services/Decorators/JournalingPatcherDecorator.cs` | Decorator for intercepting patch generations, updated to use `IDocumentIdProvider` via dependency injection. |
-| `$/Ama.CRDT/Services/Decorators/PartitioningApplicatorDecorator.cs` | A global decorator implementation of `IAsyncCrdtApplicator` that acts as a `Complex` interceptor to manage recursive partition splitting and merging. Refactored to completely avoid Tuples in favor of struct DTOs and strict behavioral flow. |
+| `$/Ama.CRDT/Services/Decorators/LargerThanMemoryApplicatorDecorator.cs` | No description provided. |
 | `$/Ama.CRDT/Services/DifferentiateObjectContext.cs` | Defines the context object for the `ICrdtPatcher.DifferentiateObject` method, encapsulating all necessary parameters. |
 | `$/Ama.CRDT/Services/GarbageCollection/CompactionCandidate.cs` | Represents the metadata payload (e.g., Timestamp, ReplicaId, Version) of a tombstone or deleted item being evaluated for garbage collection. |
 | `$/Ama.CRDT/Services/GarbageCollection/GlobalMinimumVersionPolicy.cs` | Implements a mathematically safe compaction policy based on the Global Minimum Version Vector (GMVV) across a cluster of replicas. |
@@ -424,12 +427,21 @@
 | `$/Ama.CRDT/Services/Journaling/ICrdtOperationJournal.cs` | Defines a contract for an operation journal that captures explicitly generated and successfully applied CRDT operations, and allows retrieval of operations. |
 | `$/Ama.CRDT/Services/Journaling/IJournalManager.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Journaling/JournalManager.cs` | Implements `IJournalManager` to retrieve missing operations based on `ReplicaSyncRequirement` by querying an underlying `ICrdtOperationJournal`. |
+| `$/Ama.CRDT/Services/LargerThanMemory/ChunkedDocumentManager.cs` | Updated `SetDocumentId` invocations to use `IComparable` instead of `string`. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IChunkDocumentManager.cs` | No description provided. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IChunkStorageService.cs` | Provides a high-level abstraction for saving and loading disjoint chunks of data and metadata for larger-than-memory CRDTs. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IChunkableCollectionStrategy.cs` | Extends `IVirtualCollectionStrategy` with the ability to physically split and merge disjoint chunks of data for block/stream storage. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IKvDocumentManager.cs` | Defines the contract for managing a CRDT document using a True Key-Value backend. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IKvStorageService.cs` | Provides a True Key-Value storage abstraction for CRDT data and metadata, mapping items 1-to-1 with database rows without chunking. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IVirtualCollectionStrategy.cs` | Defines a CRDT strategy that supports externalizing its elements into a Key-Value store or segmented storage, exposing key generation logic. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IVirtualDocumentCollectionReader.cs` | No description provided. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IVirtualDocumentManager.cs` | Defines common operations for managing virtualized CRDT documents regardless of their underlying storage strategy, combining read queries with setup/maintenance operations. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IVirtualDocumentPatchHandler.cs` | Defines a contract for handling patch application for virtualized CRDT documents (e.g., Chunked or KV partitioned). Implemented by the respective Virtual Document Managers to intercept and correctly route document patches to external storage. |
+| `$/Ama.CRDT/Services/LargerThanMemory/IVirtualDocumentProjector.cs` | Defines a projection hook interface for CQRS systems, allowing users to intercept completely converged POCO updates for custom Read Models immediately after patches apply. |
+| `$/Ama.CRDT/Services/LargerThanMemory/KvDocumentManager.cs` | Updated `SetDocumentId` invocations to use `IComparable` instead of `string`. |
+| `$/Ama.CRDT/Services/LargerThanMemory/VirtualDocumentProjector.cs` | Provides a base abstract class implementation of `IVirtualDocumentProjector<T>`, letting users selectively implement projection methods without boilerplate. |
+| `$/Ama.CRDT/Services/Metrics/LargerThanMemoryManagerCrdtMetrics.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Metrics/MetricTimer.cs` | A helper `IDisposable` struct that uses a `Stopwatch` to measure the duration of a code block and records it to a `Histogram` upon disposal. |
-| `$/Ama.CRDT/Services/Metrics/PartitionManagerCrdtMetrics.cs` | Provides `System.Diagnostics.Metrics` instruments for monitoring the performance and behavior of the `PartitionManager`. |
-| `$/Ama.CRDT/Services/Partitioning/IPartitionManager.cs` | Defines the contract for managing a partitioned CRDT document, now supporting asynchronous streaming of partitions via `IAsyncEnumerable` and efficient counting of data partitions for a given logical key. It provides a user-friendly API using property names (`nameof`) and specific methods for header partitions. |
-| `$/Ama.CRDT/Services/Partitioning/IPartitionStorageService.cs` | Defines a high-level abstraction for saving and loading partitioned CRDT data and metadata, hiding underlying stream operations. |
-| `$/Ama.CRDT/Services/Partitioning/IPartitionableCrdtStrategy.cs` | Extends `ICrdtStrategy` for strategies that support data partitioning. It defines methods for splitting and merging partition data and metadata, and for extracting partition keys from operations and data models. |
-| `$/Ama.CRDT/Services/Partitioning/PartitionManager.cs` | Manages a partitioned CRDT document, allowing it to scale beyond memory. It now explicitly separates logic for header and property partitions, using dedicated stream providers and strategy methods to avoid ambiguity. |
 | `$/Ama.CRDT/Services/Providers/CrdtEntityBuilder.cs` | A fluent builder to configure CRDT strategies for a specific entity type, avoiding reflections by directly evaluating Expression trees in an AOT-friendly way. |
 | `$/Ama.CRDT/Services/Providers/CrdtModelBuilder.cs` | A fluent builder used to configure CRDT strategies and decorators for C# types mapping to `CrdtPropertyKey`. |
 | `$/Ama.CRDT/Services/Providers/CrdtModelRegistry.cs` | A registry that holds the configurations of CRDT strategies, operating on `CrdtPropertyKey`. |
@@ -441,7 +453,7 @@
 | `$/Ama.CRDT/Services/Providers/ICrdtModelRegistry.cs` | Interface for retrieving configurations using the AOT-friendly `CrdtPropertyKey`. |
 | `$/Ama.CRDT/Services/Providers/ICrdtStrategyProvider.cs` | A contract for a service that resolves CRDT strategies, refactored to consume AOT structs like `CrdtPropertyInfo`. |
 | `$/Ama.CRDT/Services/Providers/ICrdtTimestampProvider.cs` | Defines a service for generating CRDT timestamps, allowing for custom timestamp implementations. |
-| `$/Ama.CRDT/Services/Providers/IDocumentIdProvider.cs` | Defines a service for extracting a unique document identifier from a document object, allowing for custom extraction logic. |
+| `$/Ama.CRDT/Services/Providers/IDocumentIdProvider.cs` | Updated methods to accept and return `IComparable` instead of `string` for document IDs. |
 | `$/Ama.CRDT/Services/Providers/IElementComparer.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/IElementComparerProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/ReplicaContext.cs` | A scoped service that holds the unique identifier for a CRDT replica, making it available to other scoped services within the same `IServiceScope`. |
@@ -491,7 +503,7 @@
 | `$/CodingStandards.md` | No description provided. |
 | `$/FilesDescription.md` | No description provided. |
 | `$/LICENSE` | No description provided. |
-| `$/README.md` | Provides the main entry point and overview for the CRDT library, highlighting core features, usage instructions, missing components (transport, database integrations, security), and links to internal documentation and showcase projects. |
+| `$/README.md` | Provides the main entry point and overview for the CRDT library. Updated to reference the new `Ama.CRDT.LargerThanMemory.Streams` package name. |
 | `$/Specs/add-approval-quorum-strategy.md` | No description provided. |
 | `$/Specs/add-leader-election-strategy.md` | No description provided. |
 | `$/Specs/add-more-text-specific-strategies.md` | No description provided. |

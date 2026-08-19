@@ -71,7 +71,7 @@ public class DefaultDocumentIdProviderTests
         var result = provider.GetDocumentId(model);
 
         // Assert
-        result.ShouldBe(id.ToString());
+        result.ShouldBe(id);
     }
 
     [Fact]
@@ -107,17 +107,6 @@ public class DefaultDocumentIdProviderTests
     }
 
     [Fact]
-    public void GetDocumentId_ShouldThrowInvalidOperationException_WhenIdPropertyIsEmpty()
-    {
-        // Arrange
-        var model = new ModelWithEmptyId { Id = "   " };
-
-        // Act & Assert
-        var ex = Should.Throw<InvalidOperationException>(() => provider.GetDocumentId(model));
-        ex.Message.ShouldContain("evaluated to an empty or whitespace string");
-    }
-
-    [Fact]
     public void SetDocumentId_ShouldSetGuidId()
     {
         // Arrange
@@ -125,7 +114,7 @@ public class DefaultDocumentIdProviderTests
         var model = new ModelWithId();
 
         // Act
-        provider.SetDocumentId(model, id.ToString());
+        provider.SetDocumentId(model, id);
 
         // Assert
         model.Id.ShouldBe(id);
@@ -152,7 +141,7 @@ public class DefaultDocumentIdProviderTests
         var model = new ModelWithIntId();
 
         // Act
-        provider.SetDocumentId(model, "42");
+        provider.SetDocumentId(model, 42);
 
         // Assert
         model.Id.ShouldBe(42);
@@ -163,13 +152,6 @@ public class DefaultDocumentIdProviderTests
     {
         ModelWithId? model = null;
         Should.Throw<ArgumentNullException>(() => provider.SetDocumentId(model!, "id"));
-    }
-
-    [Fact]
-    public void SetDocumentId_ShouldThrowArgumentException_WhenIdIsNullOrWhitespace()
-    {
-        var model = new ModelWithId();
-        Should.Throw<ArgumentException>(() => provider.SetDocumentId(model, "  "));
     }
 
     [Fact]
@@ -195,7 +177,7 @@ public class DefaultDocumentIdProviderTests
         var id = Guid.NewGuid();
 
         // Act
-        var model = provider.CreateDocumentWithId<ModelWithId>(id.ToString());
+        var model = provider.CreateDocumentWithId<ModelWithId>(id);
 
         // Assert
         model.ShouldNotBeNull();
@@ -214,12 +196,6 @@ public class DefaultDocumentIdProviderTests
         // Assert
         model.ShouldNotBeNull();
         model.Id.ShouldBe(id);
-    }
-
-    [Fact]
-    public void CreateDocumentWithId_ShouldThrowArgumentException_WhenIdIsNullOrWhitespace()
-    {
-        Should.Throw<ArgumentException>(() => provider.CreateDocumentWithId<ModelWithId>(""));
     }
 
     [Fact]

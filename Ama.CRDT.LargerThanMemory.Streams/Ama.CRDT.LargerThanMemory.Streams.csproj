@@ -1,0 +1,57 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>net10.0;net9.0;net8.0</TargetFrameworks>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+		<IsAotCompatible>true</IsAotCompatible>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<IsPackable>true</IsPackable>
+		<PackageId>Ama.CRDT.LargerThanMemory.Streams</PackageId>
+		<Version>0.1.0</Version>
+		<Authors>Alexander Mantzoukas</Authors>
+		<Description>A .NET library for implementing Conflict-free Replicated Data Types (CRDTs) for larger than memory streams using B+ Trees.</Description>
+		<RepositoryUrl>https://github.com/phaetto/Ama.CRDT</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageTags>crdt;distributed-systems;collaboration;conflict-free</PackageTags>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+
+		<!-- SourceLink and Symbol Configuration -->
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+		<!-- Generate XML documentation file -->
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<!-- Suppress warning for missing comments on internal/private members -->
+		<NoWarn>$(NoWarn);1591</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- SourceLink Package -->
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.400" PrivateAssets="All" />
+		<!-- Public API Analyzer -->
+		<PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" PrivateAssets="All" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+		<PackageReference Include="Microsoft.Extensions.Options" Version="10.0.11" />
+		<PackageReference Include="System.Collections.Immutable" Version="10.0.11" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Ama.CRDT.Project.Analyzers\Ama.CRDT.Project.Analyzers.csproj" />
+		<ProjectReference Include="..\Ama.CRDT\Ama.CRDT.csproj" />
+	</ItemGroup>
+
+</Project>

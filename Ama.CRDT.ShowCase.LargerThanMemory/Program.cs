@@ -1,7 +1,8 @@
 using Ama.CRDT.Extensions;
+using Ama.CRDT.LargerThanMemory.Streams.Extensions;
 using Ama.CRDT.Models;
-using Ama.CRDT.Partitioning.Streams.Extensions;
 using Ama.CRDT.Services.Decorators;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.ShowCase.LargerThanMemory;
 using Ama.CRDT.ShowCase.LargerThanMemory.Models;
 using Ama.CRDT.ShowCase.LargerThanMemory.Services;
@@ -19,9 +20,14 @@ builder.ConfigureServices((context, services) =>
         .AddCrdtJournaling<FileSystemOperationJournal>()
         .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.Before)
         .AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After)
-        .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>(DecoratorBehavior.Complex)
-        .AddCrdtStreamPartitioning<FileSystemPartitionStreamProvider>();
+        .AddCrdtApplicatorDecorator<LargerThanMemoryApplicatorDecorator>(DecoratorBehavior.Complex)
+        .AddCrdtStreamChunking<FileSystemChunkStreamProvider>()
+        .AddCrdtChunkedDocument<BlogPost>()
+        .AddCrdtVirtualDocumentProjector<BlogPost, BlogPostSqliteProjector>();
 
+    services.AddSingleton<IDocumentIdProvider, BlogPostDocumentIdProvider>();
+
+    services.AddScoped<BlogPostReadRepository>();
     services.AddScoped<DataGeneratorService>();
     services.AddScoped<UiService>();
     

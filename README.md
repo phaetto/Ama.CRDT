@@ -9,7 +9,7 @@ A .NET library for achieving eventual consistency in distributed systems using C
 - **Strategy Decorators**: Stack complex distributed rules on top of base strategies. Chain decorators like `[CrdtEpochBound]` (for Clear-Wins/Reset semantics) and `[CrdtApprovalQuorum]` natively in the pipeline.
 - **POCO-First & Composable**: Work directly with your C# objects. Mix and match strategies at any depth. The library handles recursive diffing, patching, and missing object auto-instantiation seamlessly.
 - **Explicit Intent Builder**: Create precise patches by declaring specific intents (e.g., Increment, Add, Move) instead of diffing entire document states.
-- **Larger-Than-Memory Partitioning**: Scale your collections beyond RAM. Use the bundled Stream-based B+Tree storage (`Ama.CRDT.Partitioning.Streams`) to automatically split, merge, and stream partitions on demand.
+- **Larger-Than-Memory Virtual Collections**: Scale your collections beyond RAM. Externalize massive collections using **Chunked Storage** (e.g., streaming to disk) or **True Key-Value Storage** (mapping CRDT elements directly to database rows), avoiding memory bottlenecks and write-amplification entirely.
 - **Advanced Synchronization & Journaling**: Built-in Dotted Version Vectors (DVV) and operation journaling (`ICrdtOperationJournal`) to track causal history, sync disconnected replicas, and request missing data accurately.
 - **Automatic Garbage Collection**: Seamlessly compact tombstones and metadata using time-to-live (TTL) thresholds or mathematically safe Global Minimum Version Vectors (GMVV) natively within the DI pipeline via the `CompactingApplicatorDecorator`.
 - **Clean Data/Metadata Separation**: Keeps your data models pure by storing CRDT state (timestamps, tombstones, version vectors) in a parallel, highly-compactible `CrdtMetadata` object.
@@ -21,7 +21,7 @@ A .NET library for achieving eventual consistency in distributed systems using C
 Note that this is the mathematical part of CRDTs, providing every tool that a developer would need to build a distributed system (like clocks, DVVs, serialization, strategies), all of them highly tested. This library _does not_:
 
 - **Provide a network or transport layer:** The library is strictly transport-agnostic. It calculates the diffs and patches, but it is entirely up to you to send them across the network via WebSockets, gRPC, HTTP, MQTT, P2P, or any other protocol.
-- **Provide ready-to-use database integrations:** While it offers abstractions for journaling and partitioning (`ICrdtOperationJournal`, `IPartitionStorageService`), it does not ship with built-in ORM integrations (like EF Core, MongoDB, etc.). You must implement how the generated state, metadata, and JSON patches are persisted.
+- **Provide ready-to-use database integrations:** While it offers abstractions for journaling and virtual collections (`ICrdtOperationJournal`, `IChunkDocumentManager`, `IKvDocumentManager`), it does not ship with built-in ORM integrations (like EF Core, MongoDB, etc.). You must implement how the generated state, metadata, and JSON patches are persisted.
 - **Provide thread-safe access:** With the exception of the Streams package, the core library has not been designed to pool and queue parallel requests. Thread safety and lock management are responsibilities that fall on the consumer or persistence layer.
 - **Provide concurrency models:** For concurrent updates to data (either DB, memory, or external managed services), the responsibility of the choice of concurrency falls on your application layer.
 - **Provide serialized and session-ordered changes:** Patches are never guaranteed to arrive in order, meaning the document state can momentarily reflect intermediate states. This is a fundamental side effect of event-driven, eventually consistent systems.
@@ -39,9 +39,9 @@ You can install Ama.CRDT via the .NET CLI or the NuGet Package Manager in Visual
 dotnet add package Ama.CRDT
 ```
 
-If you need the stream-based larger-than-memory partitioning, also install:
+If you need the stream-based larger-than-memory storage, also install:
 ```bash
-dotnet add package Ama.CRDT.Partitioning.Streams
+dotnet add package Ama.CRDT.LargerThanMemory.Streams
 ```
 
 ### NuGet Package Manager
@@ -168,7 +168,7 @@ Explore the detailed features of the library by checking out the advanced topics
 - [**Multi-Replica Synchronization & Serialization**](docs/multi-replica-and-serialization.md) - Learn how to set up multi-node environments and safely serialize patches over the wire for Native AOT.
 - [**Operation Journaling**](docs/journaling.md) - Learn how to automatically record operations to an external datastore for advanced offline-first synchronization.
 - [**Managing Metadata Size**](docs/metadata-management.md) - Strategies for compacting state and pruning tombstones efficiently.
-- [**Larger-Than-Memory Partitioning**](docs/partitioning.md) - Handle massive datasets efficiently by breaking documents into on-demand streams.
+- [**Larger-Than-Memory Virtual Collections**](docs/partitioning.md) - Handle massive datasets efficiently by externalizing collections into Chunked streams or True Key-Value storage, and build lightning-fast Read Models via CQRS Projections.
 - [**Extensibility & Customization**](docs/extensibility.md) - Build your own CRDT strategies, timestamps, and comparers.
 - [**Architecture & How It Works**](docs/architecture.md) - A high-level overview of the library's internal abstractions.
 
@@ -178,7 +178,7 @@ This repository includes several executable showcase projects that demonstrate t
 
 - [**Basic Simulation (`Ama.CRDT.ShowCase`)**](Ama.CRDT.ShowCase/README.md) - A simple map-reduce style simulation where multiple passive and active replicas process events and mathematically converge to the same state using different strategies.
 - [**Collaborative Editing (`Ama.CRDT.ShowCase.CollaborativeEditing`)**](Ama.CRDT.ShowCase.CollaborativeEditing/README.md) - A Windows Forms app demonstrating real-time peer-to-peer text editing using the RGA strategy, explicit intents, operation journaling, and GMVV garbage collection.
-- [**Larger-Than-Memory (`Ama.CRDT.ShowCase.LargerThanMemory`)**](Ama.CRDT.ShowCase.LargerThanMemory/README.md) - A Terminal.Gui console app showcasing advanced features like Stream-based Partitioning, "On-Demand" data loading, and disconnected offline synchronization.
+- [**Larger-Than-Memory (`Ama.CRDT.ShowCase.LargerThanMemory`)**](Ama.CRDT.ShowCase.LargerThanMemory/README.md) - A Terminal.Gui console app showcasing advanced features like Virtual Collections (Chunked storage), real-time CQRS Projections to SQLite, and disconnected offline synchronization.
 
 ## Building and Testing
 
@@ -196,12 +196,12 @@ dotnet test
 
 To see the performance counters when debugging you can use one of the following in a command prompt:
 ```bash
-dotnet-counters monitor --name Ama.CRDT.ShowCase.LargerThanMemory --counters "Ama.CRDT.Partitioning" --maxHistograms 30
+dotnet-counters monitor --name Ama.CRDT.ShowCase.LargerThanMemory --counters "Ama.CRDT.LargerThanMemory" --maxHistograms 30
 ```
 
 Or use powershell if you prefer:
 ```powershell
-$p = Get-Process -Name "Ama.CRDT.ShowCase.LargerThanMemory" -ErrorAction SilentlyContinue; if ($p) { dotnet-counters monitor --process-id $p[0].Id --counters "Ama.CRDT.Partitioning" --maxHistograms 30 } else { Write-Warning "Process not found" }
+$p = Get-Process -Name "Ama.CRDT.ShowCase.LargerThanMemory" -ErrorAction SilentlyContinue; if ($p) { dotnet-counters monitor --process-id $p[0].Id --counters "Ama.CRDT.LargerThanMemory" --maxHistograms 30 } else { Write-Warning "Process not found" }
 ```
 
 ## AI Coding Assistance

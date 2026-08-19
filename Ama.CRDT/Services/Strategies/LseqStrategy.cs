@@ -5,9 +5,9 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
-using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
 using Ama.CRDT.Services.Helpers;
-using Ama.CRDT.Services.Partitioning;
+using Ama.CRDT.Services.LargerThanMemory;
 using Ama.CRDT.Services.Providers;
 using System;
 using System.Collections;
@@ -31,7 +31,7 @@ using System.Linq;
 public sealed class LseqStrategy(
     IElementComparerProvider elementComparerProvider,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtAotContext> aotContexts) : IPartitionableCrdtStrategy
+    IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
     private readonly string replicaId = replicaContext.ReplicaId;
     private const int Base = 32;
@@ -344,7 +344,7 @@ public sealed class LseqStrategy(
     }
 
     /// <inheritdoc/>
-    public SplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
+    public ChunkSplitResult SplitToDisjoint(object originalData, CrdtMetadata originalMetadata, CrdtPropertyInfo partitionableProperty)
     {
         var documentType = originalData.GetType();
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
@@ -373,11 +373,11 @@ public sealed class LseqStrategy(
         ReconstructListForSplitMerge(doc1, path, items1, aotContexts);
         ReconstructListForSplitMerge(doc2, path, items2, aotContexts);
 
-        return new SplitResult(new PartitionContent(doc1, meta1), new PartitionContent(doc2, meta2), splitKey);
+        return new ChunkSplitResult(new ChunkContent(doc1, meta1), new ChunkContent(doc2, meta2), splitKey);
     }
 
     /// <inheritdoc/>
-    public PartitionContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
+    public ChunkContent MergeDisjoint(object data1, CrdtMetadata meta1, object data2, CrdtMetadata meta2, CrdtPropertyInfo partitionableProperty)
     {
         var path = $"$.{char.ToLowerInvariant(partitionableProperty.Name[0])}{partitionableProperty.Name[1..]}";
 
@@ -399,7 +399,7 @@ public sealed class LseqStrategy(
 
         ReconstructListForSplitMerge(mergedDoc, path, mergedItems, aotContexts);
 
-        return new PartitionContent(mergedDoc, mergedMeta);
+        return new ChunkContent(mergedDoc, mergedMeta);
     }
 
     /// <inheritdoc/>

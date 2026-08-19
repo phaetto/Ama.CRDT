@@ -12,14 +12,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.11" />
     <PackageReference Include="Terminal.Gui" Version="1.19.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
   </ItemGroup>
   
   <ItemGroup>
     <ProjectReference Include="..\Ama.CRDT.Analyzers\Ama.CRDT.Analyzers.csproj" PrivateAssets="all" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
+    <ProjectReference Include="..\Ama.CRDT.LargerThanMemory.Streams\Ama.CRDT.LargerThanMemory.Streams.csproj" />
     <ProjectReference Include="..\Ama.CRDT.SourceGenerators\Ama.CRDT.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-    <ProjectReference Include="..\Ama.CRDT.Partitioning.Streams\Ama.CRDT.Partitioning.Streams.csproj" />
     <ProjectReference Include="..\Ama.CRDT\Ama.CRDT.csproj" />
   </ItemGroup>
 

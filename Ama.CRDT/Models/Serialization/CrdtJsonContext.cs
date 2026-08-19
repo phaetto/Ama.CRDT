@@ -4,7 +4,7 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Intents.Decorators;
-using Ama.CRDT.Models.Partitioning;
+using Ama.CRDT.Models.LargerThanMemory;
 using Ama.CRDT.Models.Serialization.Converters;
 using System;
 using System.Collections.Generic;
@@ -29,10 +29,10 @@ using System.Text.Json.Serialization.Metadata;
 [JsonSerializable(typeof(JournaledOperation))]
 [JsonSerializable(typeof(UnappliedOperation))]
 [JsonSerializable(typeof(DottedVersionVector))]
-[JsonSerializable(typeof(CompositePartitionKey))]
-[JsonSerializable(typeof(PartitionContent))]
-[JsonSerializable(typeof(HeaderPartition))]
-[JsonSerializable(typeof(DataPartition))]
+[JsonSerializable(typeof(CompositeChunkKey))]
+[JsonSerializable(typeof(ChunkContent))]
+[JsonSerializable(typeof(HeaderChunk))]
+[JsonSerializable(typeof(CollectionChunk))]
 [JsonSerializable(typeof(EpochTimestamp))]
 [JsonSerializable(typeof(AverageRegisterValue))]
 [JsonSerializable(typeof(AverageRegisterState))]
@@ -81,7 +81,7 @@ using System.Text.Json.Serialization.Metadata;
 [JsonSerializable(typeof(ReplicaSyncRequirement))]
 [JsonSerializable(typeof(BidirectionalSyncRequirements))]
 [JsonSerializable(typeof(JournalSyncResult))]
-[JsonSerializable(typeof(SplitResult))]
+[JsonSerializable(typeof(ChunkSplitResult))]
 [JsonSerializable(typeof(AddIntent))]
 [JsonSerializable(typeof(AddEdgeIntent))]
 [JsonSerializable(typeof(AddNodeIntent))]

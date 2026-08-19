@@ -10,8 +10,8 @@ using Ama.CRDT.Services;
 using Ama.CRDT.Services.Adapters;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Journaling;
+using Ama.CRDT.Services.LargerThanMemory;
 using Ama.CRDT.Services.Metrics;
-using Ama.CRDT.Services.Partitioning;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Serialization;
 using Ama.CRDT.Services.Strategies;
@@ -80,7 +80,7 @@ public static class ServiceCollectionExtensions
         services.AddCrdtAotContext<CoreCrdtAotContext>();
 
         // Add metrics
-        services.TryAddSingleton<PartitionManagerCrdtMetrics>();
+        services.TryAddSingleton<LargerThanMemoryManagerCrdtMetrics>();
 
         // Pure utility services that don't depend on replica scope
         services.TryAddSingleton<IVersionVectorSyncService, VersionVectorSyncService>();
@@ -126,9 +126,6 @@ public static class ServiceCollectionExtensions
         
         services.TryAddScoped<CrdtMetadataManager>();
         services.TryAddScoped<ICrdtMetadataManager>(sp => { ValidateReplicaScope(sp, nameof(CrdtMetadataManager)); return sp.GetRequiredService<CrdtMetadataManager>(); });
-
-        // Register Partitioning services
-        services.TryAddScoped(typeof(IPartitionManager<>), typeof(PartitionManager<>));
 
         // Register the default timestamp provider with validation.
         // This can be overridden by AddCrdtTimestampProvider.
@@ -281,7 +278,7 @@ public static class ServiceCollectionExtensions
     /// <code>
     /// <![CDATA[
     /// builder.Services.AddCrdt()
-    ///                 .AddCrdtApplicatorDecorator<PartitioningApplicatorDecorator>(DecoratorBehavior.Complex);
+    ///                 .AddCrdtApplicatorDecorator<LargerThanMemoryApplicatorDecorator>(DecoratorBehavior.Complex);
     /// ]]>
     /// </code>
     /// </example>
@@ -514,7 +511,7 @@ public static class ServiceCollectionExtensions
     /// <![CDATA[
     /// public readonly record struct MyCustomTimestamp(long Value) : ICrdtTimestamp
     /// {
-    ///     public int CompareTo(ICrdtTimestamp other)
+    ///     public int CompareTo(ICrdtTimestamp internal other)
     ///     {
     ///         if (other is MyCustomTimestamp otherTimestamp)
     ///         {
@@ -695,6 +692,65 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(implementationFactory);
         services.TryAddEnumerable(ServiceDescriptor.Scoped<ICompactionPolicyFactory, TFactory>(implementationFactory));
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a CRDT document type to be managed as a chunked virtual document.
+    /// This enables infinite scaling of collections by storing them as disjoint streams (chunks).
+    /// </summary>
+    /// <typeparam name="T">The CRDT document type.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    public static IServiceCollection AddCrdtChunkedDocument<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this IServiceCollection services)
+        where T : class, new()
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddScoped<ChunkedDocumentManager<T>>();
+        services.TryAddScoped<IChunkDocumentManager<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentManager<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentCollectionReader<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentPatchHandler<T>>(sp => sp.GetRequiredService<ChunkedDocumentManager<T>>());
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a CRDT document type to be managed as a Key-Value virtual document.
+    /// This enables infinite scaling without chunk bounds by routing individual operations directly to database rows.
+    /// </summary>
+    /// <typeparam name="T">The CRDT document type.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    public static IServiceCollection AddCrdtKvDocument<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] T>(this IServiceCollection services)
+        where T : class, new()
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddScoped<KvDocumentManager<T>>();
+        services.TryAddScoped<IKvDocumentManager<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentManager<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentCollectionReader<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
+        services.TryAddScoped<IVirtualDocumentPatchHandler<T>>(sp => sp.GetRequiredService<KvDocumentManager<T>>());
+
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a projection hook for a virtual CRDT document, allowing CQRS Read Models to be updated automatically
+    /// immediately after the document states are successfully synchronized in the database.
+    /// </summary>
+    /// <typeparam name="TDocument">The CRDT document type.</typeparam>
+    /// <typeparam name="TProjector">The projector implementation type.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    public static IServiceCollection AddCrdtVirtualDocumentProjector<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDocument, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProjector>(this IServiceCollection services)
+        where TDocument : class, new()
+        where TProjector : class, IVirtualDocumentProjector<TDocument>
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddEnumerable(ServiceDescriptor.Scoped<IVirtualDocumentProjector<TDocument>, TProjector>());
         return services;
     }
 

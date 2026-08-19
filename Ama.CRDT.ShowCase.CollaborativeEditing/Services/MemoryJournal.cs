@@ -17,10 +17,10 @@ public sealed class MemoryJournal : ICrdtOperationJournal
 {
     private readonly List<JournaledOperation> operations = new();
 
-    public void Append(string documentId, IReadOnlyList<CrdtOperation> operationsList)
+    public void Append(IComparable documentId, IReadOnlyList<CrdtOperation> operationsList)
     {
-        if (string.IsNullOrWhiteSpace(documentId)) throw new ArgumentException("Document ID cannot be null or empty.", nameof(documentId));
-        if (operationsList == null) throw new ArgumentNullException(nameof(operationsList));
+        ArgumentNullException.ThrowIfNull(documentId);
+        ArgumentNullException.ThrowIfNull(operationsList);
 
         lock (operations)
         {
@@ -34,7 +34,7 @@ public sealed class MemoryJournal : ICrdtOperationJournal
         }
     }
 
-    public Task AppendAsync(string documentId, IReadOnlyList<CrdtOperation> operationsList, CancellationToken cancellationToken = default)
+    public Task AppendAsync(IComparable documentId, IReadOnlyList<CrdtOperation> operationsList, CancellationToken cancellationToken = default)
     {
         Append(documentId, operationsList);
         return Task.CompletedTask;
