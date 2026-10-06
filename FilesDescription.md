@@ -182,7 +182,6 @@
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs, and testing new centralized reflection helpers for getting/setting values and retrieving type information. |
 | `$/Ama.CRDT.UnitTests/Services/Journaling/JournalManagerTests.cs` | Contains unit tests for `JournalManager`, verifying the retrieval of missing operations based on synchronization requirements, range bounds, and missing dots. |
 | `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/ChunkedDocumentManagerTests.cs` | No description provided. |
-| `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/PartitionManagerTests.cs` | Updated test mock models to drop `PartitionKey` and introduced `MultiPartitionedModelIdProvider` to satisfy `ChunkedDocumentManager` requirements explicitly. |
 | `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/PartitionStorageServiceContractTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/PartitioningTestCrdtContext.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Providers/CrdtFluentConfigurationTests.cs` | Contains unit tests verifying the Fluent Builder API (`CrdtModelBuilder`) correctly maps CRDT strategies and that the `CrdtStrategyProvider` prioritizes these mappings over attributes. |
