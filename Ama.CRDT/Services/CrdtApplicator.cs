@@ -16,7 +16,8 @@ public sealed class CrdtApplicator(
     ICrdtStrategyProvider strategyProvider,
     ICrdtMetadataManager metadataManager,
     ReplicaContext replicaContext,
-    IEnumerable<CrdtAotContext> aotContexts) : ICrdtApplicator
+    IEnumerable<CrdtAotContext> aotContexts,
+    IShardIdProvider shardIdProvider) : ICrdtApplicator
 {
     /// <inheritdoc/>
     public ApplyPatchResult<T> ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class
@@ -29,6 +30,7 @@ public sealed class CrdtApplicator(
             return new ApplyPatchResult<T>(document, Array.Empty<UnappliedOperation>());
         }
 
+        var fallbackShardId = shardIdProvider.GetShardId(document);
         List<UnappliedOperation>? unappliedOperations = null;
 
         // Avoiding IEnumerator allocations by casting to IReadOnlyList when possible.
@@ -37,7 +39,7 @@ public sealed class CrdtApplicator(
             int count = operationsList.Count;
             for (int i = 0; i < count; i++)
             {
-                var status = ApplyOperation(document.Data, operationsList[i], document.Metadata);
+                var status = ApplyOperation(document.Data, operationsList[i], document.Metadata, fallbackShardId);
                 if (status != CrdtOperationStatus.Success)
                 {
                     unappliedOperations ??= new List<UnappliedOperation>();
@@ -49,7 +51,7 @@ public sealed class CrdtApplicator(
         {
             foreach (var operation in patch.Operations)
             {
-                var status = ApplyOperation(document.Data, operation, document.Metadata);
+                var status = ApplyOperation(document.Data, operation, document.Metadata, fallbackShardId);
                 if (status != CrdtOperationStatus.Success)
                 {
                     unappliedOperations ??= new List<UnappliedOperation>();
@@ -61,18 +63,24 @@ public sealed class CrdtApplicator(
         return new ApplyPatchResult<T>(document, unappliedOperations ?? (IReadOnlyList<UnappliedOperation>)Array.Empty<UnappliedOperation>());
     }
 
-    private CrdtOperationStatus ApplyOperation(object document, CrdtOperation operation, CrdtMetadata metadata)
+    private CrdtOperationStatus ApplyOperation(object document, CrdtOperation operation, CrdtMetadata metadata, string fallbackShardId)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(metadata);
 
         var strategy = strategyProvider.GetStrategy(operation, document);
 
-        // Track causality globally on the replica context regardless of whether the operation is obsolete locally.
-        // This confirms the node has safely observed this global sequence number.
-        if (operation.GlobalClock > 0)
+        // Track causality globally on the replica context using the Shard DVVs.
+        var shardId = !string.IsNullOrEmpty(operation.ShardId) ? operation.ShardId : fallbackShardId;
+
+        if (operation.ShardClock > 0 && !string.IsNullOrEmpty(shardId))
         {
-            replicaContext.GlobalVersionVector.Add(operation.ReplicaId, operation.GlobalClock);
+            if (!replicaContext.ShardVersionVectors.TryGetValue(shardId, out var shardVector))
+            {
+                shardVector = new DottedVersionVector();
+                replicaContext.ShardVersionVectors[shardId] = shardVector;
+            }
+            shardVector.Add(operation.ReplicaId, operation.ShardClock);
         }
 
         // Every operation now has a unique, monotonically increasing logical clock for its replica.

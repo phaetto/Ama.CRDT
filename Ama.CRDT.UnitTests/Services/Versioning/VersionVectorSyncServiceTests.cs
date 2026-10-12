@@ -22,8 +22,8 @@ public class VersionVectorSyncServiceTests
     {
         var context = new ReplicaContext { ReplicaId = "A" };
 
-        Should.Throw<ArgumentNullException>(() => sut.CalculateRequirement(null!, context));
-        Should.Throw<ArgumentNullException>(() => sut.CalculateRequirement(context, null!));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateRequirement(null!, context, "default"));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateRequirement(context, null!, "default"));
     }
 
     [Theory]
@@ -34,8 +34,8 @@ public class VersionVectorSyncServiceTests
     {
         var dvv = new DottedVersionVector();
 
-        Should.Throw<ArgumentException>(() => sut.CalculateRequirement(invalidId, dvv, "Valid", dvv));
-        Should.Throw<ArgumentException>(() => sut.CalculateRequirement("Valid", dvv, invalidId, dvv));
+        Should.Throw<ArgumentException>(() => sut.CalculateRequirement(invalidId!, dvv, "Valid", dvv, "default"));
+        Should.Throw<ArgumentException>(() => sut.CalculateRequirement("Valid", dvv, invalidId!, dvv, "default"));
     }
 
     [Fact]
@@ -43,8 +43,8 @@ public class VersionVectorSyncServiceTests
     {
         var dvv = new DottedVersionVector();
 
-        Should.Throw<ArgumentNullException>(() => sut.CalculateRequirement("Target", null!, "Source", dvv));
-        Should.Throw<ArgumentNullException>(() => sut.CalculateRequirement("Target", dvv, "Source", null!));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateRequirement("Target", null!, "Source", dvv, "default"));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateRequirement("Target", dvv, "Source", null!, "default"));
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class VersionVectorSyncServiceTests
         var target = new ReplicaContext { ReplicaId = "Target" };
         var source = new ReplicaContext { ReplicaId = "Source" };
 
-        var result = sut.CalculateRequirement(target, source);
+        var result = sut.CalculateRequirement(target, source, "default");
 
         result.TargetReplicaId.ShouldBe("Target");
         result.SourceReplicaId.ShouldBe("Source");
@@ -64,10 +64,10 @@ public class VersionVectorSyncServiceTests
     [Fact]
     public void CalculateRequirement_TargetAhead_ReturnsNoRequirements()
     {
-        var target = new ReplicaContext { ReplicaId = "Target", GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "Origin1", 5 } }, null) };
-        var source = new ReplicaContext { ReplicaId = "Source", GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "Origin1", 2 } }, null) };
+        var target = new ReplicaContext { ReplicaId = "Target", ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(new Dictionary<string, long> { { "Origin1", 5 } }, null) } } };
+        var source = new ReplicaContext { ReplicaId = "Source", ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(new Dictionary<string, long> { { "Origin1", 2 } }, null) } } };
 
-        var result = sut.CalculateRequirement(target, source);
+        var result = sut.CalculateRequirement(target, source, "default");
 
         result.IsBehind.ShouldBeFalse();
         result.RequirementsByOrigin.ShouldBeEmpty();
@@ -76,10 +76,10 @@ public class VersionVectorSyncServiceTests
     [Fact]
     public void CalculateRequirement_SourceAheadContiguous_ReturnsContiguousRequirement()
     {
-        var target = new ReplicaContext { ReplicaId = "Target", GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "Origin1", 2 } }, null) };
-        var source = new ReplicaContext { ReplicaId = "Source", GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "Origin1", 5 } }, null) };
+        var target = new ReplicaContext { ReplicaId = "Target", ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(new Dictionary<string, long> { { "Origin1", 2 } }, null) } } };
+        var source = new ReplicaContext { ReplicaId = "Source", ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(new Dictionary<string, long> { { "Origin1", 5 } }, null) } } };
 
-        var result = sut.CalculateRequirement(target, source);
+        var result = sut.CalculateRequirement(target, source, "default");
 
         result.IsBehind.ShouldBeTrue();
         result.RequirementsByOrigin.Count.ShouldBe(1);
@@ -95,16 +95,17 @@ public class VersionVectorSyncServiceTests
     [Fact]
     public void CalculateRequirement_SourceHasDotsTargetMissing_ReturnsMissingDots()
     {
-        var target = new ReplicaContext { ReplicaId = "Target", GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "Origin1", 2 } }, null) };
+        var target = new ReplicaContext { ReplicaId = "Target", ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(new Dictionary<string, long> { { "Origin1", 2 } }, null) } } };
         var source = new ReplicaContext 
         { 
             ReplicaId = "Source", 
-            GlobalVersionVector = CreateDvv(
+            ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(
                 new Dictionary<string, long> { { "Origin1", 2 } }, 
                 new Dictionary<string, ISet<long>> { { "Origin1", new HashSet<long> { 5, 7 } } }) 
+            } }
         };
 
-        var result = sut.CalculateRequirement(target, source);
+        var result = sut.CalculateRequirement(target, source, "default");
 
         result.IsBehind.ShouldBeTrue();
         
@@ -123,18 +124,19 @@ public class VersionVectorSyncServiceTests
         var target = new ReplicaContext 
         { 
             ReplicaId = "Target", 
-            GlobalVersionVector = CreateDvv(
+            ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(
                 new Dictionary<string, long> { { "Origin1", 2 } }, 
                 new Dictionary<string, ISet<long>> { { "Origin1", new HashSet<long> { 4 } } }) 
+            } }
         };
         // Source has 1..5 contiguous
         var source = new ReplicaContext 
         { 
             ReplicaId = "Source", 
-            GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "Origin1", 5 } }, null) 
+            ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(new Dictionary<string, long> { { "Origin1", 5 } }, null) } } 
         };
 
-        var result = sut.CalculateRequirement(target, source);
+        var result = sut.CalculateRequirement(target, source, "default");
 
         result.IsBehind.ShouldBeTrue();
         
@@ -153,20 +155,22 @@ public class VersionVectorSyncServiceTests
         var target = new ReplicaContext 
         { 
             ReplicaId = "Target", 
-            GlobalVersionVector = CreateDvv(
+            ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(
                 new Dictionary<string, long> { { "OriginA", 5 }, { "OriginB", 2 } }, 
                 null) 
+            } }
         };
         
         var source = new ReplicaContext 
         { 
             ReplicaId = "Source", 
-            GlobalVersionVector = CreateDvv(
+            ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(
                 new Dictionary<string, long> { { "OriginA", 3 }, { "OriginB", 5 }, { "OriginC", 1 } }, 
                 null) 
+            } }
         };
 
-        var result = sut.CalculateRequirement(target, source);
+        var result = sut.CalculateRequirement(target, source, "default");
 
         result.IsBehind.ShouldBeTrue();
         result.RequirementsByOrigin.Count.ShouldBe(2); // Only for B and C, since Target is ahead on A
@@ -184,21 +188,21 @@ public class VersionVectorSyncServiceTests
         var target = new ReplicaContext 
         { 
             ReplicaId = "Target", 
-            GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "EvictedNode", 5 } }, null) 
+            ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(new Dictionary<string, long> { { "EvictedNode", 5 } }, null) } } 
         };
         var source = new ReplicaContext 
         { 
             ReplicaId = "Source", 
-            GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "EvictedNode", 10 } }, null) 
+            ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(new Dictionary<string, long> { { "EvictedNode", 10 } }, null) } } 
         };
 
         // Without evicted list, Target needs 6-10 from Source for EvictedNode
-        var req1 = sut.CalculateRequirement(target, source);
+        var req1 = sut.CalculateRequirement(target, source, "default");
         req1.IsBehind.ShouldBeTrue();
         req1.RequirementsByOrigin.ContainsKey("EvictedNode").ShouldBeTrue();
 
         // With evicted list, the requirement should be completely empty and IsBehind false
-        var req2 = sut.CalculateRequirement(target, source, new[] { "EvictedNode" });
+        var req2 = sut.CalculateRequirement(target, source, "default", new[] { "EvictedNode" });
         req2.IsBehind.ShouldBeFalse();
         req2.RequirementsByOrigin.ShouldBeEmpty();
     }
@@ -208,8 +212,8 @@ public class VersionVectorSyncServiceTests
     {
         var context = new ReplicaContext { ReplicaId = "A" };
 
-        Should.Throw<ArgumentNullException>(() => sut.CalculateBidirectionalRequirements(null!, context));
-        Should.Throw<ArgumentNullException>(() => sut.CalculateBidirectionalRequirements(context, null!));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateBidirectionalRequirements(null!, context, "default"));
+        Should.Throw<ArgumentNullException>(() => sut.CalculateBidirectionalRequirements(context, null!, "default"));
     }
 
     [Fact]
@@ -218,16 +222,16 @@ public class VersionVectorSyncServiceTests
         var replicaA = new ReplicaContext 
         { 
             ReplicaId = "A", 
-            GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "OriginX", 5 }, { "OriginY", 2 } }, null) 
+            ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(new Dictionary<string, long> { { "OriginX", 5 }, { "OriginY", 2 } }, null) } } 
         };
         
         var replicaB = new ReplicaContext 
         { 
             ReplicaId = "B", 
-            GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "OriginX", 3 }, { "OriginY", 5 } }, null) 
+            ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(new Dictionary<string, long> { { "OriginX", 3 }, { "OriginY", 5 } }, null) } } 
         };
 
-        var result = sut.CalculateBidirectionalRequirements(replicaA, replicaB);
+        var result = sut.CalculateBidirectionalRequirements(replicaA, replicaB, "default");
 
         // A needs from B
         result.ReplicaANeedsFromB.IsBehind.ShouldBeTrue();
@@ -623,15 +627,15 @@ public class VersionVectorSyncServiceTests
     public async Task EvaluateJournalCompletionAsync_CrossSync_NodeAHasOnlyItsOwnJournal_EvaluatesCorrectly()
     {
         // Scenario: DVV(A) = (A:1, B:0), DVV(B) = (A:0, B:1)
-        var replicaA = new ReplicaContext { ReplicaId = "A", GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "A", 1 } }, null) };
-        var replicaB = new ReplicaContext { ReplicaId = "B", GlobalVersionVector = CreateDvv(new Dictionary<string, long> { { "B", 1 } }, null) };
+        var replicaA = new ReplicaContext { ReplicaId = "A", ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(new Dictionary<string, long> { { "A", 1 } }, null) } } };
+        var replicaB = new ReplicaContext { ReplicaId = "B", ShardVersionVectors = new ShardVersionVectorMap { { "default", CreateDvv(new Dictionary<string, long> { { "B", 1 } }, null) } } };
 
         // In Node A, we only have the journal of Node A (A:1) available.
         var nodeAJournalOperations = new[] { CreateJOp("A", 1) };
 
         // Case 1: Node A evaluates what Node B needs from Node A
         // Target = B, Source = A. Node B needs A:1.
-        var bNeedsFromA = sut.CalculateRequirement(target: replicaB, source: replicaA);
+        var bNeedsFromA = sut.CalculateRequirement(target: replicaB, source: replicaA, "default");
         
         var resultWhenServingB = await sut.EvaluateJournalCompletionAsync(AsAsyncEnumerable(nodeAJournalOperations), bNeedsFromA);
         
@@ -641,7 +645,7 @@ public class VersionVectorSyncServiceTests
 
         // Case 2: Node A evaluates what Node A needs from Node B, but against its own local journal.
         // Target = A, Source = B. Node A needs B:1.
-        var aNeedsFromB = sut.CalculateRequirement(target: replicaA, source: replicaB);
+        var aNeedsFromB = sut.CalculateRequirement(target: replicaA, source: replicaB, "default");
         
         var resultWhenEvaluatingSelf = await sut.EvaluateJournalCompletionAsync(AsAsyncEnumerable(nodeAJournalOperations), aNeedsFromB);
         
@@ -660,7 +664,7 @@ public class VersionVectorSyncServiceTests
     /// </summary>
     private static JournaledOperation CreateJOp(string origin, long clock)
     {
-        var json = $$"""{"ReplicaId":"{{origin}}","GlobalClock":{{clock}},"OperationType":1,"PropertyPath":""}""";
+        var json = $$"""{"ReplicaId":"{{origin}}","ShardClock":{{clock}},"ShardId":"default","OperationType":1,"PropertyPath":""}""";
         var op = JsonSerializer.Deserialize(json, CrdtJsonContext.Default.CrdtOperation)!;
         return new JournaledOperation("doc1", op);
     }

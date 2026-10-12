@@ -19,20 +19,20 @@ internal sealed class CrdtScopeFactory : ICrdtScopeFactory
     /// <inheritdoc/>
     public IServiceScope CreateScope([DisallowNull] string replicaId)
     {
-        return CreateScope(replicaId, new DottedVersionVector());
+        return CreateScope(replicaId, new ShardVersionVectorMap());
     }
 
     /// <inheritdoc/>
-    public IServiceScope CreateScope([DisallowNull] string replicaId, DottedVersionVector globalVersionVector)
+    public IServiceScope CreateScope([DisallowNull] string replicaId, ShardVersionVectorMap shardVersionVectors)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
-        ArgumentNullException.ThrowIfNull(globalVersionVector);
+        ArgumentNullException.ThrowIfNull(shardVersionVectors);
 
         var scope = serviceProvider.CreateScope();
         var replicaContext = scope.ServiceProvider.GetRequiredService<ReplicaContext>();
         
         replicaContext.ReplicaId = replicaId;
-        replicaContext.GlobalVersionVector = globalVersionVector;
+        replicaContext.ShardVersionVectors = shardVersionVectors;
 
         return scope;
     }

@@ -6,16 +6,17 @@ using System.Threading.Tasks;
 using Ama.CRDT.Models;
 
 /// <summary>
-/// Provides utilities to compare the causality state (Dotted Version Vectors) of different replicas and determine synchronization requirements.
+/// Provides utilities to compare the causality state (Dotted Version Vectors) of different replicas and determine synchronization requirements per shard.
 /// </summary>
 public interface IVersionVectorSyncService
 {
     /// <summary>
-    /// Compares two replica contexts and determines what data the target replica needs from the source replica.
+    /// Compares two replica contexts and determines what data the target replica needs from the source replica for a specific shard.
     /// </summary>
     /// <param name="target">The context of the replica that may be behind.</param>
     /// <param name="source">The context of the replica that may have newer data.</param>
-    /// <param name="evictedReplicaIds">An optional list of replica IDs that have been removed from the cluster. Their historical operations will be ignored to prevent false-positive snapshot triggers.</param>
+    /// <param name="shardId">The identifier of the shard being synchronized.</param>
+    /// <param name="evictedReplicaIds">An optional list of replica IDs that have been removed from the cluster.</param>
     /// <returns>A <see cref="ReplicaSyncRequirement"/> detailing exactly what versions the target is missing from the source.</returns>
     /// <example>
     /// <code>
@@ -49,16 +50,17 @@ public interface IVersionVectorSyncService
     /// ]]>
     /// </code>
     /// </example>
-    ReplicaSyncRequirement CalculateRequirement(ReplicaContext target, ReplicaContext source, IEnumerable<string>? evictedReplicaIds = null);
+    ReplicaSyncRequirement CalculateRequirement(ReplicaContext target, ReplicaContext source, string shardId, IEnumerable<string>? evictedReplicaIds = null);
 
     /// <summary>
-    /// Compares two dotted version vectors and determines what data the target replica needs from the source replica.
+    /// Compares two dotted version vectors and determines what data the target replica needs from the source replica for a specific shard.
     /// </summary>
     /// <param name="targetReplicaId">The ID of the replica that may be behind.</param>
     /// <param name="targetVector">The version vector of the replica that may be behind.</param>
     /// <param name="sourceReplicaId">The ID of the replica that may have newer data.</param>
     /// <param name="sourceVector">The version vector of the replica that may have newer data.</param>
-    /// <param name="evictedReplicaIds">An optional list of replica IDs that have been removed from the cluster. Their historical operations will be ignored to prevent false-positive snapshot triggers.</param>
+    /// <param name="shardId">The identifier of the shard being synchronized.</param>
+    /// <param name="evictedReplicaIds">An optional list of replica IDs that have been removed from the cluster.</param>
     /// <returns>A <see cref="ReplicaSyncRequirement"/> detailing exactly what versions the target is missing from the source.</returns>
     /// <example>
     /// <code>
@@ -79,14 +81,15 @@ public interface IVersionVectorSyncService
     /// ]]>
     /// </code>
     /// </example>
-    ReplicaSyncRequirement CalculateRequirement(string targetReplicaId, DottedVersionVector targetVector, string sourceReplicaId, DottedVersionVector sourceVector, IEnumerable<string>? evictedReplicaIds = null);
+    ReplicaSyncRequirement CalculateRequirement(string targetReplicaId, DottedVersionVector targetVector, string sourceReplicaId, DottedVersionVector sourceVector, string shardId, IEnumerable<string>? evictedReplicaIds = null);
 
     /// <summary>
-    /// Compares two replica contexts bidirectionally, returning the requirements for both to fully synchronize with each other.
+    /// Compares two replica contexts bidirectionally, returning the requirements for both to fully synchronize with each other for a specific shard.
     /// </summary>
     /// <param name="replicaA">The first replica context.</param>
     /// <param name="replicaB">The second replica context.</param>
-    /// <param name="evictedReplicaIds">An optional list of replica IDs that have been removed from the cluster. Their historical operations will be ignored to prevent false-positive snapshot triggers.</param>
+    /// <param name="shardId">The identifier of the shard being synchronized.</param>
+    /// <param name="evictedReplicaIds">An optional list of replica IDs that have been removed from the cluster.</param>
     /// <returns>A <see cref="BidirectionalSyncRequirements"/> containing the requirements for A to catch up to B, and B to catch up to A.</returns>
     /// <example>
     /// <code>
@@ -106,16 +109,17 @@ public interface IVersionVectorSyncService
     /// ]]>
     /// </code>
     /// </example>
-    BidirectionalSyncRequirements CalculateBidirectionalRequirements(ReplicaContext replicaA, ReplicaContext replicaB, IEnumerable<string>? evictedReplicaIds = null);
+    BidirectionalSyncRequirements CalculateBidirectionalRequirements(ReplicaContext replicaA, ReplicaContext replicaB, string shardId, IEnumerable<string>? evictedReplicaIds = null);
 
     /// <summary>
-    /// Compares two dotted version vectors bidirectionally, returning the requirements for both to fully synchronize with each other.
+    /// Compares two dotted version vectors bidirectionally, returning the requirements for both to fully synchronize with each other for a specific shard.
     /// </summary>
     /// <param name="replicaAId">The ID of the first replica.</param>
     /// <param name="vectorA">The version vector of the first replica.</param>
     /// <param name="replicaBId">The ID of the second replica.</param>
     /// <param name="vectorB">The version vector of the second replica.</param>
-    /// <param name="evictedReplicaIds">An optional list of replica IDs that have been removed from the cluster. Their historical operations will be ignored to prevent false-positive snapshot triggers.</param>
+    /// <param name="shardId">The identifier of the shard being synchronized.</param>
+    /// <param name="evictedReplicaIds">An optional list of replica IDs that have been removed from the cluster.</param>
     /// <returns>A <see cref="BidirectionalSyncRequirements"/> containing the requirements for A to catch up to B, and B to catch up to A.</returns>
     /// <example>
     /// <code>
@@ -141,10 +145,11 @@ public interface IVersionVectorSyncService
     /// ]]>
     /// </code>
     /// </example>
-    BidirectionalSyncRequirements CalculateBidirectionalRequirements(string replicaAId, DottedVersionVector vectorA, string replicaBId, DottedVersionVector vectorB, IEnumerable<string>? evictedReplicaIds = null);
+    BidirectionalSyncRequirements CalculateBidirectionalRequirements(string replicaAId, DottedVersionVector vectorA, string replicaBId, DottedVersionVector vectorB, string shardId, IEnumerable<string>? evictedReplicaIds = null);
 
     /// <summary>
     /// Calculates the Global Minimum Version Vector from a collection of replica version vectors.
+    /// This should be supplied with vectors corresponding to a specific shard.
     /// </summary>
     /// <param name="clusterVectors">The version vectors of all active replicas in the cluster.</param>
     /// <returns>A dictionary mapping each origin replica ID to the lowest contiguous version acknowledged by all replicas in the cluster.</returns>
@@ -170,13 +175,14 @@ public interface IVersionVectorSyncService
     /// ]]>
     /// </code>
     /// </example>
+    /// <param name="clusterVectors">The version vectors of all active replicas tracking the shard.</param>
+    /// <returns>A dictionary mapping each origin replica ID to the lowest contiguous version acknowledged by all replicas.</returns>
     IReadOnlyDictionary<string, long> CalculateGlobalMinimumVersionVector(IEnumerable<DottedVersionVector> clusterVectors);
 
     /// <summary>
-    /// Calculates the Global Maximum Version Vector from a collection of replica version vectors, 
-    /// representing the absolute latest known causal state across the entire cluster.
+    /// Calculates the Global Maximum Version Vector from a collection of replica version vectors.
     /// </summary>
-    /// <param name="clusterVectors">The version vectors of all active replicas in the cluster.</param>
+    /// <param name="clusterVectors">The version vectors of all active replicas.</param>
     /// <returns>A new <see cref="DottedVersionVector"/> merging all contiguous versions and dots.</returns>
     /// <example>
     /// <code>
@@ -199,8 +205,6 @@ public interface IVersionVectorSyncService
 
     /// <summary>
     /// Removes causal tracking information for specific replicas from a given version vector.
-    /// This is useful for cleaning up version vectors after replicas have been evicted from the cluster,
-    /// allowing the Global Minimum Version Vector (GMVV) to advance.
     /// </summary>
     /// <param name="vector">The version vector to clean.</param>
     /// <param name="evictedReplicaIds">The IDs of the replicas to remove.</param>

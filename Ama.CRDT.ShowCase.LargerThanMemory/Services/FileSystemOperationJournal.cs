@@ -82,7 +82,7 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
                 }
                 
                 // Prevent duplicates
-                if (!originOps.Any(o => o.Operation.GlobalClock == op.GlobalClock))
+                if (!originOps.Any(o => o.Operation.ShardClock == op.ShardClock))
                 {
                     originOps.Add(new JournaledOperation(documentId, op));
                     added = true;
@@ -102,7 +102,7 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         return Task.CompletedTask;
     }
 
-    public async IAsyncEnumerable<JournaledOperation> GetOperationsByRangeAsync(string originReplicaId, long minGlobalClock, long maxGlobalClock, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<JournaledOperation> GetOperationsByRangeAsync(string shardId, string originReplicaId, long minShardClock, long maxShardClock, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await Task.Yield(); // Suppress CS1998
 
@@ -114,7 +114,7 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
                 yield break;
             }
 
-            matchingOps = originOps.Where(o => o.Operation.GlobalClock > minGlobalClock && o.Operation.GlobalClock <= maxGlobalClock).ToList();
+            matchingOps = originOps.Where(o => o.Operation.ShardClock > minShardClock && o.Operation.ShardClock <= maxShardClock).ToList();
         }
 
         foreach (var op in matchingOps)
@@ -124,11 +124,11 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
         }
     }
 
-    public async IAsyncEnumerable<JournaledOperation> GetOperationsByDotsAsync(string originReplicaId, IEnumerable<long> globalClocks, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<JournaledOperation> GetOperationsByDotsAsync(string shardId, string originReplicaId, IEnumerable<long> shardClocks, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await Task.Yield(); // Suppress CS1998
 
-        var clockSet = new HashSet<long>(globalClocks);
+        var clockSet = new HashSet<long>(shardClocks);
         List<JournaledOperation> matchingOps;
 
         lock (lockObj)
@@ -138,7 +138,7 @@ public sealed class FileSystemOperationJournal : ICrdtOperationJournal
                 yield break;
             }
 
-            matchingOps = originOps.Where(o => clockSet.Contains(o.Operation.GlobalClock)).ToList();
+            matchingOps = originOps.Where(o => clockSet.Contains(o.Operation.ShardClock)).ToList();
         }
 
         foreach (var op in matchingOps)

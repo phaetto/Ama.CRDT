@@ -9,6 +9,7 @@ using Ama.CRDT.Models.LargerThanMemory;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 
 /// <summary>
 /// An internal AOT-generated context containing metadata for all core CRDT models.
@@ -25,6 +26,11 @@ using System.Collections.Immutable;
 [CrdtAotType(typeof(CrdtPatch))]
 [CrdtAotType(typeof(CrdtTree))]
 [CrdtAotType(typeof(DottedVersionVector))]
+[CrdtAotType(typeof(ShardVersionVectorMap))]
+[CrdtAotType(typeof(IDictionary<string, DottedVersionVector>))]
+[CrdtAotType(typeof(Dictionary<string, DottedVersionVector>))]
+[CrdtAotType(typeof(ICollection<string>))]
+[CrdtAotType(typeof(ICollection<DottedVersionVector>))]
 [CrdtAotType(typeof(Edge))]
 [CrdtAotType(typeof(EpochState))]
 [CrdtAotType(typeof(EpochTimestamp))]

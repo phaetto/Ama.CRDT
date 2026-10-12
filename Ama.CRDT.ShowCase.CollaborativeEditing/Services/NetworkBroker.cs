@@ -17,7 +17,7 @@ public sealed class NetworkBroker
     private readonly IVersionVectorSyncService syncService;
     private readonly MemoryJournal journal;
     
-    private readonly ConcurrentDictionary<string, DottedVersionVector> replicaStates = new();
+    private readonly ConcurrentDictionary<string, ShardVersionVectorMap> replicaStates = new();
     private readonly ConcurrentDictionary<string, Func<string>> snapshotProviders = new();
 
     public event EventHandler<NetworkMessage>? MessageReceived;
@@ -31,7 +31,7 @@ public sealed class NetworkBroker
         this.journal = journal;
     }
 
-    public void RegisterReplica(string replicaId, DottedVersionVector state, Func<string> snapshotProvider)
+    public void RegisterReplica(string replicaId, ShardVersionVectorMap state, Func<string> snapshotProvider)
     {
         if (string.IsNullOrWhiteSpace(replicaId)) throw new ArgumentException("Replica ID cannot be empty", nameof(replicaId));
         if (snapshotProvider == null) throw new ArgumentNullException(nameof(snapshotProvider));
@@ -50,7 +50,7 @@ public sealed class NetworkBroker
         RunGarbageCollection();
     }
 
-    public void UpdateReplicaState(string replicaId, DottedVersionVector state)
+    public void UpdateReplicaState(string replicaId, ShardVersionVectorMap state)
     {
         if (string.IsNullOrWhiteSpace(replicaId)) throw new ArgumentException("Replica ID cannot be empty", nameof(replicaId));
 
@@ -73,12 +73,20 @@ public sealed class NetworkBroker
         return provider?.Invoke();
     }
 
-    public DottedVersionVector GetClusterState()
+    public ShardVersionVectorMap GetClusterState()
     {
+        var map = new ShardVersionVectorMap();
         var states = replicaStates.Values.ToList();
-        if (states.Count == 0) return new DottedVersionVector();
+        if (states.Count == 0) return map;
 
-        return syncService.CalculateGlobalMaximumVersionVector(states);
+        var allShards = states.SelectMany(s => s.Keys).Distinct();
+        foreach (var shard in allShards)
+        {
+            var vectorsForShard = states.Select(s => s.TryGetValue(shard, out var v) ? v : new DottedVersionVector());
+            map[shard] = syncService.CalculateGlobalMaximumVersionVector(vectorsForShard);
+        }
+
+        return map;
     }
 
     public IReadOnlyDictionary<string, long> GetGmvv()
@@ -86,7 +94,8 @@ public sealed class NetworkBroker
         var states = replicaStates.Values.ToList();
         if (states.Count == 0) return new Dictionary<string, long>();
         
-        return syncService.CalculateGlobalMinimumVersionVector(states);
+        var defaultVectors = states.Select(s => s.TryGetValue("default", out var v) ? v : new DottedVersionVector());
+        return syncService.CalculateGlobalMinimumVersionVector(defaultVectors);
     }
 
     private void RunGarbageCollection()

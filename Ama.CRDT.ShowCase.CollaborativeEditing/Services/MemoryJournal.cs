@@ -40,14 +40,14 @@ public sealed class MemoryJournal : ICrdtOperationJournal
         return Task.CompletedTask;
     }
 
-    public async IAsyncEnumerable<JournaledOperation> GetOperationsByRangeAsync(string originReplicaId, long minGlobalClock, long maxGlobalClock, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<JournaledOperation> GetOperationsByRangeAsync(string shardId, string originReplicaId, long minShardClock, long maxShardClock, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(originReplicaId)) throw new ArgumentException("Origin Replica ID cannot be null or empty.", nameof(originReplicaId));
 
         List<JournaledOperation> snapshot;
         lock (operations) { snapshot = operations.ToList(); }
 
-        foreach (var op in snapshot.Where(o => o.Operation.ReplicaId == originReplicaId && o.Operation.GlobalClock > minGlobalClock && o.Operation.GlobalClock <= maxGlobalClock))
+        foreach (var op in snapshot.Where(o => o.Operation.ReplicaId == originReplicaId && o.Operation.ShardClock > minShardClock && o.Operation.ShardClock <= maxShardClock))
         {
             yield return op;
         }
@@ -55,16 +55,16 @@ public sealed class MemoryJournal : ICrdtOperationJournal
         await Task.CompletedTask;
     }
 
-    public async IAsyncEnumerable<JournaledOperation> GetOperationsByDotsAsync(string originReplicaId, IEnumerable<long> globalClocks, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<JournaledOperation> GetOperationsByDotsAsync(string shardId, string originReplicaId, IEnumerable<long> shardClocks, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(originReplicaId)) throw new ArgumentException("Origin Replica ID cannot be null or empty.", nameof(originReplicaId));
-        if (globalClocks == null) throw new ArgumentNullException(nameof(globalClocks));
+        if (shardClocks == null) throw new ArgumentNullException(nameof(shardClocks));
 
-        var clocks = globalClocks.ToHashSet();
+        var clocks = shardClocks.ToHashSet();
         List<JournaledOperation> snapshot;
         lock (operations) { snapshot = operations.ToList(); }
 
-        foreach (var op in snapshot.Where(o => o.Operation.ReplicaId == originReplicaId && clocks.Contains(o.Operation.GlobalClock)))
+        foreach (var op in snapshot.Where(o => o.Operation.ReplicaId == originReplicaId && clocks.Contains(o.Operation.ShardClock)))
         {
             yield return op;
         }
@@ -84,7 +84,7 @@ public sealed class MemoryJournal : ICrdtOperationJournal
         {
             operations.RemoveAll(op => 
                 gmvv.TryGetValue(op.Operation.ReplicaId, out var minKnown) && 
-                op.Operation.GlobalClock <= minKnown);
+                op.Operation.ShardClock <= minKnown);
         }
     }
 }
