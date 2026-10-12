@@ -27,9 +27,12 @@ public sealed class JournalManager : IJournalManager
 
     /// <inheritdoc/>
     public async IAsyncEnumerable<JournaledOperation> GetMissingOperationsAsync(
+        string shardId,
         ReplicaSyncRequirement requirement, 
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(shardId);
+
         if (!requirement.IsBehind || requirement.RequirementsByOrigin == null)
         {
             yield break;
@@ -45,6 +48,7 @@ public sealed class JournalManager : IJournalManager
                 if (originReq.SourceContiguousVersion > originReq.TargetContiguousVersion)
                 {
                     var rangeStream = this.journal.GetOperationsByRangeAsync(
+                        shardId,
                         originReplicaId, 
                         originReq.TargetContiguousVersion, 
                         originReq.SourceContiguousVersion, 
@@ -53,7 +57,7 @@ public sealed class JournalManager : IJournalManager
                     await foreach (var op in rangeStream.ConfigureAwait(false))
                     {
                         // Exclude operations that the target already knows (TargetKnownDots)
-                        if (originReq.TargetKnownDots != null && originReq.TargetKnownDots.Contains(op.Operation.GlobalClock))
+                        if (originReq.TargetKnownDots != null && originReq.TargetKnownDots.Contains(op.Operation.ShardClock))
                         {
                             continue;
                         }
@@ -65,6 +69,7 @@ public sealed class JournalManager : IJournalManager
                 if (originReq.SourceMissingDots != null && originReq.SourceMissingDots.Count > 0)
                 {
                     var dotsStream = this.journal.GetOperationsByDotsAsync(
+                        shardId,
                         originReplicaId, 
                         originReq.SourceMissingDots, 
                         cancellationToken);

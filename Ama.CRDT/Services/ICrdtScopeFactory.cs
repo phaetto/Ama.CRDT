@@ -36,10 +36,10 @@ public interface ICrdtScopeFactory
     IServiceScope CreateScope([DisallowNull] string replicaId);
 
     /// <summary>
-    /// Creates a new <see cref="IServiceScope"/> and configures it for a specific replica ID, initializing its global causality tracking vector.
+    /// Creates a new <see cref="IServiceScope"/> and configures it for a specific replica ID, initializing its causality tracking vectors per shard.
     /// </summary>
     /// <param name="replicaId">The unique identifier for the replica. Cannot be null or whitespace.</param>
-    /// <param name="globalVersionVector">The Dotted Version Vector representing the global causality state of the replica.</param>
+    /// <param name="shardVersionVectors">A strongly-typed map of Dotted Version Vectors representing the causality state of the replica per shard.</param>
     /// <returns>A new <see cref="IServiceScope"/> that provides scoped CRDT services for the specified replica.</returns>
-    IServiceScope CreateScope([DisallowNull] string replicaId, DottedVersionVector globalVersionVector);
+    IServiceScope CreateScope([DisallowNull] string replicaId, ShardVersionVectorMap shardVersionVectors);
 }

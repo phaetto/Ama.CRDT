@@ -42,13 +42,18 @@ public sealed class SimulationRunner(IServiceProvider serviceProvider, ICrdtScop
             Console.WriteLine($"--- Data Generation for Replica 1 Complete ---");
 
             // Copy generated DVV state from Replica 1 to other replicas
-            var sourceDvv = replicaDvvs[replicaIds.First()];
+            var sourceMap = replicaDvvs[replicaIds.First()];
             foreach (var replicaId in replicaIds.Skip(1))
             {
-                replicaDvvs[replicaId] = new DottedVersionVector(
-                    new Dictionary<string, long>(sourceDvv.Versions),
-                    sourceDvv.Dots.ToDictionary(k => k.Key, v => (ISet<long>)new HashSet<long>(v.Value))
-                );
+                var newMap = new ShardVersionVectorMap();
+                foreach (var kvp in sourceMap)
+                {
+                    newMap[kvp.Key] = new DottedVersionVector(
+                        new Dictionary<string, long>(kvp.Value.Versions),
+                        kvp.Value.Dots.ToDictionary(k => k.Key, v => (ISet<long>)new HashSet<long>(v.Value))
+                    );
+                }
+                replicaDvvs[replicaId] = newMap;
             }
 
             // Immediately save the bootstrapped state

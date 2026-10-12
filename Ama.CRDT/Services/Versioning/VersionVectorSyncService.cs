@@ -8,29 +8,35 @@ using System.Threading.Tasks;
 using Ama.CRDT.Models;
 
 /// <summary>
-/// Implements <see cref="IVersionVectorSyncService"/> to calculate synchronization requirements between replicas based on their Dotted Version Vectors.
+/// Implements <see cref="IVersionVectorSyncService"/> to calculate synchronization requirements between replicas based on their Dotted Version Vectors per shard.
 /// </summary>
 public sealed class VersionVectorSyncService : IVersionVectorSyncService
 {
     /// <inheritdoc/>
-    public ReplicaSyncRequirement CalculateRequirement(ReplicaContext target, ReplicaContext source, IEnumerable<string>? evictedReplicaIds = null)
+    public ReplicaSyncRequirement CalculateRequirement(ReplicaContext target, ReplicaContext source, string shardId, IEnumerable<string>? evictedReplicaIds = null)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(source);
+        ArgumentException.ThrowIfNullOrWhiteSpace(shardId);
+
+        target.ShardVersionVectors.TryGetValue(shardId, out var targetVector);
+        source.ShardVersionVectors.TryGetValue(shardId, out var sourceVector);
 
         return CalculateRequirement(
             target.ReplicaId, 
-            target.GlobalVersionVector ?? new DottedVersionVector(), 
+            targetVector ?? new DottedVersionVector(), 
             source.ReplicaId, 
-            source.GlobalVersionVector ?? new DottedVersionVector(),
+            sourceVector ?? new DottedVersionVector(),
+            shardId,
             evictedReplicaIds);
     }
 
     /// <inheritdoc/>
-    public ReplicaSyncRequirement CalculateRequirement(string targetReplicaId, DottedVersionVector targetVector, string sourceReplicaId, DottedVersionVector sourceVector, IEnumerable<string>? evictedReplicaIds = null)
+    public ReplicaSyncRequirement CalculateRequirement(string targetReplicaId, DottedVersionVector targetVector, string sourceReplicaId, DottedVersionVector sourceVector, string shardId, IEnumerable<string>? evictedReplicaIds = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(targetReplicaId);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceReplicaId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(shardId);
         ArgumentNullException.ThrowIfNull(targetVector);
         ArgumentNullException.ThrowIfNull(sourceVector);
 
@@ -99,31 +105,37 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
         {
             TargetReplicaId = targetReplicaId,
             SourceReplicaId = sourceReplicaId,
+            ShardId = shardId,
             RequirementsByOrigin = requirements
         };
     }
 
     /// <inheritdoc/>
-    public BidirectionalSyncRequirements CalculateBidirectionalRequirements(ReplicaContext replicaA, ReplicaContext replicaB, IEnumerable<string>? evictedReplicaIds = null)
+    public BidirectionalSyncRequirements CalculateBidirectionalRequirements(ReplicaContext replicaA, ReplicaContext replicaB, string shardId, IEnumerable<string>? evictedReplicaIds = null)
     {
         ArgumentNullException.ThrowIfNull(replicaA);
         ArgumentNullException.ThrowIfNull(replicaB);
+        ArgumentException.ThrowIfNullOrWhiteSpace(shardId);
+
+        replicaA.ShardVersionVectors.TryGetValue(shardId, out var vectorA);
+        replicaB.ShardVersionVectors.TryGetValue(shardId, out var vectorB);
 
         return CalculateBidirectionalRequirements(
             replicaA.ReplicaId, 
-            replicaA.GlobalVersionVector ?? new DottedVersionVector(), 
+            vectorA ?? new DottedVersionVector(), 
             replicaB.ReplicaId, 
-            replicaB.GlobalVersionVector ?? new DottedVersionVector(),
+            vectorB ?? new DottedVersionVector(),
+            shardId,
             evictedReplicaIds);
     }
 
     /// <inheritdoc/>
-    public BidirectionalSyncRequirements CalculateBidirectionalRequirements(string replicaAId, DottedVersionVector vectorA, string replicaBId, DottedVersionVector vectorB, IEnumerable<string>? evictedReplicaIds = null)
+    public BidirectionalSyncRequirements CalculateBidirectionalRequirements(string replicaAId, DottedVersionVector vectorA, string replicaBId, DottedVersionVector vectorB, string shardId, IEnumerable<string>? evictedReplicaIds = null)
     {
         return new BidirectionalSyncRequirements
         {
-            ReplicaANeedsFromB = CalculateRequirement(replicaAId, vectorA, replicaBId, vectorB, evictedReplicaIds),
-            ReplicaBNeedsFromA = CalculateRequirement(replicaBId, vectorB, replicaAId, vectorA, evictedReplicaIds)
+            ReplicaANeedsFromB = CalculateRequirement(replicaAId, vectorA, replicaBId, vectorB, shardId, evictedReplicaIds),
+            ReplicaBNeedsFromA = CalculateRequirement(replicaBId, vectorB, replicaAId, vectorA, shardId, evictedReplicaIds)
         };
     }
 
@@ -297,7 +309,7 @@ public sealed class VersionVectorSyncService : IVersionVectorSyncService
                     clocks = new HashSet<long>();
                     availableOpsLookup[op.Operation.ReplicaId] = clocks;
                 }
-                clocks.Add(op.Operation.GlobalClock);
+                clocks.Add(op.Operation.ShardClock); // Evaluated against the specific ShardClock instead of the global clock
             }
 
             foreach (var kvp in requirement.RequirementsByOrigin)

@@ -96,12 +96,12 @@ public sealed class InMemoryJournal : ICrdtOperationJournal
         return Task.CompletedTask;
     }
 
-    public async IAsyncEnumerable<JournaledOperation> GetOperationsByRangeAsync(string originReplicaId, long minGlobalClock, long maxGlobalClock, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<JournaledOperation> GetOperationsByRangeAsync(string shardId, string originReplicaId, long minShardClock, long maxShardClock, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         List<JournaledOperation> snapshot;
         lock (Operations) { snapshot = Operations.ToList(); }
         
-        foreach (var op in snapshot.Where(o => o.Operation.ReplicaId == originReplicaId && o.Operation.GlobalClock > minGlobalClock && o.Operation.GlobalClock <= maxGlobalClock))
+        foreach (var op in snapshot.Where(o => o.Operation.ReplicaId == originReplicaId && o.Operation.ShardClock > minShardClock && o.Operation.ShardClock <= maxShardClock))
         {
             yield return op;
         }
@@ -109,13 +109,13 @@ public sealed class InMemoryJournal : ICrdtOperationJournal
         await Task.CompletedTask;
     }
 
-    public async IAsyncEnumerable<JournaledOperation> GetOperationsByDotsAsync(string originReplicaId, IEnumerable<long> globalClocks, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<JournaledOperation> GetOperationsByDotsAsync(string shardId, string originReplicaId, IEnumerable<long> shardClocks, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var clocks = globalClocks.ToHashSet();
+        var clocks = shardClocks.ToHashSet();
         List<JournaledOperation> snapshot;
         lock (Operations) { snapshot = Operations.ToList(); }
         
-        foreach (var op in snapshot.Where(o => o.Operation.ReplicaId == originReplicaId && clocks.Contains(o.Operation.GlobalClock)))
+        foreach (var op in snapshot.Where(o => o.Operation.ReplicaId == originReplicaId && clocks.Contains(o.Operation.ShardClock)))
         {
             yield return op;
         }
@@ -524,13 +524,14 @@ public sealed class NetworkSimulationTests
         // Calculate what Target (B) needs from Source (A)
         var syncReq = vvSyncService.CalculateRequirement(
             scopeB.ServiceProvider.GetRequiredService<ReplicaContext>(),
-            scopeA.ServiceProvider.GetRequiredService<ReplicaContext>()
+            scopeA.ServiceProvider.GetRequiredService<ReplicaContext>(),
+            "default"
         );
         syncReq.IsBehind.ShouldBeTrue();
 
         // Replica A's journal serves the missing operations to satisfy B's sync requirement
         var journalManagerA = scopeA.ServiceProvider.GetRequiredService<IJournalManager>();
-        var missingOpsStream = journalManagerA.GetMissingOperationsAsync(syncReq);
+        var missingOpsStream = journalManagerA.GetMissingOperationsAsync("default", syncReq);
         
         var missingOps = new List<CrdtOperation>();
         await foreach (var missingOp in missingOpsStream)
@@ -595,12 +596,13 @@ public sealed class NetworkSimulationTests
         // B detects divergence and triggers a sync with A to get the missing 2nd operation (dot)
         var syncReq = vvSyncService.CalculateRequirement(
             scopeB.ServiceProvider.GetRequiredService<ReplicaContext>(),
-            scopeA.ServiceProvider.GetRequiredService<ReplicaContext>()
+            scopeA.ServiceProvider.GetRequiredService<ReplicaContext>(),
+            "default"
         );
         syncReq.IsBehind.ShouldBeTrue();
         
         var journalManagerA = scopeA.ServiceProvider.GetRequiredService<IJournalManager>();
-        var missingOpsStream = journalManagerA.GetMissingOperationsAsync(syncReq);
+        var missingOpsStream = journalManagerA.GetMissingOperationsAsync("default", syncReq);
         
         var missingOps = new List<CrdtOperation>();
         await foreach (var missingOp in missingOpsStream)

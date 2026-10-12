@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
+using Moq;
 
 public sealed class CrdtPatcherTests : IDisposable
 {
@@ -152,7 +153,7 @@ public sealed class CrdtPatcherTests : IDisposable
     }
 
     [Fact]
-    public void GeneratePatch_ShouldIncrementAndAssignGlobalClock()
+    public void GeneratePatch_ShouldIncrementAndAssignShardClock()
     {
         // Arrange
         var fromModel = new TestModel { Name = "Original", Likes = 5 };
@@ -162,10 +163,12 @@ public sealed class CrdtPatcherTests : IDisposable
         var replicaContext = scope.ServiceProvider.GetRequiredService<ReplicaContext>();
         // Pre-fill the global vector to ensure we increment from the existing state.
         // DottedVersionVector expects continuous adds to advance the main sequence number.
+        var dvv = new DottedVersionVector();
         for (long i = 1; i <= 5; i++)
         {
-            replicaContext.GlobalVersionVector.Add("test-patcher", i);
+            dvv.Add("test-patcher", i);
         }
+        replicaContext.ShardVersionVectors["default"] = dvv;
 
         // Act
         var patch = patcher.GeneratePatch(from, toModel);
@@ -179,12 +182,44 @@ public sealed class CrdtPatcherTests : IDisposable
         
         // Either could be generated first depending on reflection ordering, 
         // but they must be 6 and 7.
-        var clocks = new[] { nameOp.GlobalClock, likesOp.GlobalClock };
+        var clocks = new[] { nameOp.ShardClock, likesOp.ShardClock };
         clocks.ShouldContain(6L);
         clocks.ShouldContain(7L);
 
         // The replica context global version vector must be updated
-        replicaContext.GlobalVersionVector.Versions["test-patcher"].ShouldBe(7L);
+        replicaContext.ShardVersionVectors["default"].Versions["test-patcher"].ShouldBe(7L);
+    }
+
+    [Fact]
+    public void GeneratePatch_WithCustomShardProvider_ShouldUseCustomShardIdAndClock()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        services.AddCrdtAotContext<ServicesTestCrdtAotContext>();
+
+        var mockShardProvider = new Mock<IShardIdProvider>();
+        mockShardProvider.Setup(p => p.GetShardId(It.IsAny<CrdtDocument<TestModel>>())).Returns("custom-shard");
+        services.AddSingleton(mockShardProvider.Object);
+
+        var sp = services.BuildServiceProvider();
+        var localScope = sp.GetRequiredService<ICrdtScopeFactory>().CreateScope("test-patcher");
+        var localPatcher = localScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var localReplicaContext = localScope.ServiceProvider.GetRequiredService<ReplicaContext>();
+
+        var fromModel = new TestModel { Name = "Original", Likes = 5 };
+        var from = new CrdtDocument<TestModel>(fromModel, new CrdtMetadata());
+        var toModel = new TestModel { Name = "Updated", Likes = 15 };
+
+        // Act
+        var patch = localPatcher.GeneratePatch(from, toModel);
+
+        // Assert
+        patch.Operations.Count.ShouldBe(2);
+        patch.Operations.ShouldAllBe(op => op.ShardId == "custom-shard");
+        patch.Operations.ShouldAllBe(op => op.ShardClock > 0);
+        localReplicaContext.ShardVersionVectors.ContainsKey("custom-shard").ShouldBeTrue();
+        localReplicaContext.ShardVersionVectors["custom-shard"].Versions["test-patcher"].ShouldBe(2);
     }
 
     [Fact]
@@ -206,7 +241,7 @@ public sealed class CrdtPatcherTests : IDisposable
         var replicaContext = scope.ServiceProvider.GetRequiredService<ReplicaContext>();
         op.ReplicaId.ShouldBe(replicaContext.ReplicaId);
         op.Clock.ShouldBe(1);
-        op.GlobalClock.ShouldBe(1);
+        op.ShardClock.ShouldBe(1);
     }
 
     [Fact]
@@ -224,7 +259,7 @@ public sealed class CrdtPatcherTests : IDisposable
         op.JsonPath.ShouldBe("$.likes");
         op.Type.ShouldBe(OperationType.Increment);
         op.Value.ShouldBe(10);
-        op.GlobalClock.ShouldBe(1);
+        op.ShardClock.ShouldBe(1);
     }
 
     [Fact]
@@ -242,7 +277,7 @@ public sealed class CrdtPatcherTests : IDisposable
         op.JsonPath.ShouldBe("$.tags");
         op.Type.ShouldBe(OperationType.Upsert);
         op.Value.ShouldNotBeNull();
-        op.GlobalClock.ShouldBe(1);
+        op.ShardClock.ShouldBe(1);
     }
 
     [Fact]
@@ -260,6 +295,36 @@ public sealed class CrdtPatcherTests : IDisposable
         op.JsonPath.ShouldStartWith("$.scores");
         op.Type.ShouldBe(OperationType.Upsert);
         op.Value.ShouldBe(new KeyValuePair<object, object>("Player1", 100));
-        op.GlobalClock.ShouldBe(1);
+        op.ShardClock.ShouldBe(1);
+    }
+
+    [Fact]
+    public void GenerateOperation_WithCustomShardProvider_ShouldUseCustomShardIdAndClock()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        services.AddCrdtAotContext<ServicesTestCrdtAotContext>();
+
+        var mockShardProvider = new Mock<IShardIdProvider>();
+        mockShardProvider.Setup(p => p.GetShardId(It.IsAny<CrdtDocument<TestModel>>())).Returns("custom-shard-op");
+        services.AddSingleton(mockShardProvider.Object);
+
+        var sp = services.BuildServiceProvider();
+        var localScope = sp.GetRequiredService<ICrdtScopeFactory>().CreateScope("test-patcher");
+        var localPatcher = localScope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var localReplicaContext = localScope.ServiceProvider.GetRequiredService<ReplicaContext>();
+
+        var fromModel = new TestModel { Name = "Original" };
+        var from = new CrdtDocument<TestModel>(fromModel, new CrdtMetadata());
+
+        // Act
+        var op = localPatcher.GenerateOperation(from, m => m.Name, new SetIntent("Updated"));
+
+        // Assert
+        op.ShardId.ShouldBe("custom-shard-op");
+        op.ShardClock.ShouldBe(1);
+        localReplicaContext.ShardVersionVectors.ContainsKey("custom-shard-op").ShouldBeTrue();
+        localReplicaContext.ShardVersionVectors["custom-shard-op"].Versions["test-patcher"].ShouldBe(1);
     }
 }

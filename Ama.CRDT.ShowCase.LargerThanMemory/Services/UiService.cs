@@ -37,7 +37,7 @@ public sealed class UiService
     private Guid currentPostSessionId = Guid.Empty;
 
     // Track simulated Global Version Vectors to show causality gaps
-    private readonly Dictionary<string, DottedVersionVector> replicaDvvs;
+    private readonly Dictionary<string, ShardVersionVectorMap> replicaDvvs;
 
     private Window topPane;
     private FrameView rightPane;
@@ -67,7 +67,7 @@ public sealed class UiService
         public Dictionary<string, HashSet<long>> Dots { get; set; } = new();
     }
 
-    public UiService(IServiceProvider serviceProvider, List<string> replicaIds, List<Guid> blogPostIds, Dictionary<string, DottedVersionVector> replicaDvvs)
+    public UiService(IServiceProvider serviceProvider, List<string> replicaIds, List<Guid> blogPostIds, Dictionary<string, ShardVersionVectorMap> replicaDvvs)
     {
         this.serviceProvider = serviceProvider;
         this.replicaIds = replicaIds;
@@ -77,12 +77,12 @@ public sealed class UiService
 
     [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
     [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
-    public static Dictionary<string, DottedVersionVector> LoadReplicaStates(IEnumerable<string> replicaIds)
+    public static Dictionary<string, ShardVersionVectorMap> LoadReplicaStates(IEnumerable<string> replicaIds)
     {
-        var replicaDvvs = new Dictionary<string, DottedVersionVector>();
+        var replicaDvvs = new Dictionary<string, ShardVersionVectorMap>();
         foreach (var rId in replicaIds)
         {
-            replicaDvvs[rId] = new DottedVersionVector();
+            replicaDvvs[rId] = new ShardVersionVectorMap();
         }
 
         try
@@ -104,7 +104,9 @@ public sealed class UiService
                         var dots = kvp.Value.Dots.ToDictionary(d => d.Key, d => (ISet<long>)d.Value);
                         if (replicaDvvs.ContainsKey(kvp.Key))
                         {
-                            replicaDvvs[kvp.Key] = new DottedVersionVector(versions, dots);
+                            var map = new ShardVersionVectorMap();
+                            map["default"] = new DottedVersionVector(versions, dots);
+                            replicaDvvs[kvp.Key] = map;
                         }
                     }
                 }
@@ -120,16 +122,20 @@ public sealed class UiService
 
     [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code", Justification = "<Pending>")]
     [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
-    public static void SaveReplicaStates(Dictionary<string, DottedVersionVector> replicaDvvs)
+    public static void SaveReplicaStates(Dictionary<string, ShardVersionVectorMap> replicaDvvs)
     {
         try
         {
             var dtos = replicaDvvs.ToDictionary(
                 kvp => kvp.Key,
-                kvp => new DvvStateDto
+                kvp => 
                 {
-                    Versions = new Dictionary<string, long>(kvp.Value.Versions),
-                    Dots = kvp.Value.Dots.ToDictionary(d => d.Key, d => new HashSet<long>(d.Value))
+                    var vector = kvp.Value.TryGetValue("default", out var v) ? v : new DottedVersionVector();
+                    return new DvvStateDto
+                    {
+                        Versions = new Dictionary<string, long>(vector.Versions),
+                        Dots = vector.Dots.ToDictionary(d => d.Key, d => new HashSet<long>(d.Value))
+                    };
                 });
             
             var options = new JsonSerializerOptions 
@@ -137,7 +143,7 @@ public sealed class UiService
                 WriteIndented = true,
                 TypeInfoResolver = LargerThanMemoryJsonContext.Default
             };
-            var json = JsonSerializer.Serialize(dtos, options);
+            var json = JsonSerializer.Serialize(dtos, typeof(Dictionary<string, DvvStateDto>), options);
             File.WriteAllText(DvvStateFilePath, json);
         }
         catch 
@@ -341,9 +347,13 @@ public sealed class UiService
             var vvSyncService = serviceProvider.GetRequiredService<IVersionVectorSyncService>();
             
             int totalMissing = 0;
+            var targetVector = replicaDvvs[currentReplicaId].TryGetValue("default", out var tv) ? tv : new DottedVersionVector();
+
             foreach (var source in replicaIds.Where(r => r != currentReplicaId))
             {
-                var req = vvSyncService.CalculateRequirement(currentReplicaId, replicaDvvs[currentReplicaId], source, replicaDvvs[source]);
+                var sourceVector = replicaDvvs[source].TryGetValue("default", out var sv) ? sv : new DottedVersionVector();
+                var req = vvSyncService.CalculateRequirement(currentReplicaId, targetVector, source, sourceVector, "default");
+
                 if (req.IsBehind && req.RequirementsByOrigin != null)
                 {
                     totalMissing += (int)req.RequirementsByOrigin.Values.Sum(r => Math.Max(0, r.SourceContiguousVersion - r.TargetContiguousVersion) + (r.SourceMissingDots?.Count ?? 0));
@@ -375,11 +385,14 @@ public sealed class UiService
         
         foreach (var target in replicaIds)
         {
+            var targetVector = replicaDvvs[target].TryGetValue("default", out var tv) ? tv : new DottedVersionVector();
+
             foreach (var source in replicaIds)
             {
                 if (target == source) continue;
                 
-                var req = vvSyncService.CalculateRequirement(target, replicaDvvs[target], source, replicaDvvs[source]);
+                var sourceVector = replicaDvvs[source].TryGetValue("default", out var sv) ? sv : new DottedVersionVector();
+                var req = vvSyncService.CalculateRequirement(target, targetVector, source, sourceVector, "default");
                 
                 if (req.IsBehind && req.RequirementsByOrigin != null)
                 {
@@ -912,15 +925,19 @@ public sealed class UiService
                 var vvSyncService = serviceProvider.GetRequiredService<IVersionVectorSyncService>();
                 int syncCount = 0;
 
+                var targetVector = replicaDvvs[currentReplicaId].TryGetValue("default", out var tv) ? tv : new DottedVersionVector();
+
                 foreach (var replica in replicaIds.Where(r => r != currentReplicaId))
                 {
-                    var req = vvSyncService.CalculateRequirement(currentReplicaId, replicaDvvs[currentReplicaId], replica, replicaDvvs[replica]);
+                    var sourceVector = replicaDvvs[replica].TryGetValue("default", out var sv) ? sv : new DottedVersionVector();
+                    var req = vvSyncService.CalculateRequirement(currentReplicaId, targetVector, replica, sourceVector, "default");
+                    
                     if (!req.IsBehind) continue;
 
                     // Fetch missing operations directly from the source replica's journal
                     using var sourceScope = scopeFactory.CreateScope(replica, replicaDvvs[replica]);
                     var sourceJournalManager = sourceScope.ServiceProvider.GetRequiredService<IJournalManager>();
-                    var missingOpsStream = sourceJournalManager.GetMissingOperationsAsync(req);
+                    var missingOpsStream = sourceJournalManager.GetMissingOperationsAsync("default", req);
 
                     var opsByDocument = new Dictionary<IComparable, List<CrdtOperation>>();
                     await foreach (var jOp in missingOpsStream.ConfigureAwait(false))

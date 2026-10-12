@@ -16,7 +16,8 @@ public sealed class CrdtPatcher(
     ICrdtStrategyProvider strategyProvider, 
     ICrdtTimestampProvider timestampProvider, 
     ReplicaContext replicaContext,
-    IEnumerable<CrdtAotContext> aotContexts) : ICrdtPatcher
+    IEnumerable<CrdtAotContext> aotContexts,
+    IShardIdProvider shardIdProvider) : ICrdtPatcher
 {
     private sealed class ClockState { public long Clock; }
     private readonly ConditionalWeakTable<CrdtMetadata, ClockState> issuedClocks = new();
@@ -58,18 +59,27 @@ public sealed class CrdtPatcher(
         var clockState = issuedClocks.GetOrCreateValue(from.Metadata);
         var localClock = Math.Max(currentVectorClock, clockState.Clock);
 
-        // Calculate the global clock starting point for this replica across all tracked changes
-        var globalClock = replicaContext.GlobalVersionVector.Versions.TryGetValue(replicaId, out var gc) ? gc : 0L;
+        // Fetch or create the Shard Version Vector tracking state
+        var shardId = shardIdProvider.GetShardId(from);
+        if (!replicaContext.ShardVersionVectors.TryGetValue(shardId, out var shardVector))
+        {
+            shardVector = new DottedVersionVector();
+            replicaContext.ShardVersionVectors[shardId] = shardVector;
+        }
 
-        // Assign unique monotonically increasing local AND global clocks
+        // Calculate the shard clock starting point for this replica across all tracked changes in this shard
+        var shardClock = shardVector.Versions.TryGetValue(replicaId, out var sc) ? sc : 0L;
+
+        // Assign unique monotonically increasing local AND shard clocks
         for (var i = 0; i < operations.Count; i++)
         {
             localClock++;
-            globalClock++;
-            operations[i] = operations[i] with { Clock = localClock, GlobalClock = globalClock, ReplicaId = replicaId };
+            shardClock++;
             
-            // Track the operations we've generated in our global causality vector
-            replicaContext.GlobalVersionVector.Add(replicaId, globalClock);
+            operations[i] = operations[i] with { Clock = localClock, ShardId = shardId, ShardClock = shardClock, ReplicaId = replicaId };
+            
+            // Track the operations we've generated in our shard causality vector
+            shardVector.Add(replicaId, shardClock);
         }
 
         clockState.Clock = localClock;
@@ -105,8 +115,16 @@ public sealed class CrdtPatcher(
         localClock++;
         clockState.Clock = localClock;
 
-        var globalClock = replicaContext.GlobalVersionVector.Versions.TryGetValue(replicaId, out var gc) ? gc : 0L;
-        globalClock++;
+        // Fetch or create the Shard Version Vector tracking state
+        var shardId = shardIdProvider.GetShardId(document);
+        if (!replicaContext.ShardVersionVectors.TryGetValue(shardId, out var shardVector))
+        {
+            shardVector = new DottedVersionVector();
+            replicaContext.ShardVersionVectors[shardId] = shardVector;
+        }
+
+        var shardClock = shardVector.Versions.TryGetValue(replicaId, out var sc) ? sc : 0L;
+        shardClock++;
 
         var context = new GenerateOperationContext(
             DocumentRoot: document.Data,
@@ -120,9 +138,9 @@ public sealed class CrdtPatcher(
 
         var operation = strategy.GenerateOperation(context);
         
-        // Ensure the generated operation uses the correct replicaId and tracks both document and global clocks
-        var finalOperation = operation with { ReplicaId = replicaId, Clock = localClock, GlobalClock = globalClock };
-        replicaContext.GlobalVersionVector.Add(replicaId, globalClock);
+        // Ensure the generated operation uses the correct replicaId and tracks both document and shard clocks
+        var finalOperation = operation with { ReplicaId = replicaId, Clock = localClock, ShardId = shardId, ShardClock = shardClock };
+        shardVector.Add(replicaId, shardClock);
         
         return finalOperation;
     }

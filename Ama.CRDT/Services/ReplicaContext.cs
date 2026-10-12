@@ -5,13 +5,13 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
-/// A scoped service that holds the context for a specific CRDT replica, primarily its unique identifier.
+/// A scoped service that holds the context for a specific CRDT replica, primarily its unique identifier and its causal state per shard.
 /// This object's lifetime is tied to the IServiceScope created by the <see cref="ICrdtScopeFactory"/>.
 /// </summary>
 public sealed class ReplicaContext
 {
     private string replicaId = string.Empty;
-    private DottedVersionVector globalVersionVector = new DottedVersionVector();
+    private ShardVersionVectorMap shardVersionVectors = new ShardVersionVectorMap();
 
     /// <summary>
     /// Gets or sets the unique identifier for the replica within the current scope.
@@ -30,18 +30,18 @@ public sealed class ReplicaContext
     }
 
     /// <summary>
-    /// Gets or sets the Dotted Version Vector (DVV) representing the global causal history seen by this replica across all documents.
-    /// This allows external systems to know what operations have been synchronized globally and request missing patches.
+    /// Gets or sets the strongly-typed map representing the causal history seen by this replica, partitioned by ShardId.
+    /// This allows external systems to know what operations have been synchronized per shard and request missing patches accordingly.
     /// </summary>
     [DisallowNull]
     [NotNull]
-    public DottedVersionVector GlobalVersionVector
+    public ShardVersionVectorMap ShardVersionVectors
     {
-        get => globalVersionVector;
+        get => shardVersionVectors;
         set
         {
             ArgumentNullException.ThrowIfNull(value);
-            globalVersionVector = value;
+            shardVersionVectors = value;
         }
     }
 }

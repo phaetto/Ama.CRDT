@@ -134,26 +134,28 @@ public sealed class EditorForm : Form
             document = new CrdtDocument<SharedDocument>(state, metadata);
         }
 
-        var clusterState = networkBroker.GetClusterState();
+        var clusterMap = networkBroker.GetClusterState();
         var syncService = scope.ServiceProvider.GetRequiredService<IVersionVectorSyncService>();
 
         // Simulating global state locally using the document's local clock for the showcase
-        var localDvv = scope.ServiceProvider.GetRequiredService<ReplicaContext>().GlobalVersionVector;
+        var localMap = scope.ServiceProvider.GetRequiredService<ReplicaContext>().ShardVersionVectors;
+        var localDvv = localMap.TryGetValue("default", out var v) ? v : new DottedVersionVector();
+        var clusterDvv = clusterMap.TryGetValue("default", out var cv) ? cv : new DottedVersionVector();
         
         // Calculate requirements directly using the simplified overload
-        var requirement = syncService.CalculateRequirement(replicaId, localDvv, "Cluster", clusterState);
+        var requirement = syncService.CalculateRequirement(replicaId, localDvv, "Cluster", clusterDvv, "default");
         
         if (requirement.IsBehind)
         {
             var journalManager = scope.ServiceProvider.GetRequiredService<IJournalManager>();
-            var missingOpsStream = journalManager.GetMissingOperationsAsync(requirement);
+            var missingOpsStream = journalManager.GetMissingOperationsAsync("default", requirement);
             
             // Streamline: Directly apply the async stream of missing operations!
             var result = await applicator.ApplyOperationsAsync(document, missingOpsStream);
             document = result.Document;
         }
 
-        networkBroker.RegisterReplica(replicaId, scope.ServiceProvider.GetRequiredService<ReplicaContext>().GlobalVersionVector, () => 
+        networkBroker.RegisterReplica(replicaId, localMap, () => 
         {
             return JsonSerializer.Serialize(document, jsonOptions);
         });
@@ -245,7 +247,7 @@ public sealed class EditorForm : Form
             
             if (result.UnappliedOperations == null || result.UnappliedOperations.Count == 0)
             {
-                networkBroker.UpdateReplicaState(replicaId, scope.ServiceProvider.GetRequiredService<ReplicaContext>().GlobalVersionVector);
+                networkBroker.UpdateReplicaState(replicaId, scope.ServiceProvider.GetRequiredService<ReplicaContext>().ShardVersionVectors);
                 networkBroker.Broadcast(replicaId, patch);
                 
                 if (updateUi)
@@ -282,7 +284,7 @@ public sealed class EditorForm : Form
             var result = await applicator.ApplyPatchAsync(document, e.Patch);
             document = result.Document; // Streamline: result.Document is now the full CrdtDocument struct
             
-            networkBroker.UpdateReplicaState(replicaId, scope.ServiceProvider.GetRequiredService<ReplicaContext>().GlobalVersionVector);
+            networkBroker.UpdateReplicaState(replicaId, scope.ServiceProvider.GetRequiredService<ReplicaContext>().ShardVersionVectors);
             
             textBox.ApplyExternalLines(document.Data!.Lines, textBox.SelectionStart);
         }

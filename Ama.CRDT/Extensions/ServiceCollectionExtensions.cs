@@ -92,6 +92,9 @@ public static class ServiceCollectionExtensions
         services.TryAddScoped<DefaultDocumentIdProvider>();
         services.TryAddScoped<IDocumentIdProvider>(sp => { ValidateReplicaScope(sp, nameof(DefaultDocumentIdProvider)); return sp.GetRequiredService<DefaultDocumentIdProvider>(); });
 
+        services.TryAddScoped<DefaultShardIdProvider>();
+        services.TryAddScoped<IShardIdProvider>(sp => { ValidateReplicaScope(sp, nameof(DefaultShardIdProvider)); return sp.GetRequiredService<DefaultShardIdProvider>(); });
+
         // This factory is the entry point for creating replica-specific scopes.
         // It does not require validation itself.
         services.TryAddSingleton<ICrdtScopeFactory, CrdtScopeFactory>();
@@ -491,6 +494,28 @@ public static class ServiceCollectionExtensions
         
         // Override the IDocumentIdProvider registration to point to the custom implementation.
         services.AddScoped<IDocumentIdProvider>(sp => {
+            ValidateReplicaScope(sp, typeof(TProvider).Name);
+            return sp.GetRequiredService<TProvider>();
+        });
+        
+        return services;
+    }
+
+    /// <summary>
+    /// Registers a custom Shard ID provider, replacing the default implementation that groups all documents into a "default" shard.
+    /// This allows tracking causal history on separate version vectors based on custom grouping.
+    /// </summary>
+    /// <typeparam name="TProvider">The type of the Shard ID provider to register. Must implement <see cref="IShardIdProvider"/>.</typeparam>
+    /// <param name="services">The <see cref="IServiceCollection"/> to add the service to.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
+    public static IServiceCollection AddCrdtShardIdProvider<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TProvider>(this IServiceCollection services)
+        where TProvider : class, IShardIdProvider
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddScoped<TProvider>();
+        
+        services.AddScoped<IShardIdProvider>(sp => {
             ValidateReplicaScope(sp, typeof(TProvider).Name);
             return sp.GetRequiredService<TProvider>();
         });

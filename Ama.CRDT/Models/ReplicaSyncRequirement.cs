@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 /// <summary>
-/// Represents the data a target replica needs to request from a source replica to catch up with its causal history.
+/// Represents the data a target replica needs to request from a source replica to catch up with its causal history for a specific shard.
 /// </summary>
 public readonly record struct ReplicaSyncRequirement : IEquatable<ReplicaSyncRequirement>
 {
@@ -18,6 +18,11 @@ public readonly record struct ReplicaSyncRequirement : IEquatable<ReplicaSyncReq
     /// Gets the identifier of the replica that is ahead and has the data.
     /// </summary>
     public string SourceReplicaId { get; init; }
+
+    /// <summary>
+    /// Gets the identifier of the shard (partition) this requirement applies to.
+    /// </summary>
+    public string ShardId { get; init; }
 
     /// <summary>
     /// Gets a mapping of origin replica identifiers to their respective synchronization requirements.
@@ -34,6 +39,7 @@ public readonly record struct ReplicaSyncRequirement : IEquatable<ReplicaSyncReq
     {
         if (TargetReplicaId != other.TargetReplicaId) return false;
         if (SourceReplicaId != other.SourceReplicaId) return false;
+        if (ShardId != other.ShardId) return false;
         
         if (RequirementsByOrigin == null && other.RequirementsByOrigin != null) return false;
         if (RequirementsByOrigin != null && other.RequirementsByOrigin == null) return false;
@@ -58,6 +64,7 @@ public readonly record struct ReplicaSyncRequirement : IEquatable<ReplicaSyncReq
         var hash = new HashCode();
         hash.Add(TargetReplicaId);
         hash.Add(SourceReplicaId);
+        hash.Add(ShardId);
         
         if (RequirementsByOrigin != null)
         {

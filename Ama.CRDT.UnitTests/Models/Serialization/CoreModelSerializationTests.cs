@@ -27,7 +27,7 @@ public sealed class CoreModelSerializationTests
     [Fact]
     public void ApplyPatchResult_ShouldSerializeAndDeserialize()
     {
-        var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Upsert, "value", new EpochTimestamp(123), 1, 2);
+        var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Upsert, "value", new EpochTimestamp(123), 1, "default", 2);
         var unapplied = new UnappliedOperation(op, CrdtOperationStatus.Obsolete);
         var document = new CrdtDocument<CoreSerializationTestModel>(new CoreSerializationTestModel { Data = "Test" }, new CrdtMetadata());
         var result = new ApplyPatchResult<CoreSerializationTestModel>(document, new[] { unapplied });
@@ -46,7 +46,7 @@ public sealed class CoreModelSerializationTests
     [Fact]
     public void JournaledOperation_ShouldSerializeAndDeserialize()
     {
-        var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Remove, null, new EpochTimestamp(123), 1, 2);
+        var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Remove, null, new EpochTimestamp(123), 1, "default", 2);
         var journaled = new JournaledOperation("doc-1", op);
 
         var options = TestOptionsHelper.GetDefaultOptions();
@@ -61,7 +61,7 @@ public sealed class CoreModelSerializationTests
     [Fact]
     public void UnappliedOperation_ShouldSerializeAndDeserialize()
     {
-        var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Increment, 5, new EpochTimestamp(123), 1, 2);
+        var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Increment, 5, new EpochTimestamp(123), 1, "default", 2);
         var unapplied = new UnappliedOperation(op, CrdtOperationStatus.PathResolutionFailed);
 
         var options = TestOptionsHelper.GetDefaultOptions();
@@ -89,5 +89,34 @@ public sealed class CoreModelSerializationTests
 
         deserialized.ShouldNotBeNull();
         deserialized.Equals(dvv).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void ShardVersionVectorMap_ShouldSerializeAndDeserialize()
+    {
+        var dvv1 = new DottedVersionVector(
+            new Dictionary<string, long> { { "R1", 5 } },
+            new Dictionary<string, ISet<long>> { { "R1", new HashSet<long> { 7 } } }
+        );
+        
+        var dvv2 = new DottedVersionVector(
+            new Dictionary<string, long> { { "R2", 10 } },
+            new Dictionary<string, ISet<long>>()
+        );
+
+        var map = new ShardVersionVectorMap
+        {
+            { "shard1", dvv1 },
+            { "shard2", dvv2 }
+        };
+
+        var options = TestOptionsHelper.GetDefaultOptions();
+        var typeInfo = (JsonTypeInfo<ShardVersionVectorMap>)options.GetTypeInfo(typeof(ShardVersionVectorMap));
+        
+        var json = JsonSerializer.Serialize(map, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
+
+        deserialized.ShouldNotBeNull();
+        deserialized.Equals(map).ShouldBeTrue();
     }
 }

@@ -32,6 +32,7 @@
 | `$/Ama.CRDT.IntegrationTests/Ama.CRDT.IntegrationTests.csproj` | No description provided. |
 | `$/Ama.CRDT.IntegrationTests/ClockSkewSimulationTests.cs` | Contains integration tests verifying CRDT convergence and behavior under severe network time drift and clock skew scenarios, ensuring time-independent mathematical commutativity properties. |
 | `$/Ama.CRDT.IntegrationTests/NetworkSimulationTests.cs` | Contains integration tests simulating complex network scenarios (out-of-order delivery, partitions, long-term offline nodes, duplicate delivery, and high concurrency conflicts) to guarantee CRDT convergence and idempotency over time. |
+| `$/Ama.CRDT.IntegrationTests/ShardingSimulationTests.cs` | Contains integration tests confirming the accuracy of per-shard causal tracking, including independent clocks incrementing without global interference and dynamic, selective shard synchronization via `VersionVectorSyncService`. |
 | `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/Ama.CRDT.LargerThanMemory.Streams.UnitTests.csproj` | No description provided. |
 | `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/Serialization/DefaultPartitionSerializationServiceTests.cs` | No description provided. |
 | `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/Services/StreamSpaceAllocatorTests.cs` | No description provided. |
@@ -159,11 +160,11 @@
 | `$/Ama.CRDT.UnitTests/Services/Adapters/AsyncCrdtApplicatorAdapterTests.cs` | Contains unit tests for `AsyncCrdtApplicatorAdapter`, verifying its bridging of synchronous execution to asynchronous interfaces and cancellation handling. |
 | `$/Ama.CRDT.UnitTests/Services/Adapters/AsyncCrdtMergerAdapterTests.cs` | Contains unit tests for `AsyncCrdtMergerAdapter`, validating correct delegation to the synchronous inner merger and cancellation handling. |
 | `$/Ama.CRDT.UnitTests/Services/Adapters/AsyncCrdtPatcherAdapterTests.cs` | Contains unit tests for `AsyncCrdtPatcherAdapter`, validating proper adaptation of patch and operation generation with cancellation checks. |
-| `$/Ama.CRDT.UnitTests/Services/CrdtApplicatorTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/CrdtApplicatorTests.cs` | Added unit tests to verify that `CrdtApplicator` properly maps explicit and fallback `ShardId` paths to update the respective isolated tracked vectors in `ReplicaContext`. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtComposableArchitectureTests.cs` | Contains integration tests for the CRDT composable architecture, verifying that the Patcher and Applicator correctly handle deep nesting, complex model traversal, intent-based operation generation, and resolution across multiple nested CRDT strategies (LSEQ, Min-Wins Map, State Machine, Graph, etc.). |
 | `$/Ama.CRDT.UnitTests/Services/CrdtMergerTests.cs` | Contains unit tests for `CrdtMerger`, verifying the synchronous LUB state merge logic and causal history merging. |
 | `$/Ama.CRDT.UnitTests/Services/CrdtMetadataManagerTests.cs` | Contains unit tests for the `CrdtMetadataManager`, verifying LWW pruning and version vector advancement logic. |
-| `$/Ama.CRDT.UnitTests/Services/CrdtPatcherTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/CrdtPatcherTests.cs` | Added unit tests ensuring `CrdtPatcher` assigns correctly custom `ShardId` and `ShardClock` values when generating patches and explicit operations. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/AsyncCrdtApplicatorDecoratorBaseTests.cs` | Contains unit tests for `AsyncCrdtApplicatorDecoratorBase`, specifically verifying atomicity shielding behavior using `CancellationToken.None` in the After and Before phases. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/AsyncCrdtMergerDecoratorBaseTests.cs` | Contains unit tests for `AsyncCrdtMergerDecoratorBase`, specifically verifying atomicity shielding behavior using `CancellationToken.None` in the After and Before phases. |
 | `$/Ama.CRDT.UnitTests/Services/Decorators/AsyncCrdtPatcherDecoratorBaseTests.cs` | Contains unit tests for `AsyncCrdtPatcherDecoratorBase`, verifying atomicity shielding behavior in the After phase and proper cancellation propagation in Before and Complex phases. |
@@ -180,7 +181,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Helpers/MetadataPathHelperTests.cs` | Contains unit tests for `MetadataPathHelper`, verifying the correct generation, extraction, and matching of decorator-isolated metadata paths. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/Models.cs` | Contains simple data models for unit testing path conversion and resolution helpers. |
 | `$/Ama.CRDT.UnitTests/Services/Helpers/PocoPathHelperTests.cs` | Contains unit tests for `PocoPathHelper`, verifying JSON path parsing and resolution against POCOs, and testing new centralized reflection helpers for getting/setting values and retrieving type information. |
-| `$/Ama.CRDT.UnitTests/Services/Journaling/JournalManagerTests.cs` | Contains unit tests for `JournalManager`, verifying the retrieval of missing operations based on synchronization requirements, range bounds, and missing dots. |
+| `$/Ama.CRDT.UnitTests/Services/Journaling/JournalManagerTests.cs` | Added unit tests verifying that `JournalManager` properly passes specific `shardId` values to the underlying journal interface. |
 | `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/ChunkedDocumentManagerTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/PartitionStorageServiceContractTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/PartitioningTestCrdtContext.cs` | No description provided. |
@@ -287,7 +288,7 @@
 | `$/Ama.CRDT/Attributes/Strategies/Semantic/StateBasedAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/AsyncCrdtApplicatorExtensions.cs` | Provides extension methods for `IAsyncCrdtApplicator` to streamline common synchronization tasks, such as directly applying an asynchronous stream of missing operations. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
-| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection extension methods, updated to include `AddCrdtVirtualDocumentProjector` for hooking CQRS projectors into the larger-than-memory subsystem. |
+| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Updated to register `IShardIdProvider` and provide an extension point (`AddCrdtShardIdProvider`) to register custom shard ID resolution policies. |
 | `$/Ama.CRDT/Models/Aot/CoreCrdtAotContext.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Aot/CrdtAotContext.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Aot/CrdtPropertyInfo.cs` | Contains AOT-compatible metadata, now natively including pre-extracted array of strategy type configurations mapped via attribute. |
@@ -302,7 +303,7 @@
 | `$/Ama.CRDT/Models/CrdtDocument.cs` | No description provided. |
 | `$/Ama.CRDT/Models/CrdtGraph.cs` | A data model for a graph structure with vertices and edges, suitable for CRDT management. |
 | `$/Ama.CRDT/Models/CrdtMetadata.cs` | Encapsulates CRDT state for various strategies using dedicated, serializable record types instead of tuples. For serialization, use the recommended options from `CrdtJsonContext`. |
-| `$/Ama.CRDT/Models/CrdtOperation.cs` | Represents a single CRDT operation. For serialization, use the recommended options from `CrdtJsonContext`. |
+| `$/Ama.CRDT/Models/CrdtOperation.cs` | Represents a single CRDT operation, updated to include `ShardId` and `ShardClock` for dynamic partitioning support. |
 | `$/Ama.CRDT/Models/CrdtOperationStatus.cs` | Enum representing the status or failure reason of a CRDT operation during application. |
 | `$/Ama.CRDT/Models/CrdtPatch.cs` | Encapsulates a list of CRDT operations, now with a logical key of type `IComparable?` to support strongly-typed, sortable partition keys. |
 | `$/Ama.CRDT/Models/CrdtPropertyKey.cs` | A unique identifier representing a property without relying on `System.Reflection.PropertyInfo`, used for AOT-friendly mapping. |
@@ -367,7 +368,7 @@
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
 | `$/Ama.CRDT/Models/PositionalState.cs` | A wrapper state structure implementing `ICrdtState` for Array LCS positional trackers. |
 | `$/Ama.CRDT/Models/QuorumState.cs` | A wrapper state structure implementing `ICrdtState` for Quorum decorator approvals. |
-| `$/Ama.CRDT/Models/ReplicaSyncRequirement.cs` | A data structure representing the data a target replica needs to request from a source replica to catch up with its causal history. |
+| `$/Ama.CRDT/Models/ReplicaSyncRequirement.cs` | A data structure representing causality gaps, updated to specify the `ShardId` the requirement applies to. |
 | `$/Ama.CRDT/Models/RgaIdentifier.cs` | Readonly record struct containing logical timestamp and replicaId used as a unique identifier for each RGA node. |
 | `$/Ama.CRDT/Models/RgaItem.cs` | Data structure representing an RGA node with a pointer to its predecessor, its payload value, and a tombstone flag. |
 | `$/Ama.CRDT/Models/RgaState.cs` | A wrapper state structure implementing `ICrdtState` for RGA trackers. |
@@ -379,6 +380,7 @@
 | `$/Ama.CRDT/Models/Serialization/CrdtJsonTypeInfoResolver.cs` | A custom `IJsonTypeInfoResolver` that applies the `PolymorphicObjectJsonConverter` to all properties of type `object`, enabling robust polymorphic serialization. |
 | `$/Ama.CRDT/Models/Serialization/CrdtMetadataJsonResolver.cs` | A custom `IJsonTypeInfoResolver` that modifies the serialization contract for `CrdtMetadata` to omit empty collections, resulting in a more compact JSON output. |
 | `$/Ama.CRDT/Models/Serialization/CrdtTypeRegistry.cs` | Centralized registry mapping discriminator strings to CRDT serialization types, powering both native STJ polymorphism and custom payload wrappers. |
+| `$/Ama.CRDT/Models/ShardVersionVectorMap.cs` | Represents a strongly-typed map replacing IDictionary<string, DottedVersionVector> to track causality vectors per shard, implementing IEquatable for deep comparison safely. |
 | `$/Ama.CRDT/Models/TreeAddNodePayload.cs` | A data structure for the payload of a tree 'add' operation. |
 | `$/Ama.CRDT/Models/TreeMoveNodePayload.cs` | A data structure for the payload of a tree 'move' operation. |
 | `$/Ama.CRDT/Models/TreeNode.cs` | No description provided. |
@@ -392,10 +394,10 @@
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtApplicatorAdapter.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtMergerAdapter.cs` | An adapter that bridges the synchronous `ICrdtMerger` to the asynchronous `IAsyncCrdtMerger` pipeline. |
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtPatcherAdapter.cs` | An adapter that bridges the synchronous `ICrdtPatcher` to the asynchronous `IAsyncCrdtPatcher` pipeline, acting as the base layer in the patcher decorator chain. |
-| `$/Ama.CRDT/Services/CrdtApplicator.cs` | No description provided. |
+| `$/Ama.CRDT/Services/CrdtApplicator.cs` | Updated to depend on `IShardIdProvider` for gracefully resolving the tracking of fallback shard configurations and to track causal histories per shard instead of utilizing the deprecated `GlobalVersionVector`. |
 | `$/Ama.CRDT/Services/CrdtMerger.cs` | Synchronous implementation of `ICrdtMerger` that leverages object tree traversal to compute the state merge mathematically using strategy providers. |
 | `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implements the `ICrdtMetadataManager` for managing and compacting CRDT metadata. It provides helper methods like Initialize(document) to create a metadata object from a POCO by reflecting on its properties, and Reset(metadata, document) to clear and re-initialize an existing metadata object. The initialization logic correctly traverses nested objects and collections. |
-| `$/Ama.CRDT/Services/CrdtPatcher.cs` | Generates CRDT operations dynamically utilizing AOT context and `CrdtPropertyKey` identifiers. |
+| `$/Ama.CRDT/Services/CrdtPatcher.cs` | Updated to determine appropriate shard contexts during operation generation, properly populating `ShardId` and `ShardClock`, and persisting this localized history back onto `ShardVersionVectors`. |
 | `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext` holding the unique replica ID. |
 | `$/Ama.CRDT/Services/Decorators/AsyncCrdtApplicatorDecoratorBase.cs` | An abstract base class for `IAsyncCrdtApplicator` decorators. Uses the `DecoratorBehavior` enum in its constructor to strictly control the Template Method execution flow, making bugs around pipeline ordering structurally impossible. |
 | `$/Ama.CRDT/Services/Decorators/AsyncCrdtMergerDecoratorBase.cs` | An abstract base class for `IAsyncCrdtMerger` decorators supporting execution flow management via `DecoratorBehavior`. |
@@ -422,9 +424,9 @@
 | `$/Ama.CRDT/Services/ICrdtMerger.cs` | Defines the synchronous contract for a service that merges two complete CRDT document states based on the CvRDT paradigm. |
 | `$/Ama.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing CRDT metadata. Its responsibilities include initializing, resetting, cloning, merging, and compacting metadata state such as LWW timestamps, positional trackers, and version vectors. This service is critical for enabling conflict-free merges by externalizing the state needed for resolution. |
 | `$/Ama.CRDT/Services/ICrdtPatcher.cs` | Defines the contract for a service that compares two versions of a data model and generates a CRDT patch, as well as an intent-based method for creating patches directly. |
-| `$/Ama.CRDT/Services/ICrdtScopeFactory.cs` | Defines the contract for a factory that creates isolated `IServiceScope` instances for CRDT replicas, each configured with a unique replica ID. |
-| `$/Ama.CRDT/Services/Journaling/ICrdtOperationJournal.cs` | Defines a contract for an operation journal that captures explicitly generated and successfully applied CRDT operations, and allows retrieval of operations. |
-| `$/Ama.CRDT/Services/Journaling/IJournalManager.cs` | No description provided. |
+| `$/Ama.CRDT/Services/ICrdtScopeFactory.cs` | Defines a factory that creates isolated `IServiceScope` instances, updated to support initializing replica contexts with multiple shard vectors. |
+| `$/Ama.CRDT/Services/Journaling/ICrdtOperationJournal.cs` | Defines a contract for an operation journal, updated to require `shardId` and `shardClock` for retrieving partitioned operations. |
+| `$/Ama.CRDT/Services/Journaling/IJournalManager.cs` | Defines a service for retrieving missing CRDT operations, updated to filter requests by `shardId`. |
 | `$/Ama.CRDT/Services/Journaling/JournalManager.cs` | Implements `IJournalManager` to retrieve missing operations based on `ReplicaSyncRequirement` by querying an underlying `ICrdtOperationJournal`. |
 | `$/Ama.CRDT/Services/LargerThanMemory/ChunkedDocumentManager.cs` | Updated `SetDocumentId` invocations to use `IComparable` instead of `string`. |
 | `$/Ama.CRDT/Services/LargerThanMemory/IChunkDocumentManager.cs` | No description provided. |
@@ -447,6 +449,7 @@
 | `$/Ama.CRDT/Services/Providers/CrdtPropertyBuilder.cs` | A fluent builder to configure CRDT strategies and decorators for a specific `CrdtPropertyKey`. |
 | `$/Ama.CRDT/Services/Providers/CrdtStrategyProvider.cs` | Resolves strategies based exclusively on the new AOT compiled metadata mappings instead of risky runtime reflection. |
 | `$/Ama.CRDT/Services/Providers/DefaultDocumentIdProvider.cs` | The default implementation of `IDocumentIdProvider` that extracts the document ID by looking for an 'Id' property. |
+| `$/Ama.CRDT/Services/Providers/DefaultShardIdProvider.cs` | Provides a default implementation of `IShardIdProvider` that assigns all documents to a single "default" shard. |
 | `$/Ama.CRDT/Services/Providers/ElementComparerProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `EpochTimestamp` based on Unix milliseconds. |
 | `$/Ama.CRDT/Services/Providers/ICrdtModelRegistry.cs` | Interface for retrieving configurations using the AOT-friendly `CrdtPropertyKey`. |
@@ -455,7 +458,8 @@
 | `$/Ama.CRDT/Services/Providers/IDocumentIdProvider.cs` | Updated methods to accept and return `IComparable` instead of `string` for document IDs. |
 | `$/Ama.CRDT/Services/Providers/IElementComparer.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/IElementComparerProvider.cs` | No description provided. |
-| `$/Ama.CRDT/Services/ReplicaContext.cs` | A scoped service that holds the unique identifier for a CRDT replica, making it available to other scoped services within the same `IServiceScope`. |
+| `$/Ama.CRDT/Services/Providers/IShardIdProvider.cs` | Defines an interface for calculating the Shard ID for a CRDT document to allow partitioning causal histories by domains. |
+| `$/Ama.CRDT/Services/ReplicaContext.cs` | A scoped service that holds the unique identifier for a CRDT replica, updated to track causality vectors per shard instead of a single global vector. |
 | `$/Ama.CRDT/Services/Serialization/BrotliJsonCrdtSerializer.cs` | A Native AOT compatible implementation of `ICrdtSerializer` utilizing `System.Text.Json` combined with Brotli compression natively provided by the framework, serializing strings as Base64 encoded compressed payloads. |
 | `$/Ama.CRDT/Services/Serialization/ICrdtSerializer.cs` | Defines a format-agnostic abstraction for serializing and deserializing CRDT models and payloads, decoupling the core library from System.Text.Json. |
 | `$/Ama.CRDT/Services/Serialization/JsonCrdtSerializer.cs` | The default Native AOT compatible implementation of `ICrdtSerializer` utilizing `System.Text.Json` and pre-configured `JsonSerializerOptions`. |
@@ -497,8 +501,8 @@
 | `$/Ama.CRDT/Services/Strategies/TwoPhaseGraphStrategy.cs` | Implements a 2P-Graph strategy where vertices and edges can be added and removed, but not re-added after removal, ensuring monotonic growth of the tombstone sets. |
 | `$/Ama.CRDT/Services/Strategies/TwoPhaseSetStrategy.cs` | Implements the 2P-Set (Two-Phase Set) CRDT strategy. It now uses centralized reflection helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/VoteCounterStrategy.cs` | Implements the Vote Counter strategy. It now uses centralized reflection helpers from `PocoPathHelper` to get dictionary key/value types. |
-| `$/Ama.CRDT/Services/Versioning/IVersionVectorSyncService.cs` | No description provided. |
-| `$/Ama.CRDT/Services/Versioning/VersionVectorSyncService.cs` | No description provided. |
+| `$/Ama.CRDT/Services/Versioning/IVersionVectorSyncService.cs` | Service for calculating synchronization gaps, updated to operate on a per-shard basis. |
+| `$/Ama.CRDT/Services/Versioning/VersionVectorSyncService.cs` | Implementation of `IVersionVectorSyncService`, updated to negotiate vector requirements per shard and evaluate journal completion using `ShardClock`. |
 | `$/CodingStandards.md` | No description provided. |
 | `$/FilesDescription.md` | No description provided. |
 | `$/LICENSE` | No description provided. |

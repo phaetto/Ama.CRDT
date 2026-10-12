@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Attributes.Strategies;
+using Moq;
 
 public sealed class CrdtApplicatorTests : IDisposable
 {
@@ -192,15 +193,15 @@ public sealed class CrdtApplicatorTests : IDisposable
     }
 
     [Fact]
-    public void ApplyPatch_WithGlobalClock_ShouldUpdateReplicaContextGlobalVersionVector()
+    public void ApplyPatch_WithShardClock_ShouldUpdateReplicaContextShardVersionVector()
     {
         // Arrange
         var model = new TestModel { Likes = 10 };
         var metadata = new CrdtMetadata();
         var document = new CrdtDocument<TestModel>(model, metadata);
         
-        // This operation represents an incoming change from "replica-B" with a global clock of 5.
-        var operation = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(100), 1, 5);
+        // This operation represents an incoming change from "replica-B" with a shard clock of 5.
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(100), 1, "default", 5);
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
         var replicaContext = scope.ServiceProvider.GetRequiredService<ReplicaContext>();
@@ -209,11 +210,11 @@ public sealed class CrdtApplicatorTests : IDisposable
         applicator.ApplyPatch(document, patch);
 
         // Assert
-        replicaContext.GlobalVersionVector.Includes("replica-B", 5).ShouldBeTrue();
+        replicaContext.ShardVersionVectors["default"].Includes("replica-B", 5).ShouldBeTrue();
     }
     
     [Fact]
-    public void ApplyPatch_WithStaleLocalOperationButNewGlobalClock_ShouldAcknowledgeGlobalClock()
+    public void ApplyPatch_WithStaleLocalOperationButNewShardClock_ShouldAcknowledgeShardClock()
     {
         // Arrange
         var model = new TestModel { Name = "Initial" };
@@ -223,8 +224,8 @@ public sealed class CrdtApplicatorTests : IDisposable
         metadata.VersionVector["replica-B"] = 1;
         var document = new CrdtDocument<TestModel>(model, metadata);
         
-        // But this operation brings a new global clock of 6
-        var operation = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.name", OperationType.Upsert, "Stale", timestampProvider.Create(100), 1, 6);
+        // But this operation brings a new shard clock of 6
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.name", OperationType.Upsert, "Stale", timestampProvider.Create(100), 1, "default", 6);
         var patch = new CrdtPatch(new List<CrdtOperation> { operation });
 
         var replicaContext = scope.ServiceProvider.GetRequiredService<ReplicaContext>();
@@ -237,6 +238,62 @@ public sealed class CrdtApplicatorTests : IDisposable
         result.UnappliedOperations.First().Reason.ShouldBe(CrdtOperationStatus.Obsolete);
         
         // Even though it was stale for the document, the global causality must acknowledge it saw sequence 6
-        replicaContext.GlobalVersionVector.Includes("replica-B", 6).ShouldBeTrue();
+        replicaContext.ShardVersionVectors["default"].Includes("replica-B", 6).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void ApplyPatch_WithExplicitShardIdOnOperation_ShouldUpdateThatSpecificShardVector()
+    {
+        // Arrange
+        var model = new TestModel { Likes = 10 };
+        var metadata = new CrdtMetadata();
+        var document = new CrdtDocument<TestModel>(model, metadata);
+
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(100), 1, "explicit-shard", 5);
+        var patch = new CrdtPatch(new List<CrdtOperation> { operation });
+
+        var replicaContext = scope.ServiceProvider.GetRequiredService<ReplicaContext>();
+
+        // Act
+        applicator.ApplyPatch(document, patch);
+
+        // Assert
+        replicaContext.ShardVersionVectors.ContainsKey("explicit-shard").ShouldBeTrue();
+        replicaContext.ShardVersionVectors["explicit-shard"].Includes("replica-B", 5).ShouldBeTrue();
+        replicaContext.ShardVersionVectors.ContainsKey("default").ShouldBeFalse(); // Fallback not used
+    }
+
+    [Fact]
+    public void ApplyPatch_WhenOperationHasNoShardId_ShouldUseFallbackShardIdFromProvider()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        services.AddCrdtAotContext<ServicesTestCrdtAotContext>();
+
+        var mockShardProvider = new Mock<IShardIdProvider>();
+        mockShardProvider.Setup(p => p.GetShardId(It.IsAny<CrdtDocument<TestModel>>())).Returns("fallback-shard");
+        services.AddSingleton(mockShardProvider.Object);
+
+        var sp = services.BuildServiceProvider();
+        var localScope = sp.GetRequiredService<ICrdtScopeFactory>().CreateScope("test-replica");
+        var localApplicator = localScope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        var localReplicaContext = localScope.ServiceProvider.GetRequiredService<ReplicaContext>();
+        var localTsProvider = localScope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+
+        var model = new TestModel { Likes = 10 };
+        var metadata = new CrdtMetadata();
+        var document = new CrdtDocument<TestModel>(model, metadata);
+
+        // Missing ShardId in the operation
+        var operation = new CrdtOperation(Guid.NewGuid(), "replica-B", "$.likes", OperationType.Increment, 5m, localTsProvider.Create(100), 1, null, 5);
+        var patch = new CrdtPatch(new List<CrdtOperation> { operation });
+
+        // Act
+        localApplicator.ApplyPatch(document, patch);
+
+        // Assert
+        localReplicaContext.ShardVersionVectors.ContainsKey("fallback-shard").ShouldBeTrue();
+        localReplicaContext.ShardVersionVectors["fallback-shard"].Includes("replica-B", 5).ShouldBeTrue();
     }
 }
