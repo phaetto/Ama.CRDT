@@ -32,7 +32,7 @@
 | `$/Ama.CRDT.IntegrationTests/Ama.CRDT.IntegrationTests.csproj` | No description provided. |
 | `$/Ama.CRDT.IntegrationTests/ClockSkewSimulationTests.cs` | Contains integration tests verifying CRDT convergence and behavior under severe network time drift and clock skew scenarios, ensuring time-independent mathematical commutativity properties. |
 | `$/Ama.CRDT.IntegrationTests/NetworkSimulationTests.cs` | Contains integration tests simulating complex network scenarios (out-of-order delivery, partitions, long-term offline nodes, duplicate delivery, and high concurrency conflicts) to guarantee CRDT convergence and idempotency over time. |
-| `$/Ama.CRDT.IntegrationTests/ShardingSimulationTests.cs` | Contains integration tests confirming the accuracy of per-shard causal tracking, including independent clocks incrementing without global interference and dynamic, selective shard synchronization via `VersionVectorSyncService`. |
+| `$/Ama.CRDT.IntegrationTests/ShardingSimulationTests.cs` | Contains integration tests confirming the accuracy of per-shard causal tracking, updated to also test resolving Shard IDs directly from document IDs and hosted types. |
 | `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/Ama.CRDT.LargerThanMemory.Streams.UnitTests.csproj` | No description provided. |
 | `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/Serialization/DefaultPartitionSerializationServiceTests.cs` | No description provided. |
 | `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/Services/StreamSpaceAllocatorTests.cs` | No description provided. |
@@ -187,6 +187,7 @@
 | `$/Ama.CRDT.UnitTests/Services/LargerThanMemory/PartitioningTestCrdtContext.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Providers/CrdtFluentConfigurationTests.cs` | Contains unit tests verifying the Fluent Builder API (`CrdtModelBuilder`) correctly maps CRDT strategies and that the `CrdtStrategyProvider` prioritizes these mappings over attributes. |
 | `$/Ama.CRDT.UnitTests/Services/Providers/DefaultDocumentIdProviderTests.cs` | Contains unit tests for `DefaultDocumentIdProvider`, verifying correct document ID extraction and proper exception throwing for missing or invalid IDs. |
+| `$/Ama.CRDT.UnitTests/Services/Providers/DefaultShardIdProviderTests.cs` | Contains unit tests for `DefaultShardIdProvider`, verifying Shard ID resolution from materialized documents, document IDs, and runtime types, including null argument guards. |
 | `$/Ama.CRDT.UnitTests/Services/ServicesTestCrdtContext.cs` | A dedicated AOT context for the services unit tests, providing reflection-free metadata for test-specific models and collections. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/ArrayLcsStrategyTests.cs` | Contains unit tests for `ArrayLcsStrategy`, focusing on convergence properties under concurrent operations. This file includes a test that specifically reproduces a known bug related to the non-commutative application of array insertion patches. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/AverageRegisterStrategyTests.cs` | Contains unit tests for the `AverageRegisterStrategy`, verifying convergence, idempotence, and commutativity. |
@@ -449,7 +450,7 @@
 | `$/Ama.CRDT/Services/Providers/CrdtPropertyBuilder.cs` | A fluent builder to configure CRDT strategies and decorators for a specific `CrdtPropertyKey`. |
 | `$/Ama.CRDT/Services/Providers/CrdtStrategyProvider.cs` | Resolves strategies based exclusively on the new AOT compiled metadata mappings instead of risky runtime reflection. |
 | `$/Ama.CRDT/Services/Providers/DefaultDocumentIdProvider.cs` | The default implementation of `IDocumentIdProvider` that extracts the document ID by looking for an 'Id' property. |
-| `$/Ama.CRDT/Services/Providers/DefaultShardIdProvider.cs` | Provides a default implementation of `IShardIdProvider` that assigns all documents to a single "default" shard. |
+| `$/Ama.CRDT/Services/Providers/DefaultShardIdProvider.cs` | Provides a default implementation of `IShardIdProvider` that assigns all documents and document IDs to a single "default" shard. |
 | `$/Ama.CRDT/Services/Providers/ElementComparerProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `EpochTimestamp` based on Unix milliseconds. |
 | `$/Ama.CRDT/Services/Providers/ICrdtModelRegistry.cs` | Interface for retrieving configurations using the AOT-friendly `CrdtPropertyKey`. |
@@ -458,7 +459,7 @@
 | `$/Ama.CRDT/Services/Providers/IDocumentIdProvider.cs` | Updated methods to accept and return `IComparable` instead of `string` for document IDs. |
 | `$/Ama.CRDT/Services/Providers/IElementComparer.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/IElementComparerProvider.cs` | No description provided. |
-| `$/Ama.CRDT/Services/Providers/IShardIdProvider.cs` | Defines an interface for calculating the Shard ID for a CRDT document to allow partitioning causal histories by domains. |
+| `$/Ama.CRDT/Services/Providers/IShardIdProvider.cs` | Defines an interface for calculating the Shard ID for a CRDT document, updated to support resolving Shard IDs using the document ID and the hosted type without requiring a materialized object. |
 | `$/Ama.CRDT/Services/ReplicaContext.cs` | A scoped service that holds the unique identifier for a CRDT replica, updated to track causality vectors per shard instead of a single global vector. |
 | `$/Ama.CRDT/Services/Serialization/BrotliJsonCrdtSerializer.cs` | A Native AOT compatible implementation of `ICrdtSerializer` utilizing `System.Text.Json` combined with Brotli compression natively provided by the framework, serializing strings as Base64 encoded compressed payloads. |
 | `$/Ama.CRDT/Services/Serialization/ICrdtSerializer.cs` | Defines a format-agnostic abstraction for serializing and deserializing CRDT models and payloads, decoupling the core library from System.Text.Json. |

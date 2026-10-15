@@ -51,7 +51,7 @@ public sealed record ShardedDocument : IEquatable<ShardedDocument>
 }
 
 /// <summary>
-/// A custom ShardId provider that extracts the TenantId from the document to dynamically shard causal tracking.
+/// A custom ShardId provider that extracts the TenantId from the document or its ID to dynamically shard causal tracking.
 /// </summary>
 public sealed class TenantShardIdProvider : IShardIdProvider
 {
@@ -60,6 +60,28 @@ public sealed class TenantShardIdProvider : IShardIdProvider
         if (document is CrdtDocument<ShardedDocument> shardedDoc)
         {
             return shardedDoc.Data?.TenantId ?? "default";
+        }
+        return "default";
+    }
+
+    public string GetShardId<T>(IComparable documentId) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(documentId);
+        return GetShardId(documentId, typeof(T));
+    }
+
+    public string GetShardId(IComparable documentId, Type documentType)
+    {
+        ArgumentNullException.ThrowIfNull(documentId);
+        ArgumentNullException.ThrowIfNull(documentType);
+
+        if (documentType == typeof(ShardedDocument) && documentId is string idStr)
+        {
+            var parts = idStr.Split(':');
+            if (parts.Length > 1)
+            {
+                return parts[0];
+            }
         }
         return "default";
     }
@@ -203,10 +225,10 @@ public sealed class ShardingSimulationTests
 
         // Assert
         // Document 1 (tenant-1) successfully synchronized and converged
-        docsB["doc1"].Data.Data.ShouldBe("Updated-1");
+        docsB["doc1"].Data!.Data.ShouldBe("Updated-1");
         
         // Document 2 (tenant-2) remains isolated and unsynced
-        docsB["doc2"].Data.Data.ShouldBe(string.Empty);
+        docsB["doc2"].Data!.Data.ShouldBe(string.Empty);
 
         // Verify ReplicaContext state accurately reflects what was actually ingested
         var ctxB = scopeB.ServiceProvider.GetRequiredService<ReplicaContext>();
@@ -250,11 +272,11 @@ public sealed class ShardingSimulationTests
 
         // Assert Phase 1
         // tenant-1 should converge due to LWW resolution (whichever clock/timestamp was higher wins)
-        docsA["doc1"].Data.Data.ShouldBe(docsB["doc1"].Data.Data);
+        docsA["doc1"].Data!.Data.ShouldBe(docsB["doc1"].Data!.Data);
         
         // tenant-2 should still be completely divergent between nodes
-        docsA["doc2"].Data.Data.ShouldBe("A-2");
-        docsB["doc2"].Data.Data.ShouldBe("B-2");
+        docsA["doc2"].Data!.Data.ShouldBe("A-2");
+        docsB["doc2"].Data!.Data.ShouldBe("B-2");
 
         // Phase 2: Sync tenant-2
         await SyncShardAsync(scopeB, scopeA, "tenant-2", docsB);
@@ -262,11 +284,31 @@ public sealed class ShardingSimulationTests
 
         // Assert Phase 2
         // tenant-2 should finally converge
-        docsA["doc2"].Data.Data.ShouldBe(docsB["doc2"].Data.Data);
+        docsA["doc2"].Data!.Data.ShouldBe(docsB["doc2"].Data!.Data);
         
         // Final sanity checks validating identical states
         docsA["doc1"].Data.ShouldBe(docsB["doc1"].Data);
         docsA["doc2"].Data.ShouldBe(docsB["doc2"].Data);
+    }
+
+    [Fact]
+    public void GetShardId_WithoutMaterializedDocument_ShouldResolveCorrectlyFromIdAndType()
+    {
+        // Arrange
+        var provider = CreateServiceProvider();
+        var scopeFactory = provider.GetRequiredService<ICrdtScopeFactory>();
+        using var scope = scopeFactory.CreateScope("A");
+        var shardProvider = scope.ServiceProvider.GetRequiredService<IShardIdProvider>();
+
+        // Act
+        var shard1 = shardProvider.GetShardId<ShardedDocument>("tenant-1:doc1");
+        var shard2 = shardProvider.GetShardId("tenant-2:doc2", typeof(ShardedDocument));
+        var fallbackShard = shardProvider.GetShardId<ShardedDocument>("doc-without-tenant");
+
+        // Assert
+        shard1.ShouldBe("tenant-1");
+        shard2.ShouldBe("tenant-2");
+        fallbackShard.ShouldBe("default");
     }
 
     private IServiceProvider CreateServiceProvider()
@@ -276,10 +318,8 @@ public sealed class ShardingSimulationTests
                 .AddCrdtAotContext<ShardingSimulationTestContext>()
                 .AddCrdtJournaling<InMemoryShardedJournal>()
                 .AddCrdtApplicatorDecorator<JournalingApplicatorDecorator>(DecoratorBehavior.Before)
-                .AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After);
-
-        // Explicitly replace the default shard ID provider with our custom tenant-based one
-        services.AddSingleton<IShardIdProvider, TenantShardIdProvider>();
+                .AddCrdtPatcherDecorator<JournalingPatcherDecorator>(DecoratorBehavior.After)
+                .AddCrdtShardIdProvider<TenantShardIdProvider>();
 
         return services.BuildServiceProvider();
     }
