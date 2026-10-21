@@ -8,20 +8,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Xunit;
 
-public readonly record struct CustomTimestamp(int Value) : ICrdtTimestamp
-{
-    public int CompareTo(ICrdtTimestamp? other) => other is CustomTimestamp ct ? Value.CompareTo(ct.Value) : 0;
-}
+public readonly record struct CustomPayload(int Value);
 
-public readonly record struct AnotherCustomTimestamp(string Value) : ICrdtTimestamp
-{
-    public int CompareTo(ICrdtTimestamp? other) => other is AnotherCustomTimestamp act ? string.Compare(Value, act.Value, StringComparison.Ordinal) : 0;
-}
-
-public sealed class InvalidTimestamp
-{
-    public int Value { get; set; }
-}
+public readonly record struct UnregisteredPayload(string Value);
 
 public sealed class CrdtTimestampJsonConverterTests
 {
@@ -30,108 +19,143 @@ public sealed class CrdtTimestampJsonConverterTests
     public CrdtTimestampJsonConverterTests()
     {
         serializerOptions = TestOptionsHelper.GetDefaultOptions();
-        CrdtTypeRegistry.Register("custom", typeof(CustomTimestamp));
+        CrdtTypeRegistry.Register("custom-payload", typeof(CustomPayload));
     }
 
     [Fact]
-    public void Serialize_WithEpochTimestamp_ShouldProduceCorrectJson()
+    public void Serialize_WithBasicTimestamp_ShouldOmitDefaultProperties()
     {
-        ICrdtTimestamp timestamp = new EpochTimestamp(1234567890);
+        var timestamp = new CrdtTimestamp(1234567890);
 
-        var typeInfo = (JsonTypeInfo<ICrdtTimestamp>)serializerOptions.GetTypeInfo(typeof(ICrdtTimestamp));
+        var typeInfo = (JsonTypeInfo<CrdtTimestamp>)serializerOptions.GetTypeInfo(typeof(CrdtTimestamp));
         var json = JsonSerializer.Serialize(timestamp, typeInfo);
 
-        // EpochTimestamp natively maps its ReplicaId property
-        json.ShouldBe("{\"$type\":\"epoch\",\"Value\":1234567890,\"ReplicaId\":null}");
+        // Counter (0), Epoch (0), and ReplicaId (null) are omitted by WhenWritingDefault / WhenWritingNull
+        json.ShouldBe("{\"Ticks\":1234567890,\"ReplicaId\":null}");
     }
 
     [Fact]
-    public void Serialize_WithRegisteredCustomTimestamp_ShouldProduceCorrectJson()
+    public void Serialize_WithFullTimestamp_ShouldIncludeAllProperties()
     {
-        ICrdtTimestamp timestamp = new CustomTimestamp(99);
+        var timestamp = new CrdtTimestamp(Ticks: 1234567890, Counter: 5, Epoch: 2, ReplicaId: "replica-1");
 
-        var typeInfo = (JsonTypeInfo<ICrdtTimestamp>)serializerOptions.GetTypeInfo(typeof(ICrdtTimestamp));
+        var typeInfo = (JsonTypeInfo<CrdtTimestamp>)serializerOptions.GetTypeInfo(typeof(CrdtTimestamp));
         var json = JsonSerializer.Serialize(timestamp, typeInfo);
 
-        json.ShouldBe("{\"$type\":\"custom\",\"Value\":99}");
+        json.ShouldBe("{\"Ticks\":1234567890,\"Counter\":5,\"Epoch\":2,\"ReplicaId\":\"replica-1\"}");
     }
 
     [Fact]
-    public void Serialize_WithUnregisteredCustomTimestamp_ShouldThrowNotSupportedException()
+    public void Deserialize_WithBasicTimestampJson_ShouldCreateTimestampWithDefaults()
     {
-        ICrdtTimestamp timestamp = new AnotherCustomTimestamp("test");
-        var typeInfo = (JsonTypeInfo<ICrdtTimestamp>)serializerOptions.GetTypeInfo(typeof(ICrdtTimestamp));
-
-        Should.Throw<NotSupportedException>(() => JsonSerializer.Serialize(timestamp, typeInfo));
-    }
-
-    [Fact]
-    public void Serialize_WithNullTimestamp_ShouldProduceNullJson()
-    {
-        ICrdtTimestamp? timestamp = null;
-        var typeInfo = (JsonTypeInfo<ICrdtTimestamp?>)serializerOptions.GetTypeInfo(typeof(ICrdtTimestamp));
-
-        var json = JsonSerializer.Serialize(timestamp, typeInfo);
-
-        json.ShouldBe("null");
-    }
-
-    [Fact]
-    public void Deserialize_WithEpochTimestampJson_ShouldCreateEpochTimestamp()
-    {
-        var json = "{\"$type\":\"epoch\",\"Value\":1234567890,\"ReplicaId\":null}";
-        var typeInfo = (JsonTypeInfo<ICrdtTimestamp>)serializerOptions.GetTypeInfo(typeof(ICrdtTimestamp));
+        var json = "{\"Ticks\":1234567890}";
+        var typeInfo = (JsonTypeInfo<CrdtTimestamp>)serializerOptions.GetTypeInfo(typeof(CrdtTimestamp));
 
         var timestamp = JsonSerializer.Deserialize(json, typeInfo);
 
-        timestamp.ShouldNotBeNull();
-        timestamp.ShouldBeOfType<EpochTimestamp>();
-        ((EpochTimestamp)timestamp).Value.ShouldBe(1234567890);
+        timestamp.Ticks.ShouldBe(1234567890);
+        timestamp.Counter.ShouldBe(0);
+        timestamp.Epoch.ShouldBe(0);
+        timestamp.ReplicaId.ShouldBeNull();
     }
 
     [Fact]
-    public void Deserialize_WithRegisteredCustomTimestampJson_ShouldCreateCustomTimestamp()
+    public void Deserialize_WithFullTimestampJson_ShouldCreateFullTimestamp()
     {
-        var json = "{\"$type\":\"custom\",\"Value\":99}";
-        var typeInfo = (JsonTypeInfo<ICrdtTimestamp>)serializerOptions.GetTypeInfo(typeof(ICrdtTimestamp));
+        var json = "{\"Ticks\":1234567890,\"Counter\":5,\"Epoch\":2,\"ReplicaId\":\"replica-1\"}";
+        var typeInfo = (JsonTypeInfo<CrdtTimestamp>)serializerOptions.GetTypeInfo(typeof(CrdtTimestamp));
 
         var timestamp = JsonSerializer.Deserialize(json, typeInfo);
 
-        timestamp.ShouldNotBeNull();
-        timestamp.ShouldBeOfType<CustomTimestamp>();
-        ((CustomTimestamp)timestamp).Value.ShouldBe(99);
+        timestamp.Ticks.ShouldBe(1234567890);
+        timestamp.Counter.ShouldBe(5);
+        timestamp.Epoch.ShouldBe(2);
+        timestamp.ReplicaId.ShouldBe("replica-1");
     }
 
     [Fact]
-    public void Deserialize_WithUnregisteredDiscriminator_ShouldThrowJsonException()
+    public void SerializeAndDeserialize_CrdtOperation_WithTimestamp_ShouldPreserveTimestamp()
     {
-        var json = "{\"$type\":\"unregistered\",\"Value\":123}";
-        var typeInfo = (JsonTypeInfo<ICrdtTimestamp>)serializerOptions.GetTypeInfo(typeof(ICrdtTimestamp));
+        var timestamp = new CrdtTimestamp(Ticks: 1337, Counter: 3, Epoch: 1, ReplicaId: "replica-1");
+        var operation = new CrdtOperation(
+            Guid.NewGuid(),
+            "replica-1",
+            "/path",
+            OperationType.Upsert,
+            "value",
+            timestamp,
+            0
+        );
 
-        // System.Text.Json native polymorphism throws JsonException for an unknown discriminator mapping.
-        Should.Throw<JsonException>(() => JsonSerializer.Deserialize(json, typeInfo));
+        var typeInfo = (JsonTypeInfo<CrdtOperation>)serializerOptions.GetTypeInfo(typeof(CrdtOperation));
+        var json = JsonSerializer.Serialize(operation, typeInfo);
+        var deserializedOperation = JsonSerializer.Deserialize(json, typeInfo);
+
+        json.ShouldContain("\"Timestamp\":{\"Ticks\":1337,\"Counter\":3,\"Epoch\":1,\"ReplicaId\":\"replica-1\"}");
+        deserializedOperation.Timestamp.ShouldBe(timestamp);
     }
 
     [Fact]
-    public void Deserialize_WithMissingDiscriminator_ShouldThrowNotSupportedException()
+    public void SerializeAndDeserialize_TimestampAsPolymorphicPayload_ShouldUseDiscriminator()
     {
-        var json = "{\"Value\":123}";
-        var typeInfo = (JsonTypeInfo<ICrdtTimestamp>)serializerOptions.GetTypeInfo(typeof(ICrdtTimestamp));
+        var timestamp = new CrdtTimestamp(Ticks: 987654321, Counter: 1, Epoch: 0, ReplicaId: "r1");
+        var operation = new CrdtOperation(
+            Guid.NewGuid(),
+            "r1",
+            "/path",
+            OperationType.Upsert,
+            timestamp, // Boxed as object in CrdtOperation.Value
+            new CrdtTimestamp(1000),
+            1
+        );
 
-        // System.Text.Json native polymorphism throws NotSupportedException when it tries to deserialize
-        // an interface (ICrdtTimestamp) directly because the $type property was not found.
-        Should.Throw<NotSupportedException>(() => JsonSerializer.Deserialize(json, typeInfo));
+        var typeInfo = (JsonTypeInfo<CrdtOperation>)serializerOptions.GetTypeInfo(typeof(CrdtOperation));
+        var json = JsonSerializer.Serialize(operation, typeInfo);
+        var deserializedOperation = JsonSerializer.Deserialize(json, typeInfo);
+
+        json.ShouldContain("\"$type\":\"crdt-timestamp\"");
+        deserializedOperation.Value.ShouldBeOfType<CrdtTimestamp>();
+        ((CrdtTimestamp)deserializedOperation.Value!).ShouldBe(timestamp);
     }
 
     [Fact]
-    public void Deserialize_WithNullJson_ShouldProduceNullObject()
+    public void SerializeAndDeserialize_RegisteredCustomPayload_ShouldProduceCorrectJson()
     {
-        var json = "null";
-        var typeInfo = (JsonTypeInfo<ICrdtTimestamp?>)serializerOptions.GetTypeInfo(typeof(ICrdtTimestamp));
+        var operation = new CrdtOperation(
+            Guid.NewGuid(),
+            "r1",
+            "/path",
+            OperationType.Upsert,
+            new CustomPayload(99),
+            new CrdtTimestamp(1000),
+            1
+        );
 
-        var timestamp = JsonSerializer.Deserialize(json, typeInfo);
+        var typeInfo = (JsonTypeInfo<CrdtOperation>)serializerOptions.GetTypeInfo(typeof(CrdtOperation));
+        var json = JsonSerializer.Serialize(operation, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
 
-        timestamp.ShouldBeNull();
+        json.ShouldContain("\"Value\":{\"Value\":99,\"$type\":\"custom-payload\"}");
+        deserialized.Value.ShouldBeOfType<CustomPayload>();
+        ((CustomPayload)deserialized.Value!).Value.ShouldBe(99);
+    }
+
+    [Fact]
+    public void Serialize_WithUnregisteredCustomPayload_ShouldThrowException()
+    {
+        var operation = new CrdtOperation(
+            Guid.NewGuid(),
+            "r1",
+            "/path",
+            OperationType.Upsert,
+            new UnregisteredPayload("test"),
+            new CrdtTimestamp(1000),
+            1
+        );
+
+        var typeInfo = (JsonTypeInfo<CrdtOperation>)serializerOptions.GetTypeInfo(typeof(CrdtOperation));
+
+        Should.Throw<NotSupportedException>(() => JsonSerializer.Serialize(operation, typeInfo));
     }
 
     [Theory]
@@ -140,31 +164,7 @@ public sealed class CrdtTimestampJsonConverterTests
     [InlineData(" ")]
     public void Register_WithInvalidDiscriminator_ShouldThrowArgumentException(string? discriminator)
     {
-        Should.Throw<ArgumentException>(() => CrdtTypeRegistry.Register(discriminator!, typeof(AnotherCustomTimestamp)))
+        Should.Throw<ArgumentException>(() => CrdtTypeRegistry.Register(discriminator!, typeof(UnregisteredPayload)))
             .Message.ShouldContain("Discriminator cannot be null or whitespace.");
-    }
-
-    [Fact]
-    public void SerializeAndDeserialize_CrdtOperation_WithTimestamp_ShouldPreserveType()
-    {
-        var operation = new CrdtOperation(
-            Guid.NewGuid(),
-            "replica-1",
-            "/path",
-            OperationType.Upsert,
-            "value",
-            new CustomTimestamp(1337),
-            0
-        );
-
-        var typeInfo = (JsonTypeInfo<CrdtOperation>)serializerOptions.GetTypeInfo(typeof(CrdtOperation));
-        var json = JsonSerializer.Serialize(operation, typeInfo);
-        var deserializedOperation = JsonSerializer.Deserialize(json, typeInfo)!;
-
-        json.ShouldContain("\"Timestamp\":{\"$type\":\"custom\",\"Value\":1337}");
-
-        deserializedOperation.Timestamp.ShouldNotBeNull();
-        deserializedOperation.Timestamp.ShouldBeOfType<CustomTimestamp>();
-        ((CustomTimestamp)deserializedOperation.Timestamp).Value.ShouldBe(1337);
     }
 }

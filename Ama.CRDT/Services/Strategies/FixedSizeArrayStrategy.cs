@@ -54,7 +54,7 @@ public sealed class FixedSizeArrayStrategy(
                 continue;
             }
 
-            if (!originalMeta.States.TryGetValue(elementPath, out var baseState) || baseState is not CausalTimestamp originalTimestamp || originalTimestamp.Timestamp is null || changeTimestamp.CompareTo(originalTimestamp.Timestamp) >= 0)
+            if (!originalMeta.States.TryGetValue(elementPath, out var baseState) || baseState is not CausalTimestamp originalTimestamp || changeTimestamp.CompareTo(originalTimestamp.Timestamp) >= 0)
             {
                 operations.Add(new CrdtOperation(Guid.NewGuid(), replicaId, elementPath, OperationType.Upsert, modifiedElement, changeTimestamp, clock));
             }
@@ -98,7 +98,7 @@ public sealed class FixedSizeArrayStrategy(
             return CrdtOperationStatus.PathResolutionFailed;
         }
 
-        if (metadata.States.TryGetValue(operation.JsonPath, out var baseState) && baseState is CausalTimestamp currentTimestamp && currentTimestamp.Timestamp is not null &&
+        if (metadata.States.TryGetValue(operation.JsonPath, out var baseState) && baseState is CausalTimestamp currentTimestamp &&
             operation.Timestamp.CompareTo(currentTimestamp.Timestamp) < 0)
         {
             return CrdtOperationStatus.Obsolete;
@@ -153,10 +153,10 @@ public sealed class FixedSizeArrayStrategy(
             var hasMeta1 = meta1.States.TryGetValue(elementPath, out var state1);
             var hasMeta2 = meta2.States.TryGetValue(elementPath, out var state2);
 
-            if (hasMeta2 && state2 is CausalTimestamp ts2 && ts2.Timestamp != null)
+            if (hasMeta2 && state2 is CausalTimestamp ts2)
             {
                 bool shouldUpdate = false;
-                if (!hasMeta1 || state1 is not CausalTimestamp ts1 || ts1.Timestamp == null)
+                if (!hasMeta1 || state1 is not CausalTimestamp ts1)
                 {
                     shouldUpdate = true;
                 }

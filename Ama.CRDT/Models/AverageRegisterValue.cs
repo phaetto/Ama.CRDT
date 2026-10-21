@@ -5,4 +5,4 @@ namespace Ama.CRDT.Models;
 /// </summary>
 /// <param name="Value">The numeric value of the contribution.</param>
 /// <param name="Timestamp">The logical timestamp of when the contribution was made.</param>
-public readonly record struct AverageRegisterValue(decimal Value, ICrdtTimestamp Timestamp);
+public readonly record struct AverageRegisterValue(decimal Value, CrdtTimestamp Timestamp);

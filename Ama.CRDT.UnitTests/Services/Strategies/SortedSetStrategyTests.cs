@@ -111,7 +111,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         mockComparerProvider
             .Setup(p => p.GetComparer(typeof(NestedModel)))
             .Returns(new NestedModelIdComparer());
-        mockTimestampProvider.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(val => new EpochTimestamp(val));
+        mockTimestampProvider.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(val => new CrdtTimestamp(val));
 
         var operations = new List<CrdtOperation>();
         var nestedDiffs = new List<DifferentiateObjectContext>();
@@ -627,7 +627,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         var safeTs2 = timestampProvider.Create(20);
         var unsafeTs = timestampProvider.Create(30);
         
-        var adds = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default);
+        var adds = new Dictionary<object, CrdtTimestamp>(EqualityComparer<object>.Default);
         var removes = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default);
 
         // Item 1: Alive (Add > Remove => Add wins)
@@ -651,12 +651,12 @@ public sealed class SortedSetStrategyTests : IDisposable
         // Allow compacting if ReplicaId == "replica-1" and Version <= 2, or if evaluating an Add timestamp (ReplicaId null) <= 20
         mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => 
             (c.ReplicaId == "replica-1" && c.Version <= 2) || 
-            (c.ReplicaId == null && c.Timestamp != null && c.Timestamp.CompareTo(unsafeTs) < 0))))
+            (c.ReplicaId == null && c.Timestamp != null && c.Timestamp.Value.CompareTo(unsafeTs) < 0))))
             .Returns(true);
         
         mockPolicy.Setup(p => p.IsSafeToCompact(It.Is<CompactionCandidate>(c => 
             (c.ReplicaId != null && (c.ReplicaId != "replica-1" || c.Version > 2)) ||
-            (c.ReplicaId == null && c.Timestamp != null && c.Timestamp.CompareTo(unsafeTs) >= 0))))
+            (c.ReplicaId == null && c.Timestamp != null && c.Timestamp.Value.CompareTo(unsafeTs) >= 0))))
             .Returns(false);
 
         var context = new CompactionContext(meta, mockPolicy.Object, "Items", "$.items", doc);

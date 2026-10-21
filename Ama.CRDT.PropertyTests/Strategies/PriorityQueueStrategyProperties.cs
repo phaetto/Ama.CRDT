@@ -82,7 +82,7 @@ public sealed class PriorityQueueStrategyProperties
             nameof(PriorityQueueTestPoco.Queue),
             isRemove ? OperationType.Remove : OperationType.Upsert,
             item,
-            new EpochTimestamp(timestamp),
+            new CrdtTimestamp(timestamp),
             0);
 
         var state1 = new PriorityQueueTestPoco();
@@ -111,7 +111,7 @@ public sealed class PriorityQueueStrategyProperties
             nameof(PriorityQueueTestPoco.Queue),
             isRemove1 ? OperationType.Remove : OperationType.Upsert,
             item1,
-            new EpochTimestamp(timestamp1),
+            new CrdtTimestamp(timestamp1),
             0);
 
         var item2 = new PqItem { Id = id2, Priority = priority2 };
@@ -121,7 +121,7 @@ public sealed class PriorityQueueStrategyProperties
             nameof(PriorityQueueTestPoco.Queue),
             isRemove2 ? OperationType.Remove : OperationType.Upsert,
             item2,
-            new EpochTimestamp(timestamp2),
+            new CrdtTimestamp(timestamp2),
             0);
 
         var stateAB = new PriorityQueueTestPoco();
@@ -153,7 +153,7 @@ public sealed class PriorityQueueStrategyProperties
                 nameof(PriorityQueueTestPoco.Queue),
                 isRemove ? OperationType.Remove : OperationType.Upsert,
                 item,
-                new EpochTimestamp(x.Item1),
+                new CrdtTimestamp(x.Item1),
                 0);
         }).ToList();
 

@@ -54,7 +54,7 @@ public sealed class GCounterStrategyProperties
             nameof(GCounterTestPoco.Value),
             OperationType.Increment,
             inc1,
-            new EpochTimestamp(1),
+            new CrdtTimestamp(1),
             0);
 
         var op2 = new CrdtOperation(
@@ -63,7 +63,7 @@ public sealed class GCounterStrategyProperties
             nameof(GCounterTestPoco.Value),
             OperationType.Increment,
             inc2,
-            new EpochTimestamp(2),
+            new CrdtTimestamp(2),
             0);
 
         var stateAB = new GCounterTestPoco();
@@ -91,7 +91,7 @@ public sealed class GCounterStrategyProperties
             nameof(GCounterTestPoco.Value),
             OperationType.Increment,
             (decimal)Math.Abs(inc) + 1m,
-            new EpochTimestamp(i),
+            new CrdtTimestamp(i),
             0)).ToList();
 
         var random = new Random(rawIncrements.Count);

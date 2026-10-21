@@ -106,10 +106,10 @@ public sealed class AsyncCrdtPatcherDecoratorBaseTests
         var document = new CrdtDocument<TestModel>(new TestModel());
         Expression<Func<TestModel, string?>> expression = m => m.Property;
         var intentMock = new Mock<IOperationIntent>();
-        var timestampMock = new Mock<ICrdtTimestamp>();
+        var timestamp = new CrdtTimestamp(123L);
         var expectedOp = new CrdtOperation { Id = Guid.NewGuid() };
 
-        innerMock.Setup(m => m.GenerateOperationAsync(document, expression, intentMock.Object, timestampMock.Object, cts.Token))
+        innerMock.Setup(m => m.GenerateOperationAsync(document, expression, intentMock.Object, timestamp, cts.Token))
             .ReturnsAsync(() => 
             {
                 cts.Cancel(); 
@@ -117,7 +117,7 @@ public sealed class AsyncCrdtPatcherDecoratorBaseTests
             });
 
         // Act
-        var result = await decorator.GenerateOperationAsync(document, expression, intentMock.Object, timestampMock.Object, cts.Token);
+        var result = await decorator.GenerateOperationAsync(document, expression, intentMock.Object, timestamp, cts.Token);
 
         // Assert
         result.ShouldBe(expectedOp);
@@ -125,7 +125,7 @@ public sealed class AsyncCrdtPatcherDecoratorBaseTests
         decorator.CapturedAfterToken.ShouldBe(CancellationToken.None);
         decorator.CapturedAfterToken.CanBeCanceled.ShouldBeFalse();
         
-        innerMock.Verify(m => m.GenerateOperationAsync(document, expression, intentMock.Object, timestampMock.Object, cts.Token), Times.Once);
+        innerMock.Verify(m => m.GenerateOperationAsync(document, expression, intentMock.Object, timestamp, cts.Token), Times.Once);
     }
 
     [Fact]
@@ -182,19 +182,19 @@ public sealed class AsyncCrdtPatcherDecoratorBaseTests
             return inner.GenerateOperationAsync(document, propertyExpression, intent, cancellationToken);
         }
 
-        protected override Task OnBeforeGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, ICrdtTimestamp timestamp, CancellationToken cancellationToken)
+        protected override Task OnBeforeGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CrdtTimestamp timestamp, CancellationToken cancellationToken)
         {
             CapturedBeforeToken = cancellationToken;
             return Task.CompletedTask;
         }
 
-        protected override Task OnAfterGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, ICrdtTimestamp timestamp, CrdtOperation result, CancellationToken cancellationToken)
+        protected override Task OnAfterGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CrdtTimestamp timestamp, CrdtOperation result, CancellationToken cancellationToken)
         {
             CapturedAfterToken = cancellationToken;
             return Task.CompletedTask;
         }
 
-        protected override Task<CrdtOperation> OnComplexGenerateOperationAsync<T, TProp>(IAsyncCrdtPatcher inner, CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, ICrdtTimestamp timestamp, CancellationToken cancellationToken)
+        protected override Task<CrdtOperation> OnComplexGenerateOperationAsync<T, TProp>(IAsyncCrdtPatcher inner, CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CrdtTimestamp timestamp, CancellationToken cancellationToken)
         {
             CapturedComplexToken = cancellationToken;
             return inner.GenerateOperationAsync(document, propertyExpression, intent, timestamp, cancellationToken);

@@ -4,12 +4,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Services.Pooling;
 
 /// <summary>
 /// A utility class containing helper methods for parsing JSON paths and resolving them against POCOs using Source Generator AOT Contexts.
@@ -150,7 +150,7 @@ internal static class PocoPathHelper
         var segments = new List<string>();
         foreach (var segment in EnumeratePath(path))
         {
-            segments.Add(segment.ToString());
+            segments.Add(CrdtStringPool.Shared.GetOrAdd(segment));
         }
 
         return [.. segments];
@@ -223,11 +223,7 @@ internal static class PocoPathHelper
             }
             else
             {
-                var currentSegmentStr = currentSegment.ToString();
-
-                var propertyInfo = currentTypeInfo.Properties.Values.FirstOrDefault(p => 
-                    p.JsonName.Equals(currentSegmentStr, StringComparison.OrdinalIgnoreCase) || 
-                    p.Name.Equals(currentSegmentStr, StringComparison.OrdinalIgnoreCase));
+                var propertyInfo = FindProperty(currentTypeInfo, currentSegment);
 
                 if (propertyInfo != null)
                 {
@@ -272,14 +268,11 @@ internal static class PocoPathHelper
         }
         
         var finalTypeInfo = GetTypeInfo(currentObject.GetType(), aotContexts);
-        var finalSegmentStr = currentSegment.ToString();
-        var finalProperty = finalTypeInfo.Properties.Values.FirstOrDefault(p => 
-            p.JsonName.Equals(finalSegmentStr, StringComparison.OrdinalIgnoreCase) || 
-            p.Name.Equals(finalSegmentStr, StringComparison.OrdinalIgnoreCase));
+        var finalProperty = FindProperty(finalTypeInfo, currentSegment);
 
         if (finalProperty != null)
         {
-            return new PathResolutionResult(currentObject, finalProperty, finalSegmentStr);
+            return new PathResolutionResult(currentObject, finalProperty, finalProperty.JsonName);
         }
         
         return new PathResolutionResult(null, null, null);
@@ -629,11 +622,12 @@ internal static class PocoPathHelper
         return type != typeof(string) && typeof(IEnumerable).IsAssignableFrom(type);
     }
 
-    internal static ParseResult ParseExpression<T, TProp>(Expression<Func<T, TProp>> expression, IEnumerable<CrdtAotContext> aotContexts)
+    internal static ParseResult ParseExpression<T, TProp>(Expression<Func<T, TProp>> expression, IEnumerable<CrdtAotContext> aotContexts, ICrdtStringPool? stringPool = null)
     {
         ArgumentNullException.ThrowIfNull(expression);
         ArgumentNullException.ThrowIfNull(aotContexts);
 
+        var pool = stringPool ?? CrdtStringPool.Shared;
         var current = expression.Body;
         
         if (current is UnaryExpression unary)
@@ -643,11 +637,13 @@ internal static class PocoPathHelper
 
         string? targetPropertyName = null;
         Type? declaringType = null;
+        bool isDirectRootAccess = false;
         
         if (current is MemberExpression initialMe)
         {
             targetPropertyName = initialMe.Member.Name;
             declaringType = initialMe.Member.DeclaringType;
+            isDirectRootAccess = initialMe.Expression is ParameterExpression;
         }
 
         if (targetPropertyName is null)
@@ -658,16 +654,33 @@ internal static class PocoPathHelper
                 "and use a collection-specific intent (e.g., SetIndexIntent or MapSetIntent).", nameof(expression));
         }
 
-        var jsonPath = BuildJsonPath(current);
         declaringType ??= typeof(T);
 
         var typeInfo = GetTypeInfo(declaringType, aotContexts);
         if (typeInfo.Properties.TryGetValue(targetPropertyName, out var crdtProperty))
         {
+            var jsonPath = isDirectRootAccess
+                ? crdtProperty.RootJsonPath
+                : pool.GetOrAdd(BuildJsonPath(current));
+
             return new ParseResult(jsonPath, crdtProperty, declaringType);
         }
 
         throw new InvalidOperationException($"Could not resolve AOT property info for {targetPropertyName}");
+    }
+
+    private static CrdtPropertyInfo? FindProperty(CrdtTypeInfo typeInfo, ReadOnlySpan<char> segment)
+    {
+        foreach (var prop in typeInfo.Properties.Values)
+        {
+            if (segment.Equals(prop.JsonName.AsSpan(), StringComparison.OrdinalIgnoreCase) ||
+                segment.Equals(prop.Name.AsSpan(), StringComparison.OrdinalIgnoreCase))
+            {
+                return prop;
+            }
+        }
+
+        return null;
     }
 
     private static string BuildJsonPath(Expression expression)

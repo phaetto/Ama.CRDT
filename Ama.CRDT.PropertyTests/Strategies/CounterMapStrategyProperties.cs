@@ -65,7 +65,7 @@ public sealed class CounterMapStrategyProperties
             nameof(CounterMapTestPoco.Counters),
             OperationType.Increment,
             new KeyValuePair<object, object?>(key1, (decimal)inc1),
-            new EpochTimestamp(1),
+            new CrdtTimestamp(1),
             0);
 
         var op2 = new CrdtOperation(
@@ -74,7 +74,7 @@ public sealed class CounterMapStrategyProperties
             nameof(CounterMapTestPoco.Counters),
             OperationType.Increment,
             new KeyValuePair<object, object?>(key2, (decimal)inc2),
-            new EpochTimestamp(2),
+            new CrdtTimestamp(2),
             0);
 
         var stateAB = new CounterMapTestPoco();
@@ -102,7 +102,7 @@ public sealed class CounterMapStrategyProperties
             nameof(CounterMapTestPoco.Counters),
             OperationType.Increment,
             new KeyValuePair<object, object?>(x.Item1, (decimal)x.Item2),
-            new EpochTimestamp(i),
+            new CrdtTimestamp(i),
             0)).ToList();
 
         var random = new Random(opsData.Count);

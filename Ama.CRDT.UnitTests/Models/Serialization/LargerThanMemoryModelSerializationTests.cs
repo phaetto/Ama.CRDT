@@ -61,7 +61,7 @@ public sealed class LargerThanMemoryModelSerializationTests
     {
         var data = "test-data";
         var metadata = new CrdtMetadata();
-        metadata.States["$.prop"] = new CausalTimestamp(new EpochTimestamp(1), "R1", 1);
+        metadata.States["$.prop"] = new CausalTimestamp(new CrdtTimestamp(1), "R1", 1);
         
         var content = new ChunkContent(data, metadata);
 

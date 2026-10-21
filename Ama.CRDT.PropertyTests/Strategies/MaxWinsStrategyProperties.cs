@@ -51,7 +51,7 @@ public sealed class MaxWinsStrategyProperties
             nameof(MaxWinsTestPoco.Value),
             OperationType.Upsert,
             value,
-            new EpochTimestamp(timestamp),
+            new CrdtTimestamp(timestamp),
             0);
 
         var state1 = new MaxWinsTestPoco();
@@ -74,7 +74,7 @@ public sealed class MaxWinsStrategyProperties
             nameof(MaxWinsTestPoco.Value),
             OperationType.Upsert,
             value1,
-            new EpochTimestamp(timestamp1),
+            new CrdtTimestamp(timestamp1),
             0);
 
         var op2 = new CrdtOperation(
@@ -83,7 +83,7 @@ public sealed class MaxWinsStrategyProperties
             nameof(MaxWinsTestPoco.Value),
             OperationType.Upsert,
             value2,
-            new EpochTimestamp(timestamp2),
+            new CrdtTimestamp(timestamp2),
             0);
 
         var stateAB = new MaxWinsTestPoco();
@@ -111,7 +111,7 @@ public sealed class MaxWinsStrategyProperties
             nameof(MaxWinsTestPoco.Value),
             OperationType.Upsert,
             x.Item2,
-            new EpochTimestamp(x.Item1),
+            new CrdtTimestamp(x.Item1),
             0)).ToList();
 
         var random = new Random(rawOps.Count);

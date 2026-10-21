@@ -33,10 +33,68 @@ public sealed class CrdtPayloadJsonConverterFactory : JsonConverterFactory
 
         public override T? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
-            var node = JsonNode.Parse(ref reader);
-            if (node is null) return default;
+            if (reader.TokenType == JsonTokenType.Null)
+            {
+                return default;
+            }
 
-            if (node is not JsonObject jsonObject)
+            if (reader.TokenType != JsonTokenType.StartObject)
+            {
+                throw new JsonException($"Expected JSON object for {typeof(T).Name} payload containing discriminator.");
+            }
+
+            // Fast path: check if $type is the first property in the JSON object using a struct copy of Utf8JsonReader
+            var lookahead = reader;
+            if (lookahead.Read() && lookahead.TokenType == JsonTokenType.PropertyName && lookahead.ValueTextEquals(TypeDiscriminator))
+            {
+                if (lookahead.Read() && lookahead.TokenType == JsonTokenType.String)
+                {
+                    int maxChars = lookahead.HasValueSequence ? checked((int)lookahead.ValueSequence.Length) : lookahead.ValueSpan.Length;
+                    if (maxChars <= 128)
+                    {
+                        Span<char> discBuffer = stackalloc char[128];
+                        int written = lookahead.CopyString(discBuffer);
+                        var discSpan = discBuffer.Slice(0, written);
+
+                        if (!CrdtTypeRegistry.TryGetType(discSpan, out var fastTargetType))
+                        {
+                            throw new NotSupportedException($"Type with discriminator '{discSpan.ToString()}' is not registered in CrdtTypeRegistry. Explicit type registration is required for AOT compatibility. Use ServiceCollection.AddCrdtSerializableType to register it.");
+                        }
+
+                        var afterTypeReader = lookahead;
+                        if (lookahead.Read() && lookahead.TokenType == JsonTokenType.PropertyName && lookahead.ValueTextEquals(ValueProperty))
+                        {
+                            if (!lookahead.Read())
+                            {
+                                throw new JsonException("Unexpected end of JSON while reading payload value.");
+                            }
+
+                            var fastTypeInfo = options.GetTypeInfo(fastTargetType);
+                            var fastVal = JsonSerializer.Deserialize(ref lookahead, fastTypeInfo);
+
+                            if (lookahead.Read() && lookahead.TokenType == JsonTokenType.EndObject)
+                            {
+                                reader = lookahead;
+                                return (T?)fastVal;
+                            }
+                        }
+                        else if (afterTypeReader.TokenType == JsonTokenType.EndObject)
+                        {
+                            // Only $type was present in the object
+                            var fastTypeInfo = options.GetTypeInfo(fastTargetType);
+                            var node = new JsonObject();
+                            var fastVal = node.Deserialize(fastTypeInfo);
+                            reader = afterTypeReader;
+                            return (T?)fastVal;
+                        }
+                    }
+                }
+            }
+
+            var parsedNode = JsonNode.Parse(ref reader);
+            if (parsedNode is null) return default;
+
+            if (parsedNode is not JsonObject jsonObject)
             {
                 throw new JsonException($"Expected JSON object for {typeof(T).Name} payload containing discriminator.");
             }
@@ -47,7 +105,7 @@ public sealed class CrdtPayloadJsonConverterFactory : JsonConverterFactory
             }
 
             var typeDiscriminatorValue = typeNode.GetValue<string>();
-            if (!CrdtTypeRegistry.TryGetType(typeDiscriminatorValue!, out var targetType))
+            if (!CrdtTypeRegistry.TryGetType(typeDiscriminatorValue.AsSpan(), out var targetType))
             {
                 throw new NotSupportedException($"Type with discriminator '{typeDiscriminatorValue}' is not registered in CrdtTypeRegistry. Explicit type registration is required for AOT compatibility. Use ServiceCollection.AddCrdtSerializableType to register it.");
             }

@@ -48,7 +48,7 @@ public sealed class RgaStrategyProperties
             nameof(RgaTestPoco.Items),
             isRemove ? OperationType.Remove : OperationType.Upsert,
             isRemove ? (object)rgaId : new RgaItem(rgaId, null, item, false),
-            new EpochTimestamp(timestamp),
+            new CrdtTimestamp(timestamp),
             0);
 
         var state1 = new RgaTestPoco();
@@ -79,7 +79,7 @@ public sealed class RgaStrategyProperties
             nameof(RgaTestPoco.Items),
             isRemove1 ? OperationType.Remove : OperationType.Upsert,
             isRemove1 ? (object)rgaId1 : new RgaItem(rgaId1, null, item1, false),
-            new EpochTimestamp(timestamp1),
+            new CrdtTimestamp(timestamp1),
             0);
 
         var op2 = new CrdtOperation(
@@ -88,7 +88,7 @@ public sealed class RgaStrategyProperties
             nameof(RgaTestPoco.Items),
             isRemove2 ? OperationType.Remove : OperationType.Upsert,
             isRemove2 ? (object)rgaId2 : new RgaItem(rgaId2, null, item2, false),
-            new EpochTimestamp(timestamp2),
+            new CrdtTimestamp(timestamp2),
             0);
 
         var stateAB = new RgaTestPoco();
@@ -120,7 +120,7 @@ public sealed class RgaStrategyProperties
                 nameof(RgaTestPoco.Items),
                 isRemove ? OperationType.Remove : OperationType.Upsert,
                 isRemove ? (object)rgaId : new RgaItem(rgaId, null, x.Item2, false),
-                new EpochTimestamp(x.Item1),
+                new CrdtTimestamp(x.Item1),
                 0);
         }).ToList();
 

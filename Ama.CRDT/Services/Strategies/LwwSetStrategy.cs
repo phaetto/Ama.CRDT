@@ -109,7 +109,7 @@ public sealed class LwwSetStrategy(
 
         if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not LwwSetState state)
         {
-            var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
+            var adds = new Dictionary<object, CrdtTimestamp>(comparer);
             for (int i = 0; i < listRepresentation.Count; i++)
             {
                 adds[listRepresentation[i]] = timestampProvider.Create(0);
@@ -283,8 +283,8 @@ public sealed class LwwSetStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        var adds1 = new Dictionary<object, ICrdtTimestamp>(comparer);
-        var adds2 = new Dictionary<object, ICrdtTimestamp>(comparer);
+        var adds1 = new Dictionary<object, CrdtTimestamp>(comparer);
+        var adds2 = new Dictionary<object, CrdtTimestamp>(comparer);
         foreach (var kvp in state.Adds)
         {
             if (keys1.Contains((IComparable)kvp.Key)) adds1[kvp.Key] = kvp.Value;
@@ -326,7 +326,7 @@ public sealed class LwwSetStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
+        var adds = new Dictionary<object, CrdtTimestamp>(comparer);
         var rems = new Dictionary<object, CausalTimestamp>(comparer);
 
         if (meta1.States.TryGetValue(path, out var baseState1) && baseState1 is LwwSetState state1)
@@ -366,7 +366,7 @@ public sealed class LwwSetStrategy(
 
         if (!meta1.States.TryGetValue(propertyPath, out var baseState1) || baseState1 is not LwwSetState state1)
         {
-            state1 = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
+            state1 = new LwwSetState(new Dictionary<object, CrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
             meta1.States[propertyPath] = state1;
         }
 

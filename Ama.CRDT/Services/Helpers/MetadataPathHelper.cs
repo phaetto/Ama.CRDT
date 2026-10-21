@@ -1,5 +1,8 @@
 namespace Ama.CRDT.Services.Helpers;
 
+using System;
+using Ama.CRDT.Services.Pooling;
+
 /// <summary>
 /// Provides formalized methods for constructing and evaluating metadata state paths,
 /// ensuring that decorator strategies can isolate their state without colliding with
@@ -17,8 +20,35 @@ public static class MetadataPathHelper
     /// <returns>A formalized metadata key string.</returns>
     public static string GetDecoratorPath(string jsonPath, string decoratorKey)
     {
+        return GetDecoratorPath(jsonPath, decoratorKey, CrdtStringPool.Shared);
+    }
+
+    /// <summary>
+    /// Generates a unique, pooled state path for a decorator strategy based on the target JSON path.
+    /// </summary>
+    /// <param name="jsonPath">The base JSON path (e.g., "$.users[0].name").</param>
+    /// <param name="decoratorKey">A unique identifier for the decorator (e.g., "Epoch").</param>
+    /// <param name="stringPool">The string pool used to deduplicate the resulting path.</param>
+    /// <returns>A formalized metadata key string.</returns>
+    public static string GetDecoratorPath(string jsonPath, string decoratorKey, ICrdtStringPool stringPool)
+    {
+        ArgumentNullException.ThrowIfNull(jsonPath);
+        ArgumentNullException.ThrowIfNull(decoratorKey);
+        ArgumentNullException.ThrowIfNull(stringPool);
+
         var basePath = GetBasePath(jsonPath);
-        return $"{basePath}{DecoratorDelimiter}{decoratorKey}";
+        int totalLength = basePath.Length + 1 + decoratorKey.Length;
+
+        if (totalLength <= 128)
+        {
+            Span<char> buffer = stackalloc char[128];
+            basePath.AsSpan().CopyTo(buffer);
+            buffer[basePath.Length] = DecoratorDelimiter;
+            decoratorKey.AsSpan().CopyTo(buffer.Slice(basePath.Length + 1));
+            return stringPool.GetOrAdd(buffer.Slice(0, totalLength));
+        }
+
+        return stringPool.GetOrAdd($"{basePath}{DecoratorDelimiter}{decoratorKey}");
     }
 
     /// <summary>
@@ -29,7 +59,7 @@ public static class MetadataPathHelper
     public static string GetBasePath(string stateKey)
     {
         var idx = stateKey.IndexOf(DecoratorDelimiter);
-        return idx >= 0 ? stateKey.Substring(0, idx) : stateKey;
+        return idx >= 0 ? CrdtStringPool.Shared.GetOrAdd(stateKey.AsSpan(0, idx)) : stateKey;
     }
 
     /// <summary>

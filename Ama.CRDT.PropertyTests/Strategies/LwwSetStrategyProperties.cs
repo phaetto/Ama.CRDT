@@ -58,7 +58,7 @@ public sealed class LwwSetStrategyProperties
             nameof(LwwSetTestPoco.Items),
             isRemove ? OperationType.Remove : OperationType.Upsert,
             item,
-            new EpochTimestamp(timestamp),
+            new CrdtTimestamp(timestamp),
             0);
 
         var state1 = new LwwSetTestPoco();
@@ -86,7 +86,7 @@ public sealed class LwwSetStrategyProperties
             nameof(LwwSetTestPoco.Items),
             isRemove1 ? OperationType.Remove : OperationType.Upsert,
             item1,
-            new EpochTimestamp(timestamp1),
+            new CrdtTimestamp(timestamp1),
             0);
 
         var op2 = new CrdtOperation(
@@ -95,7 +95,7 @@ public sealed class LwwSetStrategyProperties
             nameof(LwwSetTestPoco.Items),
             isRemove2 ? OperationType.Remove : OperationType.Upsert,
             item2,
-            new EpochTimestamp(timestamp2),
+            new CrdtTimestamp(timestamp2),
             0);
 
         var stateAB = new LwwSetTestPoco();
@@ -125,7 +125,7 @@ public sealed class LwwSetStrategyProperties
                 nameof(LwwSetTestPoco.Items),
                 isRemove ? OperationType.Remove : OperationType.Upsert,
                 x.Item2,
-                new EpochTimestamp(x.Item1),
+                new CrdtTimestamp(x.Item1),
                 0);
         }).ToList();
 
@@ -152,7 +152,7 @@ public sealed class LwwSetStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
-        mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>())).Returns(new EpochTimestamp(0));
+        mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>())).Returns(new CrdtTimestamp(0));
 
         var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
         var aotContexts = new CrdtAotContext[] { new LwwSetTestContext() };

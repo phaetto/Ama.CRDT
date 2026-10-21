@@ -40,7 +40,7 @@ public sealed class FwwStrategy(
         
         if (originalMeta.States.TryGetValue(path, out var baseState) && baseState is CausalTimestamp originalCausal)
         {
-            if (originalCausal.Timestamp is not null && changeTimestamp.CompareTo(originalCausal.Timestamp) >= 0)
+            if (changeTimestamp.CompareTo(originalCausal.Timestamp) >= 0)
             {
                 return;
             }
@@ -96,7 +96,7 @@ public sealed class FwwStrategy(
 
         if (!isReset && metadata.States.TryGetValue(operation.JsonPath, out var baseState) && baseState is CausalTimestamp fwwCausal)
         {
-            if (fwwCausal.Timestamp is not null && operation.Timestamp.CompareTo(fwwCausal.Timestamp) >= 0)
+            if (operation.Timestamp.CompareTo(fwwCausal.Timestamp) >= 0)
             {
                 return CrdtOperationStatus.Obsolete;
             }
@@ -164,9 +164,7 @@ public sealed class FwwStrategy(
         var causal2 = (CausalTimestamp)state2!;
         var causal1 = hasState1 ? (CausalTimestamp)state1! : default;
 
-        bool shouldTake2 = !hasState1 || 
-                           (causal1.Timestamp == null) || 
-                           (causal2.Timestamp != null && causal1.Timestamp != null && causal2.Timestamp.CompareTo(causal1.Timestamp) < 0);
+        bool shouldTake2 = !hasState1 || causal2.Timestamp.CompareTo(causal1.Timestamp) < 0;
 
         if (shouldTake2)
         {

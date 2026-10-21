@@ -188,7 +188,7 @@ public sealed class GraphStrategyTests : IDisposable
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
         var intent = new AddVertexIntent("C");
         var propertyInfo = new CrdtPropertyInfo("Graph", "graph", typeof(CrdtGraph), true, true, obj => ((TestModel)obj).Graph, (obj, val) => ((TestModel)obj).Graph = (CrdtGraph)val!, new CrdtGraphStrategyAttribute(), Array.Empty<CrdtStrategyDecoratorAttribute>());
-        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", propertyInfo, intent, new EpochTimestamp(123), 0);
+        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", propertyInfo, intent, new CrdtTimestamp(123), 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -208,7 +208,7 @@ public sealed class GraphStrategyTests : IDisposable
         var edge = new Edge("C", "D", "connects");
         var intent = new AddEdgeIntent(edge);
         var propertyInfo = new CrdtPropertyInfo("Graph", "graph", typeof(CrdtGraph), true, true, obj => ((TestModel)obj).Graph, (obj, val) => ((TestModel)obj).Graph = (CrdtGraph)val!, new CrdtGraphStrategyAttribute(), Array.Empty<CrdtStrategyDecoratorAttribute>());
-        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", propertyInfo, intent, new EpochTimestamp(123), 0);
+        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", propertyInfo, intent, new CrdtTimestamp(123), 0);
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -227,7 +227,7 @@ public sealed class GraphStrategyTests : IDisposable
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<GraphStrategy>().First();
         var intent = new SetIntent("Invalid");
         var propertyInfo = new CrdtPropertyInfo("Graph", "graph", typeof(CrdtGraph), true, true, obj => ((TestModel)obj).Graph, (obj, val) => ((TestModel)obj).Graph = (CrdtGraph)val!, new CrdtGraphStrategyAttribute(), Array.Empty<CrdtStrategyDecoratorAttribute>());
-        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", propertyInfo, intent, new EpochTimestamp(123), 0);
+        var context = new GenerateOperationContext(new TestModel(), new CrdtMetadata(), "$.Graph", propertyInfo, intent, new CrdtTimestamp(123), 0);
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));

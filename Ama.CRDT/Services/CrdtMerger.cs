@@ -5,14 +5,18 @@ using System.Collections.Generic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Services.Pooling;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 
 /// <inheritdoc/>
 public sealed class CrdtMerger(
     ICrdtStrategyProvider strategyProvider,
-    IEnumerable<CrdtAotContext> aotContexts) : ICrdtMerger
+    IEnumerable<CrdtAotContext> aotContexts,
+    ICrdtStringPool? stringPool = null) : ICrdtMerger
 {
+    private readonly ICrdtStringPool pool = stringPool ?? CrdtStringPool.Shared;
+
     private readonly record struct MergeObjectContext(
         string Path,
         Type Type,
@@ -58,7 +62,7 @@ public sealed class CrdtMerger(
 
             foreach (var propertyInfo in typeInfo.Properties.Values)
             {
-                var currentPath = isRoot ? $"$.{propertyInfo.JsonName}" : $"{context.Path}.{propertyInfo.JsonName}";
+                var currentPath = isRoot ? propertyInfo.RootJsonPath : pool.GetOrAdd($"{context.Path}.{propertyInfo.JsonName}");
                 var pValue1 = context.PrimaryObj is not null && propertyInfo.CanRead ? propertyInfo.Getter!(context.PrimaryObj) : null;
                 var pValue2 = context.SecondaryObj is not null && propertyInfo.CanRead ? propertyInfo.Getter!(context.SecondaryObj) : null;
 

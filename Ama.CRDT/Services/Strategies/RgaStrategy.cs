@@ -484,9 +484,9 @@ public sealed class RgaStrategy(
         {
             var item = candidates.Dequeue();
             
-            // RGA items don't store insertion timestamps via ICrdtTimestamp natively, so we approximate with the ticks from the identifier.
+            // RGA items don't store insertion timestamps via CrdtTimestamp natively, so we approximate with the ticks from the identifier.
             long unixMs = (item.Identifier.Timestamp - DateTime.UnixEpoch.Ticks) / TimeSpan.TicksPerMillisecond;
-            if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: new EpochTimestamp(unixMs), ReplicaId: item.DeletedByReplicaId, Version: item.DeletedAtClock)))
+            if (context.Policy.IsSafeToCompact(new CompactionCandidate(Timestamp: new CrdtTimestamp(unixMs, 0, 0, item.Identifier.ReplicaId), ReplicaId: item.DeletedByReplicaId, Version: item.DeletedAtClock)))
             {
                 itemsToRemove.Add(item.Identifier);
                 

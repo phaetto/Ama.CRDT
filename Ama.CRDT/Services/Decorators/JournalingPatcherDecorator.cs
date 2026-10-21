@@ -52,7 +52,7 @@ public sealed class JournalingPatcherDecorator : AsyncCrdtPatcherDecoratorBase
     }
 
     /// <inheritdoc/>
-    protected override async Task OnAfterGeneratePatchAsync<T>(CrdtDocument<T> from, T changed, ICrdtTimestamp changeTimestamp, CrdtPatch result, CancellationToken cancellationToken)
+    protected override async Task OnAfterGeneratePatchAsync<T>(CrdtDocument<T> from, T changed, CrdtTimestamp changeTimestamp, CrdtPatch result, CancellationToken cancellationToken)
     {
         if (result.Operations is { Count: > 0 })
         {
@@ -69,7 +69,7 @@ public sealed class JournalingPatcherDecorator : AsyncCrdtPatcherDecoratorBase
     }
 
     /// <inheritdoc/>
-    protected override async Task OnAfterGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, ICrdtTimestamp timestamp, CrdtOperation result, CancellationToken cancellationToken)
+    protected override async Task OnAfterGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CrdtTimestamp timestamp, CrdtOperation result, CancellationToken cancellationToken)
     {
         var docId = this.documentIdProvider.GetDocumentId(document.Data);
         await this.journal.AppendAsync(docId, new[] { result }, cancellationToken).ConfigureAwait(false);

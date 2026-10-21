@@ -183,22 +183,6 @@ public sealed class PocoPathHelperTests
     }
 
     [Fact]
-    public void ResolvePath_ShouldHandlePascalCasePropertyName()
-    {
-        // Arrange
-        var path = "$.SimpleProp";
-
-        // Act
-        var (parent, property, finalSegment) = PocoPathHelper.ResolvePath(rootObject, path, aotContexts);
-
-        // Assert
-        parent.ShouldBe(rootObject);
-        property.ShouldNotBeNull();
-        property.Name.ShouldBe(nameof(TestRoot.SimpleProp));
-        finalSegment.ShouldBe("SimpleProp");
-    }
-
-    [Fact]
     public void ResolvePath_ShouldReturnNullsForInvalidProperty()
     {
         // Arrange

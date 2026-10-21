@@ -47,7 +47,7 @@ public sealed class StateMachineStrategy(
             return;
         }
         
-        if (originalMeta.States.TryGetValue(path, out var baseState) && baseState is CausalTimestamp originalTimestamp && originalTimestamp.Timestamp is not null && changeTimestamp.CompareTo(originalTimestamp.Timestamp) <= 0)
+        if (originalMeta.States.TryGetValue(path, out var baseState) && baseState is CausalTimestamp originalTimestamp && changeTimestamp.CompareTo(originalTimestamp.Timestamp) <= 0)
         {
             return;
         }
@@ -113,7 +113,7 @@ public sealed class StateMachineStrategy(
             return CrdtOperationStatus.StrategyApplicationFailed;
         }
 
-        if (metadata.States.TryGetValue(operation.JsonPath, out var baseState) && baseState is CausalTimestamp lwwTs && lwwTs.Timestamp is not null && operation.Timestamp.CompareTo(lwwTs.Timestamp) <= 0)
+        if (metadata.States.TryGetValue(operation.JsonPath, out var baseState) && baseState is CausalTimestamp lwwTs && operation.Timestamp.CompareTo(lwwTs.Timestamp) <= 0)
         {
             return CrdtOperationStatus.Obsolete;
         }
@@ -146,11 +146,7 @@ public sealed class StateMachineStrategy(
         {
             shouldUpdate = true;
         }
-        else if (state1.Timestamp is null)
-        {
-            shouldUpdate = true;
-        }
-        else if (state2.Timestamp is not null && state2.Timestamp.CompareTo(state1.Timestamp) > 0)
+        else if (state2.Timestamp.CompareTo(state1.Timestamp) > 0)
         {
             shouldUpdate = true;
         }

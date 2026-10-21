@@ -53,8 +53,8 @@ public class AsyncCrdtApplicatorExtensionsTests
     {
         var applicatorMock = new Mock<IAsyncCrdtApplicator>();
         var doc = new CrdtDocument<TestModel>(new TestModel("A"), new CrdtMetadata());
-        var op1 = new CrdtOperation(Guid.NewGuid(), "R1", "Name", OperationType.Upsert, "B", new EpochTimestamp(1));
-        var op2 = new CrdtOperation(Guid.NewGuid(), "R1", "Name", OperationType.Upsert, "C", new EpochTimestamp(2));
+        var op1 = new CrdtOperation(Guid.NewGuid(), "R1", "Name", OperationType.Upsert, "B", new CrdtTimestamp(1));
+        var op2 = new CrdtOperation(Guid.NewGuid(), "R1", "Name", OperationType.Upsert, "C", new CrdtTimestamp(2));
         
         var ops = ToAsyncEnumerable(new[] 
         { 

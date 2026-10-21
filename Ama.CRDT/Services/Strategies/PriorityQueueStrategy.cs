@@ -272,9 +272,9 @@ public sealed class PriorityQueueStrategy(
     {
         if (metadata.States.TryGetValue(path, out var baseState) && baseState is LwwSetState state)
         {
-            if (state.Adds is Dictionary<object, ICrdtTimestamp> dict && dict.Comparer == EqualityComparer<object>.Default)
+            if (state.Adds is Dictionary<object, CrdtTimestamp> dict && dict.Comparer == EqualityComparer<object>.Default)
             {
-                var newAdds = new Dictionary<object, ICrdtTimestamp>(comparer);
+                var newAdds = new Dictionary<object, CrdtTimestamp>(comparer);
                 foreach (var kvp in state.Adds)
                 {
                     if (!newAdds.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
@@ -299,12 +299,12 @@ public sealed class PriorityQueueStrategy(
             return state;
         }
 
-        var emptyState = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
+        var emptyState = new LwwSetState(new Dictionary<object, CrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
         metadata.States[path] = emptyState;
         return emptyState;
     }
     
-    private bool ApplyUpsert(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, CausalTimestamp> removes, object value, CrdtOperation operation, IEqualityComparer<object> comparer)
+    private bool ApplyUpsert(IList list, IDictionary<object, CrdtTimestamp> adds, IDictionary<object, CausalTimestamp> removes, object value, CrdtOperation operation, IEqualityComparer<object> comparer)
     {
         if (removes.TryGetValue(value, out var removeCausalTs) && operation.Timestamp.CompareTo(removeCausalTs.Timestamp) < 0)
         {
@@ -327,7 +327,7 @@ public sealed class PriorityQueueStrategy(
         return true;
     }
     
-    private bool ApplyRemove(IList list, IDictionary<object, ICrdtTimestamp> adds, IDictionary<object, CausalTimestamp> removes, object value, CrdtOperation operation, IEqualityComparer<object> comparer)
+    private bool ApplyRemove(IList list, IDictionary<object, CrdtTimestamp> adds, IDictionary<object, CausalTimestamp> removes, object value, CrdtOperation operation, IEqualityComparer<object> comparer)
     {
         var causalTimestamp = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);
 

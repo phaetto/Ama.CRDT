@@ -77,15 +77,15 @@ public sealed class JournalingPatcherDecoratorTests
 
         var document = new CrdtDocument<TestModel>(new TestModel());
         var changed = new TestModel();
-        var timestampMock = new Mock<ICrdtTimestamp>();
+        var timestamp = new CrdtTimestamp(123L);
 
         var op = new CrdtOperation { Id = Guid.NewGuid() };
         var patch = new CrdtPatch(new[] { op });
 
-        patcherMock.Setup(m => m.GeneratePatchAsync(document, changed, timestampMock.Object, It.IsAny<CancellationToken>())).ReturnsAsync(patch);
+        patcherMock.Setup(m => m.GeneratePatchAsync(document, changed, timestamp, It.IsAny<CancellationToken>())).ReturnsAsync(patch);
 
         // Act
-        var result = await decorator.GeneratePatchAsync(document, changed, timestampMock.Object);
+        var result = await decorator.GeneratePatchAsync(document, changed, timestamp);
 
         // Assert
         result.ShouldBe(patch);

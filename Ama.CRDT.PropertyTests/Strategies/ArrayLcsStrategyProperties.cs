@@ -62,7 +62,7 @@ public sealed class ArrayLcsStrategyProperties
             nameof(ArrayLcsTestPoco.Items),
             OperationType.Upsert,
             new PositionalItem(position1, val1 ?? string.Empty),
-            new EpochTimestamp(1),
+            new CrdtTimestamp(1),
             0);
 
         var op2 = new CrdtOperation(
@@ -71,7 +71,7 @@ public sealed class ArrayLcsStrategyProperties
             nameof(ArrayLcsTestPoco.Items),
             OperationType.Upsert,
             new PositionalItem(position2, val2 ?? string.Empty),
-            new EpochTimestamp(2),
+            new CrdtTimestamp(2),
             0);
 
         var stateAB = new ArrayLcsTestPoco();
@@ -110,7 +110,7 @@ public sealed class ArrayLcsStrategyProperties
                     nameof(ArrayLcsTestPoco.Items),
                     OperationType.Upsert,
                     new PositionalItem(position, val),
-                    new EpochTimestamp(i),
+                    new CrdtTimestamp(i),
                     0);
             }
             else
@@ -121,7 +121,7 @@ public sealed class ArrayLcsStrategyProperties
                     nameof(ArrayLcsTestPoco.Items),
                     OperationType.Remove,
                     new PositionalIdentifier(position, opId),
-                    new EpochTimestamp(i),
+                    new CrdtTimestamp(i),
                     0);
             }
         }).ToList();

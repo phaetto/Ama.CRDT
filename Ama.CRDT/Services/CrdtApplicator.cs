@@ -2,6 +2,7 @@ namespace Ama.CRDT.Services;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Services.Pooling;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Services.Helpers;
@@ -17,8 +18,11 @@ public sealed class CrdtApplicator(
     ICrdtMetadataManager metadataManager,
     ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts,
-    IShardIdProvider shardIdProvider) : ICrdtApplicator
+    IShardIdProvider shardIdProvider,
+    ICrdtStringPool? stringPool = null) : ICrdtApplicator
 {
+    private readonly ICrdtStringPool pool = stringPool ?? CrdtStringPool.Shared;
+
     /// <inheritdoc/>
     public ApplyPatchResult<T> ApplyPatch<T>(CrdtDocument<T> document, CrdtPatch patch) where T : class
     {
@@ -30,7 +34,7 @@ public sealed class CrdtApplicator(
             return new ApplyPatchResult<T>(document, Array.Empty<UnappliedOperation>());
         }
 
-        var fallbackShardId = shardIdProvider.GetShardId(document);
+        var fallbackShardId = pool.GetOrAdd(shardIdProvider.GetShardId(document));
         List<UnappliedOperation>? unappliedOperations = null;
 
         // Avoiding IEnumerator allocations by casting to IReadOnlyList when possible.
@@ -71,7 +75,7 @@ public sealed class CrdtApplicator(
         var strategy = strategyProvider.GetStrategy(operation, document);
 
         // Track causality globally on the replica context using the Shard DVVs.
-        var shardId = !string.IsNullOrEmpty(operation.ShardId) ? operation.ShardId : fallbackShardId;
+        var shardId = !string.IsNullOrEmpty(operation.ShardId) ? pool.GetOrAdd(operation.ShardId) : fallbackShardId;
 
         if (operation.ShardClock > 0 && !string.IsNullOrEmpty(shardId))
         {
@@ -80,7 +84,7 @@ public sealed class CrdtApplicator(
                 shardVector = new DottedVersionVector();
                 replicaContext.ShardVersionVectors[shardId] = shardVector;
             }
-            shardVector.Add(operation.ReplicaId, operation.ShardClock);
+            shardVector.Add(pool.GetOrAdd(operation.ReplicaId), operation.ShardClock);
         }
 
         // Every operation now has a unique, monotonically increasing logical clock for its replica.

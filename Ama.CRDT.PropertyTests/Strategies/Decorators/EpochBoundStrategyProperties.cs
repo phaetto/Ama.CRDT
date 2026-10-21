@@ -49,7 +49,7 @@ public sealed class EpochBoundStrategyProperties
             nameof(EpochBoundTestPoco.Value),
             isClear ? OperationType.Remove : OperationType.Upsert,
             new EpochPayload(epoch, isClear ? null : value),
-            new EpochTimestamp(timestamp),
+            new CrdtTimestamp(timestamp),
             0);
 
         var state1 = new EpochBoundTestPoco();
@@ -76,7 +76,7 @@ public sealed class EpochBoundStrategyProperties
             nameof(EpochBoundTestPoco.Value),
             clear1 ? OperationType.Remove : OperationType.Upsert,
             new EpochPayload(epoch1, clear1 ? null : val1),
-            new EpochTimestamp(ts1),
+            new CrdtTimestamp(ts1),
             0);
 
         var op2 = new CrdtOperation(
@@ -85,7 +85,7 @@ public sealed class EpochBoundStrategyProperties
             nameof(EpochBoundTestPoco.Value),
             clear2 ? OperationType.Remove : OperationType.Upsert,
             new EpochPayload(epoch2, clear2 ? null : val2),
-            new EpochTimestamp(ts2),
+            new CrdtTimestamp(ts2),
             0);
 
         var stateAB = new EpochBoundTestPoco();
@@ -114,7 +114,7 @@ public sealed class EpochBoundStrategyProperties
             nameof(EpochBoundTestPoco.Value),
             x.Item4 ? OperationType.Remove : OperationType.Upsert,
             new EpochPayload(x.Item1, x.Item4 ? null : x.Item3),
-            new EpochTimestamp(x.Item2),
+            new CrdtTimestamp(x.Item2),
             0)).ToList();
 
         var random = new Random(opsData.Count);

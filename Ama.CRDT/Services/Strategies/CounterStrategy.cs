@@ -144,14 +144,14 @@ public sealed class CounterStrategy(
 
         foreach (var kvp in cState2.Contributions)
         {
-            cState1.Contributions.TryGetValue(kvp.Key, out var existing1);
-            var existingP = existing1?.P ?? 0m;
-            var existingN = existing1?.N ?? 0m;
+            var hasExisting = cState1.Contributions.TryGetValue(kvp.Key, out var existing1);
+            var existingP = hasExisting ? existing1.P : 0m;
+            var existingN = hasExisting ? existing1.N : 0m;
 
             var diffP = Math.Max(0m, kvp.Value.P - existingP);
             var diffN = Math.Max(0m, kvp.Value.N - existingN);
 
-            if (diffP > 0m || diffN > 0m)
+            if (diffP > 0m || diffN > 0m || !hasExisting)
             {
                 netDiff += diffP;
                 netDiff -= diffN;
@@ -168,7 +168,7 @@ public sealed class CounterStrategy(
         }
     }
 
-    private CrdtOperation GenerateSetOperation(object root, string path, SetIntent intent, ICrdtTimestamp timestamp, long clock)
+    private CrdtOperation GenerateSetOperation(object root, string path, SetIntent intent, CrdtTimestamp timestamp, long clock)
     {
         var targetValue = PocoPathHelper.ConvertTo<decimal>(intent.Value, aotContexts);
         var currentValue = PocoPathHelper.GetValue<decimal>(root, path, aotContexts);

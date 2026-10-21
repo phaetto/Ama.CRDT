@@ -79,8 +79,8 @@ CrdtDocument<MyModel> myDocument = ...;
 
 // 3. Define a compaction policy.
 long thirtyDaysInMillis = 30L * 24 * 60 * 60 * 1000;
-var nowTimestamp = (EpochTimestamp)timestampProvider.Now();
-var thresholdTimestamp = new EpochTimestamp(nowTimestamp.Value - thirtyDaysInMillis);
+var nowTimestamp = timestampProvider.Now();
+var thresholdTimestamp = new CrdtTimestamp(nowTimestamp.Ticks - thirtyDaysInMillis);
 var ttlPolicy = new ThresholdCompactionPolicy(thresholdTimestamp);
 
 // 4. Compact the document and its metadata

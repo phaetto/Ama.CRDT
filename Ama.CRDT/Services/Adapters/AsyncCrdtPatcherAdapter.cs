@@ -30,7 +30,7 @@ internal sealed class AsyncCrdtPatcherAdapter : IAsyncCrdtPatcher
     }
 
     /// <inheritdoc/>
-    public Task<CrdtPatch> GeneratePatchAsync<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, [DisallowNull] ICrdtTimestamp changeTimestamp, CancellationToken cancellationToken = default) where T : class
+    public Task<CrdtPatch> GeneratePatchAsync<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, [DisallowNull] CrdtTimestamp changeTimestamp, CancellationToken cancellationToken = default) where T : class
     {
         cancellationToken.ThrowIfCancellationRequested();
         
@@ -48,7 +48,7 @@ internal sealed class AsyncCrdtPatcherAdapter : IAsyncCrdtPatcher
     }
 
     /// <inheritdoc/>
-    public Task<CrdtOperation> GenerateOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, [DisallowNull] ICrdtTimestamp timestamp, CancellationToken cancellationToken = default) where T : class
+    public Task<CrdtOperation> GenerateOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, [DisallowNull] CrdtTimestamp timestamp, CancellationToken cancellationToken = default) where T : class
     {
         cancellationToken.ThrowIfCancellationRequested();
         

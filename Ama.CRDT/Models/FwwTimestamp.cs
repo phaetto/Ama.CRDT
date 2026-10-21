@@ -6,14 +6,11 @@ using System;
 /// A data structure that bundles a logical timestamp with the causal identity (replica and clock) of the operation
 /// specifically configured for First-Writer-Wins (FWW) conflict resolution.
 /// </summary>
-public readonly record struct FwwTimestamp(ICrdtTimestamp Timestamp, string ReplicaId, long Clock) : IComparable<FwwTimestamp>, ICrdtMetadataState
+public readonly record struct FwwTimestamp(CrdtTimestamp Timestamp, string ReplicaId, long Clock) : IComparable<FwwTimestamp>, ICrdtMetadataState
 {
     /// <inheritdoc/>
     public int CompareTo(FwwTimestamp other)
     {
-        if (Timestamp is null && other.Timestamp is null) return 0;
-        if (Timestamp is null) return -1;
-        if (other.Timestamp is null) return 1;
         return Timestamp.CompareTo(other.Timestamp);
     }
 

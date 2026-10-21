@@ -55,7 +55,7 @@ public sealed class ApprovalQuorumStrategyProperties
             nameof(ApprovalQuorumTestPoco.Items),
             OperationType.Upsert,
             new QuorumPayload(x.Item3),
-            new EpochTimestamp(x.Item1),
+            new CrdtTimestamp(x.Item1),
             0)).ToList();
 
         var random = new Random(opsData.Count);

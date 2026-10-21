@@ -58,7 +58,7 @@ public sealed class VoteCounterStrategyProperties
             nameof(VoteCounterTestPoco.Votes),
             OperationType.Upsert,
             new VotePayload(voter, option),
-            new EpochTimestamp(timestamp),
+            new CrdtTimestamp(timestamp),
             0);
 
         var state1 = new VoteCounterTestPoco();
@@ -86,7 +86,7 @@ public sealed class VoteCounterStrategyProperties
             nameof(VoteCounterTestPoco.Votes),
             OperationType.Upsert,
             new VotePayload(voter1, option1),
-            new EpochTimestamp(timestamp1),
+            new CrdtTimestamp(timestamp1),
             0);
 
         var op2 = new CrdtOperation(
@@ -95,7 +95,7 @@ public sealed class VoteCounterStrategyProperties
             nameof(VoteCounterTestPoco.Votes),
             OperationType.Upsert,
             new VotePayload(voter2, option2),
-            new EpochTimestamp(timestamp2),
+            new CrdtTimestamp(timestamp2),
             0);
 
         var stateAB = new VoteCounterTestPoco();
@@ -124,7 +124,7 @@ public sealed class VoteCounterStrategyProperties
             nameof(VoteCounterTestPoco.Votes),
             OperationType.Upsert,
             new VotePayload(x.Item2, x.Item3),
-            new EpochTimestamp(x.Item1),
+            new CrdtTimestamp(x.Item1),
             0)).ToList();
 
         var random = new Random(opsData.Count);
