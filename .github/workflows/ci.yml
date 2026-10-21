@@ -73,3 +73,13 @@ jobs:
 
       - name: Test
         run: dotnet test ${{ env.SOLUTION_FILE }} --configuration Release --no-build --verbosity normal -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
+
+      - name: Pack and Verify Analyzers
+        run: |
+          dotnet pack Ama.CRDT/Ama.CRDT.csproj --configuration Release --no-build --output ${{ github.workspace }}/nuget -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
+          for nupkg in ${{ github.workspace }}/nuget/Ama.CRDT.*.nupkg; do
+            echo "Inspecting $nupkg..."
+            CONTENTS=$(unzip -l "$nupkg")
+            echo "$CONTENTS" | grep -q "analyzers/dotnet/cs/Ama.CRDT.Analyzers.dll" || { echo "Error: Ama.CRDT.Analyzers.dll is missing from $nupkg!"; exit 1; }
+            echo "$CONTENTS" | grep -q "analyzers/dotnet/cs/Ama.CRDT.SourceGenerators.dll" || { echo "Error: Ama.CRDT.SourceGenerators.dll is missing from $nupkg!"; exit 1; }
+          done
