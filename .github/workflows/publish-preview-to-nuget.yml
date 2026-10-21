@@ -76,8 +76,17 @@ jobs:
 
       - name: Pack
         run: |
-          dotnet pack ${{ env.PROJECT_PATH_MAIN }} --configuration Release --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }} -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
-          dotnet pack ${{ env.PROJECT_PATH_STREAMS }} --configuration Release --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }} -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
+          dotnet pack ${{ env.PROJECT_PATH_MAIN }} --configuration Release --no-build --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }} -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
+          dotnet pack ${{ env.PROJECT_PATH_STREAMS }} --configuration Release --no-build --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }} -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }}
+
+      - name: Verify Package Contents
+        run: |
+          NUPKG="${{ env.PACKAGE_OUTPUT_DIRECTORY }}/Ama.CRDT.${{ env.PACKAGE_VERSION }}.nupkg"
+          echo "Verifying $NUPKG..."
+          CONTENTS=$(unzip -l "$NUPKG")
+          echo "$CONTENTS" | grep -q "analyzers/dotnet/cs/Ama.CRDT.Analyzers.dll" || { echo "Error: Ama.CRDT.Analyzers.dll is missing from $NUPKG!"; exit 1; }
+          echo "$CONTENTS" | grep -q "analyzers/dotnet/cs/Ama.CRDT.SourceGenerators.dll" || { echo "Error: Ama.CRDT.SourceGenerators.dll is missing from $NUPKG!"; exit 1; }
+          echo "Verified: Analyzers and Source Generators are present in $NUPKG."
 
       - name: List created packages
         run: ls -R ${{ env.PACKAGE_OUTPUT_DIRECTORY }}
