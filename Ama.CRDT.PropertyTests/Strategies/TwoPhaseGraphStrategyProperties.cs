@@ -41,7 +41,7 @@ public sealed class TwoPhaseGraphStrategyProperties
             nameof(TwoPhaseGraphTestPoco.Graph),
             isRemove ? OperationType.Remove : OperationType.Upsert,
             payload,
-            new EpochTimestamp(timestamp),
+            new CrdtTimestamp(timestamp),
             0);
 
         var state1 = new TwoPhaseGraphTestPoco();
@@ -71,7 +71,7 @@ public sealed class TwoPhaseGraphStrategyProperties
             nameof(TwoPhaseGraphTestPoco.Graph),
             isRemove1 ? OperationType.Remove : OperationType.Upsert,
             payload1,
-            new EpochTimestamp(timestamp1),
+            new CrdtTimestamp(timestamp1),
             0);
 
         var op2 = new CrdtOperation(
@@ -80,7 +80,7 @@ public sealed class TwoPhaseGraphStrategyProperties
             nameof(TwoPhaseGraphTestPoco.Graph),
             isRemove2 ? OperationType.Remove : OperationType.Upsert,
             payload2,
-            new EpochTimestamp(timestamp2),
+            new CrdtTimestamp(timestamp2),
             0);
 
         var stateAB = new TwoPhaseGraphTestPoco();
@@ -116,7 +116,7 @@ public sealed class TwoPhaseGraphStrategyProperties
                 nameof(TwoPhaseGraphTestPoco.Graph),
                 isRemove ? OperationType.Remove : OperationType.Upsert,
                 payload,
-                new EpochTimestamp(x.Item1),
+                new CrdtTimestamp(x.Item1),
                 0);
         }).ToList();
 

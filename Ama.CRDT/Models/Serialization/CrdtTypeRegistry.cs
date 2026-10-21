@@ -13,7 +13,8 @@ using Ama.CRDT.Models.LargerThanMemory;
 /// </summary>
 public static class CrdtTypeRegistry
 {
-    private static readonly ConcurrentDictionary<string, Type> TypeMap = new();
+    private static readonly ConcurrentDictionary<string, Type> TypeMap = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, Type>.AlternateLookup<ReadOnlySpan<char>> SpanTypeMap = TypeMap.GetAlternateLookup<ReadOnlySpan<char>>();
     private static readonly ConcurrentDictionary<Type, string> DiscriminatorMap = new();
 
     static CrdtTypeRegistry()
@@ -71,7 +72,7 @@ public static class CrdtTypeRegistry
         Register("data-partition", typeof(CollectionChunk));
 
         // Timestamps
-        Register("epoch", typeof(EpochTimestamp));
+        Register("crdt-timestamp", typeof(CrdtTimestamp));
 
         // States
         Register("causal-ts", typeof(CausalTimestamp));
@@ -118,6 +119,14 @@ public static class CrdtTypeRegistry
     /// <param name="type">The type associated with the discriminator, if found.</param>
     /// <returns><c>true</c> if the type was found; otherwise, <c>false</c>.</returns>
     public static bool TryGetType(string discriminator, out Type type) => TypeMap.TryGetValue(discriminator, out type!);
+
+    /// <summary>
+    /// Attempts to retrieve the registered type for a given character span discriminator without allocating a string.
+    /// </summary>
+    /// <param name="discriminator">The character span discriminator used to identify the type.</param>
+    /// <param name="type">The type associated with the discriminator, if found.</param>
+    /// <returns><c>true</c> if the type was found; otherwise, <c>false</c>.</returns>
+    public static bool TryGetType(ReadOnlySpan<char> discriminator, out Type type) => SpanTypeMap.TryGetValue(discriminator, out type!);
 
     /// <summary>
     /// Gets the registered discriminator for a specific type.

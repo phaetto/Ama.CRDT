@@ -25,8 +25,8 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
         private long current = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         private readonly EpochTimestampProvider defaultProvider = new(new ReplicaContext { ReplicaId = "test" });
         
-        public ICrdtTimestamp Now() => defaultProvider.Create(Interlocked.Increment(ref current));
-        public ICrdtTimestamp Create(long value) => defaultProvider.Create(value);
+        public CrdtTimestamp Now() => defaultProvider.Create(Interlocked.Increment(ref current));
+        public CrdtTimestamp Create(long value) => defaultProvider.Create(value);
     }
 
     #region Models and Helpers
@@ -194,11 +194,11 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
         var initialJson = JsonSerializer.Serialize(initial, jsonSerializerOptions);
         var initialForTarget = JsonSerializer.Deserialize<FwwModel>(initialJson, jsonSerializerOptions)!;
 
-        var metadata = metadataManager.Initialize(initial, new EpochTimestamp(1));
+        var metadata = metadataManager.Initialize(initial, new CrdtTimestamp(1));
         var targetDoc = new CrdtDocument<FwwModel>(initialForTarget, metadata.DeepClone());
 
         // Create an operation with an OLDER timestamp so it wins (FWW)
-        var olderTimestamp = new EpochTimestamp(0);
+        var olderTimestamp = new CrdtTimestamp(0);
         var op = new CrdtOperation(Guid.NewGuid(), "test", "$.value", OperationType.Upsert, 20, olderTimestamp, 0);
         var patch = new CrdtPatch(new List<CrdtOperation> { op });
 
@@ -245,11 +245,11 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
         var initialJson = JsonSerializer.Serialize(initial, jsonSerializerOptions);
         var initialForTarget = JsonSerializer.Deserialize<FwwMapModel>(initialJson, jsonSerializerOptions)!;
 
-        var metadata = metadataManager.Initialize(initial, new EpochTimestamp(1));
+        var metadata = metadataManager.Initialize(initial, new CrdtTimestamp(1));
         var targetDoc = new CrdtDocument<FwwMapModel>(initialForTarget, metadata.DeepClone());
 
         // Create an operation with an OLDER timestamp so it wins (FWW)
-        var olderTimestamp = new EpochTimestamp(0);
+        var olderTimestamp = new CrdtTimestamp(0);
         var payload = new KeyValuePair<object, object?>("A", 2);
         var op = new CrdtOperation(Guid.NewGuid(), "test", "$.map", OperationType.Upsert, payload, olderTimestamp, 0);
         var patch = new CrdtPatch(new List<CrdtOperation> { op });

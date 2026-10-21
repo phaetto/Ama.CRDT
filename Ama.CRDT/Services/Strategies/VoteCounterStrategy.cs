@@ -370,7 +370,7 @@ public sealed class VoteCounterStrategy(
                 continue;
             }
             
-            if (kvp.Value is not CausalTimestamp ts2 || ts2.Timestamp is null) 
+            if (kvp.Value is not CausalTimestamp ts2) 
             {
                 continue;
             }
@@ -386,21 +386,14 @@ public sealed class VoteCounterStrategy(
             else
             {
                 var ts1 = (CausalTimestamp)state1!;
-                if (ts1.Timestamp is null)
+                int cmp = ts2.Timestamp.CompareTo(ts1.Timestamp);
+                if (cmp > 0)
                 {
                     isNewer = true;
                 }
-                else
+                else if (cmp == 0 && string.CompareOrdinal(ts2.ReplicaId, ts1.ReplicaId) > 0)
                 {
-                    int cmp = ts2.Timestamp.CompareTo(ts1.Timestamp);
-                    if (cmp > 0)
-                    {
-                        isNewer = true;
-                    }
-                    else if (cmp == 0 && string.CompareOrdinal(ts2.ReplicaId, ts1.ReplicaId) > 0)
-                    {
-                        isNewer = true;
-                    }
+                    isNewer = true;
                 }
             }
 

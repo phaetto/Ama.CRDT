@@ -19,4 +19,4 @@ using Ama.CRDT.Models.Serialization;
 /// <param name="Clock">The monotonically increasing causal sequence number for the originating replica specific to the document. Defaulted to 0 for backwards compatibility in creation.</param>
 /// <param name="ShardId">The identifier of the shard or partition this operation belongs to. Defaulted to empty.</param>
 /// <param name="ShardClock">The monotonically increasing causal sequence number for the originating replica specific to this shard.</param>
-public readonly record struct CrdtOperation(Guid Id, string ReplicaId, string JsonPath, OperationType Type, object? Value, ICrdtTimestamp Timestamp, long Clock = 0, string ShardId = "", long ShardClock = 0);
+public readonly record struct CrdtOperation(Guid Id, string ReplicaId, string JsonPath, OperationType Type, object? Value, CrdtTimestamp Timestamp, long Clock = 0, string ShardId = "", long ShardClock = 0);

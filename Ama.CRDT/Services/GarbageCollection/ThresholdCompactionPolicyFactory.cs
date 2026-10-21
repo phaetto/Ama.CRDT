@@ -10,7 +10,7 @@ using Ama.CRDT.Services.Providers;
 /// </summary>
 public sealed class ThresholdCompactionPolicyFactory : ICompactionPolicyFactory
 {
-    private readonly Func<ICrdtTimestamp>? thresholdTimestampProvider;
+    private readonly Func<CrdtTimestamp>? thresholdTimestampProvider;
     private readonly Func<long>? thresholdVersionProvider;
 
     /// <summary>
@@ -26,12 +26,7 @@ public sealed class ThresholdCompactionPolicyFactory : ICompactionPolicyFactory
         this.thresholdTimestampProvider = () =>
         {
             var now = timestampProvider.Now();
-            if (now is EpochTimestamp epoch)
-            {
-                return new EpochTimestamp(epoch.Value - (long)timeToLive.TotalMilliseconds);
-            }
-
-            throw new InvalidOperationException($"TimeSpan-based TTL is only supported when {nameof(ICrdtTimestampProvider)} returns {nameof(EpochTimestamp)}.");
+            return now with { Ticks = now.Ticks - (long)timeToLive.TotalMilliseconds };
         };
     }
 
@@ -40,7 +35,7 @@ public sealed class ThresholdCompactionPolicyFactory : ICompactionPolicyFactory
     /// </summary>
     /// <param name="thresholdTimestampProvider">A delegate that provides the maximum timestamp considered safe to compact.</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="thresholdTimestampProvider"/> is null.</exception>
-    public ThresholdCompactionPolicyFactory(Func<ICrdtTimestamp> thresholdTimestampProvider)
+    public ThresholdCompactionPolicyFactory(Func<CrdtTimestamp> thresholdTimestampProvider)
     {
         this.thresholdTimestampProvider = thresholdTimestampProvider ?? throw new ArgumentNullException(nameof(thresholdTimestampProvider));
     }
@@ -61,7 +56,7 @@ public sealed class ThresholdCompactionPolicyFactory : ICompactionPolicyFactory
     /// <param name="thresholdTimestampProvider">A delegate that provides the maximum timestamp considered safe to compact.</param>
     /// <param name="thresholdVersionProvider">A delegate that provides the maximum logical version considered safe to compact.</param>
     /// <exception cref="ArgumentNullException">Thrown if either provider is null.</exception>
-    public ThresholdCompactionPolicyFactory(Func<ICrdtTimestamp> thresholdTimestampProvider, Func<long> thresholdVersionProvider)
+    public ThresholdCompactionPolicyFactory(Func<CrdtTimestamp> thresholdTimestampProvider, Func<long> thresholdVersionProvider)
     {
         this.thresholdTimestampProvider = thresholdTimestampProvider ?? throw new ArgumentNullException(nameof(thresholdTimestampProvider));
         this.thresholdVersionProvider = thresholdVersionProvider ?? throw new ArgumentNullException(nameof(thresholdVersionProvider));

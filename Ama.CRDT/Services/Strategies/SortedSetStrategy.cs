@@ -158,7 +158,7 @@ public sealed class SortedSetStrategy(
 
         if (!metadata.States.TryGetValue(collectionPath, out var baseState) || baseState is not LwwSetState state)
         {
-            var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
+            var adds = new Dictionary<object, CrdtTimestamp>(comparer);
             foreach (var item in listRepresentation)
             {
                 adds[item] = timestampProvider.Create(0);
@@ -361,7 +361,7 @@ public sealed class SortedSetStrategy(
         {
             var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
             var comparer = comparerProvider.GetComparer(elementType);
-            var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
+            var adds = new Dictionary<object, CrdtTimestamp>(comparer);
             foreach (var item in list) adds[item] = timestampProvider.Create(0);
             state = new LwwSetState(adds, new Dictionary<object, CausalTimestamp>(comparer));
             originalMetadata.States[path] = state;
@@ -391,8 +391,8 @@ public sealed class SortedSetStrategy(
 
         var keys1 = itemsWithKeys.Take(splitIndex).Select(x => x.SortKey).ToHashSet();
         
-        var adds1 = new Dictionary<object, ICrdtTimestamp>(comparerProp);
-        var adds2 = new Dictionary<object, ICrdtTimestamp>(comparerProp);
+        var adds1 = new Dictionary<object, CrdtTimestamp>(comparerProp);
+        var adds2 = new Dictionary<object, CrdtTimestamp>(comparerProp);
         foreach (var kvp in state.Adds)
         {
             var k = GetSortKey(kvp.Key, sortPropName, aotContexts) as IComparable ?? GetSortKey(kvp.Key, sortPropName, aotContexts)?.ToString() as IComparable;
@@ -436,7 +436,7 @@ public sealed class SortedSetStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
+        var adds = new Dictionary<object, CrdtTimestamp>(comparer);
         var rems = new Dictionary<object, CausalTimestamp>(comparer);
 
         if (meta1.States.TryGetValue(path, out var baseState1) && baseState1 is LwwSetState state1)
@@ -474,7 +474,7 @@ public sealed class SortedSetStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
+        var adds = new Dictionary<object, CrdtTimestamp>(comparer);
         var rems = new Dictionary<object, CausalTimestamp>(comparer);
 
         if (meta1.States.TryGetValue(path, out var baseState1) && baseState1 is LwwSetState state1)

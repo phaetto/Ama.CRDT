@@ -37,7 +37,7 @@ public sealed class LwwStrategy(
             return;
         }
         
-        if (originalMeta.States.TryGetValue(path, out var baseState) && baseState is CausalTimestamp originalTimestamp && originalTimestamp.Timestamp is not null && changeTimestamp.CompareTo(originalTimestamp.Timestamp) <= 0)
+        if (originalMeta.States.TryGetValue(path, out var baseState) && baseState is CausalTimestamp originalTimestamp && changeTimestamp.CompareTo(originalTimestamp.Timestamp) <= 0)
         {
             return;
         }
@@ -76,7 +76,7 @@ public sealed class LwwStrategy(
     {
         var (root, metadata, operation) = context;
 
-        if (metadata.States.TryGetValue(operation.JsonPath, out var baseState) && baseState is CausalTimestamp lwwTs && lwwTs.Timestamp is not null && operation.Timestamp.CompareTo(lwwTs.Timestamp) <= 0)
+        if (metadata.States.TryGetValue(operation.JsonPath, out var baseState) && baseState is CausalTimestamp lwwTs && operation.Timestamp.CompareTo(lwwTs.Timestamp) <= 0)
         {
             return CrdtOperationStatus.Obsolete;
         }
@@ -120,21 +120,18 @@ public sealed class LwwStrategy(
         if (hasTs2)
         {
             var ts2 = (CausalTimestamp)baseState2!;
-            if (ts2.Timestamp is not null)
+            if (!hasTs1)
             {
-                if (!hasTs1)
+                meta1.States[propertyPath] = ts2;
+                property.Setter!(data1, property.Getter!(data2));
+            }
+            else
+            {
+                var ts1 = (CausalTimestamp)baseState1!;
+                if (ts2.Timestamp.CompareTo(ts1.Timestamp) > 0)
                 {
                     meta1.States[propertyPath] = ts2;
                     property.Setter!(data1, property.Getter!(data2));
-                }
-                else
-                {
-                    var ts1 = (CausalTimestamp)baseState1!;
-                    if (ts1.Timestamp is null || ts2.Timestamp.CompareTo(ts1.Timestamp) > 0)
-                    {
-                        meta1.States[propertyPath] = ts2;
-                        property.Setter!(data1, property.Getter!(data2));
-                    }
                 }
             }
         }

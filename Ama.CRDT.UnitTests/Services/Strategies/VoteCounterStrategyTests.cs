@@ -27,8 +27,8 @@ public sealed class VoteCounterStrategyTests : IDisposable
         private long current = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         private readonly EpochTimestampProvider defaultProvider = new(new ReplicaContext { ReplicaId = "test" });
         
-        public ICrdtTimestamp Now() => defaultProvider.Create(Interlocked.Increment(ref current));
-        public ICrdtTimestamp Create(long value) => defaultProvider.Create(value);
+        public CrdtTimestamp Now() => defaultProvider.Create(Interlocked.Increment(ref current));
+        public CrdtTimestamp Create(long value) => defaultProvider.Create(value);
     }
 
     internal sealed class Poll

@@ -376,7 +376,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         var unsafeTs = tsProvider.Create(30);
         
         var comparer = new ItemComparer();
-        var adds = new Dictionary<object, ICrdtTimestamp>(comparer);
+        var adds = new Dictionary<object, CrdtTimestamp>(comparer);
         var removes = new Dictionary<object, CausalTimestamp>(comparer);
 
         // Alive: addTs > removeTs

@@ -1,6 +1,5 @@
 namespace Ama.CRDT.Services.GarbageCollection;
 
-using System;
 using Ama.CRDT.Models;
 
 /// <summary>
@@ -9,16 +8,16 @@ using Ama.CRDT.Models;
 /// </summary>
 public sealed class ThresholdCompactionPolicy : ICompactionPolicy
 {
-    private readonly ICrdtTimestamp? thresholdTimestamp;
+    private readonly CrdtTimestamp? thresholdTimestamp;
     private readonly long? thresholdVersion;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ThresholdCompactionPolicy"/> class with a wall-clock timestamp threshold.
     /// </summary>
     /// <param name="thresholdTimestamp">The maximum timestamp that is considered safe to compact. Anything less than or equal to this will be compacted.</param>
-    public ThresholdCompactionPolicy(ICrdtTimestamp thresholdTimestamp)
+    public ThresholdCompactionPolicy(CrdtTimestamp thresholdTimestamp)
     {
-        this.thresholdTimestamp = thresholdTimestamp ?? throw new ArgumentNullException(nameof(thresholdTimestamp));
+        this.thresholdTimestamp = thresholdTimestamp;
     }
 
     /// <summary>
@@ -35,24 +34,24 @@ public sealed class ThresholdCompactionPolicy : ICompactionPolicy
     /// </summary>
     /// <param name="thresholdTimestamp">The maximum timestamp that is considered safe to compact.</param>
     /// <param name="thresholdVersion">The maximum version that is considered safe to compact.</param>
-    public ThresholdCompactionPolicy(ICrdtTimestamp thresholdTimestamp, long thresholdVersion)
+    public ThresholdCompactionPolicy(CrdtTimestamp thresholdTimestamp, long thresholdVersion)
     {
-        this.thresholdTimestamp = thresholdTimestamp ?? throw new ArgumentNullException(nameof(thresholdTimestamp));
+        this.thresholdTimestamp = thresholdTimestamp;
         this.thresholdVersion = thresholdVersion;
     }
 
     /// <inheritdoc/>
     public bool IsSafeToCompact(CompactionCandidate candidate)
     {
-        if (this.thresholdTimestamp != null && candidate.Timestamp != null)
+        if (this.thresholdTimestamp.HasValue && candidate.Timestamp.HasValue)
         {
-            if (candidate.Timestamp.CompareTo(this.thresholdTimestamp) <= 0)
+            if (candidate.Timestamp.Value.CompareTo(this.thresholdTimestamp.Value) <= 0)
             {
                 return true;
             }
         }
 
-        if (this.thresholdVersion != null && candidate.Version != null)
+        if (this.thresholdVersion.HasValue && candidate.Version.HasValue)
         {
             if (candidate.Version.Value <= this.thresholdVersion.Value)
             {

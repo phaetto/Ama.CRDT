@@ -8,6 +8,7 @@ using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
+using Ama.CRDT.Services.Pooling;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Strategies;
 
@@ -17,8 +18,10 @@ public sealed class CrdtPatcher(
     ICrdtTimestampProvider timestampProvider, 
     ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts,
-    IShardIdProvider shardIdProvider) : ICrdtPatcher
+    IShardIdProvider shardIdProvider,
+    ICrdtStringPool? stringPool = null) : ICrdtPatcher
 {
+    private readonly ICrdtStringPool pool = stringPool ?? CrdtStringPool.Shared;
     private sealed class ClockState { public long Clock; }
     private readonly ConditionalWeakTable<CrdtMetadata, ClockState> issuedClocks = new();
 
@@ -30,11 +33,10 @@ public sealed class CrdtPatcher(
     }
 
     /// <inheritdoc/>
-    public CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, T changed, ICrdtTimestamp changeTimestamp) where T : class
+    public CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, T changed, CrdtTimestamp changeTimestamp) where T : class
     {
         ArgumentNullException.ThrowIfNull(from.Metadata);
         ArgumentNullException.ThrowIfNull(changed);
-        ArgumentNullException.ThrowIfNull(changeTimestamp);
 
         var operations = new List<CrdtOperation>();
         var initialContext = new DifferentiateObjectContext(
@@ -53,14 +55,14 @@ public sealed class CrdtPatcher(
         // because we will assign unique sequential clocks to each operation below.
         ProcessDifferentiations(initialContext, 0L);
 
-        var replicaId = replicaContext.ReplicaId;
+        var replicaId = pool.GetOrAdd(replicaContext.ReplicaId);
         var currentVectorClock = from.Metadata.VersionVector.TryGetValue(replicaId, out var currentClock) ? currentClock : 0L;
         
         var clockState = issuedClocks.GetOrCreateValue(from.Metadata);
         var localClock = Math.Max(currentVectorClock, clockState.Clock);
 
         // Fetch or create the Shard Version Vector tracking state
-        var shardId = shardIdProvider.GetShardId(from);
+        var shardId = pool.GetOrAdd(shardIdProvider.GetShardId(from));
         if (!replicaContext.ShardVersionVectors.TryGetValue(shardId, out var shardVector))
         {
             shardVector = new DottedVersionVector();
@@ -95,18 +97,17 @@ public sealed class CrdtPatcher(
     }
 
     /// <inheritdoc/>
-    public CrdtOperation GenerateOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, ICrdtTimestamp timestamp) where T : class
+    public CrdtOperation GenerateOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CrdtTimestamp timestamp) where T : class
     {
         ArgumentNullException.ThrowIfNull(document.Metadata);
         ArgumentNullException.ThrowIfNull(document.Data);
         ArgumentNullException.ThrowIfNull(propertyExpression);
         ArgumentNullException.ThrowIfNull(intent);
-        ArgumentNullException.ThrowIfNull(timestamp);
 
-        var parseResult = PocoPathHelper.ParseExpression(propertyExpression, aotContexts);
+        var parseResult = PocoPathHelper.ParseExpression(propertyExpression, aotContexts, pool);
         var strategy = strategyProvider.GetStrategy(parseResult.DeclaringType, parseResult.Property);
 
-        var replicaId = replicaContext.ReplicaId;
+        var replicaId = pool.GetOrAdd(replicaContext.ReplicaId);
         var currentVectorClock = document.Metadata.VersionVector.TryGetValue(replicaId, out var currentClock) ? currentClock : 0L;
         
         var clockState = issuedClocks.GetOrCreateValue(document.Metadata);
@@ -116,7 +117,7 @@ public sealed class CrdtPatcher(
         clockState.Clock = localClock;
 
         // Fetch or create the Shard Version Vector tracking state
-        var shardId = shardIdProvider.GetShardId(document);
+        var shardId = pool.GetOrAdd(shardIdProvider.GetShardId(document));
         if (!replicaContext.ShardVersionVectors.TryGetValue(shardId, out var shardVector))
         {
             shardVector = new DottedVersionVector();
@@ -165,7 +166,7 @@ public sealed class CrdtPatcher(
 
             foreach (var propertyInfo in typeInfo.Properties.Values)
             {
-                var currentPath = isRoot ? $"$.{propertyInfo.JsonName}" : $"{path}.{propertyInfo.JsonName}";
+                var currentPath = isRoot ? propertyInfo.RootJsonPath : pool.GetOrAdd($"{path}.{propertyInfo.JsonName}");
                 var fromValue = fromObj is not null && propertyInfo.CanRead ? propertyInfo.Getter!(fromObj) : null;
                 var toValue = toObj is not null && propertyInfo.CanRead ? propertyInfo.Getter!(toObj) : null;
 

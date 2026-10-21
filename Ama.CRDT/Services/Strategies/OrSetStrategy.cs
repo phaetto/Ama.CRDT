@@ -76,8 +76,7 @@ public sealed class OrSetStrategy(
         if (context.Property is null) throw new ArgumentException("Property cannot be null.", nameof(context));
         if (context.Intent is null) throw new ArgumentException("Intent cannot be null.", nameof(context));
         if (string.IsNullOrEmpty(context.JsonPath)) throw new ArgumentException("JsonPath cannot be null or empty.", nameof(context));
-        if (context.Timestamp is null) throw new ArgumentException("Timestamp cannot be null.", nameof(context));
-
+        
         var elementType = PocoPathHelper.GetTypeInfo(context.Property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
 
         if (context.Intent is AddIntent addIntent)

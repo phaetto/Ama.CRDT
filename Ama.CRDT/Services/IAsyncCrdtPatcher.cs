@@ -62,13 +62,13 @@ public interface IAsyncCrdtPatcher
     /// <![CDATA[
     /// var crdtDoc = new CrdtDocument<MyDataObject>(docV1, metaV1);
     /// var docV2 = new MyDataObject { Value = "World" };
-    /// var customTs = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// var customTs = new CrdtTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     /// 
     /// var patch = await patcher.GeneratePatchAsync(crdtDoc, docV2, customTs, cancellationToken);
     /// ]]>
     /// </code>
     /// </example>
-    Task<CrdtPatch> GeneratePatchAsync<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, [DisallowNull] ICrdtTimestamp changeTimestamp, CancellationToken cancellationToken = default) where T : class;
+    Task<CrdtPatch> GeneratePatchAsync<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, [DisallowNull] CrdtTimestamp changeTimestamp, CancellationToken cancellationToken = default) where T : class;
 
     /// <summary>
     /// Asynchronously generates a single CRDT operation explicitly based on a provided operation intent, bypassing the state diffing process.
@@ -110,11 +110,11 @@ public interface IAsyncCrdtPatcher
     /// <![CDATA[
     /// var doc = new CrdtDocument<MyDataObject>(new MyDataObject(), metadata);
     /// var intent = new SetIntent("Alice");
-    /// var customTs = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// var customTs = new CrdtTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     /// 
     /// var operation = await patcher.GenerateOperationAsync(doc, x => x.Name, intent, customTs, cancellationToken);
     /// ]]>
     /// </code>
     /// </example>
-    Task<CrdtOperation> GenerateOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, [DisallowNull] ICrdtTimestamp timestamp, CancellationToken cancellationToken = default) where T : class;
+    Task<CrdtOperation> GenerateOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, [DisallowNull] CrdtTimestamp timestamp, CancellationToken cancellationToken = default) where T : class;
 }

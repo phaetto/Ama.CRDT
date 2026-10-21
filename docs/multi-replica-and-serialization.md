@@ -122,7 +122,7 @@ builder.Services.AddCrdt()
 
 Once a `CrdtPatch` is generated, it needs to be sent to other replicas. This is typically done by serializing the patch to JSON.
 
-Because Ama.CRDT supports complex polymorphism (like various `ICrdtTimestamp` types or dynamic `object` payloads), you should **always** use the unified `JsonSerializerOptions` that the library generates and registers in the DI container as a Keyed Service (`"Ama.CRDT"`).
+Because Ama.CRDT supports complex polymorphism (like dynamic `object` payloads in operations and metadata), you should **always** use the unified `JsonSerializerOptions` that the library generates and registers in the DI container as a Keyed Service (`"Ama.CRDT"`).
 
 ```csharp
 using Ama.CRDT.Models;
@@ -152,4 +152,4 @@ public class NetworkService
 }
 ```
 
-**Important**: If you have created a custom `ICrdtTimestamp` or a custom operation payload type, you must register it with the serialization system using `AddCrdtTimestampType<T>()` or `AddCrdtAotType<T>()`. See [Extensibility & Customization](extensibility.md) for details.
+**Important**: If you have created a custom operation payload type, you must register it with the serialization system using `AddCrdtPayloadType<T>()` and `[CrdtAotType(typeof(T))]`.

@@ -7,7 +7,7 @@ using System;
 /// </summary>
 /// <param name="P">The sum of positive increments.</param>
 /// <param name="N">The sum of negative increments (as a positive value).</param>
-public sealed record PnCounterState(decimal P, decimal N) : ICrdtMetadataState
+public readonly record struct PnCounterState(decimal P, decimal N) : ICrdtMetadataState
 {
     /// <inheritdoc/>
     public ICrdtMetadataState DeepClone() => this;

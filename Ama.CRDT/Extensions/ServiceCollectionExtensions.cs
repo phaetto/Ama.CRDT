@@ -12,6 +12,7 @@ using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Journaling;
 using Ama.CRDT.Services.LargerThanMemory;
 using Ama.CRDT.Services.Metrics;
+using Ama.CRDT.Services.Pooling;
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Serialization;
 using Ama.CRDT.Services.Strategies;
@@ -83,6 +84,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<LargerThanMemoryManagerCrdtMetrics>();
 
         // Pure utility services that don't depend on replica scope
+        services.TryAddSingleton<ICrdtStringPool, CrdtStringPool>();
         services.TryAddSingleton<IVersionVectorSyncService, VersionVectorSyncService>();
 
         // Scoped context that holds the replica ID.
@@ -216,9 +218,12 @@ public static class ServiceCollectionExtensions
     /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
     public static IServiceCollection AddCrdtSystemTextJson(this IServiceCollection services, bool useBrotliCompression = false)
     {
+        services.TryAddSingleton<ICrdtStringPool, CrdtStringPool>();
+
         // Setup central JSON options for CRDT natively in the DI container.
         services.TryAddKeyedSingleton("Ama.CRDT", (sp, key) =>
         {
+            var stringPool = sp.GetRequiredService<ICrdtStringPool>();
             var customResolvers = sp.GetKeyedServices<IJsonTypeInfoResolver>("Ama.CRDT");
             var globalModifiers = sp.GetKeyedServices<Action<JsonTypeInfo>>("Ama.CRDT.Modifiers");
             
@@ -232,8 +237,8 @@ public static class ServiceCollectionExtensions
             // Using the aggregating resolver ensures all resolvers are inquired, meaning polymorphism metadata
             // from secondary contexts isn't ignored like it is with standard JsonTypeInfoResolver.Combine.
             IJsonTypeInfoResolver combinedResolver = new CrdtAggregateJsonTypeInfoResolver(resolvers)
-                .WithAddedModifier(CrdtJsonTypeInfoResolver.ApplyCrdtModifiers)
-                .WithAddedModifier(CrdtMetadataJsonResolver.ApplyMetadataModifiers);
+                .WithAddedModifier(ti => CrdtJsonTypeInfoResolver.ApplyCrdtModifiers(ti, stringPool))
+                .WithAddedModifier(ti => CrdtMetadataJsonResolver.ApplyMetadataModifiers(ti, stringPool));
 
             if (globalModifiers != null)
             {
@@ -430,10 +435,10 @@ public static class ServiceCollectionExtensions
     /// {
     ///     private long counter = 0;
     /// 
-    ///     public ICrdtTimestamp Now()
+    ///     public CrdtTimestamp Now()
     ///     {
     ///         long timestamp = Interlocked.Increment(ref counter);
-    ///         return new EpochTimestamp(timestamp); // Using EpochTimestamp to wrap the logical value.
+    ///         return new CrdtTimestamp(timestamp); // Using CrdtTimestamp to wrap the logical value.
     ///     }
     /// }
     /// 
@@ -520,42 +525,6 @@ public static class ServiceCollectionExtensions
             return sp.GetRequiredService<TProvider>();
         });
         
-        return services;
-    }
-
-    /// <summary>
-    /// Registers a custom <see cref="ICrdtTimestamp"/> implementation for polymorphic JSON serialization.
-    /// This allows the system to correctly serialize and deserialize custom timestamp types.
-    /// </summary>
-    /// <typeparam name="TTimestamp">The custom timestamp type to register. Must implement <see cref="ICrdtTimestamp"/>.</typeparam>
-    /// <param name="services">The <see cref="IServiceCollection"/>.</param>
-    /// <param name="discriminator">A unique string identifier for the timestamp type, used in the JSON output.</param>
-    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
-    /// <example>
-    /// <code>
-    /// <![CDATA[
-    /// public readonly record struct MyCustomTimestamp(long Value) : ICrdtTimestamp
-    /// {
-    ///     public int CompareTo(ICrdtTimestamp internal other)
-    ///     {
-    ///         if (other is MyCustomTimestamp otherTimestamp)
-    ///         {
-    ///             return Value.CompareTo(otherTimestamp.Value);
-    ///         }
-    ///         return false; // Probably throw if you have different timestamps
-    ///     }
-    /// }
-    /// 
-    /// // In your DI setup:
-    /// builder.Services.AddCrdtTimestampType<MyCustomTimestamp>("my-custom");
-    /// ]]>
-    /// </code>
-    /// </example>
-    public static IServiceCollection AddCrdtTimestampType<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TTimestamp>(this IServiceCollection services, string discriminator)
-        where TTimestamp : ICrdtTimestamp
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        CrdtTypeRegistry.Register(discriminator, typeof(TTimestamp));
         return services;
     }
 

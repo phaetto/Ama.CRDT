@@ -19,7 +19,7 @@ public class StrategyApplyBenchmarks
     private ICrdtPatcher patcher = null!;
     private ICrdtMetadataManager metadataManager = null!;
     private ICrdtStrategyProvider strategyProvider = null!;
-    private ICrdtTimestamp timestamp = null!;
+    private CrdtTimestamp timestamp = default;
 
     private StrategyPoco basePoco = null!;
     private CrdtDocument<StrategyPoco> fromDoc = default!;

@@ -37,7 +37,7 @@ public sealed class GraphStrategyProperties
             nameof(GraphTestPoco.Graph),
             OperationType.Upsert,
             payload,
-            new EpochTimestamp(timestamp),
+            new CrdtTimestamp(timestamp),
             0);
 
         var state1 = new GraphTestPoco();
@@ -67,7 +67,7 @@ public sealed class GraphStrategyProperties
             nameof(GraphTestPoco.Graph),
             OperationType.Upsert,
             payload1,
-            new EpochTimestamp(timestamp1),
+            new CrdtTimestamp(timestamp1),
             0);
 
         var op2 = new CrdtOperation(
@@ -76,7 +76,7 @@ public sealed class GraphStrategyProperties
             nameof(GraphTestPoco.Graph),
             OperationType.Upsert,
             payload2,
-            new EpochTimestamp(timestamp2),
+            new CrdtTimestamp(timestamp2),
             0);
 
         var stateAB = new GraphTestPoco();
@@ -106,7 +106,7 @@ public sealed class GraphStrategyProperties
                 nameof(GraphTestPoco.Graph),
                 OperationType.Upsert,
                 payload,
-                new EpochTimestamp(x.Item1),
+                new CrdtTimestamp(x.Item1),
                 0);
         }).ToList();
 

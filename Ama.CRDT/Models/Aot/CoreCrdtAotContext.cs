@@ -9,7 +9,6 @@ using Ama.CRDT.Models.LargerThanMemory;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Collections.ObjectModel;
 
 /// <summary>
 /// An internal AOT-generated context containing metadata for all core CRDT models.
@@ -33,7 +32,6 @@ using System.Collections.ObjectModel;
 [CrdtAotType(typeof(ICollection<DottedVersionVector>))]
 [CrdtAotType(typeof(Edge))]
 [CrdtAotType(typeof(EpochState))]
-[CrdtAotType(typeof(EpochTimestamp))]
 [CrdtAotType(typeof(FwwMapState))]
 [CrdtAotType(typeof(FwwSetState))]
 [CrdtAotType(typeof(FwwTimestamp))]
@@ -99,7 +97,7 @@ using System.Collections.ObjectModel;
 [CrdtAotType(typeof(VoteIntent))]
 [CrdtAotType(typeof(object))]
 [CrdtAotType(typeof(IComparable))]
-[CrdtAotType(typeof(ICrdtTimestamp))]
+[CrdtAotType(typeof(CrdtTimestamp))]
 [CrdtAotType(typeof(ISet<object>))]
 [CrdtAotType(typeof(HashSet<object>))]
 [CrdtAotType(typeof(ISet<Edge>))]
@@ -140,7 +138,7 @@ using System.Collections.ObjectModel;
 [CrdtAotType(typeof(Dictionary<object, CausalTimestamp>))]
 [CrdtAotType(typeof(IDictionary<object, PnCounterState>))]
 [CrdtAotType(typeof(Dictionary<object, PnCounterState>))]
-[CrdtAotType(typeof(IDictionary<object, ICrdtTimestamp>))]
+[CrdtAotType(typeof(IDictionary<object, CrdtTimestamp>))]
 [CrdtAotType(typeof(IDictionary<object, CausalTimestamp>))]
 [CrdtAotType(typeof(IDictionary<object, ISet<Guid>>))]
 [CrdtAotType(typeof(IDictionary<object, IDictionary<Guid, CausalTimestamp>>))]

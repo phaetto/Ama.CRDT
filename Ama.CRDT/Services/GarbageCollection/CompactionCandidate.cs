@@ -10,7 +10,7 @@ using Ama.CRDT.Models;
 /// <param name="ReplicaId">The identifier of the replica that originated the deletion, used for causal tracking.</param>
 /// <param name="Version">The causal sequence number of the deletion, used in conjunction with ReplicaId.</param>
 public readonly record struct CompactionCandidate(
-    ICrdtTimestamp? Timestamp = null,
+    CrdtTimestamp? Timestamp = null,
     string? ReplicaId = null,
     long? Version = null
 );

@@ -20,5 +20,5 @@ public readonly record struct GenerateOperationContext(
     string JsonPath,
     CrdtPropertyInfo Property,
     IOperationIntent Intent,
-    ICrdtTimestamp Timestamp,
+    CrdtTimestamp Timestamp,
     long Clock);

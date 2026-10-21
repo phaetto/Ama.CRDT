@@ -12,6 +12,7 @@ using System;
 using System.Collections.Generic;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.GarbageCollection;
+using Ama.CRDT.Services.Pooling;
 using Ama.CRDT.Services.Serialization;
 
 /// <inheritdoc/>
@@ -21,8 +22,12 @@ public sealed class CrdtMetadataManager(
     IElementComparerProvider elementComparerProvider,
     ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> crdtContexts,
-    ICrdtSerializer crdtSerializer) : ICrdtMetadataManager
+    ICrdtSerializer crdtSerializer,
+    ICrdtStringPool? stringPool = null) : ICrdtMetadataManager
 {
+    private const string InitialReplicaId = "initial";
+    private readonly ICrdtStringPool pool = stringPool ?? CrdtStringPool.Shared;
+
     /// <inheritdoc/>
     public CrdtMetadata Initialize<T>([DisallowNull] T document) where T : class
     {
@@ -32,10 +37,9 @@ public sealed class CrdtMetadataManager(
     }
 
     /// <inheritdoc/>
-    public CrdtMetadata Initialize<T>([DisallowNull] T document, [DisallowNull] ICrdtTimestamp timestamp) where T : class
+    public CrdtMetadata Initialize<T>([DisallowNull] T document, CrdtTimestamp timestamp) where T : class
     {
         ArgumentNullException.ThrowIfNull(document);
-        ArgumentNullException.ThrowIfNull(timestamp);
 
         var metadata = new CrdtMetadata();
 
@@ -59,11 +63,10 @@ public sealed class CrdtMetadataManager(
     }
 
     /// <inheritdoc/>
-    public void Initialize<T>(CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class
+    public void Initialize<T>(CrdtDocument<T> document, CrdtTimestamp timestamp) where T : class
     {
         ArgumentNullException.ThrowIfNull(document.Metadata);
         ArgumentNullException.ThrowIfNull(document.Data);
-        ArgumentNullException.ThrowIfNull(timestamp);
 
         if (!string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
         {
@@ -83,11 +86,10 @@ public sealed class CrdtMetadataManager(
     }
 
     /// <inheritdoc/>
-    public void Reset<T>(CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class
+    public void Reset<T>(CrdtDocument<T> document, CrdtTimestamp timestamp) where T : class
     {
         ArgumentNullException.ThrowIfNull(document.Metadata);
         ArgumentNullException.ThrowIfNull(document.Data);
-        ArgumentNullException.ThrowIfNull(timestamp);
 
         document.Metadata.States.Clear();
 
@@ -212,7 +214,7 @@ public sealed class CrdtMetadataManager(
         EvictReplica(document.Metadata, replicaId);
     }
 
-    private void PopulateMetadataRecursive(CrdtMetadata metadata, object obj, string path, ICrdtTimestamp timestamp, object root)
+    private void PopulateMetadataRecursive(CrdtMetadata metadata, object obj, string path, CrdtTimestamp timestamp, object root)
     {
         if (obj is null)
         {
@@ -269,7 +271,7 @@ public sealed class CrdtMetadataManager(
                 continue;
             }
 
-            var propertyPath = path == "$" ? $"$.{property.JsonName}" : $"{path}.{property.JsonName}";
+            var propertyPath = path == "$" ? property.RootJsonPath : pool.GetOrAdd($"{path}.{property.JsonName}");
 
             var strategy = strategyProvider.GetStrategy(typeInfo.Type, property);
 
@@ -340,7 +342,7 @@ public sealed class CrdtMetadataManager(
                 continue;
             }
 
-            var propertyPath = path == "$" ? $"$.{property.JsonName}" : $"{path}.{property.JsonName}";
+            var propertyPath = path == "$" ? property.RootJsonPath : pool.GetOrAdd($"{path}.{property.JsonName}");
             var strategy = strategyProvider.GetStrategy(typeInfo.Type, property);
 
             strategy.Compact(new CompactionContext(metadata, policy, property.Name, propertyPath, root));
@@ -353,7 +355,7 @@ public sealed class CrdtMetadataManager(
         }
     }
 
-    private void InitializeStrategyMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, object root)
+    private void InitializeStrategyMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, CrdtTimestamp timestamp, object root)
     {
         var replicaId = replicaContext.ReplicaId ?? string.Empty;
         var causalTimestamp = new CausalTimestamp(timestamp, replicaId, 0);
@@ -365,6 +367,17 @@ public sealed class CrdtMetadataManager(
                 break;
             case FwwStrategy:
                 metadata.States[propertyPath] = new FwwTimestamp(timestamp, replicaId, 0);
+                break;
+            case BoundedCounterStrategy:
+                var initialBoundedVal = PocoPathHelper.ConvertTo<decimal>(propertyValue, crdtContexts);
+                var boundedContributions = new Dictionary<string, PnCounterState>();
+                if (initialBoundedVal != 0m)
+                {
+                    boundedContributions[string.Empty] = new PnCounterState(
+                        initialBoundedVal > 0m ? initialBoundedVal : 0m,
+                        initialBoundedVal < 0m ? -initialBoundedVal : 0m);
+                }
+                metadata.States[propertyPath] = new CounterState(boundedContributions);
                 break;
             case ArrayLcsStrategy:
                 if (propertyValue is IList lcsList)
@@ -390,7 +403,7 @@ public sealed class CrdtMetadataManager(
                     const int step = 10;
                     for (var i = 0; i < lseqList.Count; i++)
                     {
-                        var path = baseIdentifier.Add(new LseqPathSegment((i + 1) * step, "initial"));
+                        var path = baseIdentifier.Add(new LseqPathSegment((i + 1) * step, InitialReplicaId));
                         lseqItems.Add(new LseqItem(new LseqIdentifier(path), lseqList[i]));
                     }
                     metadata.States[propertyPath] = new LseqState(lseqItems);
@@ -440,7 +453,7 @@ public sealed class CrdtMetadataManager(
         }
     }
 
-    private void InitializeSetMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, string replicaId)
+    private void InitializeSetMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, CrdtTimestamp timestamp, string replicaId)
     {
         if (propertyValue is not IEnumerable collection) return;
 
@@ -476,7 +489,7 @@ public sealed class CrdtMetadataManager(
         }
     }
 
-    private void InitializeMapMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, string replicaId)
+    private void InitializeMapMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, CrdtTimestamp timestamp, string replicaId)
     {
         if (propertyValue is not IDictionary dictionary) return;
 
@@ -541,7 +554,7 @@ public sealed class CrdtMetadataManager(
         }
     }
 
-    private void InitializeVoteCounterMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, string replicaId)
+    private void InitializeVoteCounterMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, CrdtTimestamp timestamp, string replicaId)
     {
         if (propertyValue is not IDictionary dictionary) return;
 
@@ -588,7 +601,7 @@ public sealed class CrdtMetadataManager(
         );
     }
     
-    private void InitializeReplicatedTreeMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, ICrdtTimestamp timestamp, string replicaId)
+    private void InitializeReplicatedTreeMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, CrdtTimestamp timestamp, string replicaId)
     {
         var typeInfo = PocoPathHelper.GetTypeInfo(propertyValue.GetType(), crdtContexts);
         if (!typeInfo.Properties.TryGetValue("Nodes", out var nodesProp) || !nodesProp.CanRead) return;

@@ -52,7 +52,7 @@ public sealed class CrdtMetadataSerializationTests
     {
         // Arrange
         var metadata = new CrdtMetadata();
-        metadata.States.Add("$.prop1", new CausalTimestamp(new EpochTimestamp(12345), "replica1", 1));
+        metadata.States.Add("$.prop1", new CausalTimestamp(new CrdtTimestamp(12345), "replica1", 1));
         metadata.VersionVector.Add("replica1", 100L);
 
         // Act
@@ -97,7 +97,7 @@ public sealed class CrdtMetadataSerializationTests
     {
         // Covers miscellaneous models and decorator structures that might not fall strictly under Metadata states
         var options = TestOptionsHelper.GetDefaultOptions();
-        var causal = new CausalTimestamp(new EpochTimestamp(1), "r1", 1);
+        var causal = new CausalTimestamp(new CrdtTimestamp(1), "r1", 1);
         var tagGuid = Guid.NewGuid();
         
         var items = new object[]
@@ -136,11 +136,11 @@ public sealed class CrdtMetadataSerializationTests
     private static CrdtMetadata CreatePopulatedMetadata()
     {
         var guid = Guid.NewGuid();
-        var timestamp = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        var timestamp = new CrdtTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 
         var metadata = new CrdtMetadata();
 
-        metadata.States.Add("$.prop1", new CausalTimestamp(new EpochTimestamp(12345), "replica1", 1));
+        metadata.States.Add("$.prop1", new CausalTimestamp(new CrdtTimestamp(12345), "replica1", 1));
         metadata.VersionVector.Add("replica1", 100L);
         metadata.SeenExceptions.Add(new CrdtOperation(guid, "replica2", "$.prop2", OperationType.Upsert, "value", timestamp, 0));
         
@@ -159,8 +159,8 @@ public sealed class CrdtMetadataSerializationTests
         var guid2 = Guid.NewGuid();
         
         metadata.States.Add("$.lwwset1", new LwwSetState(
-            new Dictionary<object, ICrdtTimestamp> { ["item1"] = new EpochTimestamp(1) },
-            new Dictionary<object, CausalTimestamp> { ["item2"] = new CausalTimestamp(new EpochTimestamp(2), "replica1", 1) }
+            new Dictionary<object, CrdtTimestamp> { ["item1"] = new CrdtTimestamp(1) },
+            new Dictionary<object, CausalTimestamp> { ["item2"] = new CausalTimestamp(new CrdtTimestamp(2), "replica1", 1) }
         ));
         
         metadata.States.Add("$.orset1", new OrSetState(
@@ -169,13 +169,13 @@ public sealed class CrdtMetadataSerializationTests
         ));
         
         metadata.States.Add("$.pq1", new LwwSetState(
-            new Dictionary<object, ICrdtTimestamp> { ["task1"] = new EpochTimestamp(1) },
+            new Dictionary<object, CrdtTimestamp> { ["task1"] = new CrdtTimestamp(1) },
             new Dictionary<object, CausalTimestamp>()
         ));
         
         metadata.States.Add("$.lseq1", new LseqState([new LseqItem(new LseqIdentifier(ImmutableList.Create(new LseqPathSegment(1, "r1"))), "A")]));
         
-        metadata.States.Add("$.lwwmap1", new LwwMapState(new Dictionary<object, CausalTimestamp> { ["key1"] = new CausalTimestamp(new EpochTimestamp(1), "replica1", 1), [2] = new CausalTimestamp(new EpochTimestamp(2), "replica1", 2) }));
+        metadata.States.Add("$.lwwmap1", new LwwMapState(new Dictionary<object, CausalTimestamp> { ["key1"] = new CausalTimestamp(new CrdtTimestamp(1), "replica1", 1), [2] = new CausalTimestamp(new CrdtTimestamp(2), "replica1", 2) }));
         
         metadata.States.Add("$.ormap1", new OrSetState(
              new Dictionary<object, ISet<Guid>> { ["key1"] = new HashSet<Guid> { guid1 } },
@@ -224,7 +224,7 @@ public sealed class CrdtMetadataSerializationTests
         }));
 
         metadata.States.Add("$.fwwset1", new FwwSetState(
-            new Dictionary<object, ICrdtTimestamp> { ["item1"] = timestamp },
+            new Dictionary<object, CrdtTimestamp> { ["item1"] = timestamp },
             new Dictionary<object, CausalTimestamp> { ["item2"] = new CausalTimestamp(timestamp, "replica1", 1) }
         ));
 

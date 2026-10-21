@@ -55,7 +55,7 @@ public sealed class BoundedCounterStrategyProperties
             nameof(BoundedCounterTestPoco.Value),
             OperationType.Increment,
             (decimal)inc1,
-            new EpochTimestamp(1),
+            new CrdtTimestamp(1),
             0);
 
         var op2 = new CrdtOperation(
@@ -64,7 +64,7 @@ public sealed class BoundedCounterStrategyProperties
             nameof(BoundedCounterTestPoco.Value),
             OperationType.Increment,
             (decimal)inc2,
-            new EpochTimestamp(2),
+            new CrdtTimestamp(2),
             0);
 
         var stateAB = new BoundedCounterTestPoco();
@@ -92,7 +92,7 @@ public sealed class BoundedCounterStrategyProperties
             nameof(BoundedCounterTestPoco.Value),
             OperationType.Increment,
             (decimal)inc,
-            new EpochTimestamp(i),
+            new CrdtTimestamp(i),
             0)).ToList();
 
         var random = new Random(increments.Count);

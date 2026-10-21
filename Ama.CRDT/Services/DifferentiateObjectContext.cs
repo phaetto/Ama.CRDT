@@ -26,5 +26,5 @@ public sealed record DifferentiateObjectContext(
     object? ToRoot,
     [DisallowNull] CrdtMetadata FromMeta,
     [DisallowNull] List<CrdtOperation> Operations,
-    [DisallowNull] ICrdtTimestamp ChangeTimestamp
+    [DisallowNull] CrdtTimestamp ChangeTimestamp
 );

@@ -1,6 +1,5 @@
 namespace Ama.CRDT.UnitTests.Services.GarbageCollection;
 
-using System;
 using Ama.CRDT.Models;
 using Ama.CRDT.Services.GarbageCollection;
 using Shouldly;
@@ -8,14 +7,6 @@ using Xunit;
 
 public sealed class ThresholdCompactionPolicyTests
 {
-    [Fact]
-    public void Constructor_ShouldThrowArgumentNullException_WhenTimestampThresholdIsNull()
-    {
-        // Act & Assert
-        Should.Throw<ArgumentNullException>(() => new ThresholdCompactionPolicy((ICrdtTimestamp)null!));
-        Should.Throw<ArgumentNullException>(() => new ThresholdCompactionPolicy(null!, 100));
-    }
-
     [Theory]
     [InlineData(50, 100, true)]
     [InlineData(100, 100, true)]
@@ -23,8 +14,8 @@ public sealed class ThresholdCompactionPolicyTests
     public void IsSafeToCompact_WithTimestampOnly_ShouldCompareCorrectly(long candidateTime, long thresholdTime, bool expectedResult)
     {
         // Arrange
-        var policy = new ThresholdCompactionPolicy(new EpochTimestamp(thresholdTime));
-        var candidate = new CompactionCandidate(Timestamp: new EpochTimestamp(candidateTime));
+        var policy = new ThresholdCompactionPolicy(new CrdtTimestamp(thresholdTime));
+        var candidate = new CompactionCandidate(Timestamp: new CrdtTimestamp(candidateTime));
 
         // Act
         var result = policy.IsSafeToCompact(candidate);
@@ -37,7 +28,7 @@ public sealed class ThresholdCompactionPolicyTests
     public void IsSafeToCompact_WithTimestampOnly_ShouldReturnFalse_WhenCandidateHasNoTimestamp()
     {
         // Arrange
-        var policy = new ThresholdCompactionPolicy(new EpochTimestamp(100));
+        var policy = new ThresholdCompactionPolicy(new CrdtTimestamp(100));
         var candidate = new CompactionCandidate(Version: 50);
 
         // Act
@@ -69,7 +60,7 @@ public sealed class ThresholdCompactionPolicyTests
     {
         // Arrange
         var policy = new ThresholdCompactionPolicy(10);
-        var candidate = new CompactionCandidate(Timestamp: new EpochTimestamp(5));
+        var candidate = new CompactionCandidate(Timestamp: new CrdtTimestamp(5));
 
         // Act
         var result = policy.IsSafeToCompact(candidate);
@@ -89,8 +80,8 @@ public sealed class ThresholdCompactionPolicyTests
         bool expectedResult)
     {
         // Arrange
-        var policy = new ThresholdCompactionPolicy(new EpochTimestamp(thresholdTime), thresholdVer);
-        var candidate = new CompactionCandidate(Timestamp: new EpochTimestamp(candidateTime), Version: candidateVer);
+        var policy = new ThresholdCompactionPolicy(new CrdtTimestamp(thresholdTime), thresholdVer);
+        var candidate = new CompactionCandidate(Timestamp: new CrdtTimestamp(candidateTime), Version: candidateVer);
 
         // Act
         var result = policy.IsSafeToCompact(candidate);

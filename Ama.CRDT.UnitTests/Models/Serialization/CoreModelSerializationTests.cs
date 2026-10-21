@@ -27,7 +27,7 @@ public sealed class CoreModelSerializationTests
     [Fact]
     public void ApplyPatchResult_ShouldSerializeAndDeserialize()
     {
-        var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Upsert, "value", new EpochTimestamp(123), 1, "default", 2);
+        var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Upsert, "value", new CrdtTimestamp(123), 1, "default", 2);
         var unapplied = new UnappliedOperation(op, CrdtOperationStatus.Obsolete);
         var document = new CrdtDocument<CoreSerializationTestModel>(new CoreSerializationTestModel { Data = "Test" }, new CrdtMetadata());
         var result = new ApplyPatchResult<CoreSerializationTestModel>(document, new[] { unapplied });
@@ -46,7 +46,7 @@ public sealed class CoreModelSerializationTests
     [Fact]
     public void JournaledOperation_ShouldSerializeAndDeserialize()
     {
-        var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Remove, null, new EpochTimestamp(123), 1, "default", 2);
+        var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Remove, null, new CrdtTimestamp(123), 1, "default", 2);
         var journaled = new JournaledOperation("doc-1", op);
 
         var options = TestOptionsHelper.GetDefaultOptions();
@@ -61,7 +61,7 @@ public sealed class CoreModelSerializationTests
     [Fact]
     public void UnappliedOperation_ShouldSerializeAndDeserialize()
     {
-        var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Increment, 5, new EpochTimestamp(123), 1, "default", 2);
+        var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Increment, 5, new CrdtTimestamp(123), 1, "default", 2);
         var unapplied = new UnappliedOperation(op, CrdtOperationStatus.PathResolutionFailed);
 
         var options = TestOptionsHelper.GetDefaultOptions();

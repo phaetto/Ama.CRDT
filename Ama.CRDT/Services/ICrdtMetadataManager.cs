@@ -47,12 +47,12 @@ public interface ICrdtMetadataManager
     /// <code>
     /// <![CDATA[
     /// var user = new User { Name = "Alice", Age = 30 };
-    /// var ts = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// var ts = new CrdtTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     /// var metadata = metadataManager.Initialize(user, ts);
     /// ]]>
     /// </code>
     /// </example>
-    CrdtMetadata Initialize<T>([DisallowNull] T document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
+    CrdtMetadata Initialize<T>([DisallowNull] T document, [DisallowNull] CrdtTimestamp timestamp) where T : class;
 
     /// <summary>
     /// Populates an existing <see cref="CrdtMetadata"/> object with state derived from a document.
@@ -84,12 +84,12 @@ public interface ICrdtMetadataManager
     /// <code>
     /// <![CDATA[
     /// var myDoc = new CrdtDocument<User>(new User { Name = "Bob" }, new CrdtMetadata());
-    /// var ts = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// var ts = new CrdtTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     /// metadataManager.Initialize(myDoc, ts);
     /// ]]>
     /// </code>
     /// </example>
-    void Initialize<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
+    void Initialize<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] CrdtTimestamp timestamp) where T : class;
 
     /// <summary>
     /// Resets an existing <see cref="CrdtMetadata"/> object and re-initializes it from a document's current state.
@@ -121,12 +121,12 @@ public interface ICrdtMetadataManager
     /// <code>
     /// <![CDATA[
     /// var snapshotDoc = GetDocumentFromStorage();
-    /// var ts = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// var ts = new CrdtTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     /// metadataManager.Reset(snapshotDoc, ts);
     /// ]]>
     /// </code>
     /// </example>
-    void Reset<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
+    void Reset<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] CrdtTimestamp timestamp) where T : class;
 
     /// <summary>
     /// Compacts the metadata and tombstones for the entire document based on the provided compaction policy.
@@ -139,7 +139,7 @@ public interface ICrdtMetadataManager
     /// <example>
     /// <code>
     /// <![CDATA[
-    /// var policy = new ThresholdCompactionPolicy(new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 7L * 24 * 60 * 60 * 1000));
+    /// var policy = new ThresholdCompactionPolicy(new CrdtTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 7L * 24 * 60 * 60 * 1000));
     /// metadataManager.Compact(myDoc, policy);
     /// ]]>
     /// </code>
@@ -158,7 +158,7 @@ public interface ICrdtMetadataManager
     /// <example>
     /// <code>
     /// <![CDATA[
-    /// var ts = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// var ts = new CrdtTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     /// var operation = new CrdtOperation(OperationType.Upsert, "$.name", "Alice", ts, "replica-A", 5);
     /// metadataManager.AdvanceVersionVector(metadata, operation);
     /// // metadata.VersionVector["replica-A"] is now updated to 5 (or higher if exceptions are pruned)

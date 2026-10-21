@@ -58,13 +58,13 @@ public interface ICrdtPatcher
     /// <![CDATA[
     /// var crdtDoc = new CrdtDocument<MyDataObject>(docV1, metaV1);
     /// var docV2 = new MyDataObject { Value = "World" };
-    /// var customTs = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// var customTs = new CrdtTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     /// 
     /// var patch = patcher.GeneratePatch(crdtDoc, docV2, customTs);
     /// ]]>
     /// </code>
     /// </example>
-    CrdtPatch GeneratePatch<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, [DisallowNull] ICrdtTimestamp changeTimestamp) where T : class;
+    CrdtPatch GeneratePatch<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, [DisallowNull] CrdtTimestamp changeTimestamp) where T : class;
 
     /// <summary>
     /// Generates a single CRDT operation explicitly based on a provided operation intent, bypassing the state diffing process.
@@ -104,11 +104,11 @@ public interface ICrdtPatcher
     /// <![CDATA[
     /// var doc = new CrdtDocument<MyDataObject>(new MyDataObject(), metadata);
     /// var intent = new SetIntent("Alice");
-    /// var customTs = new EpochTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    /// var customTs = new CrdtTimestamp(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     /// 
     /// var operation = patcher.GenerateOperation(doc, x => x.Name, intent, customTs);
     /// ]]>
     /// </code>
     /// </example>
-    CrdtOperation GenerateOperation<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, [DisallowNull] ICrdtTimestamp timestamp) where T : class;
+    CrdtOperation GenerateOperation<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, [DisallowNull] CrdtTimestamp timestamp) where T : class;
 }

@@ -58,7 +58,7 @@ public sealed class LseqStrategyProperties
             nameof(LseqTestPoco.Items),
             OperationType.Upsert,
             new LseqItem(identifier, val ?? string.Empty),
-            new EpochTimestamp(1),
+            new CrdtTimestamp(1),
             0);
 
         var state1 = new LseqTestPoco();
@@ -89,7 +89,7 @@ public sealed class LseqStrategyProperties
             nameof(LseqTestPoco.Items),
             OperationType.Upsert,
             new LseqItem(id1, val1 ?? string.Empty),
-            new EpochTimestamp(1),
+            new CrdtTimestamp(1),
             0);
 
         var op2 = new CrdtOperation(
@@ -98,7 +98,7 @@ public sealed class LseqStrategyProperties
             nameof(LseqTestPoco.Items),
             OperationType.Upsert,
             new LseqItem(id2, val2 ?? string.Empty),
-            new EpochTimestamp(2),
+            new CrdtTimestamp(2),
             0);
 
         var stateAB = new LseqTestPoco();
@@ -137,7 +137,7 @@ public sealed class LseqStrategyProperties
                     nameof(LseqTestPoco.Items),
                     OperationType.Upsert,
                     new LseqItem(identifier, val),
-                    new EpochTimestamp(i),
+                    new CrdtTimestamp(i),
                     0);
             }
             else
@@ -148,7 +148,7 @@ public sealed class LseqStrategyProperties
                     nameof(LseqTestPoco.Items),
                     OperationType.Remove,
                     identifier,
-                    new EpochTimestamp(i),
+                    new CrdtTimestamp(i),
                     0);
             }
         }).ToList();

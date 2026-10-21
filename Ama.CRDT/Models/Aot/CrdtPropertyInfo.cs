@@ -20,6 +20,11 @@ public sealed class CrdtPropertyInfo
     public string JsonName { get; }
 
     /// <summary>
+    /// Gets the precomputed, interned root JSON path for this property (e.g., <c>"$.name"</c>).
+    /// </summary>
+    public string RootJsonPath { get; }
+
+    /// <summary>
     /// Gets the type of the property.
     /// </summary>
     public Type PropertyType { get; }
@@ -80,6 +85,7 @@ public sealed class CrdtPropertyInfo
     {
         Name = name;
         JsonName = jsonName;
+        RootJsonPath = string.Intern($"$.{jsonName}");
         PropertyType = propertyType;
         CanRead = canRead;
         CanWrite = canWrite;

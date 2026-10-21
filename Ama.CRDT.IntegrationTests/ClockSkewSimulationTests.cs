@@ -15,32 +15,6 @@ using Shouldly;
 using Xunit;
 
 /// <summary>
-/// A custom timestamp model for Hybrid Logical Clocks.
-/// </summary>
-public readonly record struct HlcTimestamp(long Value, string ReplicaId) : ICrdtTimestamp
-{
-    public int CompareTo(ICrdtTimestamp? other)
-    {
-        if (other is null) return 1;
-        if (other is HlcTimestamp otherHlc)
-        {
-            var cmp = Value.CompareTo(otherHlc.Value);
-            if (cmp != 0) return cmp;
-            return string.CompareOrdinal(ReplicaId, otherHlc.ReplicaId);
-        }
-        
-        if (other is EpochTimestamp epoch)
-        {
-            var cmp = Value.CompareTo(epoch.Value);
-            if (cmp != 0) return cmp;
-            return string.CompareOrdinal(ReplicaId, epoch.ReplicaId);
-        }
-        
-        return 1;
-    }
-}
-
-/// <summary>
 /// A centralized manager to store clock skews per replica for simulating network time drifts.
 /// </summary>
 public sealed class ClockSkewManager
@@ -66,25 +40,25 @@ public sealed class SkewedTimestampProvider : ICrdtTimestampProvider
         this.skewManager = skewManager;
     }
 
-    public ICrdtTimestamp Now()
+    public CrdtTimestamp Now()
     {
         var now = DateTimeOffset.UtcNow;
         if (!string.IsNullOrEmpty(replicaContext.ReplicaId) && skewManager.Skews.TryGetValue(replicaContext.ReplicaId, out var skew))
         {
             now += skew;
         }
-        return new EpochTimestamp(now.ToUnixTimeMilliseconds(), replicaContext.ReplicaId);
+        return new CrdtTimestamp(now.ToUnixTimeMilliseconds(), 0, 0, replicaContext.ReplicaId);
     }
 
-    public ICrdtTimestamp Create(long value)
+    public CrdtTimestamp Create(long value)
     {
-        return new EpochTimestamp(value, replicaContext.ReplicaId);
+        return new CrdtTimestamp(value, 0, 0, replicaContext.ReplicaId);
     }
 }
 
 /// <summary>
 /// A robust Hybrid Logical Clock (HLC) implementation.
-/// It uses the highest 48 bits for physical wall-clock time and the lowest 16 bits for a logical counter.
+/// It uses physical wall-clock time for Ticks and a logical Counter to resolve sub-millisecond or skewed events.
 /// This guarantees timestamps are strictly monotonic and always move forward, safely recovering from skewed clocks.
 /// </summary>
 public sealed class HlcTimestampProvider : ICrdtTimestampProvider
@@ -92,16 +66,19 @@ public sealed class HlcTimestampProvider : ICrdtTimestampProvider
     private readonly ReplicaContext replicaContext;
     private readonly ClockSkewManager skewManager;
     private long maxPhysicalMs = 0;
-    private ushort logicalCounter = 0;
+    private int logicalCounter = 0;
     private readonly object @lock = new object();
 
     public HlcTimestampProvider(ReplicaContext replicaContext, ClockSkewManager skewManager)
     {
+        ArgumentNullException.ThrowIfNull(replicaContext);
+        ArgumentNullException.ThrowIfNull(skewManager);
+
         this.replicaContext = replicaContext;
         this.skewManager = skewManager;
     }
 
-    public ICrdtTimestamp Now()
+    public CrdtTimestamp Now()
     {
         lock (@lock)
         {
@@ -125,40 +102,35 @@ public sealed class HlcTimestampProvider : ICrdtTimestampProvider
                 logicalCounter++;
             }
 
-            // Pack 48-bit MS and 16-bit counter into a single 64-bit integer
-            long packed = (maxPhysicalMs << 16) | logicalCounter;
-            return new HlcTimestamp(packed, replicaContext.ReplicaId);
+            return new CrdtTimestamp(maxPhysicalMs, logicalCounter, 0, replicaContext.ReplicaId);
         }
     }
 
-    public ICrdtTimestamp Create(long value)
+    public CrdtTimestamp Create(long value)
     {
-        return new HlcTimestamp(value, replicaContext.ReplicaId);
+        return new CrdtTimestamp(value, 0, 0, replicaContext.ReplicaId);
     }
 
     /// <summary>
     /// Observes incoming timestamps from remote replicas and fast-forwards the local clock if necessary.
     /// </summary>
-    public void UpdateFromIncoming(long incomingPacked)
+    public void UpdateFromIncoming(CrdtTimestamp incoming)
     {
-        long incomingMs = incomingPacked >> 16;
-        ushort incomingCounter = (ushort)(incomingPacked & 0xFFFF);
-
         lock (@lock)
         {
-            if (incomingMs > maxPhysicalMs)
+            if (incoming.Ticks > maxPhysicalMs)
             {
                 // We saw a timestamp from the "future" (another node's skewed clock).
                 // Fast forward our physical clock to match it.
-                maxPhysicalMs = incomingMs;
-                logicalCounter = (ushort)(incomingCounter + 1);
+                maxPhysicalMs = incoming.Ticks;
+                logicalCounter = incoming.Counter + 1;
             }
-            else if (incomingMs == maxPhysicalMs)
+            else if (incoming.Ticks == maxPhysicalMs)
             {
                 // Same millisecond, just ensure our counter is strictly greater
-                if (incomingCounter >= logicalCounter)
+                if (incoming.Counter >= logicalCounter)
                 {
-                    logicalCounter = (ushort)(incomingCounter + 1);
+                    logicalCounter = incoming.Counter + 1;
                 }
             }
         }
@@ -175,6 +147,7 @@ public sealed class HlcUpdaterApplicatorDecorator : AsyncCrdtApplicatorDecorator
     public HlcUpdaterApplicatorDecorator(IAsyncCrdtApplicator inner, DecoratorBehavior behavior, ICrdtTimestampProvider provider) 
         : base(inner, behavior)
     {
+        ArgumentNullException.ThrowIfNull(provider);
         this.provider = provider;
     }
 
@@ -184,10 +157,7 @@ public sealed class HlcUpdaterApplicatorDecorator : AsyncCrdtApplicatorDecorator
         {
             foreach (var op in patch.Operations)
             {
-                if (op.Timestamp is HlcTimestamp ht)
-                {
-                    hlcProvider.UpdateFromIncoming(ht.Value);
-                }
+                hlcProvider.UpdateFromIncoming(op.Timestamp);
             }
         }
 

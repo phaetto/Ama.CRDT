@@ -8,7 +8,7 @@ using System.Collections.Generic;
 /// </summary>
 /// <param name="Adds">A dictionary mapping added elements to their timestamps.</param>
 /// <param name="Removes">A dictionary mapping removed elements to their causal timestamps, tracking who and when removed them for GC.</param>
-public sealed record LwwSetState(IDictionary<object, ICrdtTimestamp> Adds, IDictionary<object, CausalTimestamp> Removes) : IEquatable<LwwSetState>, ICrdtMetadataState
+public sealed record LwwSetState(IDictionary<object, CrdtTimestamp> Adds, IDictionary<object, CausalTimestamp> Removes) : IEquatable<LwwSetState>, ICrdtMetadataState
 {
     private static bool DictionaryEquals<TKey, TValue>(IDictionary<TKey, TValue> left, IDictionary<TKey, TValue> right) where TKey : notnull
     {
@@ -38,7 +38,7 @@ public sealed record LwwSetState(IDictionary<object, ICrdtTimestamp> Adds, IDict
     /// <inheritdoc />
     public ICrdtMetadataState DeepClone()
     {
-        var newAdds = new Dictionary<object, ICrdtTimestamp>(Adds, (Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer);
+        var newAdds = new Dictionary<object, CrdtTimestamp>(Adds, (Adds as Dictionary<object, CrdtTimestamp>)?.Comparer);
         var newRemoves = new Dictionary<object, CausalTimestamp>(Removes, (Removes as Dictionary<object, CausalTimestamp>)?.Comparer);
         return new LwwSetState(newAdds, newRemoves);
     }
@@ -48,7 +48,7 @@ public sealed record LwwSetState(IDictionary<object, ICrdtTimestamp> Adds, IDict
     {
         if (other is not LwwSetState otherState) return this;
 
-        var mergedAdds = new Dictionary<object, ICrdtTimestamp>(Adds, (Adds as Dictionary<object, ICrdtTimestamp>)?.Comparer);
+        var mergedAdds = new Dictionary<object, CrdtTimestamp>(Adds, (Adds as Dictionary<object, CrdtTimestamp>)?.Comparer);
         foreach (var kvp in otherState.Adds)
         {
             if (!mergedAdds.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)

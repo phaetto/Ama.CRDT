@@ -48,7 +48,7 @@ public abstract class AsyncCrdtPatcherDecoratorBase : IAsyncCrdtPatcher
     }
 
     /// <inheritdoc/>
-    public async Task<CrdtPatch> GeneratePatchAsync<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, [DisallowNull] ICrdtTimestamp changeTimestamp, CancellationToken cancellationToken = default) where T : class
+    public async Task<CrdtPatch> GeneratePatchAsync<T>([DisallowNull] CrdtDocument<T> from, [DisallowNull] T changed, [DisallowNull] CrdtTimestamp changeTimestamp, CancellationToken cancellationToken = default) where T : class
     {
         switch (this.behavior)
         {
@@ -87,7 +87,7 @@ public abstract class AsyncCrdtPatcherDecoratorBase : IAsyncCrdtPatcher
     }
 
     /// <inheritdoc/>
-    public async Task<CrdtOperation> GenerateOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, [DisallowNull] ICrdtTimestamp timestamp, CancellationToken cancellationToken = default) where T : class
+    public async Task<CrdtOperation> GenerateOperationAsync<T, TProp>([DisallowNull] CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, [DisallowNull] CrdtTimestamp timestamp, CancellationToken cancellationToken = default) where T : class
     {
         switch (this.behavior)
         {
@@ -112,15 +112,15 @@ public abstract class AsyncCrdtPatcherDecoratorBase : IAsyncCrdtPatcher
     protected virtual Task OnAfterGeneratePatchAsync<T>(CrdtDocument<T> from, T changed, CrdtPatch result, CancellationToken cancellationToken) where T : class => Task.CompletedTask;
     protected virtual Task<CrdtPatch> OnComplexGeneratePatchAsync<T>(IAsyncCrdtPatcher inner, CrdtDocument<T> from, T changed, CancellationToken cancellationToken) where T : class => inner.GeneratePatchAsync(from, changed, cancellationToken);
 
-    protected virtual Task OnBeforeGeneratePatchAsync<T>(CrdtDocument<T> from, T changed, ICrdtTimestamp changeTimestamp, CancellationToken cancellationToken) where T : class => Task.CompletedTask;
-    protected virtual Task OnAfterGeneratePatchAsync<T>(CrdtDocument<T> from, T changed, ICrdtTimestamp changeTimestamp, CrdtPatch result, CancellationToken cancellationToken) where T : class => Task.CompletedTask;
-    protected virtual Task<CrdtPatch> OnComplexGeneratePatchAsync<T>(IAsyncCrdtPatcher inner, CrdtDocument<T> from, T changed, ICrdtTimestamp changeTimestamp, CancellationToken cancellationToken) where T : class => inner.GeneratePatchAsync(from, changed, changeTimestamp, cancellationToken);
+    protected virtual Task OnBeforeGeneratePatchAsync<T>(CrdtDocument<T> from, T changed, CrdtTimestamp changeTimestamp, CancellationToken cancellationToken) where T : class => Task.CompletedTask;
+    protected virtual Task OnAfterGeneratePatchAsync<T>(CrdtDocument<T> from, T changed, CrdtTimestamp changeTimestamp, CrdtPatch result, CancellationToken cancellationToken) where T : class => Task.CompletedTask;
+    protected virtual Task<CrdtPatch> OnComplexGeneratePatchAsync<T>(IAsyncCrdtPatcher inner, CrdtDocument<T> from, T changed, CrdtTimestamp changeTimestamp, CancellationToken cancellationToken) where T : class => inner.GeneratePatchAsync(from, changed, changeTimestamp, cancellationToken);
 
     protected virtual Task OnBeforeGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CancellationToken cancellationToken) where T : class => Task.CompletedTask;
     protected virtual Task OnAfterGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CrdtOperation result, CancellationToken cancellationToken) where T : class => Task.CompletedTask;
     protected virtual Task<CrdtOperation> OnComplexGenerateOperationAsync<T, TProp>(IAsyncCrdtPatcher inner, CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CancellationToken cancellationToken) where T : class => inner.GenerateOperationAsync(document, propertyExpression, intent, cancellationToken);
 
-    protected virtual Task OnBeforeGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, ICrdtTimestamp timestamp, CancellationToken cancellationToken) where T : class => Task.CompletedTask;
-    protected virtual Task OnAfterGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, ICrdtTimestamp timestamp, CrdtOperation result, CancellationToken cancellationToken) where T : class => Task.CompletedTask;
-    protected virtual Task<CrdtOperation> OnComplexGenerateOperationAsync<T, TProp>(IAsyncCrdtPatcher inner, CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, ICrdtTimestamp timestamp, CancellationToken cancellationToken) where T : class => inner.GenerateOperationAsync(document, propertyExpression, intent, timestamp, cancellationToken);
+    protected virtual Task OnBeforeGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CrdtTimestamp timestamp, CancellationToken cancellationToken) where T : class => Task.CompletedTask;
+    protected virtual Task OnAfterGenerateOperationAsync<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CrdtTimestamp timestamp, CrdtOperation result, CancellationToken cancellationToken) where T : class => Task.CompletedTask;
+    protected virtual Task<CrdtOperation> OnComplexGenerateOperationAsync<T, TProp>(IAsyncCrdtPatcher inner, CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent, CrdtTimestamp timestamp, CancellationToken cancellationToken) where T : class => inner.GenerateOperationAsync(document, propertyExpression, intent, timestamp, cancellationToken);
 }

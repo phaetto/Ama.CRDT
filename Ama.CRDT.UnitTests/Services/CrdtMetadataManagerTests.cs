@@ -37,7 +37,7 @@ public sealed class CrdtMetadataManagerTests
             [new ServicesTestCrdtAotContext()],
             crdtSerializerMock.Object);
             
-        timestampProviderMock.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(v => new EpochTimestamp(v));
+        timestampProviderMock.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(v => new CrdtTimestamp(v));
     }
     
     [Theory]
@@ -59,27 +59,24 @@ public sealed class CrdtMetadataManagerTests
         // Act & Assert
         if (testInitialize)
         {
-            // Test Initialize<T>(T document) and Initialize<T>(T document, ICrdtTimestamp timestamp)
+            // Test Initialize<T>(T document) and Initialize<T>(T document, CrdtTimestamp timestamp)
             Should.Throw<ArgumentNullException>(() => manager.Initialize<object>(null!));
             Should.Throw<ArgumentNullException>(() => manager.Initialize<object>(null!, timestamp));
-            Should.Throw<ArgumentNullException>(() => manager.Initialize(doc, null!));
             
-            // Test Initialize<T>(CrdtDocument<T> document) and Initialize<T>(CrdtDocument<T> document, ICrdtTimestamp timestamp)
+            // Test Initialize<T>(CrdtDocument<T> document) and Initialize<T>(CrdtDocument<T> document, CrdtTimestamp timestamp)
             Should.Throw<ArgumentNullException>(() => manager.Initialize(new CrdtDocument<object>(null!, metadata)));
             Should.Throw<ArgumentNullException>(() => manager.Initialize(new CrdtDocument<object>(doc, null!)));
             Should.Throw<ArgumentNullException>(() => manager.Initialize(new CrdtDocument<object>(null!, metadata), timestamp));
             Should.Throw<ArgumentNullException>(() => manager.Initialize(new CrdtDocument<object>(doc, null!), timestamp));
-            Should.Throw<ArgumentNullException>(() => manager.Initialize(new CrdtDocument<object>(doc, metadata), null!));
         }
         
         if (testReset)
         {
-            // Test Reset<T>(CrdtDocument<T> document) and Reset<T>(CrdtDocument<T> document, ICrdtTimestamp timestamp)
+            // Test Reset<T>(CrdtDocument<T> document) and Reset<T>(CrdtDocument<T> document, CrdtTimestamp timestamp)
             Should.Throw<ArgumentNullException>(() => manager.Reset(new CrdtDocument<object>(null!, metadata)));
             Should.Throw<ArgumentNullException>(() => manager.Reset(new CrdtDocument<object>(doc, null!)));
             Should.Throw<ArgumentNullException>(() => manager.Reset(new CrdtDocument<object>(null!, metadata), timestamp));
             Should.Throw<ArgumentNullException>(() => manager.Reset(new CrdtDocument<object>(doc, null!), timestamp));
-            Should.Throw<ArgumentNullException>(() => manager.Reset(new CrdtDocument<object>(doc, metadata), null!));
         }
         
         if (testCompact)
@@ -121,9 +118,9 @@ public sealed class CrdtMetadataManagerTests
         metadata.States["$.a_fww"] = fwwTs;
         metadata.States["$.b"] = new PositionalState([]);
         metadata.States["$.c"] = new AverageRegisterState(new Dictionary<string, AverageRegisterValue>());
-        metadata.States["$.d"] = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
-        metadata.States["$.e"] = new LwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
-        metadata.States["$.e2"] = new FwwSetState(new Dictionary<object, ICrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
+        metadata.States["$.d"] = new LwwSetState(new Dictionary<object, CrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
+        metadata.States["$.e"] = new LwwSetState(new Dictionary<object, CrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
+        metadata.States["$.e2"] = new FwwSetState(new Dictionary<object, CrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
         metadata.States["$.f"] = new LwwMapState(new Dictionary<object, CausalTimestamp>());
         metadata.States["$.f2"] = new FwwMapState(new Dictionary<object, CausalTimestamp>());
         metadata.States["$.g"] = new OrSetState(new Dictionary<object, ISet<Guid>>(), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>());

@@ -56,17 +56,17 @@ public sealed class AsyncCrdtPatcherAdapterTests
 
         var document = new CrdtDocument<TestModel>(new TestModel());
         var changed = new TestModel();
-        var timestampMock = new Mock<ICrdtTimestamp>();
+        var timestamp = new CrdtTimestamp(123L);
         var expectedPatch = new CrdtPatch(Array.Empty<CrdtOperation>());
 
-        innerMock.Setup(m => m.GeneratePatch(document, changed, timestampMock.Object)).Returns(expectedPatch);
+        innerMock.Setup(m => m.GeneratePatch(document, changed, timestamp)).Returns(expectedPatch);
 
         // Act
-        var result = await adapter.GeneratePatchAsync(document, changed, timestampMock.Object);
+        var result = await adapter.GeneratePatchAsync(document, changed, timestamp);
 
         // Assert
         result.ShouldBe(expectedPatch);
-        innerMock.Verify(m => m.GeneratePatch(document, changed, timestampMock.Object), Times.Once);
+        innerMock.Verify(m => m.GeneratePatch(document, changed, timestamp), Times.Once);
     }
 
     [Fact]
@@ -101,17 +101,17 @@ public sealed class AsyncCrdtPatcherAdapterTests
         var document = new CrdtDocument<TestModel>(new TestModel());
         Expression<Func<TestModel, string?>> expression = m => m.Property;
         var intentMock = new Mock<IOperationIntent>();
-        var timestampMock = new Mock<ICrdtTimestamp>();
+        var timestamp = new CrdtTimestamp(123L);
         var expectedOperation = new CrdtOperation { Id = Guid.NewGuid() };
 
-        innerMock.Setup(m => m.GenerateOperation(document, expression, intentMock.Object, timestampMock.Object)).Returns(expectedOperation);
+        innerMock.Setup(m => m.GenerateOperation(document, expression, intentMock.Object, timestamp)).Returns(expectedOperation);
 
         // Act
-        var result = await adapter.GenerateOperationAsync(document, expression, intentMock.Object, timestampMock.Object);
+        var result = await adapter.GenerateOperationAsync(document, expression, intentMock.Object, timestamp);
 
         // Assert
         result.ShouldBe(expectedOperation);
-        innerMock.Verify(m => m.GenerateOperation(document, expression, intentMock.Object, timestampMock.Object), Times.Once);
+        innerMock.Verify(m => m.GenerateOperation(document, expression, intentMock.Object, timestamp), Times.Once);
     }
 
     [Fact]

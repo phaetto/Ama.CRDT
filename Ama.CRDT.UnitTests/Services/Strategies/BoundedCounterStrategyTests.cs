@@ -315,7 +315,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
     }
 
     [Fact]
-    public void MergeState_ShouldTakeMaxClockAndClampValue()
+    public void MergeState_ShouldMergeContributionsAndClampValue()
     {
         // Arrange
         var propInfo = new CrdtPropertyInfo(
@@ -335,7 +335,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
 
         var doc2 = new BoundedCounterTestModel { Level = 50 };
         var meta2 = new CrdtMetadata();
-        // apply op to doc2 (replica B, clock 2, +70) => unbounded 120 -> clamps to 100
+        // apply op to doc2 (replica B, clock 2, +70) => unbounded 50 + 10 + 70 = 130 -> clamps to 100
         strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.level", OperationType.Increment, 70m, timestampProvider.Create(2L), 2)) { Property = propInfo, FinalSegment = "level" });
 
         // Act
@@ -344,13 +344,13 @@ public sealed class BoundedCounterStrategyTests : IDisposable
 
         // Assert
         doc1.Level.ShouldBe(100);
-        var state = meta1.States["$.level"].ShouldBeOfType<CausalTimestamp>();
-        state.Clock.ShouldBe(2);
-        state.ReplicaId.ShouldBe("B");
+        var state = meta1.States["$.level"].ShouldBeOfType<CounterState>();
+        state.Contributions["A"].P.ShouldBe(10m);
+        state.Contributions["B"].P.ShouldBe(70m);
     }
 
     [Fact]
-    public void MergeState_ShouldTieBreakByReplicaId()
+    public void MergeState_ShouldCombineConcurrentIncrementsAndDecrements()
     {
         // Arrange
         var propInfo = new CrdtPropertyInfo(
@@ -377,11 +377,11 @@ public sealed class BoundedCounterStrategyTests : IDisposable
         strategy.MergeState(context);
 
         // Assert
-        // B > A, so B wins tie break. Unbounded value should be 50 - 20 = 30.
-        doc1.Level.ShouldBe(30);
-        var state = meta1.States["$.level"].ShouldBeOfType<CausalTimestamp>();
-        state.Clock.ShouldBe(1);
-        state.ReplicaId.ShouldBe("B");
+        // Unbounded value should be 50 + 10 - 20 = 40.
+        doc1.Level.ShouldBe(40);
+        var state = meta1.States["$.level"].ShouldBeOfType<CounterState>();
+        state.Contributions["A"].P.ShouldBe(10m);
+        state.Contributions["B"].N.ShouldBe(20m);
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)

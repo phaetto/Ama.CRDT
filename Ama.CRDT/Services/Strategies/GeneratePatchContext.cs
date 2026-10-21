@@ -28,6 +28,6 @@ public sealed record GeneratePatchContext(
     object? OriginalRoot,
     object? ModifiedRoot,
     CrdtMetadata OriginalMeta,
-    ICrdtTimestamp ChangeTimestamp,
+    CrdtTimestamp ChangeTimestamp,
     long Clock
 );

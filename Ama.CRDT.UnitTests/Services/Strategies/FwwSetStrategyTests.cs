@@ -453,7 +453,7 @@ public sealed class FwwSetStrategyTests : IDisposable
         var safeTs2 = timestampProvider.Create(20);
         var unsafeTs = timestampProvider.Create(30);
         
-        var adds = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default);
+        var adds = new Dictionary<object, CrdtTimestamp>(EqualityComparer<object>.Default);
         var removes = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default);
 
         // Item 1: Alive (Add < Remove => Add wins)
@@ -481,7 +481,7 @@ public sealed class FwwSetStrategyTests : IDisposable
             .Returns((CompactionCandidate c) => 
             {
                 if (c.ReplicaId != null) return c.ReplicaId == "replica-1" && c.Version <= 2;
-                if (c.Timestamp != null) return c.Timestamp.CompareTo(safeTs2) <= 0;
+                if (c.Timestamp != null) return c.Timestamp.Value.CompareTo(safeTs2) <= 0;
                 return false;
             });
 
@@ -526,13 +526,13 @@ public sealed class FwwSetStrategyTests : IDisposable
         var tsNewer = timestampProvider.Create(200);
 
         // Doc1: Add "A" (newer), Remove "B" (older)
-        var adds1 = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default) { { "A", tsNewer } };
+        var adds1 = new Dictionary<object, CrdtTimestamp>(EqualityComparer<object>.Default) { { "A", tsNewer } };
         var rems1 = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default) { { "B", new CausalTimestamp(tsOlder, "A", 1) } };
         meta1.States["$.tags"] = new FwwSetState(adds1, rems1);
         doc1.Tags.Add("A");
 
         // Doc2: Add "A" (older), Add "B" (newer), Add "C" (older)
-        var adds2 = new Dictionary<object, ICrdtTimestamp>(EqualityComparer<object>.Default) { 
+        var adds2 = new Dictionary<object, CrdtTimestamp>(EqualityComparer<object>.Default) { 
             { "A", tsOlder }, 
             { "B", tsNewer },
             { "C", tsOlder }
