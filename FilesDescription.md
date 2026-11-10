@@ -1,10 +1,10 @@
 | File Path | Description |
 | --- | --- |
 | `$/.editorconfig` | Configures coding standards, formatting rules, and enables specific .NET analyzer rules such as CA2007 for enforcing `ConfigureAwait` usage. |
-| `$/.github/workflows/ci.yml` | GitHub Actions workflow for building and testing the project on pushes to non-master branches and on pull requests to master. This ensures code quality before merging. |
+| `$/.github/workflows/ci.yml` | GitHub Actions workflow for building and testing the project on pushes to non-master branches and on pull requests to master, supporting .NET 10 and .NET 11. |
 | `$/.github/workflows/codeql.yml` | No description provided. |
-| `$/.github/workflows/publish-preview-to-nuget.yml` | No description provided. |
-| `$/.github/workflows/publish-release-to-nuget-manual.yml` | No description provided. |
+| `$/.github/workflows/publish-preview-to-nuget.yml` | GitHub Actions workflow for building, testing, and publishing preview packages to NuGet on pushes to master, supporting .NET 10 and .NET 11. |
+| `$/.github/workflows/publish-release-to-nuget-manual.yml` | GitHub Actions workflow for manually building, testing, and publishing stable release packages to NuGet, supporting .NET 10 and .NET 11. |
 | `$/.gitignore` | No description provided. |
 | `$/Ama.CRDT.Analyzers.UnitTests/Ama.CRDT.Analyzers.UnitTests.csproj` | The project file for the unit tests of the Roslyn analyzers. |
 | `$/Ama.CRDT.Analyzers.UnitTests/CrdtDecoratorBehaviorAnalyzerTests.cs` | Contains unit tests for `CrdtDecoratorBehaviorAnalyzer`, verifying it correctly allows valid behavior DI registrations and reports diagnostics for unsupported ones. |
@@ -38,7 +38,7 @@
 | `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/Services/StreamSpaceAllocatorTests.cs` | No description provided. |
 | `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/StreamChunkStorageServiceDataTests.cs` | No description provided. |
 | `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/StreamChunkStorageServiceIndexTests.cs` | No description provided. |
-| `$/Ama.CRDT.LargerThanMemory.Streams/Ama.CRDT.LargerThanMemory.Streams.csproj` | The project file for the larger-than-memory streams package, targeting .NET 10 and configured for NuGet packaging and Native AOT compatibility. |
+| `$/Ama.CRDT.LargerThanMemory.Streams/Ama.CRDT.LargerThanMemory.Streams.csproj` | The project file for the larger-than-memory streams package, targeting .NET 10 and .NET 11 and configured for NuGet packaging and Native AOT compatibility. |
 | `$/Ama.CRDT.LargerThanMemory.Streams/Extensions/StreamLargerThanMemoryServiceCollectionExtensions.cs` | No description provided. |
 | `$/Ama.CRDT.LargerThanMemory.Streams/Models/BPlusTreeNode.cs` | No description provided. |
 | `$/Ama.CRDT.LargerThanMemory.Streams/Models/BTreeHeader.cs` | No description provided. |
@@ -243,7 +243,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/VoteCounterStrategyTests.cs` | Contains unit tests for the `VoteCounterStrategy`, verifying convergence, idempotence, and LWW-based conflict resolution for concurrent voting scenarios. |
 | `$/Ama.CRDT.UnitTests/Services/Versioning/VersionVectorSyncServiceTests.cs` | No description provided. |
 | `$/Ama.CRDT.slnx` | No description provided. |
-| `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, targeting .NET 10, configured for NuGet packaging, auto-including associated Roslyn analyzers, and enforcing `<IsAotCompatible>true</IsAotCompatible>`. |
+| `$/Ama.CRDT/Ama.CRDT.csproj` | The main project file for the CRDT library, targeting .NET 10 and .NET 11, configured for NuGet packaging, auto-including associated Roslyn analyzers, and enforcing `<IsAotCompatible>true</IsAotCompatible>`. |
 | `$/Ama.CRDT/Attributes/AllowedDecoratorBehaviorAttribute.cs` | Attribute used to tag decorator classes with their supported execution behaviors. Meant for use alongside Roslyn Analyzers to ensure DI validation. |
 | `$/Ama.CRDT/Attributes/CrdtAotTypeAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Attributes/CrdtIntentMappingAttribute.cs` | An attribute to map intent builder extension methods to the specific explicit intent types they generate, enabling compile-time validation via Roslyn analyzers without hardcoded mappings. |
