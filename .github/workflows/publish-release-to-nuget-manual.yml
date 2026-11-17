@@ -11,10 +11,6 @@ on:
         description: 'Minor Version'
         required: true
         default: '0'
-      patch_version:
-        description: 'Patch Version'
-        required: true
-        default: '0'
 
 permissions:
   contents: write
@@ -61,8 +57,30 @@ jobs:
       - name: Set Version
         id: versioning
         run: |
-          PACKAGE_VERSION="${{ inputs.major_version }}.${{ inputs.minor_version }}.${{ inputs.patch_version }}"
-          ASSEMBLY_VERSION="${{ inputs.major_version }}.${{ inputs.minor_version }}.${{ inputs.patch_version }}.0"
+          # The package version format is MAJOR.MINOR.YYMMDD.
+          PATCH_NUMBER=$(date -u +'%y%m%d')
+          PACKAGE_VERSION="${{ inputs.major_version }}.${{ inputs.minor_version }}.${PATCH_NUMBER}"
+
+          # The assembly version format is Major.Minor.Build.Revision, where Build and Revision must be less than 65536.
+          # We use a hardcoded epoch for 2000-01-01 to make the calculation robust.
+          NOW_SECONDS=$(date -u +%s)
+          CRDT_EPOCH_SECONDS=946684800 # Seconds from 1970-01-01 to 2000-01-01 UTC.
+          
+          if [ "$NOW_SECONDS" -lt "$CRDT_EPOCH_SECONDS" ]; then
+            echo "Clock skew detected. Current time is before the year 2000."
+            exit 1
+          fi
+
+          DIFF_SECONDS=$(( NOW_SECONDS - CRDT_EPOCH_SECONDS ))
+          
+          # Build: Days since January 1, 2000. This is guaranteed to be in the valid range.
+          ASSEMBLY_BUILD_NUMBER=$(( DIFF_SECONDS / 86400 ))
+
+          # Revision: Seconds since UTC midnight, divided by 2. This is also in the valid range.
+          SECONDS_SINCE_MIDNIGHT=$(( NOW_SECONDS % 86400 ))
+          ASSEMBLY_REVISION_NUMBER=$(( SECONDS_SINCE_MIDNIGHT / 2 ))
+          
+          ASSEMBLY_VERSION="${{ inputs.major_version }}.${{ inputs.minor_version }}.${ASSEMBLY_BUILD_NUMBER}.${ASSEMBLY_REVISION_NUMBER}"
           
           echo "PACKAGE_VERSION=${PACKAGE_VERSION}" >> $GITHUB_ENV
           echo "ASSEMBLY_VERSION=${ASSEMBLY_VERSION}" >> $GITHUB_ENV
