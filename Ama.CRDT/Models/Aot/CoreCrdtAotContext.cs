@@ -145,6 +145,7 @@ using System.Collections.Immutable;
 [CrdtAotType(typeof(IDictionary<object, TreeNode>))]
 [CrdtAotType(typeof(Dictionary<object, TreeNode>))]
 [CrdtAotType(typeof(IDictionary<object, PnCounterState>))]
+[CrdtAotType(typeof(IDictionary<Guid, CausalTimestamp>))]
 [CrdtAotType(typeof(CompositeChunkKey?))]
 [CrdtAotType(typeof(RgaIdentifier?))]
 [CrdtAotType(typeof(List<LseqItem>))]
