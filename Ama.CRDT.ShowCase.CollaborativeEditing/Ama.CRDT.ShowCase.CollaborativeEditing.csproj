@@ -1,22 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFrameworks>net10.0-windows;net11.0-windows</TargetFrameworks>
-    <Nullable>enable</Nullable>
-    <UseWindowsForms>true</UseWindowsForms>
-    <ImplicitUsings>enable</ImplicitUsings>
-	<EnableWindowsTargeting>true</EnableWindowsTargeting>
-  </PropertyGroup>
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFrameworks>net10.0-windows;net11.0-windows</TargetFrameworks>
+		<Nullable>enable</Nullable>
+		<UseWindowsForms>true</UseWindowsForms>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<EnableWindowsTargeting>true</EnableWindowsTargeting>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
-  </ItemGroup>
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net11.0'">
+		<Features>runtime-async=on</Features>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\Ama.CRDT.Analyzers\Ama.CRDT.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-	  <ProjectReference Include="..\Ama.CRDT.SourceGenerators\Ama.CRDT.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-	  <ProjectReference Include="..\Ama.CRDT\Ama.CRDT.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Ama.CRDT.Analyzers\Ama.CRDT.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\Ama.CRDT.SourceGenerators\Ama.CRDT.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\Ama.CRDT\Ama.CRDT.csproj" />
+	</ItemGroup>
 
 </Project>
