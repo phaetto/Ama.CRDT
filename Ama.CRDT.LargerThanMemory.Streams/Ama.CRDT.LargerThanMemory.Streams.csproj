@@ -8,6 +8,10 @@
 		<IsAotCompatible>true</IsAotCompatible>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net11.0'">
+		<Features>runtime-async=on</Features>
+	</PropertyGroup>
+
 	<PropertyGroup>
 		<IsPackable>true</IsPackable>
 		<PackageId>Ama.CRDT.LargerThanMemory.Streams</PackageId>
