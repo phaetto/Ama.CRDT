@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.LargerThanMemory;
 using Ama.CRDT.Services;
@@ -130,7 +131,7 @@ public sealed class FwwMapStrategy(
 
         if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not FwwMapState mapState)
         {
-            var newTimestamps = new Dictionary<object, CausalTimestamp>(comparer);
+            var newTimestamps = new CompactDictionary<object, CausalTimestamp>(comparer);
             mapState = new FwwMapState(newTimestamps);
             metadata.States[operation.JsonPath] = mapState;
         }
@@ -222,15 +223,15 @@ public sealed class FwwMapStrategy(
         var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
-        if (!meta1.States.TryGetValue(propertyPath, out var baseState1) || baseState1 is not FwwMapState mapState1)
-        {
-            mapState1 = new FwwMapState(new Dictionary<object, CausalTimestamp>(comparer));
-            meta1.States[propertyPath] = mapState1;
-        }
-
         if (!meta2.States.TryGetValue(propertyPath, out var baseState2) || baseState2 is not FwwMapState mapState2)
         {
             return; // Nothing to merge from meta2
+        }
+
+        if (!meta1.States.TryGetValue(propertyPath, out var baseState1) || baseState1 is not FwwMapState mapState1)
+        {
+            mapState1 = new FwwMapState(new CompactDictionary<object, CausalTimestamp>(mapState2.Keys.Count, comparer));
+            meta1.States[propertyPath] = mapState1;
         }
 
         foreach (var kvp in mapState2.Keys)
@@ -380,8 +381,14 @@ public sealed class FwwMapStrategy(
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
 
-        meta1.States[path] = new FwwMapState(items1.ToDictionary(k => k.Key, v => v.Value, comparer));
-        meta2.States[path] = new FwwMapState(items2.ToDictionary(k => k.Key, v => v.Value, comparer));
+        var keys1 = new CompactDictionary<object, CausalTimestamp>(items1.Count, comparer);
+        foreach (var kvp in items1) keys1[kvp.Key] = kvp.Value;
+
+        var keys2 = new CompactDictionary<object, CausalTimestamp>(items2.Count, comparer);
+        foreach (var kvp in items2) keys2[kvp.Key] = kvp.Value;
+
+        meta1.States[path] = new FwwMapState(keys1);
+        meta2.States[path] = new FwwMapState(keys2);
 
         ReconstructDictionaryForSplitMerge(doc1, path, items1, originalData, aotContexts);
         ReconstructDictionaryForSplitMerge(doc2, path, items2, originalData, aotContexts);
@@ -410,7 +417,7 @@ public sealed class FwwMapStrategy(
         var items1 = meta1.States.TryGetValue(path, out var s1) && s1 is FwwMapState fww1 ? fww1.Keys : new Dictionary<object, CausalTimestamp>(comparer);
         var items2 = meta2.States.TryGetValue(path, out var s2) && s2 is FwwMapState fww2 ? fww2.Keys : new Dictionary<object, CausalTimestamp>(comparer);
 
-        var mergedItems = new Dictionary<object, CausalTimestamp>(comparer);
+        var mergedItems = new CompactDictionary<object, CausalTimestamp>(items1.Count + items2.Count, comparer);
         foreach (var kvp in items1) mergedItems[kvp.Key] = kvp.Value;
         foreach (var kvp in items2)
         {

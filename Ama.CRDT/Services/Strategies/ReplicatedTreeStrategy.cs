@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
@@ -134,7 +135,7 @@ public sealed class ReplicatedTreeStrategy(
 
         if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not OrSetState state)
         {
-            state = new OrSetState(new Dictionary<object, ISet<Guid>>(idComparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(idComparer));
+            state = new OrSetState(new CompactDictionary<object, ISet<Guid>>(idComparer), new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(idComparer));
             metadata.States[operation.JsonPath] = state;
         }
         
@@ -289,19 +290,21 @@ public sealed class ReplicatedTreeStrategy(
         var idType = tree1.Nodes.Keys.FirstOrDefault()?.GetType() ?? tree2.Nodes.Keys.FirstOrDefault()?.GetType() ?? typeof(object);
         var idComparer = comparerProvider.GetComparer(idType);
 
-        var state1 = baseState1 as OrSetState ?? new OrSetState(new Dictionary<object, ISet<Guid>>(idComparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(idComparer));
-        var state2 = baseState2 as OrSetState ?? new OrSetState(new Dictionary<object, ISet<Guid>>(idComparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(idComparer));
+        var state2 = baseState2 as OrSetState ?? new OrSetState(new CompactDictionary<object, ISet<Guid>>(idComparer), new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(idComparer));
+        var state1 = baseState1 as OrSetState ?? new OrSetState(new CompactDictionary<object, ISet<Guid>>(state2.Adds.Count, idComparer), new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(state2.Removes.Count, idComparer));
 
         foreach (var kvp in state2.Adds)
         {
             if (!state1.Adds.TryGetValue(kvp.Key, out var tags1))
             {
-                tags1 = new HashSet<Guid>();
-                state1.Adds[kvp.Key] = tags1;
+                state1.Adds[kvp.Key] = new CompactSet<Guid>(kvp.Value);
             }
-            foreach (var tag in kvp.Value)
+            else
             {
-                tags1.Add(tag);
+                foreach (var tag in kvp.Value)
+                {
+                    tags1.Add(tag);
+                }
             }
         }
 
@@ -309,14 +312,16 @@ public sealed class ReplicatedTreeStrategy(
         {
             if (!state1.Removes.TryGetValue(kvp.Key, out var rm1))
             {
-                rm1 = new Dictionary<Guid, CausalTimestamp>();
-                state1.Removes[kvp.Key] = rm1;
+                state1.Removes[kvp.Key] = new CompactDictionary<Guid, CausalTimestamp>(kvp.Value);
             }
-            foreach (var rmTag in kvp.Value)
+            else
             {
-                if (!rm1.TryGetValue(rmTag.Key, out var existingCausal) || rmTag.Value.CompareTo(existingCausal) > 0)
+                foreach (var rmTag in kvp.Value)
                 {
-                    rm1[rmTag.Key] = rmTag.Value;
+                    if (!rm1.TryGetValue(rmTag.Key, out var existingCausal) || rmTag.Value.CompareTo(existingCausal) > 0)
+                    {
+                        rm1[rmTag.Key] = rmTag.Value;
+                    }
                 }
             }
         }
@@ -373,7 +378,7 @@ public sealed class ReplicatedTreeStrategy(
     {
         if (!state.Adds.TryGetValue(nodeId, out var addTags))
         {
-            addTags = new HashSet<Guid>();
+            addTags = new CompactSet<Guid>();
             state.Adds[nodeId] = addTags;
         }
         addTags.Add(tag);
@@ -383,7 +388,7 @@ public sealed class ReplicatedTreeStrategy(
     {
         if (!state.Removes.TryGetValue(nodeId, out var removeTags))
         {
-            removeTags = new Dictionary<Guid, CausalTimestamp>();
+            removeTags = new CompactDictionary<Guid, CausalTimestamp>(tags.Count);
             state.Removes[nodeId] = removeTags;
         }
         foreach (var tag in tags)

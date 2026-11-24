@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.LargerThanMemory;
 using Ama.CRDT.Services.GarbageCollection;
@@ -126,7 +127,7 @@ public sealed class OrSetStrategy(
 
         if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not OrSetState state)
         {
-            state = new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+            state = new OrSetState(new CompactDictionary<object, ISet<Guid>>(comparer), new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
             metadata.States[operation.JsonPath] = state;
         }
 
@@ -233,31 +234,35 @@ public sealed class OrSetStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        var orSet1 = meta1.States.TryGetValue(path, out var s1) && s1 is OrSetState s1State ? s1State : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
-        var orSet2 = meta2.States.TryGetValue(path, out var s2) && s2 is OrSetState s2State ? s2State : new OrSetState(new Dictionary<object, ISet<Guid>>(comparer), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+        var orSet2 = meta2.States.TryGetValue(path, out var s2) && s2 is OrSetState s2State ? s2State : new OrSetState(new CompactDictionary<object, ISet<Guid>>(comparer), new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+        var orSet1 = meta1.States.TryGetValue(path, out var s1) && s1 is OrSetState s1State ? s1State : new OrSetState(new CompactDictionary<object, ISet<Guid>>(orSet2.Adds.Count, comparer), new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(orSet2.Removes.Count, comparer));
 
         foreach (var (key, tags) in orSet2.Adds)
         {
             if (!orSet1.Adds.TryGetValue(key, out var set)) 
             { 
-                set = new HashSet<Guid>(); 
-                orSet1.Adds[key] = set; 
+                orSet1.Adds[key] = new CompactSet<Guid>(tags); 
             }
-            foreach (var t in tags) set.Add(t);
+            else
+            {
+                foreach (var t in tags) set.Add(t);
+            }
         }
 
         foreach (var (key, tagsDict) in orSet2.Removes)
         {
             if (!orSet1.Removes.TryGetValue(key, out var dict)) 
             { 
-                dict = new Dictionary<Guid, CausalTimestamp>(); 
-                orSet1.Removes[key] = dict; 
+                orSet1.Removes[key] = new CompactDictionary<Guid, CausalTimestamp>(tagsDict); 
             }
-            foreach (var t in tagsDict)
+            else
             {
-                if (!dict.TryGetValue(t.Key, out var existing) || t.Value.CompareTo(existing) > 0)
+                foreach (var t in tagsDict)
                 {
-                    dict[t.Key] = t.Value;
+                    if (!dict.TryGetValue(t.Key, out var existing) || t.Value.CompareTo(existing) > 0)
+                    {
+                        dict[t.Key] = t.Value;
+                    }
                 }
             }
         }
@@ -334,20 +339,20 @@ public sealed class OrSetStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        var adds1 = new Dictionary<object, ISet<Guid>>(comparer);
-        var adds2 = new Dictionary<object, ISet<Guid>>(comparer);
+        var adds1 = new CompactDictionary<object, ISet<Guid>>(keys1.Count, comparer);
+        var adds2 = new CompactDictionary<object, ISet<Guid>>(keys2.Count, comparer);
         foreach (var kvp in state.Adds)
         {
-            if (keys1.Contains((IComparable)kvp.Key)) adds1[kvp.Key] = new HashSet<Guid>(kvp.Value);
-            else adds2[kvp.Key] = new HashSet<Guid>(kvp.Value);
+            if (keys1.Contains((IComparable)kvp.Key)) adds1[kvp.Key] = new CompactSet<Guid>(kvp.Value);
+            else adds2[kvp.Key] = new CompactSet<Guid>(kvp.Value);
         }
 
-        var rems1 = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer);
-        var rems2 = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer);
+        var rems1 = new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(keys1.Count, comparer);
+        var rems2 = new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(keys2.Count, comparer);
         foreach (var kvp in state.Removes)
         {
-            if (keys1.Contains((IComparable)kvp.Key)) rems1[kvp.Key] = new Dictionary<Guid, CausalTimestamp>(kvp.Value);
-            else rems2[kvp.Key] = new Dictionary<Guid, CausalTimestamp>(kvp.Value);
+            if (keys1.Contains((IComparable)kvp.Key)) rems1[kvp.Key] = new CompactDictionary<Guid, CausalTimestamp>(kvp.Value);
+            else rems2[kvp.Key] = new CompactDictionary<Guid, CausalTimestamp>(kvp.Value);
         }
 
         meta1.States[path] = new OrSetState(adds1, rems1);
@@ -377,29 +382,35 @@ public sealed class OrSetStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        var adds = new Dictionary<object, ISet<Guid>>(comparer);
-        var rems = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer);
+        var state1 = meta1.States.TryGetValue(path, out var baseState1) ? baseState1 as OrSetState : null;
+        var state2 = meta2.States.TryGetValue(path, out var baseState2) ? baseState2 as OrSetState : null;
 
-        if (meta1.States.TryGetValue(path, out var baseState1) && baseState1 is OrSetState state1)
+        var adds = new CompactDictionary<object, ISet<Guid>>((state1?.Adds.Count ?? 0) + (state2?.Adds.Count ?? 0), comparer);
+        var rems = new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>((state1?.Removes.Count ?? 0) + (state2?.Removes.Count ?? 0), comparer);
+
+        if (state1 != null)
         {
-            foreach (var kvp in state1.Adds) adds[kvp.Key] = new HashSet<Guid>(kvp.Value);
-            foreach (var kvp in state1.Removes) rems[kvp.Key] = new Dictionary<Guid, CausalTimestamp>(kvp.Value);
+            foreach (var kvp in state1.Adds) adds[kvp.Key] = new CompactSet<Guid>(kvp.Value);
+            foreach (var kvp in state1.Removes) rems[kvp.Key] = new CompactDictionary<Guid, CausalTimestamp>(kvp.Value);
         }
-        if (meta2.States.TryGetValue(path, out var baseState2) && baseState2 is OrSetState state2)
+        if (state2 != null)
         {
             foreach (var kvp in state2.Adds)
             {
-                if (!adds.TryGetValue(kvp.Key, out var set)) { set = new HashSet<Guid>(); adds[kvp.Key] = set; }
-                foreach (var t in kvp.Value) set.Add(t);
+                if (!adds.TryGetValue(kvp.Key, out var set)) { adds[kvp.Key] = new CompactSet<Guid>(kvp.Value); }
+                else { foreach (var t in kvp.Value) set.Add(t); }
             }
             foreach (var kvp in state2.Removes)
             {
-                if (!rems.TryGetValue(kvp.Key, out var dict)) { dict = new Dictionary<Guid, CausalTimestamp>(); rems[kvp.Key] = dict; }
-                foreach (var t in kvp.Value) 
+                if (!rems.TryGetValue(kvp.Key, out var dict)) { rems[kvp.Key] = new CompactDictionary<Guid, CausalTimestamp>(kvp.Value); }
+                else
                 {
-                    if (!dict.TryGetValue(t.Key, out var existing) || t.Value.CompareTo(existing) > 0)
+                    foreach (var t in kvp.Value) 
                     {
-                        dict[t.Key] = t.Value;
+                        if (!dict.TryGetValue(t.Key, out var existing) || t.Value.CompareTo(existing) > 0)
+                        {
+                            dict[t.Key] = t.Value;
+                        }
                     }
                 }
             }
@@ -450,7 +461,7 @@ public sealed class OrSetStrategy(
         
         if (!state.Adds.TryGetValue(itemValue, out var addTags))
         {
-            addTags = new HashSet<Guid>();
+            addTags = new CompactSet<Guid>();
             state.Adds[itemValue] = addTags;
         }
         addTags.Add(payload.Tag);
@@ -467,7 +478,7 @@ public sealed class OrSetStrategy(
 
         if (!state.Removes.TryGetValue(itemValue, out var removeDict))
         {
-            removeDict = new Dictionary<Guid, CausalTimestamp>();
+            removeDict = new CompactDictionary<Guid, CausalTimestamp>(payload.Tags.Count);
             state.Removes[itemValue] = removeDict;
         }
         var causalTimestamp = new CausalTimestamp(operation.Timestamp, operation.ReplicaId, operation.Clock);

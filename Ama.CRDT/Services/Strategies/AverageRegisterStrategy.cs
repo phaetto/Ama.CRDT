@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using System;
@@ -74,7 +75,7 @@ public sealed class AverageRegisterStrategy(
 
         if (!metadata.States.TryGetValue(operation.JsonPath, out var state) || state is not AverageRegisterState avgState)
         {
-            avgState = new AverageRegisterState(new Dictionary<string, AverageRegisterValue>());
+            avgState = new AverageRegisterState(new CompactDictionary<string, AverageRegisterValue>());
             metadata.States[operation.JsonPath] = avgState;
         }
         var contributions = avgState.Contributions;
@@ -105,15 +106,15 @@ public sealed class AverageRegisterStrategy(
     {
         var (data1, meta1, data2, meta2, property, path) = context;
         
-        if (!meta1.States.TryGetValue(path, out var state1) || state1 is not AverageRegisterState avgState1)
-        {
-            avgState1 = new AverageRegisterState(new Dictionary<string, AverageRegisterValue>());
-            meta1.States[path] = avgState1;
-        }
-        
         if (!meta2.States.TryGetValue(path, out var state2) || state2 is not AverageRegisterState avgState2)
         {
             return;
+        }
+
+        if (!meta1.States.TryGetValue(path, out var state1) || state1 is not AverageRegisterState avgState1)
+        {
+            avgState1 = new AverageRegisterState(new CompactDictionary<string, AverageRegisterValue>(avgState2.Contributions.Count));
+            meta1.States[path] = avgState1;
         }
 
         var contributions1 = avgState1.Contributions;

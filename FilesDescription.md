@@ -503,10 +503,10 @@
 | `$/Ama.CRDT/Services/Strategies/PriorityQueueStrategy.cs` | Implements a strategy for collections that behave as a priority queue using centralized AOT helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/ReplicatedTreeStrategy.cs` | Implements a CRDT strategy for tree data structures, allowing nodes to be added, removed, and moved concurrently. It uses unique tags (similar to OR-Set) for adds and LWW for moves to ensure convergence. |
 | `$/Ama.CRDT/Services/Strategies/RgaStrategy.cs` | Implements the Replicated Growable Array (RGA) strategy. Evaluates insertions as an ordered linked set and applies deletes by emitting tombstones. Also handles intent based operation generation. |
-| `$/Ama.CRDT/Services/Strategies/SortedSetStrategy.cs` | Implements a CRDT strategy for sorted sets using LCS and centralized AOT helpers from `PocoPathHelper`. |
+| `$/Ama.CRDT/Services/Strategies/SortedSetStrategy.cs` | Implements a CRDT strategy for collections that are treated as sorted sets, using `CompactDictionary` for `LwwSetState` metadata storage. |
 | `$/Ama.CRDT/Services/Strategies/StateMachineStrategy.cs` | Implements the State Machine strategy using centralized AOT helpers from `PocoPathHelper`. |
-| `$/Ama.CRDT/Services/Strategies/TwoPhaseGraphStrategy.cs` | Implements a 2P-Graph strategy where vertices and edges can be added and removed, but not re-added after removal, ensuring monotonic growth of the tombstone sets. |
-| `$/Ama.CRDT/Services/Strategies/TwoPhaseSetStrategy.cs` | Implements the 2P-Set (Two-Phase Set) CRDT strategy using centralized AOT helpers from `PocoPathHelper`. |
+| `$/Ama.CRDT/Services/Strategies/TwoPhaseGraphStrategy.cs` | Implements a 2P-Graph strategy using `CompactSet` and `CompactDictionary` for `TwoPhaseGraphState` metadata storage. |
+| `$/Ama.CRDT/Services/Strategies/TwoPhaseSetStrategy.cs` | Implements the 2P-Set (Two-Phase Set) CRDT strategy using `CompactSet` and `CompactDictionary` for `TwoPhaseSetState` metadata storage. |
 | `$/Ama.CRDT/Services/Strategies/VoteCounterStrategy.cs` | Implements the Vote Counter strategy using centralized AOT helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Versioning/IVersionVectorSyncService.cs` | Defines a service for calculating synchronization gaps and evaluating journal operations on a per-shard basis. |
 | `$/Ama.CRDT/Services/Versioning/VersionVectorSyncService.cs` | Implementation of `IVersionVectorSyncService` that negotiates vector requirements per shard and evaluates journal completion using `ShardClock`. |

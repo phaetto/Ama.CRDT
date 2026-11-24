@@ -2,6 +2,7 @@ namespace Ama.CRDT.Services.LargerThanMemory;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.LargerThanMemory;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -469,8 +470,8 @@ public sealed class ChunkedDocumentManager<T> : IChunkDocumentManager<T>, IVirtu
                 unappliedOperations.AddRange(dataResult.UnappliedOperations);
 
                 // Remove global state from the data partition's metadata so it is not persisted in the data stream.
-                dataDoc.Metadata.VersionVector = new Dictionary<string, long>();
-                dataDoc.Metadata.SeenExceptions = new HashSet<CrdtOperation>();
+                dataDoc.Metadata.VersionVector = new CompactDictionary<string, long>();
+                dataDoc.Metadata.SeenExceptions = new CompactSet<CrdtOperation>();
 
                 var updatedPartition = await PersistPartitionChangesAsync(logicalKey, partition, dataDoc.Data!, dataDoc.Metadata, propertyName, cancellationToken).ConfigureAwait(false);
 

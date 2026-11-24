@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
@@ -85,10 +86,10 @@ public sealed class TwoPhaseGraphStrategy(
             var edgeComparer = comparerProvider.GetComparer(typeof(Edge));
 
             state = new TwoPhaseGraphState(
-                new HashSet<object>(vertexComparer), 
-                new Dictionary<object, CausalTimestamp>(vertexComparer),
-                new HashSet<object>(edgeComparer), 
-                new Dictionary<object, CausalTimestamp>(edgeComparer));
+                new CompactSet<object>(vertexComparer), 
+                new CompactDictionary<object, CausalTimestamp>(vertexComparer),
+                new CompactSet<object>(edgeComparer), 
+                new CompactDictionary<object, CausalTimestamp>(edgeComparer));
             metadata.States[operation.JsonPath] = state;
         }
         
@@ -198,10 +199,10 @@ public sealed class TwoPhaseGraphStrategy(
             var edgeComparer = comparerProvider.GetComparer(typeof(Edge));
 
             state1 = new TwoPhaseGraphState(
-                new HashSet<object>(vertexComparer), 
-                new Dictionary<object, CausalTimestamp>(vertexComparer),
-                new HashSet<object>(edgeComparer), 
-                new Dictionary<object, CausalTimestamp>(edgeComparer));
+                new CompactSet<object>(state2.VertexAdds.Count, vertexComparer), 
+                new CompactDictionary<object, CausalTimestamp>(state2.VertexTombstones.Count, vertexComparer),
+                new CompactSet<object>(state2.EdgeAdds.Count, edgeComparer), 
+                new CompactDictionary<object, CausalTimestamp>(state2.EdgeTombstones.Count, edgeComparer));
             meta1.States[path] = state1;
         }
 

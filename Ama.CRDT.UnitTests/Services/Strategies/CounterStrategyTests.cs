@@ -348,7 +348,7 @@ public sealed class CounterStrategyTests : IDisposable
 
         // Assert
         data1.Score.ShouldBe(10); // Unchanged
-        meta1.States.Count.ShouldBe(1); // It initializes $.score empty state
+        meta1.States.Count.ShouldBe(0); // It initializes $.score empty state
     }
 
     private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
