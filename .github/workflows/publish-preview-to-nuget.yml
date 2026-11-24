@@ -11,7 +11,7 @@ permissions:
 
 env:
   MAJOR_VERSION: 5
-  MINOR_VERSION: 0
+  MINOR_VERSION: 1
   SOLUTION_FILE: 'Ama.CRDT.slnx'
   PROJECT_PATH_MAIN: 'Ama.CRDT/Ama.CRDT.csproj'
   PROJECT_PATH_STREAMS: 'Ama.CRDT.LargerThanMemory.Streams/Ama.CRDT.LargerThanMemory.Streams.csproj'
