@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -302,10 +303,10 @@ public sealed class GCounterStrategyTests : IDisposable
     {
         // Arrange
         var doc1 = new TestModel { Count = 10 };
-        var meta1 = new CrdtMetadata { States = { ["$.count"] = new GCounterState(new Dictionary<string, decimal> { ["r1"] = 10m }) } };
+        var meta1 = new CrdtMetadata { States = { ["$.count"] = new GCounterState(new CompactDictionary<string, decimal>(1) { ["r1"] = 10m }) } };
 
         var doc2 = new TestModel { Count = 15 };
-        var meta2 = new CrdtMetadata { States = { ["$.count"] = new GCounterState(new Dictionary<string, decimal> { ["r1"] = 5m, ["r2"] = 5m }) } };
+        var meta2 = new CrdtMetadata { States = { ["$.count"] = new GCounterState(new CompactDictionary<string, decimal>(2) { ["r1"] = 5m, ["r2"] = 5m }) } };
 
         // Act
         strategy.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, GetCountPropertyInfo(), "$.count"));

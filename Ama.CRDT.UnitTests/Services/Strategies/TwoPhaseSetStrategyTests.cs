@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -386,8 +387,8 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
 
         var metadata = new CrdtMetadata();
         var state = new TwoPhaseSetState(
-            new HashSet<object>(),
-            new Dictionary<object, CausalTimestamp>()
+            new CompactSet<object>(),
+            new CompactDictionary<object, CausalTimestamp>()
         );
 
         state.Tombstones["A"] = new CausalTimestamp(timestampProvider.Now(), "R1", 5); // Should be removed

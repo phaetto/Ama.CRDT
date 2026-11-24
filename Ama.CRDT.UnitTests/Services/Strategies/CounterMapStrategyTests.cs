@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -426,7 +427,7 @@ public sealed class CounterMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
 
         var metadata = new CrdtMetadata();
-        metadata.States["$.map"] = new CounterMapState(new Dictionary<object, PnCounterState>
+        metadata.States["$.map"] = new CounterMapState(new CompactDictionary<object, PnCounterState>(1)
         {
             { "a", new PnCounterState(10, 5) }
         });

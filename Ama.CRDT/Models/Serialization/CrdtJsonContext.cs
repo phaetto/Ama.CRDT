@@ -1,6 +1,7 @@
 namespace Ama.CRDT.Models.Serialization;
 
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Intents.Decorators;
@@ -107,6 +108,28 @@ using System.Text.Json.Serialization.Metadata;
 [JsonSerializable(typeof(EpochClearIntent))]
 [JsonSerializable(typeof(CounterState))]
 [JsonSerializable(typeof(GCounterState))]
+[JsonSerializable(typeof(CompactDictionary<string, ICrdtMetadataState>))]
+[JsonSerializable(typeof(CompactDictionary<string, long>))]
+[JsonSerializable(typeof(CompactDictionary<string, ISet<long>>))]
+[JsonSerializable(typeof(CompactDictionary<string, DottedVersionVector>))]
+[JsonSerializable(typeof(CompactDictionary<string, CausalTimestamp>))]
+[JsonSerializable(typeof(CompactDictionary<string, AverageRegisterValue>))]
+[JsonSerializable(typeof(CompactDictionary<string, PnCounterState>))]
+[JsonSerializable(typeof(CompactDictionary<string, decimal>))]
+[JsonSerializable(typeof(CompactDictionary<object, CausalTimestamp>))]
+[JsonSerializable(typeof(CompactDictionary<object, CrdtTimestamp>))]
+[JsonSerializable(typeof(CompactDictionary<object, PnCounterState>))]
+[JsonSerializable(typeof(CompactDictionary<object, ISet<Guid>>))]
+[JsonSerializable(typeof(CompactDictionary<object, ISet<string>>))]
+[JsonSerializable(typeof(CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>))]
+[JsonSerializable(typeof(CompactDictionary<object, TreeNode>))]
+[JsonSerializable(typeof(CompactDictionary<Guid, CausalTimestamp>))]
+[JsonSerializable(typeof(CompactSet<CrdtOperation>))]
+[JsonSerializable(typeof(CompactSet<object>))]
+[JsonSerializable(typeof(CompactSet<Edge>))]
+[JsonSerializable(typeof(CompactSet<Guid>))]
+[JsonSerializable(typeof(CompactSet<long>))]
+[JsonSerializable(typeof(CompactSet<string>))]
 [SuppressMessage("ApiDesign", "RS0016:Add public types and members to the declared API", Justification = "System.Text.Json source generator emits public properties that do not need to be tracked in the public API.")]
 [SuppressMessage("ApiDesign", "RS0041:Symbol uses some oblivious reference types", Justification = "System.Text.Json source generator does not emit nullable annotations for its properties.")]
 public partial class CrdtJsonContext : JsonSerializerContext

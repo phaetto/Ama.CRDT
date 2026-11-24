@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -238,10 +239,10 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
 
         var metadata = new CrdtMetadata();
         var state = new TwoPhaseGraphState(
-            new HashSet<object>(),
-            new Dictionary<object, CausalTimestamp>(),
-            new HashSet<object>(),
-            new Dictionary<object, CausalTimestamp>()
+            new CompactSet<object>(),
+            new CompactDictionary<object, CausalTimestamp>(),
+            new CompactSet<object>(),
+            new CompactDictionary<object, CausalTimestamp>()
         );
 
         state.VertexTombstones["A"] = new CausalTimestamp(timestampProvider.Create(100), "R1", 5); // Should be removed

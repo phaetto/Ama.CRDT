@@ -5,6 +5,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Services.Pooling;
 
 /// <summary>
@@ -135,13 +136,14 @@ internal sealed class PooledStringKeyDictionaryJsonConverter<TValue> : JsonConve
             throw new JsonException($"Expected StartObject token, but got {reader.TokenType}.");
         }
 
-        var dict = new Dictionary<string, TValue>(StringComparer.Ordinal);
+        var dict = new CompactDictionary<string, TValue>(StringComparer.Ordinal, stringPool);
         var valueTypeInfo = options.GetTypeInfo(typeof(TValue));
 
         while (reader.Read())
         {
             if (reader.TokenType == JsonTokenType.EndObject)
             {
+                dict.TrimExcess();
                 return dict;
             }
 

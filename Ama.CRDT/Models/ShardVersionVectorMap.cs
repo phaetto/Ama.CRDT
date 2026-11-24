@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents a strongly-typed mapping of Shard IDs to their corresponding Dotted Version Vectors.
@@ -12,14 +13,14 @@ using System.Linq;
 /// </summary>
 public sealed class ShardVersionVectorMap : IDictionary<string, DottedVersionVector>, IEquatable<ShardVersionVectorMap>
 {
-    private readonly Dictionary<string, DottedVersionVector> map;
+    private readonly CompactDictionary<string, DottedVersionVector> map;
 
     /// <summary>
     /// Initializes a new, empty instance of the <see cref="ShardVersionVectorMap"/> class.
     /// </summary>
     public ShardVersionVectorMap()
     {
-        map = new Dictionary<string, DottedVersionVector>();
+        map = new CompactDictionary<string, DottedVersionVector>();
     }
 
     /// <summary>
@@ -29,7 +30,7 @@ public sealed class ShardVersionVectorMap : IDictionary<string, DottedVersionVec
     public ShardVersionVectorMap(IDictionary<string, DottedVersionVector> dictionary)
     {
         ArgumentNullException.ThrowIfNull(dictionary);
-        map = new Dictionary<string, DottedVersionVector>(dictionary);
+        map = new CompactDictionary<string, DottedVersionVector>(dictionary);
     }
 
     /// <inheritdoc/>

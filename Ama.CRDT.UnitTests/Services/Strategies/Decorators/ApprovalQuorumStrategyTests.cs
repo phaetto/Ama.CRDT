@@ -6,6 +6,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
@@ -244,7 +245,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         var strategy = strategyProvider.GetStrategy(typeof(ProposalDocument), property);
         
         var metadata = new CrdtMetadata();
-        metadata.States["$.configValue|Quorum"] = new QuorumState(new Dictionary<object, ISet<string>>());
+        metadata.States["$.configValue|Quorum"] = new QuorumState(new CompactDictionary<object, ISet<string>>());
         
         var mockPolicy = new Mock<ICompactionPolicy>();
         mockPolicy.Setup(p => p.IsSafeToCompact(It.IsAny<CompactionCandidate>())).Returns(true);
@@ -266,14 +267,14 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
         
         var data1 = new ProposalDocument { ConfigValue = "Old" };
         var meta1 = new CrdtMetadata();
-        var q1 = new Dictionary<object, ISet<string>>();
-        q1["ProposedNew"] = new HashSet<string> { "ReplicaA" };
+        var q1 = new CompactDictionary<object, ISet<string>>(1);
+        q1["ProposedNew"] = new CompactSet<string>(1) { "ReplicaA" };
         meta1.States["$.configValue|Quorum"] = new QuorumState(q1);
 
         var data2 = new ProposalDocument { ConfigValue = "Old" };
         var meta2 = new CrdtMetadata();
-        var q2 = new Dictionary<object, ISet<string>>();
-        q2["ProposedNew"] = new HashSet<string> { "ReplicaB" };
+        var q2 = new CompactDictionary<object, ISet<string>>(1);
+        q2["ProposedNew"] = new CompactSet<string>(1) { "ReplicaB" };
         meta2.States["$.configValue|Quorum"] = new QuorumState(q2);
 
         // Act

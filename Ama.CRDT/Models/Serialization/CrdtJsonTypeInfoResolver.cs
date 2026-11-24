@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.LargerThanMemory;
 using Ama.CRDT.Models.Serialization.Converters;
 using Ama.CRDT.Services.Pooling;
@@ -50,6 +51,8 @@ public static class CrdtJsonTypeInfoResolver
                 }
             }
         }
+
+        ConfigureCompactCollectionFactories(jsonTypeInfo, stringPool);
 
         if (jsonTypeInfo.Kind != JsonTypeInfoKind.Object)
         {
@@ -102,6 +105,104 @@ public static class CrdtJsonTypeInfoResolver
                     prop.CustomConverter = new PooledStringKeyDictionaryJsonConverter<long>(stringPool);
                 }
             }
+        }
+    }
+
+    private static void ConfigureCompactCollectionFactories(JsonTypeInfo jsonTypeInfo, ICrdtStringPool stringPool)
+    {
+        if (jsonTypeInfo.Kind is not (JsonTypeInfoKind.Dictionary or JsonTypeInfoKind.Enumerable))
+        {
+            return;
+        }
+
+        var type = jsonTypeInfo.Type;
+        if (type == typeof(IDictionary<string, ICrdtMetadataState>))
+        {
+            jsonTypeInfo.CreateObject = () => new CompactDictionary<string, ICrdtMetadataState>(StringComparer.Ordinal, stringPool);
+        }
+        else if (type == typeof(IDictionary<string, long>))
+        {
+            jsonTypeInfo.CreateObject = () => new CompactDictionary<string, long>(StringComparer.Ordinal, stringPool);
+        }
+        else if (type == typeof(IDictionary<string, ISet<long>>))
+        {
+            jsonTypeInfo.CreateObject = () => new CompactDictionary<string, ISet<long>>(StringComparer.Ordinal, stringPool);
+        }
+        else if (type == typeof(IDictionary<string, DottedVersionVector>))
+        {
+            jsonTypeInfo.CreateObject = () => new CompactDictionary<string, DottedVersionVector>(StringComparer.Ordinal, stringPool);
+        }
+        else if (type == typeof(IDictionary<string, CausalTimestamp>))
+        {
+            jsonTypeInfo.CreateObject = () => new CompactDictionary<string, CausalTimestamp>(StringComparer.Ordinal, stringPool);
+        }
+        else if (type == typeof(IDictionary<string, AverageRegisterValue>))
+        {
+            jsonTypeInfo.CreateObject = () => new CompactDictionary<string, AverageRegisterValue>(StringComparer.Ordinal, stringPool);
+        }
+        else if (type == typeof(IDictionary<string, PnCounterState>))
+        {
+            jsonTypeInfo.CreateObject = () => new CompactDictionary<string, PnCounterState>(StringComparer.Ordinal, stringPool);
+        }
+        else if (type == typeof(IDictionary<string, decimal>))
+        {
+            jsonTypeInfo.CreateObject = () => new CompactDictionary<string, decimal>(StringComparer.Ordinal, stringPool);
+        }
+        else if (type == typeof(IDictionary<object, CausalTimestamp>))
+        {
+            jsonTypeInfo.CreateObject = static () => new CompactDictionary<object, CausalTimestamp>();
+        }
+        else if (type == typeof(IDictionary<object, CrdtTimestamp>))
+        {
+            jsonTypeInfo.CreateObject = static () => new CompactDictionary<object, CrdtTimestamp>();
+        }
+        else if (type == typeof(IDictionary<object, PnCounterState>))
+        {
+            jsonTypeInfo.CreateObject = static () => new CompactDictionary<object, PnCounterState>();
+        }
+        else if (type == typeof(IDictionary<object, ISet<Guid>>))
+        {
+            jsonTypeInfo.CreateObject = static () => new CompactDictionary<object, ISet<Guid>>();
+        }
+        else if (type == typeof(IDictionary<object, ISet<string>>))
+        {
+            jsonTypeInfo.CreateObject = static () => new CompactDictionary<object, ISet<string>>();
+        }
+        else if (type == typeof(IDictionary<object, IDictionary<Guid, CausalTimestamp>>))
+        {
+            jsonTypeInfo.CreateObject = static () => new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>();
+        }
+        else if (type == typeof(IDictionary<object, TreeNode>))
+        {
+            jsonTypeInfo.CreateObject = static () => new CompactDictionary<object, TreeNode>();
+        }
+        else if (type == typeof(IDictionary<Guid, CausalTimestamp>))
+        {
+            jsonTypeInfo.CreateObject = static () => new CompactDictionary<Guid, CausalTimestamp>();
+        }
+        else if (type == typeof(ISet<CrdtOperation>))
+        {
+            jsonTypeInfo.CreateObject = static () => new CompactSet<CrdtOperation>();
+        }
+        else if (type == typeof(ISet<object>))
+        {
+            jsonTypeInfo.CreateObject = static () => new CompactSet<object>();
+        }
+        else if (type == typeof(ISet<Edge>))
+        {
+            jsonTypeInfo.CreateObject = static () => new CompactSet<Edge>();
+        }
+        else if (type == typeof(ISet<Guid>))
+        {
+            jsonTypeInfo.CreateObject = static () => new CompactSet<Guid>();
+        }
+        else if (type == typeof(ISet<long>))
+        {
+            jsonTypeInfo.CreateObject = static () => new CompactSet<long>();
+        }
+        else if (type == typeof(ISet<string>))
+        {
+            jsonTypeInfo.CreateObject = () => new CompactSet<string>(StringComparer.Ordinal, stringPool);
         }
     }
 }

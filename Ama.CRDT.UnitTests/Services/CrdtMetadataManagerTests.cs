@@ -2,6 +2,7 @@ namespace Ama.CRDT.UnitTests.Services;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Providers;
@@ -117,14 +118,15 @@ public sealed class CrdtMetadataManagerTests
         metadata.States["$.a"] = causalTs;
         metadata.States["$.a_fww"] = fwwTs;
         metadata.States["$.b"] = new PositionalState([]);
-        metadata.States["$.c"] = new AverageRegisterState(new Dictionary<string, AverageRegisterValue>());
-        metadata.States["$.d"] = new LwwSetState(new Dictionary<object, CrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
-        metadata.States["$.e"] = new LwwSetState(new Dictionary<object, CrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
-        metadata.States["$.e2"] = new FwwSetState(new Dictionary<object, CrdtTimestamp>(), new Dictionary<object, CausalTimestamp>());
-        metadata.States["$.f"] = new LwwMapState(new Dictionary<object, CausalTimestamp>());
-        metadata.States["$.f2"] = new FwwMapState(new Dictionary<object, CausalTimestamp>());
-        metadata.States["$.g"] = new OrSetState(new Dictionary<object, ISet<Guid>>(), new Dictionary<object, IDictionary<Guid, CausalTimestamp>>());
-        metadata.States["$.h"] = new CounterMapState(new Dictionary<object, PnCounterState> { { "key", new PnCounterState(1, 1) } });
+        metadata.States["$.c"] = new AverageRegisterState(new CompactDictionary<string, AverageRegisterValue>());
+        metadata.States["$.d"] = new LwwSetState(new CompactDictionary<object, CrdtTimestamp>(), new CompactDictionary<object, CausalTimestamp>());
+        metadata.States["$.e"] = new LwwSetState(new CompactDictionary<object, CrdtTimestamp>(), new CompactDictionary<object, CausalTimestamp>());
+        metadata.States["$.e2"] = new FwwSetState(new CompactDictionary<object, CrdtTimestamp>(), new CompactDictionary<object, CausalTimestamp>());
+        metadata.States["$.f"] = new LwwMapState(new CompactDictionary<object, CausalTimestamp>());
+        metadata.States["$.f2"] = new FwwMapState(new CompactDictionary<object, CausalTimestamp>());
+        metadata.States["$.g"] = new OrSetState(new CompactDictionary<object, ISet<Guid>>(), new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>());
+        var counterMap = new CompactDictionary<object, PnCounterState>(1) { { "key", new PnCounterState(1, 1) } };
+        metadata.States["$.h"] = new CounterMapState(counterMap);
 
         var doc = new object();
         timestampProviderMock.Setup(p => p.Now()).Returns(timestampProviderMock.Object.Create(200));
