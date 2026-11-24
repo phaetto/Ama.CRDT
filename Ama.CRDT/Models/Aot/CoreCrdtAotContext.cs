@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models.Aot;
 
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Models.Intents.Decorators;
@@ -156,6 +157,28 @@ using System.Collections.Immutable;
 [CrdtAotType(typeof(GCounterState))]
 [CrdtAotType(typeof(IDictionary<string, PnCounterState>))]
 [CrdtAotType(typeof(IDictionary<string, decimal>))]
+[CrdtAotType(typeof(CompactDictionary<string, ICrdtMetadataState>))]
+[CrdtAotType(typeof(CompactDictionary<string, long>))]
+[CrdtAotType(typeof(CompactDictionary<string, ISet<long>>))]
+[CrdtAotType(typeof(CompactDictionary<string, DottedVersionVector>))]
+[CrdtAotType(typeof(CompactDictionary<string, CausalTimestamp>))]
+[CrdtAotType(typeof(CompactDictionary<string, AverageRegisterValue>))]
+[CrdtAotType(typeof(CompactDictionary<string, PnCounterState>))]
+[CrdtAotType(typeof(CompactDictionary<string, decimal>))]
+[CrdtAotType(typeof(CompactDictionary<object, CausalTimestamp>))]
+[CrdtAotType(typeof(CompactDictionary<object, CrdtTimestamp>))]
+[CrdtAotType(typeof(CompactDictionary<object, PnCounterState>))]
+[CrdtAotType(typeof(CompactDictionary<object, ISet<Guid>>))]
+[CrdtAotType(typeof(CompactDictionary<object, ISet<string>>))]
+[CrdtAotType(typeof(CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>))]
+[CrdtAotType(typeof(CompactDictionary<object, TreeNode>))]
+[CrdtAotType(typeof(CompactDictionary<Guid, CausalTimestamp>))]
+[CrdtAotType(typeof(CompactSet<CrdtOperation>))]
+[CrdtAotType(typeof(CompactSet<object>))]
+[CrdtAotType(typeof(CompactSet<Edge>))]
+[CrdtAotType(typeof(CompactSet<Guid>))]
+[CrdtAotType(typeof(CompactSet<long>))]
+[CrdtAotType(typeof(CompactSet<string>))]
 
 public partial class CoreCrdtAotContext : CrdtAotContext
 {

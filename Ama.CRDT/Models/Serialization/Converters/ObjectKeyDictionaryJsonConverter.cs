@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// A custom <see cref="JsonConverterFactory"/> for creating converters that can handle
@@ -35,7 +36,7 @@ public sealed class ObjectKeyDictionaryJsonConverter : JsonConverterFactory
         }
 
         Type def = typeToConvert.GetGenericTypeDefinition();
-        if (def != typeof(Dictionary<,>) && def != typeof(IDictionary<,>))
+        if (def != typeof(Dictionary<,>) && def != typeof(IDictionary<,>) && def != typeof(CompactDictionary<,>))
         {
             return false;
         }
@@ -93,6 +94,42 @@ public sealed class ObjectKeyDictionaryJsonConverter : JsonConverterFactory
             JsonTypeInfo typeInfo = options.GetTypeInfo(typeToConvert);
 
             Func<object>? createInstance = typeInfo.CreateObject;
+
+            if (createInstance == null)
+            {
+                if (typeToConvert == typeof(IDictionary<object, CausalTimestamp>) || typeToConvert == typeof(CompactDictionary<object, CausalTimestamp>))
+                {
+                    createInstance = static () => new CompactDictionary<object, CausalTimestamp>();
+                }
+                else if (typeToConvert == typeof(IDictionary<object, CrdtTimestamp>) || typeToConvert == typeof(CompactDictionary<object, CrdtTimestamp>))
+                {
+                    createInstance = static () => new CompactDictionary<object, CrdtTimestamp>();
+                }
+                else if (typeToConvert == typeof(IDictionary<object, PnCounterState>) || typeToConvert == typeof(CompactDictionary<object, PnCounterState>))
+                {
+                    createInstance = static () => new CompactDictionary<object, PnCounterState>();
+                }
+                else if (typeToConvert == typeof(IDictionary<object, ISet<Guid>>) || typeToConvert == typeof(CompactDictionary<object, ISet<Guid>>))
+                {
+                    createInstance = static () => new CompactDictionary<object, ISet<Guid>>();
+                }
+                else if (typeToConvert == typeof(IDictionary<object, ISet<string>>) || typeToConvert == typeof(CompactDictionary<object, ISet<string>>))
+                {
+                    createInstance = static () => new CompactDictionary<object, ISet<string>>();
+                }
+                else if (typeToConvert == typeof(IDictionary<object, IDictionary<Guid, CausalTimestamp>>) || typeToConvert == typeof(CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>))
+                {
+                    createInstance = static () => new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>();
+                }
+                else if (typeToConvert == typeof(IDictionary<object, TreeNode>) || typeToConvert == typeof(CompactDictionary<object, TreeNode>))
+                {
+                    createInstance = static () => new CompactDictionary<object, TreeNode>();
+                }
+                else if (typeToConvert == typeof(IDictionary<Guid, CausalTimestamp>) || typeToConvert == typeof(CompactDictionary<Guid, CausalTimestamp>))
+                {
+                    createInstance = static () => new CompactDictionary<Guid, CausalTimestamp>();
+                }
+            }
 
             if (createInstance == null)
             {

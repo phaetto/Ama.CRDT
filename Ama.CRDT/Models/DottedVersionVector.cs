@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents a Dotted Version Vector (DVV) to track causality and operations seen by a replica.
@@ -26,8 +27,8 @@ public sealed class DottedVersionVector : IEquatable<DottedVersionVector>
     /// </summary>
     public DottedVersionVector()
     {
-        Versions = new Dictionary<string, long>();
-        Dots = new Dictionary<string, ISet<long>>();
+        Versions = new CompactDictionary<string, long>();
+        Dots = new CompactDictionary<string, ISet<long>>();
     }
 
     /// <summary>
@@ -41,12 +42,12 @@ public sealed class DottedVersionVector : IEquatable<DottedVersionVector>
         ArgumentNullException.ThrowIfNull(versions);
         ArgumentNullException.ThrowIfNull(dots);
 
-        Versions = new Dictionary<string, long>(versions);
-        Dots = new Dictionary<string, ISet<long>>();
+        Versions = new CompactDictionary<string, long>(versions);
+        Dots = new CompactDictionary<string, ISet<long>>(dots.Count);
         
         foreach (var kvp in dots)
         {
-            Dots[kvp.Key] = new HashSet<long>(kvp.Value);
+            Dots[kvp.Key] = new CompactSet<long>(kvp.Value);
         }
     }
 
@@ -112,7 +113,7 @@ public sealed class DottedVersionVector : IEquatable<DottedVersionVector>
         {
             if (!Dots.TryGetValue(replicaId, out var replicaDots))
             {
-                replicaDots = new HashSet<long>();
+                replicaDots = new CompactSet<long>();
                 Dots[replicaId] = replicaDots;
             }
             replicaDots.Add(version);

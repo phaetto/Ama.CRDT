@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies.Serialization;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using System.Collections.Generic;
 
 /// <summary>
@@ -57,20 +58,29 @@ using System.Collections.Generic;
 [CrdtAotType(typeof(GCounterState))]
 [CrdtAotType(typeof(IDictionary<object, CausalTimestamp>))]
 [CrdtAotType(typeof(Dictionary<object, CausalTimestamp>))]
+[CrdtAotType(typeof(CompactDictionary<object, CausalTimestamp>))]
 [CrdtAotType(typeof(IDictionary<object, CrdtTimestamp>))]
 [CrdtAotType(typeof(Dictionary<object, CrdtTimestamp>))]
+[CrdtAotType(typeof(CompactDictionary<object, CrdtTimestamp>))]
 [CrdtAotType(typeof(IDictionary<object, ISet<Guid>>))]
 [CrdtAotType(typeof(Dictionary<object, ISet<Guid>>))]
+[CrdtAotType(typeof(CompactDictionary<object, ISet<Guid>>))]
+[CrdtAotType(typeof(CompactSet<Guid>))]
 [CrdtAotType(typeof(IDictionary<object, IDictionary<Guid, CausalTimestamp>>))]
 [CrdtAotType(typeof(Dictionary<object, IDictionary<Guid, CausalTimestamp>>))]
+[CrdtAotType(typeof(CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>))]
 [CrdtAotType(typeof(IDictionary<Guid, CausalTimestamp>))]
 [CrdtAotType(typeof(Dictionary<Guid, CausalTimestamp>))]
+[CrdtAotType(typeof(CompactDictionary<Guid, CausalTimestamp>))]
 [CrdtAotType(typeof(IDictionary<object, PnCounterState>))]
 [CrdtAotType(typeof(Dictionary<object, PnCounterState>))]
+[CrdtAotType(typeof(CompactDictionary<object, PnCounterState>))]
 [CrdtAotType(typeof(IDictionary<string, PnCounterState>))]
 [CrdtAotType(typeof(Dictionary<string, PnCounterState>))]
+[CrdtAotType(typeof(CompactDictionary<string, PnCounterState>))]
 [CrdtAotType(typeof(IDictionary<string, decimal>))]
 [CrdtAotType(typeof(Dictionary<string, decimal>))]
+[CrdtAotType(typeof(CompactDictionary<string, decimal>))]
 internal partial class SerializationTestCrdtAotContext : CrdtAotContext
 {
 }

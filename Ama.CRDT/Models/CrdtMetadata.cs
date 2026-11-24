@@ -3,6 +3,7 @@ namespace Ama.CRDT.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Encapsulates the metadata state required for Conflict-free Replicated Data Type (CRDT) operations and resolution.
@@ -48,7 +49,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     /// // ["$.Roles"] = new OrSetState(...)
     /// </code>
     /// </example>
-    public IDictionary<string, ICrdtMetadataState> States { get; set; } = new Dictionary<string, ICrdtMetadataState>();
+    public IDictionary<string, ICrdtMetadataState> States { get; set; } = new CompactDictionary<string, ICrdtMetadataState>();
 
     /// <summary>
     /// Gets or sets a version vector mapping a unique Replica ID to the latest contiguous causal sequence clock received from that replica.
@@ -63,7 +64,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     /// // VersionVector["replica-A"] = 5;
     /// </code>
     /// </example>
-    public IDictionary<string, long> VersionVector { get; set; } = new Dictionary<string, long>();
+    public IDictionary<string, long> VersionVector { get; set; } = new CompactDictionary<string, long>();
 
     /// <summary>
     /// Gets or sets a set of operations that have been received out of order (gaps in the causal history).
@@ -74,7 +75,7 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     /// This ensures operations can be applied immediately even if previous operations are delayed. Once the missing 
     /// operations arrive, the version vector advances and these stored exceptions are automatically compacted and cleared.
     /// </remarks>
-    public ISet<CrdtOperation> SeenExceptions { get; set; } = new HashSet<CrdtOperation>();
+    public ISet<CrdtOperation> SeenExceptions { get; set; } = new CompactSet<CrdtOperation>();
 
     /// <summary>
     /// Creates a deep copy of this metadata instance, ensuring all underlying states, version vectors, 
@@ -83,7 +84,12 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
     /// <returns>A new <see cref="CrdtMetadata"/> object that is an exact, unlinked copy of this instance.</returns>
     public CrdtMetadata DeepClone()
     {
-        var newMetadata = new CrdtMetadata();
+        var newMetadata = new CrdtMetadata
+        {
+            States = new CompactDictionary<string, ICrdtMetadataState>(States.Count),
+            VersionVector = new CompactDictionary<string, long>(VersionVector.Count),
+            SeenExceptions = new CompactSet<CrdtOperation>(SeenExceptions.Count)
+        };
 
         foreach (var kvp in States)
         {

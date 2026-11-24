@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -376,8 +377,8 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         var unsafeTs = tsProvider.Create(30);
         
         var comparer = new ItemComparer();
-        var adds = new Dictionary<object, CrdtTimestamp>(comparer);
-        var removes = new Dictionary<object, CausalTimestamp>(comparer);
+        var adds = new CompactDictionary<object, CrdtTimestamp>(3, comparer);
+        var removes = new CompactDictionary<object, CausalTimestamp>(4, comparer);
 
         // Alive: addTs > removeTs
         var itemAlive = new Item("alive", 1);

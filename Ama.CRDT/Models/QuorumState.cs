@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents the tracking state for the Approval Quorum decorator strategy.
@@ -12,10 +13,12 @@ public sealed record QuorumState(IDictionary<object, ISet<string>> Approvals) : 
     /// <inheritdoc />
     public ICrdtMetadataState DeepClone()
     {
-        var cloned = new Dictionary<object, ISet<string>>((Approvals as Dictionary<object, ISet<string>>)?.Comparer);
+        var comparer = (Approvals as CompactDictionary<object, ISet<string>>)?.Comparer
+            ?? (Approvals as Dictionary<object, ISet<string>>)?.Comparer;
+        var cloned = new CompactDictionary<object, ISet<string>>(Approvals.Count, comparer);
         foreach (var kvp in Approvals)
         {
-            cloned[kvp.Key] = new HashSet<string>(kvp.Value);
+            cloned[kvp.Key] = new CompactSet<string>(kvp.Value);
         }
         return new QuorumState(cloned);
     }
@@ -24,12 +27,14 @@ public sealed record QuorumState(IDictionary<object, ISet<string>> Approvals) : 
     public ICrdtMetadataState Merge(ICrdtMetadataState other)
     {
         if (other is not QuorumState otherState) return this;
-        var merged = new Dictionary<object, ISet<string>>(Approvals, (Approvals as Dictionary<object, ISet<string>>)?.Comparer);
+        var comparer = (Approvals as CompactDictionary<object, ISet<string>>)?.Comparer
+            ?? (Approvals as Dictionary<object, ISet<string>>)?.Comparer;
+        var merged = new CompactDictionary<object, ISet<string>>(Approvals, comparer);
         foreach (var kvp in otherState.Approvals)
         {
             if (!merged.TryGetValue(kvp.Key, out var existingSet))
             {
-                merged[kvp.Key] = existingSet = new HashSet<string>();
+                merged[kvp.Key] = existingSet = new CompactSet<string>();
             }
             foreach (var voter in kvp.Value)
             {

@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -127,7 +128,7 @@ public sealed class FwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
+        doc.Metadata.States["$.map"] = new FwwMapState(new CompactDictionary<object, CausalTimestamp>(1, EqualityComparer<object>.Default)
         {
             { "a", new CausalTimestamp(timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), "A", 1) }
         });
@@ -275,7 +276,7 @@ public sealed class FwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<FwwMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
-        doc.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
+        doc.Metadata.States["$.map"] = new FwwMapState(new CompactDictionary<object, CausalTimestamp>(1, EqualityComparer<object>.Default)
         {
             { "a", new CausalTimestamp(timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), "A", 1) }
         });
@@ -397,7 +398,7 @@ public sealed class FwwMapStrategyTests
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "b", 2 }, { "c", 3 }, { "d", 4 } });
         
-        doc.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>
+        doc.Metadata.States["$.map"] = new FwwMapState(new CompactDictionary<object, CausalTimestamp>(4)
         {
             { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
             { "b", new CausalTimestamp(timestampProvider.Create(2), "A", 2) },
@@ -449,7 +450,7 @@ public sealed class FwwMapStrategyTests
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         
-        doc.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>
+        doc.Metadata.States["$.map"] = new FwwMapState(new CompactDictionary<object, CausalTimestamp>(1)
         {
             { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) }
         });
@@ -472,14 +473,14 @@ public sealed class FwwMapStrategyTests
             new CrdtFwwMapStrategyAttribute(), []);
 
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "overlap", 100 } });
-        doc1.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>
+        doc1.Metadata.States["$.map"] = new FwwMapState(new CompactDictionary<object, CausalTimestamp>(2)
         {
             { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
             { "overlap", new CausalTimestamp(timestampProvider.Create(100), "A", 2) } // Lower timestamp, should win
         });
 
         var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "overlap", 200 } });
-        doc2.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>
+        doc2.Metadata.States["$.map"] = new FwwMapState(new CompactDictionary<object, CausalTimestamp>(2)
         {
             { "c", new CausalTimestamp(timestampProvider.Create(3), "B", 1) },
             { "overlap", new CausalTimestamp(timestampProvider.Create(200), "B", 2) } 
@@ -516,7 +517,7 @@ public sealed class FwwMapStrategyTests
         var tsDeadSafe = timestampProvider.Create(2);
         var tsDeadUnsafe = timestampProvider.Create(3);
 
-        meta.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
+        meta.States["$.map"] = new FwwMapState(new CompactDictionary<object, CausalTimestamp>(3, EqualityComparer<object>.Default)
         {
             { "alive", new CausalTimestamp(tsAlive, "replica-1", 1) },
             { "dead_safe", new CausalTimestamp(tsDeadSafe, "replica-1", 2) },
@@ -556,7 +557,7 @@ public sealed class FwwMapStrategyTests
         var ts1 = timestampProvider.Create(100);
         var ts2 = timestampProvider.Create(200);
         
-        doc1.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
+        doc1.Metadata.States["$.map"] = new FwwMapState(new CompactDictionary<object, CausalTimestamp>(2, EqualityComparer<object>.Default)
         {
             { "a", new CausalTimestamp(ts2, "A", 2) }, // later timestamp
             { "b", new CausalTimestamp(ts1, "A", 1) }
@@ -566,7 +567,7 @@ public sealed class FwwMapStrategyTests
         var ts3 = timestampProvider.Create(50); // older than ts2
         var ts4 = timestampProvider.Create(150);
         
-        doc2.Metadata.States["$.map"] = new FwwMapState(new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default)
+        doc2.Metadata.States["$.map"] = new FwwMapState(new CompactDictionary<object, CausalTimestamp>(2, EqualityComparer<object>.Default)
         {
             { "a", new CausalTimestamp(ts3, "B", 1) }, // older timestamp (wins in FWW)
             { "c", new CausalTimestamp(ts4, "B", 2) }

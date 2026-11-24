@@ -3,6 +3,7 @@ namespace Ama.CRDT.UnitTests.Services.Strategies;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -407,17 +408,17 @@ public sealed class OrSetStrategyTests : IDisposable
         var tag2 = Guid.NewGuid();
         var tag3 = Guid.NewGuid();
 
-        var adds = new Dictionary<object, ISet<Guid>>
+        var adds = new CompactDictionary<object, ISet<Guid>>(3)
         {
-            { "alive", new HashSet<Guid> { tag3 } },
-            { "dead_safe", new HashSet<Guid> { tag1 } },
-            { "dead_unsafe", new HashSet<Guid> { tag2 } }
+            { "alive", new CompactSet<Guid>(1) { tag3 } },
+            { "dead_safe", new CompactSet<Guid>(1) { tag1 } },
+            { "dead_unsafe", new CompactSet<Guid>(1) { tag2 } }
         };
 
-        var removes = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>
+        var removes = new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(2)
         {
-            { "dead_safe", new Dictionary<Guid, CausalTimestamp> { { tag1, new CausalTimestamp(ts, "replica-1", 5) } } },
-            { "dead_unsafe", new Dictionary<Guid, CausalTimestamp> { { tag2, new CausalTimestamp(ts, "replica-2", 10) } } }
+            { "dead_safe", new CompactDictionary<Guid, CausalTimestamp>(1) { { tag1, new CausalTimestamp(ts, "replica-1", 5) } } },
+            { "dead_unsafe", new CompactDictionary<Guid, CausalTimestamp>(1) { { tag2, new CausalTimestamp(ts, "replica-2", 10) } } }
         };
 
         meta.States["$.tags"] = new OrSetState(adds, removes);

@@ -1,5 +1,10 @@
 namespace Ama.CRDT.Models;
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Ama.CRDT.Models.Collections;
+
 /// <summary>
 /// Represents a graph data structure with a set of vertices and edges.
 /// </summary>
@@ -8,12 +13,12 @@ public sealed record CrdtGraph : IEquatable<CrdtGraph>
     /// <summary>
     /// Gets or sets the set of vertices in the graph.
     /// </summary>
-    public ISet<object> Vertices { get; set; } = new HashSet<object>();
+    public ISet<object> Vertices { get; set; } = new CompactSet<object>();
 
     /// <summary>
     /// Gets or sets the set of edges in the graph.
     /// </summary>
-    public ISet<Edge> Edges { get; set; } = new HashSet<Edge>();
+    public ISet<Edge> Edges { get; set; } = new CompactSet<Edge>();
 
     /// <inheritdoc />
     public bool Equals(CrdtGraph? other)

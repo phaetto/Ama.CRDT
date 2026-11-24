@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -366,8 +367,8 @@ public sealed class LwwSetStrategyTests : IDisposable
         var safeRemove2 = new CausalTimestamp(timestampProvider.Create(20), "replica-1", 5);
         var unsafeRemove = new CausalTimestamp(timestampProvider.Create(30), "replica-2", 10);
         
-        var adds = new Dictionary<object, CrdtTimestamp>(EqualityComparer<object>.Default);
-        var removes = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default);
+        var adds = new CompactDictionary<object, CrdtTimestamp>(3, EqualityComparer<object>.Default);
+        var removes = new CompactDictionary<object, CausalTimestamp>(4, EqualityComparer<object>.Default);
 
         // Item 1: Alive (Add > Remove => Add wins)
         adds["item1"] = safeAddTs2;

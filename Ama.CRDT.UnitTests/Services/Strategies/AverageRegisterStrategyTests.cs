@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -284,7 +285,7 @@ public sealed class AverageRegisterStrategyTests : IDisposable
         // Arrange
         var metadata = new CrdtMetadata();
         var timestamp = timestampProvider.Create(1L);
-        metadata.States[Path] = new AverageRegisterState(new Dictionary<string, AverageRegisterValue>
+        metadata.States[Path] = new AverageRegisterState(new CompactDictionary<string, AverageRegisterValue>(1)
         {
             { "r1", new AverageRegisterValue(5m, timestamp) }
         });
@@ -322,14 +323,14 @@ public sealed class AverageRegisterStrategyTests : IDisposable
 
         var data1 = new TestModel { Rating = 5m };
         var meta1 = new CrdtMetadata();
-        meta1.States[Path] = new AverageRegisterState(new Dictionary<string, AverageRegisterValue>
+        meta1.States[Path] = new AverageRegisterState(new CompactDictionary<string, AverageRegisterValue>(1)
         {
             { "r1", new AverageRegisterValue(5m, timestampProvider.Create(1L)) }
         });
 
         var data2 = new TestModel { Rating = 10m };
         var meta2 = new CrdtMetadata();
-        meta2.States[Path] = new AverageRegisterState(new Dictionary<string, AverageRegisterValue>
+        meta2.States[Path] = new AverageRegisterState(new CompactDictionary<string, AverageRegisterValue>(2)
         {
             { "r1", new AverageRegisterValue(2m, timestampProvider.Create(0L)) }, // Older, should be ignored
             { "r2", new AverageRegisterValue(10m, timestampProvider.Create(2L)) } // Newer, should be merged

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Ama.CRDT.Models.Collections;
 
 internal sealed class SeenExceptionsJsonConverter : JsonConverter<ISet<CrdtOperation>>
 {
@@ -18,13 +19,14 @@ internal sealed class SeenExceptionsJsonConverter : JsonConverter<ISet<CrdtOpera
             throw new JsonException("Expected start of array.");
         }
 
-        var set = new HashSet<CrdtOperation>();
+        var set = new CompactSet<CrdtOperation>();
         var operationTypeInfo = options.GetTypeInfo(typeof(CrdtOperation));
 
         while (reader.Read())
         {
             if (reader.TokenType == JsonTokenType.EndArray)
             {
+                set.TrimExcess();
                 return set;
             }
 

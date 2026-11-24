@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -282,12 +283,12 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
         var tagUnsafe = Guid.NewGuid();
         var tagOther = Guid.NewGuid();
 
-        var adds = new Dictionary<object, ISet<Guid>> { { nodeId, new HashSet<Guid> { tagSafe, tagUnsafe, tagOther } } };
+        var adds = new CompactDictionary<object, ISet<Guid>>(1) { { nodeId, new CompactSet<Guid>(3) { tagSafe, tagUnsafe, tagOther } } };
         
-        var removes = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>
+        var removes = new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(1)
         {
             {
-                nodeId, new Dictionary<Guid, CausalTimestamp>
+                nodeId, new CompactDictionary<Guid, CausalTimestamp>(3)
                 {
                     { tagSafe, new CausalTimestamp(timestampProvider.Create(100), "replica-1", 5) },
                     { tagUnsafe, new CausalTimestamp(timestampProvider.Create(200), "replica-1", 10) },

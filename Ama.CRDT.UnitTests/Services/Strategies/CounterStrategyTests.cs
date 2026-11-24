@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -309,14 +310,14 @@ public sealed class CounterStrategyTests : IDisposable
         // Arrange
         var data1 = new TestModel { Score = 10 };
         var meta1 = new CrdtMetadata();
-        meta1.States["$.score"] = new CounterState(new Dictionary<string, PnCounterState>
+        meta1.States["$.score"] = new CounterState(new CompactDictionary<string, PnCounterState>(1)
         {
             ["replica-A"] = new PnCounterState(10, 0)
         });
 
         var data2 = new TestModel { Score = 15 };
         var meta2 = new CrdtMetadata();
-        meta2.States["$.score"] = new CounterState(new Dictionary<string, PnCounterState>
+        meta2.States["$.score"] = new CounterState(new CompactDictionary<string, PnCounterState>(2)
         {
             ["replica-A"] = new PnCounterState(10, 0),
             ["replica-B"] = new PnCounterState(7, 2) // net diff +5

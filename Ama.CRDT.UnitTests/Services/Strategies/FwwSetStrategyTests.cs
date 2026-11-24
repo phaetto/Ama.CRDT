@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
@@ -453,8 +454,8 @@ public sealed class FwwSetStrategyTests : IDisposable
         var safeTs2 = timestampProvider.Create(20);
         var unsafeTs = timestampProvider.Create(30);
         
-        var adds = new Dictionary<object, CrdtTimestamp>(EqualityComparer<object>.Default);
-        var removes = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default);
+        var adds = new CompactDictionary<object, CrdtTimestamp>(3, EqualityComparer<object>.Default);
+        var removes = new CompactDictionary<object, CausalTimestamp>(5, EqualityComparer<object>.Default);
 
         // Item 1: Alive (Add < Remove => Add wins)
         adds["item1"] = safeTs1;
@@ -526,18 +527,18 @@ public sealed class FwwSetStrategyTests : IDisposable
         var tsNewer = timestampProvider.Create(200);
 
         // Doc1: Add "A" (newer), Remove "B" (older)
-        var adds1 = new Dictionary<object, CrdtTimestamp>(EqualityComparer<object>.Default) { { "A", tsNewer } };
-        var rems1 = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default) { { "B", new CausalTimestamp(tsOlder, "A", 1) } };
+        var adds1 = new CompactDictionary<object, CrdtTimestamp>(1, EqualityComparer<object>.Default) { { "A", tsNewer } };
+        var rems1 = new CompactDictionary<object, CausalTimestamp>(1, EqualityComparer<object>.Default) { { "B", new CausalTimestamp(tsOlder, "A", 1) } };
         meta1.States["$.tags"] = new FwwSetState(adds1, rems1);
         doc1.Tags.Add("A");
 
         // Doc2: Add "A" (older), Add "B" (newer), Add "C" (older)
-        var adds2 = new Dictionary<object, CrdtTimestamp>(EqualityComparer<object>.Default) { 
+        var adds2 = new CompactDictionary<object, CrdtTimestamp>(3, EqualityComparer<object>.Default) { 
             { "A", tsOlder }, 
             { "B", tsNewer },
             { "C", tsOlder }
         };
-        var rems2 = new Dictionary<object, CausalTimestamp>(EqualityComparer<object>.Default);
+        var rems2 = new CompactDictionary<object, CausalTimestamp>(0, EqualityComparer<object>.Default);
         meta2.States["$.tags"] = new FwwSetState(adds2, rems2);
         doc2.Tags.AddRange(["A", "B", "C"]);
 

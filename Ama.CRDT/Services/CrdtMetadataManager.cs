@@ -14,6 +14,7 @@ using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Pooling;
 using Ama.CRDT.Services.Serialization;
+using Ama.CRDT.Models.Collections;
 
 /// <inheritdoc/>
 public sealed class CrdtMetadataManager(
@@ -370,7 +371,7 @@ public sealed class CrdtMetadataManager(
                 break;
             case BoundedCounterStrategy:
                 var initialBoundedVal = PocoPathHelper.ConvertTo<decimal>(propertyValue, crdtContexts);
-                var boundedContributions = new Dictionary<string, PnCounterState>();
+                var boundedContributions = new CompactDictionary<string, PnCounterState>(initialBoundedVal != 0m ? 1 : 0);
                 if (initialBoundedVal != 0m)
                 {
                     boundedContributions[string.Empty] = new PnCounterState(
@@ -466,25 +467,41 @@ public sealed class CrdtMetadataManager(
         {
             case TwoPhaseSetStrategy:
                 metadata.States[propertyPath] = new TwoPhaseSetState(
-                    Adds: new HashSet<object>(collectionAsObjects, comparer),
-                    Tombstones: new Dictionary<object, CausalTimestamp>(comparer));
+                    Adds: new CompactSet<object>(collectionAsObjects, comparer),
+                    Tombstones: new CompactDictionary<object, CausalTimestamp>(0, comparer));
                 break;
             case LwwSetStrategy:
             case PriorityQueueStrategy:
             case SortedSetStrategy:
+                var lwwSetAdds = new CompactDictionary<object, CrdtTimestamp>(collectionAsObjects.Count, comparer);
+                foreach (var item in collectionAsObjects)
+                {
+                    lwwSetAdds[item] = timestamp;
+                }
                 metadata.States[propertyPath] = new LwwSetState(
-                    Adds: collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
-                    Removes: new Dictionary<object, CausalTimestamp>(comparer));
+                    Adds: lwwSetAdds,
+                    Removes: new CompactDictionary<object, CausalTimestamp>(0, comparer));
                 break;
             case FwwSetStrategy:
+                var fwwSetAdds = new CompactDictionary<object, CrdtTimestamp>(collectionAsObjects.Count, comparer);
+                foreach (var item in collectionAsObjects)
+                {
+                    fwwSetAdds[item] = timestamp;
+                }
                 metadata.States[propertyPath] = new FwwSetState(
-                    Adds: collectionAsObjects.ToDictionary(k => k, _ => timestamp, comparer),
-                    Removes: new Dictionary<object, CausalTimestamp>(comparer));
+                    Adds: fwwSetAdds,
+                    Removes: new CompactDictionary<object, CausalTimestamp>(0, comparer));
                 break;
             case OrSetStrategy:
+                var orSetAdds = new CompactDictionary<object, ISet<Guid>>(collectionAsObjects.Count, comparer);
+                foreach (var item in collectionAsObjects)
+                {
+                    var tags = new CompactSet<Guid>(1) { Guid.NewGuid() };
+                    orSetAdds[item] = tags;
+                }
                 metadata.States[propertyPath] = new OrSetState(
-                    Adds: collectionAsObjects.ToDictionary(k => k, _ => (ISet<Guid>)new HashSet<Guid> { Guid.NewGuid() }, comparer),
-                    Removes: new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+                    Adds: orSetAdds,
+                    Removes: new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(0, comparer));
                 break;
         }
     }
@@ -500,7 +517,7 @@ public sealed class CrdtMetadataManager(
         switch (strategy)
         {
             case LwwMapStrategy:
-                var lwwMap = new Dictionary<object, CausalTimestamp>(comparer);
+                var lwwMap = new CompactDictionary<object, CausalTimestamp>(dictionary.Count, comparer);
                 foreach (DictionaryEntry entry in dictionary)
                 {
                     if (entry.Key != null)
@@ -512,7 +529,7 @@ public sealed class CrdtMetadataManager(
                 break;
 
             case FwwMapStrategy:
-                var fwwMap = new Dictionary<object, CausalTimestamp>(comparer);
+                var fwwMap = new CompactDictionary<object, CausalTimestamp>(dictionary.Count, comparer);
                 foreach (DictionaryEntry entry in dictionary)
                 {
                     if (entry.Key != null)
@@ -524,23 +541,23 @@ public sealed class CrdtMetadataManager(
                 break;
 
             case OrMapStrategy:
-                var orMapAdds = new Dictionary<object, ISet<Guid>>(comparer);
+                var orMapAdds = new CompactDictionary<object, ISet<Guid>>(dictionary.Count, comparer);
                 foreach (DictionaryEntry entry in dictionary)
                 {
                     if (entry.Key is not null)
                     {
-                        orMapAdds[entry.Key] = new HashSet<Guid> { Guid.NewGuid() };
+                        orMapAdds[entry.Key] = new CompactSet<Guid>(1) { Guid.NewGuid() };
                         var keyString = GetVoterKey(entry.Key);
                         metadata.States[$"{propertyPath}.['{keyString}']"] = new CausalTimestamp(timestamp, replicaId, 0);
                     }
                 }
                 metadata.States[propertyPath] = new OrSetState(
                     Adds: orMapAdds,
-                    Removes: new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(comparer));
+                    Removes: new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(0, comparer));
                 break;
 
             case CounterMapStrategy:
-                var counterMap = new Dictionary<object, PnCounterState>(comparer);
+                var counterMap = new CompactDictionary<object, PnCounterState>(dictionary.Count, comparer);
                 foreach (DictionaryEntry entry in dictionary)
                 {
                     if (entry.Key is not null)
@@ -594,10 +611,10 @@ public sealed class CrdtMetadataManager(
         var edgeComparer = elementComparerProvider.GetComparer(typeof(Edge));
         
         metadata.States[propertyPath] = new TwoPhaseGraphState(
-            VertexAdds: new HashSet<object>(vertices.Cast<object>(), vertexComparer),
-            VertexTombstones: new Dictionary<object, CausalTimestamp>(vertexComparer),
-            EdgeAdds: new HashSet<object>(edges.Cast<object>(), edgeComparer),
-            EdgeTombstones: new Dictionary<object, CausalTimestamp>(edgeComparer)
+            VertexAdds: new CompactSet<object>(vertices.Cast<object>(), vertexComparer),
+            VertexTombstones: new CompactDictionary<object, CausalTimestamp>(0, vertexComparer),
+            EdgeAdds: new CompactSet<object>(edges.Cast<object>(), edgeComparer),
+            EdgeTombstones: new CompactDictionary<object, CausalTimestamp>(0, edgeComparer)
         );
     }
     
@@ -610,12 +627,12 @@ public sealed class CrdtMetadataManager(
 
         var idComparer = elementComparerProvider.GetComparer(typeof(object));
 
-        var adds = new Dictionary<object, ISet<Guid>>(idComparer);
+        var adds = new CompactDictionary<object, ISet<Guid>>(nodesDictionary.Count, idComparer);
         foreach (DictionaryEntry entry in nodesDictionary)
         {
             if (entry.Key is null || entry.Value is null) continue;
 
-            adds[entry.Key] = new HashSet<Guid> { Guid.NewGuid() };
+            adds[entry.Key] = new CompactSet<Guid>(1) { Guid.NewGuid() };
             
             var nodeIdString = GetVoterKey(entry.Key);
             metadata.States[$"{propertyPath}.Nodes.['{nodeIdString}'].Value"] = new CausalTimestamp(timestamp, replicaId, 0);
@@ -624,7 +641,7 @@ public sealed class CrdtMetadataManager(
 
         metadata.States[propertyPath] = new OrSetState(
             Adds: adds,
-            Removes: new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(idComparer)
+            Removes: new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(0, idComparer)
         );
     }
 

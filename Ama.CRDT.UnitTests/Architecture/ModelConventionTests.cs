@@ -15,6 +15,7 @@ public sealed class ModelConventionTests
             .Where(t => t.Namespace != null && t.Namespace.StartsWith("Ama.CRDT.Models"))
             .Where(t => !t.Namespace!.StartsWith("Ama.CRDT.Models.Serialization")) // Exclude serialization infra
             .Where(t => !t.Namespace!.StartsWith("Ama.CRDT.Models.Aot")) // Exclude Aot infra
+            .Where(t => !t.Namespace!.StartsWith("Ama.CRDT.Models.Collections")) // Exclude Collections
             .Where(t => t.IsClass || (t.IsValueType && !t.IsEnum))
             .Where(t => !t.IsInterface && !typeof(Delegate).IsAssignableFrom(t))
             .Where(t => !(t.IsAbstract && t.IsSealed)) // Exclude static classes
