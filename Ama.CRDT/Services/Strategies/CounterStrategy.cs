@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
@@ -93,7 +94,7 @@ public sealed class CounterStrategy(
 
         if (!metadata.States.TryGetValue(operation.JsonPath, out var state) || state is not CounterState cState)
         {
-            cState = new CounterState(new Dictionary<string, PnCounterState>());
+            cState = new CounterState(new CompactDictionary<string, PnCounterState>());
             metadata.States[operation.JsonPath] = cState;
         }
 
@@ -129,15 +130,15 @@ public sealed class CounterStrategy(
     {
         var (data1, meta1, data2, meta2, property, propertyPath) = context;
 
-        if (!meta1.States.TryGetValue(propertyPath, out var state1) || state1 is not CounterState cState1)
-        {
-            cState1 = new CounterState(new Dictionary<string, PnCounterState>());
-            meta1.States[propertyPath] = cState1;
-        }
-
         if (!meta2.States.TryGetValue(propertyPath, out var state2) || state2 is not CounterState cState2)
         {
             return;
+        }
+
+        if (!meta1.States.TryGetValue(propertyPath, out var state1) || state1 is not CounterState cState1)
+        {
+            cState1 = new CounterState(new CompactDictionary<string, PnCounterState>(cState2.Contributions.Count));
+            meta1.States[propertyPath] = cState1;
         }
 
         decimal netDiff = 0m;

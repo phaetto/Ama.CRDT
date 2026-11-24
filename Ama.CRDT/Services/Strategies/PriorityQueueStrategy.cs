@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
@@ -272,9 +273,10 @@ public sealed class PriorityQueueStrategy(
     {
         if (metadata.States.TryGetValue(path, out var baseState) && baseState is LwwSetState state)
         {
-            if (state.Adds is Dictionary<object, CrdtTimestamp> dict && dict.Comparer == EqualityComparer<object>.Default)
+            if ((state.Adds is Dictionary<object, CrdtTimestamp> dict && dict.Comparer == EqualityComparer<object>.Default) ||
+                (state.Adds is CompactDictionary<object, CrdtTimestamp> compactDict && compactDict.Comparer == EqualityComparer<object>.Default))
             {
-                var newAdds = new Dictionary<object, CrdtTimestamp>(comparer);
+                var newAdds = new CompactDictionary<object, CrdtTimestamp>(state.Adds.Count, comparer);
                 foreach (var kvp in state.Adds)
                 {
                     if (!newAdds.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
@@ -283,7 +285,7 @@ public sealed class PriorityQueueStrategy(
                     }
                 }
                 
-                var newRemoves = new Dictionary<object, CausalTimestamp>(comparer);
+                var newRemoves = new CompactDictionary<object, CausalTimestamp>(state.Removes.Count, comparer);
                 foreach (var kvp in state.Removes)
                 {
                     if (!newRemoves.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
@@ -299,7 +301,7 @@ public sealed class PriorityQueueStrategy(
             return state;
         }
 
-        var emptyState = new LwwSetState(new Dictionary<object, CrdtTimestamp>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
+        var emptyState = new LwwSetState(new CompactDictionary<object, CrdtTimestamp>(comparer), new CompactDictionary<object, CausalTimestamp>(comparer));
         metadata.States[path] = emptyState;
         return emptyState;
     }

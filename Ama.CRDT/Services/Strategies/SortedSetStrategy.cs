@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
@@ -158,12 +159,12 @@ public sealed class SortedSetStrategy(
 
         if (!metadata.States.TryGetValue(collectionPath, out var baseState) || baseState is not LwwSetState state)
         {
-            var adds = new Dictionary<object, CrdtTimestamp>(comparer);
+            var adds = new CompactDictionary<object, CrdtTimestamp>(listRepresentation.Count, comparer);
             foreach (var item in listRepresentation)
             {
                 adds[item] = timestampProvider.Create(0);
             }
-            state = new LwwSetState(adds, new Dictionary<object, CausalTimestamp>(comparer));
+            state = new LwwSetState(adds, new CompactDictionary<object, CausalTimestamp>(comparer));
             metadata.States[collectionPath] = state;
         }
 
@@ -361,9 +362,9 @@ public sealed class SortedSetStrategy(
         {
             var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
             var comparer = comparerProvider.GetComparer(elementType);
-            var adds = new Dictionary<object, CrdtTimestamp>(comparer);
+            var adds = new CompactDictionary<object, CrdtTimestamp>(list.Count, comparer);
             foreach (var item in list) adds[item] = timestampProvider.Create(0);
-            state = new LwwSetState(adds, new Dictionary<object, CausalTimestamp>(comparer));
+            state = new LwwSetState(adds, new CompactDictionary<object, CausalTimestamp>(comparer));
             originalMetadata.States[path] = state;
         }
 
@@ -391,8 +392,8 @@ public sealed class SortedSetStrategy(
 
         var keys1 = itemsWithKeys.Take(splitIndex).Select(x => x.SortKey).ToHashSet();
         
-        var adds1 = new Dictionary<object, CrdtTimestamp>(comparerProp);
-        var adds2 = new Dictionary<object, CrdtTimestamp>(comparerProp);
+        var adds1 = new CompactDictionary<object, CrdtTimestamp>(splitIndex, comparerProp);
+        var adds2 = new CompactDictionary<object, CrdtTimestamp>(itemsWithKeys.Count - splitIndex, comparerProp);
         foreach (var kvp in state.Adds)
         {
             var k = GetSortKey(kvp.Key, sortPropName, aotContexts) as IComparable ?? GetSortKey(kvp.Key, sortPropName, aotContexts)?.ToString() as IComparable;
@@ -400,8 +401,8 @@ public sealed class SortedSetStrategy(
             else adds2[kvp.Key] = kvp.Value;
         }
 
-        var rems1 = new Dictionary<object, CausalTimestamp>(comparerProp);
-        var rems2 = new Dictionary<object, CausalTimestamp>(comparerProp);
+        var rems1 = new CompactDictionary<object, CausalTimestamp>(comparerProp);
+        var rems2 = new CompactDictionary<object, CausalTimestamp>(comparerProp);
         foreach (var kvp in state.Removes)
         {
             var k = GetSortKey(kvp.Key, sortPropName, aotContexts) as IComparable ?? GetSortKey(kvp.Key, sortPropName, aotContexts)?.ToString() as IComparable;
@@ -436,22 +437,27 @@ public sealed class SortedSetStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        var adds = new Dictionary<object, CrdtTimestamp>(comparer);
-        var rems = new Dictionary<object, CausalTimestamp>(comparer);
+        meta1.States.TryGetValue(path, out var baseState1);
+        meta2.States.TryGetValue(path, out var baseState2);
+        var s1 = baseState1 as LwwSetState;
+        var s2 = baseState2 as LwwSetState;
 
-        if (meta1.States.TryGetValue(path, out var baseState1) && baseState1 is LwwSetState state1)
+        var adds = new CompactDictionary<object, CrdtTimestamp>((s1?.Adds.Count ?? 0) + (s2?.Adds.Count ?? 0), comparer);
+        var rems = new CompactDictionary<object, CausalTimestamp>((s1?.Removes.Count ?? 0) + (s2?.Removes.Count ?? 0), comparer);
+
+        if (s1 is not null)
         {
-            foreach (var kvp in state1.Adds) adds[kvp.Key] = kvp.Value;
-            foreach (var kvp in state1.Removes) rems[kvp.Key] = kvp.Value;
+            foreach (var kvp in s1.Adds) adds[kvp.Key] = kvp.Value;
+            foreach (var kvp in s1.Removes) rems[kvp.Key] = kvp.Value;
         }
-        if (meta2.States.TryGetValue(path, out var baseState2) && baseState2 is LwwSetState state2)
+        if (s2 is not null)
         {
-            foreach (var kvp in state2.Adds)
+            foreach (var kvp in s2.Adds)
             {
                 if (!adds.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
                     adds[kvp.Key] = kvp.Value;
             }
-            foreach (var kvp in state2.Removes)
+            foreach (var kvp in s2.Removes)
             {
                 if (!rems.TryGetValue(kvp.Key, out var existing) || kvp.Value.Timestamp.CompareTo(existing.Timestamp) > 0)
                     rems[kvp.Key] = kvp.Value;
@@ -474,22 +480,27 @@ public sealed class SortedSetStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        var adds = new Dictionary<object, CrdtTimestamp>(comparer);
-        var rems = new Dictionary<object, CausalTimestamp>(comparer);
+        meta1.States.TryGetValue(path, out var baseState1);
+        meta2.States.TryGetValue(path, out var baseState2);
+        var s1 = baseState1 as LwwSetState;
+        var s2 = baseState2 as LwwSetState;
 
-        if (meta1.States.TryGetValue(path, out var baseState1) && baseState1 is LwwSetState state1)
+        var adds = new CompactDictionary<object, CrdtTimestamp>(Math.Max(s1?.Adds.Count ?? 0, s2?.Adds.Count ?? 0), comparer);
+        var rems = new CompactDictionary<object, CausalTimestamp>(Math.Max(s1?.Removes.Count ?? 0, s2?.Removes.Count ?? 0), comparer);
+
+        if (s1 is not null)
         {
-            foreach (var kvp in state1.Adds) adds[kvp.Key] = kvp.Value;
-            foreach (var kvp in state1.Removes) rems[kvp.Key] = kvp.Value;
+            foreach (var kvp in s1.Adds) adds[kvp.Key] = kvp.Value;
+            foreach (var kvp in s1.Removes) rems[kvp.Key] = kvp.Value;
         }
-        if (meta2.States.TryGetValue(path, out var baseState2) && baseState2 is LwwSetState state2)
+        if (s2 is not null)
         {
-            foreach (var kvp in state2.Adds)
+            foreach (var kvp in s2.Adds)
             {
                 if (!adds.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
                     adds[kvp.Key] = kvp.Value;
             }
-            foreach (var kvp in state2.Removes)
+            foreach (var kvp in s2.Removes)
             {
                 if (!rems.TryGetValue(kvp.Key, out var existing) || kvp.Value.Timestamp.CompareTo(existing.Timestamp) > 0)
                     rems[kvp.Key] = kvp.Value;

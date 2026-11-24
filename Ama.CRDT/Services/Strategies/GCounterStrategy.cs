@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Helpers;
@@ -97,7 +98,7 @@ public sealed class GCounterStrategy(
 
         if (!metadata.States.TryGetValue(operation.JsonPath, out var state) || state is not GCounterState gState)
         {
-            gState = new GCounterState(new Dictionary<string, decimal>());
+            gState = new GCounterState(new CompactDictionary<string, decimal>());
             metadata.States[operation.JsonPath] = gState;
         }
 
@@ -119,15 +120,15 @@ public sealed class GCounterStrategy(
     {
         var (data1, meta1, data2, meta2, property, propertyPath) = context;
 
-        if (!meta1.States.TryGetValue(propertyPath, out var state1) || state1 is not GCounterState gState1)
-        {
-            gState1 = new GCounterState(new Dictionary<string, decimal>());
-            meta1.States[propertyPath] = gState1;
-        }
-
         if (!meta2.States.TryGetValue(propertyPath, out var state2) || state2 is not GCounterState gState2)
         {
             return;
+        }
+
+        if (!meta1.States.TryGetValue(propertyPath, out var state1) || state1 is not GCounterState gState1)
+        {
+            gState1 = new GCounterState(new CompactDictionary<string, decimal>(gState2.Contributions.Count));
+            meta1.States[propertyPath] = gState1;
         }
 
         decimal netDiff = 0m;

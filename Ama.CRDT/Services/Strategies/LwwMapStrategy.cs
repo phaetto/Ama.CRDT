@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
@@ -108,7 +109,7 @@ public sealed class LwwMapStrategy(
 
         if (!metadata.States.TryGetValue(operation.JsonPath, out var state) || state is not LwwMapState lwwMapState)
         {
-            lwwMapState = new LwwMapState(new Dictionary<object, CausalTimestamp>(comparer));
+            lwwMapState = new LwwMapState(new CompactDictionary<object, CausalTimestamp>(comparer));
             metadata.States[operation.JsonPath] = lwwMapState;
         }
         var timestamps = lwwMapState.Keys;
@@ -288,8 +289,13 @@ public sealed class LwwMapStrategy(
         var meta1 = originalMetadata.DeepClone();
         var meta2 = originalMetadata.DeepClone();
 
-        meta1.States[path] = new LwwMapState(items1.ToDictionary(k => k.Key, v => v.Value, comparer));
-        meta2.States[path] = new LwwMapState(items2.ToDictionary(k => k.Key, v => v.Value, comparer));
+        var dict1 = new CompactDictionary<object, CausalTimestamp>(items1.Count, comparer);
+        foreach (var kvp in items1) dict1[kvp.Key] = kvp.Value;
+        var dict2 = new CompactDictionary<object, CausalTimestamp>(items2.Count, comparer);
+        foreach (var kvp in items2) dict2[kvp.Key] = kvp.Value;
+
+        meta1.States[path] = new LwwMapState(dict1);
+        meta2.States[path] = new LwwMapState(dict2);
 
         ReconstructDictionaryForSplitMerge(doc1, path, items1, originalData, aotContexts);
         ReconstructDictionaryForSplitMerge(doc2, path, items2, originalData, aotContexts);
@@ -315,16 +321,23 @@ public sealed class LwwMapStrategy(
         
         var mergedMeta = CrdtMetadata.Merge(meta1, meta2);
 
-        var items1 = meta1.States.TryGetValue(path, out var s1) && s1 is LwwMapState ls1 ? ls1.Keys : new Dictionary<object, CausalTimestamp>(comparer);
-        var items2 = meta2.States.TryGetValue(path, out var s2) && s2 is LwwMapState ls2 ? ls2.Keys : new Dictionary<object, CausalTimestamp>(comparer);
+        var items1 = meta1.States.TryGetValue(path, out var s1) && s1 is LwwMapState ls1 ? ls1.Keys : null;
+        var items2 = meta2.States.TryGetValue(path, out var s2) && s2 is LwwMapState ls2 ? ls2.Keys : null;
 
-        var mergedItems = new Dictionary<object, CausalTimestamp>(comparer);
-        foreach (var kvp in items1) mergedItems[kvp.Key] = kvp.Value;
-        foreach (var kvp in items2)
+        int estimatedCapacity = (items1?.Count ?? 0) + (items2?.Count ?? 0);
+        var mergedItems = new CompactDictionary<object, CausalTimestamp>(estimatedCapacity, comparer);
+        if (items1 != null)
         {
-            if (!mergedItems.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
+            foreach (var kvp in items1) mergedItems[kvp.Key] = kvp.Value;
+        }
+        if (items2 != null)
+        {
+            foreach (var kvp in items2)
             {
-                mergedItems[kvp.Key] = kvp.Value;
+                if (!mergedItems.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
+                {
+                    mergedItems[kvp.Key] = kvp.Value;
+                }
             }
         }
         
@@ -346,16 +359,23 @@ public sealed class LwwMapStrategy(
         var keyType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).DictionaryKeyType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
-        var items1 = meta1.States.TryGetValue(propertyPath, out var s1) && s1 is LwwMapState ls1 ? ls1.Keys : new Dictionary<object, CausalTimestamp>(comparer);
-        var items2 = meta2.States.TryGetValue(propertyPath, out var s2) && s2 is LwwMapState ls2 ? ls2.Keys : new Dictionary<object, CausalTimestamp>(comparer);
+        var items1 = meta1.States.TryGetValue(propertyPath, out var s1) && s1 is LwwMapState ls1 ? ls1.Keys : null;
+        var items2 = meta2.States.TryGetValue(propertyPath, out var s2) && s2 is LwwMapState ls2 ? ls2.Keys : null;
 
-        var mergedItems = new Dictionary<object, CausalTimestamp>(comparer);
-        foreach (var kvp in items1) mergedItems[kvp.Key] = kvp.Value;
-        foreach (var kvp in items2)
+        int estimatedCapacity = Math.Max(items1?.Count ?? 0, items2?.Count ?? 0);
+        var mergedItems = new CompactDictionary<object, CausalTimestamp>(estimatedCapacity, comparer);
+        if (items1 != null)
         {
-            if (!mergedItems.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
+            foreach (var kvp in items1) mergedItems[kvp.Key] = kvp.Value;
+        }
+        if (items2 != null)
+        {
+            foreach (var kvp in items2)
             {
-                mergedItems[kvp.Key] = kvp.Value;
+                if (!mergedItems.TryGetValue(kvp.Key, out var existingTs) || kvp.Value.CompareTo(existingTs) > 0)
+                {
+                    mergedItems[kvp.Key] = kvp.Value;
+                }
             }
         }
 

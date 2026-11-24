@@ -6,6 +6,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services;
@@ -92,7 +93,7 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext, IEnume
         if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not CounterState cState)
         {
             var initialValue = PocoPathHelper.GetValue<decimal>(root, operation.JsonPath, aotContexts);
-            var contributions = new Dictionary<string, PnCounterState>();
+            var contributions = new CompactDictionary<string, PnCounterState>(initialValue != 0m ? 2 : 1);
             if (initialValue != 0m)
             {
                 contributions[string.Empty] = new PnCounterState(
@@ -148,7 +149,7 @@ public sealed class BoundedCounterStrategy(ReplicaContext replicaContext, IEnume
         if (!meta1.States.TryGetValue(path, out var state1) || state1 is not CounterState cState1)
         {
             var initialValue = PocoPathHelper.GetValue<decimal>(data1, path, aotContexts);
-            var contributions = new Dictionary<string, PnCounterState>();
+            var contributions = new CompactDictionary<string, PnCounterState>(cState2.Contributions.Count + (initialValue != 0m ? 1 : 0));
             if (initialValue != 0m)
             {
                 contributions[string.Empty] = new PnCounterState(

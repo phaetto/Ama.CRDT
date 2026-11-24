@@ -3,6 +3,7 @@ namespace Ama.CRDT.Services.Strategies;
 using Ama.CRDT.Attributes;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
@@ -122,7 +123,7 @@ public sealed class CounterMapStrategy(
         }
         else
         {
-            counters = new Dictionary<object, PnCounterState>(comparer);
+            counters = new CompactDictionary<object, PnCounterState>(comparer);
             metadata.States[operation.JsonPath] = new CounterMapState(counters);
         }
 
@@ -175,8 +176,6 @@ public sealed class CounterMapStrategy(
         var valueType = typeInfo.DictionaryValueType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
-        var mergedCounters = new Dictionary<object, PnCounterState>(comparer);
-
         meta1.States.TryGetValue(propertyPath, out var state1);
         meta2.States.TryGetValue(propertyPath, out var state2);
 
@@ -192,6 +191,8 @@ public sealed class CounterMapStrategy(
         {
             foreach (var k in mapState2.Keys.Keys) allKeys.Add(k);
         }
+
+        var mergedCounters = new CompactDictionary<object, PnCounterState>(allKeys.Count, comparer);
 
         foreach (var key in allKeys)
         {
@@ -310,8 +311,8 @@ public sealed class CounterMapStrategy(
         var valueType = typeInfo.DictionaryValueType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
-        var counters1 = new Dictionary<object, PnCounterState>(comparer);
-        var counters2 = new Dictionary<object, PnCounterState>(comparer);
+        var counters1 = new CompactDictionary<object, PnCounterState>(keys1.Count, comparer);
+        var counters2 = new CompactDictionary<object, PnCounterState>(keys2.Count, comparer);
 
         if (meta1.States.TryGetValue(path, out var state1) && state1 is CounterMapState mapState1)
         {
@@ -351,16 +352,20 @@ public sealed class CounterMapStrategy(
         var valueType = typeInfo.DictionaryValueType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(keyType);
 
-        var mergedCounters = new Dictionary<object, PnCounterState>(comparer);
+        var hasState1 = meta1.States.TryGetValue(path, out var state1) && state1 is CounterMapState;
+        var hasState2 = meta2.States.TryGetValue(path, out var state2) && state2 is CounterMapState;
+        var estimatedCapacity = (hasState1 ? ((CounterMapState)state1!).Keys.Count : 0) + (hasState2 ? ((CounterMapState)state2!).Keys.Count : 0);
 
-        if (meta1.States.TryGetValue(path, out var state1) && state1 is CounterMapState mapState1)
+        var mergedCounters = new CompactDictionary<object, PnCounterState>(estimatedCapacity, comparer);
+
+        if (hasState1)
         {
-            foreach (var kvp in mapState1.Keys) mergedCounters[kvp.Key] = kvp.Value;
+            foreach (var kvp in ((CounterMapState)state1!).Keys) mergedCounters[kvp.Key] = kvp.Value;
         }
 
-        if (meta2.States.TryGetValue(path, out var state2) && state2 is CounterMapState mapState2)
+        if (hasState2)
         {
-            foreach (var kvp in mapState2.Keys) mergedCounters[kvp.Key] = kvp.Value;
+            foreach (var kvp in ((CounterMapState)state2!).Keys) mergedCounters[kvp.Key] = kvp.Value;
         }
 
         mergedMeta.States[path] = new CounterMapState(mergedCounters);

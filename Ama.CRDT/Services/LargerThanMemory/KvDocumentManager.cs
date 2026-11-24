@@ -2,6 +2,7 @@ namespace Ama.CRDT.Services.LargerThanMemory;
 
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.GarbageCollection;
 using Ama.CRDT.Services.Helpers;
@@ -454,8 +455,8 @@ public sealed class KvDocumentManager<T> : IKvDocumentManager<T>, IVirtualDocume
                 unappliedOperations.AddRange(dataResult.UnappliedOperations);
 
                 // Remove global state from the item's metadata so it is not persisted in the item stream.
-                itemDoc.Metadata.VersionVector = new Dictionary<string, long>();
-                itemDoc.Metadata.SeenExceptions = new HashSet<CrdtOperation>();
+                itemDoc.Metadata.VersionVector = new CompactDictionary<string, long>();
+                itemDoc.Metadata.SeenExceptions = new CompactSet<CrdtOperation>();
 
                 using (new MetricTimer(this.metrics.PersistChangesDuration))
                 {

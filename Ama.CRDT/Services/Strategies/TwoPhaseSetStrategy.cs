@@ -4,6 +4,7 @@ using Ama.CRDT.Attributes;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
@@ -87,7 +88,7 @@ public sealed class TwoPhaseSetStrategy(
 
         if (!metadata.States.TryGetValue(operation.JsonPath, out var baseState) || baseState is not TwoPhaseSetState state)
         {
-            state = new TwoPhaseSetState(new HashSet<object>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
+            state = new TwoPhaseSetState(new CompactSet<object>(comparer), new CompactDictionary<object, CausalTimestamp>(comparer));
             metadata.States[operation.JsonPath] = state;
         }
 
@@ -168,7 +169,9 @@ public sealed class TwoPhaseSetStrategy(
 
         if (!meta1.States.TryGetValue(path, out var baseState1) || baseState1 is not TwoPhaseSetState state1)
         {
-            state1 = new TwoPhaseSetState(new HashSet<object>(comparer), new Dictionary<object, CausalTimestamp>(comparer));
+            state1 = new TwoPhaseSetState(
+                new CompactSet<object>(state2.Adds.Count, comparer),
+                new CompactDictionary<object, CausalTimestamp>(state2.Tombstones.Count, comparer));
             meta1.States[path] = state1;
         }
 
@@ -242,16 +245,16 @@ public sealed class TwoPhaseSetStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        var adds1 = new HashSet<object>(comparer);
-        var adds2 = new HashSet<object>(comparer);
+        var adds1 = new CompactSet<object>(keys1.Count, comparer);
+        var adds2 = new CompactSet<object>(keys2.Count, comparer);
         foreach (var kvp in state.Adds)
         {
             if (keys1.Contains((IComparable)kvp)) adds1.Add(kvp);
             else adds2.Add(kvp);
         }
 
-        var toms1 = new Dictionary<object, CausalTimestamp>(comparer);
-        var toms2 = new Dictionary<object, CausalTimestamp>(comparer);
+        var toms1 = new CompactDictionary<object, CausalTimestamp>(comparer);
+        var toms2 = new CompactDictionary<object, CausalTimestamp>(comparer);
         foreach (var kvp in state.Tombstones)
         {
             if (keys1.Contains((IComparable)kvp.Key)) toms1.Add(kvp.Key, kvp.Value);
@@ -282,18 +285,23 @@ public sealed class TwoPhaseSetStrategy(
         var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
         var comparer = comparerProvider.GetComparer(elementType);
 
-        var adds = new HashSet<object>(comparer);
-        var toms = new Dictionary<object, CausalTimestamp>(comparer);
+        meta1.States.TryGetValue(path, out var baseState1);
+        meta2.States.TryGetValue(path, out var baseState2);
+        var s1 = baseState1 as TwoPhaseSetState;
+        var s2 = baseState2 as TwoPhaseSetState;
 
-        if (meta1.States.TryGetValue(path, out var baseState1) && baseState1 is TwoPhaseSetState state1)
+        var adds = new CompactSet<object>((s1?.Adds.Count ?? 0) + (s2?.Adds.Count ?? 0), comparer);
+        var toms = new CompactDictionary<object, CausalTimestamp>((s1?.Tombstones.Count ?? 0) + (s2?.Tombstones.Count ?? 0), comparer);
+
+        if (s1 is not null)
         {
-            foreach (var item in state1.Adds) adds.Add(item);
-            foreach (var item in state1.Tombstones) toms[item.Key] = item.Value;
+            foreach (var item in s1.Adds) adds.Add(item);
+            foreach (var item in s1.Tombstones) toms[item.Key] = item.Value;
         }
-        if (meta2.States.TryGetValue(path, out var baseState2) && baseState2 is TwoPhaseSetState state2)
+        if (s2 is not null)
         {
-            foreach (var item in state2.Adds) adds.Add(item);
-            foreach (var item in state2.Tombstones) 
+            foreach (var item in s2.Adds) adds.Add(item);
+            foreach (var item in s2.Tombstones) 
             {
                 if (!toms.TryGetValue(item.Key, out var existing) || item.Value.CompareTo(existing) > 0)
                 {

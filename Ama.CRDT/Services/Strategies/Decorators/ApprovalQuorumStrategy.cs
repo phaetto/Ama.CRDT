@@ -5,6 +5,7 @@ using Ama.CRDT.Attributes.Decorators;
 using Ama.CRDT.Attributes.Strategies.Semantic;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Collections;
 using Ama.CRDT.Models.Decorators;
 using Ama.CRDT.Services.Helpers;
 using Ama.CRDT.Services.Providers;
@@ -96,7 +97,7 @@ public sealed class ApprovalQuorumStrategy(
         if (!context.Metadata.States.TryGetValue(decoratorPath, out var baseState) || baseState is not QuorumState quorumState)
         {
             var comparer = comparerProvider.GetComparer(typeof(object));
-            quorumState = new QuorumState(new Dictionary<object, ISet<string>>(comparer));
+            quorumState = new QuorumState(new CompactDictionary<object, ISet<string>>(comparer));
             context.Metadata.States[decoratorPath] = quorumState;
         }
 
@@ -107,7 +108,7 @@ public sealed class ApprovalQuorumStrategy(
 
         if (!pathApprovals.TryGetValue(keyObject, out var voters))
         {
-            voters = new HashSet<string>();
+            voters = new CompactSet<string>();
             pathApprovals[keyObject] = voters;
         }
 
@@ -171,7 +172,7 @@ public sealed class ApprovalQuorumStrategy(
         if (!meta1.States.TryGetValue(decoratorPath, out var baseState1) || baseState1 is not QuorumState q1)
         {
             var comparer = comparerProvider.GetComparer(typeof(object));
-            q1 = new QuorumState(new Dictionary<object, ISet<string>>(comparer));
+            q1 = new QuorumState(new CompactDictionary<object, ISet<string>>(q2.Approvals.Count, comparer));
             meta1.States[decoratorPath] = q1;
         }
         
@@ -179,13 +180,15 @@ public sealed class ApprovalQuorumStrategy(
         {
             if (!q1.Approvals.TryGetValue(kvp.Key, out var voters1))
             {
-                voters1 = new HashSet<string>();
+                voters1 = new CompactSet<string>(kvp.Value);
                 q1.Approvals[kvp.Key] = voters1;
             }
-            
-            foreach (var voter in kvp.Value)
+            else
             {
-                voters1.Add(voter);
+                foreach (var voter in kvp.Value)
+                {
+                    voters1.Add(voter);
+                }
             }
         }
     }
