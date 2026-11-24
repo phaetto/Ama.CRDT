@@ -29,16 +29,23 @@ public sealed record QuorumState(IDictionary<object, ISet<string>> Approvals) : 
         if (other is not QuorumState otherState) return this;
         var comparer = (Approvals as CompactDictionary<object, ISet<string>>)?.Comparer
             ?? (Approvals as Dictionary<object, ISet<string>>)?.Comparer;
-        var merged = new CompactDictionary<object, ISet<string>>(Approvals, comparer);
+        var merged = new CompactDictionary<object, ISet<string>>(Approvals.Count, comparer);
+        foreach (var kvp in Approvals)
+        {
+            merged[kvp.Key] = new CompactSet<string>(kvp.Value);
+        }
         foreach (var kvp in otherState.Approvals)
         {
             if (!merged.TryGetValue(kvp.Key, out var existingSet))
             {
-                merged[kvp.Key] = existingSet = new CompactSet<string>();
+                merged[kvp.Key] = new CompactSet<string>(kvp.Value);
             }
-            foreach (var voter in kvp.Value)
+            else
             {
-                existingSet.Add(voter);
+                foreach (var voter in kvp.Value)
+                {
+                    existingSet.Add(voter);
+                }
             }
         }
         return new QuorumState(merged);

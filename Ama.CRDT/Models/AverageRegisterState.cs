@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents the state for an Average Register.
@@ -12,7 +13,7 @@ public sealed record AverageRegisterState(IDictionary<string, AverageRegisterVal
     /// <inheritdoc />
     public ICrdtMetadataState DeepClone()
     {
-        return new AverageRegisterState(new Dictionary<string, AverageRegisterValue>(Contributions));
+        return new AverageRegisterState(new CompactDictionary<string, AverageRegisterValue>(Contributions));
     }
 
     /// <inheritdoc />
@@ -20,7 +21,7 @@ public sealed record AverageRegisterState(IDictionary<string, AverageRegisterVal
     {
         if (other is not AverageRegisterState otherState) return this;
         
-        var merged = new Dictionary<string, AverageRegisterValue>(Contributions);
+        var merged = new CompactDictionary<string, AverageRegisterValue>(Contributions);
         foreach (var kvp in otherState.Contributions)
         {
             if (!merged.TryGetValue(kvp.Key, out var existing) || kvp.Value.Timestamp.CompareTo(existing.Timestamp) > 0)

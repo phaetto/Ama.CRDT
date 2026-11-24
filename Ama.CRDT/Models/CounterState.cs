@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents the state for a numeric property managed by a PN-Counter (CounterStrategy).
@@ -13,7 +14,7 @@ public sealed record CounterState(IDictionary<string, PnCounterState> Contributi
     /// <inheritdoc />
     public ICrdtMetadataState DeepClone()
     {
-        return new CounterState(new Dictionary<string, PnCounterState>(Contributions));
+        return new CounterState(new CompactDictionary<string, PnCounterState>(Contributions));
     }
 
     /// <inheritdoc />
@@ -21,7 +22,7 @@ public sealed record CounterState(IDictionary<string, PnCounterState> Contributi
     {
         if (other is not CounterState otherState) return this;
 
-        var merged = new Dictionary<string, PnCounterState>(Contributions);
+        var merged = new CompactDictionary<string, PnCounterState>(Contributions);
         foreach (var kvp in otherState.Contributions)
         {
             if (!merged.TryGetValue(kvp.Key, out var existing))

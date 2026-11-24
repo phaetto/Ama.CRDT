@@ -362,11 +362,11 @@
 | `$/Ama.CRDT/Models/LseqPathSegment.cs` | Represents a single, serializable segment in an LSEQ identifier's path, containing a position and a replica ID. |
 | `$/Ama.CRDT/Models/LseqState.cs` | A wrapper state structure implementing `ICrdtMetadataState` for LSEQ trackers. |
 | `$/Ama.CRDT/Models/LwwMapState.cs` | A wrapper state structure implementing `ICrdtMetadataState` for LWW-Map trackers. |
-| `$/Ama.CRDT/Models/LwwSetState.cs` | No description provided. |
+| `$/Ama.CRDT/Models/LwwSetState.cs` | Represents the state for a Last-Writer-Wins Set (LWW-Set), utilizing `CompactDictionary` for `DeepClone` and `Merge` operations. |
 | `$/Ama.CRDT/Models/OperationType.cs` | Defines the types of operations (Upsert, Remove, Increment, Move) for a CRDT patch. |
 | `$/Ama.CRDT/Models/OrMapItem.cs` | Contains payload record structs (`OrMapAddItem`, `OrMapRemoveItem`) for OR-Map (Observed-Remove Map) operations, bundling keys and values with unique tags. |
 | `$/Ama.CRDT/Models/OrSetItem.cs` | Contains payload record structs (`OrSetAddItem`, `OrSetRemoveItem`) for OR-Set (Observed-Remove Set) operations, bundling values with unique tags. |
-| `$/Ama.CRDT/Models/OrSetState.cs` | No description provided. |
+| `$/Ama.CRDT/Models/OrSetState.cs` | Represents the state for an Observed-Remove Set (OR-Set) or OR-Map, utilizing `CompactDictionary` and `CompactSet` for `DeepClone` and `Merge` operations. |
 | `$/Ama.CRDT/Models/OriginSyncRequirement.cs` | A data structure representing the causality gap for a specific origin replica between a target and a source. |
 | `$/Ama.CRDT/Models/PnCounterState.cs` | A `readonly record struct` representing the positive and negative contribution state for a PN-Counter. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
@@ -391,8 +391,8 @@
 | `$/Ama.CRDT/Models/TreeMoveNodePayload.cs` | A data structure for the payload of a tree 'move' operation. |
 | `$/Ama.CRDT/Models/TreeNode.cs` | No description provided. |
 | `$/Ama.CRDT/Models/TreeRemoveNodePayload.cs` | A data structure for the payload of a tree 'remove' operation. |
-| `$/Ama.CRDT/Models/TwoPhaseGraphState.cs` | No description provided. |
-| `$/Ama.CRDT/Models/TwoPhaseSetState.cs` | No description provided. |
+| `$/Ama.CRDT/Models/TwoPhaseGraphState.cs` | Represents the state for a Two-Phase Graph (2P-Graph), utilizing `CompactSet` and `CompactDictionary` for `DeepClone` and `Merge` operations. |
+| `$/Ama.CRDT/Models/TwoPhaseSetState.cs` | Represents the state for a Two-Phase Set (2P-Set), utilizing `CompactSet` and `CompactDictionary` for `DeepClone` and `Merge` operations. |
 | `$/Ama.CRDT/Models/UnappliedOperation.cs` | Data structure representing a CRDT operation that could not be applied and its reason. |
 | `$/Ama.CRDT/Models/VotePayload.cs` | A data structure for the payload of a vote operation, containing the voter's identifier and their chosen option. |
 | `$/Ama.CRDT/PublicAPI.Shipped.txt` | Tracks the shipped public API surface of the library to detect breaking changes. This file should be updated when new APIs are officially released in a stable version. |

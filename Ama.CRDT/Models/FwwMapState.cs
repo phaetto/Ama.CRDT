@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents the tracking state for the First-Writer-Wins Map (FWW-Map) strategy.
@@ -12,14 +13,14 @@ public sealed record FwwMapState(IDictionary<object, CausalTimestamp> Keys) : IE
     /// <inheritdoc />
     public ICrdtMetadataState DeepClone()
     {
-        return new FwwMapState(new Dictionary<object, CausalTimestamp>(Keys, (Keys as Dictionary<object, CausalTimestamp>)?.Comparer));
+        return new FwwMapState(new CompactDictionary<object, CausalTimestamp>(Keys));
     }
 
     /// <inheritdoc />
     public ICrdtMetadataState Merge(ICrdtMetadataState other)
     {
         if (other is not FwwMapState otherState) return this;
-        var merged = new Dictionary<object, CausalTimestamp>(Keys, (Keys as Dictionary<object, CausalTimestamp>)?.Comparer);
+        var merged = new CompactDictionary<object, CausalTimestamp>(Keys);
         foreach (var kvp in otherState.Keys)
         {
             if (!merged.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) < 0)

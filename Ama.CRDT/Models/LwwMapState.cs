@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents the tracking state for the Last-Writer-Wins Map (LWW-Map) strategy.
@@ -12,14 +13,14 @@ public sealed record LwwMapState(IDictionary<object, CausalTimestamp> Keys) : IE
     /// <inheritdoc />
     public ICrdtMetadataState DeepClone()
     {
-        return new LwwMapState(new Dictionary<object, CausalTimestamp>(Keys, (Keys as Dictionary<object, CausalTimestamp>)?.Comparer));
+        return new LwwMapState(new CompactDictionary<object, CausalTimestamp>(Keys));
     }
 
     /// <inheritdoc />
     public ICrdtMetadataState Merge(ICrdtMetadataState other)
     {
         if (other is not LwwMapState otherState) return this;
-        var merged = new Dictionary<object, CausalTimestamp>(Keys, (Keys as Dictionary<object, CausalTimestamp>)?.Comparer);
+        var merged = new CompactDictionary<object, CausalTimestamp>(Keys);
         foreach (var kvp in otherState.Keys)
         {
             if (!merged.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
