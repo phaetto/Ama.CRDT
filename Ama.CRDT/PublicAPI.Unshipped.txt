@@ -7,22 +7,31 @@ Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Clone() -> Ama.CRDT.
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.CompactDictionary() -> void
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.CompactDictionary(int capacity, System.Collections.Generic.IEqualityComparer<TKey>? comparer = null, Ama.CRDT.Services.Pooling.ICrdtStringPool? stringPool = null) -> void
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.CompactDictionary(System.Collections.Generic.IDictionary<TKey, TValue>! dictionary, System.Collections.Generic.IEqualityComparer<TKey>? comparer = null, Ama.CRDT.Services.Pooling.ICrdtStringPool? stringPool = null) -> void
+Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.CompactDictionary(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<TKey, TValue>>! collection, System.Collections.Generic.IEqualityComparer<TKey>? comparer = null, Ama.CRDT.Services.Pooling.ICrdtStringPool? stringPool = null) -> void
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.CompactDictionary(System.Collections.Generic.IEqualityComparer<TKey>? comparer, Ama.CRDT.Services.Pooling.ICrdtStringPool? stringPool = null) -> void
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Comparer.get -> System.Collections.Generic.IEqualityComparer<TKey>!
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Contains(System.Collections.Generic.KeyValuePair<TKey, TValue> item) -> bool
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.ContainsKey(TKey key) -> bool
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.CopyTo(System.Collections.Generic.KeyValuePair<TKey, TValue>[]! array, int arrayIndex) -> void
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Count.get -> int
+Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Enumerator
+Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Enumerator.Current.get -> System.Collections.Generic.KeyValuePair<TKey, TValue>
+Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Enumerator.Dispose() -> void
+Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Enumerator.Enumerator() -> void
+Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Enumerator.MoveNext() -> bool
+Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Enumerator.Reset() -> void
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Equals(Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>? other) -> bool
-Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.GetEnumerator() -> System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<TKey, TValue>>!
+Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.GetEnumerator() -> Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Enumerator
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.IsPromoted.get -> bool
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.IsReadOnly.get -> bool
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Keys.get -> System.Collections.Generic.ICollection<TKey>!
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Remove(System.Collections.Generic.KeyValuePair<TKey, TValue> item) -> bool
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Remove(TKey key) -> bool
+Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Remove(TKey key, out TValue value) -> bool
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.this[TKey key].get -> TValue
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.this[TKey key].set -> void
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.TrimExcess() -> void
+Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.TryAdd(TKey key, TValue value) -> bool
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.TryGetValue(TKey key, out TValue value) -> bool
 Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Values.get -> System.Collections.Generic.ICollection<TValue>!
 Ama.CRDT.Models.Collections.CompactSet<T>
@@ -38,9 +47,15 @@ Ama.CRDT.Models.Collections.CompactSet<T>.Comparer.get -> System.Collections.Gen
 Ama.CRDT.Models.Collections.CompactSet<T>.Contains(T item) -> bool
 Ama.CRDT.Models.Collections.CompactSet<T>.CopyTo(T[]! array, int arrayIndex) -> void
 Ama.CRDT.Models.Collections.CompactSet<T>.Count.get -> int
+Ama.CRDT.Models.Collections.CompactSet<T>.Enumerator
+Ama.CRDT.Models.Collections.CompactSet<T>.Enumerator.Current.get -> T
+Ama.CRDT.Models.Collections.CompactSet<T>.Enumerator.Dispose() -> void
+Ama.CRDT.Models.Collections.CompactSet<T>.Enumerator.Enumerator() -> void
+Ama.CRDT.Models.Collections.CompactSet<T>.Enumerator.MoveNext() -> bool
+Ama.CRDT.Models.Collections.CompactSet<T>.Enumerator.Reset() -> void
 Ama.CRDT.Models.Collections.CompactSet<T>.Equals(Ama.CRDT.Models.Collections.CompactSet<T>? other) -> bool
 Ama.CRDT.Models.Collections.CompactSet<T>.ExceptWith(System.Collections.Generic.IEnumerable<T>! other) -> void
-Ama.CRDT.Models.Collections.CompactSet<T>.GetEnumerator() -> System.Collections.Generic.IEnumerator<T>!
+Ama.CRDT.Models.Collections.CompactSet<T>.GetEnumerator() -> Ama.CRDT.Models.Collections.CompactSet<T>.Enumerator
 Ama.CRDT.Models.Collections.CompactSet<T>.IntersectWith(System.Collections.Generic.IEnumerable<T>! other) -> void
 Ama.CRDT.Models.Collections.CompactSet<T>.IsPromoted.get -> bool
 Ama.CRDT.Models.Collections.CompactSet<T>.IsProperSubsetOf(System.Collections.Generic.IEnumerable<T>! other) -> bool
@@ -54,14 +69,26 @@ Ama.CRDT.Models.Collections.CompactSet<T>.SetEquals(System.Collections.Generic.I
 Ama.CRDT.Models.Collections.CompactSet<T>.SymmetricExceptWith(System.Collections.Generic.IEnumerable<T>! other) -> void
 Ama.CRDT.Models.Collections.CompactSet<T>.TrimExcess() -> void
 Ama.CRDT.Models.Collections.CompactSet<T>.UnionWith(System.Collections.Generic.IEnumerable<T>! other) -> void
-Ama.CRDT.Models.Collections.CrdtMemoryOptions
+Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions
 override Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.Equals(object? obj) -> bool
 override Ama.CRDT.Models.Collections.CompactDictionary<TKey, TValue>.GetHashCode() -> int
 override Ama.CRDT.Models.Collections.CompactSet<T>.Equals(object? obj) -> bool
 override Ama.CRDT.Models.Collections.CompactSet<T>.GetHashCode() -> int
-static Ama.CRDT.Models.Collections.CrdtMemoryOptions.AutoTrimOnEmpty.get -> bool
-static Ama.CRDT.Models.Collections.CrdtMemoryOptions.AutoTrimOnEmpty.set -> void
-static Ama.CRDT.Models.Collections.CrdtMemoryOptions.GrowthFactor.get -> double
-static Ama.CRDT.Models.Collections.CrdtMemoryOptions.GrowthFactor.set -> void
-static Ama.CRDT.Models.Collections.CrdtMemoryOptions.LinearScanThreshold.get -> int
-static Ama.CRDT.Models.Collections.CrdtMemoryOptions.LinearScanThreshold.set -> void
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.AutoDemoteRatio.get -> double
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.AutoDemoteRatio.set -> void
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.AutoDemoteToFlat.get -> bool
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.AutoDemoteToFlat.set -> void
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.AutoTrimOnEmpty.get -> bool
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.AutoTrimOnEmpty.set -> void
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.EnableAutomaticStringPooling.get -> bool
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.EnableAutomaticStringPooling.set -> void
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.GrowthFactor.get -> double
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.GrowthFactor.set -> void
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.InitialFlatCapacity.get -> int
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.InitialFlatCapacity.set -> void
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.LinearScanThreshold.get -> int
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.LinearScanThreshold.set -> void
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.MinimumGrowthStep.get -> int
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.MinimumGrowthStep.set -> void
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.TrimExcessOnMetadataCompaction.get -> bool
+static Ama.CRDT.Models.Collections.CrdtCollectionMemoryOptions.TrimExcessOnMetadataCompaction.set -> void
