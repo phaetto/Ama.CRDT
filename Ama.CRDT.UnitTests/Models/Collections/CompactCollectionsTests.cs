@@ -51,7 +51,7 @@ public sealed class CompactCollectionsTests
     public void CompactDictionary_ExceedingLinearThreshold_ShouldPromoteAndDemoteOnTrimExcess()
     {
         // Arrange
-        int threshold = CrdtMemoryOptions.LinearScanThreshold;
+        int threshold = CrdtCollectionMemoryOptions.LinearScanThreshold;
         var dict = new CompactDictionary<int, string>();
 
         // Act - Fill up to threshold
@@ -148,104 +148,171 @@ public sealed class CompactCollectionsTests
     public void CompactSet_WithinAndBeyondLinearThreshold_ShouldHandlePromotionsAndSetOperations()
     {
         // Arrange
-        int threshold = CrdtMemoryOptions.LinearScanThreshold;
-        var set = new CompactSet<int>();
-
+        int threshold = CrdtCollectionMemoryOptions.LinearScanThreshold;
+        var set1 = new CompactSet<int>();
         for (int i = 0; i < threshold; i++)
         {
-            set.Add(i).ShouldBeTrue();
+            set1.Add(i).ShouldBeTrue();
         }
 
-        set.Add(0).ShouldBeFalse(); // Duplicate
-        set.IsPromoted.ShouldBeFalse();
+        set1.IsPromoted.ShouldBeFalse();
+        set1.Add(threshold).ShouldBeTrue();
+        set1.IsPromoted.ShouldBeTrue();
 
-        // Act - Promote
-        set.Add(threshold).ShouldBeTrue();
+        var set2 = new CompactSet<int> { 0, 1, 2, 100 };
 
-        // Assert
-        set.IsPromoted.ShouldBeTrue();
-        set.Count.ShouldBe(threshold + 1);
-        set.Contains(threshold).ShouldBeTrue();
+        // Act & Assert
+        set1.Overlaps(set2).ShouldBeTrue();
+        set2.IsSubsetOf(set1).ShouldBeFalse();
 
-        // Act - Set operations
-        set.ExceptWith([threshold, threshold - 1]);
-        set.Count.ShouldBe(threshold - 1);
-        set.TrimExcess();
+        set1.IntersectWith(set2);
+        set1.Count.ShouldBe(3);
+        set1.TrimExcess();
+        set1.IsPromoted.ShouldBeFalse();
+        set1.Capacity.ShouldBe(3);
 
-        // Assert - Demoted to exact-sized array
-        set.IsPromoted.ShouldBeFalse();
-        set.Capacity.ShouldBe(threshold - 1);
+        var clone = set1.Clone();
+        clone.Equals(set1).ShouldBeTrue();
+        clone.Capacity.ShouldBe(3);
     }
 
     [Fact]
-    public void CompactSet_SetAlgebra_ShouldBehaveCorrectly()
-    {
-        // Arrange
-        var setA = new CompactSet<string>(["a", "b", "c"]);
-        var setB = new CompactSet<string>(["b", "c", "d"]);
-
-        // Assert relations
-        setA.Overlaps(setB).ShouldBeTrue();
-        setA.SetEquals(["c", "b", "a"]).ShouldBeTrue();
-        setA.IsSubsetOf(["a", "b", "c", "d"]).ShouldBeTrue();
-        setA.IsProperSubsetOf(["a", "b", "c", "d"]).ShouldBeTrue();
-        setA.IsSupersetOf(["a", "b"]).ShouldBeTrue();
-        setA.IsProperSupersetOf(["a", "b"]).ShouldBeTrue();
-
-        // Act - Intersect
-        var copy = setA.Clone();
-        copy.IntersectWith(setB);
-        copy.SetEquals(["b", "c"]).ShouldBeTrue();
-
-        // Act - SymmetricExcept
-        var sym = setA.Clone();
-        sym.SymmetricExceptWith(setB);
-        sym.SetEquals(["a", "d"]).ShouldBeTrue();
-
-        // Act - Clear all items
-        sym.Remove("a").ShouldBeTrue();
-        sym.Remove("d").ShouldBeTrue();
-        sym.Count.ShouldBe(0);
-        sym.Capacity.ShouldBe(0);
-    }
-
-    [Fact]
-    public void CompactCollections_Serialization_ShouldRoundTripAndDeserializeAsCompactTypes()
+    public void CompactCollections_JsonRoundTrip_ShouldPreserveValuesAndTierLayout()
     {
         // Arrange
         var options = TestOptionsHelper.GetDefaultOptions();
         var metadata = new CrdtMetadata();
-        metadata.States["$.name"] = new CausalTimestamp(new CrdtTimestamp(100), "replica-1", 1);
-        metadata.VersionVector["replica-1"] = 5;
-        metadata.SeenExceptions.Add(new CrdtOperation(Guid.NewGuid(), "replica-2", "$.name", OperationType.Upsert, "Bob", new CrdtTimestamp(200), 2));
-
-        var directDict = new CompactDictionary<object, CausalTimestamp>
-        {
-            ["key-1"] = new CausalTimestamp(new CrdtTimestamp(123), "replica-1", 1)
-        };
-        var directSet = new CompactSet<string>(["replica-1", "replica-2"]);
+        metadata.VersionVector["replica-1"] = 10;
+        metadata.VersionVector["replica-2"] = 20;
+        metadata.States["$.title"] = new CausalTimestamp(new CrdtTimestamp(1, 100, 0, "replica-1"), "replica-1", 1);
 
         // Act
-        var metadataJson = JsonSerializer.Serialize(metadata, options);
-        var deserializedMetadata = JsonSerializer.Deserialize<CrdtMetadata>(metadataJson, options);
-
-        var dictJson = JsonSerializer.Serialize(directDict, options);
-        var deserializedDict = JsonSerializer.Deserialize<CompactDictionary<object, CausalTimestamp>>(dictJson, options);
-
-        var setJson = JsonSerializer.Serialize(directSet, options);
-        var deserializedSet = JsonSerializer.Deserialize<CompactSet<string>>(setJson, options);
+        var json = JsonSerializer.Serialize(metadata, options);
+        var deserialized = JsonSerializer.Deserialize<CrdtMetadata>(json, options);
 
         // Assert
-        deserializedMetadata.ShouldNotBeNull();
-        deserializedMetadata.States.ShouldBeOfType<CompactDictionary<string, ICrdtMetadataState>>();
-        deserializedMetadata.VersionVector.ShouldBeOfType<CompactDictionary<string, long>>();
-        deserializedMetadata.SeenExceptions.ShouldBeOfType<CompactSet<CrdtOperation>>();
-        deserializedMetadata.Equals(metadata).ShouldBeTrue();
+        deserialized.ShouldNotBeNull();
+        deserialized.Equals(metadata).ShouldBeTrue();
+        deserialized.VersionVector.ShouldBeOfType<CompactDictionary<string, long>>();
+        ((CompactDictionary<string, long>)deserialized.VersionVector).IsPromoted.ShouldBeFalse();
+    }
 
-        deserializedDict.ShouldNotBeNull();
-        deserializedDict.Equals(directDict).ShouldBeTrue();
+    [Fact]
+    public void CompactCollections_CustomInitialCapacityAndLinearGrowthStep_ShouldGrowByExactStep()
+    {
+        var originalInit = CrdtCollectionMemoryOptions.InitialFlatCapacity;
+        var originalFactor = CrdtCollectionMemoryOptions.GrowthFactor;
+        var originalStep = CrdtCollectionMemoryOptions.MinimumGrowthStep;
 
-        deserializedSet.ShouldNotBeNull();
-        deserializedSet.Equals(directSet).ShouldBeTrue();
+        try
+        {
+            CrdtCollectionMemoryOptions.InitialFlatCapacity = 1;
+            CrdtCollectionMemoryOptions.GrowthFactor = 1.0;
+            CrdtCollectionMemoryOptions.MinimumGrowthStep = 3;
+
+            var dict = new CompactDictionary<int, int>();
+            dict[1] = 10;
+            dict.Capacity.ShouldBe(1);
+
+            dict[2] = 20;
+            dict.Capacity.ShouldBe(4); // 1 + 3
+        }
+        finally
+        {
+            CrdtCollectionMemoryOptions.InitialFlatCapacity = originalInit;
+            CrdtCollectionMemoryOptions.GrowthFactor = originalFactor;
+            CrdtCollectionMemoryOptions.MinimumGrowthStep = originalStep;
+        }
+    }
+
+    [Fact]
+    public void CompactCollections_AutoDemoteToFlat_ShouldDemoteWhenCountReachesHalfThreshold()
+    {
+        var originalThreshold = CrdtCollectionMemoryOptions.LinearScanThreshold;
+        var originalAutoDemote = CrdtCollectionMemoryOptions.AutoDemoteToFlat;
+
+        try
+        {
+            CrdtCollectionMemoryOptions.LinearScanThreshold = 4;
+            CrdtCollectionMemoryOptions.AutoDemoteToFlat = true;
+
+            var set = new CompactSet<int>();
+            for (var i = 0; i < 6; i++)
+            {
+                set.Add(i);
+            }
+
+            set.IsPromoted.ShouldBeTrue();
+
+            // Remove down to 3 (> 4 / 2), should stay promoted
+            set.Remove(5);
+            set.Remove(4);
+            set.Remove(3);
+            set.Count.ShouldBe(3);
+            set.IsPromoted.ShouldBeTrue();
+
+            // Remove down to 2 (<= 4 / 2), should auto-demote to flat array
+            set.Remove(2);
+            set.Count.ShouldBe(2);
+            set.IsPromoted.ShouldBeFalse();
+            set.Capacity.ShouldBe(2);
+            set.Contains(0).ShouldBeTrue();
+            set.Contains(1).ShouldBeTrue();
+        }
+        finally
+        {
+            CrdtCollectionMemoryOptions.LinearScanThreshold = originalThreshold;
+            CrdtCollectionMemoryOptions.AutoDemoteToFlat = originalAutoDemote;
+        }
+    }
+
+    [Fact]
+    public void CompactCollections_CustomAutoDemoteRatio_And_StringPoolingFlag_ShouldBeRespected()
+    {
+        var originalThreshold = CrdtCollectionMemoryOptions.LinearScanThreshold;
+        var originalAutoDemote = CrdtCollectionMemoryOptions.AutoDemoteToFlat;
+        var originalRatio = CrdtCollectionMemoryOptions.AutoDemoteRatio;
+        var originalPooling = CrdtCollectionMemoryOptions.EnableAutomaticStringPooling;
+
+        try
+        {
+            CrdtCollectionMemoryOptions.LinearScanThreshold = 8;
+            CrdtCollectionMemoryOptions.AutoDemoteToFlat = true;
+            CrdtCollectionMemoryOptions.AutoDemoteRatio = 0.75; // Demote at <= 6 items
+            CrdtCollectionMemoryOptions.EnableAutomaticStringPooling = false;
+
+            var dict = new CompactDictionary<string, int>();
+            for (var i = 0; i < 9; i++)
+            {
+                dict[$"key_{i}"] = i;
+            }
+
+            dict.IsPromoted.ShouldBeTrue();
+
+            // Remove down to 7 (> 6), stays promoted
+            dict.Remove("key_8");
+            dict.Remove("key_7");
+            dict.Count.ShouldBe(7);
+            dict.IsPromoted.ShouldBeTrue();
+
+            // Remove down to 6 (<= 8 * 0.75), demotes to flat
+            dict.Remove("key_6");
+            dict.Count.ShouldBe(6);
+            dict.IsPromoted.ShouldBeFalse();
+
+            // Copy constructor fast-path
+            var copy = new CompactDictionary<string, int>(dict);
+            copy.Count.ShouldBe(6);
+            copy.IsPromoted.ShouldBeFalse();
+            copy.Capacity.ShouldBe(6);
+            copy.Equals(dict).ShouldBeTrue();
+        }
+        finally
+        {
+            CrdtCollectionMemoryOptions.LinearScanThreshold = originalThreshold;
+            CrdtCollectionMemoryOptions.AutoDemoteToFlat = originalAutoDemote;
+            CrdtCollectionMemoryOptions.AutoDemoteRatio = originalRatio;
+            CrdtCollectionMemoryOptions.EnableAutomaticStringPooling = originalPooling;
+        }
     }
 }

@@ -125,6 +125,11 @@ public sealed class CrdtMetadataManager(
         {
             document.Metadata.SeenExceptions.Remove(ex);
         }
+
+        if (CrdtCollectionMemoryOptions.TrimExcessOnMetadataCompaction)
+        {
+            TrimMetadataCollections(document.Metadata);
+        }
     }
 
     /// <inheritdoc/>
@@ -643,6 +648,93 @@ public sealed class CrdtMetadataManager(
             Adds: adds,
             Removes: new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(0, idComparer)
         );
+    }
+
+    private static void TrimMetadataCollections(CrdtMetadata metadata)
+    {
+        if (metadata.States is CompactDictionary<string, ICrdtMetadataState> compactStates)
+        {
+            compactStates.TrimExcess();
+        }
+
+        if (metadata.VersionVector is CompactDictionary<string, long> compactVv)
+        {
+            compactVv.TrimExcess();
+        }
+
+        if (metadata.SeenExceptions is CompactSet<CrdtOperation> compactExceptions)
+        {
+            compactExceptions.TrimExcess();
+        }
+
+        foreach (var state in metadata.States.Values)
+        {
+            switch (state)
+            {
+                case LwwMapState { Keys: CompactDictionary<object, CausalTimestamp> lwwMapKeys }:
+                    lwwMapKeys.TrimExcess();
+                    break;
+                case FwwMapState { Keys: CompactDictionary<object, CausalTimestamp> fwwMapKeys }:
+                    fwwMapKeys.TrimExcess();
+                    break;
+                case LwwSetState lwwSet:
+                    if (lwwSet.Adds is CompactDictionary<object, CrdtTimestamp> lwwAdds) lwwAdds.TrimExcess();
+                    if (lwwSet.Removes is CompactDictionary<object, CausalTimestamp> lwwRemoves) lwwRemoves.TrimExcess();
+                    break;
+                case FwwSetState fwwSet:
+                    if (fwwSet.Adds is CompactDictionary<object, CrdtTimestamp> fwwAdds) fwwAdds.TrimExcess();
+                    if (fwwSet.Removes is CompactDictionary<object, CausalTimestamp> fwwRemoves) fwwRemoves.TrimExcess();
+                    break;
+                case TwoPhaseSetState twoPhaseSet:
+                    if (twoPhaseSet.Adds is CompactSet<object> tpAdds) tpAdds.TrimExcess();
+                    if (twoPhaseSet.Tombstones is CompactDictionary<object, CausalTimestamp> tpTombstones) tpTombstones.TrimExcess();
+                    break;
+                case OrSetState orSet:
+                    if (orSet.Adds is CompactDictionary<object, ISet<Guid>> orAdds)
+                    {
+                        orAdds.TrimExcess();
+                        foreach (var tagSet in orAdds.Values)
+                        {
+                            if (tagSet is CompactSet<Guid> compactTags) compactTags.TrimExcess();
+                        }
+                    }
+
+                    if (orSet.Removes is CompactDictionary<object, IDictionary<Guid, CausalTimestamp>> orRemoves)
+                    {
+                        orRemoves.TrimExcess();
+                        foreach (var tagMap in orRemoves.Values)
+                        {
+                            if (tagMap is CompactDictionary<Guid, CausalTimestamp> compactTagMap) compactTagMap.TrimExcess();
+                        }
+                    }
+                    break;
+                case TwoPhaseGraphState graphState:
+                    if (graphState.VertexAdds is CompactSet<object> vAdds) vAdds.TrimExcess();
+                    if (graphState.VertexTombstones is CompactDictionary<object, CausalTimestamp> vTombstones) vTombstones.TrimExcess();
+                    if (graphState.EdgeAdds is CompactSet<object> eAdds) eAdds.TrimExcess();
+                    if (graphState.EdgeTombstones is CompactDictionary<object, CausalTimestamp> eTombstones) eTombstones.TrimExcess();
+                    break;
+                case CounterState { Contributions: CompactDictionary<string, PnCounterState> counterContribs }:
+                    counterContribs.TrimExcess();
+                    break;
+                case GCounterState { Contributions: CompactDictionary<string, decimal> gCounterContribs }:
+                    gCounterContribs.TrimExcess();
+                    break;
+                case CounterMapState { Keys: CompactDictionary<object, PnCounterState> counterMapKeys }:
+                    counterMapKeys.TrimExcess();
+                    break;
+                case AverageRegisterState { Contributions: CompactDictionary<string, AverageRegisterValue> avgContribs }:
+                    avgContribs.TrimExcess();
+                    break;
+                case QuorumState { Approvals: CompactDictionary<object, ISet<string>> approvals }:
+                    approvals.TrimExcess();
+                    foreach (var voterSet in approvals.Values)
+                    {
+                        if (voterSet is CompactSet<string> compactVoters) compactVoters.TrimExcess();
+                    }
+                    break;
+            }
+        }
     }
 
     private string GetVoterKey(object voter)

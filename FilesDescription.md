@@ -145,7 +145,7 @@
 | `$/Ama.CRDT.UnitTests/Architecture/StrategyConventionTests.cs` | An architecture convention unit test that reflects over all strategies to enforce the presence of unit tests, property tests, benchmarks, and documentation. |
 | `$/Ama.CRDT.UnitTests/Extensions/AsyncCrdtApplicatorExtensionsTests.cs` | Contains unit tests for `AsyncCrdtApplicatorExtensions`, verifying the correct asynchronous streaming of journaled operations and their translation into patches for the applicator. |
 | `$/Ama.CRDT.UnitTests/Extensions/ServiceCollectionExtensionsTests.cs` | Unit tests for `ServiceCollectionExtensions`, validating service registrations, global modifier execution, and the aggregate JSON type info resolver. |
-| `$/Ama.CRDT.UnitTests/Models/Collections/CompactCollectionsTests.cs` | Unit tests for `CompactDictionary`, `CompactSet`, and `CrdtMemoryOptions`, covering tier promotions, demotions, auto-trimming, string pooling, set algebra, and JSON serialization. |
+| `$/Ama.CRDT.UnitTests/Models/Collections/CompactCollectionsTests.cs` | Unit tests for `CompactDictionary`, `CompactSet`, and `CrdtCollectionMemoryOptions`, covering tier promotions, automatic demotions, custom growth steps, auto-trimming, string pooling, set algebra, and JSON serialization. |
 | `$/Ama.CRDT.UnitTests/Models/CrdtTimestampTests.cs` | Contains unit tests for the `CrdtTimestamp` struct, covering multi-component ordering (`Epoch`, `Ticks`, `Counter`, `ReplicaId`), relational operators, equality, and `MinValue`. |
 | `$/Ama.CRDT.UnitTests/Models/DottedVersionVectorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/LargerThanMemory/CompositeChunkKeyTests.cs` | No description provided. |
@@ -301,8 +301,9 @@
 | `$/Ama.CRDT/Models/AverageRegisterValue.cs` | A data structure that holds a replica's contribution (value and timestamp) for the Average Register strategy. |
 | `$/Ama.CRDT/Models/BidirectionalSyncRequirements.cs` | A data structure containing the synchronization requirements for two replicas to fully catch up with each other. |
 | `$/Ama.CRDT/Models/CausalTimestamp.cs` | A data structure that bundles a logical timestamp with the causal identity (replica and clock) of the operation, used to track metadata for tombstones and deletions safely for garbage collection. |
-| `$/Ama.CRDT/Models/Collections/CompactDictionary.cs` | Memory-controlled dictionary using a 3-tier adaptive layout (empty zero-alloc, flat contiguous array up to threshold with automatic string key pooling, and promoted hash dictionary) to minimize per-document metadata footprint. |
-| `$/Ama.CRDT/Models/Collections/CompactSet.cs` | Memory-controlled set using a 3-tier adaptive layout (empty zero-alloc, flat contiguous array up to threshold with automatic string pooling, and promoted HashSet) to minimize per-document metadata footprint. |
+| `$/Ama.CRDT/Models/Collections/CompactDictionary.cs` | Memory-controlled dictionary using a 3-tier adaptive layout with zero-allocation struct enumeration and fast-path copy construction. |
+| `$/Ama.CRDT/Models/Collections/CompactSet.cs` | Memory-controlled set using a 3-tier adaptive layout with zero-allocation struct enumeration and fast-path copy construction. |
+| `$/Ama.CRDT/Models/Collections/CrdtCollectionMemoryOptions.cs` | Centralized static configuration for memory-controlled CRDT collections, including growth step, initial capacity, auto-demotion hysteresis, string pooling toggle, and compaction trimming flag. |
 | `$/Ama.CRDT/Models/Collections/CrdtMemoryOptions.cs` | Centralized static configuration for memory-controlled CRDT collections, controlling linear scan thresholds, growth factors, and auto-trimming on empty. |
 | `$/Ama.CRDT/Models/CounterMapState.cs` | A wrapper state structure implementing `ICrdtMetadataState` for Counter-Map trackers. |
 | `$/Ama.CRDT/Models/CounterState.cs` | Represents the metadata state for properties managed by the `CounterStrategy`. Tracks positive and negative increment vectors per replica to mathematically enable State CRDT merges. |
@@ -402,7 +403,7 @@
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtPatcherAdapter.cs` | An adapter that bridges the synchronous `ICrdtPatcher` to the asynchronous `IAsyncCrdtPatcher` pipeline, acting as the base layer in the patcher decorator chain. |
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | Applies CRDT patches to documents, resolving conflicts via strategies and tracking causal histories per shard in `ReplicaContext`. |
 | `$/Ama.CRDT/Services/CrdtMerger.cs` | Synchronous implementation of `ICrdtMerger` that leverages object tree traversal to compute the state merge mathematically using strategy providers. |
-| `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Manages CRDT metadata initialization, resetting, cloning, merging, and compaction across strategies. |
+| `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Manages CRDT metadata initialization, resetting, cloning, merging, and compaction across strategies, with optional post-compaction excess memory trimming. |
 | `$/Ama.CRDT/Services/CrdtPatcher.cs` | Compares versions of a data model or processes explicit intents to generate CRDT patches, populating `ShardId` and `ShardClock` and updating `ShardVersionVectors`. |
 | `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext` holding the unique replica ID. |
 | `$/Ama.CRDT/Services/Decorators/AsyncCrdtApplicatorDecoratorBase.cs` | An abstract base class for `IAsyncCrdtApplicator` decorators. Uses the `DecoratorBehavior` enum in its constructor to strictly control the Template Method execution flow, making bugs around pipeline ordering structurally impossible. |
