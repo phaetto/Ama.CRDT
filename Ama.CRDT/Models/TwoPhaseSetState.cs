@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents the state for a Two-Phase Set (2P-Set).
@@ -55,9 +56,12 @@ public sealed record TwoPhaseSetState(ISet<object> Adds, IDictionary<object, Cau
     /// <inheritdoc />
     public ICrdtMetadataState DeepClone()
     {
+        var addsComparer = (Adds as CompactSet<object>)?.Comparer ?? (Adds as HashSet<object>)?.Comparer;
+        var tombstonesComparer = (Tombstones as CompactDictionary<object, CausalTimestamp>)?.Comparer ?? (Tombstones as Dictionary<object, CausalTimestamp>)?.Comparer;
+
         return new TwoPhaseSetState(
-            new HashSet<object>(Adds, (Adds as HashSet<object>)?.Comparer),
-            new Dictionary<object, CausalTimestamp>(Tombstones, (Tombstones as Dictionary<object, CausalTimestamp>)?.Comparer)
+            new CompactSet<object>(Adds, addsComparer),
+            new CompactDictionary<object, CausalTimestamp>(Tombstones, tombstonesComparer)
         );
     }
 
@@ -66,10 +70,12 @@ public sealed record TwoPhaseSetState(ISet<object> Adds, IDictionary<object, Cau
     {
         if (other is not TwoPhaseSetState otherState) return this;
 
-        var mergedAdds = new HashSet<object>(Adds, (Adds as HashSet<object>)?.Comparer);
+        var addsComparer = (Adds as CompactSet<object>)?.Comparer ?? (Adds as HashSet<object>)?.Comparer;
+        var mergedAdds = new CompactSet<object>(Adds, addsComparer);
         foreach (var item in otherState.Adds) mergedAdds.Add(item);
 
-        var mergedTombstones = new Dictionary<object, CausalTimestamp>(Tombstones, (Tombstones as Dictionary<object, CausalTimestamp>)?.Comparer);
+        var tombstonesComparer = (Tombstones as CompactDictionary<object, CausalTimestamp>)?.Comparer ?? (Tombstones as Dictionary<object, CausalTimestamp>)?.Comparer;
+        var mergedTombstones = new CompactDictionary<object, CausalTimestamp>(Tombstones, tombstonesComparer);
         foreach (var kvp in otherState.Tombstones)
         {
             if (!mergedTombstones.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)

@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents the state for a Last-Writer-Wins Set (LWW-Set) and similar structures.
@@ -38,8 +39,10 @@ public sealed record LwwSetState(IDictionary<object, CrdtTimestamp> Adds, IDicti
     /// <inheritdoc />
     public ICrdtMetadataState DeepClone()
     {
-        var newAdds = new Dictionary<object, CrdtTimestamp>(Adds, (Adds as Dictionary<object, CrdtTimestamp>)?.Comparer);
-        var newRemoves = new Dictionary<object, CausalTimestamp>(Removes, (Removes as Dictionary<object, CausalTimestamp>)?.Comparer);
+        var addedComparer = (Adds as CompactDictionary<object, CrdtTimestamp>)?.Comparer ?? (Adds as Dictionary<object, CrdtTimestamp>)?.Comparer;
+        var removedComparer = (Removes as CompactDictionary<object, CausalTimestamp>)?.Comparer ?? (Removes as Dictionary<object, CausalTimestamp>)?.Comparer;
+        var newAdds = new CompactDictionary<object, CrdtTimestamp>(Adds, addedComparer);
+        var newRemoves = new CompactDictionary<object, CausalTimestamp>(Removes, removedComparer);
         return new LwwSetState(newAdds, newRemoves);
     }
 
@@ -48,7 +51,8 @@ public sealed record LwwSetState(IDictionary<object, CrdtTimestamp> Adds, IDicti
     {
         if (other is not LwwSetState otherState) return this;
 
-        var mergedAdds = new Dictionary<object, CrdtTimestamp>(Adds, (Adds as Dictionary<object, CrdtTimestamp>)?.Comparer);
+        var addedComparer = (Adds as CompactDictionary<object, CrdtTimestamp>)?.Comparer ?? (Adds as Dictionary<object, CrdtTimestamp>)?.Comparer;
+        var mergedAdds = new CompactDictionary<object, CrdtTimestamp>(Adds, addedComparer);
         foreach (var kvp in otherState.Adds)
         {
             if (!mergedAdds.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
@@ -57,7 +61,8 @@ public sealed record LwwSetState(IDictionary<object, CrdtTimestamp> Adds, IDicti
             }
         }
 
-        var mergedRemoves = new Dictionary<object, CausalTimestamp>(Removes, (Removes as Dictionary<object, CausalTimestamp>)?.Comparer);
+        var removedComparer = (Removes as CompactDictionary<object, CausalTimestamp>)?.Comparer ?? (Removes as Dictionary<object, CausalTimestamp>)?.Comparer;
+        var mergedRemoves = new CompactDictionary<object, CausalTimestamp>(Removes, removedComparer);
         foreach (var kvp in otherState.Removes)
         {
             if (!mergedRemoves.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)

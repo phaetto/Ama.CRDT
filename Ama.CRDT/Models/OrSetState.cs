@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents the state for an Observed-Remove Set (OR-Set) or OR-Map.
@@ -88,13 +89,13 @@ public sealed record OrSetState(IDictionary<object, ISet<Guid>> Adds, IDictionar
     /// <inheritdoc />
     public ICrdtMetadataState DeepClone()
     {
-        var addedComparer = (Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
-        var newAdds = new Dictionary<object, ISet<Guid>>(addedComparer);
-        foreach (var kvp in Adds) newAdds[kvp.Key] = new HashSet<Guid>(kvp.Value);
+        var addedComparer = (Adds as CompactDictionary<object, ISet<Guid>>)?.Comparer ?? (Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
+        var newAdds = new CompactDictionary<object, ISet<Guid>>(Adds.Count, addedComparer);
+        foreach (var kvp in Adds) newAdds[kvp.Key] = new CompactSet<Guid>(kvp.Value);
 
-        var removedComparer = (Removes as Dictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer;
-        var newRemoves = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(removedComparer);
-        foreach (var kvp in Removes) newRemoves[kvp.Key] = new Dictionary<Guid, CausalTimestamp>(kvp.Value);
+        var removedComparer = (Removes as CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer ?? (Removes as Dictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer;
+        var newRemoves = new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(Removes.Count, removedComparer);
+        foreach (var kvp in Removes) newRemoves[kvp.Key] = new CompactDictionary<Guid, CausalTimestamp>(kvp.Value);
 
         return new OrSetState(newAdds, newRemoves);
     }
@@ -104,21 +105,21 @@ public sealed record OrSetState(IDictionary<object, ISet<Guid>> Adds, IDictionar
     {
         if (other is not OrSetState otherState) return this;
 
-        var addedComparer = (Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
-        var mergedAdds = new Dictionary<object, ISet<Guid>>(addedComparer);
-        foreach (var kvp in Adds) mergedAdds[kvp.Key] = new HashSet<Guid>(kvp.Value);
+        var addedComparer = (Adds as CompactDictionary<object, ISet<Guid>>)?.Comparer ?? (Adds as Dictionary<object, ISet<Guid>>)?.Comparer;
+        var mergedAdds = new CompactDictionary<object, ISet<Guid>>(Adds.Count, addedComparer);
+        foreach (var kvp in Adds) mergedAdds[kvp.Key] = new CompactSet<Guid>(kvp.Value);
         foreach (var kvp in otherState.Adds)
         {
-            if (!mergedAdds.TryGetValue(kvp.Key, out var set)) mergedAdds[kvp.Key] = set = new HashSet<Guid>();
+            if (!mergedAdds.TryGetValue(kvp.Key, out var set)) mergedAdds[kvp.Key] = set = new CompactSet<Guid>(kvp.Value.Count);
             foreach (var id in kvp.Value) set.Add(id);
         }
 
-        var removedComparer = (Removes as Dictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer;
-        var mergedRemoves = new Dictionary<object, IDictionary<Guid, CausalTimestamp>>(removedComparer);
-        foreach (var kvp in Removes) mergedRemoves[kvp.Key] = new Dictionary<Guid, CausalTimestamp>(kvp.Value);
+        var removedComparer = (Removes as CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer ?? (Removes as Dictionary<object, IDictionary<Guid, CausalTimestamp>>)?.Comparer;
+        var mergedRemoves = new CompactDictionary<object, IDictionary<Guid, CausalTimestamp>>(Removes.Count, removedComparer);
+        foreach (var kvp in Removes) mergedRemoves[kvp.Key] = new CompactDictionary<Guid, CausalTimestamp>(kvp.Value);
         foreach (var kvp in otherState.Removes)
         {
-            if (!mergedRemoves.TryGetValue(kvp.Key, out var dict)) mergedRemoves[kvp.Key] = dict = new Dictionary<Guid, CausalTimestamp>();
+            if (!mergedRemoves.TryGetValue(kvp.Key, out var dict)) mergedRemoves[kvp.Key] = dict = new CompactDictionary<Guid, CausalTimestamp>(kvp.Value.Count);
             foreach (var innerKvp in kvp.Value)
             {
                 if (!dict.TryGetValue(innerKvp.Key, out var existing))

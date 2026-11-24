@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents the state for a numeric property managed by a G-Counter (GCounterStrategy).
@@ -13,7 +14,7 @@ public sealed record GCounterState(IDictionary<string, decimal> Contributions) :
     /// <inheritdoc />
     public ICrdtMetadataState DeepClone()
     {
-        return new GCounterState(new Dictionary<string, decimal>(Contributions));
+        return new GCounterState(new CompactDictionary<string, decimal>(Contributions));
     }
 
     /// <inheritdoc />
@@ -21,7 +22,7 @@ public sealed record GCounterState(IDictionary<string, decimal> Contributions) :
     {
         if (other is not GCounterState otherState) return this;
 
-        var merged = new Dictionary<string, decimal>(Contributions);
+        var merged = new CompactDictionary<string, decimal>(Contributions);
         foreach (var kvp in otherState.Contributions)
         {
             if (!merged.TryGetValue(kvp.Key, out var existing) || kvp.Value > existing)

@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents the state for a First-Writer-Wins Set (FWW-Set).
@@ -38,8 +39,8 @@ public sealed record FwwSetState(IDictionary<object, CrdtTimestamp> Adds, IDicti
     /// <inheritdoc />
     public ICrdtMetadataState DeepClone()
     {
-        var newAdds = new Dictionary<object, CrdtTimestamp>(Adds, (Adds as Dictionary<object, CrdtTimestamp>)?.Comparer);
-        var newRemoves = new Dictionary<object, CausalTimestamp>(Removes, (Removes as Dictionary<object, CausalTimestamp>)?.Comparer);
+        var newAdds = new CompactDictionary<object, CrdtTimestamp>(Adds);
+        var newRemoves = new CompactDictionary<object, CausalTimestamp>(Removes);
         return new FwwSetState(newAdds, newRemoves);
     }
 
@@ -48,7 +49,7 @@ public sealed record FwwSetState(IDictionary<object, CrdtTimestamp> Adds, IDicti
     {
         if (other is not FwwSetState otherState) return this;
 
-        var mergedAdds = new Dictionary<object, CrdtTimestamp>(Adds, (Adds as Dictionary<object, CrdtTimestamp>)?.Comparer);
+        var mergedAdds = new CompactDictionary<object, CrdtTimestamp>(Adds);
         foreach (var kvp in otherState.Adds)
         {
             if (!mergedAdds.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) < 0)
@@ -57,7 +58,7 @@ public sealed record FwwSetState(IDictionary<object, CrdtTimestamp> Adds, IDicti
             }
         }
 
-        var mergedRemoves = new Dictionary<object, CausalTimestamp>(Removes, (Removes as Dictionary<object, CausalTimestamp>)?.Comparer);
+        var mergedRemoves = new CompactDictionary<object, CausalTimestamp>(Removes);
         foreach (var kvp in otherState.Removes)
         {
             if (!mergedRemoves.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) < 0)

@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents the tracking state for the Counter Map strategy.
@@ -12,7 +13,9 @@ public sealed record CounterMapState(IDictionary<object, PnCounterState> Keys) :
     /// <inheritdoc />
     public ICrdtMetadataState DeepClone()
     {
-        var cloned = new Dictionary<object, PnCounterState>((Keys as Dictionary<object, PnCounterState>)?.Comparer);
+        var comparer = (Keys as CompactDictionary<object, PnCounterState>)?.Comparer
+            ?? (Keys as Dictionary<object, PnCounterState>)?.Comparer;
+        var cloned = new CompactDictionary<object, PnCounterState>(Keys.Count, comparer);
         foreach (var kvp in Keys)
         {
             cloned[kvp.Key] = (PnCounterState)kvp.Value.DeepClone();
@@ -24,7 +27,9 @@ public sealed record CounterMapState(IDictionary<object, PnCounterState> Keys) :
     public ICrdtMetadataState Merge(ICrdtMetadataState other)
     {
         if (other is not CounterMapState otherState) return this;
-        var merged = new Dictionary<object, PnCounterState>(Keys, (Keys as Dictionary<object, PnCounterState>)?.Comparer);
+        var comparer = (Keys as CompactDictionary<object, PnCounterState>)?.Comparer
+            ?? (Keys as Dictionary<object, PnCounterState>)?.Comparer;
+        var merged = new CompactDictionary<object, PnCounterState>(Keys, comparer);
         foreach (var kvp in otherState.Keys)
         {
             if (merged.TryGetValue(kvp.Key, out var existing))

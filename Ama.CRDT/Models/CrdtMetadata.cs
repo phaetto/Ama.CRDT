@@ -133,7 +133,15 @@ public sealed record CrdtMetadata : IEquatable<CrdtMetadata>
             return metadatas[0].DeepClone();
         }
 
-        var merged = new CrdtMetadata();
+        var firstValid = metadatas.FirstOrDefault(m => m is not null);
+        var merged = firstValid is not null
+            ? new CrdtMetadata
+            {
+                States = new CompactDictionary<string, ICrdtMetadataState>(firstValid.States.Count),
+                VersionVector = new CompactDictionary<string, long>(firstValid.VersionVector.Count),
+                SeenExceptions = new CompactSet<CrdtOperation>(firstValid.SeenExceptions.Count)
+            }
+            : new CrdtMetadata();
 
         foreach (var metadata in metadatas.Where(m => m is not null))
         {

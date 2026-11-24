@@ -2,6 +2,7 @@ namespace Ama.CRDT.Models;
 
 using System;
 using System.Collections.Generic;
+using Ama.CRDT.Models.Collections;
 
 /// <summary>
 /// Represents the state for a Two-Phase Graph (2P-Graph).
@@ -58,10 +59,10 @@ public sealed record TwoPhaseGraphState(ISet<object> VertexAdds, IDictionary<obj
     public ICrdtMetadataState DeepClone()
     {
         return new TwoPhaseGraphState(
-            new HashSet<object>(VertexAdds, (VertexAdds as HashSet<object>)?.Comparer),
-            new Dictionary<object, CausalTimestamp>(VertexTombstones, (VertexTombstones as Dictionary<object, CausalTimestamp>)?.Comparer),
-            new HashSet<object>(EdgeAdds, (EdgeAdds as HashSet<object>)?.Comparer),
-            new Dictionary<object, CausalTimestamp>(EdgeTombstones, (EdgeTombstones as Dictionary<object, CausalTimestamp>)?.Comparer)
+            new CompactSet<object>(VertexAdds, (VertexAdds as CompactSet<object>)?.Comparer ?? (VertexAdds as HashSet<object>)?.Comparer),
+            new CompactDictionary<object, CausalTimestamp>(VertexTombstones, (VertexTombstones as CompactDictionary<object, CausalTimestamp>)?.Comparer ?? (VertexTombstones as Dictionary<object, CausalTimestamp>)?.Comparer),
+            new CompactSet<object>(EdgeAdds, (EdgeAdds as CompactSet<object>)?.Comparer ?? (EdgeAdds as HashSet<object>)?.Comparer),
+            new CompactDictionary<object, CausalTimestamp>(EdgeTombstones, (EdgeTombstones as CompactDictionary<object, CausalTimestamp>)?.Comparer ?? (EdgeTombstones as Dictionary<object, CausalTimestamp>)?.Comparer)
         );
     }
 
@@ -70,10 +71,10 @@ public sealed record TwoPhaseGraphState(ISet<object> VertexAdds, IDictionary<obj
     {
         if (other is not TwoPhaseGraphState otherState) return this;
 
-        var mergedVertexAdds = new HashSet<object>(VertexAdds, (VertexAdds as HashSet<object>)?.Comparer);
+        var mergedVertexAdds = new CompactSet<object>(VertexAdds, (VertexAdds as CompactSet<object>)?.Comparer ?? (VertexAdds as HashSet<object>)?.Comparer);
         foreach (var item in otherState.VertexAdds) mergedVertexAdds.Add(item);
 
-        var mergedVertexTombstones = new Dictionary<object, CausalTimestamp>(VertexTombstones, (VertexTombstones as Dictionary<object, CausalTimestamp>)?.Comparer);
+        var mergedVertexTombstones = new CompactDictionary<object, CausalTimestamp>(VertexTombstones, (VertexTombstones as CompactDictionary<object, CausalTimestamp>)?.Comparer ?? (VertexTombstones as Dictionary<object, CausalTimestamp>)?.Comparer);
         foreach (var kvp in otherState.VertexTombstones)
         {
             if (!mergedVertexTombstones.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
@@ -82,10 +83,10 @@ public sealed record TwoPhaseGraphState(ISet<object> VertexAdds, IDictionary<obj
             }
         }
 
-        var mergedEdgeAdds = new HashSet<object>(EdgeAdds, (EdgeAdds as HashSet<object>)?.Comparer);
+        var mergedEdgeAdds = new CompactSet<object>(EdgeAdds, (EdgeAdds as CompactSet<object>)?.Comparer ?? (EdgeAdds as HashSet<object>)?.Comparer);
         foreach (var item in otherState.EdgeAdds) mergedEdgeAdds.Add(item);
 
-        var mergedEdgeTombstones = new Dictionary<object, CausalTimestamp>(EdgeTombstones, (EdgeTombstones as Dictionary<object, CausalTimestamp>)?.Comparer);
+        var mergedEdgeTombstones = new CompactDictionary<object, CausalTimestamp>(EdgeTombstones, (EdgeTombstones as CompactDictionary<object, CausalTimestamp>)?.Comparer ?? (EdgeTombstones as Dictionary<object, CausalTimestamp>)?.Comparer);
         foreach (var kvp in otherState.EdgeTombstones)
         {
             if (!mergedEdgeTombstones.TryGetValue(kvp.Key, out var existing) || kvp.Value.CompareTo(existing) > 0)
