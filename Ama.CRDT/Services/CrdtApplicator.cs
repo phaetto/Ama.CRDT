@@ -112,7 +112,8 @@ public sealed class CrdtApplicator(
             return CrdtOperationStatus.Success;
         }
 
-        var context = new ApplyOperationContext(document, metadata, operation)
+        var localReplicaId = pool.GetOrAdd(replicaContext.ReplicaId);
+        var context = new ApplyOperationContext(document, metadata, operation, localReplicaId)
         {
             Target = resolution.Parent,
             Property = resolution.Property,

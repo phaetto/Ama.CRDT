@@ -17,6 +17,7 @@ using Ama.CRDT.Models;
 /// <param name="FromMeta">The metadata corresponding to the original document state.</param>
 /// <param name="Operations">The list to populate with generated <see cref="CrdtOperation"/> instances.</param>
 /// <param name="ChangeTimestamp">The timestamp for the change.</param>
+/// <param name="ReplicaId">The unique identifier of the replica generating the patch.</param>
 public sealed record DifferentiateObjectContext(
     [DisallowNull] string Path,
     [DisallowNull] Type Type,
@@ -26,5 +27,6 @@ public sealed record DifferentiateObjectContext(
     object? ToRoot,
     [DisallowNull] CrdtMetadata FromMeta,
     [DisallowNull] List<CrdtOperation> Operations,
-    [DisallowNull] CrdtTimestamp ChangeTimestamp
+    [DisallowNull] CrdtTimestamp ChangeTimestamp,
+    string ReplicaId = ""
 );
