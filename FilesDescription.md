@@ -297,7 +297,7 @@
 | `$/Ama.CRDT/Extensions/AsyncCrdtApplicatorExtensions.cs` | Provides extension methods for `IAsyncCrdtApplicator` to streamline common synchronization tasks, such as directly applying an asynchronous stream of missing operations. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/PackedCrdtDocumentExtensions.cs` | Extension methods for packing/unpacking `PackedCrdtDocument<T>` and directly invoking `ICrdtApplicator`, `IAsyncCrdtApplicator`, `ICrdtPatcher`, `IAsyncCrdtPatcher`, `ICrdtMerger`, `IAsyncCrdtMerger`, and `ICrdtMetadataManager`. |
-| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection registration extensions for Ama.CRDT services, decorators, AOT contexts, and custom providers. |
+| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Updated stateless CRDT strategies, strategy/comparer/ID/timestamp providers, metadata manager, and merger registrations from Scoped to Singleton to eliminate per-replica DI overhead. |
 | `$/Ama.CRDT/Models/Aot/CoreCrdtAotContext.cs` | Internal AOT-generated context containing metadata registrations for all core CRDT models, collections, comparers, and state wrappers. |
 | `$/Ama.CRDT/Models/Aot/CrdtAotContext.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Aot/CrdtPropertyInfo.cs` | Contains AOT-compatible property metadata, including precomputed interned `RootJsonPath`. |
