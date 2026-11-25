@@ -26,7 +26,7 @@ public sealed class VoteCounterStrategy(
 {
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock, replicaId) = context;
 
         if (Equals(originalValue, modifiedValue))
         {
@@ -51,7 +51,7 @@ public sealed class VoteCounterStrategy(
             }
 
             var payload = new VotePayload(voter, newOption);
-            var operation = new CrdtOperation(Guid.NewGuid(), context.ReplicaId, path, OperationType.Upsert, payload, changeTimestamp, clock);
+            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp, clock);
             operations.Add(operation);
         }
     }
@@ -81,7 +81,7 @@ public sealed class VoteCounterStrategy(
 
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         if (PocoPathHelper.ConvertValue(operation.Value, typeof(VotePayload), aotContexts) is not VotePayload payload)
         {

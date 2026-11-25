@@ -16,14 +16,12 @@ using Ama.CRDT.Attributes.Strategies.Semantic;
 [Associative]
 [Idempotent]
 [StateBased]
-public sealed class MinWinsStrategy(ReplicaContext replicaContext) : ICrdtStrategy
+public sealed class MinWinsStrategy : ICrdtStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock, replicaId) = context;
 
         if (modifiedValue is null || originalValue is null)
         {
@@ -55,7 +53,7 @@ public sealed class MinWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
 
             return new CrdtOperation(
                 Id: Guid.NewGuid(),
-                ReplicaId: replicaId,
+                ReplicaId: context.ReplicaId,
                 JsonPath: context.JsonPath,
                 Type: OperationType.Upsert,
                 Value: setIntent.Value,
@@ -70,7 +68,7 @@ public sealed class MinWinsStrategy(ReplicaContext replicaContext) : ICrdtStrate
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         if (operation.Type != OperationType.Upsert)
         {

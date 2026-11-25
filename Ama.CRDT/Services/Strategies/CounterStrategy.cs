@@ -28,15 +28,12 @@ using System.Collections.Generic;
 [Idempotent]
 [StateBased]
 public sealed class CounterStrategy(
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock, _) = context;
 
         var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue, aotContexts);
         var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue, aotContexts);
@@ -48,27 +45,27 @@ public sealed class CounterStrategy(
             return;
         }
         
-        var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Increment, delta, changeTimestamp, clock);
+        var operation = new CrdtOperation(Guid.NewGuid(), context.ReplicaId, path, OperationType.Increment, delta, changeTimestamp, clock);
         operations.Add(operation);
     }
 
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (root, _, path, _, intent, timestamp, clock) = context;
+        var (root, _, path, _, intent, timestamp, clock, _) = context;
 
         return intent switch
         {
             IncrementIntent incrementIntent => new CrdtOperation(
                 Guid.NewGuid(),
-                replicaId,
+                context.ReplicaId,
                 path,
                 OperationType.Increment,
                 PocoPathHelper.ConvertTo<decimal>(incrementIntent.Value, aotContexts),
                 timestamp,
                 clock),
 
-            SetIntent setIntent => GenerateSetOperation(root, path, setIntent, timestamp, clock),
+            SetIntent setIntent => GenerateSetOperation(root, path, setIntent, timestamp, clock, context.ReplicaId),
 
             _ => throw new NotSupportedException($"Explicit operation generation for intent '{intent.GetType().Name}' is not supported by {nameof(CounterStrategy)}.")
         };
@@ -77,7 +74,7 @@ public sealed class CounterStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         ArgumentNullException.ThrowIfNull(operation.ReplicaId);
 
@@ -169,7 +166,7 @@ public sealed class CounterStrategy(
         }
     }
 
-    private CrdtOperation GenerateSetOperation(object root, string path, SetIntent intent, CrdtTimestamp timestamp, long clock)
+    private CrdtOperation GenerateSetOperation(object root, string path, SetIntent intent, CrdtTimestamp timestamp, long clock, string replicaId)
     {
         var targetValue = PocoPathHelper.ConvertTo<decimal>(intent.Value, aotContexts);
         var currentValue = PocoPathHelper.GetValue<decimal>(root, path, aotContexts);

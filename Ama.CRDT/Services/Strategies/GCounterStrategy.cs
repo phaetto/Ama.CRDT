@@ -25,15 +25,12 @@ using System.Collections.Generic;
 [Idempotent]
 [StateBased]
 public sealed class GCounterStrategy(
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock, replicaId) = context;
 
         var originalNumeric = PocoPathHelper.ConvertTo<decimal>(originalValue, aotContexts);
         var modifiedNumeric = PocoPathHelper.ConvertTo<decimal>(modifiedValue, aotContexts);
@@ -64,7 +61,7 @@ public sealed class GCounterStrategy(
 
         return new CrdtOperation(
             Guid.NewGuid(),
-            replicaId,
+            context.ReplicaId,
             context.JsonPath,
             OperationType.Increment,
             increment,
@@ -75,7 +72,7 @@ public sealed class GCounterStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         ArgumentNullException.ThrowIfNull(operation.ReplicaId);
 

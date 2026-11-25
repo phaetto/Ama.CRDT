@@ -28,15 +28,12 @@ using Ama.CRDT.Models.LargerThanMemory;
 [StateBased]
 public sealed class CounterMapStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock, replicaId) = context;
 
         var originalDict = originalValue as IDictionary;
         var modifiedDict = modifiedValue as IDictionary;
@@ -83,7 +80,7 @@ public sealed class CounterMapStrategy(
             var payload = new KeyValuePair<object, object?>(mapIncrementIntent.Key, mapIncrementIntent.Value);
             return new CrdtOperation(
                 Guid.NewGuid(),
-                replicaId,
+                context.ReplicaId,
                 context.JsonPath,
                 OperationType.Increment,
                 payload,
@@ -98,7 +95,7 @@ public sealed class CounterMapStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         if (operation.Type != OperationType.Increment)
         {

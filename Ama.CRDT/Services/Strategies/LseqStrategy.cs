@@ -37,7 +37,7 @@ public sealed class LseqStrategy(
     /// <inheritdoc />
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock, replicaId) = context;
 
         var originalList = originalValue as IList ?? Array.Empty<object>();
         var modifiedList = modifiedValue as IList ?? Array.Empty<object>();
@@ -124,7 +124,7 @@ public sealed class LseqStrategy(
         {
             if (!matchedOriginal[i])
             {
-                var op = new CrdtOperation(Guid.NewGuid(), context.ReplicaId, path, OperationType.Remove, slicedOrig[i].Identifier, changeTimestamp, clock);
+                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, slicedOrig[i].Identifier, changeTimestamp, clock);
                 operations.Add(op);
             }
         }
@@ -157,10 +157,10 @@ public sealed class LseqStrategy(
                     nextId = originalItems[endOrig + 1].Identifier;
                 }
 
-                var newId = GenerateIdentifierBetween(prevId, nextId, context.ReplicaId);
+                var newId = GenerateIdentifierBetween(prevId, nextId, replicaId);
                 var newItem = new LseqItem(newId, slicedMod[i]);
                 
-                var op = new CrdtOperation(Guid.NewGuid(), context.ReplicaId, path, OperationType.Upsert, newItem, changeTimestamp, clock);
+                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, changeTimestamp, clock);
                 operations.Add(op);
                 
                 prevId = newId; // The newly inserted item becomes the predecessor for the next insertion
@@ -226,7 +226,7 @@ public sealed class LseqStrategy(
     /// <inheritdoc />
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         if (!metadata.States.TryGetValue(operation.JsonPath, out var state) || state is not LseqState lseqState)
         {

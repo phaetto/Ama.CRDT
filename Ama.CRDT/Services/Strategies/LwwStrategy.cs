@@ -22,15 +22,12 @@ using System.Collections.Generic;
 [Idempotent]
 [StateBased]
 public sealed class LwwStrategy(
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock, replicaId) = context;
 
         if (Equals(originalValue, modifiedValue))
         {
@@ -60,7 +57,7 @@ public sealed class LwwStrategy(
             var operationType = setIntent.Value is null ? OperationType.Remove : OperationType.Upsert;
             return new CrdtOperation(
                 Guid.NewGuid(),
-                replicaId,
+                context.ReplicaId,
                 context.JsonPath,
                 operationType,
                 setIntent.Value,
@@ -74,7 +71,7 @@ public sealed class LwwStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         if (metadata.States.TryGetValue(operation.JsonPath, out var baseState) && baseState is CausalTimestamp lwwTs && operation.Timestamp.CompareTo(lwwTs.Timestamp) <= 0)
         {

@@ -27,15 +27,12 @@ using Ama.CRDT.Models.LargerThanMemory;
 [StateBased]
 public sealed class MinWinsMapStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock, replicaId) = context;
 
         var originalDict = originalValue as IDictionary;
         var modifiedDict = modifiedValue as IDictionary;
@@ -73,7 +70,7 @@ public sealed class MinWinsMapStrategy(
         if (context.Intent is MapSetIntent mapSetIntent)
         {
             var payload = new KeyValuePair<object, object?>(mapSetIntent.Key, mapSetIntent.Value);
-            return new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Upsert, payload, context.Timestamp, context.Clock);
+            return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, payload, context.Timestamp, context.Clock);
         }
 
         throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported by {nameof(MinWinsMapStrategy)}.");
@@ -82,7 +79,7 @@ public sealed class MinWinsMapStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         if (operation.Type != OperationType.Upsert) return CrdtOperationStatus.StrategyApplicationFailed;
 

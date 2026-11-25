@@ -24,14 +24,11 @@ using System.Linq;
 [StateBased]
 public sealed class TwoPhaseGraphStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock, replicaId) = context;
 
         if (originalValue is not CrdtGraph originalGraph || modifiedValue is not CrdtGraph modifiedGraph) return;
 
@@ -58,7 +55,7 @@ public sealed class TwoPhaseGraphStrategy(
 
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (_, _, path, _, intent, changeTimestamp, clock) = context;
+        var (_, _, path, _, intent, changeTimestamp, clock, replicaId) = context;
 
         return intent switch
         {
@@ -72,7 +69,7 @@ public sealed class TwoPhaseGraphStrategy(
 
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         var graphObj = PocoPathHelper.GetValue(root, operation.JsonPath, aotContexts);
         if (graphObj is not CrdtGraph graph)

@@ -31,15 +31,12 @@ using System.Linq;
 public sealed class LwwSetStrategy(
     IElementComparerProvider comparerProvider,
     ICrdtTimestampProvider timestampProvider,
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-    
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, _, changeTimestamp, clock, replicaId) = context;
 
         var originalSet = originalValue as IEnumerable;
         var modifiedSet = modifiedValue as IEnumerable;
@@ -87,8 +84,8 @@ public sealed class LwwSetStrategy(
     {
         return context.Intent switch
         {
-            AddIntent addIntent => new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Upsert, addIntent.Value, context.Timestamp, context.Clock),
-            RemoveValueIntent removeIntent => new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Remove, removeIntent.Value, context.Timestamp, context.Clock),
+            AddIntent addIntent => new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, addIntent.Value, context.Timestamp, context.Clock),
+            RemoveValueIntent removeIntent => new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Remove, removeIntent.Value, context.Timestamp, context.Clock),
             _ => throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported by {nameof(LwwSetStrategy)}.")
         };
     }
@@ -96,7 +93,7 @@ public sealed class LwwSetStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
         if (parent is null || property is null || property.Getter!(parent) is not IEnumerable collection)

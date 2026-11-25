@@ -23,14 +23,11 @@ using System.Linq;
 [StateBased]
 public sealed class ReplicatedTreeStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock, replicaId) = context;
 
         if (originalValue is not CrdtTree originalTree || modifiedValue is not CrdtTree modifiedTree) return;
 
@@ -79,7 +76,7 @@ public sealed class ReplicatedTreeStrategy(
         {
             AddNodeIntent addIntent => new CrdtOperation(
                 Guid.NewGuid(),
-                replicaId,
+                context.ReplicaId,
                 context.JsonPath,
                 OperationType.Upsert,
                 new TreeAddNodePayload(addIntent.Node.Id, addIntent.Node.Value, addIntent.Node.ParentId, Guid.NewGuid()),
@@ -90,7 +87,7 @@ public sealed class ReplicatedTreeStrategy(
 
             MoveNodeIntent moveIntent => new CrdtOperation(
                 Guid.NewGuid(),
-                replicaId,
+                context.ReplicaId,
                 context.JsonPath,
                 OperationType.Upsert,
                 new TreeMoveNodePayload(moveIntent.NodeId, moveIntent.NewParentId),
@@ -112,7 +109,7 @@ public sealed class ReplicatedTreeStrategy(
 
         return new CrdtOperation(
             Guid.NewGuid(),
-            replicaId,
+            context.ReplicaId,
             context.JsonPath,
             OperationType.Remove,
             new TreeRemoveNodePayload(intent.NodeId, tags),
@@ -122,7 +119,7 @@ public sealed class ReplicatedTreeStrategy(
 
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
         
         var treeObj = PocoPathHelper.GetValue(root, operation.JsonPath, aotContexts);
         if (treeObj is not CrdtTree tree)
