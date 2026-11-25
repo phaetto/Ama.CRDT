@@ -23,7 +23,15 @@ internal sealed class CrdtScopeFactory : ICrdtScopeFactory
     /// <inheritdoc/>
     public IServiceScope CreateScope([DisallowNull] string replicaId)
     {
-        return CreateScope(replicaId, new ShardVersionVectorMap());
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
+
+        var pooledReplicaId = stringPool.GetOrAdd(replicaId);
+        var scope = serviceProvider.CreateScope();
+        var replicaContext = scope.ServiceProvider.GetRequiredService<ReplicaContext>();
+        
+        replicaContext.ReplicaId = pooledReplicaId;
+
+        return scope;
     }
 
     /// <inheritdoc/>

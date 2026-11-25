@@ -411,8 +411,8 @@
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | Applies CRDT patches to documents, passing local `ReplicaId` in `ApplyOperationContext`, resolving conflicts via strategies and tracking causal histories per shard in `ReplicaContext`. |
 | `$/Ama.CRDT/Services/CrdtMerger.cs` | Synchronous implementation of `ICrdtMerger` that leverages object tree traversal to compute the state merge mathematically using strategy providers. |
 | `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implemented `Pack`, `Unpack`, and `InitializePacked` using the injected `ICrdtSerializer`. |
-| `$/Ama.CRDT/Services/CrdtPatcher.cs` | Compares versions of a data model or processes explicit intents to generate CRDT patches, populating `ShardId`, `ShardClock`, and `ReplicaId` in contexts and updating `ShardVersionVectors`. |
-| `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext` holding the unique replica ID. |
+| `$/Ama.CRDT/Services/CrdtPatcher.cs` | Compares versions of a data model or processes explicit intents to generate CRDT patches using a shared static `ConditionalWeakTable` for clock tracking and updating `ShardVersionVectors`. |
+| `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that creates a new `IServiceScope` and configures `ReplicaContext` with lazy `ShardVersionVectors` allocation. |
 | `$/Ama.CRDT/Services/Decorators/AsyncCrdtApplicatorDecoratorBase.cs` | An abstract base class for `IAsyncCrdtApplicator` decorators. Uses the `DecoratorBehavior` enum in its constructor to strictly control the Template Method execution flow, making bugs around pipeline ordering structurally impossible. |
 | `$/Ama.CRDT/Services/Decorators/AsyncCrdtMergerDecoratorBase.cs` | An abstract base class for `IAsyncCrdtMerger` decorators supporting execution flow management via `DecoratorBehavior`. |
 | `$/Ama.CRDT/Services/Decorators/AsyncCrdtPatcherDecoratorBase.cs` | An abstract base class for `IAsyncCrdtPatcher` decorators. Uses the `DecoratorBehavior` enum in its constructor to safely structure patch and operation generation overrides. |
@@ -474,7 +474,7 @@
 | `$/Ama.CRDT/Services/Providers/IElementComparer.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/IElementComparerProvider.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/IShardIdProvider.cs` | Defines an interface for calculating the Shard ID for a CRDT document from a materialized object or from a document ID and hosted type. |
-| `$/Ama.CRDT/Services/ReplicaContext.cs` | A scoped service that holds the unique identifier for a CRDT replica and tracks causality vectors per shard. |
+| `$/Ama.CRDT/Services/ReplicaContext.cs` | A scoped service that holds the unique identifier for a CRDT replica with lazy `ShardVersionVectors` initialization. |
 | `$/Ama.CRDT/Services/Serialization/BrotliJsonCrdtSerializer.cs` | A Native AOT compatible implementation of `ICrdtSerializer` utilizing `System.Text.Json` combined with Brotli compression natively provided by the framework, serializing strings as Base64 encoded compressed payloads. |
 | `$/Ama.CRDT/Services/Serialization/ICrdtSerializer.cs` | Defines a format-agnostic abstraction for serializing and deserializing CRDT models and payloads, decoupling the core library from System.Text.Json. |
 | `$/Ama.CRDT/Services/Serialization/JsonCrdtSerializer.cs` | The default Native AOT compatible implementation of `ICrdtSerializer` utilizing `System.Text.Json` and pre-configured `JsonSerializerOptions`. |
