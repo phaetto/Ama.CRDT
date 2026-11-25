@@ -44,6 +44,26 @@ public sealed class CoreModelSerializationTests
     }
 
     [Fact]
+    public void PackedApplyPatchResult_ShouldSerializeAndDeserialize()
+    {
+        var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Upsert, "value", new CrdtTimestamp(123), 1, "default", 2);
+        var unapplied = new UnappliedOperation(op, CrdtOperationStatus.Obsolete);
+        var packedDocument = new PackedCrdtDocument<CoreSerializationTestModel>(new CoreSerializationTestModel { Data = "TestPacked" }, new byte[] { 10, 20, 30 });
+        var result = new PackedApplyPatchResult<CoreSerializationTestModel>(packedDocument, new[] { unapplied });
+
+        var options = TestOptionsHelper.GetDefaultOptions();
+        var typeInfo = (JsonTypeInfo<PackedApplyPatchResult<CoreSerializationTestModel>>)options.GetTypeInfo(typeof(PackedApplyPatchResult<CoreSerializationTestModel>));
+
+        var json = JsonSerializer.Serialize(result, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
+
+        deserialized.Document.ShouldBe(result.Document);
+        deserialized.UnappliedOperations.ShouldHaveSingleItem();
+        deserialized.UnappliedOperations[0].ShouldBe(unapplied);
+        deserialized.ShouldBe(result);
+    }
+
+    [Fact]
     public void JournaledOperation_ShouldSerializeAndDeserialize()
     {
         var op = new CrdtOperation(Guid.NewGuid(), "R1", "$.prop", OperationType.Remove, null, new CrdtTimestamp(123), 1, "default", 2);

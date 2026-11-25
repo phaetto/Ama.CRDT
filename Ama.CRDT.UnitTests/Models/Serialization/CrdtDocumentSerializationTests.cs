@@ -106,6 +106,29 @@ public sealed class CrdtDocumentSerializationTests
         deserialized.ShouldBe(document);
     }
 
+    [Fact]
+    public void PackedCrdtDocument_ShouldSerializeAndDeserialize_WithPopulatedDataAndMetadataBytes()
+    {
+        // Arrange
+        var data = new DocumentSerializationTestModel("TestPacked", 42);
+        var metadataBytes = new byte[] { 1, 2, 3, 4, 5 };
+        var packedDocument = new PackedCrdtDocument<DocumentSerializationTestModel>(data, metadataBytes);
+
+        // Act
+        var options = TestOptionsHelper.GetDefaultOptions();
+        var typeInfo = (JsonTypeInfo<PackedCrdtDocument<DocumentSerializationTestModel>>)options.GetTypeInfo(typeof(PackedCrdtDocument<DocumentSerializationTestModel>));
+
+        var json = JsonSerializer.Serialize(packedDocument, typeInfo);
+        var deserialized = JsonSerializer.Deserialize(json, typeInfo);
+
+        // Assert
+        deserialized.Data.ShouldNotBeNull();
+        deserialized.Data.Name.ShouldBe("TestPacked");
+        deserialized.Data.Value.ShouldBe(42);
+        deserialized.MetadataBytes.ToArray().ShouldBe(metadataBytes);
+        deserialized.ShouldBe(packedDocument);
+    }
+
     private static CrdtMetadata CreatePopulatedMetadata()
     {
         var metadata = new CrdtMetadata();

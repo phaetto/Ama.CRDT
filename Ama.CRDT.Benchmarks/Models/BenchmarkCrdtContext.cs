@@ -10,6 +10,8 @@ using Ama.CRDT.Models.Aot;
 [CrdtAotType(typeof(Tag))]
 [CrdtAotType(typeof(StrategyPoco))]
 [CrdtAotType(typeof(PrioItem))]
+[CrdtAotType(typeof(WidePoco))]
+[CrdtAotType(typeof(CollectionHeavyPoco))]
 [CrdtAotType(typeof(List<Tag>))]
 [CrdtAotType(typeof(List<string>))]
 [CrdtAotType(typeof(string?[]))]

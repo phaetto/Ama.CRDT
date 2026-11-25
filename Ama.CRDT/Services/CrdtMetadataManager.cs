@@ -43,16 +43,8 @@ public sealed class CrdtMetadataManager(
         ArgumentNullException.ThrowIfNull(document);
 
         var metadata = new CrdtMetadata();
-
-        if (!string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
-        {
-            if (!metadata.VersionVector.ContainsKey(replicaContext.ReplicaId))
-            {
-                metadata.VersionVector[replicaContext.ReplicaId] = 0;
-            }
-        }
-
-        PopulateMetadataRecursive(metadata, document, "$", timestamp, document);
+        ICrdtMetadataState boxedCausalTs = new CausalTimestamp(timestamp, replicaContext.ReplicaId ?? string.Empty, 0);
+        PopulateMetadataRecursive(metadata, document, "$", timestamp, boxedCausalTs, document);
         return metadata;
     }
 
@@ -69,15 +61,8 @@ public sealed class CrdtMetadataManager(
         ArgumentNullException.ThrowIfNull(document.Metadata);
         ArgumentNullException.ThrowIfNull(document.Data);
 
-        if (!string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
-        {
-            if (!document.Metadata.VersionVector.ContainsKey(replicaContext.ReplicaId))
-            {
-                document.Metadata.VersionVector[replicaContext.ReplicaId] = 0;
-            }
-        }
-
-        PopulateMetadataRecursive(document.Metadata, document.Data, "$", timestamp, document.Data);
+        ICrdtMetadataState boxedCausalTs = new CausalTimestamp(timestamp, replicaContext.ReplicaId ?? string.Empty, 0);
+        PopulateMetadataRecursive(document.Metadata, document.Data, "$", timestamp, boxedCausalTs, document.Data);
     }
 
     /// <inheritdoc/>
@@ -94,15 +79,8 @@ public sealed class CrdtMetadataManager(
 
         document.Metadata.States.Clear();
 
-        if (!string.IsNullOrWhiteSpace(replicaContext.ReplicaId))
-        {
-            if (!document.Metadata.VersionVector.ContainsKey(replicaContext.ReplicaId))
-            {
-                document.Metadata.VersionVector[replicaContext.ReplicaId] = 0;
-            }
-        }
-
-        PopulateMetadataRecursive(document.Metadata, document.Data, "$", timestamp, document.Data);
+        ICrdtMetadataState boxedCausalTs = new CausalTimestamp(timestamp, replicaContext.ReplicaId ?? string.Empty, 0);
+        PopulateMetadataRecursive(document.Metadata, document.Data, "$", timestamp, boxedCausalTs, document.Data);
     }
 
     /// <inheritdoc/>
@@ -114,16 +92,19 @@ public sealed class CrdtMetadataManager(
 
         CompactRecursive(document.Metadata, document.Data, "$", policy, document.Data);
 
-        var exceptionsToRemove = document.Metadata.SeenExceptions
-            .Where(op => policy.IsSafeToCompact(new CompactionCandidate(
-                Timestamp: op.Timestamp,
-                ReplicaId: op.ReplicaId,
-                Version: op.Clock)))
-            .ToList();
-
-        foreach (var ex in exceptionsToRemove)
+        if (document.Metadata.SeenExceptions.Count > 0)
         {
-            document.Metadata.SeenExceptions.Remove(ex);
+            var exceptionsToRemove = document.Metadata.SeenExceptions
+                .Where(op => policy.IsSafeToCompact(new CompactionCandidate(
+                    Timestamp: op.Timestamp,
+                    ReplicaId: op.ReplicaId,
+                    Version: op.Clock)))
+                .ToList();
+
+            foreach (var ex in exceptionsToRemove)
+            {
+                document.Metadata.SeenExceptions.Remove(ex);
+            }
         }
 
         if (CrdtCollectionMemoryOptions.TrimExcessOnMetadataCompaction)
@@ -220,7 +201,46 @@ public sealed class CrdtMetadataManager(
         EvictReplica(document.Metadata, replicaId);
     }
 
-    private void PopulateMetadataRecursive(CrdtMetadata metadata, object obj, string path, CrdtTimestamp timestamp, object root)
+    /// <inheritdoc/>
+    public PackedCrdtDocument<T> Pack<T>(CrdtDocument<T> document) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(document.Metadata);
+
+        var bytes = crdtSerializer.SerializeToBytes(document.Metadata);
+        return new PackedCrdtDocument<T>(document.Data, bytes);
+    }
+
+    /// <inheritdoc/>
+    public CrdtDocument<T> Unpack<T>(PackedCrdtDocument<T> packedDocument) where T : class
+    {
+        if (packedDocument.MetadataBytes.IsEmpty)
+        {
+            return new CrdtDocument<T>(packedDocument.Data, new CrdtMetadata());
+        }
+
+        var metadata = crdtSerializer.DeserializeFromBytes<CrdtMetadata>(packedDocument.MetadataBytes.Span) ?? new CrdtMetadata();
+        return new CrdtDocument<T>(packedDocument.Data, metadata);
+    }
+
+    /// <inheritdoc/>
+    public PackedCrdtDocument<T> InitializePacked<T>([DisallowNull] T document) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var metadata = Initialize(document);
+        return Pack(new CrdtDocument<T>(document, metadata));
+    }
+
+    /// <inheritdoc/>
+    public PackedCrdtDocument<T> InitializePacked<T>([DisallowNull] T document, CrdtTimestamp timestamp) where T : class
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var metadata = Initialize(document, timestamp);
+        return Pack(new CrdtDocument<T>(document, metadata));
+    }
+
+    private void PopulateMetadataRecursive(CrdtMetadata metadata, object obj, string path, CrdtTimestamp timestamp, ICrdtMetadataState boxedCausalTimestamp, object root)
     {
         if (obj is null)
         {
@@ -229,16 +249,22 @@ public sealed class CrdtMetadataManager(
 
         if (obj is IDictionary dictionary)
         {
-            foreach (DictionaryEntry entry in dictionary)
+            foreach (var key in dictionary.Keys)
             {
-                if (entry.Value is not null)
+                if (key is null)
                 {
-                    var valueType = entry.Value.GetType();
+                    continue;
+                }
+
+                var val = dictionary[key];
+                if (val is not null)
+                {
+                    var valueType = val.GetType();
                     if (valueType.IsClass && valueType != typeof(string))
                     {
-                        var keyString = GetVoterKey(entry.Key);
-                        var newPath = $"{path}.['{keyString}']";
-                        PopulateMetadataRecursive(metadata, entry.Value, newPath, timestamp, root);
+                        var keyString = GetVoterKey(key);
+                        var newPath = pool.GetOrAdd($"{path}.['{keyString}']");
+                        PopulateMetadataRecursive(metadata, val, newPath, timestamp, boxedCausalTimestamp, root);
                     }
                 }
             }
@@ -255,7 +281,8 @@ public sealed class CrdtMetadataManager(
                     var itemType = item.GetType();
                     if (itemType.IsClass && itemType != typeof(string))
                     {
-                        PopulateMetadataRecursive(metadata, item, $"{path}[{i}]", timestamp, root);
+                        var indexedPath = pool.GetOrAdd($"{path}[{i}]");
+                        PopulateMetadataRecursive(metadata, item, indexedPath, timestamp, boxedCausalTimestamp, root);
                     }
                 }
                 i++;
@@ -281,12 +308,12 @@ public sealed class CrdtMetadataManager(
 
             var strategy = strategyProvider.GetStrategy(typeInfo.Type, property);
 
-            InitializeStrategyMetadata(metadata, property, strategy, propertyPath, propertyValue, timestamp, root);
+            InitializeStrategyMetadata(metadata, property, strategy, propertyPath, propertyValue, timestamp, boxedCausalTimestamp, root);
 
             var propertyType = property.PropertyType;
-            if (propertyValue is IEnumerable and not string || propertyType.IsClass && propertyType != typeof(string))
+            if (ShouldTraversePropertyValue(propertyValue, propertyType))
             {
-                PopulateMetadataRecursive(metadata, propertyValue, propertyPath, timestamp, root);
+                PopulateMetadataRecursive(metadata, propertyValue, propertyPath, timestamp, boxedCausalTimestamp, root);
             }
         }
     }
@@ -300,16 +327,22 @@ public sealed class CrdtMetadataManager(
 
         if (obj is IDictionary dictionary)
         {
-            foreach (DictionaryEntry entry in dictionary)
+            foreach (var key in dictionary.Keys)
             {
-                if (entry.Value is not null)
+                if (key is null)
                 {
-                    var valueType = entry.Value.GetType();
+                    continue;
+                }
+
+                var val = dictionary[key];
+                if (val is not null)
+                {
+                    var valueType = val.GetType();
                     if (valueType.IsClass && valueType != typeof(string))
                     {
-                        var keyString = GetVoterKey(entry.Key);
-                        var newPath = $"{path}.['{keyString}']";
-                        CompactRecursive(metadata, entry.Value, newPath, policy, root);
+                        var keyString = GetVoterKey(key);
+                        var newPath = pool.GetOrAdd($"{path}.['{keyString}']");
+                        CompactRecursive(metadata, val, newPath, policy, root);
                     }
                 }
             }
@@ -326,7 +359,8 @@ public sealed class CrdtMetadataManager(
                     var itemType = item.GetType();
                     if (itemType.IsClass && itemType != typeof(string))
                     {
-                        CompactRecursive(metadata, item, $"{path}[{i}]", policy, root);
+                        var indexedPath = pool.GetOrAdd($"{path}[{i}]");
+                        CompactRecursive(metadata, item, indexedPath, policy, root);
                     }
                 }
                 i++;
@@ -354,22 +388,45 @@ public sealed class CrdtMetadataManager(
             strategy.Compact(new CompactionContext(metadata, policy, property.Name, propertyPath, root));
 
             var propertyType = property.PropertyType;
-            if (propertyValue is IEnumerable and not string || propertyType.IsClass && propertyType != typeof(string))
+            if (ShouldTraversePropertyValue(propertyValue, propertyType))
             {
                 CompactRecursive(metadata, propertyValue, propertyPath, policy, root);
             }
         }
     }
 
-    private void InitializeStrategyMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, CrdtTimestamp timestamp, object root)
+    private bool ShouldTraversePropertyValue(object propertyValue, Type propertyType)
+    {
+        if (propertyValue is string)
+        {
+            return false;
+        }
+
+        if (propertyValue is IDictionary)
+        {
+            var dictTypeInfo = PocoPathHelper.GetTypeInfo(propertyValue.GetType(), crdtContexts);
+            var valType = dictTypeInfo.DictionaryValueType;
+            return valType is null || (valType.IsClass && valType != typeof(string));
+        }
+
+        if (propertyValue is IEnumerable)
+        {
+            var collTypeInfo = PocoPathHelper.GetTypeInfo(propertyValue.GetType(), crdtContexts);
+            var elemType = collTypeInfo.CollectionElementType;
+            return elemType is null || (elemType.IsClass && elemType != typeof(string));
+        }
+
+        return propertyType.IsClass && propertyType != typeof(string);
+    }
+
+    private void InitializeStrategyMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, CrdtTimestamp timestamp, ICrdtMetadataState boxedCausalTimestamp, object root)
     {
         var replicaId = replicaContext.ReplicaId ?? string.Empty;
-        var causalTimestamp = new CausalTimestamp(timestamp, replicaId, 0);
 
         switch (strategy)
         {
             case LwwStrategy:
-                metadata.States[propertyPath] = causalTimestamp;
+                metadata.States[propertyPath] = boxedCausalTimestamp;
                 break;
             case FwwStrategy:
                 metadata.States[propertyPath] = new FwwTimestamp(timestamp, replicaId, 0);
@@ -388,8 +445,12 @@ public sealed class CrdtMetadataManager(
             case ArrayLcsStrategy:
                 if (propertyValue is IList lcsList)
                 {
-                    metadata.States[propertyPath] = new PositionalState(
-                        Enumerable.Range(0, lcsList.Count).Select(i => new PositionalIdentifier((i + 1).ToString(), Guid.Empty)).ToList());
+                    var positions = new List<PositionalIdentifier>(lcsList.Count);
+                    for (var i = 0; i < lcsList.Count; i++)
+                    {
+                        positions.Add(new PositionalIdentifier((i + 1).ToString(), Guid.Empty));
+                    }
+                    metadata.States[propertyPath] = new PositionalState(positions);
                 }
                 break;
             case FixedSizeArrayStrategy:
@@ -397,14 +458,14 @@ public sealed class CrdtMetadataManager(
                 {
                     for (var i = 0; i < fixedList.Count; i++)
                     {
-                        metadata.States[$"{propertyPath}[{i}]"] = causalTimestamp;
+                        metadata.States[pool.GetOrAdd($"{propertyPath}[{i}]")] = boxedCausalTimestamp;
                     }
                 }
                 break;
             case LseqStrategy:
                 if (propertyValue is IList lseqList)
                 {
-                    var lseqItems = new List<LseqItem>();
+                    var lseqItems = new List<LseqItem>(lseqList.Count);
                     var baseIdentifier = ImmutableList<LseqPathSegment>.Empty;
                     const int step = 10;
                     for (var i = 0; i < lseqList.Count; i++)
@@ -418,7 +479,7 @@ public sealed class CrdtMetadataManager(
             case RgaStrategy:
                 if (propertyValue is IList rgaList)
                 {
-                    var rgaItems = new List<RgaItem>();
+                    var rgaItems = new List<RgaItem>(rgaList.Count);
                     RgaIdentifier? prevId = null;
                     var ticksBase = DateTime.UtcNow.Ticks;
                     for (var i = 0; i < rgaList.Count; i++)
@@ -432,7 +493,7 @@ public sealed class CrdtMetadataManager(
                 }
                 break;
             case VoteCounterStrategy:
-                InitializeVoteCounterMetadata(metadata, propertyPath, propertyValue, timestamp, replicaId);
+                InitializeVoteCounterMetadata(metadata, propertyPath, propertyValue, boxedCausalTimestamp);
                 break;
             case TwoPhaseSetStrategy:
             case LwwSetStrategy:
@@ -440,7 +501,7 @@ public sealed class CrdtMetadataManager(
             case OrSetStrategy:
             case PriorityQueueStrategy:
             case SortedSetStrategy:
-                InitializeSetMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp, replicaId);
+                InitializeSetMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp);
                 break;
             case LwwMapStrategy:
             case FwwMapStrategy:
@@ -448,61 +509,78 @@ public sealed class CrdtMetadataManager(
             case CounterMapStrategy:
             case MaxWinsMapStrategy:
             case MinWinsMapStrategy:
-                InitializeMapMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp, replicaId);
+                InitializeMapMetadata(metadata, propertyInfo, strategy, propertyPath, propertyValue, timestamp, replicaId, boxedCausalTimestamp);
                 break;
             case TwoPhaseGraphStrategy:
                 InitializeTwoPhaseGraphMetadata(metadata, propertyPath, propertyValue);
                 break;
             case ReplicatedTreeStrategy:
-                InitializeReplicatedTreeMetadata(metadata, propertyPath, propertyValue, timestamp, replicaId);
+                InitializeReplicatedTreeMetadata(metadata, propertyPath, propertyValue, boxedCausalTimestamp);
                 break;
         }
     }
 
-    private void InitializeSetMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, CrdtTimestamp timestamp, string replicaId)
+    private void InitializeSetMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, CrdtTimestamp timestamp)
     {
         if (propertyValue is not IEnumerable collection) return;
 
         var typeInfo = PocoPathHelper.GetTypeInfo(propertyValue.GetType(), crdtContexts);
         var elementType = typeInfo.CollectionElementType ?? typeof(object);
         var comparer = elementComparerProvider.GetComparer(elementType);
-        var collectionAsObjects = collection.Cast<object>().ToList();
+        var initialCount = collection is ICollection coll ? coll.Count : 0;
 
         switch (strategy)
         {
             case TwoPhaseSetStrategy:
+                var twoPhaseAdds = new CompactSet<object>(initialCount, comparer);
+                foreach (var item in collection)
+                {
+                    if (item is not null)
+                    {
+                        twoPhaseAdds.Add(item);
+                    }
+                }
                 metadata.States[propertyPath] = new TwoPhaseSetState(
-                    Adds: new CompactSet<object>(collectionAsObjects, comparer),
+                    Adds: twoPhaseAdds,
                     Tombstones: new CompactDictionary<object, CausalTimestamp>(0, comparer));
                 break;
             case LwwSetStrategy:
             case PriorityQueueStrategy:
             case SortedSetStrategy:
-                var lwwSetAdds = new CompactDictionary<object, CrdtTimestamp>(collectionAsObjects.Count, comparer);
-                foreach (var item in collectionAsObjects)
+                var lwwSetAdds = new CompactDictionary<object, CrdtTimestamp>(initialCount, comparer);
+                foreach (var item in collection)
                 {
-                    lwwSetAdds[item] = timestamp;
+                    if (item is not null)
+                    {
+                        lwwSetAdds[item] = timestamp;
+                    }
                 }
                 metadata.States[propertyPath] = new LwwSetState(
                     Adds: lwwSetAdds,
                     Removes: new CompactDictionary<object, CausalTimestamp>(0, comparer));
                 break;
             case FwwSetStrategy:
-                var fwwSetAdds = new CompactDictionary<object, CrdtTimestamp>(collectionAsObjects.Count, comparer);
-                foreach (var item in collectionAsObjects)
+                var fwwSetAdds = new CompactDictionary<object, CrdtTimestamp>(initialCount, comparer);
+                foreach (var item in collection)
                 {
-                    fwwSetAdds[item] = timestamp;
+                    if (item is not null)
+                    {
+                        fwwSetAdds[item] = timestamp;
+                    }
                 }
                 metadata.States[propertyPath] = new FwwSetState(
                     Adds: fwwSetAdds,
                     Removes: new CompactDictionary<object, CausalTimestamp>(0, comparer));
                 break;
             case OrSetStrategy:
-                var orSetAdds = new CompactDictionary<object, ISet<Guid>>(collectionAsObjects.Count, comparer);
-                foreach (var item in collectionAsObjects)
+                var orSetAdds = new CompactDictionary<object, ISet<Guid>>(initialCount, comparer);
+                foreach (var item in collection)
                 {
-                    var tags = new CompactSet<Guid>(1) { Guid.NewGuid() };
-                    orSetAdds[item] = tags;
+                    if (item is not null)
+                    {
+                        var tags = new CompactSet<Guid>(1) { Guid.NewGuid() };
+                        orSetAdds[item] = tags;
+                    }
                 }
                 metadata.States[propertyPath] = new OrSetState(
                     Adds: orSetAdds,
@@ -511,23 +589,24 @@ public sealed class CrdtMetadataManager(
         }
     }
 
-    private void InitializeMapMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, CrdtTimestamp timestamp, string replicaId)
+    private void InitializeMapMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, CrdtTimestamp timestamp, string replicaId, ICrdtMetadataState boxedCausalTimestamp)
     {
         if (propertyValue is not IDictionary dictionary) return;
 
         var typeInfo = PocoPathHelper.GetTypeInfo(propertyValue.GetType(), crdtContexts);
         var keyType = typeInfo.DictionaryKeyType ?? typeof(object);
         var comparer = elementComparerProvider.GetComparer(keyType);
+        var causalTs = new CausalTimestamp(timestamp, replicaId, 0);
 
         switch (strategy)
         {
             case LwwMapStrategy:
                 var lwwMap = new CompactDictionary<object, CausalTimestamp>(dictionary.Count, comparer);
-                foreach (DictionaryEntry entry in dictionary)
+                foreach (var key in dictionary.Keys)
                 {
-                    if (entry.Key != null)
+                    if (key is not null)
                     {
-                        lwwMap[entry.Key] = new CausalTimestamp(timestamp, replicaId, 0);
+                        lwwMap[key] = causalTs;
                     }
                 }
                 metadata.States[propertyPath] = new LwwMapState(lwwMap);
@@ -535,11 +614,11 @@ public sealed class CrdtMetadataManager(
 
             case FwwMapStrategy:
                 var fwwMap = new CompactDictionary<object, CausalTimestamp>(dictionary.Count, comparer);
-                foreach (DictionaryEntry entry in dictionary)
+                foreach (var key in dictionary.Keys)
                 {
-                    if (entry.Key != null)
+                    if (key is not null)
                     {
-                        fwwMap[entry.Key] = new CausalTimestamp(timestamp, replicaId, 0);
+                        fwwMap[key] = causalTs;
                     }
                 }
                 metadata.States[propertyPath] = new FwwMapState(fwwMap);
@@ -547,13 +626,13 @@ public sealed class CrdtMetadataManager(
 
             case OrMapStrategy:
                 var orMapAdds = new CompactDictionary<object, ISet<Guid>>(dictionary.Count, comparer);
-                foreach (DictionaryEntry entry in dictionary)
+                foreach (var key in dictionary.Keys)
                 {
-                    if (entry.Key is not null)
+                    if (key is not null)
                     {
-                        orMapAdds[entry.Key] = new CompactSet<Guid>(1) { Guid.NewGuid() };
-                        var keyString = GetVoterKey(entry.Key);
-                        metadata.States[$"{propertyPath}.['{keyString}']"] = new CausalTimestamp(timestamp, replicaId, 0);
+                        orMapAdds[key] = new CompactSet<Guid>(1) { Guid.NewGuid() };
+                        var keyString = GetVoterKey(key);
+                        metadata.States[pool.GetOrAdd($"{propertyPath}.['{keyString}']")] = boxedCausalTimestamp;
                     }
                 }
                 metadata.States[propertyPath] = new OrSetState(
@@ -576,7 +655,7 @@ public sealed class CrdtMetadataManager(
         }
     }
 
-    private void InitializeVoteCounterMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, CrdtTimestamp timestamp, string replicaId)
+    private void InitializeVoteCounterMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, ICrdtMetadataState boxedCausalTimestamp)
     {
         if (propertyValue is not IDictionary dictionary) return;
 
@@ -596,8 +675,8 @@ public sealed class CrdtMetadataManager(
         foreach (var (voter, _) in voterMap)
         {
             var voterKey = GetVoterKey(voter);
-            var voterMetaPath = $"{propertyPath}.['{voterKey}']";
-            metadata.States[voterMetaPath] = new CausalTimestamp(timestamp, replicaId, 0);
+            var voterMetaPath = pool.GetOrAdd($"{propertyPath}.['{voterKey}']");
+            metadata.States[voterMetaPath] = boxedCausalTimestamp;
         }
     }
     
@@ -615,15 +694,27 @@ public sealed class CrdtMetadataManager(
         var vertexComparer = elementComparerProvider.GetComparer(typeof(object));
         var edgeComparer = elementComparerProvider.GetComparer(typeof(Edge));
         
+        var vertexAdds = new CompactSet<object>(vertices is ICollection vc ? vc.Count : 0, vertexComparer);
+        foreach (var v in vertices)
+        {
+            if (v is not null) vertexAdds.Add(v);
+        }
+
+        var edgeAdds = new CompactSet<object>(edges is ICollection ec ? ec.Count : 0, edgeComparer);
+        foreach (var e in edges)
+        {
+            if (e is not null) edgeAdds.Add(e);
+        }
+
         metadata.States[propertyPath] = new TwoPhaseGraphState(
-            VertexAdds: new CompactSet<object>(vertices.Cast<object>(), vertexComparer),
+            VertexAdds: vertexAdds,
             VertexTombstones: new CompactDictionary<object, CausalTimestamp>(0, vertexComparer),
-            EdgeAdds: new CompactSet<object>(edges.Cast<object>(), edgeComparer),
+            EdgeAdds: edgeAdds,
             EdgeTombstones: new CompactDictionary<object, CausalTimestamp>(0, edgeComparer)
         );
     }
     
-    private void InitializeReplicatedTreeMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, CrdtTimestamp timestamp, string replicaId)
+    private void InitializeReplicatedTreeMetadata(CrdtMetadata metadata, string propertyPath, object propertyValue, ICrdtMetadataState boxedCausalTimestamp)
     {
         var typeInfo = PocoPathHelper.GetTypeInfo(propertyValue.GetType(), crdtContexts);
         if (!typeInfo.Properties.TryGetValue("Nodes", out var nodesProp) || !nodesProp.CanRead) return;
@@ -633,15 +724,15 @@ public sealed class CrdtMetadataManager(
         var idComparer = elementComparerProvider.GetComparer(typeof(object));
 
         var adds = new CompactDictionary<object, ISet<Guid>>(nodesDictionary.Count, idComparer);
-        foreach (DictionaryEntry entry in nodesDictionary)
+        foreach (var key in nodesDictionary.Keys)
         {
-            if (entry.Key is null || entry.Value is null) continue;
+            if (key is null) continue;
 
-            adds[entry.Key] = new CompactSet<Guid>(1) { Guid.NewGuid() };
+            adds[key] = new CompactSet<Guid>(1) { Guid.NewGuid() };
             
-            var nodeIdString = GetVoterKey(entry.Key);
-            metadata.States[$"{propertyPath}.Nodes.['{nodeIdString}'].Value"] = new CausalTimestamp(timestamp, replicaId, 0);
-            metadata.States[$"{propertyPath}.Nodes.['{nodeIdString}'].ParentId"] = new CausalTimestamp(timestamp, replicaId, 0);
+            var nodeIdString = GetVoterKey(key);
+            metadata.States[pool.GetOrAdd($"{propertyPath}.Nodes.['{nodeIdString}'].Value")] = boxedCausalTimestamp;
+            metadata.States[pool.GetOrAdd($"{propertyPath}.Nodes.['{nodeIdString}'].ParentId")] = boxedCausalTimestamp;
         }
 
         metadata.States[propertyPath] = new OrSetState(

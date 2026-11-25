@@ -27,8 +27,8 @@ public sealed class CompactCollectionsTests
     public void CompactDictionary_WithinLinearThreshold_ShouldStayInFlatArrayAndPoolStringKeys()
     {
         // Arrange
-        var pool = new CrdtStringPool();
-        var dict = new CompactDictionary<string, int>(0, StringComparer.Ordinal, pool);
+        var pool = CrdtStringPool.Shared;
+        var dict = new CompactDictionary<string, int>(0, StringComparer.Ordinal);
         var key1A = new string("$.devices.battery".ToCharArray());
         var key1B = new string("$.devices.battery".ToCharArray());
 
