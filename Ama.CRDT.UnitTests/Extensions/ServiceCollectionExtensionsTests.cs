@@ -1,10 +1,15 @@
 namespace Ama.CRDT.UnitTests.Extensions;
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Ama.CRDT.Extensions;
+using Ama.CRDT.Services;
+using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Services.Serialization;
+using Ama.CRDT.Services.Strategies;
 using Microsoft.Extensions.DependencyInjection;
 using Shouldly;
 using Xunit;
@@ -85,6 +90,117 @@ public class ServiceCollectionExtensionsTests
 
         // Ensure global modifier ran
         globalModifierExecuted.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void AddCrdt_ShouldThrowInvalidOperationException_WhenScopedServicesResolvedOutsideCrdtScopeFactory()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        using var sp = services.BuildServiceProvider();
+
+        // Act & Assert: Direct resolution from root container should fail validation
+        Should.Throw<InvalidOperationException>(() => sp.GetRequiredService<ICrdtPatcher>())
+            .Message.ShouldContain(nameof(ICrdtScopeFactory));
+
+        Should.Throw<InvalidOperationException>(() => sp.GetRequiredService<ICrdtApplicator>())
+            .Message.ShouldContain(nameof(ICrdtScopeFactory));
+
+        Should.Throw<InvalidOperationException>(() => sp.GetRequiredService<IAsyncCrdtPatcher>())
+            .Message.ShouldContain(nameof(ICrdtScopeFactory));
+
+        Should.Throw<InvalidOperationException>(() => sp.GetRequiredService<IAsyncCrdtApplicator>())
+            .Message.ShouldContain(nameof(ICrdtScopeFactory));
+
+        // Act & Assert: Resolution from a standard non-CRDT IServiceScope should also fail validation
+        using var standardScope = sp.CreateScope();
+        Should.Throw<InvalidOperationException>(() => standardScope.ServiceProvider.GetRequiredService<ICrdtPatcher>())
+            .Message.ShouldContain(nameof(ICrdtScopeFactory));
+
+        Should.Throw<InvalidOperationException>(() => standardScope.ServiceProvider.GetRequiredService<ICrdtApplicator>())
+            .Message.ShouldContain(nameof(ICrdtScopeFactory));
+    }
+
+    [Fact]
+    public void AddCrdt_ShouldResolveScopedServicesPerReplicaScope_AndShareStatelessSingletons()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddCrdt();
+        using var sp = services.BuildServiceProvider();
+        var scopeFactory = sp.GetRequiredService<ICrdtScopeFactory>();
+
+        // Act
+        using var scopeA = scopeFactory.CreateScope("replica-A");
+        using var scopeB = scopeFactory.CreateScope("replica-B");
+
+        var patcherA = scopeA.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var patcherB = scopeB.ServiceProvider.GetRequiredService<ICrdtPatcher>();
+        var applicatorA = scopeA.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+        var applicatorB = scopeB.ServiceProvider.GetRequiredService<ICrdtApplicator>();
+
+        var strategyProviderRoot = sp.GetRequiredService<ICrdtStrategyProvider>();
+        var strategyProviderA = scopeA.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
+        var strategyProviderB = scopeB.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
+
+        var comparerProviderRoot = sp.GetRequiredService<IElementComparerProvider>();
+        var comparerProviderA = scopeA.ServiceProvider.GetRequiredService<IElementComparerProvider>();
+        var comparerProviderB = scopeB.ServiceProvider.GetRequiredService<IElementComparerProvider>();
+
+        var metadataManagerRoot = sp.GetRequiredService<ICrdtMetadataManager>();
+        var metadataManagerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+        var metadataManagerB = scopeB.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
+
+        var mergerRoot = sp.GetRequiredService<ICrdtMerger>();
+        var mergerA = scopeA.ServiceProvider.GetRequiredService<ICrdtMerger>();
+        var mergerB = scopeB.ServiceProvider.GetRequiredService<ICrdtMerger>();
+
+        var docIdProviderA = scopeA.ServiceProvider.GetRequiredService<IDocumentIdProvider>();
+        var docIdProviderB = scopeB.ServiceProvider.GetRequiredService<IDocumentIdProvider>();
+
+        var shardIdProviderA = scopeA.ServiceProvider.GetRequiredService<IShardIdProvider>();
+        var shardIdProviderB = scopeB.ServiceProvider.GetRequiredService<IShardIdProvider>();
+
+        var timestampProviderA = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+        var timestampProviderB = scopeB.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
+
+        var strategiesA = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().ToList();
+        var strategiesB = scopeB.ServiceProvider.GetServices<ICrdtStrategy>().ToList();
+
+        // Assert: Stateful replica-bound services are distinct per scope
+        patcherA.ShouldNotBeNull();
+        patcherB.ShouldNotBeNull();
+        patcherA.ShouldNotBeSameAs(patcherB);
+
+        applicatorA.ShouldNotBeNull();
+        applicatorB.ShouldNotBeNull();
+        applicatorA.ShouldNotBeSameAs(applicatorB);
+
+        // Assert: Stateless infrastructure and providers are shared singletons across all scopes and root
+        strategyProviderA.ShouldBeSameAs(strategyProviderRoot);
+        strategyProviderA.ShouldBeSameAs(strategyProviderB);
+
+        comparerProviderA.ShouldBeSameAs(comparerProviderRoot);
+        comparerProviderA.ShouldBeSameAs(comparerProviderB);
+
+        metadataManagerA.ShouldBeSameAs(metadataManagerRoot);
+        metadataManagerA.ShouldBeSameAs(metadataManagerB);
+
+        mergerA.ShouldBeSameAs(mergerRoot);
+        mergerA.ShouldBeSameAs(mergerB);
+
+        docIdProviderA.ShouldBeSameAs(docIdProviderB);
+        shardIdProviderA.ShouldBeSameAs(shardIdProviderB);
+        timestampProviderA.ShouldBeSameAs(timestampProviderB);
+
+        // Assert: All 32 CRDT strategies are registered as stateless singletons
+        strategiesA.Count.ShouldBe(32);
+        strategiesA.Count.ShouldBe(strategiesB.Count);
+        for (int i = 0; i < strategiesA.Count; i++)
+        {
+            strategiesA[i].ShouldBeSameAs(strategiesB[i]);
+        }
     }
 
     private sealed class MockResolverA : IJsonTypeInfoResolver

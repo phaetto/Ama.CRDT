@@ -451,11 +451,11 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        // Register the custom provider implementation natively
-        services.TryAddSingleton<TProvider>();
+        // Register the custom provider implementation natively as Scoped so it can optionally depend on scoped services like ReplicaContext
+        services.TryAddScoped<TProvider>();
         
         // Override the ICrdtTimestampProvider registration to point to the custom implementation.
-        services.AddSingleton<ICrdtTimestampProvider>(sp => sp.GetRequiredService<TProvider>());
+        services.Replace(ServiceDescriptor.Scoped<ICrdtTimestampProvider>(sp => sp.GetRequiredService<TProvider>()));
         
         return services;
     }

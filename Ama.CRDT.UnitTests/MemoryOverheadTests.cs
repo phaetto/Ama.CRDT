@@ -10,6 +10,7 @@ using Ama.CRDT.Attributes.Strategies;
 using Ama.CRDT.Extensions;
 using Ama.CRDT.Models;
 using Ama.CRDT.Models.Aot;
+using Ama.CRDT.Models.Intents;
 using Ama.CRDT.Services;
 using Ama.CRDT.Services.Decorators;
 using Ama.CRDT.Services.GarbageCollection;
@@ -37,33 +38,37 @@ public sealed class MemoryOverheadTests
     public void MeasureDocumentAndMetadataMemoryOverhead_AcrossConfigurations()
     {
         using var scope = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("replica-mem-test");
-        var metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         var timestamp = new CrdtTimestamp(1000, 0, ReplicaId: "replica-mem-test");
 
         // Warmup JIT and string pools
-        var warmupModel = CreateModel(5);
-        _ = metadataManager.Initialize(warmupModel, timestamp);
+        var warmupDoc = BuildSimulatedDocument(scope.ServiceProvider, 5, 10, timestamp);
+        _ = warmupDoc.Metadata.DeepClone();
 
         var itemCounts = new[] { 0, 5, 25, 100 };
+        var opCounts = new[] { 0, 10, 50 };
 
-        output.WriteLine("| Configuration | Data Bytes | Metadata Bytes | Full Doc Bytes | Meta Overhead % | Meta/Data Ratio |");
-        output.WriteLine("| :--- | :---: | :---: | :---: | :---: | :---: |");
+        output.WriteLine("| Items / Col | Ops Applied | Data Bytes | Metadata Bytes | Full Doc Bytes | Meta Overhead % | Meta/Data Ratio |");
+        output.WriteLine("| :---: | :---: | :---: | :---: | :---: | :---: | :---: |");
 
         foreach (var count in itemCounts)
         {
-            long dataBytes = MeasureAllocatedBytes(() => CreateModel(count));
-            var sampleModel = CreateModel(count);
-            long metaBytes = MeasureAllocatedBytes(() => metadataManager.Initialize(sampleModel, timestamp));
-            long fullDocBytes = dataBytes + metaBytes;
+            foreach (var ops in opCounts)
+            {
+                var doc = BuildSimulatedDocument(scope.ServiceProvider, count, ops, timestamp);
 
-            double overheadPercentage = (double)metaBytes / dataBytes * 100.0;
-            double ratio = (double)metaBytes / dataBytes;
+                long dataBytes = MeasureAllocatedBytes(() => CloneModel(doc.Data));
+                long metaBytes = MeasureAllocatedBytes(() => doc.Metadata.DeepClone());
+                long fullDocBytes = dataBytes + metaBytes;
 
-            output.WriteLine($"| Model ({count} items/col) | {dataBytes:N0} B | {metaBytes:N0} B | {fullDocBytes:N0} B | {overheadPercentage:F1}% | {ratio:F2}x |");
+                double overheadPercentage = (double)metaBytes / dataBytes * 100.0;
+                double ratio = (double)metaBytes / dataBytes;
 
-            dataBytes.ShouldBeGreaterThan(0);
-            metaBytes.ShouldBeGreaterThan(0);
-            overheadPercentage.ShouldBeGreaterThan(0);
+                output.WriteLine($"| {count} | {ops} | {dataBytes:N0} B | {metaBytes:N0} B | {fullDocBytes:N0} B | {overheadPercentage:F1}% | {ratio:F2}x |");
+
+                dataBytes.ShouldBeGreaterThan(0);
+                metaBytes.ShouldBeGreaterThan(0);
+                overheadPercentage.ShouldBeGreaterThan(0);
+            }
         }
     }
 
@@ -75,72 +80,70 @@ public sealed class MemoryOverheadTests
         brotliServices.AddCrdtAotContext<MemoryOverheadTestCrdtAotContext>();
         using var brotliServiceProvider = brotliServices.BuildServiceProvider();
 
-        using var jsonScope = serviceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("replica-mem-test");
         using var brotliScope = brotliServiceProvider.GetRequiredService<ICrdtScopeFactory>().CreateScope("replica-mem-test");
 
-        var jsonMetaManager = jsonScope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         var brotliMetaManager = brotliScope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         var timestamp = new CrdtTimestamp(1000, 0, ReplicaId: "replica-mem-test");
 
         // Warmup JIT and string pools
-        var warmupModel = CreateModel(5);
-        var warmupMeta = jsonMetaManager.Initialize(warmupModel, timestamp);
-        _ = jsonMetaManager.Pack(new CrdtDocument<TestMemoryModel>(warmupModel, warmupMeta));
-        _ = brotliMetaManager.Pack(new CrdtDocument<TestMemoryModel>(warmupModel, warmupMeta));
+        var warmupDoc = BuildSimulatedDocument(brotliScope.ServiceProvider, 5, 10, timestamp);
+        _ = brotliMetaManager.Pack(warmupDoc);
 
         var itemCounts = new[] { 0, 5, 25, 100 };
+        var opCounts = new[] { 0, 10, 50 };
 
-        output.WriteLine("=== PackedCrdtDocument At-Rest Payload Size vs In-Memory CrdtMetadata ===");
-        output.WriteLine("| Configuration | Data Bytes | Unpacked Meta (Heap) | Packed JSON Bytes | JSON Meta Overhead % | JSON Savings % | Packed Brotli Bytes | Brotli Meta Overhead % | Brotli Savings % |");
-        output.WriteLine("| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |");
+        output.WriteLine("=== PackedCrdtDocument (Brotli) At-Rest Payload Size vs In-Memory CrdtMetadata ===");
+        output.WriteLine("| Items / Col | Ops Applied | Data Bytes | Unpacked Meta (Heap) | Packed Brotli Bytes | Brotli Meta Overhead % | Brotli Savings % |");
+        output.WriteLine("| :---: | :---: | :---: | :---: | :---: | :---: | :---: |");
 
         foreach (var count in itemCounts)
         {
-            long dataBytes = MeasureAllocatedBytes(() => CreateModel(count));
-            var sampleModel = CreateModel(count);
-            long unpackedMetaBytes = MeasureAllocatedBytes(() => jsonMetaManager.Initialize(sampleModel, timestamp));
+            foreach (var ops in opCounts)
+            {
+                var sampleDoc = BuildSimulatedDocument(brotliScope.ServiceProvider, count, ops, timestamp);
 
-            var sampleDoc = new CrdtDocument<TestMemoryModel>(sampleModel, jsonMetaManager.Initialize(sampleModel, timestamp));
-            var packedJsonDoc = jsonMetaManager.Pack(sampleDoc);
-            var packedBrotliDoc = brotliMetaManager.Pack(sampleDoc);
+                long dataBytes = MeasureAllocatedBytes(() => CloneModel(sampleDoc.Data));
+                long unpackedMetaBytes = MeasureAllocatedBytes(() => sampleDoc.Metadata.DeepClone());
 
-            long jsonPayloadBytes = packedJsonDoc.MetadataBytes.Length;
-            long brotliPayloadBytes = packedBrotliDoc.MetadataBytes.Length;
+                var packedBrotliDoc = brotliMetaManager.Pack(sampleDoc);
 
-            double jsonOverheadPct = (double)jsonPayloadBytes / dataBytes * 100.0;
-            double jsonSavingsPct = (1.0 - ((double)jsonPayloadBytes / unpackedMetaBytes)) * 100.0;
+                long brotliPayloadBytes = packedBrotliDoc.MetadataBytes.Length;
 
-            double brotliOverheadPct = (double)brotliPayloadBytes / dataBytes * 100.0;
-            double brotliSavingsPct = (1.0 - ((double)brotliPayloadBytes / unpackedMetaBytes)) * 100.0;
+                double brotliOverheadPct = (double)brotliPayloadBytes / dataBytes * 100.0;
+                double brotliSavingsPct = (1.0 - ((double)brotliPayloadBytes / unpackedMetaBytes)) * 100.0;
 
-            output.WriteLine($"| Model ({count} items/col) | {dataBytes:N0} B | {unpackedMetaBytes:N0} B | {jsonPayloadBytes:N0} B | {jsonOverheadPct:F1}% | {jsonSavingsPct:F1}% | {brotliPayloadBytes:N0} B | {brotliOverheadPct:F1}% | {brotliSavingsPct:F1}% |");
+                output.WriteLine($"| {count} | {ops} | {dataBytes:N0} B | {unpackedMetaBytes:N0} B | {brotliPayloadBytes:N0} B | {brotliOverheadPct:F1}% | {brotliSavingsPct:F1}% |");
 
-            jsonPayloadBytes.ShouldBeGreaterThan(0);
-            brotliPayloadBytes.ShouldBeGreaterThan(0);
-            jsonPayloadBytes.ShouldBeLessThan(unpackedMetaBytes);
-            brotliPayloadBytes.ShouldBeLessThan(unpackedMetaBytes);
+                brotliPayloadBytes.ShouldBeGreaterThan(0);
+                brotliPayloadBytes.ShouldBeLessThan(unpackedMetaBytes);
+            }
         }
 
         output.WriteLine("");
-        output.WriteLine("=== Full Replica Document Cache Memory Footprint (Unpacked vs Packed JSON vs Packed Brotli) ===");
-        output.WriteLine("| Configuration | Unpacked Docs Bytes | Packed (JSON) Retained Bytes | Packed (Brotli) Retained Bytes | JSON Cache Reduction % | Brotli Cache Reduction % |");
-        output.WriteLine("| :--- | :---: | :---: | :---: | :---: | :---: |");
+        output.WriteLine("=== Full Replica Document Cache Memory Footprint (Unpacked vs Packed Brotli) ===");
+        output.WriteLine("| Configuration | Unpacked Docs Bytes | Packed (Brotli) Retained Bytes | Brotli Cache Reduction % |");
+        output.WriteLine("| :--- | :---: | :---: | :---: |");
 
-        var cacheConfigs = new (string Name, int Documents, int ItemsPerCol)[]
+        var cacheConfigs = new (string Name, int Documents, int ItemsPerCol, int OpsPerDoc)[]
         {
-            ("Small Cache (10 docs, 5 items/col)", 10, 5),
-            ("Medium Cache (25 docs, 20 items/col)", 25, 20),
-            ("Large Cache (50 docs, 50 items/col)", 50, 50)
+            ("Small Cache (10 docs, 5 items/col, 0 ops)", 10, 5, 0),
+            ("Small Cache (10 docs, 5 items/col, 15 ops)", 10, 5, 15),
+            ("Medium Cache (25 docs, 20 items/col, 0 ops)", 25, 20, 0),
+            ("Medium Cache (25 docs, 20 items/col, 30 ops)", 25, 20, 30),
+            ("Large Cache (50 docs, 50 items/col, 0 ops)", 50, 50, 0),
+            ("Large Cache (50 docs, 50 items/col, 50 ops)", 50, 50, 50)
         };
 
         foreach (var cfg in cacheConfigs)
         {
+            var templateDoc = BuildSimulatedDocument(brotliScope.ServiceProvider, cfg.ItemsPerCol, cfg.OpsPerDoc, timestamp);
+
             long dataOnlyBytes = MeasureAllocatedBytes(() =>
             {
                 var models = new TestMemoryModel[cfg.Documents];
                 for (int d = 0; d < cfg.Documents; d++)
                 {
-                    models[d] = CreateModel(cfg.ItemsPerCol);
+                    models[d] = CloneModel(templateDoc.Data);
                 }
                 return models;
             });
@@ -150,28 +153,21 @@ public sealed class MemoryOverheadTests
                 var docs = new CrdtDocument<TestMemoryModel>[cfg.Documents];
                 for (int d = 0; d < cfg.Documents; d++)
                 {
-                    var model = CreateModel(cfg.ItemsPerCol);
-                    var meta = jsonMetaManager.Initialize(model, timestamp);
+                    var model = CloneModel(templateDoc.Data);
+                    var meta = templateDoc.Metadata.DeepClone();
                     docs[d] = new CrdtDocument<TestMemoryModel>(model, meta);
                 }
                 return docs;
             });
 
-            var sampleModel = CreateModel(cfg.ItemsPerCol);
-            var sampleDoc = new CrdtDocument<TestMemoryModel>(sampleModel, jsonMetaManager.Initialize(sampleModel, timestamp));
-            long singleJsonArrayBytes = jsonMetaManager.Pack(sampleDoc).MetadataBytes.Length + 24; // byte[] object header + length
-            long singleBrotliArrayBytes = brotliMetaManager.Pack(sampleDoc).MetadataBytes.Length + 24;
-
-            long packedJsonCacheBytes = dataOnlyBytes + (singleJsonArrayBytes * cfg.Documents);
+            long singleBrotliArrayBytes = brotliMetaManager.Pack(templateDoc).MetadataBytes.Length + 24; // byte[] object header + length
             long packedBrotliCacheBytes = dataOnlyBytes + (singleBrotliArrayBytes * cfg.Documents);
 
-            double jsonReductionPct = (1.0 - ((double)packedJsonCacheBytes / unpackedDocsBytes)) * 100.0;
             double brotliReductionPct = (1.0 - ((double)packedBrotliCacheBytes / unpackedDocsBytes)) * 100.0;
 
-            output.WriteLine($"| {cfg.Name} | {unpackedDocsBytes:N0} B | {packedJsonCacheBytes:N0} B | {packedBrotliCacheBytes:N0} B | {jsonReductionPct:F1}% | {brotliReductionPct:F1}% |");
+            output.WriteLine($"| {cfg.Name} | {unpackedDocsBytes:N0} B | {packedBrotliCacheBytes:N0} B | {brotliReductionPct:F1}% |");
 
-            packedJsonCacheBytes.ShouldBeLessThan(unpackedDocsBytes);
-            packedBrotliCacheBytes.ShouldBeLessThan(packedJsonCacheBytes);
+            packedBrotliCacheBytes.ShouldBeLessThan(unpackedDocsBytes);
         }
     }
 
@@ -271,16 +267,19 @@ public sealed class MemoryOverheadTests
         output.WriteLine($"| Async Pipeline (`IAsyncCrdtPatcher`, `IAsyncCrdtApplicator`, `IAsyncCrdtMerger`) | {asyncScopeBytes:N0} B |");
 
         bareScopeBytes.ShouldBeGreaterThan(0);
+        bareScopeBytes.ShouldBeLessThan(600);
         syncScopeBytes.ShouldBeGreaterThan(bareScopeBytes);
-        asyncScopeBytes.ShouldBeGreaterThan(bareScopeBytes);
+        syncScopeBytes.ShouldBeLessThan(1500);
+        asyncScopeBytes.ShouldBeGreaterThan(syncScopeBytes);
+        asyncScopeBytes.ShouldBeLessThan(2000);
 
-        // 4. Full active replica state across cluster/shard/document configurations
-        var configs = new (string Name, int Shards, int PeerReplicas, int Dots, int Documents, int ItemsPerCol)[]
+        // 4. Full active replica state across cluster/shard/document/ops configurations
+        var configs = new (string Name, int Shards, int PeerReplicas, int Dots, int Documents, int ItemsPerCol, int OpsPerDoc)[]
         {
-            ("Minimal (1 shard, 3 peers, 1 doc, 0 items)", 1, 3, 0, 1, 0),
-            ("Small (1 shard, 5 peers, 5 docs, 5 items)", 1, 5, 2, 5, 5),
-            ("Medium (5 shards, 15 peers, 10 docs, 20 items)", 5, 15, 5, 10, 20),
-            ("Large Sharded (20 shards, 50 peers, 25 docs, 50 items)", 20, 50, 10, 25, 50)
+            ("Minimal (1 shard, 3 peers, 1 doc, 0 items, 0 ops)", 1, 3, 0, 1, 0, 0),
+            ("Small (1 shard, 5 peers, 5 docs, 5 items, 10 ops)", 1, 5, 2, 5, 5, 10),
+            ("Medium (5 shards, 15 peers, 10 docs, 20 items, 25 ops)", 5, 15, 5, 10, 20, 25),
+            ("Large Sharded (20 shards, 50 peers, 25 docs, 50 items, 50 ops)", 20, 50, 10, 25, 50, 50)
         };
 
         output.WriteLine("");
@@ -289,13 +288,13 @@ public sealed class MemoryOverheadTests
         output.WriteLine("| :--- | :---: | :---: | :---: | :---: |");
 
         using var initScope = scopeFactory.CreateScope("replica-mem-test");
-        var metadataManager = initScope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         var timestamp = new CrdtTimestamp(1000, 0, ReplicaId: "replica-mem-test");
 
         foreach (var cfg in configs)
         {
             var shardIds = CreateIds("shard", cfg.Shards);
             var repIds = CreateIds("rep", cfg.PeerReplicas);
+            var templateDoc = BuildSimulatedDocument(initScope.ServiceProvider, cfg.ItemsPerCol, cfg.OpsPerDoc, timestamp);
 
             long scopeAndShardsBytes = MeasureAllocatedBytes(() =>
             {
@@ -316,8 +315,8 @@ public sealed class MemoryOverheadTests
                 var docs = new CrdtDocument<TestMemoryModel>[cfg.Documents];
                 for (int d = 0; d < cfg.Documents; d++)
                 {
-                    var model = CreateModel(cfg.ItemsPerCol);
-                    var meta = metadataManager.Initialize(model, timestamp);
+                    var model = CloneModel(templateDoc.Data);
+                    var meta = templateDoc.Metadata.DeepClone();
                     docs[d] = new CrdtDocument<TestMemoryModel>(model, meta);
                 }
                 return docs;
@@ -491,6 +490,82 @@ public sealed class MemoryOverheadTests
             Tags = tags,
             Scores = scores
         };
+    }
+
+    private static TestMemoryModel CloneModel(TestMemoryModel source)
+    {
+        var tags = new List<string>(source.Tags.Count);
+        for (int i = 0; i < source.Tags.Count; i++)
+        {
+            tags.Add(source.Tags[i]);
+        }
+
+        var scores = new Dictionary<string, int>(source.Scores.Count);
+        foreach (var kvp in source.Scores)
+        {
+            scores[kvp.Key] = kvp.Value;
+        }
+
+        return new TestMemoryModel
+        {
+            Id = source.Id,
+            Name = source.Name,
+            Count = source.Count,
+            Tags = tags,
+            Scores = scores
+        };
+    }
+
+    private static CrdtDocument<TestMemoryModel> BuildSimulatedDocument(IServiceProvider sp, int initialCollectionSize, int opsCount, CrdtTimestamp baseTimestamp)
+    {
+        var metadataManager = sp.GetRequiredService<ICrdtMetadataManager>();
+        var patcher = sp.GetRequiredService<ICrdtPatcher>();
+        var applicator = sp.GetRequiredService<ICrdtApplicator>();
+
+        var model = CreateModel(initialCollectionSize);
+        var meta = metadataManager.Initialize(model, baseTimestamp);
+        var doc = new CrdtDocument<TestMemoryModel>(model, meta);
+
+        for (int i = 0; i < opsCount; i++)
+        {
+            var ts = new CrdtTimestamp(baseTimestamp.Ticks + i + 1, 0, ReplicaId: "replica-mem-test");
+            CrdtOperation op = (i % 5) switch
+            {
+                0 => patcher.GenerateOperation(doc, m => m.Count, new IncrementIntent(1), ts),
+                1 => patcher.GenerateOperation(doc, m => m.Tags, new AddIntent($"op-tag-{i}"), ts),
+                2 => patcher.GenerateOperation(doc, m => m.Tags, new RemoveValueIntent(i >= 5 ? $"op-tag-{i - 4}" : "item"), ts),
+                3 => patcher.GenerateOperation(doc, m => m.Scores, new MapSetIntent($"op-k{i}", i * 10), ts),
+                _ => patcher.GenerateOperation(doc, m => m.Scores, new MapRemoveIntent(i >= 5 ? $"op-k{i - 1}" : "k0"), ts)
+            };
+
+            applicator.ApplyPatch(doc, new CrdtPatch([op]));
+        }
+
+        if (opsCount > 0)
+        {
+            // Simulate causal history and out-of-order exception tracking from peer replicas
+            int peerCount = Math.Min(10, (opsCount / 5) + 1);
+            for (int r = 1; r <= peerCount; r++)
+            {
+                doc.Metadata.VersionVector[$"peer-rep-{r:D2}"] = opsCount * 2;
+            }
+
+            int exceptionCount = Math.Min(5, (opsCount / 10) + 1);
+            for (int e = 0; e < exceptionCount; e++)
+            {
+                var exTs = new CrdtTimestamp(baseTimestamp.Ticks + 5000 + e, 0, ReplicaId: "peer-rep-01");
+                doc.Metadata.SeenExceptions.Add(new CrdtOperation(
+                    Guid.NewGuid(),
+                    "peer-rep-01",
+                    "$.count",
+                    OperationType.Increment,
+                    1m,
+                    exTs,
+                    (opsCount * 2) + e + 2));
+            }
+        }
+
+        return doc;
     }
 
     private static DottedVersionVector CreateDvv(string[] replicaIds, int dotsPerReplica)
