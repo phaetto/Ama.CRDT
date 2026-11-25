@@ -19,7 +19,6 @@ public sealed class CompactSet<T> :
     IEquatable<CompactSet<T>>
 {
     private readonly IEqualityComparer<T> comparer;
-    private readonly ICrdtStringPool? stringPool;
     private T[] items = [];
     private HashSet<T>? promotedSet;
     private int count;
@@ -45,7 +44,6 @@ public sealed class CompactSet<T> :
         this.comparer = comparer ?? (typeof(T) == typeof(string)
             ? (IEqualityComparer<T>)(object)StringComparer.Ordinal
             : EqualityComparer<T>.Default);
-        this.stringPool = stringPool;
 
         if (capacity > CrdtCollectionMemoryOptions.LinearScanThreshold)
         {
@@ -83,7 +81,6 @@ public sealed class CompactSet<T> :
             ?? (typeof(T) == typeof(string)
                 ? (IEqualityComparer<T>)(object)StringComparer.Ordinal
                 : EqualityComparer<T>.Default);
-        this.stringPool = stringPool ?? (collection as CompactSet<T>)?.stringPool;
 
         if (collection is CompactSet<T> compactSource &&
             (ReferenceEquals(compactSource.comparer, this.comparer) || compactSource.comparer.Equals(this.comparer)))
@@ -188,6 +185,15 @@ public sealed class CompactSet<T> :
 
         if (count == items.Length)
         {
+            int nextCapacity = Math.Max(
+                items.Length == 0 ? CrdtCollectionMemoryOptions.InitialFlatCapacity : (int)(items.Length * CrdtCollectionMemoryOptions.GrowthFactor),
+                items.Length + CrdtCollectionMemoryOptions.MinimumGrowthStep);
+
+            if (nextCapacity > CrdtCollectionMemoryOptions.LinearScanThreshold)
+            {
+                nextCapacity = CrdtCollectionMemoryOptions.LinearScanThreshold;
+            }
+            
             int newCapacity = Math.Min(threshold, CrdtCollectionMemoryOptions.CalculateNewCapacity(items.Length, count + 1));
             Array.Resize(ref items, newCapacity);
         }
@@ -718,7 +724,7 @@ public sealed class CompactSet<T> :
     /// Creates a shallow copy of the <see cref="CompactSet{T}"/> with an exact-fit backing capacity.
     /// </summary>
     /// <returns>A new <see cref="CompactSet{T}"/> containing the same elements.</returns>
-    public CompactSet<T> Clone() => new(this, comparer, stringPool);
+    public CompactSet<T> Clone() => new(this, comparer);
 
     /// <inheritdoc/>
     public override bool Equals(object? obj) => Equals(obj as CompactSet<T>);
@@ -836,21 +842,12 @@ public sealed class CompactSet<T> :
         }
     }
 
-    private T PoolItemIfNeeded(T item)
+    private static T PoolItemIfNeeded(T item)
     {
-        if (typeof(T) == typeof(string) && item is string strItem)
+        if (typeof(T) == typeof(string) && item is string strItem && CrdtCollectionMemoryOptions.EnableAutomaticStringPooling)
         {
-            if (stringPool is not null)
-            {
-                var pooled = stringPool.GetOrAdd(strItem);
-                return Unsafe.As<string, T>(ref pooled);
-            }
-
-            if (CrdtCollectionMemoryOptions.EnableAutomaticStringPooling)
-            {
-                var pooled = CrdtStringPool.Shared.GetOrAdd(strItem);
-                return Unsafe.As<string, T>(ref pooled);
-            }
+            var pooled = CrdtStringPool.Shared.GetOrAdd(strItem);
+            return Unsafe.As<string, T>(ref pooled);
         }
 
         return item;
@@ -944,7 +941,7 @@ public sealed class CompactSet<T> :
             return compactOther;
         }
 
-        return new CompactSet<T>(other, comparer, stringPool);
+        return new CompactSet<T>(other, comparer);
     }
 
     private IEnumerator<T> IterateFlatItems()

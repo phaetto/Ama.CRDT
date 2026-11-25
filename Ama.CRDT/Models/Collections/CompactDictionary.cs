@@ -22,7 +22,6 @@ public sealed class CompactDictionary<TKey, TValue> :
     where TKey : notnull
 {
     private readonly IEqualityComparer<TKey> comparer;
-    private readonly ICrdtStringPool? stringPool;
     private KeyValuePair<TKey, TValue>[] entries = [];
     private Dictionary<TKey, TValue>? promotedMap;
     private int count;
@@ -48,7 +47,6 @@ public sealed class CompactDictionary<TKey, TValue> :
         this.comparer = comparer ?? (typeof(TKey) == typeof(string)
             ? (IEqualityComparer<TKey>)(object)StringComparer.Ordinal
             : EqualityComparer<TKey>.Default);
-        this.stringPool = stringPool;
 
         if (capacity > CrdtCollectionMemoryOptions.LinearScanThreshold)
         {
@@ -86,7 +84,6 @@ public sealed class CompactDictionary<TKey, TValue> :
             ?? (typeof(TKey) == typeof(string)
                 ? (IEqualityComparer<TKey>)(object)StringComparer.Ordinal
                 : EqualityComparer<TKey>.Default);
-        this.stringPool = stringPool ?? (dictionary as CompactDictionary<TKey, TValue>)?.stringPool;
 
         if (dictionary is CompactDictionary<TKey, TValue> compactSource &&
             (ReferenceEquals(compactSource.comparer, this.comparer) || compactSource.comparer.Equals(this.comparer)))
@@ -148,7 +145,7 @@ public sealed class CompactDictionary<TKey, TValue> :
         : this(
             collection is ICollection<KeyValuePair<TKey, TValue>> c ? c.Count : 0,
             comparer ?? (collection as CompactDictionary<TKey, TValue>)?.comparer ?? (collection as Dictionary<TKey, TValue>)?.Comparer,
-            stringPool ?? (collection as CompactDictionary<TKey, TValue>)?.stringPool)
+            stringPool)
     {
         ArgumentNullException.ThrowIfNull(collection);
 
@@ -616,7 +613,7 @@ public sealed class CompactDictionary<TKey, TValue> :
     /// Creates a shallow copy of the <see cref="CompactDictionary{TKey, TValue}"/> with an exact-fit backing capacity.
     /// </summary>
     /// <returns>A new <see cref="CompactDictionary{TKey, TValue}"/> containing the same key-value pairs.</returns>
-    public CompactDictionary<TKey, TValue> Clone() => new(this, comparer, stringPool);
+    public CompactDictionary<TKey, TValue> Clone() => new(this, comparer);
 
     /// <inheritdoc/>
     public override bool Equals(object? obj) => Equals(obj as CompactDictionary<TKey, TValue>);
@@ -824,21 +821,12 @@ public sealed class CompactDictionary<TKey, TValue> :
         }
     }
 
-    private TKey PoolKeyIfNeeded(TKey key)
+    private static TKey PoolKeyIfNeeded(TKey key)
     {
-        if (typeof(TKey) == typeof(string) && key is string strKey)
+        if (typeof(TKey) == typeof(string) && key is string strKey && CrdtCollectionMemoryOptions.EnableAutomaticStringPooling)
         {
-            if (stringPool is not null)
-            {
-                var pooled = stringPool.GetOrAdd(strKey);
-                return Unsafe.As<string, TKey>(ref pooled);
-            }
-
-            if (CrdtCollectionMemoryOptions.EnableAutomaticStringPooling)
-            {
-                var pooled = CrdtStringPool.Shared.GetOrAdd(strKey);
-                return Unsafe.As<string, TKey>(ref pooled);
-            }
+            var pooled = CrdtStringPool.Shared.GetOrAdd(strKey);
+            return Unsafe.As<string, TKey>(ref pooled);
         }
 
         return key;
@@ -889,11 +877,32 @@ public sealed class CompactDictionary<TKey, TValue> :
 
         if (count == entries.Length)
         {
+            int nextCapacity = Math.Max(
+                entries.Length == 0 ? CrdtCollectionMemoryOptions.InitialFlatCapacity : (int)(entries.Length * CrdtCollectionMemoryOptions.GrowthFactor),
+                entries.Length + CrdtCollectionMemoryOptions.MinimumGrowthStep);
+
+            if (nextCapacity > CrdtCollectionMemoryOptions.LinearScanThreshold)
+            {
+                nextCapacity = CrdtCollectionMemoryOptions.LinearScanThreshold;
+            }
+
             int newCapacity = Math.Min(threshold, CrdtCollectionMemoryOptions.CalculateNewCapacity(entries.Length, count + 1));
             Array.Resize(ref entries, newCapacity);
         }
 
         entries[count++] = new KeyValuePair<TKey, TValue>(normalizedKey, value);
+    }
+
+    private void PromoteToMap(int targetCapacity)
+    {
+        var map = new Dictionary<TKey, TValue>(targetCapacity, comparer);
+        for (int i = 0; i < count; i++)
+        {
+            map[entries[i].Key] = entries[i].Value;
+        }
+
+        promotedMap = map;
+        entries = [];
     }
 
     private void PromoteAndAdd(TKey newKey, TValue newValue)

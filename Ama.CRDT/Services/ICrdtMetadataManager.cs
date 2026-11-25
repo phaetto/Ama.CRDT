@@ -231,4 +231,41 @@ public interface ICrdtMetadataManager
     /// </code>
     /// </example>
     void EvictReplica<T>([DisallowNull] CrdtDocument<T> document, [DisallowNull] string replicaId) where T : class;
+
+    /// <summary>
+    /// Serializes the metadata of a <see cref="CrdtDocument{T}"/> into a compact <see cref="PackedCrdtDocument{T}"/> using the configured <see cref="Serialization.ICrdtSerializer"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of the document data model.</typeparam>
+    /// <param name="document">The unpacked CRDT document to pack.</param>
+    /// <returns>A <see cref="PackedCrdtDocument{T}"/> containing the document data and serialized metadata bytes.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/>.Metadata is null.</exception>
+    PackedCrdtDocument<T> Pack<T>(CrdtDocument<T> document) where T : class;
+
+    /// <summary>
+    /// Deserializes the binary metadata of a <see cref="PackedCrdtDocument{T}"/> back into an active <see cref="CrdtDocument{T}"/> using the configured <see cref="Serialization.ICrdtSerializer"/>.
+    /// If <see cref="PackedCrdtDocument{T}.MetadataBytes"/> is empty, a new <see cref="CrdtMetadata"/> instance is created.
+    /// </summary>
+    /// <typeparam name="T">The type of the document data model.</typeparam>
+    /// <param name="packedDocument">The packed CRDT document to unpack.</param>
+    /// <returns>An unpacked <see cref="CrdtDocument{T}"/> ready for active CRDT operations.</returns>
+    CrdtDocument<T> Unpack<T>(PackedCrdtDocument<T> packedDocument) where T : class;
+
+    /// <summary>
+    /// Initializes a new <see cref="CrdtMetadata"/> for the given document data and packs it immediately into a <see cref="PackedCrdtDocument{T}"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of the document data model.</typeparam>
+    /// <param name="document">The document object to initialize and pack metadata for.</param>
+    /// <returns>A newly initialized <see cref="PackedCrdtDocument{T}"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/> is null.</exception>
+    PackedCrdtDocument<T> InitializePacked<T>([DisallowNull] T document) where T : class;
+
+    /// <summary>
+    /// Initializes a new <see cref="CrdtMetadata"/> for the given document data with a specific timestamp and packs it immediately into a <see cref="PackedCrdtDocument{T}"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of the document data model.</typeparam>
+    /// <param name="document">The document object to initialize and pack metadata for.</param>
+    /// <param name="timestamp">The timestamp to use for initialization.</param>
+    /// <returns>A newly initialized <see cref="PackedCrdtDocument{T}"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="document"/> is null.</exception>
+    PackedCrdtDocument<T> InitializePacked<T>([DisallowNull] T document, CrdtTimestamp timestamp) where T : class;
 }

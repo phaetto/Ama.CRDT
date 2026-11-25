@@ -9,9 +9,9 @@ using System;
 public static class CrdtCollectionMemoryOptions
 {
     private static int linearScanThreshold = 16;
-    private static double growthFactor = 1.5;
+    private static double growthFactor = 2.0;
     private static int minimumGrowthStep = 1;
-    private static int initialFlatCapacity = 2;
+    private static int initialFlatCapacity = 4;
     private static double autoDemoteRatio = 0.5;
 
     /// <summary>
@@ -36,7 +36,7 @@ public static class CrdtCollectionMemoryOptions
     /// <summary>
     /// Gets or sets the growth multiplier for flat arrays when resizing in Tier 2.
     /// Set to 1.0 to use purely linear chunked growth controlled by <see cref="MinimumGrowthStep"/>.
-    /// Must be between 1.0 and 4.0. Default is 1.5 (50% growth instead of 2x doubling).
+    /// Must be between 1.0 and 4.0. Default is 2.0 (standard doubling to minimize intermediate array resize churn).
     /// </summary>
     public static double GrowthFactor
     {
@@ -73,7 +73,7 @@ public static class CrdtCollectionMemoryOptions
 
     /// <summary>
     /// Gets or sets the initial array capacity allocated when transitioning from Tier 1 (Empty) to Tier 2 (Flat array).
-    /// Must be between 1 and 64. Default is 2.
+    /// Must be between 1 and 64. Default is 4.
     /// </summary>
     public static int InitialFlatCapacity
     {

@@ -19,12 +19,14 @@
 | `$/Ama.CRDT.Benchmarks/Ama.CRDT.Benchmarks.csproj` | The project file for the benchmarks application. |
 | `$/Ama.CRDT.Benchmarks/AntiVirusFriendlyConfig.cs` | No description provided. |
 | `$/Ama.CRDT.Benchmarks/Benchmarks/ApplicatorBenchmarks.cs` | Contains benchmarks for the `CrdtApplicator` service. |
+| `$/Ama.CRDT.Benchmarks/Benchmarks/MemoryOverheadBenchmarks.cs` | Benchmarks memory footprint across CRDT documents, metadata, `PackedCrdtDocument<T>` (JSON & Brotli), DottedVersionVectors, and ShardVersionVectorMaps with custom columns reporting `Meta Overhead %` and `Meta/Data Ratio`. |
 | `$/Ama.CRDT.Benchmarks/Benchmarks/PatcherBenchmarks.cs` | Contains benchmarks for the `CrdtPatcher` service. |
 | `$/Ama.CRDT.Benchmarks/Benchmarks/StrategyApplyBenchmarks.cs` | Contains benchmarks for `ApplyOperation` for every individual CRDT strategy in isolation. |
 | `$/Ama.CRDT.Benchmarks/Benchmarks/StrategyGenerateBenchmarks.cs` | Contains benchmarks for `GeneratePatch` for every individual CRDT strategy in isolation. |
 | `$/Ama.CRDT.Benchmarks/Benchmarks/StrategyGenerateOperationBenchmarks.cs` | Contains benchmarks for `GenerateOperation` for every individual CRDT strategy in isolation using explicit operation intents. |
-| `$/Ama.CRDT.Benchmarks/Models/BenchmarkCrdtContext.cs` | AOT JSON serialization and `CrdtAotContext` for the benchmark models. |
+| `$/Ama.CRDT.Benchmarks/Models/BenchmarkCrdtContext.cs` | AOT JSON serialization and `CrdtAotContext` for the benchmark models, including `WidePoco` and `CollectionHeavyPoco`. |
 | `$/Ama.CRDT.Benchmarks/Models/ComplexPoco.cs` | A complex data model with nested objects and arrays for benchmarking recursive and collection-based scenarios. |
+| `$/Ama.CRDT.Benchmarks/Models/MemoryPoco.cs` | Contains `WidePoco` and `CollectionHeavyPoco` models for benchmarking metadata memory overhead across different object shapes and collection sizes. |
 | `$/Ama.CRDT.Benchmarks/Models/SimplePoco.cs` | A simple data model for benchmarking basic scenarios. |
 | `$/Ama.CRDT.Benchmarks/Models/StrategyPoco.cs` | A data model containing properties decorated with attributes for each supported CRDT strategy, used for isolated strategy benchmarking. |
 | `$/Ama.CRDT.Benchmarks/Program.cs` | The entry point for the benchmark runner. |
@@ -144,11 +146,14 @@
 | `$/Ama.CRDT.UnitTests/Architecture/ModelConventionTests.cs` | An architecture convention unit test that reflects over all data models to enforce the presence of serialization tests by scanning the test source files. |
 | `$/Ama.CRDT.UnitTests/Architecture/StrategyConventionTests.cs` | An architecture convention unit test that reflects over all strategies to enforce the presence of unit tests, property tests, benchmarks, and documentation. |
 | `$/Ama.CRDT.UnitTests/Extensions/AsyncCrdtApplicatorExtensionsTests.cs` | Contains unit tests for `AsyncCrdtApplicatorExtensions`, verifying the correct asynchronous streaming of journaled operations and their translation into patches for the applicator. |
+| `$/Ama.CRDT.UnitTests/Extensions/PackedCrdtDocumentExtensionsTests.cs` | Unit tests verifying `PackedCrdtDocument<T>` packing, unpacking, patch generation, patch application, state merging, compaction, and replica eviction. |
 | `$/Ama.CRDT.UnitTests/Extensions/ServiceCollectionExtensionsTests.cs` | Unit tests for `ServiceCollectionExtensions`, validating service registrations, global modifier execution, and the aggregate JSON type info resolver. |
+| `$/Ama.CRDT.UnitTests/MemoryOverheadTests.cs` | Contains unit tests that measure and output a markdown report of the exact thread-allocated memory overhead of `CrdtMetadata` vs POCO data models, `PackedCrdtDocument<T>` (JSON & Brotli), DVVs, shard maps, and full replica scopes across different cluster and DI pipeline configurations. |
 | `$/Ama.CRDT.UnitTests/Models/Collections/CompactCollectionsTests.cs` | Unit tests for `CompactDictionary`, `CompactSet`, and `CrdtCollectionMemoryOptions`, covering tier promotions, automatic demotions, custom growth steps, auto-trimming, string pooling, set algebra, and JSON serialization. |
 | `$/Ama.CRDT.UnitTests/Models/CrdtTimestampTests.cs` | Contains unit tests for the `CrdtTimestamp` struct, covering multi-component ordering (`Epoch`, `Ticks`, `Counter`, `ReplicaId`), relational operators, equality, and `MinValue`. |
 | `$/Ama.CRDT.UnitTests/Models/DottedVersionVectorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/LargerThanMemory/CompositeChunkKeyTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Models/MemoryOverheadTests.cs` | Contains unit tests that measure and output a markdown report of the exact thread-allocated memory overhead percentage of `CrdtMetadata` vs POCO data models, DVVs, shard maps, and full replica scopes across different configurations. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CoreModelSerializationTests.cs` | Contains unit tests for serializing core library models like `ApplyPatchResult`, `JournaledOperation`, `UnappliedOperation`, and `DottedVersionVector`. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtDocumentSerializationTests.cs` | Contains unit tests for serializing the `CrdtDocument<T>` struct, including scenarios with null data or metadata, and compact serialization options. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtMetadataSerializationTests.cs` | Contains unit tests for the serialization and deserialization of the `CrdtMetadata` class, verifying both default and compact serialization options and ensuring polymorphic and complex data (e.g., non-string dictionary keys, nested collections) is handled correctly. |
@@ -291,6 +296,7 @@
 | `$/Ama.CRDT/Attributes/Strategies/Semantic/StateBasedAttribute.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/AsyncCrdtApplicatorExtensions.cs` | Provides extension methods for `IAsyncCrdtApplicator` to streamline common synchronization tasks, such as directly applying an asynchronous stream of missing operations. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
+| `$/Ama.CRDT/Extensions/PackedCrdtDocumentExtensions.cs` | Extension methods for packing/unpacking `PackedCrdtDocument<T>` and directly invoking `ICrdtApplicator`, `IAsyncCrdtApplicator`, `ICrdtPatcher`, `IAsyncCrdtPatcher`, `ICrdtMerger`, `IAsyncCrdtMerger`, and `ICrdtMetadataManager`. |
 | `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Provides dependency injection registration extensions for Ama.CRDT services, decorators, AOT contexts, and custom providers. |
 | `$/Ama.CRDT/Models/Aot/CoreCrdtAotContext.cs` | Internal AOT-generated context containing metadata registrations for all core CRDT models, collections, comparers, and state wrappers. |
 | `$/Ama.CRDT/Models/Aot/CrdtAotContext.cs` | No description provided. |
@@ -304,7 +310,6 @@
 | `$/Ama.CRDT/Models/Collections/CompactDictionary.cs` | Memory-controlled dictionary using a 3-tier adaptive layout with zero-allocation struct enumeration and fast-path copy construction. |
 | `$/Ama.CRDT/Models/Collections/CompactSet.cs` | Memory-controlled set using a 3-tier adaptive layout with zero-allocation struct enumeration and fast-path copy construction. |
 | `$/Ama.CRDT/Models/Collections/CrdtCollectionMemoryOptions.cs` | Centralized static configuration for memory-controlled CRDT collections, including growth step, initial capacity, auto-demotion hysteresis, string pooling toggle, and compaction trimming flag. |
-| `$/Ama.CRDT/Models/Collections/CrdtMemoryOptions.cs` | Centralized static configuration for memory-controlled CRDT collections, controlling linear scan thresholds, growth factors, and auto-trimming on empty. |
 | `$/Ama.CRDT/Models/CounterMapState.cs` | A wrapper state structure implementing `ICrdtMetadataState` for Counter-Map trackers. |
 | `$/Ama.CRDT/Models/CounterState.cs` | Represents the metadata state for properties managed by the `CounterStrategy`. Tracks positive and negative increment vectors per replica to mathematically enable State CRDT merges. |
 | `$/Ama.CRDT/Models/CrdtDocument.cs` | No description provided. |
@@ -369,6 +374,8 @@
 | `$/Ama.CRDT/Models/OrSetItem.cs` | Contains payload record structs (`OrSetAddItem`, `OrSetRemoveItem`) for OR-Set (Observed-Remove Set) operations, bundling values with unique tags. |
 | `$/Ama.CRDT/Models/OrSetState.cs` | Represents the state for an Observed-Remove Set (OR-Set) or OR-Map, utilizing `CompactDictionary` and `CompactSet` for `DeepClone` and `Merge` operations. |
 | `$/Ama.CRDT/Models/OriginSyncRequirement.cs` | A data structure representing the causality gap for a specific origin replica between a target and a source. |
+| `$/Ama.CRDT/Models/PackedApplyPatchResult.cs` | Data structure containing the result of applying a patch to a `PackedCrdtDocument<T>`, including the repacked document and unapplied operations. |
+| `$/Ama.CRDT/Models/PackedCrdtDocument.cs` | A memory-compact `readonly record struct` containing a data model and its serialized `ReadOnlyMemory<byte>` CRDT metadata. |
 | `$/Ama.CRDT/Models/PnCounterState.cs` | A `readonly record struct` representing the positive and negative contribution state for a PN-Counter. |
 | `$/Ama.CRDT/Models/PositionalIdentifier.cs` | No description provided. |
 | `$/Ama.CRDT/Models/PositionalItem.cs` | A data structure used in operation payloads for positional array updates, bundling a stable position with the actual value. |
@@ -403,7 +410,7 @@
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtPatcherAdapter.cs` | An adapter that bridges the synchronous `ICrdtPatcher` to the asynchronous `IAsyncCrdtPatcher` pipeline, acting as the base layer in the patcher decorator chain. |
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | Applies CRDT patches to documents, resolving conflicts via strategies and tracking causal histories per shard in `ReplicaContext`. |
 | `$/Ama.CRDT/Services/CrdtMerger.cs` | Synchronous implementation of `ICrdtMerger` that leverages object tree traversal to compute the state merge mathematically using strategy providers. |
-| `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Manages CRDT metadata initialization, resetting, cloning, merging, and compaction across strategies, with optional post-compaction excess memory trimming. |
+| `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implemented `Pack`, `Unpack`, and `InitializePacked` using the injected `ICrdtSerializer`. |
 | `$/Ama.CRDT/Services/CrdtPatcher.cs` | Compares versions of a data model or processes explicit intents to generate CRDT patches, populating `ShardId` and `ShardClock` and updating `ShardVersionVectors`. |
 | `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext` holding the unique replica ID. |
 | `$/Ama.CRDT/Services/Decorators/AsyncCrdtApplicatorDecoratorBase.cs` | An abstract base class for `IAsyncCrdtApplicator` decorators. Uses the `DecoratorBehavior` enum in its constructor to strictly control the Template Method execution flow, making bugs around pipeline ordering structurally impossible. |
@@ -429,7 +436,7 @@
 | `$/Ama.CRDT/Services/IAsyncCrdtPatcher.cs` | Defines the asynchronous contract for a service that compares two versions of a data model and generates a CRDT patch. |
 | `$/Ama.CRDT/Services/ICrdtApplicator.cs` | No description provided. |
 | `$/Ama.CRDT/Services/ICrdtMerger.cs` | Defines the synchronous contract for a service that merges two complete CRDT document states based on the CvRDT paradigm. |
-| `$/Ama.CRDT/Services/ICrdtMetadataManager.cs` | Defines a service for managing CRDT metadata. Its responsibilities include initializing, resetting, cloning, merging, and compacting metadata state such as LWW timestamps, positional trackers, and version vectors. This service is critical for enabling conflict-free merges by externalizing the state needed for resolution. |
+| `$/Ama.CRDT/Services/ICrdtMetadataManager.cs` | Added `Pack`, `Unpack`, and `InitializePacked` methods for converting between `CrdtDocument<T>` and `PackedCrdtDocument<T>`. |
 | `$/Ama.CRDT/Services/ICrdtPatcher.cs` | Defines the contract for a service that compares two versions of a data model and generates a CRDT patch, as well as an intent-based method for creating patches directly. |
 | `$/Ama.CRDT/Services/ICrdtScopeFactory.cs` | Defines a factory that creates isolated `IServiceScope` instances configured with a `ReplicaContext` and shard version vectors. |
 | `$/Ama.CRDT/Services/Journaling/ICrdtOperationJournal.cs` | Defines a contract for an operation journal to append and retrieve partitioned CRDT operations by `shardId` and `shardClock`. |
@@ -458,7 +465,7 @@
 | `$/Ama.CRDT/Services/Providers/CrdtStrategyProvider.cs` | Resolves CRDT strategies for properties based on AOT compiled metadata mappings and the fluent model registry. |
 | `$/Ama.CRDT/Services/Providers/DefaultDocumentIdProvider.cs` | The default implementation of `IDocumentIdProvider` that extracts the document ID by looking for an 'Id' property. |
 | `$/Ama.CRDT/Services/Providers/DefaultShardIdProvider.cs` | Provides a default implementation of `IShardIdProvider` that assigns all documents and document IDs to a single "default" shard. |
-| `$/Ama.CRDT/Services/Providers/ElementComparerProvider.cs` | No description provided. |
+| `$/Ama.CRDT/Services/Providers/ElementComparerProvider.cs` | Provides `IEqualityComparer<object>` instances for collection elements and dictionary keys, returning allocation-free `EqualityComparer<object>.Default` for strings and primitives and short-circuiting `HashSet` allocations in `ObjectDeepEqualityComparer`. |
 | `$/Ama.CRDT/Services/Providers/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `CrdtTimestamp` based on Unix milliseconds. |
 | `$/Ama.CRDT/Services/Providers/ICrdtModelRegistry.cs` | Interface for retrieving configurations using the AOT-friendly `CrdtPropertyKey`. |
 | `$/Ama.CRDT/Services/Providers/ICrdtStrategyProvider.cs` | A contract for a service that resolves CRDT strategies, refactored to consume AOT structs like `CrdtPropertyInfo`. |
@@ -515,32 +522,6 @@
 | `$/FilesDescription.md` | No description provided. |
 | `$/LICENSE` | No description provided. |
 | `$/README.md` | Provides the main entry point and overview for the CRDT library, including usage examples and references to `Ama.CRDT.LargerThanMemory.Streams`. |
-| `$/Specs/add-approval-quorum-strategy.md` | No description provided. |
-| `$/Specs/add-leader-election-strategy.md` | No description provided. |
-| `$/Specs/add-more-text-specific-strategies.md` | No description provided. |
-| `$/Specs/add-string-interning-pooling.md` | Specification detailing the architectural changes required to implement string interning and bounded string pooling for memory efficiency across CRDT metadata, operations, and JSON serialization. |
-| `$/Specs/create-larger-than-memory-showcase.md` | No description provided. |
-| `$/Specs/done/add-composite-partition-keys.md` | No description provided. |
-| `$/Specs/done/add-counter-map-strategy.md` | No description provided. |
-| `$/Specs/done/add-exclusive-lock-strategy.md` | No description provided. |
-| `$/Specs/done/add-more-list-and-sequence-strategies.md` | No description provided. |
-| `$/Specs/done/add-more-numeric-and-value-based-strategies.md` | No description provided. |
-| `$/Specs/done/add-more-object-and-map-strategies.md` | No description provided. |
-| `$/Specs/done/add-more-set-strategies.md` | No description provided. |
-| `$/Specs/done/add-more-specialized-data-structure-strategies.md` | No description provided. |
-| `$/Specs/done/add-roslyn-analyzers.md` | No description provided. |
-| `$/Specs/done/add-state-machine-strategy.md` | No description provided. |
-| `$/Specs/done/add-vote-counter-strategy.md` | No description provided. |
-| `$/Specs/done/create-example-console-app-that-show-cases-the-crdts-with-out-locks.md` | No description provided. |
-| `$/Specs/done/fix-the-brittle-header-partition.md` | No description provided. |
-| `$/Specs/done/implement-correctly-lcs-list-strategy.md` | No description provided. |
-| `$/Specs/done/introduce-partitioning-for-larger-than-memory-data.md` | No description provided. |
-| `$/Specs/done/make-package-dev-friendly.md` | No description provided. |
-| `$/Specs/done/make-the-api-surface-better.md` | No description provided. |
-| `$/Specs/done/partition-manager-needs-to-be-data-neutral.md` | No description provided. |
-| `$/Specs/done/publish-as-a-nuget-package.md` | No description provided. |
-| `$/Specs/done/readme-update-2025-08-24.md` | No description provided. |
-| `$/Specs/done/support-multiple-properties-for-partition-manager.md` | No description provided. |
 | `$/Templates/CreateDecoratorStrategy.md` | No description provided. |
 | `$/Templates/CreateStrategy.md` | No description provided. |
 | `$/Templates/CreateStrategyUnitTests.md` | No description provided. |
@@ -556,30 +537,4 @@
 | `$/docs/strategies-reference.md` | Provides a comprehensive table detailing all available CRDT strategies (e.g., LWW, Counters, Sets, Maps) and their ideal use cases. |
 | `$/docs/target-crdt-strategies.md` | Contains a comprehensive, categorized catalog of CRDT strategies, broken down into base strategies and composable decorators, providing a long-term roadmap for the library. |
 | `$/dotnet-tools.json` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/01-crdt-strategy-attribute-and-interface.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/02-lww-strategy-implementation.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/03-counter-strategy-implementation.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/04-refactor-patcher-to-use-strategies.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/05-01-arraylcsstrategy-needs-to-check-deep-objects.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/05-02-manage-metadata-state-deifferently-in-strategies.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/05-03-make-sure-there-are-reset-functions-for-the-state-to-keep-it-small.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/05-refactor-applicator-to-use-strategies.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/06-01-optimize-the-application-benchmarks.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/06-02-rewrite-node-management-to-reflection.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/06-create-benchmark-project.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes-specs/07-update-readme-documentation.md` | No description provided. |
-| `$/features/allow-to-choose-strategy-using-attributes.md` | No description provided. |
-| `$/features/design.png` | No description provided. |
-| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/01-core-crdt-data-structures.md` | No description provided. |
-| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/02-json-diff-and-patch-generation.md` | No description provided. |
-| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/03-json-patch-application.md` | No description provided. |
-| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/04-public-api-and-integration.md` | No description provided. |
-| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services-specs/put-the-lww-structures-in-metadata.md` | No description provided. |
-| `$/features/i-want-to-create-a-crdt-structure-for-all-json-to-be-able-to-replicate-across-services.md` | No description provided. |
-| `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/01-create-partition-serialization-service.md` | No description provided. |
-| `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/02-define-partition-storage-interface.md` | No description provided. |
-| `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/03-implement-bplustree-storage-service.md` | No description provided. |
-| `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/04-refactor-partition-manager.md` | No description provided. |
-| `$/features/refactoring-of-streams-to-be-handled-by-special-service-specs/05-update-tests-and-showcase.md` | No description provided. |
-| `$/features/refactoring-of-streams-to-be-handled-by-special-service.md` | No description provided. |
 | `$/solution.settings.json` | No description provided. |

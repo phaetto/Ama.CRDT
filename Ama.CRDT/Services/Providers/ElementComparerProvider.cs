@@ -29,7 +29,20 @@ internal sealed class ElementComparerProvider : IElementComparerProvider
     public IEqualityComparer<object> GetComparer([DisallowNull] Type elementType)
     {
         ArgumentNullException.ThrowIfNull(elementType);
-        return (IEqualityComparer<object>?)comparers.FirstOrDefault(c => c.CanCompare(elementType)) ?? defaultComparer;
+        foreach (var comparer in comparers)
+        {
+            if (comparer.CanCompare(elementType))
+            {
+                return comparer;
+            }
+        }
+
+        if (elementType == typeof(string) || elementType.IsPrimitive || elementType.IsEnum || elementType == typeof(decimal) || elementType == typeof(Guid) || elementType == typeof(DateTime) || elementType == typeof(DateTimeOffset))
+        {
+            return EqualityComparer<object>.Default;
+        }
+
+        return defaultComparer;
     }
     
     private sealed class ObjectDeepEqualityComparer : IEqualityComparer<object>
@@ -43,12 +56,30 @@ internal sealed class ElementComparerProvider : IElementComparerProvider
 
         public new bool Equals(object? x, object? y)
         {
+            if (ReferenceEquals(x, y)) return true;
+            if (x is null || y is null) return false;
+
+            var typeX = x.GetType();
+            if (typeX != y.GetType()) return false;
+
+            if (typeX.IsPrimitive || typeX == typeof(string) || typeX.IsEnum || x is decimal or Guid or DateTime or DateTimeOffset)
+            {
+                return x.Equals(y);
+            }
+
             return DeepEquals(x, y, new HashSet<ObjectPair>());
         }
 
         public int GetHashCode(object obj)
         {
             ArgumentNullException.ThrowIfNull(obj);
+
+            var type = obj.GetType();
+            if (type.IsPrimitive || type == typeof(string) || type.IsEnum || obj is decimal or Guid or DateTime or DateTimeOffset)
+            {
+                return obj.GetHashCode();
+            }
+
             return DeepGetHashCode(obj, new HashSet<object>());
         }
 
