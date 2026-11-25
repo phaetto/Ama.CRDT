@@ -106,7 +106,7 @@ public sealed class FwwSetStrategyTests : IDisposable
 
         var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("NewTag"), timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("NewTag"), timestampProvider.Now(), 0, "A");
 
         // Act
         var op = strategyA.GenerateOperation(context);
@@ -130,7 +130,7 @@ public sealed class FwwSetStrategyTests : IDisposable
 
         var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new RemoveValueIntent("OldTag"), timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new RemoveValueIntent("OldTag"), timestampProvider.Now(), 0, "A");
 
         // Act
         var op = strategyA.GenerateOperation(context);
@@ -154,7 +154,7 @@ public sealed class FwwSetStrategyTests : IDisposable
 
         var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new ClearIntent(), timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new ClearIntent(), timestampProvider.Now(), 0, "A");
 
         // Act
         var op = strategyA.GenerateOperation(context);
@@ -178,7 +178,7 @@ public sealed class FwwSetStrategyTests : IDisposable
 
         var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new IncrementIntent(1), timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new IncrementIntent(1), timestampProvider.Now(), 0, "A");
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
@@ -193,7 +193,7 @@ public sealed class FwwSetStrategyTests : IDisposable
         var op = new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Remove, null, timestampProvider.Now(), 0);
 
         // Act
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, op));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, op, "A"));
 
         // Assert
         doc.Tags.ShouldBeEmpty();
@@ -239,23 +239,23 @@ public sealed class FwwSetStrategyTests : IDisposable
             (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
             new CrdtFwwSetStrategyAttribute(), []);
         
-        var contextAdd = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new AddIntent("A"), timestampProvider.Create(100), 0);
+        var contextAdd = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new AddIntent("A"), timestampProvider.Create(100), 0, "A");
         var opAdd = strategyA.GenerateOperation(contextAdd);
         
-        var contextRemove = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new RemoveValueIntent("A"), timestampProvider.Create(200), 0);
+        var contextRemove = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new RemoveValueIntent("A"), timestampProvider.Create(200), 0, "A");
         var opRemove = strategyA.GenerateOperation(contextRemove);
 
         // Scenario 1: Add (t=100), then Remove (t=200) -> Add wins
         var model1 = new FwwSetTestModel();
         var meta1 = metadataManagerA.Initialize(model1);
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, opAdd));
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, opRemove));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, opAdd, "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, opRemove, "A"));
         
         // Scenario 2: Remove (t=200), then Add (t=100) -> Add wins
         var model2 = new FwwSetTestModel();
         var meta2 = metadataManagerA.Initialize(model2);
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, opRemove));
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, opAdd));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, opRemove, "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, opAdd, "A"));
 
         // Assert
         model1.Tags.ShouldBe(new[] { "A" });
@@ -275,23 +275,23 @@ public sealed class FwwSetStrategyTests : IDisposable
             (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
             new CrdtFwwSetStrategyAttribute(), []);
         
-        var contextRemove = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new RemoveValueIntent("A"), timestampProvider.Create(100), 0);
+        var contextRemove = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new RemoveValueIntent("A"), timestampProvider.Create(100), 0, "A");
         var opRemove = strategyA.GenerateOperation(contextRemove);
         
-        var contextAdd = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new AddIntent("A"), timestampProvider.Create(200), 0);
+        var contextAdd = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new AddIntent("A"), timestampProvider.Create(200), 0, "A");
         var opAdd = strategyA.GenerateOperation(contextAdd);
 
         // Scenario 1: Remove (t=100), then Add (t=200) -> Remove wins
         var model1 = new FwwSetTestModel();
         var meta1 = metadataManagerA.Initialize(model1);
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, opRemove));
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, opAdd));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, opRemove, "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, opAdd, "A"));
         
         // Scenario 2: Add (t=200), then Remove (t=100) -> Remove wins
         var model2 = new FwwSetTestModel();
         var meta2 = metadataManagerA.Initialize(model2);
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, opAdd));
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, opRemove));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, opAdd, "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, opRemove, "A"));
 
         // Assert
         model1.Tags.ShouldBeEmpty();
@@ -393,10 +393,10 @@ public sealed class FwwSetStrategyTests : IDisposable
             (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
             new CrdtFwwSetStrategyAttribute(), []);
 
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0), "A"));
 
         var result = strategyA.SplitToDisjoint(doc, meta, propInfo);
 
@@ -429,11 +429,11 @@ public sealed class FwwSetStrategyTests : IDisposable
             (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
             new CrdtFwwSetStrategyAttribute(), []);
 
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0), "A"));
         
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0), "A"));
 
         var result = strategyA.MergeDisjoint(doc1, meta1, doc2, meta2, propInfo);
 

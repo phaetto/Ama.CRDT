@@ -163,8 +163,7 @@ public sealed class OrMapStrategyProperties
             .Setup(x => x.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
 
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new OrMapStrategy(mockComparerProvider.Object, replicaContext, new CrdtAotContext[] { new CoreCrdtAotContext(), new OrMapTestContext() });
+        var strategy = new OrMapStrategy(mockComparerProvider.Object, new CrdtAotContext[] { new CoreCrdtAotContext(), new OrMapTestContext() });
         var propertyInfo = new CrdtPropertyInfo(
             nameof(OrMapTestPoco.Map),
             "map",
@@ -179,7 +178,7 @@ public sealed class OrMapStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

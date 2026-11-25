@@ -134,8 +134,7 @@ public sealed class EpochBoundStrategyProperties
 
     private static void ApplyOperations(EpochBoundTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
-        var replicaContext = new ReplicaContext { ReplicaId = "inner-replica" };
-        var innerStrategy = new LwwStrategy(replicaContext, [ new EpochBoundTestContext() ]);
+        var innerStrategy = new LwwStrategy([new EpochBoundTestContext()]);
 
         var mockStrategyProvider = new Mock<ICrdtStrategyProvider>();
         mockStrategyProvider
@@ -145,7 +144,7 @@ public sealed class EpochBoundStrategyProperties
         var mockServiceProvider = new Mock<IServiceProvider>();
         mockServiceProvider.Setup(x => x.GetService(typeof(ICrdtStrategyProvider))).Returns(mockStrategyProvider.Object);
 
-        var strategy = new EpochBoundStrategy(mockServiceProvider.Object, replicaContext, [new EpochBoundTestContext()]);
+        var strategy = new EpochBoundStrategy(mockServiceProvider.Object, [new EpochBoundTestContext()]);
         var propertyInfo = new CrdtPropertyInfo(
             nameof(EpochBoundTestPoco.Value),
             "value",
@@ -159,7 +158,7 @@ public sealed class EpochBoundStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

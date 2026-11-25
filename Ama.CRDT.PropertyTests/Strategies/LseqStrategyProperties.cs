@@ -175,8 +175,7 @@ public sealed class LseqStrategyProperties
             .Setup(x => x.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
 
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new LseqStrategy(mockComparerProvider.Object, replicaContext, new[] { new LseqTestContext() });
+        var strategy = new LseqStrategy(mockComparerProvider.Object, new[] { new LseqTestContext() });
         
         var propertyInfo = new CrdtPropertyInfo(
             name: nameof(LseqTestPoco.Items),
@@ -192,7 +191,7 @@ public sealed class LseqStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

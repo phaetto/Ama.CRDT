@@ -111,8 +111,7 @@ public sealed class GCounterStrategyProperties
 
     private static void ApplyOperations(GCounterTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new GCounterStrategy(replicaContext, [ new GCounterTestContext() ]);
+        var strategy = new GCounterStrategy([ new GCounterTestContext() ]);
         var propertyInfo = new CrdtPropertyInfo(
             nameof(GCounterTestPoco.Value),
             "value",
@@ -127,7 +126,7 @@ public sealed class GCounterStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

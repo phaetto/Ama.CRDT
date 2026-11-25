@@ -14,7 +14,7 @@ public sealed record ApplyOperationContext(
     object Root,
     CrdtMetadata Metadata,
     CrdtOperation Operation,
-    string ReplicaId = ""
+    string ReplicaId
 )
 {
     /// <summary>

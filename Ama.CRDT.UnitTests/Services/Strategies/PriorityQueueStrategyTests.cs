@@ -303,7 +303,8 @@ public sealed class PriorityQueueStrategyTests : IDisposable
             new PriorityQueueStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
             new AddIntent(itemToAdd),
             timestampProvider.Now(),
-            0);
+            0,
+            "A");
 
         // Act
         var op = strategy.GenerateOperation(context);
@@ -331,7 +332,8 @@ public sealed class PriorityQueueStrategyTests : IDisposable
             new PriorityQueueStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
             new RemoveValueIntent(itemToRemove),
             timestampProvider.Now(),
-            0);
+            0,
+            "A");
 
         // Act
         var op = strategy.GenerateOperation(context);
@@ -358,7 +360,8 @@ public sealed class PriorityQueueStrategyTests : IDisposable
             new PriorityQueueStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
             new IncrementIntent(1),
             timestampProvider.Now(),
-            0);
+            0,
+            "A");
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
@@ -448,8 +451,8 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         var path = $"$.{propInfo.JsonName}";
         
         var ts1 = tsProvider.Create(1);
-        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemA, ts1, 0)));
-        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemB, ts1, 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemA, ts1, 0), "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemB, ts1, 0), "A"));
 
         var doc2 = new TestModel { Items = doc1.Items.Select(i => new Item(i.Id, i.Priority)).ToList() };
         var meta2 = meta1.DeepClone();
@@ -457,20 +460,20 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         // doc1 updates A's priority to 15
         var itemA15 = new Item("A", 15);
         var ts2 = tsProvider.Create(2);
-        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemA15, ts2, 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemA15, ts2, 0), "A"));
         
         // doc1 adds C
         var itemC = new Item("C", 30);
-        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemC, ts2, 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemC, ts2, 0), "A"));
 
         // doc2 removes B
         var ts3 = tsProvider.Create(3);
-        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", path, OperationType.Remove, itemB, ts3, 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", path, OperationType.Remove, itemB, ts3, 0), "B"));
         
         // doc2 updates A's priority to 50 (wins over doc1's 15)
         var itemA50 = new Item("A", 50);
         var ts4 = tsProvider.Create(4);
-        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", path, OperationType.Upsert, itemA50, ts4, 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", path, OperationType.Upsert, itemA50, ts4, 0), "B"));
 
         // Act
         strategy.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, propInfo!, path));

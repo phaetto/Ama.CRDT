@@ -78,7 +78,8 @@ public sealed class MaxWinsStrategyTests : IDisposable
             new TestModel { HighScore = 200 },
             new CrdtMetadata(),
             timestampProvider.Now(),
-            0
+            0,
+            "A"
         );
         
         // Act
@@ -103,7 +104,8 @@ public sealed class MaxWinsStrategyTests : IDisposable
             property,
             intent,
             timestamp,
-            0
+            0,
+            "A"
         );
 
         // Act
@@ -128,7 +130,8 @@ public sealed class MaxWinsStrategyTests : IDisposable
             property,
             intent,
             timestampProvider.Now(),
-            0
+            0,
+            "A"
         );
 
         // Act
@@ -147,7 +150,7 @@ public sealed class MaxWinsStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { HighScore = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L), 0);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation, "A")
         {
             Target = model,
             Property = property
@@ -166,7 +169,7 @@ public sealed class MaxWinsStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { HighScore = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 100, timestampProvider.Create(2L), 0);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation, "A")
         {
             Target = model,
             Property = property
@@ -185,7 +188,7 @@ public sealed class MaxWinsStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { HighScore = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.highScore", OperationType.Upsert, 200, timestampProvider.Create(2L), 0);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation, "A")
         {
             Target = model,
             Property = property
@@ -212,12 +215,12 @@ public sealed class MaxWinsStrategyTests : IDisposable
 
         // Act
         // op1 then op2
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1) { Target = model1, Property = property });
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2) { Target = model1, Property = property });
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1, "A") { Target = model1, Property = property });
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2, "A") { Target = model1, Property = property });
 
         // op2 then op1
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2) { Target = model2, Property = property });
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1) { Target = model2, Property = property });
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2, "A") { Target = model2, Property = property });
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1, "A") { Target = model2, Property = property });
     
         // Assert
         model1.HighScore.ShouldBe(200); // max(100, 200, 150)
@@ -244,7 +247,7 @@ public sealed class MaxWinsStrategyTests : IDisposable
             var meta = new CrdtMetadata();
             foreach (var op in p)
             {
-                strategyA.ApplyOperation(new ApplyOperationContext(model, meta, op) { Target = model, Property = property });
+                strategyA.ApplyOperation(new ApplyOperationContext(model, meta, op, "A") { Target = model, Property = property });
             }
             finalScores.Add(model.HighScore);
         }

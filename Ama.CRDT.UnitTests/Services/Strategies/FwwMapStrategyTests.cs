@@ -80,12 +80,12 @@ public sealed class FwwMapStrategyTests
         var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new KeyValuePair<object, object?>("a", null), timestampProvider.Now(), 0);
 
         // Act: Apply op1 then op2
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op1));
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op2));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op1, "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op2, "A"));
 
         // Act: Apply op2 then op1
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, op2));
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, op1));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, op2, "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, op1, "A"));
 
         // Assert
         doc1.Data.Map.ShouldBe(doc2.Data.Map);
@@ -112,9 +112,9 @@ public sealed class FwwMapStrategyTests
         var expectedMap = new Dictionary<string, int> { { "a", 1 } }; // Expect 1 to stay, as older timestamp wins
 
         // Act
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op));
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op));
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op, "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op, "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op, "A"));
 
         // Assert
         doc.Data.Map.ShouldBe(expectedMap);
@@ -140,10 +140,10 @@ public sealed class FwwMapStrategyTests
         var newerOp = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), newerTimestamp, 0);
         
         // Act
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, newerOp));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, newerOp, "A"));
         doc.Data.Map["a"].ShouldBe(1); // newer op ignored (FWW)
 
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, olderOp));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, olderOp, "A"));
         
         // Assert
         doc.Data.Map["a"].ShouldBe(0); // older op applied
@@ -166,7 +166,7 @@ public sealed class FwwMapStrategyTests
         var intent = new MapSetIntent("myKey", 42);
         var timestamp = timestampProvider.Now();
         
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0, "A");
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -199,7 +199,7 @@ public sealed class FwwMapStrategyTests
         var intent = new MapRemoveIntent("myKey");
         var timestamp = timestampProvider.Now();
         
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0, "A");
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -232,7 +232,7 @@ public sealed class FwwMapStrategyTests
         var intent = new ClearIntent();
         var timestamp = timestampProvider.Now();
         
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0, "A");
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -262,7 +262,7 @@ public sealed class FwwMapStrategyTests
         var intent = new AddIntent(42);
         var timestamp = timestampProvider.Now();
         
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", prop, intent, timestamp, 0, "A");
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
@@ -284,7 +284,7 @@ public sealed class FwwMapStrategyTests
         var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Remove, null, timestampProvider.Now(), 0);
 
         // Act
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op, "A"));
 
         // Assert
         doc.Data.Map.ShouldBeEmpty();

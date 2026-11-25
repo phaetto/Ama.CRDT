@@ -156,12 +156,11 @@ public sealed class LwwStrategyProperties
 
     private static void ApplyOperations(TestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new LwwStrategy(replicaContext, [ new LwwTestContext() ]);
+        var strategy = new LwwStrategy([ new LwwTestContext() ]);
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op);
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica");
             strategy.ApplyOperation(context);
         }
     }

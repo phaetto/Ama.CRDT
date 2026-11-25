@@ -127,8 +127,7 @@ public sealed class GraphStrategyProperties
 
     private static void ApplyOperations(GraphTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new GraphStrategy(replicaContext);
+        var strategy = new GraphStrategy();
         
         var propertyInfo = new CrdtPropertyInfo(
             name: nameof(GraphTestPoco.Graph),
@@ -144,7 +143,7 @@ public sealed class GraphStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

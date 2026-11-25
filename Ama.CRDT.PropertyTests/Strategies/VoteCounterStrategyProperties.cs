@@ -144,15 +144,14 @@ public sealed class VoteCounterStrategyProperties
 
     private static void ApplyOperations(VoteCounterTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
         var aotContexts = new CrdtAotContext[] { new VoteCounterTestContext() };
-        var strategy = new VoteCounterStrategy(replicaContext, aotContexts);
+        var strategy = new VoteCounterStrategy(aotContexts);
         
         var propertyInfo = aotContexts[0].GetTypeInfo(typeof(VoteCounterTestPoco))!.Properties[nameof(VoteCounterTestPoco.Votes)];
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

@@ -154,9 +154,8 @@ public sealed class MaxWinsMapStrategyProperties
             .Setup(x => x.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
 
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
         var aotContexts = new CrdtAotContext[] { new MaxWinsMapTestContext() };
-        var strategy = new MaxWinsMapStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
+        var strategy = new MaxWinsMapStrategy(mockComparerProvider.Object, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(
             nameof(MaxWinsMapTestPoco.Map),
@@ -171,7 +170,7 @@ public sealed class MaxWinsMapStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

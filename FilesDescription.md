@@ -147,7 +147,7 @@
 | `$/Ama.CRDT.UnitTests/Architecture/StrategyConventionTests.cs` | An architecture convention unit test that reflects over all strategies to enforce the presence of unit tests, property tests, benchmarks, and documentation. |
 | `$/Ama.CRDT.UnitTests/Extensions/AsyncCrdtApplicatorExtensionsTests.cs` | Contains unit tests for `AsyncCrdtApplicatorExtensions`, verifying the correct asynchronous streaming of journaled operations and their translation into patches for the applicator. |
 | `$/Ama.CRDT.UnitTests/Extensions/PackedCrdtDocumentExtensionsTests.cs` | Unit tests verifying `PackedCrdtDocument<T>` packing, unpacking, patch generation, patch application, state merging, compaction, and replica eviction. |
-| `$/Ama.CRDT.UnitTests/Extensions/ServiceCollectionExtensionsTests.cs` | Unit tests for `ServiceCollectionExtensions`, validating service registrations, global modifier execution, and the aggregate JSON type info resolver. |
+| `$/Ama.CRDT.UnitTests/Extensions/ServiceCollectionExtensionsTests.cs` | Unit tests for `ServiceCollectionExtensions`, validating service registrations, singleton provider registrations, global modifier execution, and the aggregate JSON type info resolver. |
 | `$/Ama.CRDT.UnitTests/MemoryOverheadTests.cs` | Contains unit tests that measure and output a markdown report of the exact thread-allocated memory overhead of `CrdtMetadata` vs POCO data models, `PackedCrdtDocument<T>` (JSON & Brotli), DVVs, shard maps, and full replica scopes across different cluster and DI pipeline configurations. |
 | `$/Ama.CRDT.UnitTests/Models/Collections/CompactCollectionsTests.cs` | Unit tests for `CompactDictionary`, `CompactSet`, and `CrdtCollectionMemoryOptions`, covering tier promotions, automatic demotions, custom growth steps, auto-trimming, string pooling, set algebra, and JSON serialization. |
 | `$/Ama.CRDT.UnitTests/Models/CrdtTimestampTests.cs` | Contains unit tests for the `CrdtTimestamp` struct, covering multi-component ordering (`Epoch`, `Ticks`, `Counter`, `ReplicaId`), relational operators, equality, and `MinValue`. |
@@ -238,7 +238,7 @@
 | `$/Ama.CRDT.UnitTests/Services/Strategies/Serialization/SerializationTestCrdtContext.cs` | A dedicated `CrdtAotContext` for the `StrategyPayloadSerializationTests` to provide metadata for test-specific models and collections without relying on reflection. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/Serialization/StrategyPayloadSerializationTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/SortedSetStrategyTestCrdtContext.cs` | No description provided. |
-| `$/Ama.CRDT.UnitTests/Services/Strategies/SortedSetStrategyTests.cs` | No description provided. |
+| `$/Ama.CRDT.UnitTests/Services/Strategies/SortedSetStrategyTests.cs` | Contains unit tests for `SortedSetStrategy`, verifying convergence, explicit intents, partitioning, compaction, and state merging. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/StateMachineStrategyTestCrdtContext.cs` | A dedicated `CrdtAotContext` for `StateMachineStrategy` unit tests to provide AOT-compatible property metadata. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/StateMachineStrategyTests.cs` | Contains unit tests for `StateMachineStrategy`, verifying valid/invalid transitions and LWW-based conflict resolution. |
 | `$/Ama.CRDT.UnitTests/Services/Strategies/TwoPhaseGraphStrategyTestCrdtContext.cs` | A dedicated `CrdtAotContext` for `TwoPhaseGraphStrategy` unit tests to provide AOT-compatible property metadata. |
@@ -297,7 +297,7 @@
 | `$/Ama.CRDT/Extensions/AsyncCrdtApplicatorExtensions.cs` | Provides extension methods for `IAsyncCrdtApplicator` to streamline common synchronization tasks, such as directly applying an asynchronous stream of missing operations. |
 | `$/Ama.CRDT/Extensions/IStateMachine.cs` | No description provided. |
 | `$/Ama.CRDT/Extensions/PackedCrdtDocumentExtensions.cs` | Extension methods for packing/unpacking `PackedCrdtDocument<T>` and directly invoking `ICrdtApplicator`, `IAsyncCrdtApplicator`, `ICrdtPatcher`, `IAsyncCrdtPatcher`, `ICrdtMerger`, `IAsyncCrdtMerger`, and `ICrdtMetadataManager`. |
-| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Updated stateless CRDT strategies, strategy/comparer/ID/timestamp providers, metadata manager, and merger registrations from Scoped to Singleton to eliminate per-replica DI overhead. |
+| `$/Ama.CRDT/Extensions/ServiceCollectionExtensions.cs` | Updated stateless CRDT strategies, strategy/comparer/ID/timestamp/shard providers, metadata manager, and merger registrations from Scoped to Singleton to eliminate per-replica DI overhead. |
 | `$/Ama.CRDT/Models/Aot/CoreCrdtAotContext.cs` | Internal AOT-generated context containing metadata registrations for all core CRDT models, collections, comparers, and state wrappers. |
 | `$/Ama.CRDT/Models/Aot/CrdtAotContext.cs` | No description provided. |
 | `$/Ama.CRDT/Models/Aot/CrdtPropertyInfo.cs` | Contains AOT-compatible property metadata, including precomputed interned `RootJsonPath`. |

@@ -154,9 +154,7 @@ public sealed class ArrayLcsStrategyProperties
             .AddSingleton(mockComparerProvider.Object)
             .BuildServiceProvider();
 
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope("property-test-replica");
-        var strategy = scope.ServiceProvider.GetRequiredService<ArrayLcsStrategy>();
+        var strategy = serviceProvider.GetRequiredService<ArrayLcsStrategy>();
 
         var propertyInfo = new CrdtPropertyInfo(
             nameof(ArrayLcsTestPoco.Items),
@@ -171,7 +169,7 @@ public sealed class ArrayLcsStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

@@ -94,7 +94,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var property = CreatePropertyInfo();
         var changeTimestamp = timestampProvider.Create(200);
         var context = new GeneratePatchContext(
-            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "PROCESSING", new StateMachineTestModel { Status = "PENDING" }, new StateMachineTestModel { Status = "PROCESSING" }, originalMeta, changeTimestamp, 0);
+            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "PROCESSING", new StateMachineTestModel { Status = "PENDING" }, new StateMachineTestModel { Status = "PROCESSING" }, originalMeta, changeTimestamp, 0, "A");
 
         // Act
         strategyA.GeneratePatch(context);
@@ -115,7 +115,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var originalMeta = new CrdtMetadata { States = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
         var property = CreatePropertyInfo();
         var context = new GeneratePatchContext(
-            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "SHIPPED", new StateMachineTestModel { Status = "PENDING" }, new StateMachineTestModel { Status = "SHIPPED" }, originalMeta, timestampProvider.Create(200), 0);
+            operations, new List<DifferentiateObjectContext>(), "$.status", property, "PENDING", "SHIPPED", new StateMachineTestModel { Status = "PENDING" }, new StateMachineTestModel { Status = "SHIPPED" }, originalMeta, timestampProvider.Create(200), 0, "A");
 
         // Act
         strategyA.GeneratePatch(context);
@@ -133,7 +133,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var property = CreatePropertyInfo();
         var timestamp = timestampProvider.Create(200);
         var intent = new SetIntent("PROCESSING");
-        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, 0);
+        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, 0, "A");
 
         // Act
         var operation = strategyA.GenerateOperation(context);
@@ -155,7 +155,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var property = CreatePropertyInfo();
         var timestamp = timestampProvider.Create(200);
         var intent = new SetIntent("SHIPPED"); // Invalid transition directly from PENDING
-        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, 0);
+        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, 0, "A");
 
         // Act & Assert
         Should.Throw<InvalidOperationException>(() => strategyA.GenerateOperation(context));
@@ -170,7 +170,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var property = CreatePropertyInfo();
         var timestamp = timestampProvider.Create(200);
         var intent = new IncrementIntent(1); // Not supported intent type
-        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, 0);
+        var context = new GenerateOperationContext(model, metadata, "$.status", property, intent, timestamp, 0, "A");
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
@@ -183,7 +183,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var model = new StateMachineTestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata { States = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200), 0);
-        var context = new ApplyOperationContext(model, metadata, operation);
+        var context = new ApplyOperationContext(model, metadata, operation, "A");
 
         // Act
         strategyA.ApplyOperation(context);
@@ -200,7 +200,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var model = new StateMachineTestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata { States = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(100), "A", 1) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(200), 0);
-        var context = new ApplyOperationContext(model, metadata, operation);
+        var context = new ApplyOperationContext(model, metadata, operation, "A");
 
         // Act
         strategyA.ApplyOperation(context);
@@ -217,7 +217,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var model = new StateMachineTestModel { Status = "PROCESSING" };
         var metadata = new CrdtMetadata { States = { ["$.status"] = new CausalTimestamp(timestampProvider.Create(300), "A", 1) } };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "SHIPPED", timestampProvider.Create(200), 0);
-        var context = new ApplyOperationContext(model, metadata, operation);
+        var context = new ApplyOperationContext(model, metadata, operation, "A");
 
         // Act
         strategyA.ApplyOperation(context);
@@ -234,7 +234,7 @@ public sealed class StateMachineStrategyTests : IDisposable
         var model = new StateMachineTestModel { Status = "PENDING" };
         var metadata = new CrdtMetadata();
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.status", OperationType.Upsert, "PROCESSING", timestampProvider.Create(200), 0);
-        var context = new ApplyOperationContext(model, metadata, operation);
+        var context = new ApplyOperationContext(model, metadata, operation, "A");
 
         // Act
         strategyA.ApplyOperation(context);
@@ -256,13 +256,13 @@ public sealed class StateMachineStrategyTests : IDisposable
 
         var model1 = new StateMachineTestModel { Status = "PROCESSING" };
         var meta1 = new CrdtMetadata();
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op1));
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op2));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op1, "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op2, "A"));
 
         var model2 = new StateMachineTestModel { Status = "PROCESSING" };
         var meta2 = new CrdtMetadata();
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op2));
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op1));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op2, "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op1, "A"));
 
         model1.Status.ShouldBe("SHIPPED");
         ((CausalTimestamp)meta1.States["$.status"]).Timestamp.ShouldBe(timestampProvider.Create(300));

@@ -154,8 +154,7 @@ public sealed class FwwSetStrategyProperties
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
         mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>())).Returns(new CrdtTimestamp(0));
 
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new FwwSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, replicaContext, [new FwwSetTestContext()]);
+        var strategy = new FwwSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, [new FwwSetTestContext()]);
         var propertyInfo = new CrdtPropertyInfo(
             nameof(FwwSetTestPoco.Items),
             "items",
@@ -169,7 +168,7 @@ public sealed class FwwSetStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,
