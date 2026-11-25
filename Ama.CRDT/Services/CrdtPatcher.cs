@@ -38,6 +38,7 @@ public sealed class CrdtPatcher(
         ArgumentNullException.ThrowIfNull(from.Metadata);
         ArgumentNullException.ThrowIfNull(changed);
 
+        var replicaId = pool.GetOrAdd(replicaContext.ReplicaId);
         var operations = new List<CrdtOperation>();
         var initialContext = new DifferentiateObjectContext(
             "$",
@@ -48,14 +49,14 @@ public sealed class CrdtPatcher(
             changed,
             from.Metadata,
             operations,
-            changeTimestamp
+            changeTimestamp,
+            replicaId
         );
         
         // Process differentiations first. We pass a dummy clock (0) to the context 
         // because we will assign unique sequential clocks to each operation below.
         ProcessDifferentiations(initialContext, 0L);
 
-        var replicaId = pool.GetOrAdd(replicaContext.ReplicaId);
         var currentVectorClock = from.Metadata.VersionVector.TryGetValue(replicaId, out var currentClock) ? currentClock : 0L;
         
         var clockState = issuedClocks.GetOrCreateValue(from.Metadata);
@@ -134,7 +135,8 @@ public sealed class CrdtPatcher(
             Property: parseResult.Property,
             Intent: intent,
             Timestamp: timestamp,
-            Clock: localClock
+            Clock: localClock,
+            ReplicaId: replicaId
         );
 
         var operation = strategy.GenerateOperation(context);
@@ -154,7 +156,7 @@ public sealed class CrdtPatcher(
         while (queue.Count > 0)
         {
             var context = queue.Dequeue();
-            var (path, type, fromObj, toObj, fromRoot, toRoot, fromMeta, operations, changeTimestamp) = context;
+            var (path, type, fromObj, toObj, fromRoot, toRoot, fromMeta, operations, changeTimestamp, replicaId) = context;
 
             if (fromObj is null && toObj is null)
             {
@@ -182,14 +184,14 @@ public sealed class CrdtPatcher(
                 {
                     // Natively recurse into POCO properties
                     queue.Enqueue(new DifferentiateObjectContext(
-                        currentPath, propertyType, fromValue, toValue, fromRoot, toRoot, fromMeta, operations, changeTimestamp));
+                        currentPath, propertyType, fromValue, toValue, fromRoot, toRoot, fromMeta, operations, changeTimestamp, replicaId));
                 }
                 else
                 {
                     // Delegating to strategy, which could either be a terminal operation or an optimization (like emitting a parent Remove)
                     var nestedDiffs = new List<DifferentiateObjectContext>();
                     var strategyContext = new GeneratePatchContext(
-                        operations, nestedDiffs, currentPath, propertyInfo, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp, clock);
+                        operations, nestedDiffs, currentPath, propertyInfo, fromValue, toValue, fromRoot, toRoot, fromMeta, changeTimestamp, clock, replicaId);
                     
                     strategy.GeneratePatch(strategyContext);
                     

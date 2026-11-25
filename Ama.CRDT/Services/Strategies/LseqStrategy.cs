@@ -30,10 +30,8 @@ using System.Linq;
 [OperationBased]
 public sealed class LseqStrategy(
     IElementComparerProvider elementComparerProvider,
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
     private const int Base = 32;
 
     /// <inheritdoc />
@@ -126,7 +124,7 @@ public sealed class LseqStrategy(
         {
             if (!matchedOriginal[i])
             {
-                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, slicedOrig[i].Identifier, changeTimestamp, clock);
+                var op = new CrdtOperation(Guid.NewGuid(), context.ReplicaId, path, OperationType.Remove, slicedOrig[i].Identifier, changeTimestamp, clock);
                 operations.Add(op);
             }
         }
@@ -159,10 +157,10 @@ public sealed class LseqStrategy(
                     nextId = originalItems[endOrig + 1].Identifier;
                 }
 
-                var newId = GenerateIdentifierBetween(prevId, nextId, replicaId);
+                var newId = GenerateIdentifierBetween(prevId, nextId, context.ReplicaId);
                 var newItem = new LseqItem(newId, slicedMod[i]);
                 
-                var op = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, changeTimestamp, clock);
+                var op = new CrdtOperation(Guid.NewGuid(), context.ReplicaId, path, OperationType.Upsert, newItem, changeTimestamp, clock);
                 operations.Add(op);
                 
                 prevId = newId; // The newly inserted item becomes the predecessor for the next insertion
@@ -194,9 +192,9 @@ public sealed class LseqStrategy(
             case AddIntent add:
             {
                 var lastId = lseqItems.Count > 0 ? lseqItems[^1].Identifier : (LseqIdentifier?)null;
-                var newId = GenerateIdentifierBetween(lastId, null, replicaId);
+                var newId = GenerateIdentifierBetween(lastId, null, context.ReplicaId);
                 
-                return new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Upsert, new LseqItem(newId, add.Value), context.Timestamp, context.Clock);
+                return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, new LseqItem(newId, add.Value), context.Timestamp, context.Clock);
             }
             case InsertIntent insert:
             {
@@ -207,9 +205,9 @@ public sealed class LseqStrategy(
 
                 var prevId = insert.Index > 0 ? lseqItems[insert.Index - 1].Identifier : (LseqIdentifier?)null;
                 var nextId = insert.Index < lseqItems.Count ? lseqItems[insert.Index].Identifier : (LseqIdentifier?)null;
-                var newId = GenerateIdentifierBetween(prevId, nextId, replicaId);
+                var newId = GenerateIdentifierBetween(prevId, nextId, context.ReplicaId);
                 
-                return new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Upsert, new LseqItem(newId, insert.Value), context.Timestamp, context.Clock);
+                return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, new LseqItem(newId, insert.Value), context.Timestamp, context.Clock);
             }
             case RemoveIntent remove:
             {
@@ -218,7 +216,7 @@ public sealed class LseqStrategy(
                     throw new ArgumentOutOfRangeException(nameof(remove.Index), "Index is out of range.");
                 }
 
-                return new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Remove, lseqItems[remove.Index].Identifier, context.Timestamp, context.Clock);
+                return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Remove, lseqItems[remove.Index].Identifier, context.Timestamp, context.Clock);
             }
             default:
                 throw new NotSupportedException($"Explicit operation generation for intent '{context.Intent.GetType().Name}' is not supported in {nameof(LseqStrategy)}.");

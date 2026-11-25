@@ -22,11 +22,8 @@ using Ama.CRDT.Models.LargerThanMemory;
 [Idempotent]
 [StateBased]
 public sealed class VoteCounterStrategy(
-    ReplicaContext replicaContext, 
     IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     public void GeneratePatch(GeneratePatchContext context)
     {
         var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
@@ -54,7 +51,7 @@ public sealed class VoteCounterStrategy(
             }
 
             var payload = new VotePayload(voter, newOption);
-            var operation = new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, payload, changeTimestamp, clock);
+            var operation = new CrdtOperation(Guid.NewGuid(), context.ReplicaId, path, OperationType.Upsert, payload, changeTimestamp, clock);
             operations.Add(operation);
         }
     }
@@ -71,7 +68,7 @@ public sealed class VoteCounterStrategy(
             var payload = new VotePayload(voteIntent.Voter, voteIntent.Option);
             return new CrdtOperation(
                 Guid.NewGuid(), 
-                replicaId, 
+                context.ReplicaId, 
                 context.JsonPath, 
                 OperationType.Upsert, 
                 payload, 

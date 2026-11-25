@@ -408,10 +408,10 @@
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtApplicatorAdapter.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtMergerAdapter.cs` | An adapter that bridges the synchronous `ICrdtMerger` to the asynchronous `IAsyncCrdtMerger` pipeline. |
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtPatcherAdapter.cs` | An adapter that bridges the synchronous `ICrdtPatcher` to the asynchronous `IAsyncCrdtPatcher` pipeline, acting as the base layer in the patcher decorator chain. |
-| `$/Ama.CRDT/Services/CrdtApplicator.cs` | Applies CRDT patches to documents, resolving conflicts via strategies and tracking causal histories per shard in `ReplicaContext`. |
+| `$/Ama.CRDT/Services/CrdtApplicator.cs` | Applies CRDT patches to documents, passing local `ReplicaId` in `ApplyOperationContext`, resolving conflicts via strategies and tracking causal histories per shard in `ReplicaContext`. |
 | `$/Ama.CRDT/Services/CrdtMerger.cs` | Synchronous implementation of `ICrdtMerger` that leverages object tree traversal to compute the state merge mathematically using strategy providers. |
 | `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implemented `Pack`, `Unpack`, and `InitializePacked` using the injected `ICrdtSerializer`. |
-| `$/Ama.CRDT/Services/CrdtPatcher.cs` | Compares versions of a data model or processes explicit intents to generate CRDT patches, populating `ShardId` and `ShardClock` and updating `ShardVersionVectors`. |
+| `$/Ama.CRDT/Services/CrdtPatcher.cs` | Compares versions of a data model or processes explicit intents to generate CRDT patches, populating `ShardId`, `ShardClock`, and `ReplicaId` in contexts and updating `ShardVersionVectors`. |
 | `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that uses the root `IServiceProvider` to create a new `IServiceScope` and configure it with a `ReplicaContext` holding the unique replica ID. |
 | `$/Ama.CRDT/Services/Decorators/AsyncCrdtApplicatorDecoratorBase.cs` | An abstract base class for `IAsyncCrdtApplicator` decorators. Uses the `DecoratorBehavior` enum in its constructor to strictly control the Template Method execution flow, making bugs around pipeline ordering structurally impossible. |
 | `$/Ama.CRDT/Services/Decorators/AsyncCrdtMergerDecoratorBase.cs` | An abstract base class for `IAsyncCrdtMerger` decorators supporting execution flow management via `DecoratorBehavior`. |
@@ -421,7 +421,7 @@
 | `$/Ama.CRDT/Services/Decorators/JournalingApplicatorDecorator.cs` | Decorator for intercepting patch applications to record operations to the journal before the underlying application logic executes. |
 | `$/Ama.CRDT/Services/Decorators/JournalingPatcherDecorator.cs` | Decorator for intercepting patch generations to record generated operations to the journal, using `IDocumentIdProvider` via dependency injection. |
 | `$/Ama.CRDT/Services/Decorators/LargerThanMemoryApplicatorDecorator.cs` | No description provided. |
-| `$/Ama.CRDT/Services/DifferentiateObjectContext.cs` | Defines the context object for the `ICrdtPatcher.DifferentiateObject` method, encapsulating all necessary parameters. |
+| `$/Ama.CRDT/Services/DifferentiateObjectContext.cs` | Defines the context object for the `ICrdtPatcher.DifferentiateObject` method, encapsulating all necessary parameters including `ReplicaId`. |
 | `$/Ama.CRDT/Services/GarbageCollection/CompactionCandidate.cs` | Represents the metadata payload (e.g., Timestamp, ReplicaId, Version) of a tombstone or deleted item being evaluated for garbage collection. |
 | `$/Ama.CRDT/Services/GarbageCollection/GlobalMinimumVersionPolicy.cs` | Implements a mathematically safe compaction policy based on the Global Minimum Version Vector (GMVV) across a cluster of replicas. |
 | `$/Ama.CRDT/Services/GarbageCollection/GlobalMinimumVersionPolicyFactory.cs` | Factory for creating instances of `GlobalMinimumVersionPolicy` dynamically using a provider delegate for the GMVV. |
@@ -478,13 +478,13 @@
 | `$/Ama.CRDT/Services/Serialization/BrotliJsonCrdtSerializer.cs` | A Native AOT compatible implementation of `ICrdtSerializer` utilizing `System.Text.Json` combined with Brotli compression natively provided by the framework, serializing strings as Base64 encoded compressed payloads. |
 | `$/Ama.CRDT/Services/Serialization/ICrdtSerializer.cs` | Defines a format-agnostic abstraction for serializing and deserializing CRDT models and payloads, decoupling the core library from System.Text.Json. |
 | `$/Ama.CRDT/Services/Serialization/JsonCrdtSerializer.cs` | The default Native AOT compatible implementation of `ICrdtSerializer` utilizing `System.Text.Json` and pre-configured `JsonSerializerOptions`. |
-| `$/Ama.CRDT/Services/Strategies/ApplyOperationContext.cs` | Defines the context for an `ICrdtStrategy.ApplyOperation` call, encapsulating all necessary parameters for applying a single CRDT operation to a document. |
-| `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements the Array LCS strategy for ordered sequences, including `MergeState` for state-based CRDT merging. |
-| `$/Ama.CRDT/Services/Strategies/AverageRegisterStrategy.cs` | Implements the Average Register strategy, including `MergeState` by choosing maximum timestamps of contributions. |
+| `$/Ama.CRDT/Services/Strategies/ApplyOperationContext.cs` | Defines the context for an `ICrdtStrategy.ApplyOperation` call, encapsulating all necessary parameters including `ReplicaId`. |
+| `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements the Array LCS strategy for ordered sequences as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/AverageRegisterStrategy.cs` | Implements the Average Register strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Strategies/BoundedCounterStrategy.cs` | Implements the Bounded Counter strategy, clamping values within a defined range and using `CounterState` for tracking PN-Counter contributions. |
 | `$/Ama.CRDT/Services/Strategies/CompactionContext.cs` | Defines the context for an `ICrdtStrategy.Compact` call, encapsulating parameters for garbage collection. |
 | `$/Ama.CRDT/Services/Strategies/CounterMapStrategy.cs` | Implements the Counter-Map strategy, where each key in a dictionary is treated as an independent PN-Counter. |
-| `$/Ama.CRDT/Services/Strategies/CounterStrategy.cs` | Implements the CRDT Counter (PN-Counter) strategy using centralized AOT helpers from `PocoPathHelper`. |
+| `$/Ama.CRDT/Services/Strategies/CounterStrategy.cs` | Implements the CRDT Counter (PN-Counter) strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Strategies/Decorators/ApprovalQuorumStrategy.cs` | A decorator strategy that tracks pending proposals and requires a quorum of replicas to propose the exact same operation before it is applied. |
 | `$/Ama.CRDT/Services/Strategies/Decorators/EpochBoundStrategy.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Strategies/FixedSizeArrayStrategy.cs` | Implements the Fixed-Size Array strategy with LWW per index and `MergeState` for state-based merging. |
@@ -493,11 +493,11 @@
 | `$/Ama.CRDT/Services/Strategies/FwwStrategy.cs` | Implements the First-Writer-Wins (FWW) strategy for conflict resolution, resolving concurrent modifications by selecting the value with the lowest timestamp. |
 | `$/Ama.CRDT/Services/Strategies/GCounterStrategy.cs` | Implements the G-Counter (Grow-Only Counter) strategy, which only allows for positive increments. |
 | `$/Ama.CRDT/Services/Strategies/GSetStrategy.cs` | Implements the G-Set (Grow-Only Set) CRDT strategy using centralized AOT helpers from `PocoPathHelper`. |
-| `$/Ama.CRDT/Services/Strategies/GenerateOperationContext.cs` | Defines the context for explicitly generating intent-based operations in strategies. |
-| `$/Ama.CRDT/Services/Strategies/GeneratePatchContext.cs` | Defines the context object for the `ICrdtStrategy.GeneratePatch` method, encapsulating all necessary parameters. |
+| `$/Ama.CRDT/Services/Strategies/GenerateOperationContext.cs` | Defines the context for explicitly generating intent-based operations in strategies, including `ReplicaId`. |
+| `$/Ama.CRDT/Services/Strategies/GeneratePatchContext.cs` | Defines the context object for the `ICrdtStrategy.GeneratePatch` method, encapsulating all necessary parameters including `ReplicaId`. |
 | `$/Ama.CRDT/Services/Strategies/GraphStrategy.cs` | Implements a CRDT strategy for graph data structures, treating vertices and edges as a grow-only set, suitable for modeling relationships and networks. |
 | `$/Ama.CRDT/Services/Strategies/ICrdtStrategy.cs` | Defines the core contract for CRDT strategies, including patch generation, intent operation generation, operation application, state merging (`MergeState`), and metadata compaction. |
-| `$/Ama.CRDT/Services/Strategies/LseqStrategy.cs` | Implements the LSEQ strategy for ordered sequences using centralized AOT helpers from `PocoPathHelper`. |
+| `$/Ama.CRDT/Services/Strategies/LseqStrategy.cs` | Implements the LSEQ strategy for ordered sequences as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Strategies/LwwMapStrategy.cs` | Implements the LWW-Map (Last-Writer-Wins Map) CRDT strategy using centralized AOT helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/LwwSetStrategy.cs` | Implements the LWW-Set (Last-Writer-Wins Set) CRDT strategy using centralized AOT helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/LwwStrategy.cs` | Implements the Last-Writer-Wins (LWW) register strategy using centralized AOT helpers from `PocoPathHelper`. |
@@ -510,12 +510,12 @@
 | `$/Ama.CRDT/Services/Strategies/OrSetStrategy.cs` | Implements the OR-Set (Observed-Remove Set) CRDT strategy using centralized AOT helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/PriorityQueueStrategy.cs` | Implements a strategy for collections that behave as a priority queue using centralized AOT helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/ReplicatedTreeStrategy.cs` | Implements a CRDT strategy for tree data structures, allowing nodes to be added, removed, and moved concurrently. It uses unique tags (similar to OR-Set) for adds and LWW for moves to ensure convergence. |
-| `$/Ama.CRDT/Services/Strategies/RgaStrategy.cs` | Implements the Replicated Growable Array (RGA) strategy. Evaluates insertions as an ordered linked set and applies deletes by emitting tombstones. Also handles intent based operation generation. |
+| `$/Ama.CRDT/Services/Strategies/RgaStrategy.cs` | Implements the Replicated Growable Array (RGA) strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Strategies/SortedSetStrategy.cs` | Implements a CRDT strategy for collections that are treated as sorted sets, using `CompactDictionary` for `LwwSetState` metadata storage. |
 | `$/Ama.CRDT/Services/Strategies/StateMachineStrategy.cs` | Implements the State Machine strategy using centralized AOT helpers from `PocoPathHelper`. |
 | `$/Ama.CRDT/Services/Strategies/TwoPhaseGraphStrategy.cs` | Implements a 2P-Graph strategy using `CompactSet` and `CompactDictionary` for `TwoPhaseGraphState` metadata storage. |
 | `$/Ama.CRDT/Services/Strategies/TwoPhaseSetStrategy.cs` | Implements the 2P-Set (Two-Phase Set) CRDT strategy using `CompactSet` and `CompactDictionary` for `TwoPhaseSetState` metadata storage. |
-| `$/Ama.CRDT/Services/Strategies/VoteCounterStrategy.cs` | Implements the Vote Counter strategy using centralized AOT helpers from `PocoPathHelper`. |
+| `$/Ama.CRDT/Services/Strategies/VoteCounterStrategy.cs` | Implements the Vote Counter strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Versioning/IVersionVectorSyncService.cs` | Defines a service for calculating synchronization gaps and evaluating journal operations on a per-shard basis. |
 | `$/Ama.CRDT/Services/Versioning/VersionVectorSyncService.cs` | Implementation of `IVersionVectorSyncService` that negotiates vector requirements per shard and evaluates journal completion using `ShardClock`. |
 | `$/CodingStandards.md` | No description provided. |

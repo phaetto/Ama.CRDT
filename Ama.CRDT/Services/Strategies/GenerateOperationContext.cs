@@ -14,6 +14,7 @@ using Ama.CRDT.Models.Intents;
 /// <param name="Intent">The user intent specifying the change to perform (e.g., insert, remove).</param>
 /// <param name="Timestamp">The timestamp assigned to the generated operation.</param>
 /// <param name="Clock">The monotonically increasing causal sequence number for the originating replica.</param>
+/// <param name="ReplicaId">The unique identifier of the replica generating the operation.</param>
 public readonly record struct GenerateOperationContext(
     object DocumentRoot,
     CrdtMetadata Metadata,
@@ -21,4 +22,5 @@ public readonly record struct GenerateOperationContext(
     CrdtPropertyInfo Property,
     IOperationIntent Intent,
     CrdtTimestamp Timestamp,
-    long Clock);
+    long Clock,
+    string ReplicaId = "");

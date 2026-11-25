@@ -9,10 +9,12 @@ using Ama.CRDT.Models.Aot;
 /// <param name="Root">The root object of the document to which the operation will be applied.</param>
 /// <param name="Metadata">The CRDT metadata associated with the document. The strategy can read or modify this metadata, for example, to update LWW timestamps.</param>
 /// <param name="Operation">The CRDT operation to be applied.</param>
+/// <param name="ReplicaId">The unique identifier of the local replica applying the operation.</param>
 public sealed record ApplyOperationContext(
     object Root,
     CrdtMetadata Metadata,
-    CrdtOperation Operation
+    CrdtOperation Operation,
+    string ReplicaId = ""
 )
 {
     /// <summary>
