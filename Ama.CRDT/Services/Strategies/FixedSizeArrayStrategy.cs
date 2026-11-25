@@ -21,15 +21,12 @@ using System.Linq;
 [Idempotent]
 [StateBased]
 public sealed class FixedSizeArrayStrategy(
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp, clock) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp, clock, replicaId) = context;
 
         ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(property);
@@ -77,7 +74,7 @@ public sealed class FixedSizeArrayStrategy(
             }
 
             var elementPath = $"{context.JsonPath}[{setIndexIntent.Index}]";
-            return new CrdtOperation(Guid.NewGuid(), replicaId, elementPath, OperationType.Upsert, setIndexIntent.Value, context.Timestamp, context.Clock);
+            return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, elementPath, OperationType.Upsert, setIndexIntent.Value, context.Timestamp, context.Clock);
         }
 
         throw new NotSupportedException($"Intent {context.Intent.GetType().Name} is not supported for {this.GetType().Name}.");
@@ -86,7 +83,7 @@ public sealed class FixedSizeArrayStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         var resolution = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
         var parent = resolution.Parent;

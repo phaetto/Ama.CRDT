@@ -32,15 +32,12 @@ using System.Linq;
 [StateBased]
 public sealed class FwwMapStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock, replicaId) = context;
 
         var originalDict = originalValue as IDictionary;
         var modifiedDict = modifiedValue as IDictionary;
@@ -92,7 +89,7 @@ public sealed class FwwMapStrategy(
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (_, _, path, _, intent, timestamp, clock) = context;
+        var (_, _, path, _, intent, timestamp, clock, replicaId) = context;
 
         return intent switch
         {
@@ -106,7 +103,7 @@ public sealed class FwwMapStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         var resolution = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
         var parent = resolution.Parent;

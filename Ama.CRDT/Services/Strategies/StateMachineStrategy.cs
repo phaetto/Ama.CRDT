@@ -23,16 +23,13 @@ using Ama.CRDT.Extensions;
 [Idempotent]
 [StateBased]
 public sealed class StateMachineStrategy(
-    ReplicaContext replicaContext, 
     IServiceProvider serviceProvider, 
     IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock, replicaId) = context;
 
         if (Equals(originalValue, modifiedValue))
         {
@@ -59,7 +56,7 @@ public sealed class StateMachineStrategy(
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (root, _, path, property, intent, timestamp, clock) = context;
+        var (root, _, path, property, intent, timestamp, clock, replicaId) = context;
 
         if (intent is not SetIntent setIntent)
         {
@@ -86,7 +83,7 @@ public sealed class StateMachineStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         if (operation.Type != OperationType.Upsert)
         {

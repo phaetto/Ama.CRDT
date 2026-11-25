@@ -23,15 +23,12 @@ using System.Collections.Generic;
 [Idempotent]
 [StateBased]
 public sealed class FwwStrategy(
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock, replicaId) = context;
 
         if (Equals(originalValue, modifiedValue))
         {
@@ -64,7 +61,7 @@ public sealed class FwwStrategy(
             var operationType = setIntent.Value is null ? OperationType.Remove : OperationType.Upsert;
             return new CrdtOperation(
                 Guid.NewGuid(),
-                replicaId,
+                context.ReplicaId,
                 context.JsonPath,
                 operationType,
                 setIntent.Value,
@@ -76,7 +73,7 @@ public sealed class FwwStrategy(
         {
             return new CrdtOperation(
                 Guid.NewGuid(),
-                replicaId,
+                context.ReplicaId,
                 context.JsonPath,
                 OperationType.Remove,
                 null,
@@ -90,7 +87,7 @@ public sealed class FwwStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         bool isReset = operation.Type == OperationType.Remove && operation.Value is null;
 

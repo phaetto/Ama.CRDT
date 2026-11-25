@@ -29,15 +29,12 @@ using System.Linq;
 [StateBased]
 public sealed class OrMapStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, nestedDiffs, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp, clock) = context;
+        var (operations, nestedDiffs, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp, clock, replicaId) = context;
 
         var originalDict = originalValue as IDictionary;
         var modifiedDict = modifiedValue as IDictionary;
@@ -83,14 +80,15 @@ public sealed class OrMapStrategy(
                 ToRoot: modifiedRoot,
                 FromMeta: originalMeta,
                 Operations: operations,
-                ChangeTimestamp: changeTimestamp));
+                ChangeTimestamp: changeTimestamp,
+                ReplicaId: replicaId));
         }
     }
 
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (root, metadata, path, property, intent, timestamp, clock) = context;
+        var (root, metadata, path, property, intent, timestamp, clock, replicaId) = context;
 
         if (intent is MapSetIntent setIntent)
         {
@@ -122,7 +120,7 @@ public sealed class OrMapStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
         if (parent is null || property is null || property.Getter!(parent) is not IDictionary dict)

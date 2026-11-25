@@ -25,15 +25,12 @@ using System.Linq;
 [StateBased]
 public sealed class PriorityQueueStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock, replicaId) = context;
 
         var originalList = originalValue as IEnumerable;
         var modifiedList = modifiedValue as IEnumerable;
@@ -98,7 +95,7 @@ public sealed class PriorityQueueStrategy(
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (_, _, jsonPath, property, intent, timestamp, clock) = context;
+        var (_, _, jsonPath, property, intent, timestamp, clock, replicaId) = context;
 
         var elementType = PocoPathHelper.GetTypeInfo(property.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
 
@@ -113,7 +110,7 @@ public sealed class PriorityQueueStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
         if (parent is null || property is null || property.Getter!(parent) is not IList list)

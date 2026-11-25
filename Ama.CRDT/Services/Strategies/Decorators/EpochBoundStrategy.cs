@@ -25,7 +25,7 @@ using System.Linq;
 [Associative]
 [Idempotent]
 [OperationBased]
-public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, ReplicaContext replicaContext, IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
+public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, IEnumerable<CrdtAotContext> aotContexts) : ICrdtStrategy
 {
     private const string DecoratorKey = "Epoch";
 
@@ -72,7 +72,7 @@ public sealed class EpochBoundStrategy(IServiceProvider serviceProvider, Replica
         {
             return new CrdtOperation(
                 Guid.NewGuid(),
-                replicaContext.ReplicaId,
+                context.ReplicaId,
                 context.JsonPath,
                 OperationType.Remove,
                 new EpochPayload(localEpoch + 1, null),

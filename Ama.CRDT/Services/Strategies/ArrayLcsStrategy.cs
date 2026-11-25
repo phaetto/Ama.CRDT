@@ -26,15 +26,12 @@ using System.Linq;
 [OperationBased]
 public sealed class ArrayLcsStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock, replicaId) = context;
 
         var originalList = (originalValue as IList)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedList = (modifiedValue as IList)?.Cast<object>().ToList() ?? new List<object>();
@@ -106,7 +103,7 @@ public sealed class ArrayLcsStrategy(
             var newPos = GeneratePositionBetween(beforePos?.Position, null);
             var newItem = new PositionalItem(newPos, addIntent.Value);
 
-            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestamp, context.Clock);
+            return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, path, OperationType.Upsert, newItem, timestamp, context.Clock);
         }
 
         if (intent is InsertIntent insertIntent)
@@ -122,7 +119,7 @@ public sealed class ArrayLcsStrategy(
             var newPos = GeneratePositionBetween(beforePos?.Position, afterPos?.Position);
             var newItem = new PositionalItem(newPos, insertIntent.Value);
 
-            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Upsert, newItem, timestamp, context.Clock);
+            return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, path, OperationType.Upsert, newItem, timestamp, context.Clock);
         }
 
         if (intent is RemoveIntent removeIntent)
@@ -133,7 +130,7 @@ public sealed class ArrayLcsStrategy(
             }
 
             var removedIdentifier = positions[removeIntent.Index];
-            return new CrdtOperation(Guid.NewGuid(), replicaId, path, OperationType.Remove, removedIdentifier, timestamp, context.Clock);
+            return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, path, OperationType.Remove, removedIdentifier, timestamp, context.Clock);
         }
 
         throw new NotSupportedException($"Intent {intent.GetType().Name} is not supported by {nameof(ArrayLcsStrategy)}.");
@@ -142,7 +139,7 @@ public sealed class ArrayLcsStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
         if (parent is null || property is null || !property.CanRead || property.Getter!(parent) is not IList list)

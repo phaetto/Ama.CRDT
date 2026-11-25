@@ -481,40 +481,40 @@
 | `$/Ama.CRDT/Services/Strategies/ApplyOperationContext.cs` | Defines the context for an `ICrdtStrategy.ApplyOperation` call, encapsulating all necessary parameters including `ReplicaId`. |
 | `$/Ama.CRDT/Services/Strategies/ArrayLcsStrategy.cs` | Implements the Array LCS strategy for ordered sequences as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Strategies/AverageRegisterStrategy.cs` | Implements the Average Register strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
-| `$/Ama.CRDT/Services/Strategies/BoundedCounterStrategy.cs` | Implements the Bounded Counter strategy, clamping values within a defined range and using `CounterState` for tracking PN-Counter contributions. |
+| `$/Ama.CRDT/Services/Strategies/BoundedCounterStrategy.cs` | Implements the Bounded Counter strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Strategies/CompactionContext.cs` | Defines the context for an `ICrdtStrategy.Compact` call, encapsulating parameters for garbage collection. |
-| `$/Ama.CRDT/Services/Strategies/CounterMapStrategy.cs` | Implements the Counter-Map strategy, where each key in a dictionary is treated as an independent PN-Counter. |
+| `$/Ama.CRDT/Services/Strategies/CounterMapStrategy.cs` | Implements the Counter-Map strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Strategies/CounterStrategy.cs` | Implements the CRDT Counter (PN-Counter) strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Strategies/Decorators/ApprovalQuorumStrategy.cs` | A decorator strategy that tracks pending proposals and requires a quorum of replicas to propose the exact same operation before it is applied. |
-| `$/Ama.CRDT/Services/Strategies/Decorators/EpochBoundStrategy.cs` | No description provided. |
-| `$/Ama.CRDT/Services/Strategies/FixedSizeArrayStrategy.cs` | Implements the Fixed-Size Array strategy with LWW per index and `MergeState` for state-based merging. |
-| `$/Ama.CRDT/Services/Strategies/FwwMapStrategy.cs` | Implements the First-Writer-Wins Map strategy, including `MergeState` and virtual collection partitioning support. |
-| `$/Ama.CRDT/Services/Strategies/FwwSetStrategy.cs` | Implements the First-Writer-Wins Set strategy, including `MergeState` and virtual collection partitioning support. |
-| `$/Ama.CRDT/Services/Strategies/FwwStrategy.cs` | Implements the First-Writer-Wins (FWW) strategy for conflict resolution, resolving concurrent modifications by selecting the value with the lowest timestamp. |
-| `$/Ama.CRDT/Services/Strategies/GCounterStrategy.cs` | Implements the G-Counter (Grow-Only Counter) strategy, which only allows for positive increments. |
-| `$/Ama.CRDT/Services/Strategies/GSetStrategy.cs` | Implements the G-Set (Grow-Only Set) CRDT strategy using centralized AOT helpers from `PocoPathHelper`. |
+| `$/Ama.CRDT/Services/Strategies/Decorators/EpochBoundStrategy.cs` | Implements the EpochBound decorator strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/FixedSizeArrayStrategy.cs` | Implements the Fixed-Size Array strategy with LWW per index and `MergeState` as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/FwwMapStrategy.cs` | Implements the First-Writer-Wins Map strategy as a stateless strategy reading `ReplicaId` from operation contexts, including `MergeState` and virtual collection partitioning support. |
+| `$/Ama.CRDT/Services/Strategies/FwwSetStrategy.cs` | Implements the First-Writer-Wins Set strategy as a stateless strategy reading `ReplicaId` from operation contexts, including `MergeState` and virtual collection partitioning support. |
+| `$/Ama.CRDT/Services/Strategies/FwwStrategy.cs` | Implements the First-Writer-Wins (FWW) strategy for conflict resolution as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/GCounterStrategy.cs` | Implements the G-Counter (Grow-Only Counter) strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/GSetStrategy.cs` | Implements the G-Set (Grow-Only Set) CRDT strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Strategies/GenerateOperationContext.cs` | Defines the context for explicitly generating intent-based operations in strategies, including `ReplicaId`. |
 | `$/Ama.CRDT/Services/Strategies/GeneratePatchContext.cs` | Defines the context object for the `ICrdtStrategy.GeneratePatch` method, encapsulating all necessary parameters including `ReplicaId`. |
-| `$/Ama.CRDT/Services/Strategies/GraphStrategy.cs` | Implements a CRDT strategy for graph data structures, treating vertices and edges as a grow-only set, suitable for modeling relationships and networks. |
+| `$/Ama.CRDT/Services/Strategies/GraphStrategy.cs` | Implements a CRDT strategy for graph data structures as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Strategies/ICrdtStrategy.cs` | Defines the core contract for CRDT strategies, including patch generation, intent operation generation, operation application, state merging (`MergeState`), and metadata compaction. |
 | `$/Ama.CRDT/Services/Strategies/LseqStrategy.cs` | Implements the LSEQ strategy for ordered sequences as a stateless strategy reading `ReplicaId` from operation contexts. |
-| `$/Ama.CRDT/Services/Strategies/LwwMapStrategy.cs` | Implements the LWW-Map (Last-Writer-Wins Map) CRDT strategy using centralized AOT helpers from `PocoPathHelper`. |
-| `$/Ama.CRDT/Services/Strategies/LwwSetStrategy.cs` | Implements the LWW-Set (Last-Writer-Wins Set) CRDT strategy using centralized AOT helpers from `PocoPathHelper`. |
-| `$/Ama.CRDT/Services/Strategies/LwwStrategy.cs` | Implements the Last-Writer-Wins (LWW) register strategy using centralized AOT helpers from `PocoPathHelper`. |
-| `$/Ama.CRDT/Services/Strategies/MaxWinsMapStrategy.cs` | Implements a value-based Max-Wins Map strategy. For each key, conflicts are resolved by choosing the highest value, making the map's keys grow-only. |
-| `$/Ama.CRDT/Services/Strategies/MaxWinsStrategy.cs` | Implements the Max-Wins Register strategy using centralized AOT helpers from `PocoPathHelper`. |
+| `$/Ama.CRDT/Services/Strategies/LwwMapStrategy.cs` | Implements the LWW-Map (Last-Writer-Wins Map) CRDT strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/LwwSetStrategy.cs` | Implements the LWW-Set (Last-Writer-Wins Set) CRDT strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/LwwStrategy.cs` | Implements the Last-Writer-Wins (LWW) register strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/MaxWinsMapStrategy.cs` | Implements a value-based Max-Wins Map strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/MaxWinsStrategy.cs` | Implements the Max-Wins Register strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Strategies/MergeStateContext.cs` | Defines the context for an `ICrdtStrategy.MergeState` call, encapsulating parameters like primary/secondary data and fully resolved property paths. |
-| `$/Ama.CRDT/Services/Strategies/MinWinsMapStrategy.cs` | Implements a value-based Min-Wins Map strategy. For each key, conflicts are resolved by choosing the lowest value, making the map's keys grow-only. |
-| `$/Ama.CRDT/Services/Strategies/MinWinsStrategy.cs` | Implements the Min-Wins Register strategy using centralized AOT helpers from `PocoPathHelper`. |
-| `$/Ama.CRDT/Services/Strategies/OrMapStrategy.cs` | Implements the OR-Map (Observed-Remove Map) CRDT strategy. It uses centralized reflection helpers and supports partitioning. |
-| `$/Ama.CRDT/Services/Strategies/OrSetStrategy.cs` | Implements the OR-Set (Observed-Remove Set) CRDT strategy using centralized AOT helpers from `PocoPathHelper`. |
-| `$/Ama.CRDT/Services/Strategies/PriorityQueueStrategy.cs` | Implements a strategy for collections that behave as a priority queue using centralized AOT helpers from `PocoPathHelper`. |
-| `$/Ama.CRDT/Services/Strategies/ReplicatedTreeStrategy.cs` | Implements a CRDT strategy for tree data structures, allowing nodes to be added, removed, and moved concurrently. It uses unique tags (similar to OR-Set) for adds and LWW for moves to ensure convergence. |
+| `$/Ama.CRDT/Services/Strategies/MinWinsMapStrategy.cs` | Implements a value-based Min-Wins Map strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/MinWinsStrategy.cs` | Implements the Min-Wins Register strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/OrMapStrategy.cs` | Implements the OR-Map (Observed-Remove Map) CRDT strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/OrSetStrategy.cs` | Implements the OR-Set (Observed-Remove Set) CRDT strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/PriorityQueueStrategy.cs` | Implements a strategy for collections that behave as a priority queue as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/ReplicatedTreeStrategy.cs` | Implements a CRDT strategy for tree data structures as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Strategies/RgaStrategy.cs` | Implements the Replicated Growable Array (RGA) strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
-| `$/Ama.CRDT/Services/Strategies/SortedSetStrategy.cs` | Implements a CRDT strategy for collections that are treated as sorted sets, using `CompactDictionary` for `LwwSetState` metadata storage. |
-| `$/Ama.CRDT/Services/Strategies/StateMachineStrategy.cs` | Implements the State Machine strategy using centralized AOT helpers from `PocoPathHelper`. |
-| `$/Ama.CRDT/Services/Strategies/TwoPhaseGraphStrategy.cs` | Implements a 2P-Graph strategy using `CompactSet` and `CompactDictionary` for `TwoPhaseGraphState` metadata storage. |
-| `$/Ama.CRDT/Services/Strategies/TwoPhaseSetStrategy.cs` | Implements the 2P-Set (Two-Phase Set) CRDT strategy using `CompactSet` and `CompactDictionary` for `TwoPhaseSetState` metadata storage. |
+| `$/Ama.CRDT/Services/Strategies/SortedSetStrategy.cs` | Implements a CRDT strategy for collections that are treated as sorted sets as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/StateMachineStrategy.cs` | Implements the State Machine strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/TwoPhaseGraphStrategy.cs` | Implements a 2P-Graph strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
+| `$/Ama.CRDT/Services/Strategies/TwoPhaseSetStrategy.cs` | Implements the 2P-Set (Two-Phase Set) CRDT strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Strategies/VoteCounterStrategy.cs` | Implements the Vote Counter strategy as a stateless strategy reading `ReplicaId` from operation contexts. |
 | `$/Ama.CRDT/Services/Versioning/IVersionVectorSyncService.cs` | Defines a service for calculating synchronization gaps and evaluating journal operations on a per-shard basis. |
 | `$/Ama.CRDT/Services/Versioning/VersionVectorSyncService.cs` | Implementation of `IVersionVectorSyncService` that negotiates vector requirements per shard and evaluates journal completion using `ShardClock`. |

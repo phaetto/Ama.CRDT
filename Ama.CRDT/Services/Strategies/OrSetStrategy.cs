@@ -31,15 +31,12 @@ using System.Linq;
 [StateBased]
 public sealed class OrSetStrategy(
     IElementComparerProvider comparerProvider,
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-    
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock) = context;
+        var (operations, _, path, property, originalValue, modifiedValue, _, _, originalMeta, changeTimestamp, clock, replicaId) = context;
 
         var originalSet = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var modifiedSet = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
@@ -84,7 +81,7 @@ public sealed class OrSetStrategy(
         {
             var value = PocoPathHelper.ConvertValue(addIntent.Value, elementType, aotContexts);
             var payload = new OrSetAddItem(value!, Guid.NewGuid());
-            return new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Upsert, payload, context.Timestamp, context.Clock);
+            return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Upsert, payload, context.Timestamp, context.Clock);
         }
 
         if (context.Intent is RemoveValueIntent removeValueIntent)
@@ -114,7 +111,7 @@ public sealed class OrSetStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         var (parent, property, _) = PocoPathHelper.ResolvePath(root, operation.JsonPath, aotContexts);
         if (parent is null || property is null || property.Getter!(parent) is not IEnumerable collection)
@@ -580,6 +577,6 @@ public sealed class OrSetStrategy(
         }
 
         var payload = new OrSetRemoveItem(value!, tags);
-        return new CrdtOperation(Guid.NewGuid(), replicaId, context.JsonPath, OperationType.Remove, payload, context.Timestamp, context.Clock);
+        return new CrdtOperation(Guid.NewGuid(), context.ReplicaId, context.JsonPath, OperationType.Remove, payload, context.Timestamp, context.Clock);
     }
 }

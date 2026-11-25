@@ -14,13 +14,11 @@ using System.Linq;
 [Associative]
 [Idempotent]
 [StateBased]
-public sealed class GraphStrategy(ReplicaContext replicaContext) : ICrdtStrategy
+public sealed class GraphStrategy : ICrdtStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock) = context;
+        var (operations, _, path, _, originalValue, modifiedValue, _, _, _, changeTimestamp, clock, replicaId) = context;
 
         var originalGraph = originalValue as CrdtGraph ?? new CrdtGraph();
         var modifiedGraph = modifiedValue as CrdtGraph ?? new CrdtGraph();
@@ -40,7 +38,7 @@ public sealed class GraphStrategy(ReplicaContext replicaContext) : ICrdtStrategy
 
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (_, _, jsonPath, _, intent, timestamp, clock) = context;
+        var (_, _, jsonPath, _, intent, timestamp, clock, replicaId) = context;
 
         if (intent is AddVertexIntent addVertexIntent)
         {

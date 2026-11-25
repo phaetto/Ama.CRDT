@@ -34,11 +34,8 @@ using Ama.CRDT.Models.LargerThanMemory;
 public sealed class SortedSetStrategy(
     IElementComparerProvider comparerProvider, 
     ICrdtTimestampProvider timestampProvider,
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> aotContexts) : IChunkableCollectionStrategy
 {
-    private readonly string replicaId = replicaContext.ReplicaId;
-
     /// <summary>
     /// Defines the type of difference operation in a Longest Common Subsequence (LCS) comparison.
     /// </summary>
@@ -68,7 +65,7 @@ public sealed class SortedSetStrategy(
     /// <inheritdoc/>
     public void GeneratePatch(GeneratePatchContext context)
     {
-        var (operations, nestedDiffs, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp, clock) = context;
+        var (operations, nestedDiffs, path, property, originalValue, modifiedValue, originalRoot, modifiedRoot, originalMeta, changeTimestamp, clock, replicaId) = context;
 
         var fromArray = (originalValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
         var toArray = (modifiedValue as IEnumerable)?.Cast<object>().ToList() ?? new List<object>();
@@ -91,7 +88,7 @@ public sealed class SortedSetStrategy(
                 if (!Equals(fromItem, toItem))
                 {
                     var itemPath = $"{path}[{entry.OldIndex}]";
-                    var diffContext = new DifferentiateObjectContext(itemPath, elementType, fromItem, toItem, originalRoot, modifiedRoot, originalMeta, operations, changeTimestamp);
+                    var diffContext = new DifferentiateObjectContext(itemPath, elementType, fromItem, toItem, originalRoot, modifiedRoot, originalMeta, operations, changeTimestamp, replicaId);
                     nestedDiffs.Add(diffContext);
                 }
             }
@@ -116,7 +113,7 @@ public sealed class SortedSetStrategy(
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation(GenerateOperationContext context)
     {
-        var (_, _, jsonPath, _, intent, timestamp, clock) = context;
+        var (_, _, jsonPath, _, intent, timestamp, clock, replicaId) = context;
 
         // A dummy index like `[-1]` is used since ApplyOperation solely extracts the path up to `[` 
         // and manages elements based on the value mapping in the set.
@@ -131,7 +128,7 @@ public sealed class SortedSetStrategy(
     /// <inheritdoc/>
     public CrdtOperationStatus ApplyOperation(ApplyOperationContext context)
     {
-        var (root, metadata, operation) = context;
+        var (root, metadata, operation, _) = context;
 
         var lastBracket = operation.JsonPath.LastIndexOf('[');
         if (lastBracket <= 0 || !operation.JsonPath.EndsWith("]"))
