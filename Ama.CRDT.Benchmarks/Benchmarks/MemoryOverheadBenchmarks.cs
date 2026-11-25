@@ -44,6 +44,7 @@ public class MemoryOverheadBenchmarks
     private CrdtDocument<CollectionHeavyPoco> collMediumDocTemplate;
     private CrdtDocument<CollectionHeavyPoco> collLargeDocTemplate;
 
+    private ICrdtScopeFactory scopeFactory = null!;
     private string[] replicaIds = null!;
     private string[] shardIds = null!;
     private string[] tagPool = null!;
@@ -180,7 +181,7 @@ public class MemoryOverheadBenchmarks
         services.AddCrdt();
         services.AddCrdtAotContext<BenchmarkCrdtAotContext>();
         var serviceProvider = services.BuildServiceProvider();
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
+        scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
         scope = scopeFactory.CreateScope("replica-bench");
 
         var brotliServices = new ServiceCollection();
@@ -534,6 +535,43 @@ public class MemoryOverheadBenchmarks
     [Benchmark(Description = "Shards: 100 Shards x 50 Replicas (10 Dots)")]
     [BenchmarkCategory("Shard Map Dimensions")]
     public ShardVersionVectorMap Shards_100Shards_50Replicas_10Dots() => CreateShardMap(100, 50, 10);
+
+    // =========================================================================
+    // DIMENSION 4: REPLICA SCOPE & SERVICE RESOLUTION OVERHEAD
+    // =========================================================================
+
+    [Benchmark(Baseline = true, Description = "ReplicaScope: Bare (ReplicaContext only)")]
+    [BenchmarkCategory("Replica Scope Overhead")]
+    public string ReplicaScope_Bare()
+    {
+        using var replicaScope = scopeFactory.CreateScope("replica-bench");
+        return replicaScope.ServiceProvider.GetRequiredService<ReplicaContext>().ReplicaId;
+    }
+
+    [Benchmark(Description = "ReplicaScope: Core Sync Services (Patcher, Applicator, Merger, MetaMgr)")]
+    [BenchmarkCategory("Replica Scope Overhead")]
+    public ICrdtPatcher ReplicaScope_CoreSyncServices()
+    {
+        using var replicaScope = scopeFactory.CreateScope("replica-bench");
+        var sp = replicaScope.ServiceProvider;
+        var patcher = sp.GetRequiredService<ICrdtPatcher>();
+        _ = sp.GetRequiredService<ICrdtApplicator>();
+        _ = sp.GetRequiredService<ICrdtMerger>();
+        _ = sp.GetRequiredService<ICrdtMetadataManager>();
+        return patcher;
+    }
+
+    [Benchmark(Description = "ReplicaScope: Async Pipeline (AsyncPatcher, AsyncApplicator, AsyncMerger)")]
+    [BenchmarkCategory("Replica Scope Overhead")]
+    public IAsyncCrdtPatcher ReplicaScope_AsyncPipeline()
+    {
+        using var replicaScope = scopeFactory.CreateScope("replica-bench");
+        var sp = replicaScope.ServiceProvider;
+        var asyncPatcher = sp.GetRequiredService<IAsyncCrdtPatcher>();
+        _ = sp.GetRequiredService<IAsyncCrdtApplicator>();
+        _ = sp.GetRequiredService<IAsyncCrdtMerger>();
+        return asyncPatcher;
+    }
 
     // =========================================================================
     // Helper factory methods
