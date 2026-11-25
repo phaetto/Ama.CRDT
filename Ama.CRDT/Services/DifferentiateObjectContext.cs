@@ -28,5 +28,5 @@ public sealed record DifferentiateObjectContext(
     [DisallowNull] CrdtMetadata FromMeta,
     [DisallowNull] List<CrdtOperation> Operations,
     [DisallowNull] CrdtTimestamp ChangeTimestamp,
-    string ReplicaId = ""
+    string ReplicaId
 );

@@ -268,10 +268,10 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         var meta = metadataManagerA.Initialize(doc);
         var propInfo = CreatePropertyInfo();
 
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0), "A"));
 
         var result = strategyA.SplitToDisjoint(doc, meta, propInfo);
 
@@ -296,11 +296,11 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
         var meta2 = metadataManagerA.Initialize(doc2);
         var propInfo = CreatePropertyInfo();
 
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0), "A"));
         
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0), "A"));
 
         var result = strategyA.MergeDisjoint(doc1, meta1, doc2, meta2, propInfo);
 
@@ -314,7 +314,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     {
         // Arrange
         var intent = new AddIntent("X");
-        var context = new GenerateOperationContext(null!, null!, "$.tags", null!, intent, timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(null!, null!, "$.tags", null!, intent, timestampProvider.Now(), 0, "A");
 
         // Act
         var op = strategyA.GenerateOperation(context);
@@ -330,7 +330,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     {
         // Arrange
         var intent = new RemoveValueIntent("Y");
-        var context = new GenerateOperationContext(null!, null!, "$.tags", null!, intent, timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(null!, null!, "$.tags", null!, intent, timestampProvider.Now(), 0, "A");
 
         // Act
         var op = strategyA.GenerateOperation(context);
@@ -346,7 +346,7 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
     {
         // Arrange
         var intent = new SetIntent("Z");
-        var context = new GenerateOperationContext(null!, null!, "$.tags", null!, intent, timestampProvider.Now(), 0);
+        var context = new GenerateOperationContext(null!, null!, "$.tags", null!, intent, timestampProvider.Now(), 0, "A");
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
@@ -416,14 +416,14 @@ public sealed class TwoPhaseSetStrategyTests : IDisposable
 
         var data1 = new TwoPhaseSetTestModel();
         var meta1 = new CrdtMetadata();
-        strategyA.ApplyOperation(new ApplyOperationContext(data1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Upsert, "Tag1", timestampProvider.Now(), 1)));
-        strategyA.ApplyOperation(new ApplyOperationContext(data1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Remove, "Tag1", timestampProvider.Now(), 2)));
-        strategyA.ApplyOperation(new ApplyOperationContext(data1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Upsert, "Tag2", timestampProvider.Now(), 3)));
+        strategyA.ApplyOperation(new ApplyOperationContext(data1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Upsert, "Tag1", timestampProvider.Now(), 1), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(data1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Remove, "Tag1", timestampProvider.Now(), 2), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(data1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Upsert, "Tag2", timestampProvider.Now(), 3), "A"));
 
         var data2 = new TwoPhaseSetTestModel();
         var meta2 = new CrdtMetadata();
-        strategyA.ApplyOperation(new ApplyOperationContext(data2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.tags", OperationType.Upsert, "Tag2", timestampProvider.Now(), 1)));
-        strategyA.ApplyOperation(new ApplyOperationContext(data2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.tags", OperationType.Upsert, "Tag3", timestampProvider.Now(), 2)));
+        strategyA.ApplyOperation(new ApplyOperationContext(data2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.tags", OperationType.Upsert, "Tag2", timestampProvider.Now(), 1), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(data2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.tags", OperationType.Upsert, "Tag3", timestampProvider.Now(), 2), "A"));
 
         // Act
         strategyA.MergeState(new MergeStateContext(data1, meta1, data2, meta2, propInfo, "$.tags"));

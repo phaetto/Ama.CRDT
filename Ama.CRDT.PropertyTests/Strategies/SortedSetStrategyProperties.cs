@@ -146,10 +146,9 @@ public sealed class SortedSetStrategyProperties
             .Setup(x => x.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
 
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var timestampProvider = new EpochTimestampProvider(replicaContext);
+        var timestampProvider = new EpochTimestampProvider();
         
-        var strategy = new SortedSetStrategy(mockComparerProvider.Object, timestampProvider, replicaContext, new[] { new SortedSetTestContext() });
+        var strategy = new SortedSetStrategy(mockComparerProvider.Object, timestampProvider, new[] { new SortedSetTestContext() });
         
         var propertyInfo = new CrdtPropertyInfo(
             nameof(SortedSetTestPoco.Items),
@@ -165,7 +164,7 @@ public sealed class SortedSetStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

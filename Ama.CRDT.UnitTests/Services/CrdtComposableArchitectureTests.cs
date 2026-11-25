@@ -29,7 +29,6 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         var services = new ServiceCollection();
         services.AddCrdt();
         services.AddCrdtAotContext<ServicesTestCrdtAotContext>();
-        services.AddCrdtTimestampProvider<EpochTimestampProvider>();
         
         // Register the state machine validator used in the complex composition tests
         services.AddSingleton<DocStatusValidator>();

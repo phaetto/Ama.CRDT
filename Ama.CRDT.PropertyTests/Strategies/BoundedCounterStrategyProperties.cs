@@ -117,9 +117,7 @@ public sealed class BoundedCounterStrategyProperties
             .AddCrdtAotContext<BoundedCounterTestContext>()
             .BuildServiceProvider();
 
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope("property-test-replica");
-        var strategy = scope.ServiceProvider.GetRequiredService<BoundedCounterStrategy>();
+        var strategy = serviceProvider.GetRequiredService<BoundedCounterStrategy>();
 
         var propertyInfo = new CrdtPropertyInfo(
             nameof(BoundedCounterTestPoco.Value),
@@ -134,7 +132,7 @@ public sealed class BoundedCounterStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

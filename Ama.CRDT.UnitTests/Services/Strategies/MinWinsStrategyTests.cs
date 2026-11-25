@@ -78,7 +78,8 @@ public sealed class MinWinsStrategyTests : IDisposable
             new TestModel { BestTime = 100 },
             new CrdtMetadata(),
             timestampProvider.Now(),
-            0
+            0,
+            "A"
         );
         
         // Act
@@ -101,7 +102,8 @@ public sealed class MinWinsStrategyTests : IDisposable
             property,
             new SetIntent(100),
             timestampProvider.Now(),
-            0
+            0,
+            "A"
         );
 
         // Act
@@ -125,7 +127,8 @@ public sealed class MinWinsStrategyTests : IDisposable
             property,
             new SetIntent(new object()), // object is not IComparable
             timestampProvider.Now(),
-            0
+            0,
+            "A"
         );
 
         // Act & Assert
@@ -143,7 +146,8 @@ public sealed class MinWinsStrategyTests : IDisposable
             property,
             new RemoveIntent(0),
             timestampProvider.Now(),
-            0
+            0,
+            "A"
         );
 
         // Act & Assert
@@ -156,7 +160,7 @@ public sealed class MinWinsStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { BestTime = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 100, timestampProvider.Create(2L), 0);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation, "A")
         {
             Target = model,
             Property = property
@@ -175,7 +179,7 @@ public sealed class MinWinsStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { BestTime = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 200, timestampProvider.Create(2L), 0);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation, "A")
         {
             Target = model,
             Property = property
@@ -194,7 +198,7 @@ public sealed class MinWinsStrategyTests : IDisposable
         // Arrange
         var model = new TestModel { BestTime = 150 };
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.bestTime", OperationType.Upsert, 100, timestampProvider.Create(2L), 0);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation, "A")
         {
             Target = model,
             Property = property
@@ -221,12 +225,12 @@ public sealed class MinWinsStrategyTests : IDisposable
 
         // Act
         // op1 then op2
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1) { Target = model1, Property = property });
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2) { Target = model1, Property = property });
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op1, "A") { Target = model1, Property = property });
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, new CrdtMetadata(), op2, "A") { Target = model1, Property = property });
 
         // op2 then op1
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2) { Target = model2, Property = property });
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1) { Target = model2, Property = property });
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op2, "A") { Target = model2, Property = property });
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, new CrdtMetadata(), op1, "A") { Target = model2, Property = property });
     
         // Assert
         model1.BestTime.ShouldBe(200); // min(300, 200, 250)
@@ -253,7 +257,7 @@ public sealed class MinWinsStrategyTests : IDisposable
             var meta = new CrdtMetadata();
             foreach (var op in p)
             {
-                strategyA.ApplyOperation(new ApplyOperationContext(model, meta, op) { Target = model, Property = property });
+                strategyA.ApplyOperation(new ApplyOperationContext(model, meta, op, "A") { Target = model, Property = property });
             }
             finalTimes.Add(model.BestTime);
         }

@@ -145,8 +145,7 @@ public sealed class FixedSizeArrayStrategyProperties
 
     private static void ApplyOperations(FixedSizeArrayTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new FixedSizeArrayStrategy(replicaContext, [new FixedSizeArrayTestContext()]);
+        var strategy = new FixedSizeArrayStrategy([new FixedSizeArrayTestContext()]);
         var propertyInfo = new CrdtPropertyInfo(
             nameof(FixedSizeArrayTestPoco.Items),
             "items",
@@ -160,7 +159,7 @@ public sealed class FixedSizeArrayStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

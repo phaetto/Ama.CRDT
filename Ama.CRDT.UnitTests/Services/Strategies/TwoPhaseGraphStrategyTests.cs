@@ -278,21 +278,21 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
         var data1 = new TwoPhaseGraphTestModel();
         var meta1 = new CrdtMetadata();
         var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.graph", OperationType.Upsert, new GraphVertexPayload("V1"), timestampProvider.Create(100), 1);
-        strategy.ApplyOperation(new ApplyOperationContext(data1, meta1, op1));
+        strategy.ApplyOperation(new ApplyOperationContext(data1, meta1, op1, "A"));
 
         var data2 = new TwoPhaseGraphTestModel();
         var meta2 = new CrdtMetadata();
         var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.graph", OperationType.Upsert, new GraphVertexPayload("V2"), timestampProvider.Create(200), 2);
-        strategy.ApplyOperation(new ApplyOperationContext(data2, meta2, op2));
+        strategy.ApplyOperation(new ApplyOperationContext(data2, meta2, op2, "A"));
 
         // Add an edge in data2
         var edge = new Edge("V1", "V2", null);
         var op3 = new CrdtOperation(Guid.NewGuid(), "B", "$.graph", OperationType.Upsert, new GraphEdgePayload(edge), timestampProvider.Create(300), 3);
-        strategy.ApplyOperation(new ApplyOperationContext(data2, meta2, op3));
+        strategy.ApplyOperation(new ApplyOperationContext(data2, meta2, op3, "A"));
 
         // Remove V1 in data1
         var op4 = new CrdtOperation(Guid.NewGuid(), "A", "$.graph", OperationType.Remove, new GraphVertexPayload("V1"), timestampProvider.Create(400), 4);
-        strategy.ApplyOperation(new ApplyOperationContext(data1, meta1, op4));
+        strategy.ApplyOperation(new ApplyOperationContext(data1, meta1, op4, "A"));
 
         // Act
         strategy.MergeState(new MergeStateContext(data1, meta1, data2, meta2, propInfo, "$.graph"));

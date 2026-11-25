@@ -23,4 +23,4 @@ public readonly record struct GenerateOperationContext(
     IOperationIntent Intent,
     CrdtTimestamp Timestamp,
     long Clock,
-    string ReplicaId = "");
+    string ReplicaId);

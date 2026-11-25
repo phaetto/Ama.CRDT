@@ -179,9 +179,8 @@ public sealed class PriorityQueueStrategyProperties
             .Setup(x => x.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
 
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
         var aotContexts = new CrdtAotContext[] { new PriorityQueueTestContext(), new CoreCrdtAotContext() };
-        var strategy = new PriorityQueueStrategy(mockComparerProvider.Object, replicaContext, aotContexts);
+        var strategy = new PriorityQueueStrategy(mockComparerProvider.Object, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(
             nameof(PriorityQueueTestPoco.Queue),
@@ -197,7 +196,7 @@ public sealed class PriorityQueueStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

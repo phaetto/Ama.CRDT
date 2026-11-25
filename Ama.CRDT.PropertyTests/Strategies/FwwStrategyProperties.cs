@@ -144,8 +144,7 @@ public sealed class FwwStrategyProperties
 
     private static void ApplyOperations(FwwTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new FwwStrategy(replicaContext, [ new FwwTestContext() ]);
+        var strategy = new FwwStrategy([ new FwwTestContext() ]);
         var propertyInfo = new CrdtPropertyInfo(
             nameof(FwwTestPoco.Value),
             "value",
@@ -160,7 +159,7 @@ public sealed class FwwStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

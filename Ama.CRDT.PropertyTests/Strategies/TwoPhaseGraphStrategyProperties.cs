@@ -142,8 +142,7 @@ public sealed class TwoPhaseGraphStrategyProperties
             .Setup(x => x.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
 
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new TwoPhaseGraphStrategy(mockComparerProvider.Object, replicaContext, [ new TwoPhaseGraphTestContext() ]);
+        var strategy = new TwoPhaseGraphStrategy(mockComparerProvider.Object, [ new TwoPhaseGraphTestContext() ]);
         
         var propertyInfo = new CrdtPropertyInfo(
             nameof(TwoPhaseGraphTestPoco.Graph),
@@ -159,7 +158,7 @@ public sealed class TwoPhaseGraphStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

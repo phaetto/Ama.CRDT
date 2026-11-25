@@ -95,7 +95,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
 
         var operations = new List<CrdtOperation>();
         var context = new GeneratePatchContext(
-            operations, new List<DifferentiateObjectContext>(), "$.votes", GetPollVotesPropertyInfo(), original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now(), 0);
+            operations, new List<DifferentiateObjectContext>(), "$.votes", GetPollVotesPropertyInfo(), original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now(), 0, "A");
         
         strategyA.GeneratePatch(context);
 
@@ -116,7 +116,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
 
         var operations = new List<CrdtOperation>();
         var context = new GeneratePatchContext(
-            operations, new List<DifferentiateObjectContext>(), "$.votes", GetPollVotesPropertyInfo(), original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now(), 0);
+            operations, new List<DifferentiateObjectContext>(), "$.votes", GetPollVotesPropertyInfo(), original.Votes, modified.Votes, original, modified, originalMeta, timestampProvider.Now(), 0, "A");
         
         strategyA.GeneratePatch(context);
 
@@ -142,7 +142,8 @@ public sealed class VoteCounterStrategyTests : IDisposable
             GetPollVotesPropertyInfo(), 
             intent, 
             timestampProvider.Now(), 
-            0);
+            0,
+            "A");
             
         var operation = strategyA.GenerateOperation(context);
 
@@ -168,7 +169,8 @@ public sealed class VoteCounterStrategyTests : IDisposable
             GetPollVotesPropertyInfo(), 
             intent, 
             timestampProvider.Now(), 
-            0);
+            0,
+            "A");
             
         Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
     }
@@ -180,7 +182,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
         var metadata = new CrdtMetadata();
         var payload = new VotePayload("Voter1", "OptionA");
         var operation = new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, payload, timestampProvider.Create(200L), 0);
-        var context = new ApplyOperationContext(model, metadata, operation);
+        var context = new ApplyOperationContext(model, metadata, operation, "A");
 
         strategyA.ApplyOperation(context);
 
@@ -195,7 +197,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
         var metadata = new CrdtMetadata();
         var payload = new VotePayload("Voter1", "OptionA");
         var operation = new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, payload, timestampProvider.Create(200L), 0);
-        var context = new ApplyOperationContext(model, metadata, operation);
+        var context = new ApplyOperationContext(model, metadata, operation, "A");
 
         strategyA.ApplyOperation(context);
 
@@ -213,11 +215,11 @@ public sealed class VoteCounterStrategyTests : IDisposable
         var oldVoteOp = new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("Voter1", "OptionC"), timestampProvider.Create(90L), 0);
         var newVoteOp = new CrdtOperation(Guid.NewGuid(), "r2", "$.votes", OperationType.Upsert, new VotePayload("Voter1", "OptionB"), timestampProvider.Create(110L), 0);
 
-        strategyA.ApplyOperation(new ApplyOperationContext(model, metadata, oldVoteOp)); // Should be ignored
+        strategyA.ApplyOperation(new ApplyOperationContext(model, metadata, oldVoteOp, "A")); // Should be ignored
         model.Votes.ContainsKey("OptionC").ShouldBeFalse();
         model.Votes["OptionA"].ShouldContain("Voter1");
 
-        strategyA.ApplyOperation(new ApplyOperationContext(model, metadata, newVoteOp)); // Should be applied
+        strategyA.ApplyOperation(new ApplyOperationContext(model, metadata, newVoteOp, "A")); // Should be applied
         model.Votes.ContainsKey("OptionA").ShouldBeFalse();
         model.Votes["OptionB"].ShouldContain("Voter1");
     }
@@ -228,7 +230,7 @@ public sealed class VoteCounterStrategyTests : IDisposable
         var model = new Poll();
         var metadata = new CrdtMetadata();
         var operation = new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("Voter1", "OptionA"), timestampProvider.Create(200L), 0);
-        var context = new ApplyOperationContext(model, metadata, operation);
+        var context = new ApplyOperationContext(model, metadata, operation, "A");
         
         strategyA.ApplyOperation(context);
         var votesAfterFirstApply = new Dictionary<string, HashSet<string>>(model.Votes.ToDictionary(kvp => kvp.Key, kvp => new HashSet<string>(kvp.Value)));
@@ -250,14 +252,14 @@ public sealed class VoteCounterStrategyTests : IDisposable
         // Scenario 1: op1 then op2
         var model1 = new Poll();
         var meta1 = new CrdtMetadata();
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op1));
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op2));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op1, "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op2, "A"));
 
         // Scenario 2: op2 then op1
         var model2 = new Poll();
         var meta2 = new CrdtMetadata();
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op2));
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op1));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op2, "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op1, "A"));
         
         model1.Votes["OptionA"].ShouldContain("Voter1");
         model1.Votes["OptionB"].ShouldContain("Voter2");
@@ -286,16 +288,16 @@ public sealed class VoteCounterStrategyTests : IDisposable
         var meta1 = metadataManagerA.Initialize(new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } });
         meta1.States["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(200L), "r0", 1);
 
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op1));
-        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op2)); // op2 is older, should be ignored
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op1, "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(model1, meta1, op2, "A")); // op2 is older, should be ignored
 
         // Scenario 2: op2 then op1
         var model2 = new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } };
         var meta2 = metadataManagerA.Initialize(new Poll { Votes = { ["OptionA"] = new HashSet<string> { "Voter1" } } });
         meta2.States["$.votes.['Voter1']"] = new CausalTimestamp(timestampProvider.Create(200L), "r0", 1);
 
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op2)); // This is applied because timestamp 250 > 200
-        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op1)); // op1 is newer (300 > 250), should win
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op2, "A")); // This is applied because timestamp 250 > 200
+        strategyA.ApplyOperation(new ApplyOperationContext(model2, meta2, op1, "A")); // op1 is newer (300 > 250), should win
         
         // Assert: Both converge to OptionB, the one with the highest timestamp
         model1.Votes.ContainsKey("OptionA").ShouldBeFalse();
@@ -341,10 +343,10 @@ public sealed class VoteCounterStrategyTests : IDisposable
         var meta = metadataManagerA.Initialize(doc);
         var propInfo = GetPollVotesPropertyInfo();
 
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("a", "O1"), timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("b", "O1"), timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("c", "O2"), timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("d", "O2"), timestampProvider.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("a", "O1"), timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("b", "O1"), timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("c", "O2"), timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("d", "O2"), timestampProvider.Now(), 0), "A"));
 
         var result = strategyA.SplitToDisjoint(doc, meta, propInfo);
 
@@ -369,11 +371,11 @@ public sealed class VoteCounterStrategyTests : IDisposable
         var meta2 = metadataManagerA.Initialize(doc2);
         var propInfo = GetPollVotesPropertyInfo();
 
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("a", "O1"), timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("b", "O1"), timestampProvider.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("a", "O1"), timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("b", "O1"), timestampProvider.Now(), 0), "A"));
         
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("c", "O2"), timestampProvider.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("d", "O2"), timestampProvider.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("c", "O2"), timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.votes", OperationType.Upsert, new VotePayload("d", "O2"), timestampProvider.Now(), 0), "A"));
 
         var result = strategyA.MergeDisjoint(doc1, meta1, doc2, meta2, propInfo);
 

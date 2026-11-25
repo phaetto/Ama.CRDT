@@ -138,8 +138,7 @@ public sealed class TwoPhaseSetStrategyProperties
             .Setup(x => x.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
 
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new TwoPhaseSetStrategy(mockComparerProvider.Object, replicaContext, new[] { new TwoPhaseSetTestContext() });
+        var strategy = new TwoPhaseSetStrategy(mockComparerProvider.Object, new[] { new TwoPhaseSetTestContext() });
         
         var propertyInfo = new CrdtPropertyInfo(
             nameof(TwoPhaseSetTestPoco.Items),
@@ -155,7 +154,7 @@ public sealed class TwoPhaseSetStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

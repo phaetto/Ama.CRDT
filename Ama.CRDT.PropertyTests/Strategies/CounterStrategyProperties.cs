@@ -136,7 +136,7 @@ public sealed class CounterStrategyProperties : IDisposable
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo.Value,

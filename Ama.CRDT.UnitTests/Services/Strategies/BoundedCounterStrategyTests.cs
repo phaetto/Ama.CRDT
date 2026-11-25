@@ -93,7 +93,8 @@ public sealed class BoundedCounterStrategyTests : IDisposable
             modifiedRoot,
             new CrdtMetadata(),
             timestampProvider.Create(1L),
-            0
+            0,
+            "A"
         );
         
         // Act
@@ -129,7 +130,8 @@ public sealed class BoundedCounterStrategyTests : IDisposable
             property,
             intent,
             timestampProvider.Create(1L),
-            0
+            0,
+            "A"
         );
 
         // Act
@@ -166,7 +168,8 @@ public sealed class BoundedCounterStrategyTests : IDisposable
             property,
             intent,
             timestampProvider.Create(1L),
-            0
+            0,
+            "A"
         );
 
         // Act & Assert
@@ -196,7 +199,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
             []);
             
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.level", OperationType.Increment, (decimal)delta, timestampProvider.Create(2L), 1);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation, "A")
         {
             Target = model,
             Property = property,
@@ -227,7 +230,7 @@ public sealed class BoundedCounterStrategyTests : IDisposable
             []);
             
         var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.value", OperationType.Increment, 10m, timestampProvider.Create(2L), 1);
-        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation)
+        var context = new ApplyOperationContext(model, new CrdtMetadata(), operation, "A")
         {
             Target = model,
             Property = property,
@@ -331,12 +334,12 @@ public sealed class BoundedCounterStrategyTests : IDisposable
 
         var doc1 = new BoundedCounterTestModel { Level = 50 };
         var meta1 = new CrdtMetadata();
-        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.level", OperationType.Increment, 10m, timestampProvider.Create(1L), 1)) { Property = propInfo, FinalSegment = "level" });
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.level", OperationType.Increment, 10m, timestampProvider.Create(1L), 1), "A") { Property = propInfo, FinalSegment = "level" });
 
         var doc2 = new BoundedCounterTestModel { Level = 50 };
         var meta2 = new CrdtMetadata();
         // apply op to doc2 (replica B, clock 2, +70) => unbounded 50 + 10 + 70 = 130 -> clamps to 100
-        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.level", OperationType.Increment, 70m, timestampProvider.Create(2L), 2)) { Property = propInfo, FinalSegment = "level" });
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.level", OperationType.Increment, 70m, timestampProvider.Create(2L), 2), "A") { Property = propInfo, FinalSegment = "level" });
 
         // Act
         var context = new MergeStateContext(doc1, meta1, doc2, meta2, propInfo, "$.level");
@@ -366,11 +369,11 @@ public sealed class BoundedCounterStrategyTests : IDisposable
 
         var doc1 = new BoundedCounterTestModel { Level = 50 };
         var meta1 = new CrdtMetadata();
-        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.level", OperationType.Increment, 10m, timestampProvider.Create(1L), 1)) { Property = propInfo, FinalSegment = "level" });
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "A", "$.level", OperationType.Increment, 10m, timestampProvider.Create(1L), 1), "A") { Property = propInfo, FinalSegment = "level" });
 
         var doc2 = new BoundedCounterTestModel { Level = 50 };
         var meta2 = new CrdtMetadata();
-        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.level", OperationType.Increment, -20m, timestampProvider.Create(1L), 1)) { Property = propInfo, FinalSegment = "level" });
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "B", "$.level", OperationType.Increment, -20m, timestampProvider.Create(1L), 1), "A") { Property = propInfo, FinalSegment = "level" });
 
         // Act
         var context = new MergeStateContext(doc1, meta1, doc2, meta2, propInfo, "$.level");

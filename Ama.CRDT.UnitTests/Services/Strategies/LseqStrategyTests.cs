@@ -377,7 +377,7 @@ public sealed class LseqStrategyTests : IDisposable
         // Arrange
         var doc = new LseqTestModel { Items = new List<string>() };
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new AddIntent("NewItem"), new CrdtTimestamp(1), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new AddIntent("NewItem"), new CrdtTimestamp(1), 0, "A");
 
         // Act
         var operation = lseqStrategy.GenerateOperation(context);
@@ -401,7 +401,7 @@ public sealed class LseqStrategyTests : IDisposable
         var crdtDoc = new CrdtDocument<LseqTestModel>(new LseqTestModel(), metadataManagerA.Initialize(new LseqTestModel()));
         applicatorA.ApplyPatch(crdtDoc, initialPatch);
         
-        var context = new GenerateOperationContext(crdtDoc.Data, crdtDoc.Metadata, "$.items", itemsProperty, new InsertIntent(1, "B"), new CrdtTimestamp(2), 0);
+        var context = new GenerateOperationContext(crdtDoc.Data, crdtDoc.Metadata, "$.items", itemsProperty, new InsertIntent(1, "B"), new CrdtTimestamp(2), 0, "A");
 
         // Act
         var operation = lseqStrategy.GenerateOperation(context);
@@ -412,7 +412,7 @@ public sealed class LseqStrategyTests : IDisposable
         item.Value.ShouldBe("B");
         
         // Verify application
-        lseqStrategy.ApplyOperation(new ApplyOperationContext(crdtDoc.Data, crdtDoc.Metadata, operation));
+        lseqStrategy.ApplyOperation(new ApplyOperationContext(crdtDoc.Data, crdtDoc.Metadata, operation, "A"));
         crdtDoc.Data.Items.ShouldBe(new List<string> { "A", "B", "C" });
     }
 
@@ -427,7 +427,7 @@ public sealed class LseqStrategyTests : IDisposable
         var crdtDoc = new CrdtDocument<LseqTestModel>(new LseqTestModel(), metadataManagerA.Initialize(new LseqTestModel()));
         applicatorA.ApplyPatch(crdtDoc, initialPatch);
         
-        var context = new GenerateOperationContext(crdtDoc.Data, crdtDoc.Metadata, "$.items", itemsProperty, new RemoveIntent(1), new CrdtTimestamp(2), 0);
+        var context = new GenerateOperationContext(crdtDoc.Data, crdtDoc.Metadata, "$.items", itemsProperty, new RemoveIntent(1), new CrdtTimestamp(2), 0, "A");
 
         // Act
         var operation = lseqStrategy.GenerateOperation(context);
@@ -437,7 +437,7 @@ public sealed class LseqStrategyTests : IDisposable
         operation.Value.ShouldBeOfType<LseqIdentifier>();
         
         // Verify application
-        lseqStrategy.ApplyOperation(new ApplyOperationContext(crdtDoc.Data, crdtDoc.Metadata, operation));
+        lseqStrategy.ApplyOperation(new ApplyOperationContext(crdtDoc.Data, crdtDoc.Metadata, operation, "A"));
         crdtDoc.Data.Items.ShouldBe(new List<string> { "A", "C" });
     }
 
@@ -447,8 +447,8 @@ public sealed class LseqStrategyTests : IDisposable
         // Arrange
         var doc = new LseqTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var insertContext = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new InsertIntent(5, "X"), new CrdtTimestamp(1), 0);
-        var removeContext = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new RemoveIntent(5), new CrdtTimestamp(1), 0);
+        var insertContext = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new InsertIntent(5, "X"), new CrdtTimestamp(1), 0, "A");
+        var removeContext = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new RemoveIntent(5), new CrdtTimestamp(1), 0, "A");
 
         // Act & Assert
         Should.Throw<ArgumentOutOfRangeException>(() => lseqStrategy.GenerateOperation(insertContext));
@@ -461,7 +461,7 @@ public sealed class LseqStrategyTests : IDisposable
         // Arrange
         var doc = new LseqTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new SetIntent("Invalid"), new CrdtTimestamp(1), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.items", itemsProperty, new SetIntent("Invalid"), new CrdtTimestamp(1), 0, "A");
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => lseqStrategy.GenerateOperation(context));

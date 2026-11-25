@@ -142,9 +142,7 @@ public sealed class AverageRegisterStrategyProperties
             .AddCrdtAotContext<AverageRegisterTestContext>()
             .BuildServiceProvider();
 
-        var scopeFactory = serviceProvider.GetRequiredService<ICrdtScopeFactory>();
-        using var scope = scopeFactory.CreateScope("property-test-replica");
-        var strategy = scope.ServiceProvider.GetRequiredService<AverageRegisterStrategy>();
+        var strategy = serviceProvider.GetRequiredService<AverageRegisterStrategy>();
 
         var propertyInfo = new CrdtPropertyInfo(
             nameof(AverageRegisterTestPoco.Value),
@@ -159,7 +157,7 @@ public sealed class AverageRegisterStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

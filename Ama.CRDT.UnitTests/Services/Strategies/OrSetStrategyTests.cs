@@ -91,7 +91,7 @@ public sealed class OrSetStrategyTests : IDisposable
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
 
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("E"), ts.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("E"), ts.Now(), 0, "A");
         
         // Act
         var op = strategyA.GenerateOperation(context);
@@ -113,11 +113,11 @@ public sealed class OrSetStrategyTests : IDisposable
         var meta = metadataManagerA.Initialize(doc);
         
         // Add item normally first to populate tags
-        var addContext = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("A"), ts.Now(), 0);
+        var addContext = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("A"), ts.Now(), 0, "A");
         var addOp = strategyA.GenerateOperation(addContext);
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, addOp));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, addOp, "A"));
 
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new RemoveValueIntent("A"), ts.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new RemoveValueIntent("A"), ts.Now(), 0, "A");
         
         // Act
         var op = strategyA.GenerateOperation(context);
@@ -139,11 +139,11 @@ public sealed class OrSetStrategyTests : IDisposable
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
         
-        var addContext = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("B"), ts.Now(), 0);
+        var addContext = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("B"), ts.Now(), 0, "A");
         var addOp = strategyA.GenerateOperation(addContext);
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, addOp));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, addOp, "A"));
 
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new RemoveIntent(0), ts.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new RemoveIntent(0), ts.Now(), 0, "A");
         
         // Act
         var op = strategyA.GenerateOperation(context);
@@ -165,7 +165,7 @@ public sealed class OrSetStrategyTests : IDisposable
         var doc = new TestModel();
         var meta = metadataManagerA.Initialize(doc);
 
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new IncrementIntent(1), ts.Now(), 0);
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new IncrementIntent(1), ts.Now(), 0, "A");
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
@@ -352,10 +352,10 @@ public sealed class OrSetStrategyTests : IDisposable
         var propInfo = new OrSetStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
         var ts = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
 
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("a", Guid.NewGuid()), ts.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("b", Guid.NewGuid()), ts.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("c", Guid.NewGuid()), ts.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("d", Guid.NewGuid()), ts.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("a", Guid.NewGuid()), ts.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("b", Guid.NewGuid()), ts.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("c", Guid.NewGuid()), ts.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("d", Guid.NewGuid()), ts.Now(), 0), "A"));
 
         var result = strategyA.SplitToDisjoint(doc, meta, propInfo);
 
@@ -381,11 +381,11 @@ public sealed class OrSetStrategyTests : IDisposable
         var propInfo = new OrSetStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Tags)];
         var ts = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
 
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("a", Guid.NewGuid()), ts.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("b", Guid.NewGuid()), ts.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("a", Guid.NewGuid()), ts.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("b", Guid.NewGuid()), ts.Now(), 0), "A"));
         
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("c", Guid.NewGuid()), ts.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("d", Guid.NewGuid()), ts.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("c", Guid.NewGuid()), ts.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("d", Guid.NewGuid()), ts.Now(), 0), "A"));
 
         var result = strategyA.MergeDisjoint(doc1, meta1, doc2, meta2, propInfo);
 
@@ -453,19 +453,19 @@ public sealed class OrSetStrategyTests : IDisposable
         var doc1 = new TestModel();
         var meta1 = metadataManagerA.Initialize(doc1);
         
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("A", Guid.NewGuid()), ts.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("B", Guid.NewGuid()), ts.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("A", Guid.NewGuid()), ts.Now(), 0), "r1"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("B", Guid.NewGuid()), ts.Now(), 0), "r1"));
 
         var doc2 = new TestModel { Tags = new List<string>(doc1.Tags) };
         var meta2 = meta1.DeepClone();
 
         // doc1 adds "C"
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("C", Guid.NewGuid()), ts.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, new OrSetAddItem("C", Guid.NewGuid()), ts.Now(), 0), "r1"));
         
         // doc2 removes "A" and adds "D"
         var tagsA = ((OrSetState)meta2.States["$.tags"]).Adds["A"];
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.tags", OperationType.Remove, new OrSetRemoveItem("A", tagsA), ts.Now(), 0)));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.tags", OperationType.Upsert, new OrSetAddItem("D", Guid.NewGuid()), ts.Now(), 0)));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.tags", OperationType.Remove, new OrSetRemoveItem("A", tagsA), ts.Now(), 0), "r2"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.tags", OperationType.Upsert, new OrSetAddItem("D", Guid.NewGuid()), ts.Now(), 0), "r2"));
 
         // Act
         strategyA.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, propInfo!, "$.tags"));

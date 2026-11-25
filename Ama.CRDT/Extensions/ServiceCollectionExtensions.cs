@@ -452,13 +452,10 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         // Register the custom provider implementation natively
-        services.TryAddScoped<TProvider>();
+        services.TryAddSingleton<TProvider>();
         
         // Override the ICrdtTimestampProvider registration to point to the custom implementation.
-        services.AddScoped<ICrdtTimestampProvider>(sp => {
-            ValidateReplicaScope(sp, typeof(TProvider).Name);
-            return sp.GetRequiredService<TProvider>();
-        });
+        services.AddSingleton<ICrdtTimestampProvider>(sp => sp.GetRequiredService<TProvider>());
         
         return services;
     }
@@ -494,13 +491,10 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         // Register the custom provider implementation natively
-        services.TryAddScoped<TProvider>();
+        services.TryAddSingleton<TProvider>();
         
         // Override the IDocumentIdProvider registration to point to the custom implementation.
-        services.AddScoped<IDocumentIdProvider>(sp => {
-            ValidateReplicaScope(sp, typeof(TProvider).Name);
-            return sp.GetRequiredService<TProvider>();
-        });
+        services.AddSingleton<IDocumentIdProvider>(sp => sp.GetRequiredService<TProvider>());
         
         return services;
     }
@@ -517,12 +511,9 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.TryAddScoped<TProvider>();
+        services.TryAddSingleton<TProvider>();
         
-        services.AddScoped<IShardIdProvider>(sp => {
-            ValidateReplicaScope(sp, typeof(TProvider).Name);
-            return sp.GetRequiredService<TProvider>();
-        });
+        services.AddSingleton<IShardIdProvider>(sp => sp.GetRequiredService<TProvider>());
         
         return services;
     }

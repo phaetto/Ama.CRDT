@@ -140,8 +140,7 @@ public sealed class GSetStrategyProperties
             .Setup(x => x.GetComparer(It.IsAny<Type>()))
             .Returns(EqualityComparer<object>.Default);
 
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new GSetStrategy(mockComparerProvider.Object, replicaContext, new List<CrdtAotContext> { new GSetTestContext() });
+        var strategy = new GSetStrategy(mockComparerProvider.Object, new List<CrdtAotContext> { new GSetTestContext() });
         var propertyInfo = new CrdtPropertyInfo(
             nameof(GSetTestPoco.Items),
             "items",
@@ -156,7 +155,7 @@ public sealed class GSetStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

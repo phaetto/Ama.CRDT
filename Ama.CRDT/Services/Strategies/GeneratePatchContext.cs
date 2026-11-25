@@ -31,5 +31,5 @@ public sealed record GeneratePatchContext(
     CrdtMetadata OriginalMeta,
     CrdtTimestamp ChangeTimestamp,
     long Clock,
-    string ReplicaId = ""
+    string ReplicaId
 );

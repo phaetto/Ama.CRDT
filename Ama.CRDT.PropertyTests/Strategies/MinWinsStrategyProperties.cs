@@ -131,8 +131,7 @@ public sealed class MinWinsStrategyProperties
 
     private static void ApplyOperations(MinWinsTestPoco state, CrdtMetadata metadata, IEnumerable<CrdtOperation> operations)
     {
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
-        var strategy = new MinWinsStrategy(replicaContext);
+        var strategy = new MinWinsStrategy();
         var propertyInfo = new CrdtPropertyInfo(
             nameof(MinWinsTestPoco.Value),
             "value",
@@ -147,7 +146,7 @@ public sealed class MinWinsStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,

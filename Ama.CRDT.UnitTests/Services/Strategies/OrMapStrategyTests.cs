@@ -65,12 +65,12 @@ public sealed class OrMapStrategyTests
         var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new OrMapRemoveItem("a", ((OrSetState)doc1.Metadata.States["$.map"]).Adds["a"]), timestampProvider.Create(2), 0);
 
         // Act: Apply op1 then op2
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op1));
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op2));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op1, "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op2, "A"));
 
         // Act: Apply op2 then op1
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, op2));
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, op1));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, op2, "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, op1, "A"));
 
         // Assert
         doc1.Data.Map.ShouldBe(doc2.Data.Map);
@@ -88,7 +88,7 @@ public sealed class OrMapStrategyTests
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("b", 2, Guid.NewGuid()), timestampProvider.Create(1), 0);
-        var context = new ApplyOperationContext(doc.Data, doc.Metadata, op);
+        var context = new ApplyOperationContext(doc.Data, doc.Metadata, op, "A");
 
         // Act
         strategy.ApplyOperation(context);
@@ -114,10 +114,10 @@ public sealed class OrMapStrategyTests
         var addOp = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("a", 100, Guid.NewGuid()), timestampProvider.Create(2), 0);
 
         // Act
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, removeOp));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, removeOp, "A"));
         doc.Data.Map.ShouldBeEmpty();
 
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, addOp));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, addOp, "A"));
 
         // Assert
         doc.Data.Map.ShouldContainKey("a");
@@ -138,10 +138,10 @@ public sealed class OrMapStrategyTests
         var newerUpdate = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("a", 2, Guid.NewGuid()), timestampProvider.Create(15), 0);
         
         // Act
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, olderUpdate));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, olderUpdate, "A"));
         doc.Data.Map["a"].ShouldBe(1);
 
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, newerUpdate));
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, newerUpdate, "A"));
 
         // Assert
         doc.Data.Map["a"].ShouldBe(2);
@@ -229,7 +229,7 @@ public sealed class OrMapStrategyTests
         var property = new OrMapStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Map)];
         var intent = new MapSetIntent("a", 42);
         var timestamp = timestampProvider.Create(1);
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestamp, 0);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestamp, 0, "A");
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -256,7 +256,7 @@ public sealed class OrMapStrategyTests
         var property = new OrMapStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Map)];
         var intent = new MapRemoveIntent("a");
         var timestamp = timestampProvider.Create(2);
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestamp, 0);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestamp, 0, "A");
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -283,7 +283,7 @@ public sealed class OrMapStrategyTests
         var doc = CreateDocument(new Dictionary<string, int>());
         var property = new OrMapStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Map)];
         var intent = new SetIntent("test");
-        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestampProvider.Create(1), 0);
+        var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", property, intent, timestampProvider.Create(1), 0, "A");
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
@@ -387,25 +387,25 @@ public sealed class OrMapStrategyTests
         var propInfo = new OrMapStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))?.Properties[nameof(TestModel.Map)];
 
         // doc1 adds 'a'=1, 'b'=2
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("a", 1, Guid.NewGuid()), timestampProvider.Create(1), 0)));
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("b", 2, Guid.NewGuid()), timestampProvider.Create(1), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("a", 1, Guid.NewGuid()), timestampProvider.Create(1), 0), "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("b", 2, Guid.NewGuid()), timestampProvider.Create(1), 0), "A"));
         
         var doc2Data = new TestModel { Map = new Dictionary<string, int>(doc1.Data.Map) };
         var doc2Meta = doc1.Metadata.DeepClone();
         var doc2 = new CrdtDocument<TestModel>(doc2Data, doc2Meta!);
 
         // doc1 updates 'a'=10 (ts=2)
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("a", 10, Guid.NewGuid()), timestampProvider.Create(2), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("a", 10, Guid.NewGuid()), timestampProvider.Create(2), 0), "A"));
         // doc1 adds 'c'=3
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("c", 3, Guid.NewGuid()), timestampProvider.Create(2), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new OrMapAddItem("c", 3, Guid.NewGuid()), timestampProvider.Create(2), 0), "A"));
 
         // doc2 removes 'b'
         var bTags = ((OrSetState)doc2.Metadata.States["$.map"]).Adds["b"];
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new OrMapRemoveItem("b", bTags), timestampProvider.Create(3), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new OrMapRemoveItem("b", bTags), timestampProvider.Create(3), 0), "B"));
         // doc2 updates 'a'=20 (ts=4)
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("a", 20, Guid.NewGuid()), timestampProvider.Create(4), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("a", 20, Guid.NewGuid()), timestampProvider.Create(4), 0), "B"));
         // doc2 adds 'd'=4
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("d", 4, Guid.NewGuid()), timestampProvider.Create(3), 0)));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new OrMapAddItem("d", 4, Guid.NewGuid()), timestampProvider.Create(3), 0), "B"));
 
         // Act
         strategy.MergeState(new MergeStateContext(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo!, "$.map"));

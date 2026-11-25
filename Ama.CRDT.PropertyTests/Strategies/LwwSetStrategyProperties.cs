@@ -154,9 +154,8 @@ public sealed class LwwSetStrategyProperties
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
         mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>())).Returns(new CrdtTimestamp(0));
 
-        var replicaContext = new ReplicaContext { ReplicaId = "property-test-replica" };
         var aotContexts = new CrdtAotContext[] { new LwwSetTestContext() };
-        var strategy = new LwwSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, replicaContext, aotContexts);
+        var strategy = new LwwSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, aotContexts);
         
         var propertyInfo = new CrdtPropertyInfo(
             nameof(LwwSetTestPoco.Items),
@@ -171,7 +170,7 @@ public sealed class LwwSetStrategyProperties
 
         foreach (var op in operations)
         {
-            var context = new ApplyOperationContext(state, metadata, op)
+            var context = new ApplyOperationContext(state, metadata, op, "property-test-replica")
             {
                 Target = state,
                 Property = propertyInfo,
