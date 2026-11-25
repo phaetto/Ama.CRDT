@@ -23,7 +23,7 @@ public sealed class CrdtPatcher(
 {
     private readonly ICrdtStringPool pool = stringPool ?? CrdtStringPool.Shared;
     private sealed class ClockState { public long Clock; }
-    private readonly ConditionalWeakTable<CrdtMetadata, ClockState> issuedClocks = new();
+    private static readonly ConditionalWeakTable<CrdtMetadata, ClockState> issuedClocks = new();
 
     /// <inheritdoc/>
     public CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, T changed) where T : class
@@ -62,8 +62,9 @@ public sealed class CrdtPatcher(
         var clockState = issuedClocks.GetOrCreateValue(from.Metadata);
         var localClock = Math.Max(currentVectorClock, clockState.Clock);
 
-        // Fetch or create the Shard Version Vector tracking state
         var shardId = pool.GetOrAdd(shardIdProvider.GetShardId(from));
+
+        // Fetch or create the Shard Version Vector tracking state
         if (!replicaContext.ShardVersionVectors.TryGetValue(shardId, out var shardVector))
         {
             shardVector = new DottedVersionVector();
@@ -78,11 +79,11 @@ public sealed class CrdtPatcher(
         {
             localClock++;
             shardClock++;
-            
-            operations[i] = operations[i] with { Clock = localClock, ShardId = shardId, ShardClock = shardClock, ReplicaId = replicaId };
-            
+
             // Track the operations we've generated in our shard causality vector
             shardVector.Add(replicaId, shardClock);
+            
+            operations[i] = operations[i] with { Clock = localClock, ShardId = shardId, ShardClock = shardClock, ReplicaId = replicaId };
         }
 
         clockState.Clock = localClock;
@@ -117,8 +118,9 @@ public sealed class CrdtPatcher(
         localClock++;
         clockState.Clock = localClock;
 
-        // Fetch or create the Shard Version Vector tracking state
         var shardId = pool.GetOrAdd(shardIdProvider.GetShardId(document));
+
+        // Fetch or create the Shard Version Vector tracking state
         if (!replicaContext.ShardVersionVectors.TryGetValue(shardId, out var shardVector))
         {
             shardVector = new DottedVersionVector();

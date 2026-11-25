@@ -11,7 +11,7 @@ using System.Diagnostics.CodeAnalysis;
 public sealed class ReplicaContext
 {
     private string replicaId = string.Empty;
-    private ShardVersionVectorMap shardVersionVectors = new ShardVersionVectorMap();
+    private ShardVersionVectorMap? shardVersionVectors;
 
     /// <summary>
     /// Gets or sets the unique identifier for the replica within the current scope.
@@ -37,7 +37,7 @@ public sealed class ReplicaContext
     [NotNull]
     public ShardVersionVectorMap ShardVersionVectors
     {
-        get => shardVersionVectors;
+        get => shardVersionVectors ??= new ShardVersionVectorMap();
         set
         {
             ArgumentNullException.ThrowIfNull(value);
