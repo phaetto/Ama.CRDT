@@ -152,7 +152,7 @@ public sealed class LwwSetStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
-        mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>())).Returns(new CrdtTimestamp(0));
+        mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>(), It.IsAny<string>())).Returns(new CrdtTimestamp(0));
 
         var aotContexts = new CrdtAotContext[] { new LwwSetTestContext() };
         var strategy = new LwwSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, aotContexts);

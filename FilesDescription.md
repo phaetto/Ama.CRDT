@@ -32,7 +32,7 @@
 | `$/Ama.CRDT.Benchmarks/Program.cs` | The entry point for the benchmark runner. |
 | `$/Ama.CRDT.Benchmarks/README.md` | No description provided. |
 | `$/Ama.CRDT.IntegrationTests/Ama.CRDT.IntegrationTests.csproj` | No description provided. |
-| `$/Ama.CRDT.IntegrationTests/ClockSkewSimulationTests.cs` | Contains integration tests simulating clock skew scenarios using Hybrid Logical Clocks (HLC) and skewed timestamp providers with the `CrdtTimestamp` struct. |
+| `$/Ama.CRDT.IntegrationTests/ClockSkewSimulationTests.cs` | Contains integration tests simulating clock skew scenarios using stateless singleton Hybrid Logical Clocks (HLC) and skewed timestamp providers. |
 | `$/Ama.CRDT.IntegrationTests/NetworkSimulationTests.cs` | Contains integration tests simulating complex network scenarios (out-of-order delivery, partitions, long-term offline nodes, duplicate delivery, and high concurrency conflicts) to guarantee CRDT convergence and idempotency over time. |
 | `$/Ama.CRDT.IntegrationTests/ShardingSimulationTests.cs` | Contains integration tests confirming the accuracy of per-shard causal tracking and resolving Shard IDs from documents, document IDs, and hosted types. |
 | `$/Ama.CRDT.LargerThanMemory.Streams.UnitTests/Ama.CRDT.LargerThanMemory.Streams.UnitTests.csproj` | No description provided. |
@@ -47,8 +47,6 @@
 | `$/Ama.CRDT.LargerThanMemory.Streams/Models/DataStreamHeader.cs` | No description provided. |
 | `$/Ama.CRDT.LargerThanMemory.Streams/Models/FreeSpaceState.cs` | No description provided. |
 | `$/Ama.CRDT.LargerThanMemory.Streams/Models/Serialization/StreamsJsonContext.cs` | No description provided. |
-| `$/Ama.CRDT.LargerThanMemory.Streams/PublicAPI.Shipped.txt` | No description provided. |
-| `$/Ama.CRDT.LargerThanMemory.Streams/PublicAPI.Unshipped.txt` | No description provided. |
 | `$/Ama.CRDT.LargerThanMemory.Streams/README.md` | Contains the README for the `Ama.CRDT.LargerThanMemory.Streams` package, including configuration examples, performance counter commands, and references to `IChunkStreamProvider`. |
 | `$/Ama.CRDT.LargerThanMemory.Streams/Services/IChunkStreamProvider.cs` | No description provided. |
 | `$/Ama.CRDT.LargerThanMemory.Streams/Services/Metrics/StreamsCrdtMetrics.cs` | No description provided. |
@@ -153,7 +151,6 @@
 | `$/Ama.CRDT.UnitTests/Models/CrdtTimestampTests.cs` | Contains unit tests for the `CrdtTimestamp` struct, covering multi-component ordering (`Epoch`, `Ticks`, `Counter`, `ReplicaId`), relational operators, equality, and `MinValue`. |
 | `$/Ama.CRDT.UnitTests/Models/DottedVersionVectorTests.cs` | No description provided. |
 | `$/Ama.CRDT.UnitTests/Models/LargerThanMemory/CompositeChunkKeyTests.cs` | No description provided. |
-| `$/Ama.CRDT.UnitTests/Models/MemoryOverheadTests.cs` | Contains unit tests that measure and output a markdown report of the exact thread-allocated memory overhead percentage of `CrdtMetadata` vs POCO data models, DVVs, shard maps, and full replica scopes across different configurations. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CoreModelSerializationTests.cs` | Contains unit tests for serializing core library models like `ApplyPatchResult`, `JournaledOperation`, `UnappliedOperation`, and `DottedVersionVector`. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtDocumentSerializationTests.cs` | Contains unit tests for serializing the `CrdtDocument<T>` struct, including scenarios with null data or metadata, and compact serialization options. |
 | `$/Ama.CRDT.UnitTests/Models/Serialization/CrdtMetadataSerializationTests.cs` | Contains unit tests for the serialization and deserialization of the `CrdtMetadata` class, verifying both default and compact serialization options and ensuring polymorphic and complex data (e.g., non-string dictionary keys, nested collections) is handled correctly. |
@@ -403,14 +400,12 @@
 | `$/Ama.CRDT/Models/TwoPhaseSetState.cs` | Represents the state for a Two-Phase Set (2P-Set), utilizing `CompactSet` and `CompactDictionary` for `DeepClone` and `Merge` operations. |
 | `$/Ama.CRDT/Models/UnappliedOperation.cs` | Data structure representing a CRDT operation that could not be applied and its reason. |
 | `$/Ama.CRDT/Models/VotePayload.cs` | A data structure for the payload of a vote operation, containing the voter's identifier and their chosen option. |
-| `$/Ama.CRDT/PublicAPI.Shipped.txt` | Tracks the shipped public API surface of the library to detect breaking changes. This file should be updated when new APIs are officially released in a stable version. |
-| `$/Ama.CRDT/PublicAPI.Unshipped.txt` | Tracks new public APIs that have not yet been included in a stable release. This file must be empty before a manual, stable publish. Build will fail if new public APIs are added without being added to this file first. |
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtApplicatorAdapter.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtMergerAdapter.cs` | An adapter that bridges the synchronous `ICrdtMerger` to the asynchronous `IAsyncCrdtMerger` pipeline. |
 | `$/Ama.CRDT/Services/Adapters/AsyncCrdtPatcherAdapter.cs` | An adapter that bridges the synchronous `ICrdtPatcher` to the asynchronous `IAsyncCrdtPatcher` pipeline, acting as the base layer in the patcher decorator chain. |
 | `$/Ama.CRDT/Services/CrdtApplicator.cs` | Applies CRDT patches to documents, passing local `ReplicaId` in `ApplyOperationContext`, resolving conflicts via strategies and tracking causal histories per shard in `ReplicaContext`. |
 | `$/Ama.CRDT/Services/CrdtMerger.cs` | Synchronous implementation of `ICrdtMerger` that leverages object tree traversal to compute the state merge mathematically using strategy providers. |
-| `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Implemented `Pack`, `Unpack`, and `InitializePacked` using the injected `ICrdtSerializer`. |
+| `$/Ama.CRDT/Services/CrdtMetadataManager.cs` | Stateless singleton metadata manager that initializes, compacts, packs, and unpacks CRDT metadata without depending on `ReplicaContext`. |
 | `$/Ama.CRDT/Services/CrdtPatcher.cs` | Compares versions of a data model or processes explicit intents to generate CRDT patches using a shared static `ConditionalWeakTable` for clock tracking and updating `ShardVersionVectors`. |
 | `$/Ama.CRDT/Services/CrdtScopeFactory.cs` | An implementation of `ICrdtScopeFactory` that creates a new `IServiceScope` and configures `ReplicaContext` with lazy `ShardVersionVectors` allocation. |
 | `$/Ama.CRDT/Services/Decorators/AsyncCrdtApplicatorDecoratorBase.cs` | An abstract base class for `IAsyncCrdtApplicator` decorators. Uses the `DecoratorBehavior` enum in its constructor to strictly control the Template Method execution flow, making bugs around pipeline ordering structurally impossible. |
@@ -466,10 +461,10 @@
 | `$/Ama.CRDT/Services/Providers/DefaultDocumentIdProvider.cs` | The default implementation of `IDocumentIdProvider` that extracts the document ID by looking for an 'Id' property. |
 | `$/Ama.CRDT/Services/Providers/DefaultShardIdProvider.cs` | Provides a default implementation of `IShardIdProvider` that assigns all documents and document IDs to a single "default" shard. |
 | `$/Ama.CRDT/Services/Providers/ElementComparerProvider.cs` | Provides `IEqualityComparer<object>` instances for collection elements and dictionary keys, returning allocation-free `EqualityComparer<object>.Default` for strings and primitives and short-circuiting `HashSet` allocations in `ObjectDeepEqualityComparer`. |
-| `$/Ama.CRDT/Services/Providers/EpochTimestampProvider.cs` | The default implementation of `ICrdtTimestampProvider` that generates `CrdtTimestamp` based on Unix milliseconds. |
+| `$/Ama.CRDT/Services/Providers/EpochTimestampProvider.cs` | Stateless singleton implementation of `ICrdtTimestampProvider` that generates `CrdtTimestamp` based on Unix milliseconds and a required `replicaId`. |
 | `$/Ama.CRDT/Services/Providers/ICrdtModelRegistry.cs` | Interface for retrieving configurations using the AOT-friendly `CrdtPropertyKey`. |
 | `$/Ama.CRDT/Services/Providers/ICrdtStrategyProvider.cs` | A contract for a service that resolves CRDT strategies, refactored to consume AOT structs like `CrdtPropertyInfo`. |
-| `$/Ama.CRDT/Services/Providers/ICrdtTimestampProvider.cs` | Defines a service for generating `CrdtTimestamp` instances, allowing for custom timestamp implementations without boxing. |
+| `$/Ama.CRDT/Services/Providers/ICrdtTimestampProvider.cs` | Defines a service for generating `CrdtTimestamp` instances with a mandatory `replicaId` parameter on `Now` and `Create`. |
 | `$/Ama.CRDT/Services/Providers/IDocumentIdProvider.cs` | Defines a service for extracting and assigning strongly-typed `IComparable` document IDs on models. |
 | `$/Ama.CRDT/Services/Providers/IElementComparer.cs` | No description provided. |
 | `$/Ama.CRDT/Services/Providers/IElementComparerProvider.cs` | No description provided. |

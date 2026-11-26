@@ -302,7 +302,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
             "$.Items",
             new PriorityQueueStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
             new AddIntent(itemToAdd),
-            timestampProvider.Now(),
+            timestampProvider.Now("A"),
             0,
             "A");
 
@@ -331,7 +331,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
             "$.Items",
             new PriorityQueueStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
             new RemoveValueIntent(itemToRemove),
-            timestampProvider.Now(),
+            timestampProvider.Now("A"),
             0,
             "A");
 
@@ -359,7 +359,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
             "$.Items",
             new PriorityQueueStrategyTestCrdtAotContext().GetTypeInfo(typeof(TestModel))!.Properties[nameof(TestModel.Items)],
             new IncrementIntent(1),
-            timestampProvider.Now(),
+            timestampProvider.Now("A"),
             0,
             "A");
 
@@ -375,9 +375,9 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         var meta = new CrdtMetadata();
         
         var tsProvider = scopeA.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>();
-        var safeTs1 = tsProvider.Create(10);
-        var safeTs2 = tsProvider.Create(20);
-        var unsafeTs = tsProvider.Create(30);
+        var safeTs1 = tsProvider.Create(10, "A");
+        var safeTs2 = tsProvider.Create(20, "A");
+        var unsafeTs = tsProvider.Create(30, "A");
         
         var comparer = new ItemComparer();
         var adds = new CompactDictionary<object, CrdtTimestamp>(3, comparer);
@@ -450,7 +450,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         
         var path = $"$.{propInfo.JsonName}";
         
-        var ts1 = tsProvider.Create(1);
+        var ts1 = tsProvider.Create(1, "A");
         strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemA, ts1, 0), "A"));
         strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemB, ts1, 0), "A"));
 
@@ -459,7 +459,7 @@ public sealed class PriorityQueueStrategyTests : IDisposable
 
         // doc1 updates A's priority to 15
         var itemA15 = new Item("A", 15);
-        var ts2 = tsProvider.Create(2);
+        var ts2 = tsProvider.Create(2, "A");
         strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemA15, ts2, 0), "A"));
         
         // doc1 adds C
@@ -467,12 +467,12 @@ public sealed class PriorityQueueStrategyTests : IDisposable
         strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", path, OperationType.Upsert, itemC, ts2, 0), "A"));
 
         // doc2 removes B
-        var ts3 = tsProvider.Create(3);
+        var ts3 = tsProvider.Create(3, "B");
         strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", path, OperationType.Remove, itemB, ts3, 0), "B"));
         
         // doc2 updates A's priority to 50 (wins over doc1's 15)
         var itemA50 = new Item("A", 50);
-        var ts4 = tsProvider.Create(4);
+        var ts4 = tsProvider.Create(4, "B");
         strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", path, OperationType.Upsert, itemA50, ts4, 0), "B"));
 
         // Act

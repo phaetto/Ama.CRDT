@@ -13,14 +13,16 @@ public interface ICrdtTimestampProvider
     /// Gets the current timestamp. Each call should ideally return a monotonically increasing value
     /// within the context of a single replica for conflict resolution.
     /// </summary>
+    /// <param name="replicaId">The identifier of the replica generating the timestamp.</param>
     /// <returns>A <see cref="CrdtTimestamp"/> representing the current logical time.</returns>
-    CrdtTimestamp Now();
+    CrdtTimestamp Now(string replicaId);
 
     /// <summary>
     /// Creates a timestamp from a raw long value. This is primarily intended for testing or serialization/deserialization scenarios
     /// where a specific timestamp needs to be reconstructed.
     /// </summary>
     /// <param name="value">The underlying value of the timestamp (e.g., ticks, milliseconds, a sequential number).</param>
+    /// <param name="replicaId">The identifier of the replica associated with the timestamp.</param>
     /// <returns>A new <see cref="CrdtTimestamp"/> instance corresponding to the given value.</returns>
-    CrdtTimestamp Create(long value);
+    CrdtTimestamp Create(long value, string replicaId);
 }

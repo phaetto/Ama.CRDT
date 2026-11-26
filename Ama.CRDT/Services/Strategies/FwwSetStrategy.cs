@@ -121,7 +121,7 @@ public sealed class FwwSetStrategy(
             var rems = new CompactDictionary<object, CausalTimestamp>(comparer);
             for (int i = 0; i < list.Count; i++)
             {
-                adds[list[i]!] = timestampProvider.Create(0);
+                adds[list[i]!] = timestampProvider.Create(0, context.ReplicaId);
             }
             state = new FwwSetState(adds, rems);
             metadata.States[operation.JsonPath] = state;

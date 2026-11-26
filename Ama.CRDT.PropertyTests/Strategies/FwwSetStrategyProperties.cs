@@ -152,7 +152,7 @@ public sealed class FwwSetStrategyProperties
             .Returns(EqualityComparer<object>.Default);
 
         var mockTimestampProvider = new Mock<ICrdtTimestampProvider>();
-        mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>())).Returns(new CrdtTimestamp(0));
+        mockTimestampProvider.Setup(x => x.Create(It.IsAny<long>(), It.IsAny<string>())).Returns(new CrdtTimestamp(0));
 
         var strategy = new FwwSetStrategy(mockComparerProvider.Object, mockTimestampProvider.Object, [new FwwSetTestContext()]);
         var propertyInfo = new CrdtPropertyInfo(

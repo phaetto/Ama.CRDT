@@ -634,16 +634,9 @@ public sealed class MemoryOverheadTests
 
     private sealed class DummyTimestampProvider : ICrdtTimestampProvider
     {
-        private readonly ReplicaContext replicaContext;
+        public CrdtTimestamp Now(string replicaId) => new(1000, 0, ReplicaId: replicaId);
 
-        public DummyTimestampProvider(ReplicaContext replicaContext)
-        {
-            this.replicaContext = replicaContext;
-        }
-
-        public CrdtTimestamp Now() => new(1000, 0, ReplicaId: replicaContext.ReplicaId);
-
-        public CrdtTimestamp Create(long value) => new(value, 0, ReplicaId: replicaContext.ReplicaId);
+        public CrdtTimestamp Create(long value, string replicaId) => new(value, 0, ReplicaId: replicaId);
     }
 
     private sealed class DummyDocumentIdProvider : IDocumentIdProvider

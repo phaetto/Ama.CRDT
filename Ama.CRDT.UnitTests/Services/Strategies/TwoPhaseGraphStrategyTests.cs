@@ -245,13 +245,13 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
             new CompactDictionary<object, CausalTimestamp>()
         );
 
-        state.VertexTombstones["A"] = new CausalTimestamp(timestampProvider.Create(100), "R1", 5); // Should be removed
-        state.VertexTombstones["B"] = new CausalTimestamp(timestampProvider.Create(200), "R2", 10); // Should be kept
+        state.VertexTombstones["A"] = new CausalTimestamp(timestampProvider.Create(100, "R1"), "R1", 5); // Should be removed
+        state.VertexTombstones["B"] = new CausalTimestamp(timestampProvider.Create(200, "R2"), "R2", 10); // Should be kept
 
         var edgeA = new Edge("A", "B", null);
         var edgeB = new Edge("B", "C", null);
-        state.EdgeTombstones[edgeA] = new CausalTimestamp(timestampProvider.Create(100), "R1", 4); // Should be removed
-        state.EdgeTombstones[edgeB] = new CausalTimestamp(timestampProvider.Create(200), "R1", 6); // Should be kept
+        state.EdgeTombstones[edgeA] = new CausalTimestamp(timestampProvider.Create(100, "R1"), "R1", 4); // Should be removed
+        state.EdgeTombstones[edgeB] = new CausalTimestamp(timestampProvider.Create(200, "R1"), "R1", 6); // Should be kept
 
         metadata.States["$.graph"] = state;
 
@@ -277,21 +277,21 @@ public sealed class TwoPhaseGraphStrategyTests : IDisposable
 
         var data1 = new TwoPhaseGraphTestModel();
         var meta1 = new CrdtMetadata();
-        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.graph", OperationType.Upsert, new GraphVertexPayload("V1"), timestampProvider.Create(100), 1);
+        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.graph", OperationType.Upsert, new GraphVertexPayload("V1"), timestampProvider.Create(100, "A"), 1);
         strategy.ApplyOperation(new ApplyOperationContext(data1, meta1, op1, "A"));
 
         var data2 = new TwoPhaseGraphTestModel();
         var meta2 = new CrdtMetadata();
-        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.graph", OperationType.Upsert, new GraphVertexPayload("V2"), timestampProvider.Create(200), 2);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.graph", OperationType.Upsert, new GraphVertexPayload("V2"), timestampProvider.Create(200, "B"), 2);
         strategy.ApplyOperation(new ApplyOperationContext(data2, meta2, op2, "A"));
 
         // Add an edge in data2
         var edge = new Edge("V1", "V2", null);
-        var op3 = new CrdtOperation(Guid.NewGuid(), "B", "$.graph", OperationType.Upsert, new GraphEdgePayload(edge), timestampProvider.Create(300), 3);
+        var op3 = new CrdtOperation(Guid.NewGuid(), "B", "$.graph", OperationType.Upsert, new GraphEdgePayload(edge), timestampProvider.Create(300, "B"), 3);
         strategy.ApplyOperation(new ApplyOperationContext(data2, meta2, op3, "A"));
 
         // Remove V1 in data1
-        var op4 = new CrdtOperation(Guid.NewGuid(), "A", "$.graph", OperationType.Remove, new GraphVertexPayload("V1"), timestampProvider.Create(400), 4);
+        var op4 = new CrdtOperation(Guid.NewGuid(), "A", "$.graph", OperationType.Remove, new GraphVertexPayload("V1"), timestampProvider.Create(400, "A"), 4);
         strategy.ApplyOperation(new ApplyOperationContext(data1, meta1, op4, "A"));
 
         // Act

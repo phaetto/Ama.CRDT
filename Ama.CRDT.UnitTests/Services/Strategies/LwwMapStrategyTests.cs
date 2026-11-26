@@ -87,9 +87,9 @@ public sealed class LwwMapStrategyTests
         var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
 
         Thread.Sleep(5);
-        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 2), timestampProvider.Now(), 0);
+        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 2), timestampProvider.Now("A"), 0);
         Thread.Sleep(5);
-        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new KeyValuePair<object, object?>("a", null), timestampProvider.Now(), 0);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Remove, new KeyValuePair<object, object?>("a", null), timestampProvider.Now("B"), 0);
 
         // Act: Apply op1 then op2
         strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op1, "A"));
@@ -115,7 +115,7 @@ public sealed class LwwMapStrategyTests
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         Thread.Sleep(5);
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), timestampProvider.Now(), 0);
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), timestampProvider.Now("A"), 0);
         
         var expectedMap = new Dictionary<string, int> { { "a", 2 } };
 
@@ -138,11 +138,11 @@ public sealed class LwwMapStrategyTests
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 1 } });
         doc.Metadata.States["$.map"] = new LwwMapState(new CompactDictionary<object, CausalTimestamp>(1)
         {
-            { "a", new CausalTimestamp(timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), "A", 1) }
+            { "a", new CausalTimestamp(timestampProvider.Create(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), "A"), "A", 1) }
         });
         
-        var newerTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(50).ToUnixTimeMilliseconds());
-        var olderTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(-50).ToUnixTimeMilliseconds());
+        var newerTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(50).ToUnixTimeMilliseconds(), "B");
+        var olderTimestamp = timestampProvider.Create(DateTimeOffset.UtcNow.AddMilliseconds(-50).ToUnixTimeMilliseconds(), "A");
 
         var olderOp = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 0), olderTimestamp, 0);
         var newerOp = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), newerTimestamp, 0);
@@ -165,7 +165,7 @@ public sealed class LwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
         var intent = new MapSetIntent("myKey", 42);
-        var timestamp = timestampProvider.Now();
+        var timestamp = timestampProvider.Now("A");
         
         var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", mapProperty, intent, timestamp, 0, "A");
 
@@ -191,7 +191,7 @@ public sealed class LwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int> { { "myKey", 42 } });
         var intent = new MapRemoveIntent("myKey");
-        var timestamp = timestampProvider.Now();
+        var timestamp = timestampProvider.Now("A");
         
         var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", mapProperty, intent, timestamp, 0, "A");
 
@@ -217,7 +217,7 @@ public sealed class LwwMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
         var intent = new AddIntent(42);
-        var timestamp = timestampProvider.Now();
+        var timestamp = timestampProvider.Now("A");
         
         var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", mapProperty, intent, timestamp, 0, "A");
 
@@ -261,7 +261,7 @@ public sealed class LwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("myKey", 42), timestampProvider.Now(), 0);
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("myKey", 42), timestampProvider.Now("A"), 0);
 
         // Act
         var key = strategy.GetKeyFromOperation(op, "$.map");
@@ -276,7 +276,7 @@ public sealed class LwwMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<LwwMapStrategy>();
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.otherMap", OperationType.Upsert, new KeyValuePair<object, object?>("myKey", 42), timestampProvider.Now(), 0);
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.otherMap", OperationType.Upsert, new KeyValuePair<object, object?>("myKey", 42), timestampProvider.Now("A"), 0);
 
         // Act
         var key = strategy.GetKeyFromOperation(op, "$.map");
@@ -309,10 +309,10 @@ public sealed class LwwMapStrategyTests
         
         doc.Metadata.States["$.map"] = new LwwMapState(new CompactDictionary<object, CausalTimestamp>(4)
         {
-            { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
-            { "b", new CausalTimestamp(timestampProvider.Create(2), "A", 2) },
-            { "c", new CausalTimestamp(timestampProvider.Create(3), "A", 3) },
-            { "d", new CausalTimestamp(timestampProvider.Create(4), "A", 4) }
+            { "a", new CausalTimestamp(timestampProvider.Create(1, "A"), "A", 1) },
+            { "b", new CausalTimestamp(timestampProvider.Create(2, "A"), "A", 2) },
+            { "c", new CausalTimestamp(timestampProvider.Create(3, "A"), "A", 3) },
+            { "d", new CausalTimestamp(timestampProvider.Create(4, "A"), "A", 4) }
         });
 
         // Act
@@ -354,7 +354,7 @@ public sealed class LwwMapStrategyTests
         
         doc.Metadata.States["$.map"] = new LwwMapState(new CompactDictionary<object, CausalTimestamp>(1)
         {
-            { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) }
+            { "a", new CausalTimestamp(timestampProvider.Create(1, "A"), "A", 1) }
         });
 
         // Act & Assert
@@ -371,15 +371,15 @@ public sealed class LwwMapStrategyTests
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "overlap", 100 } });
         doc1.Metadata.States["$.map"] = new LwwMapState(new CompactDictionary<object, CausalTimestamp>(2)
         {
-            { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
-            { "overlap", new CausalTimestamp(timestampProvider.Create(100), "A", 100) }
+            { "a", new CausalTimestamp(timestampProvider.Create(1, "A"), "A", 1) },
+            { "overlap", new CausalTimestamp(timestampProvider.Create(100, "A"), "A", 100) }
         });
 
         var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "overlap", 200 } });
         doc2.Metadata.States["$.map"] = new LwwMapState(new CompactDictionary<object, CausalTimestamp>(2)
         {
-            { "c", new CausalTimestamp(timestampProvider.Create(3), "B", 3) },
-            { "overlap", new CausalTimestamp(timestampProvider.Create(200), "B", 200) } // Higher timestamp, should win
+            { "c", new CausalTimestamp(timestampProvider.Create(3, "B"), "B", 3) },
+            { "overlap", new CausalTimestamp(timestampProvider.Create(200, "B"), "B", 200) } // Higher timestamp, should win
         });
 
         // Act
@@ -396,7 +396,7 @@ public sealed class LwwMapStrategyTests
 
         var mergedMapState = (LwwMapState)mergedMeta.States["$.map"];
         mergedMapState.Keys.Count.ShouldBe(3);
-        mergedMapState.Keys["overlap"].ShouldBe(new CausalTimestamp(timestampProvider.Create(200), "B", 200));
+        mergedMapState.Keys["overlap"].ShouldBe(new CausalTimestamp(timestampProvider.Create(200, "B"), "B", 200));
     }
 
     [Fact]
@@ -409,15 +409,15 @@ public sealed class LwwMapStrategyTests
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 1 }, { "overlap", 100 } });
         doc1.Metadata.States["$.map"] = new LwwMapState(new CompactDictionary<object, CausalTimestamp>(2)
         {
-            { "a", new CausalTimestamp(timestampProvider.Create(1), "A", 1) },
-            { "overlap", new CausalTimestamp(timestampProvider.Create(100), "A", 100) }
+            { "a", new CausalTimestamp(timestampProvider.Create(1, "A"), "A", 1) },
+            { "overlap", new CausalTimestamp(timestampProvider.Create(100, "A"), "A", 100) }
         });
 
         var doc2 = CreateDocument(new Dictionary<string, int> { { "c", 3 }, { "overlap", 200 } });
         doc2.Metadata.States["$.map"] = new LwwMapState(new CompactDictionary<object, CausalTimestamp>(2)
         {
-            { "c", new CausalTimestamp(timestampProvider.Create(3), "B", 3) },
-            { "overlap", new CausalTimestamp(timestampProvider.Create(200), "B", 200) } // Higher timestamp
+            { "c", new CausalTimestamp(timestampProvider.Create(3, "B"), "B", 3) },
+            { "overlap", new CausalTimestamp(timestampProvider.Create(200, "B"), "B", 200) } // Higher timestamp
         });
 
         // Act
@@ -431,7 +431,7 @@ public sealed class LwwMapStrategyTests
 
         var mergedMapState = (LwwMapState)doc1.Metadata.States["$.map"];
         mergedMapState.Keys.Count.ShouldBe(3);
-        mergedMapState.Keys["overlap"].ShouldBe(new CausalTimestamp(timestampProvider.Create(200), "B", 200));
+        mergedMapState.Keys["overlap"].ShouldBe(new CausalTimestamp(timestampProvider.Create(200, "B"), "B", 200));
     }
 
     [Fact]
@@ -444,9 +444,9 @@ public sealed class LwwMapStrategyTests
         var doc = new LwwMapTestModel { Map = new Dictionary<string, int> { { "alive", 1 } } };
         var meta = new CrdtMetadata();
 
-        var tsAlive = new CausalTimestamp(timestampProvider.Create(1), "replica-1", 1);
-        var tsDeadSafe = new CausalTimestamp(timestampProvider.Create(2), "replica-1", 2);
-        var tsDeadUnsafe = new CausalTimestamp(timestampProvider.Create(3), "replica-2", 3);
+        var tsAlive = new CausalTimestamp(timestampProvider.Create(1, "replica-1"), "replica-1", 1);
+        var tsDeadSafe = new CausalTimestamp(timestampProvider.Create(2, "replica-1"), "replica-1", 2);
+        var tsDeadUnsafe = new CausalTimestamp(timestampProvider.Create(3, "replica-2"), "replica-2", 3);
 
         meta.States["$.map"] = new LwwMapState(new CompactDictionary<object, CausalTimestamp>(3, EqualityComparer<object>.Default)
         {

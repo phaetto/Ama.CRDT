@@ -91,7 +91,7 @@ public sealed class CounterMapStrategyTests
             
         var metadata = new CrdtMetadata();
         var intent = new MapIncrementIntent("a", 5);
-        var context = new GenerateOperationContext(new CounterMapTestModel(), metadata, "$.map", propInfo, intent, timestampProvider.Now(), 0, "A");
+        var context = new GenerateOperationContext(new CounterMapTestModel(), metadata, "$.map", propInfo, intent, timestampProvider.Now("A"), 0, "A");
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -125,7 +125,7 @@ public sealed class CounterMapStrategyTests
             
         var metadata = new CrdtMetadata();
         var intent = new SetIntent(5);
-        var context = new GenerateOperationContext(new CounterMapTestModel(), metadata, "$.map", propInfo, intent, timestampProvider.Now(), 0, "A");
+        var context = new GenerateOperationContext(new CounterMapTestModel(), metadata, "$.map", propInfo, intent, timestampProvider.Now("A"), 0, "A");
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
@@ -141,9 +141,9 @@ public sealed class CounterMapStrategyTests
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 10 } });
         var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 10 } });
 
-        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 5), timestampProvider.Now(), 1);
-        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("b", 2), timestampProvider.Now(), 1);
-        var op3 = new CrdtOperation(Guid.NewGuid(), "C", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", -3), timestampProvider.Now(), 1);
+        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 5), timestampProvider.Now("A"), 1);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("b", 2), timestampProvider.Now("B"), 1);
+        var op3 = new CrdtOperation(Guid.NewGuid(), "C", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", -3), timestampProvider.Now("C"), 1);
         
         // Act: Apply op1, op2, op3
         strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op1, "A"));
@@ -171,9 +171,9 @@ public sealed class CounterMapStrategyTests
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 10 } });
         var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 10 } });
 
-        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 5), timestampProvider.Now(), 1);
-        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("b", 2), timestampProvider.Now(), 1);
-        var op3 = new CrdtOperation(Guid.NewGuid(), "C", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", -3), timestampProvider.Now(), 1);
+        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 5), timestampProvider.Now("A"), 1);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("b", 2), timestampProvider.Now("B"), 1);
+        var op3 = new CrdtOperation(Guid.NewGuid(), "C", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", -3), timestampProvider.Now("C"), 1);
 
         // Act: Apply (op1 + op2) + op3
         strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op1, "A"));
@@ -199,7 +199,7 @@ public sealed class CounterMapStrategyTests
         var applicator = scope.ServiceProvider.GetRequiredService<ICrdtApplicator>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 10 } });
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 5), timestampProvider.Now(), 1);
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 5), timestampProvider.Now("A"), 1);
 
         // Act
         // Simulate the CrdtApplicator's role of filtering seen operations.
@@ -276,7 +276,7 @@ public sealed class CounterMapStrategyTests
         // Arrange
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<CounterMapStrategy>();
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("myKey", 5), timestampProvider.Now(), 1);
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("myKey", 5), timestampProvider.Now("A"), 1);
 
         // Act & Assert
         strategy.GetKeyFromOperation(op, "$.map").ShouldBe("myKey");
@@ -340,10 +340,10 @@ public sealed class CounterMapStrategyTests
         // Setup initial state via ApplyOperation to correctly populate metadata
         var operations = new[]
         {
-            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now(), 0),
-            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now(), 0),
-            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now(), 0),
-            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now(), 0)
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now("A"), 0),
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now("A"), 0),
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now("A"), 0),
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now("A"), 0)
         };
 
         foreach (var op in operations)
@@ -395,15 +395,15 @@ public sealed class CounterMapStrategyTests
 
         // Setup partition 1
         strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, 
-            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now(), 0), "A"));
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now("A"), 0), "A"));
         strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, 
-            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now(), 0), "A"));
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now("A"), 0), "A"));
 
         // Setup partition 2
         strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, 
-            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now(), 0), "A"));
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now("A"), 0), "A"));
         strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, 
-            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now(), 0), "A"));
+            new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now("A"), 0), "A"));
 
         // Act
         var merged = strategy.MergeDisjoint(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo);
@@ -469,14 +469,14 @@ public sealed class CounterMapStrategyTests
         var doc2 = CreateDocument(new Dictionary<string, int>());
 
         // doc1 Setup: "a" gets +5, -2. "b" gets +10.
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 5m), timestampProvider.Now(), 1), "A"));
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", -2m), timestampProvider.Now(), 2), "A"));
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("b", 10m), timestampProvider.Now(), 3), "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 5m), timestampProvider.Now("A"), 1), "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", -2m), timestampProvider.Now("A"), 2), "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("b", 10m), timestampProvider.Now("A"), 3), "A"));
 
         // doc2 Setup: "a" gets +3, -6. "c" gets +7.
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 3m), timestampProvider.Now(), 1), "A"));
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", -6m), timestampProvider.Now(), 2), "A"));
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("c", 7m), timestampProvider.Now(), 3), "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", 3m), timestampProvider.Now("B"), 1), "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("a", -6m), timestampProvider.Now("B"), 2), "A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Increment, new KeyValuePair<object, object?>("c", 7m), timestampProvider.Now("B"), 3), "A"));
 
         // Act
         strategy.MergeState(new MergeStateContext(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo, "$.map"));

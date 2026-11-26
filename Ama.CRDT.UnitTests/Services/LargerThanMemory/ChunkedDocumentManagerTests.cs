@@ -267,7 +267,7 @@ public sealed class ChunkedDocumentManagerTests
         mockStorage.Setup(x => x.SaveChunkContentAsync(logicalKey, propName, existingPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync(updatedPartition);
 
-        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("key2", "val2", Guid.NewGuid()), timestampProvider.Now(), 0)]);
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("key2", "val2", Guid.NewGuid()), timestampProvider.Now("A"), 0)]);
 
         var mockInnerApplicator = new Mock<IAsyncCrdtApplicator>();
         mockInnerApplicator.Setup(x => x.ApplyPatchAsync(It.IsAny<CrdtDocument<MultiPartitionedModel>>(), It.IsAny<CrdtPatch>(), It.IsAny<CancellationToken>()))
@@ -320,7 +320,7 @@ public sealed class ChunkedDocumentManagerTests
         mockStorage.Setup(x => x.SaveChunkContentAsync(logicalKey, propName, It.Is<IChunk>(p => p != null && !p.Equals(existingPartition)), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync((IComparable k, string pName, IChunk p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
 
-        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("item_new", "val_new", Guid.NewGuid()), timestampProvider.Now(), 0)]);
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Upsert, new OrMapAddItem("item_new", "val_new", Guid.NewGuid()), timestampProvider.Now("A"), 0)]);
 
         var mockInnerApplicator = new Mock<IAsyncCrdtApplicator>();
         mockInnerApplicator.Setup(x => x.ApplyPatchAsync(It.IsAny<CrdtDocument<MultiPartitionedModel>>(), It.IsAny<CrdtPatch>(), It.IsAny<CancellationToken>()))
@@ -392,7 +392,7 @@ public sealed class ChunkedDocumentManagerTests
         mockStorage.Setup(x => x.SaveChunkContentAsync(logicalKey, propName, It.Is<IChunk>(p => p != null && p is CollectionChunk && ((CollectionChunk)p).StartKey.Equals(dp1.StartKey) && ((CollectionChunk)p).EndKey == null), It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync((IComparable k, string pName, IChunk p, MultiPartitionedModel d, CrdtMetadata m, CancellationToken c) => p);
 
-        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Remove, new OrMapRemoveItem("item6", new HashSet<Guid>()), timestampProvider.Now(), 0)]);
+        var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "A", "$.items", OperationType.Remove, new OrMapRemoveItem("item6", new HashSet<Guid>()), timestampProvider.Now("A"), 0)]);
 
         var mockInnerApplicator = new Mock<IAsyncCrdtApplicator>();
         mockInnerApplicator.Setup(x => x.ApplyPatchAsync(It.IsAny<CrdtDocument<MultiPartitionedModel>>(), It.IsAny<CrdtPatch>(), It.IsAny<CancellationToken>()))
@@ -445,7 +445,7 @@ public sealed class ChunkedDocumentManagerTests
         mockStorage.Setup(x => x.SaveHeaderChunkContentAsync(logicalKey, headerPartition, It.IsAny<MultiPartitionedModel>(), It.IsAny<CrdtMetadata>(), default))
             .ReturnsAsync(headerPartition);
 
-        var operationTs = timestampProvider.Now();
+        var operationTs = timestampProvider.Now("replica-2");
         var patch = new CrdtPatch([new CrdtOperation(Guid.NewGuid(), "replica-2", "$.items", OperationType.Upsert, new OrMapAddItem("k1", "v1", Guid.NewGuid()), operationTs, 0)]);
 
         var mockInnerApplicator = new Mock<IAsyncCrdtApplicator>();

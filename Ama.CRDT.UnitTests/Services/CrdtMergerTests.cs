@@ -67,7 +67,7 @@ public sealed class CrdtMergerTests : IDisposable
         var primaryMeta = new CrdtMetadata();
         primaryMeta.VersionVector["A"] = 5;
         primaryMeta.VersionVector["B"] = 2;
-        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.path", OperationType.Upsert, "test", timestampProvider.Create(100), 1);
+        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.path", OperationType.Upsert, "test", timestampProvider.Create(100, "A"), 1);
         primaryMeta.SeenExceptions.Add(op1);
 
         var primaryDoc = new CrdtDocument<CrdtApplicatorTests.TestModel>(new CrdtApplicatorTests.TestModel(), primaryMeta);
@@ -75,7 +75,7 @@ public sealed class CrdtMergerTests : IDisposable
         var secondaryMeta = new CrdtMetadata();
         secondaryMeta.VersionVector["B"] = 4;
         secondaryMeta.VersionVector["C"] = 1;
-        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.path", OperationType.Upsert, "test2", timestampProvider.Create(101), 1);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.path", OperationType.Upsert, "test2", timestampProvider.Create(101, "B"), 1);
         secondaryMeta.SeenExceptions.Add(op2);
 
         var secondaryDoc = new CrdtDocument<CrdtApplicatorTests.TestModel>(new CrdtApplicatorTests.TestModel(), secondaryMeta);
@@ -104,8 +104,8 @@ public sealed class CrdtMergerTests : IDisposable
         var primaryDoc = new CrdtDocument<CrdtApplicatorTests.TestModel>(new CrdtApplicatorTests.TestModel(), new CrdtMetadata());
         var secondaryDoc = new CrdtDocument<CrdtApplicatorTests.TestModel>(new CrdtApplicatorTests.TestModel(), new CrdtMetadata());
 
-        var patch1 = new CrdtPatch(new[] { new CrdtOperation(Guid.NewGuid(), "A", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(1), 1) });
-        var patch2 = new CrdtPatch(new[] { new CrdtOperation(Guid.NewGuid(), "B", "$.likes", OperationType.Increment, 10m, timestampProvider.Create(2), 1) });
+        var patch1 = new CrdtPatch(new[] { new CrdtOperation(Guid.NewGuid(), "A", "$.likes", OperationType.Increment, 5m, timestampProvider.Create(1, "A"), 1) });
+        var patch2 = new CrdtPatch(new[] { new CrdtOperation(Guid.NewGuid(), "B", "$.likes", OperationType.Increment, 10m, timestampProvider.Create(2, "B"), 1) });
 
         applicator.ApplyPatch(primaryDoc, patch1);
         applicator.ApplyPatch(secondaryDoc, patch2);

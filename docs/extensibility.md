@@ -120,18 +120,29 @@ You can replace the default timestamping mechanism by implementing `ICrdtTimesta
 
 #### 1. Implement `ICrdtTimestampProvider`
 
-The provider must be thread-safe if used concurrently and should be registered with a scoped lifetime.
+The provider must be thread-safe if used concurrently and is registered with a singleton lifetime.
 
 ```csharp
 using Ama.CRDT.Services.Providers;
 using Ama.CRDT.Models;
+using System;
 using System.Threading;
 
 public sealed class LogicalClockProvider : ICrdtTimestampProvider
 {
     private long counter = 0;
 
-    public CrdtTimestamp Now() => new(Interlocked.Increment(ref counter));
+    public CrdtTimestamp Now(string replicaId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
+        return new(Interlocked.Increment(ref counter), 0, 0, replicaId);
+    }
+
+    public CrdtTimestamp Create(long value, string replicaId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
+        return new(value, 0, 0, replicaId);
+    }
 }
 ```
 

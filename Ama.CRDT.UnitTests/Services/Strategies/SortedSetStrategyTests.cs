@@ -112,7 +112,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         mockComparerProvider
             .Setup(p => p.GetComparer(typeof(NestedModel)))
             .Returns(new NestedModelIdComparer());
-        mockTimestampProvider.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(val => new CrdtTimestamp(val));
+        mockTimestampProvider.Setup(p => p.Create(It.IsAny<long>(), It.IsAny<string>())).Returns<long, string>((val, _) => new CrdtTimestamp(val));
 
         var operations = new List<CrdtOperation>();
         var nestedDiffs = new List<DifferentiateObjectContext>();
@@ -140,7 +140,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         };
 
         var context = new GeneratePatchContext(
-            operations, nestedDiffs, path, property, originalValue, modifiedValue, new object(), new object(), new CrdtMetadata(), mockTimestampProvider.Object.Create(0), 0, "replica-A");
+            operations, nestedDiffs, path, property, originalValue, modifiedValue, new object(), new object(), new CrdtMetadata(), mockTimestampProvider.Object.Create(0, "replica-A"), 0, "replica-A");
         
         // Act
         strategy.GeneratePatch(context);
@@ -173,7 +173,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             null,
             new CrdtSortedSetStrategyAttribute(),
             Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
-        var timestamp = timestampProvider.Now();
+        var timestamp = timestampProvider.Now("replica-A");
         var intent = new AddIntent(new TestUser("Eve", "Eve"));
         
         var context = new GenerateOperationContext(doc, meta, "$.users", property, intent, timestamp, 0, "replica-A");
@@ -208,7 +208,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             null,
             new CrdtSortedSetStrategyAttribute(),
             Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
-        var timestamp = timestampProvider.Now();
+        var timestamp = timestampProvider.Now("replica-A");
         var intent = new RemoveValueIntent(new TestUser("Bob", "Bob"));
         
         var context = new GenerateOperationContext(doc, meta, "$.users", property, intent, timestamp, 0, "replica-A");
@@ -243,7 +243,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             null,
             new CrdtSortedSetStrategyAttribute(),
             Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
-        var timestamp = timestampProvider.Now();
+        var timestamp = timestampProvider.Now("replica-A");
         var intent = new SetIntent("Unsupported");
         
         var context = new GenerateOperationContext(doc, meta, "$.users", property, intent, timestamp, 0, "replica-A");
@@ -271,7 +271,7 @@ public sealed class SortedSetStrategyTests : IDisposable
             Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
         
         // Generate an add operation using explicit intent
-        var addContext = new GenerateOperationContext(doc, meta, "$.users", property, new AddIntent(new TestUser("Frank", "Frank")), timestampProvider.Now(), 0, "replica-A");
+        var addContext = new GenerateOperationContext(doc, meta, "$.users", property, new AddIntent(new TestUser("Frank", "Frank")), timestampProvider.Now("replica-A"), 0, "replica-A");
         var addOperation = strategy.GenerateOperation(addContext);
         
         // Apply the operation
@@ -282,7 +282,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         doc.Users[0].Name.ShouldBe("Frank");
         
         // Generate a remove operation using explicit intent
-        var removeContext = new GenerateOperationContext(doc, meta, "$.users", property, new RemoveValueIntent(new TestUser("Frank", "Frank")), timestampProvider.Now(), 0, "replica-A");
+        var removeContext = new GenerateOperationContext(doc, meta, "$.users", property, new RemoveValueIntent(new TestUser("Frank", "Frank")), timestampProvider.Now("replica-A"), 0, "replica-A");
         var removeOperation = strategy.GenerateOperation(removeContext);
         
         // Apply the remove operation
@@ -300,7 +300,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         // Arrange
         var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
         var model = new MutableTestModel { Items = { "a", "c" } };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Items[1]", OperationType.Upsert, "b", timestampProvider.Create(1L), 0);
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Items[1]", OperationType.Upsert, "b", timestampProvider.Create(1L, "r"), 0);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation, "replica-A");
 
         // Act
@@ -329,7 +329,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
         var model = new SortTestModel { Items = { new Item(1, "c"), new Item(2, "a") } };
         
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Items[2]", OperationType.Upsert, new Item(3, "b"), timestampProvider.Create(1L), 0);
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Items[2]", OperationType.Upsert, new Item(3, "b"), timestampProvider.Create(1L, "r"), 0);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation, "replica-A");
 
         // Act
@@ -349,7 +349,7 @@ public sealed class SortedSetStrategyTests : IDisposable
         // Arrange
         var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
         var model = new MutableTestModel { Items = { "a", "b", "c" } };
-        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Items[1]", OperationType.Remove, "b", timestampProvider.Create(1L), 0);
+        var operation = new CrdtOperation(Guid.NewGuid(), "r", "$.Items[1]", OperationType.Remove, "b", timestampProvider.Create(1L, "r"), 0);
         var context = new ApplyOperationContext(model, new CrdtMetadata(), operation, "replica-A");
 
         // Act
@@ -530,7 +530,7 @@ public sealed class SortedSetStrategyTests : IDisposable
     public void GetKeyFromOperation_ShouldExtractCorrectly()
     {
         var strategy = scopeA.ServiceProvider.GetRequiredService<SortedSetStrategy>();
-        var op = new CrdtOperation(Guid.NewGuid(), "r1", "$.users", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now(), 0);
+        var op = new CrdtOperation(Guid.NewGuid(), "r1", "$.users", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now("r1"), 0);
         
         strategy.GetKeyFromOperation(op, "$.users").ShouldBe("Bob");
         strategy.GetKeyFromOperation(op, "$.otherPath").ShouldBeNull();
@@ -570,10 +570,10 @@ public sealed class SortedSetStrategyTests : IDisposable
             new CrdtSortedSetStrategyAttribute(),
             Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
 
-        strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Alice", "Alice"), timestampProvider.Now(), 0), "replica-A"));
-        strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now(), 0), "replica-A"));
-        strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[2]", OperationType.Upsert, new TestUser("Charlie", "Charlie"), timestampProvider.Now(), 0), "replica-A"));
-        strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[3]", OperationType.Upsert, new TestUser("Dave", "Dave"), timestampProvider.Now(), 0), "replica-A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Alice", "Alice"), timestampProvider.Now("r1"), 0), "replica-A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now("r1"), 0), "replica-A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[2]", OperationType.Upsert, new TestUser("Charlie", "Charlie"), timestampProvider.Now("r1"), 0), "replica-A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[3]", OperationType.Upsert, new TestUser("Dave", "Dave"), timestampProvider.Now("r1"), 0), "replica-A"));
 
         var result = strategy.SplitToDisjoint(doc, meta, propInfo);
 
@@ -605,11 +605,11 @@ public sealed class SortedSetStrategyTests : IDisposable
             new CrdtSortedSetStrategyAttribute(),
             Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
 
-        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Dave", "Dave"), timestampProvider.Now(), 0), "replica-A"));
-        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Alice", "Alice"), timestampProvider.Now(), 0), "replica-A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Dave", "Dave"), timestampProvider.Now("r1"), 0), "replica-A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Alice", "Alice"), timestampProvider.Now("r1"), 0), "replica-A"));
         
-        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[0]", OperationType.Upsert, new TestUser("Charlie", "Charlie"), timestampProvider.Now(), 0), "replica-B"));
-        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now(), 0), "replica-B"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[0]", OperationType.Upsert, new TestUser("Charlie", "Charlie"), timestampProvider.Now("r2"), 0), "replica-B"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now("r2"), 0), "replica-B"));
 
         var result = strategy.MergeDisjoint(doc1, meta1, doc2, meta2, propInfo);
 
@@ -624,9 +624,9 @@ public sealed class SortedSetStrategyTests : IDisposable
         var doc = new MutableTestModel { Items = new List<string> { "alive" } };
         var meta = new CrdtMetadata();
         
-        var safeTs1 = timestampProvider.Create(10);
-        var safeTs2 = timestampProvider.Create(20);
-        var unsafeTs = timestampProvider.Create(30);
+        var safeTs1 = timestampProvider.Create(10, "replica-1");
+        var safeTs2 = timestampProvider.Create(20, "replica-1");
+        var unsafeTs = timestampProvider.Create(30, "replica-2");
         
         var adds = new CompactDictionary<object, CrdtTimestamp>(EqualityComparer<object>.Default);
         var removes = new CompactDictionary<object, CausalTimestamp>(EqualityComparer<object>.Default);
@@ -699,11 +699,11 @@ public sealed class SortedSetStrategyTests : IDisposable
             new CrdtSortedSetStrategyAttribute(),
             Array.Empty<Attributes.CrdtStrategyDecoratorAttribute>());
 
-        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Dave", "Dave"), timestampProvider.Now(), 0), "replica-A"));
-        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Alice", "Alice"), timestampProvider.Now(), 0), "replica-A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[0]", OperationType.Upsert, new TestUser("Dave", "Dave"), timestampProvider.Now("r1"), 0), "replica-A"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.users[1]", OperationType.Upsert, new TestUser("Alice", "Alice"), timestampProvider.Now("r1"), 0), "replica-A"));
         
-        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[0]", OperationType.Upsert, new TestUser("Charlie", "Charlie"), timestampProvider.Now(), 0), "replica-B"));
-        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now(), 0), "replica-B"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[0]", OperationType.Upsert, new TestUser("Charlie", "Charlie"), timestampProvider.Now("r2"), 0), "replica-B"));
+        strategy.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r2", "$.users[1]", OperationType.Upsert, new TestUser("Bob", "Bob"), timestampProvider.Now("r2"), 0), "replica-B"));
 
         // Act
         strategy.MergeState(new MergeStateContext(doc1, meta1, doc2, meta2, propInfo, "$.users"));

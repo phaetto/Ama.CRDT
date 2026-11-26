@@ -78,7 +78,7 @@ public sealed class CrdtPatcherTests : IDisposable
     public void GeneratePatch_WhenNoChanges_ShouldReturnEmptyPatch()
     {
         // Arrange
-        var ts = timestampProvider.Create(100);
+        var ts = timestampProvider.Create(100, "test-replica");
         var model = new TestModel { Name = "Test", Likes = 10, Unchanged = 123 };
         var metadata = new CrdtMetadata();
         metadata.States["$.name"] = new CausalTimestamp(ts, "test-replica", 1);
@@ -98,7 +98,7 @@ public sealed class CrdtPatcherTests : IDisposable
     public void GeneratePatch_WithMixedStrategyProperties_ShouldGenerateCorrectOperations()
     {
         // Arrange
-        var ts1 = timestampProvider.Create(100);
+        var ts1 = timestampProvider.Create(100, "test-replica");
         var fromModel = new TestModel { Name = "Original", Likes = 5, Unchanged = 123 };
         var fromMeta = new CrdtMetadata();
         fromMeta.States["$.name"] = new CausalTimestamp(ts1, "test-replica", 1);
@@ -106,7 +106,7 @@ public sealed class CrdtPatcherTests : IDisposable
         fromMeta.States["$.unchanged"] = new CausalTimestamp(ts1, "test-replica", 1);
         var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
 
-        var ts2 = timestampProvider.Create(200);
+        var ts2 = timestampProvider.Create(200, "test-replica");
         var toModel = new TestModel { Name = "Updated", Likes = 15, Unchanged = 123 };
 
         // Act
@@ -130,13 +130,13 @@ public sealed class CrdtPatcherTests : IDisposable
     public void GeneratePatch_WithNestedObjectChanges_ShouldGenerateCorrectPath()
     {
         // Arrange
-        var ts1 = timestampProvider.Create(100);
+        var ts1 = timestampProvider.Create(100, "test-replica");
         var fromModel = new TestModel { Nested = new NestedModel { Value = "Nested Original" } };
         var fromMeta = new CrdtMetadata();
         fromMeta.States["$.nested.value"] = new CausalTimestamp(ts1, "test-replica", 1);
         var from = new CrdtDocument<TestModel>(fromModel, fromMeta);
 
-        var ts2 = timestampProvider.Create(200);
+        var ts2 = timestampProvider.Create(200, "test-replica");
         var toModel = new TestModel { Nested = new NestedModel { Value = "Nested Updated" } };
 
         // Act

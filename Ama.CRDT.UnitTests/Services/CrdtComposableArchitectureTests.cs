@@ -192,8 +192,8 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
 
         var operations = new List<CrdtOperation>
         {
-            new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.level1.level2.message", OperationType.Upsert, "Instantiated dynamically", timestampProvider.Now(), 1),
-            new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.level1.level2.count", OperationType.Upsert, 99, timestampProvider.Now(), 2)
+            new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.level1.level2.message", OperationType.Upsert, "Instantiated dynamically", timestampProvider.Now("test-replica-2"), 1),
+            new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.level1.level2.count", OperationType.Upsert, 99, timestampProvider.Now("test-replica-2"), 2)
         };
         var patch = new CrdtPatch(operations);
 
@@ -227,7 +227,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         // Explicitly set the parent object's initialization timestamp into the past 
         // to prevent it from identically matching the change generation timestamp 
         // within the same millisecond and causing conflict suppression.
-        fromMeta.States["$.level1"] = new CausalTimestamp(timestampProvider.Create(1L), "test-replica-1", 1);
+        fromMeta.States["$.level1"] = new CausalTimestamp(timestampProvider.Create(1L, "test-replica-1"), "test-replica-1", 1);
 
         var fromDoc = new CrdtDocument<TestRoot>(fromModel, fromMeta);
         var toModel = new TestRoot { Level1 = null };
@@ -304,9 +304,9 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         // Use explicit intents for deep paths since standard GeneratePatch doesn't deeply recurse into mapped dictionary values.
         // Use explicitly elevated timestamps to ensure they override the fast initialization ticks.
         var baseTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var ts1 = timestampProvider.Create(baseTime + 1000);
-        var ts2 = timestampProvider.Create(baseTime + 2000);
-        var ts3 = timestampProvider.Create(baseTime + 3000);
+        var ts1 = timestampProvider.Create(baseTime + 1000, "test-replica-1");
+        var ts2 = timestampProvider.Create(baseTime + 2000, "test-replica-1");
+        var ts3 = timestampProvider.Create(baseTime + 3000, "test-replica-1");
 
         var op1 = patcher.GenerateOperation(fromDoc, d => d.Users["u1"].Score, new SetIntent(150), ts1);
         var op2 = patcher.GenerateOperation(fromDoc, d => d.Users, new MapSetIntent("u2", new ComplexItem { Id = "u2", Name = "Bob", Score = 200 }), ts2);
@@ -350,13 +350,13 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         // Act - Concurrent Conflicting Changes targeting DIFFERENT internal properties of the same Map Key
         
         // Replica 1 updates Name using explicit intents
-        var ts1 = timestampProvider.Create(baseTime + 1000);
+        var ts1 = timestampProvider.Create(baseTime + 1000, "test-replica-1");
         var op1 = patcher.GenerateOperation(doc1, d => d.Users["u1"].Name, new SetIntent("Alice Smith"), ts1);
         var patch1 = new CrdtPatch([op1]);
         applicator.ApplyPatch(doc1, patch1);
 
         // Replica 2 updates Score using explicit intents
-        var ts2 = timestampProvider.Create(baseTime + 1500);
+        var ts2 = timestampProvider.Create(baseTime + 1500, "test-replica-2");
         var op2 = patcher2.GenerateOperation(doc2, d => d.Users["u1"].Score, new SetIntent(20), ts2);
         var patch2 = new CrdtPatch([op2]);
         applicator2.ApplyPatch(doc2, patch2);
@@ -384,11 +384,11 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         var baseTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         // Act - Bulk add items using intents to explicitly manage the complex objects
-        var ts1 = timestampProvider.Create(baseTime + 1000);
+        var ts1 = timestampProvider.Create(baseTime + 1000, "test-replica-1");
         var op1 = patcher.GenerateOperation(doc1, d => d.History, new AddIntent(new ComplexItem { Id = "1", Name = "First", Score = 10 }), ts1);
         applicator.ApplyPatch(doc1, new CrdtPatch([op1]));
         
-        var ts2 = timestampProvider.Create(baseTime + 2000);
+        var ts2 = timestampProvider.Create(baseTime + 2000, "test-replica-1");
         var op2 = patcher.GenerateOperation(doc1, d => d.History, new AddIntent(new ComplexItem { Id = "2", Name = "Second", Score = 20 }), ts2);
         applicator.ApplyPatch(doc1, new CrdtPatch([op2]));
 
@@ -397,11 +397,11 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         model1.History[0].Name.ShouldBe("First");
 
         // Act - Remove first element, add third element
-        var ts3 = timestampProvider.Create(baseTime + 3000);
+        var ts3 = timestampProvider.Create(baseTime + 3000, "test-replica-1");
         var op3 = patcher.GenerateOperation(doc1, d => d.History, new RemoveIntent(0), ts3);
         applicator.ApplyPatch(doc1, new CrdtPatch([op3]));
         
-        var ts4 = timestampProvider.Create(baseTime + 4000);
+        var ts4 = timestampProvider.Create(baseTime + 4000, "test-replica-1");
         var op4 = patcher.GenerateOperation(doc1, d => d.History, new AddIntent(new ComplexItem { Id = "3", Name = "Third", Score = 30 }), ts4);
         applicator.ApplyPatch(doc1, new CrdtPatch([op4]));
 
@@ -424,23 +424,23 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         // Act - Explicitly generate intent-based operations addressing deep strategies
         // We apply them individually to accurately simulate distinct sequential user actions, 
         // updating the internal version vector to reflect the correct monotonically increasing clock.
-        var ts1 = timestampProvider.Create(baseTime + 1000);
+        var ts1 = timestampProvider.Create(baseTime + 1000, "test-replica-1");
         var op1 = patcher.GenerateOperation(doc, d => d.Metrics, new MapSetIntent("cpu", 5), ts1);
         applicator.ApplyPatch(doc, new CrdtPatch([op1]));
 
-        var ts2 = timestampProvider.Create(baseTime + 2000);
+        var ts2 = timestampProvider.Create(baseTime + 2000, "test-replica-1");
         var op2 = patcher.GenerateOperation(doc, d => d.Log, new AddIntent("first entry"), ts2);
         applicator.ApplyPatch(doc, new CrdtPatch([op2]));
 
-        var ts3 = timestampProvider.Create(baseTime + 3000);
+        var ts3 = timestampProvider.Create(baseTime + 3000, "test-replica-1");
         var op3 = patcher.GenerateOperation(doc, d => d.Network, new AddVertexIntent("V1"), ts3);
         applicator.ApplyPatch(doc, new CrdtPatch([op3]));
 
-        var ts4 = timestampProvider.Create(baseTime + 4000);
+        var ts4 = timestampProvider.Create(baseTime + 4000, "test-replica-1");
         var op4 = patcher.GenerateOperation(doc, d => d.Status, new SetIntent(DocStatus.Published), ts4);
         applicator.ApplyPatch(doc, new CrdtPatch([op4]));
 
-        var ts5 = timestampProvider.Create(baseTime + 5000);
+        var ts5 = timestampProvider.Create(baseTime + 5000, "test-replica-1");
         var op5 = patcher.GenerateOperation(doc, d => d.Config!.SubLog, new AddIntent("deep entry"), ts5);
         applicator.ApplyPatch(doc, new CrdtPatch([op5]));
 
@@ -557,7 +557,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         model2.ProtectedSecret.ShouldBe("ApprovedSecret");
 
         // Act - Explicit EpochClear intent to bump epoch and reset state
-        var clearTs1 = timestampProvider.Create(baseTime + 10000);
+        var clearTs1 = timestampProvider.Create(baseTime + 10000, "test-replica-1");
         var clearOp = patcher.GenerateOperation(doc1, d => d.ProtectedSecret, new EpochClearIntent(), clearTs1);
         
         // Even the EpochClear requires a quorum because it is wrapped by the outer ApprovalQuorum!
@@ -565,7 +565,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         model1.ProtectedSecret.ShouldBe("ApprovedSecret"); // Not cleared yet
         
         // Replica 2 sends the same clear intent
-        var clearTs2 = timestampProvider.Create(baseTime + 11000);
+        var clearTs2 = timestampProvider.Create(baseTime + 11000, "test-replica-2");
         var clearOp2 = patcher2.GenerateOperation(doc2, d => d.ProtectedSecret, new EpochClearIntent(), clearTs2);
         
         // Replica 2 applies its own clear intent
@@ -604,13 +604,13 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
 
         // Act
         // Replica 1 deletes the user entirely at TS1
-        var ts1 = timestampProvider.Create(baseTime + 1000);
+        var ts1 = timestampProvider.Create(baseTime + 1000, "test-replica-1");
         var op1 = patcher.GenerateOperation(doc1, d => d.Users, new MapRemoveIntent("u1"), ts1);
         var patch1 = new CrdtPatch([op1]);
         applicator.ApplyPatch(doc1, patch1);
 
         // Replica 2 updates a deep property of the user at a HIGHER TS2
-        var ts2 = timestampProvider.Create(baseTime + 2000); 
+        var ts2 = timestampProvider.Create(baseTime + 2000, "test-replica-2"); 
         var op2 = patcher2.GenerateOperation(doc2, d => d.Users["u1"].Score, new SetIntent(99), ts2);
         var patch2 = new CrdtPatch([op2]);
         applicator2.ApplyPatch(doc2, patch2);
@@ -652,13 +652,13 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
 
         // Act
         // Replica 1 removes the list item
-        var ts1 = timestampProvider.Create(baseTime + 1000);
+        var ts1 = timestampProvider.Create(baseTime + 1000, "test-replica-1");
         var op1 = patcher.GenerateOperation(doc1, d => d.History, new RemoveIntent(0), ts1);
         var patch1 = new CrdtPatch([op1]);
         applicator.ApplyPatch(doc1, patch1);
 
         // Replica 2 updates the score of the same list item (concurrently addressing index 0)
-        var ts2 = timestampProvider.Create(baseTime + 2000);
+        var ts2 = timestampProvider.Create(baseTime + 2000, "test-replica-2");
         var op2 = patcher2.GenerateOperation(doc2, d => d.History[0].Score, new SetIntent(99), ts2);
         var patch2 = new CrdtPatch([op2]);
         applicator2.ApplyPatch(doc2, patch2);
@@ -697,13 +697,13 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
 
         // Act
         // Replica 1 initializes "u1" with Name "Alice"
-        var ts1 = timestampProvider.Create(baseTime + 1000);
+        var ts1 = timestampProvider.Create(baseTime + 1000, "test-replica-1");
         var op1 = patcher.GenerateOperation(doc1, d => d.Users, new MapSetIntent("u1", new ComplexItem { Id = "u1", Name = "Alice", Score = 10 }), ts1);
         var patch1 = new CrdtPatch([op1]);
         applicator.ApplyPatch(doc1, patch1);
 
         // Replica 2 initializes "u1" concurrently but with Name "Bob" and higher timestamp
-        var ts2 = timestampProvider.Create(baseTime + 2000);
+        var ts2 = timestampProvider.Create(baseTime + 2000, "test-replica-2");
         var op2 = patcher2.GenerateOperation(doc2, d => d.Users, new MapSetIntent("u1", new ComplexItem { Id = "u1", Name = "Bob", Score = 20 }), ts2);
         var patch2 = new CrdtPatch([op2]);
         applicator2.ApplyPatch(doc2, patch2);
@@ -734,7 +734,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         var doc = new CrdtDocument<ComplexCollectionDocument>(model, meta);
 
         // Act - Operation targeting an out-of-bounds index deeply
-        var op = new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.history[99].score", OperationType.Upsert, 50, timestampProvider.Now(), 1);
+        var op = new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.history[99].score", OperationType.Upsert, 50, timestampProvider.Now("test-replica-2"), 1);
         var patch = new CrdtPatch([op]);
 
         var result = applicator.ApplyPatch(doc, patch);
@@ -756,7 +756,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         var doc = new CrdtDocument<ComplexDocument>(model, meta);
 
         // Act - Operation trying to access a property INSIDE a primitive string
-        var op = new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.title.someDeepProperty", OperationType.Upsert, 50, timestampProvider.Now(), 1);
+        var op = new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.title.someDeepProperty", OperationType.Upsert, 50, timestampProvider.Now("test-replica-2"), 1);
         var patch = new CrdtPatch([op]);
 
         var result = applicator.ApplyPatch(doc, patch);
@@ -778,7 +778,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         var doc = new CrdtDocument<ComplexCollectionDocument>(model, meta);
 
         // Act - Deep update on a non-existent dictionary key
-        var op = new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.users['missing_user'].score", OperationType.Upsert, 100, timestampProvider.Now(), 1);
+        var op = new CrdtOperation(Guid.NewGuid(), "test-replica-2", "$.users['missing_user'].score", OperationType.Upsert, 100, timestampProvider.Now("test-replica-2"), 1);
         var patch = new CrdtPatch([op]);
 
         var result = applicator.ApplyPatch(doc, patch);
@@ -810,12 +810,12 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
 
         // Replica 1 modifies Count
         var mod1 = new TestRoot { Level1 = new TestLevel1 { Level2 = new TestLevel2 { Count = 42 } } };
-        var patch1 = patcher.GeneratePatch(doc1, mod1, timestampProvider.Create(baseTime + 1000));
+        var patch1 = patcher.GeneratePatch(doc1, mod1, timestampProvider.Create(baseTime + 1000, "test-replica-1"));
         applicator.ApplyPatch(doc1, patch1);
 
         // Replica 2 modifies Message
         var mod2 = new TestRoot { Level1 = new TestLevel1 { Level2 = new TestLevel2 { Message = "Merged!" } } };
-        var patch2 = patcher2.GeneratePatch(doc2, mod2, timestampProvider.Create(baseTime + 2000));
+        var patch2 = patcher2.GeneratePatch(doc2, mod2, timestampProvider.Create(baseTime + 2000, "test-replica-2"));
         applicator2.ApplyPatch(doc2, patch2);
 
         // Act
@@ -852,7 +852,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         mod1.Metrics["cpu"] = 80;
         mod1.Log.Add("r1-log");
         mod1.Network.Vertices.Add("NodeA");
-        var patch1 = patcher.GeneratePatch(doc1, mod1, timestampProvider.Create(baseTime + 1000));
+        var patch1 = patcher.GeneratePatch(doc1, mod1, timestampProvider.Create(baseTime + 1000, "test-replica-1"));
         applicator.ApplyPatch(doc1, patch1);
 
         // Replica 2 changes
@@ -860,7 +860,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         mod2.Metrics["mem"] = 1024;
         mod2.Log.Add("r2-log");
         mod2.Network.Vertices.Add("NodeB");
-        var patch2 = patcher2.GeneratePatch(doc2, mod2, timestampProvider.Create(baseTime + 2000));
+        var patch2 = patcher2.GeneratePatch(doc2, mod2, timestampProvider.Create(baseTime + 2000, "test-replica-2"));
         applicator2.ApplyPatch(doc2, patch2);
 
         // Act
@@ -899,12 +899,12 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         var baseTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         // Replica 1 updates Name
-        var ts1 = timestampProvider.Create(baseTime + 1000);
+        var ts1 = timestampProvider.Create(baseTime + 1000, "test-replica-1");
         var op1 = patcher.GenerateOperation(doc1, d => d.Users["u1"].Name, new SetIntent("Alice Smith"), ts1);
         applicator.ApplyPatch(doc1, new CrdtPatch([op1]));
 
         // Replica 2 updates Score
-        var ts2 = timestampProvider.Create(baseTime + 1500);
+        var ts2 = timestampProvider.Create(baseTime + 1500, "test-replica-2");
         var op2 = patcher2.GenerateOperation(doc2, d => d.Users["u1"].Score, new SetIntent(99), ts2);
         applicator2.ApplyPatch(doc2, new CrdtPatch([op2]));
 
@@ -936,7 +936,7 @@ public sealed class CrdtComposableArchitectureTests : IDisposable
         doc2.Metadata.VersionVector["r3"] = 1;
 
         var opId = Guid.NewGuid();
-        var exceptionOp = new CrdtOperation(opId, "r4", "$.level1", OperationType.Upsert, null, timestampProvider.Create(1), 1);
+        var exceptionOp = new CrdtOperation(opId, "r4", "$.level1", OperationType.Upsert, null, timestampProvider.Create(1, "r4"), 1);
         doc2.Metadata.SeenExceptions.Add(exceptionOp);
 
         // Act

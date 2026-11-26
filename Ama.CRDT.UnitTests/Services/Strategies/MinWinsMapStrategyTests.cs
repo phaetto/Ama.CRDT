@@ -73,9 +73,9 @@ public sealed class MinWinsMapStrategyTests
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 10 } });
         var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 10 } });
 
-        var op_lower = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 5), timestampProvider.Now(), 0);
-        var op_higher = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 15), timestampProvider.Now(), 0);
-        var op_newkey = new CrdtOperation(Guid.NewGuid(), "C", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 100), timestampProvider.Now(), 0);
+        var op_lower = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 5), timestampProvider.Now("A"), 0);
+        var op_higher = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 15), timestampProvider.Now("B"), 0);
+        var op_newkey = new CrdtOperation(Guid.NewGuid(), "C", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 100), timestampProvider.Now("C"), 0);
 
         // Act: Apply lower, higher, newkey
         strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op_lower, "A") { Target = doc1.Data, Property = propInfo });
@@ -103,9 +103,9 @@ public sealed class MinWinsMapStrategyTests
         var doc1 = CreateDocument(new Dictionary<string, int> { { "a", 100 } });
         var doc2 = CreateDocument(new Dictionary<string, int> { { "a", 100 } });
 
-        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 50), timestampProvider.Now(), 0);
-        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 25), timestampProvider.Now(), 0);
-        var op3 = new CrdtOperation(Guid.NewGuid(), "C", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 10), timestampProvider.Now(), 0);
+        var op1 = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 50), timestampProvider.Now("A"), 0);
+        var op2 = new CrdtOperation(Guid.NewGuid(), "B", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 25), timestampProvider.Now("B"), 0);
+        var op3 = new CrdtOperation(Guid.NewGuid(), "C", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 10), timestampProvider.Now("C"), 0);
 
         // Act: Apply (op1 + op2) + op3
         strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, op1, "A") { Target = doc1.Data, Property = propInfo });
@@ -131,7 +131,7 @@ public sealed class MinWinsMapStrategyTests
         var strategy = scope.ServiceProvider.GetRequiredService<MinWinsMapStrategy>();
 
         var doc = CreateDocument(new Dictionary<string, int> { { "a", 10 } });
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), timestampProvider.Now(), 0);
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 2), timestampProvider.Now("A"), 0);
         
         // Act
         strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, op, "A") { Target = doc.Data, Property = propInfo });
@@ -182,7 +182,7 @@ public sealed class MinWinsMapStrategyTests
     {
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<MinWinsMapStrategy>();
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("myKey", 5), timestampProvider.Now(), 1);
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("myKey", 5), timestampProvider.Now("A"), 1);
 
         strategy.GetKeyFromOperation(op, "$.map").ShouldBe("myKey");
         strategy.GetKeyFromOperation(op, "$.otherPath").ShouldBeNull();
@@ -205,10 +205,10 @@ public sealed class MinWinsMapStrategyTests
 
         var doc = CreateDocument(new Dictionary<string, int>());
         
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now(), 0), "A") { Target = doc.Data, Property = propInfo });
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now(), 0), "A") { Target = doc.Data, Property = propInfo });
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now(), 0), "A") { Target = doc.Data, Property = propInfo });
-        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now(), 0), "A") { Target = doc.Data, Property = propInfo });
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now("A"), 0), "A") { Target = doc.Data, Property = propInfo });
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now("A"), 0), "A") { Target = doc.Data, Property = propInfo });
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now("A"), 0), "A") { Target = doc.Data, Property = propInfo });
+        strategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("d", 40), timestampProvider.Now("A"), 0), "A") { Target = doc.Data, Property = propInfo });
 
         var result = strategy.SplitToDisjoint(doc.Data, doc.Metadata, propInfo);
 
@@ -230,11 +230,11 @@ public sealed class MinWinsMapStrategyTests
         var doc1 = CreateDocument(new Dictionary<string, int>());
         var doc2 = CreateDocument(new Dictionary<string, int>());
 
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now(), 0), "A") { Target = doc1.Data, Property = propInfo });
-        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now(), 0), "A") { Target = doc1.Data, Property = propInfo });
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("a", 10), timestampProvider.Now("A"), 0), "A") { Target = doc1.Data, Property = propInfo });
+        strategy.ApplyOperation(new ApplyOperationContext(doc1.Data, doc1.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 20), timestampProvider.Now("A"), 0), "A") { Target = doc1.Data, Property = propInfo });
 
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 5), timestampProvider.Now(), 0), "A") { Target = doc2.Data, Property = propInfo }); // lower value
-        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now(), 0), "A") { Target = doc2.Data, Property = propInfo });
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("b", 5), timestampProvider.Now("A"), 0), "A") { Target = doc2.Data, Property = propInfo }); // lower value
+        strategy.ApplyOperation(new ApplyOperationContext(doc2.Data, doc2.Metadata, new CrdtOperation(Guid.NewGuid(), "A", "$.map", OperationType.Upsert, new KeyValuePair<object, object?>("c", 30), timestampProvider.Now("A"), 0), "A") { Target = doc2.Data, Property = propInfo });
 
         var merged = strategy.MergeDisjoint(doc1.Data, doc1.Metadata, doc2.Data, doc2.Metadata, propInfo);
 
@@ -252,7 +252,7 @@ public sealed class MinWinsMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<MinWinsMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
-        var timestamp = timestampProvider.Now();
+        var timestamp = timestampProvider.Now("A");
         var intent = new MapSetIntent("a", 15);
         var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", propInfo, intent, timestamp, 0, "A");
 
@@ -276,7 +276,7 @@ public sealed class MinWinsMapStrategyTests
         using var scope = scopeFactory.CreateScope("A");
         var strategy = scope.ServiceProvider.GetRequiredService<MinWinsMapStrategy>();
         var doc = CreateDocument(new Dictionary<string, int>());
-        var timestamp = timestampProvider.Now();
+        var timestamp = timestampProvider.Now("A");
         var intent = new MapRemoveIntent("a");
         var context = new GenerateOperationContext(doc.Data, doc.Metadata, "$.map", propInfo, intent, timestamp, 0, "A");
 

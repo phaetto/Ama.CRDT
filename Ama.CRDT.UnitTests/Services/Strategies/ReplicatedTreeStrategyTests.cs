@@ -143,12 +143,12 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
         // Replica A moves Child to ParentA
         var stateA = new TestModel { Tree = { Nodes = new Dictionary<object, TreeNode>(ancestor.Tree.Nodes) } };
         stateA.Tree.Nodes[childId] = new TreeNode { Id = childId, Value = "Child", ParentId = parentAId };
-        var patchA = patcherA.GeneratePatch(docAncestor, stateA, timestampProvider.Create(1)); // Explicit timestamp
+        var patchA = patcherA.GeneratePatch(docAncestor, stateA, timestampProvider.Create(1, "A")); // Explicit timestamp
 
         // Replica B moves Child to ParentB (with a later timestamp)
         var stateB = new TestModel { Tree = { Nodes = new Dictionary<object, TreeNode>(ancestor.Tree.Nodes) } };
         stateB.Tree.Nodes[childId] = new TreeNode { Id = childId, Value = "Child", ParentId = parentBId };
-        var patchB = patcherB.GeneratePatch(docAncestor, stateB, timestampProvider.Create(3)); // Explicit later timestamp
+        var patchB = patcherB.GeneratePatch(docAncestor, stateB, timestampProvider.Create(3, "B")); // Explicit later timestamp
 
         // Act: Scenario 1 (A then B)
         var model1 = new TestModel { Tree = { Nodes = new Dictionary<object, TreeNode>(ancestor.Tree.Nodes) } };
@@ -290,9 +290,9 @@ public sealed class ReplicatedTreeStrategyTests : IDisposable
             {
                 nodeId, new CompactDictionary<Guid, CausalTimestamp>(3)
                 {
-                    { tagSafe, new CausalTimestamp(timestampProvider.Create(100), "replica-1", 5) },
-                    { tagUnsafe, new CausalTimestamp(timestampProvider.Create(200), "replica-1", 10) },
-                    { tagOther, new CausalTimestamp(timestampProvider.Create(150), "replica-2", 3) }
+                    { tagSafe, new CausalTimestamp(timestampProvider.Create(100, "replica-1"), "replica-1", 5) },
+                    { tagUnsafe, new CausalTimestamp(timestampProvider.Create(200, "replica-1"), "replica-1", 10) },
+                    { tagOther, new CausalTimestamp(timestampProvider.Create(150, "replica-2"), "replica-2", 3) }
                 }
             }
         };

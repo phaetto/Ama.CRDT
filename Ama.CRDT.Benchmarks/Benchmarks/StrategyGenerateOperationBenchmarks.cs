@@ -141,7 +141,7 @@ public class StrategyGenerateOperationBenchmarks
 
         metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         strategyProvider = scope.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
-        timestamp = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>().Now();
+        timestamp = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>().Now("replica-id");
 
         basePoco = new StrategyPoco();
         var fromMeta = metadataManager.Initialize(basePoco);
@@ -216,7 +216,8 @@ public class StrategyGenerateOperationBenchmarks
             prop, 
             intent, 
             timestamp, 
-            0
+            0,
+            "replica"
         );
     }
 

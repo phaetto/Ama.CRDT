@@ -34,11 +34,10 @@ public sealed class CrdtMetadataManagerTests
             strategyProviderMock.Object, 
             timestampProviderMock.Object, 
             elementComparerProviderMock.Object,
-            new ReplicaContext { ReplicaId = "replica" },
             [new ServicesTestCrdtAotContext()],
             crdtSerializerMock.Object);
             
-        timestampProviderMock.Setup(p => p.Create(It.IsAny<long>())).Returns<long>(v => new CrdtTimestamp(v));
+        timestampProviderMock.Setup(p => p.Create(It.IsAny<long>(), It.IsAny<string>())).Returns<long, string>((v, r) => new CrdtTimestamp(v, 0, 0, r));
     }
     
     [Theory]
@@ -53,7 +52,7 @@ public sealed class CrdtMetadataManagerTests
         // Arrange
         var doc = new object();
         var metadata = new CrdtMetadata();
-        var timestamp = timestampProviderMock.Object.Create(1);
+        var timestamp = timestampProviderMock.Object.Create(1, "replica");
         var operation = new CrdtOperation();
         var policy = Mock.Of<ICompactionPolicy>();
         
@@ -112,8 +111,8 @@ public sealed class CrdtMetadataManagerTests
     {
         // Arrange
         var metadata = new CrdtMetadata();
-        var causalTs = new CausalTimestamp(timestampProviderMock.Object.Create(100), "replica", 1);
-        var fwwTs = new FwwTimestamp(timestampProviderMock.Object.Create(100), "replica", 1);
+        var causalTs = new CausalTimestamp(timestampProviderMock.Object.Create(100, "replica"), "replica", 1);
+        var fwwTs = new FwwTimestamp(timestampProviderMock.Object.Create(100, "replica"), "replica", 1);
 
         metadata.States["$.a"] = causalTs;
         metadata.States["$.a_fww"] = fwwTs;
@@ -129,7 +128,7 @@ public sealed class CrdtMetadataManagerTests
         metadata.States["$.h"] = new CounterMapState(counterMap);
 
         var doc = new object();
-        timestampProviderMock.Setup(p => p.Now()).Returns(timestampProviderMock.Object.Create(200));
+        timestampProviderMock.Setup(p => p.Now(It.IsAny<string>())).Returns(timestampProviderMock.Object.Create(200, "initial"));
         
         // Act
         manager.Reset(new CrdtDocument<object>(doc, metadata));
@@ -352,7 +351,7 @@ public sealed class CrdtMetadataManagerTests
     }
     
     private CrdtOperation CreateOp(string replicaId, long clockValue)
-        => new(Guid.NewGuid(), replicaId, "path", OperationType.Upsert, null, timestampProviderMock.Object.Create(clockValue), clockValue);
+        => new(Guid.NewGuid(), replicaId, "path", OperationType.Upsert, null, timestampProviderMock.Object.Create(clockValue, replicaId), clockValue);
 
     // Dummy classes for traversal testing
     internal class OuterDoc
