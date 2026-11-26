@@ -172,7 +172,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
             "$.status",
             OperationType.Upsert,
             new EpochPayload(1, "OldValue"), // Epoch 1 (older)
-            timestampProvider.Now(),
+            timestampProvider.Now("TestReplica"),
             1);
 
         applicator.ApplyPatch(doc, new CrdtPatch([oldOp]));
@@ -198,7 +198,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
             "$.status",
             OperationType.Upsert,
             new EpochPayload(2, "NewStatus"), // New epoch!
-            timestampProvider.Now(),
+            timestampProvider.Now("TestReplica"),
             1);
 
         applicator.ApplyPatch(doc, new CrdtPatch([newEpochOp]));
@@ -224,7 +224,7 @@ public sealed class EpochBoundStrategyTests : IDisposable
             "$.items",
             OperationType.Remove,
             new EpochPayload(2, null), // Emitted by EpochClearIntent
-            timestampProvider.Now(),
+            timestampProvider.Now("TestReplica"),
             1);
 
         applicator.ApplyPatch(doc, new CrdtPatch([clearOp]));

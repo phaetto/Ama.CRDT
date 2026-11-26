@@ -28,31 +28,32 @@ public sealed class ClockSkewManager
 /// </summary>
 public sealed class SkewedTimestampProvider : ICrdtTimestampProvider
 {
-    private readonly ReplicaContext replicaContext;
     private readonly ClockSkewManager skewManager;
 
-    public SkewedTimestampProvider(ReplicaContext replicaContext, ClockSkewManager skewManager)
+    public SkewedTimestampProvider(ClockSkewManager skewManager)
     {
-        ArgumentNullException.ThrowIfNull(replicaContext);
         ArgumentNullException.ThrowIfNull(skewManager);
 
-        this.replicaContext = replicaContext;
         this.skewManager = skewManager;
     }
 
-    public CrdtTimestamp Now()
+    public CrdtTimestamp Now(string replicaId)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
+
         var now = DateTimeOffset.UtcNow;
-        if (!string.IsNullOrEmpty(replicaContext.ReplicaId) && skewManager.Skews.TryGetValue(replicaContext.ReplicaId, out var skew))
+        if (skewManager.Skews.TryGetValue(replicaId, out var skew))
         {
             now += skew;
         }
-        return new CrdtTimestamp(now.ToUnixTimeMilliseconds(), 0, 0, replicaContext.ReplicaId);
+        return new CrdtTimestamp(now.ToUnixTimeMilliseconds(), 0, 0, replicaId);
     }
 
-    public CrdtTimestamp Create(long value)
+    public CrdtTimestamp Create(long value, string replicaId)
     {
-        return new CrdtTimestamp(value, 0, 0, replicaContext.ReplicaId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
+
+        return new CrdtTimestamp(value, 0, 0, replicaId);
     }
 }
 
@@ -63,77 +64,97 @@ public sealed class SkewedTimestampProvider : ICrdtTimestampProvider
 /// </summary>
 public sealed class HlcTimestampProvider : ICrdtTimestampProvider
 {
-    private readonly ReplicaContext replicaContext;
+    private sealed class HlcState
+    {
+        public long MaxPhysicalMs;
+        public int LogicalCounter;
+    }
+
     private readonly ClockSkewManager skewManager;
-    private long maxPhysicalMs = 0;
-    private int logicalCounter = 0;
+    private readonly Dictionary<string, HlcState> states = new();
     private readonly object @lock = new object();
 
-    public HlcTimestampProvider(ReplicaContext replicaContext, ClockSkewManager skewManager)
+    public HlcTimestampProvider(ClockSkewManager skewManager)
     {
-        ArgumentNullException.ThrowIfNull(replicaContext);
         ArgumentNullException.ThrowIfNull(skewManager);
 
-        this.replicaContext = replicaContext;
         this.skewManager = skewManager;
     }
 
-    public CrdtTimestamp Now()
+    public CrdtTimestamp Now(string replicaId)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
+
         lock (@lock)
         {
+            var state = GetOrCreateState(replicaId);
             var wallClock = DateTimeOffset.UtcNow;
-            if (!string.IsNullOrEmpty(replicaContext.ReplicaId) && skewManager.Skews.TryGetValue(replicaContext.ReplicaId, out var skew))
+            if (skewManager.Skews.TryGetValue(replicaId, out var skew))
             {
                 wallClock += skew;
             }
             
             long wallMs = wallClock.ToUnixTimeMilliseconds();
 
-            if (wallMs > maxPhysicalMs)
+            if (wallMs > state.MaxPhysicalMs)
             {
-                maxPhysicalMs = wallMs;
-                logicalCounter = 0;
+                state.MaxPhysicalMs = wallMs;
+                state.LogicalCounter = 0;
             }
             else
             {
                 // Wall clock is behind or equal to our highest seen time. 
                 // We advance the logical counter to guarantee strict ordering!
-                logicalCounter++;
+                state.LogicalCounter++;
             }
 
-            return new CrdtTimestamp(maxPhysicalMs, logicalCounter, 0, replicaContext.ReplicaId);
+            return new CrdtTimestamp(state.MaxPhysicalMs, state.LogicalCounter, 0, replicaId);
         }
     }
 
-    public CrdtTimestamp Create(long value)
+    public CrdtTimestamp Create(long value, string replicaId)
     {
-        return new CrdtTimestamp(value, 0, 0, replicaContext.ReplicaId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
+
+        return new CrdtTimestamp(value, 0, 0, replicaId);
     }
 
     /// <summary>
     /// Observes incoming timestamps from remote replicas and fast-forwards the local clock if necessary.
     /// </summary>
-    public void UpdateFromIncoming(CrdtTimestamp incoming)
+    public void UpdateFromIncoming(string replicaId, CrdtTimestamp incoming)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
+
         lock (@lock)
         {
-            if (incoming.Ticks > maxPhysicalMs)
+            var state = GetOrCreateState(replicaId);
+            if (incoming.Ticks > state.MaxPhysicalMs)
             {
                 // We saw a timestamp from the "future" (another node's skewed clock).
                 // Fast forward our physical clock to match it.
-                maxPhysicalMs = incoming.Ticks;
-                logicalCounter = incoming.Counter + 1;
+                state.MaxPhysicalMs = incoming.Ticks;
+                state.LogicalCounter = incoming.Counter + 1;
             }
-            else if (incoming.Ticks == maxPhysicalMs)
+            else if (incoming.Ticks == state.MaxPhysicalMs)
             {
                 // Same millisecond, just ensure our counter is strictly greater
-                if (incoming.Counter >= logicalCounter)
+                if (incoming.Counter >= state.LogicalCounter)
                 {
-                    logicalCounter = incoming.Counter + 1;
+                    state.LogicalCounter = incoming.Counter + 1;
                 }
             }
         }
+    }
+
+    private HlcState GetOrCreateState(string replicaId)
+    {
+        if (!states.TryGetValue(replicaId, out var state))
+        {
+            state = new HlcState();
+            states[replicaId] = state;
+        }
+        return state;
     }
 }
 
@@ -143,12 +164,15 @@ public sealed class HlcTimestampProvider : ICrdtTimestampProvider
 public sealed class HlcUpdaterApplicatorDecorator : AsyncCrdtApplicatorDecoratorBase
 {
     private readonly ICrdtTimestampProvider provider;
+    private readonly ReplicaContext replicaContext;
 
-    public HlcUpdaterApplicatorDecorator(IAsyncCrdtApplicator inner, DecoratorBehavior behavior, ICrdtTimestampProvider provider) 
+    public HlcUpdaterApplicatorDecorator(IAsyncCrdtApplicator inner, DecoratorBehavior behavior, ICrdtTimestampProvider provider, ReplicaContext replicaContext) 
         : base(inner, behavior)
     {
         ArgumentNullException.ThrowIfNull(provider);
+        ArgumentNullException.ThrowIfNull(replicaContext);
         this.provider = provider;
+        this.replicaContext = replicaContext;
     }
 
     protected override Task OnBeforeApplyAsync<TDoc>(CrdtDocument<TDoc> document, CrdtPatch patch, CancellationToken cancellationToken)
@@ -157,7 +181,7 @@ public sealed class HlcUpdaterApplicatorDecorator : AsyncCrdtApplicatorDecorator
         {
             foreach (var op in patch.Operations)
             {
-                hlcProvider.UpdateFromIncoming(op.Timestamp);
+                hlcProvider.UpdateFromIncoming(replicaContext.ReplicaId, op.Timestamp);
             }
         }
 

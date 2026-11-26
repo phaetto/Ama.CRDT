@@ -159,7 +159,7 @@ public sealed class SortedSetStrategy(
             var adds = new CompactDictionary<object, CrdtTimestamp>(listRepresentation.Count, comparer);
             foreach (var item in listRepresentation)
             {
-                adds[item] = timestampProvider.Create(0);
+                adds[item] = timestampProvider.Create(0, context.ReplicaId);
             }
             state = new LwwSetState(adds, new CompactDictionary<object, CausalTimestamp>(comparer));
             metadata.States[collectionPath] = state;
@@ -360,7 +360,7 @@ public sealed class SortedSetStrategy(
             var elementType = PocoPathHelper.GetTypeInfo(partitionableProperty.PropertyType, aotContexts).CollectionElementType ?? typeof(object);
             var comparer = comparerProvider.GetComparer(elementType);
             var adds = new CompactDictionary<object, CrdtTimestamp>(list.Count, comparer);
-            foreach (var item in list) adds[item] = timestampProvider.Create(0);
+            foreach (var item in list) adds[item] = timestampProvider.Create(0, string.Empty);
             state = new LwwSetState(adds, new CompactDictionary<object, CausalTimestamp>(comparer));
             originalMetadata.States[path] = state;
         }

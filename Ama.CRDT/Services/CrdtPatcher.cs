@@ -28,7 +28,7 @@ public sealed class CrdtPatcher(
     /// <inheritdoc/>
     public CrdtPatch GeneratePatch<T>(CrdtDocument<T> from, T changed) where T : class
     {
-        var changeTimestamp = timestampProvider.Now();
+        var changeTimestamp = timestampProvider.Now(replicaContext.ReplicaId);
         return GeneratePatch(from, changed, changeTimestamp);
     }
 
@@ -94,7 +94,7 @@ public sealed class CrdtPatcher(
     /// <inheritdoc/>
     public CrdtOperation GenerateOperation<T, TProp>(CrdtDocument<T> document, Expression<Func<T, TProp>> propertyExpression, IOperationIntent intent) where T : class
     {
-        var changeTimestamp = timestampProvider.Now();
+        var changeTimestamp = timestampProvider.Now(replicaContext.ReplicaId);
         return GenerateOperation(document, propertyExpression, intent, changeTimestamp);
     }
 

@@ -18,14 +18,15 @@ public sealed class ThresholdCompactionPolicyFactory : ICompactionPolicyFactory
     /// </summary>
     /// <param name="timeToLive">The duration to keep metadata before it is considered safe to compact.</param>
     /// <param name="timestampProvider">The provider used to calculate the current time.</param>
+    /// <param name="replicaId">The optional replica ID to pass to the timestamp provider when generating threshold timestamps. This is there only for deterministic LWW tie-breaking and it can be safely ignored</param>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="timestampProvider"/> is null.</exception>
-    public ThresholdCompactionPolicyFactory(TimeSpan timeToLive, ICrdtTimestampProvider timestampProvider)
+    public ThresholdCompactionPolicyFactory(TimeSpan timeToLive, ICrdtTimestampProvider timestampProvider, string replicaId = "irrelevant-replica-id-for-compaction-threshold")
     {
         ArgumentNullException.ThrowIfNull(timestampProvider);
 
         this.thresholdTimestampProvider = () =>
         {
-            var now = timestampProvider.Now();
+            var now = timestampProvider.Now(replicaId);
             return now with { Ticks = now.Ticks - (long)timeToLive.TotalMilliseconds };
         };
     }

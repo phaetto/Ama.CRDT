@@ -142,7 +142,7 @@ public class StrategyApplyBenchmarks
         patcher = scope.ServiceProvider.GetRequiredService<ICrdtPatcher>();
         metadataManager = scope.ServiceProvider.GetRequiredService<ICrdtMetadataManager>();
         strategyProvider = scope.ServiceProvider.GetRequiredService<ICrdtStrategyProvider>();
-        timestamp = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>().Now();
+        timestamp = scope.ServiceProvider.GetRequiredService<ICrdtTimestampProvider>().Now("replica-id");
 
         basePoco = new StrategyPoco();
         var fromMeta = metadataManager.Initialize(basePoco);
@@ -343,7 +343,7 @@ public class StrategyApplyBenchmarks
         var toValue = prop.Getter!(toPoco);
 
         var ops = new List<CrdtOperation>();
-        var ctx = new GeneratePatchContext(ops, new List<DifferentiateObjectContext>(), path, prop, fromValue, toValue, basePoco, toPoco, fromDoc.Metadata, timestamp, 0);
+        var ctx = new GeneratePatchContext(ops, new List<DifferentiateObjectContext>(), path, prop, fromValue, toValue, basePoco, toPoco, fromDoc.Metadata, timestamp, 0, "replica");
         strategy.GeneratePatch(ctx);
         return ops;
     }
@@ -356,7 +356,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < lwwOps.Count; j++)
-                lwwStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, lwwOps[j]));
+                lwwStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, lwwOps[j], "replica-id"));
         }
     }
     
@@ -367,7 +367,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < fwwOps.Count; j++)
-                fwwStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, fwwOps[j]));
+                fwwStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, fwwOps[j], "replica-id"));
         }
     }
 
@@ -378,7 +378,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < counterOps.Count; j++)
-                counterStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, counterOps[j]));
+                counterStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, counterOps[j], "replica-id"));
         }
     }
 
@@ -389,7 +389,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < gCounterOps.Count; j++)
-                gCounterStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, gCounterOps[j]));
+                gCounterStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, gCounterOps[j], "replica-id"));
         }
     }
 
@@ -400,7 +400,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < boundedCounterOps.Count; j++)
-                boundedCounterStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, boundedCounterOps[j]));
+                boundedCounterStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, boundedCounterOps[j], "replica-id"));
         }
     }
 
@@ -411,7 +411,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < maxWinsOps.Count; j++)
-                maxWinsStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, maxWinsOps[j]));
+                maxWinsStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, maxWinsOps[j], "replica-id"));
         }
     }
 
@@ -422,7 +422,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < minWinsOps.Count; j++)
-                minWinsStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, minWinsOps[j]));
+                minWinsStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, minWinsOps[j], "replica-id"));
         }
     }
 
@@ -433,7 +433,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < averageOps.Count; j++)
-                averageStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, averageOps[j]));
+                averageStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, averageOps[j], "replica-id"));
         }
     }
 
@@ -444,7 +444,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < gSetOps.Count; j++)
-                gSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, gSetOps[j]));
+                gSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, gSetOps[j], "replica-id"));
         }
     }
 
@@ -455,7 +455,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < twoPhaseSetOps.Count; j++)
-                twoPhaseSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, twoPhaseSetOps[j]));
+                twoPhaseSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, twoPhaseSetOps[j], "replica-id"));
         }
     }
 
@@ -466,7 +466,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < lwwSetOps.Count; j++)
-                lwwSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, lwwSetOps[j]));
+                lwwSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, lwwSetOps[j], "replica-id"));
         }
     }
     
@@ -477,7 +477,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < fwwSetOps.Count; j++)
-                fwwSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, fwwSetOps[j]));
+                fwwSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, fwwSetOps[j], "replica-id"));
         }
     }
 
@@ -488,7 +488,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < orSetOps.Count; j++)
-                orSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, orSetOps[j]));
+                orSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, orSetOps[j], "replica-id"));
         }
     }
 
@@ -499,7 +499,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < arrayLcsOps.Count; j++)
-                arrayLcsStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, arrayLcsOps[j]));
+                arrayLcsStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, arrayLcsOps[j], "replica-id"));
         }
     }
 
@@ -510,7 +510,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < fixedSizeArrayOps.Count; j++)
-                fixedSizeArrayStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, fixedSizeArrayOps[j]));
+                fixedSizeArrayStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, fixedSizeArrayOps[j], "replica-id"));
         }
     }
 
@@ -521,7 +521,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < lseqOps.Count; j++)
-                lseqStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, lseqOps[j]));
+                lseqStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, lseqOps[j], "replica-id"));
         }
     }
 
@@ -532,7 +532,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < voteCounterOps.Count; j++)
-                voteCounterStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, voteCounterOps[j]));
+                voteCounterStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, voteCounterOps[j], "replica-id"));
         }
     }
 
@@ -543,7 +543,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < stateMachineOps.Count; j++)
-                stateMachineStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, stateMachineOps[j]));
+                stateMachineStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, stateMachineOps[j], "replica-id"));
         }
     }
 
@@ -554,7 +554,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < priorityQueueOps.Count; j++)
-                priorityQueueStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, priorityQueueOps[j]));
+                priorityQueueStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, priorityQueueOps[j], "replica-id"));
         }
     }
 
@@ -565,7 +565,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < sortedSetOps.Count; j++)
-                sortedSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, sortedSetOps[j]));
+                sortedSetStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, sortedSetOps[j], "replica-id"));
         }
     }
 
@@ -576,7 +576,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < rgaOps.Count; j++)
-                rgaStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, rgaOps[j]));
+                rgaStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, rgaOps[j], "replica-id"));
         }
     }
 
@@ -587,7 +587,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < counterMapOps.Count; j++)
-                counterMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, counterMapOps[j]));
+                counterMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, counterMapOps[j], "replica-id"));
         }
     }
 
@@ -598,7 +598,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < lwwMapOps.Count; j++)
-                lwwMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, lwwMapOps[j]));
+                lwwMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, lwwMapOps[j], "replica-id"));
         }
     }
     
@@ -609,7 +609,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < fwwMapOps.Count; j++)
-                fwwMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, fwwMapOps[j]));
+                fwwMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, fwwMapOps[j], "replica-id"));
         }
     }
 
@@ -620,7 +620,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < maxWinsMapOps.Count; j++)
-                maxWinsMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, maxWinsMapOps[j]));
+                maxWinsMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, maxWinsMapOps[j], "replica-id"));
         }
     }
 
@@ -631,7 +631,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < minWinsMapOps.Count; j++)
-                minWinsMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, minWinsMapOps[j]));
+                minWinsMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, minWinsMapOps[j], "replica-id"));
         }
     }
 
@@ -642,7 +642,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < orMapOps.Count; j++)
-                orMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, orMapOps[j]));
+                orMapStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, orMapOps[j], "replica-id"));
         }
     }
 
@@ -653,7 +653,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < graphOps.Count; j++)
-                graphStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, graphOps[j]));
+                graphStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, graphOps[j], "replica-id"));
         }
     }
 
@@ -664,7 +664,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < twoPhaseGraphOps.Count; j++)
-                twoPhaseGraphStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, twoPhaseGraphOps[j]));
+                twoPhaseGraphStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, twoPhaseGraphOps[j], "replica-id"));
         }
     }
 
@@ -675,7 +675,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < replicatedTreeOps.Count; j++)
-                replicatedTreeStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, replicatedTreeOps[j]));
+                replicatedTreeStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, replicatedTreeOps[j], "replica-id"));
         }
     }
 
@@ -686,7 +686,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < epochBoundOps.Count; j++)
-                epochBoundStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, epochBoundOps[j]));
+                epochBoundStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, epochBoundOps[j], "replica-id"));
         }
     }
 
@@ -697,7 +697,7 @@ public class StrategyApplyBenchmarks
         {
             var doc = applyBatch[i];
             for (int j = 0; j < approvalQuorumOps.Count; j++)
-                approvalQuorumStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, approvalQuorumOps[j]));
+                approvalQuorumStrategy.ApplyOperation(new ApplyOperationContext(doc.Data, doc.Metadata, approvalQuorumOps[j], "replica-id"));
         }
     }
     #endregion

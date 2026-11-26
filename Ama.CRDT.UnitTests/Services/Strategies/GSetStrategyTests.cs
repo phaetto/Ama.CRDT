@@ -151,7 +151,7 @@ public sealed class GSetStrategyTests : IDisposable
         var doc = new TestModel { Tags = { "A", "B" } };
         var meta = metadataManagerA.Initialize(doc);
         var document = new CrdtDocument<TestModel>(doc, meta);
-        var removeOp = new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Remove, "A", timestampProvider.Create(1), 0);
+        var removeOp = new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Remove, "A", timestampProvider.Create(1, "A"), 0);
         var patch = new CrdtPatch(new List<CrdtOperation> { removeOp });
 
         // Act
@@ -257,7 +257,7 @@ public sealed class GSetStrategyTests : IDisposable
     [Fact]
     public void GetKeyFromOperation_ShouldExtractCorrectly()
     {
-        var op = new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "myVal", timestampProvider.Now(), 0);
+        var op = new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "myVal", timestampProvider.Now("r1"), 0);
         
         strategyA.GetKeyFromOperation(op, "$.tags").ShouldBe("myVal");
         strategyA.GetKeyFromOperation(op, "$.otherPath").ShouldBeNull();
@@ -277,10 +277,10 @@ public sealed class GSetStrategyTests : IDisposable
         var meta = metadataManagerA.Initialize(doc);
         var propInfo = GetTagsPropertyInfo();
 
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0), "A"));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0), "A"));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0), "A"));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now("r1"), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now("r1"), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now("r1"), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now("r1"), 0), "A"));
 
         var result = strategyA.SplitToDisjoint(doc, meta, propInfo);
 
@@ -302,11 +302,11 @@ public sealed class GSetStrategyTests : IDisposable
         var meta2 = metadataManagerA.Initialize(doc2);
         var propInfo = GetTagsPropertyInfo();
 
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0), "A"));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now("r1"), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now("r1"), 0), "A"));
         
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0), "A"));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now("r1"), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now("r1"), 0), "A"));
 
         var result = strategyA.MergeDisjoint(doc1, meta1, doc2, meta2, propInfo);
 
@@ -327,7 +327,7 @@ public sealed class GSetStrategyTests : IDisposable
             "$.tags",
             propInfo,
             new AddIntent("B"),
-            timestampProvider.Now(),
+            timestampProvider.Now("A"),
             0,
             "A");
 
@@ -354,7 +354,7 @@ public sealed class GSetStrategyTests : IDisposable
             "$.tags",
             propInfo,
             new RemoveIntent(0),
-            timestampProvider.Now(),
+            timestampProvider.Now("A"),
             0,
             "A");
 

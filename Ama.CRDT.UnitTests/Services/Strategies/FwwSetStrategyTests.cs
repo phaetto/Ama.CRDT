@@ -106,7 +106,7 @@ public sealed class FwwSetStrategyTests : IDisposable
 
         var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("NewTag"), timestampProvider.Now(), 0, "A");
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new AddIntent("NewTag"), timestampProvider.Now("A"), 0, "A");
 
         // Act
         var op = strategyA.GenerateOperation(context);
@@ -130,7 +130,7 @@ public sealed class FwwSetStrategyTests : IDisposable
 
         var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new RemoveValueIntent("OldTag"), timestampProvider.Now(), 0, "A");
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new RemoveValueIntent("OldTag"), timestampProvider.Now("A"), 0, "A");
 
         // Act
         var op = strategyA.GenerateOperation(context);
@@ -154,7 +154,7 @@ public sealed class FwwSetStrategyTests : IDisposable
 
         var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new ClearIntent(), timestampProvider.Now(), 0, "A");
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new ClearIntent(), timestampProvider.Now("A"), 0, "A");
 
         // Act
         var op = strategyA.GenerateOperation(context);
@@ -178,7 +178,7 @@ public sealed class FwwSetStrategyTests : IDisposable
 
         var doc = new FwwSetTestModel();
         var meta = metadataManagerA.Initialize(doc);
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new IncrementIntent(1), timestampProvider.Now(), 0, "A");
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propInfo, new IncrementIntent(1), timestampProvider.Now("A"), 0, "A");
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategyA.GenerateOperation(context));
@@ -190,7 +190,7 @@ public sealed class FwwSetStrategyTests : IDisposable
         // Arrange
         var doc = new FwwSetTestModel { Tags = { "A" } };
         var meta = metadataManagerA.Initialize(doc);
-        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Remove, null, timestampProvider.Now(), 0);
+        var op = new CrdtOperation(Guid.NewGuid(), "A", "$.tags", OperationType.Remove, null, timestampProvider.Now("A"), 0);
 
         // Act
         strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, op, "A"));
@@ -239,10 +239,10 @@ public sealed class FwwSetStrategyTests : IDisposable
             (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
             new CrdtFwwSetStrategyAttribute(), []);
         
-        var contextAdd = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new AddIntent("A"), timestampProvider.Create(100), 0, "A");
+        var contextAdd = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new AddIntent("A"), timestampProvider.Create(100, "A"), 0, "A");
         var opAdd = strategyA.GenerateOperation(contextAdd);
         
-        var contextRemove = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new RemoveValueIntent("A"), timestampProvider.Create(200), 0, "A");
+        var contextRemove = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new RemoveValueIntent("A"), timestampProvider.Create(200, "A"), 0, "A");
         var opRemove = strategyA.GenerateOperation(contextRemove);
 
         // Scenario 1: Add (t=100), then Remove (t=200) -> Add wins
@@ -275,10 +275,10 @@ public sealed class FwwSetStrategyTests : IDisposable
             (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
             new CrdtFwwSetStrategyAttribute(), []);
         
-        var contextRemove = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new RemoveValueIntent("A"), timestampProvider.Create(100), 0, "A");
+        var contextRemove = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new RemoveValueIntent("A"), timestampProvider.Create(100, "A"), 0, "A");
         var opRemove = strategyA.GenerateOperation(contextRemove);
         
-        var contextAdd = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new AddIntent("A"), timestampProvider.Create(200), 0, "A");
+        var contextAdd = new GenerateOperationContext(ancestor, metaAncestor, "$.tags", propInfo, new AddIntent("A"), timestampProvider.Create(200, "A"), 0, "A");
         var opAdd = strategyA.GenerateOperation(contextAdd);
 
         // Scenario 1: Remove (t=100), then Add (t=200) -> Remove wins
@@ -363,7 +363,7 @@ public sealed class FwwSetStrategyTests : IDisposable
     [Fact]
     public void GetKeyFromOperation_ShouldExtractCorrectly()
     {
-        var op = new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "myVal", timestampProvider.Now(), 0);
+        var op = new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "myVal", timestampProvider.Now("r1"), 0);
         
         strategyA.GetKeyFromOperation(op, "$.tags").ShouldBe("myVal");
         strategyA.GetKeyFromOperation(op, "$.otherPath").ShouldBeNull();
@@ -393,10 +393,10 @@ public sealed class FwwSetStrategyTests : IDisposable
             (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
             new CrdtFwwSetStrategyAttribute(), []);
 
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0), "A"));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0), "A"));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0), "A"));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now("r1"), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now("r1"), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now("r1"), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc, meta, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now("r1"), 0), "A"));
 
         var result = strategyA.SplitToDisjoint(doc, meta, propInfo);
 
@@ -429,11 +429,11 @@ public sealed class FwwSetStrategyTests : IDisposable
             (obj, val) => ((FwwSetTestModel)obj).Tags = (List<string>)val!,
             new CrdtFwwSetStrategyAttribute(), []);
 
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now(), 0), "A"));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "a", timestampProvider.Now("r1"), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc1, meta1, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "b", timestampProvider.Now("r1"), 0), "A"));
         
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now(), 0), "A"));
-        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now(), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "c", timestampProvider.Now("r1"), 0), "A"));
+        strategyA.ApplyOperation(new ApplyOperationContext(doc2, meta2, new CrdtOperation(Guid.NewGuid(), "r1", "$.tags", OperationType.Upsert, "d", timestampProvider.Now("r1"), 0), "A"));
 
         var result = strategyA.MergeDisjoint(doc1, meta1, doc2, meta2, propInfo);
 
@@ -450,9 +450,9 @@ public sealed class FwwSetStrategyTests : IDisposable
         var doc = new FwwSetTestModel();
         var meta = new CrdtMetadata();
         
-        var safeTs1 = timestampProvider.Create(10);
-        var safeTs2 = timestampProvider.Create(20);
-        var unsafeTs = timestampProvider.Create(30);
+        var safeTs1 = timestampProvider.Create(10, "A");
+        var safeTs2 = timestampProvider.Create(20, "A");
+        var unsafeTs = timestampProvider.Create(30, "A");
         
         var adds = new CompactDictionary<object, CrdtTimestamp>(3, EqualityComparer<object>.Default);
         var removes = new CompactDictionary<object, CausalTimestamp>(5, EqualityComparer<object>.Default);
@@ -523,8 +523,8 @@ public sealed class FwwSetStrategyTests : IDisposable
         var doc2 = new FwwSetTestModel();
         var meta2 = metadataManagerA.Initialize(doc2);
 
-        var tsOlder = timestampProvider.Create(100);
-        var tsNewer = timestampProvider.Create(200);
+        var tsOlder = timestampProvider.Create(100, "A");
+        var tsNewer = timestampProvider.Create(200, "A");
 
         // Doc1: Add "A" (newer), Remove "B" (older)
         var adds1 = new CompactDictionary<object, CrdtTimestamp>(1, EqualityComparer<object>.Default) { { "A", tsNewer } };

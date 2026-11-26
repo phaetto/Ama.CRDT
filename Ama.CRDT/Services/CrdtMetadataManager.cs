@@ -21,7 +21,6 @@ public sealed class CrdtMetadataManager(
     ICrdtStrategyProvider strategyProvider,
     ICrdtTimestampProvider timestampProvider,
     IElementComparerProvider elementComparerProvider,
-    ReplicaContext replicaContext,
     IEnumerable<CrdtAotContext> crdtContexts,
     ICrdtSerializer crdtSerializer,
     ICrdtStringPool? stringPool = null) : ICrdtMetadataManager
@@ -34,7 +33,7 @@ public sealed class CrdtMetadataManager(
     {
         ArgumentNullException.ThrowIfNull(document);
         // Use the absolute minimum timestamp for baseline initialization so any actual patch operation always wins.
-        return Initialize(document, timestampProvider.Create(long.MinValue));
+        return Initialize(document, timestampProvider.Create(long.MinValue, InitialReplicaId));
     }
 
     /// <inheritdoc/>
@@ -43,7 +42,7 @@ public sealed class CrdtMetadataManager(
         ArgumentNullException.ThrowIfNull(document);
 
         var metadata = new CrdtMetadata();
-        ICrdtMetadataState boxedCausalTs = new CausalTimestamp(timestamp, replicaContext.ReplicaId ?? string.Empty, 0);
+        ICrdtMetadataState boxedCausalTs = new CausalTimestamp(timestamp, timestamp.ReplicaId ?? InitialReplicaId, 0);
         PopulateMetadataRecursive(metadata, document, "$", timestamp, boxedCausalTs, document);
         return metadata;
     }
@@ -52,7 +51,7 @@ public sealed class CrdtMetadataManager(
     public void Initialize<T>(CrdtDocument<T> document) where T : class
     {
         // Use the absolute minimum timestamp for baseline initialization so any actual patch operation always wins.
-        Initialize(document, timestampProvider.Create(long.MinValue));
+        Initialize(document, timestampProvider.Create(long.MinValue, InitialReplicaId));
     }
 
     /// <inheritdoc/>
@@ -61,14 +60,14 @@ public sealed class CrdtMetadataManager(
         ArgumentNullException.ThrowIfNull(document.Metadata);
         ArgumentNullException.ThrowIfNull(document.Data);
 
-        ICrdtMetadataState boxedCausalTs = new CausalTimestamp(timestamp, replicaContext.ReplicaId ?? string.Empty, 0);
+        ICrdtMetadataState boxedCausalTs = new CausalTimestamp(timestamp, timestamp.ReplicaId ?? InitialReplicaId, 0);
         PopulateMetadataRecursive(document.Metadata, document.Data, "$", timestamp, boxedCausalTs, document.Data);
     }
 
     /// <inheritdoc/>
     public void Reset<T>(CrdtDocument<T> document) where T : class
     {
-        Reset(document, timestampProvider.Now());
+        Reset(document, timestampProvider.Now(InitialReplicaId));
     }
 
     /// <inheritdoc/>
@@ -79,7 +78,7 @@ public sealed class CrdtMetadataManager(
 
         document.Metadata.States.Clear();
 
-        ICrdtMetadataState boxedCausalTs = new CausalTimestamp(timestamp, replicaContext.ReplicaId ?? string.Empty, 0);
+        ICrdtMetadataState boxedCausalTs = new CausalTimestamp(timestamp, timestamp.ReplicaId ?? InitialReplicaId, 0);
         PopulateMetadataRecursive(document.Metadata, document.Data, "$", timestamp, boxedCausalTs, document.Data);
     }
 
@@ -421,7 +420,7 @@ public sealed class CrdtMetadataManager(
 
     private void InitializeStrategyMetadata(CrdtMetadata metadata, CrdtPropertyInfo propertyInfo, ICrdtStrategy strategy, string propertyPath, object propertyValue, CrdtTimestamp timestamp, ICrdtMetadataState boxedCausalTimestamp, object root)
     {
-        var replicaId = replicaContext.ReplicaId ?? string.Empty;
+        var replicaId = timestamp.ReplicaId ?? InitialReplicaId;
 
         switch (strategy)
         {
@@ -484,7 +483,7 @@ public sealed class CrdtMetadataManager(
                     var ticksBase = DateTime.UtcNow.Ticks;
                     for (var i = 0; i < rgaList.Count; i++)
                     {
-                        var id = new RgaIdentifier(ticksBase + i, replicaContext.ReplicaId!);
+                        var id = new RgaIdentifier(ticksBase + i, replicaId);
                         var item = new RgaItem(id, prevId, rgaList[i], false);
                         rgaItems.Add(item);
                         prevId = id;

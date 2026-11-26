@@ -110,7 +110,7 @@ public sealed class LwwSetStrategy(
             var adds = new CompactDictionary<object, CrdtTimestamp>(listRepresentation.Count, comparer);
             for (int i = 0; i < listRepresentation.Count; i++)
             {
-                adds[listRepresentation[i]] = timestampProvider.Create(0);
+                adds[listRepresentation[i]] = timestampProvider.Create(0, context.ReplicaId);
             }
             state = new LwwSetState(adds, new CompactDictionary<object, CausalTimestamp>(comparer));
             metadata.States[operation.JsonPath] = state;

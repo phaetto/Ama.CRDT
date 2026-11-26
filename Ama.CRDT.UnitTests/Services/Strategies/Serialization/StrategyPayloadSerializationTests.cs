@@ -23,10 +23,10 @@ public sealed class StrategyPayloadSerializationTests : IDisposable
     internal sealed class TestTimestampProvider : ICrdtTimestampProvider
     {
         private long current = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        private readonly EpochTimestampProvider defaultProvider = new(new ReplicaContext { ReplicaId = "test" });
+        private readonly EpochTimestampProvider defaultProvider = new();
         
-        public CrdtTimestamp Now() => defaultProvider.Create(Interlocked.Increment(ref current));
-        public CrdtTimestamp Create(long value) => defaultProvider.Create(value);
+        public CrdtTimestamp Now(string replicaId) => defaultProvider.Create(Interlocked.Increment(ref current), replicaId);
+        public CrdtTimestamp Create(long value, string replicaId) => defaultProvider.Create(value, replicaId);
     }
 
     #region Models and Helpers

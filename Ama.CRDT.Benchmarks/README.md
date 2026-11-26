@@ -14,10 +14,10 @@ Job=MediumRun  Toolchain=InProcessNoEmitToolchain  IterationCount=15
 LaunchCount=2  WarmupCount=10  
 
 ```
-| Method            | Mean       | Error    | StdDev   | Gen0   | Allocated |
-|------------------ |-----------:|---------:|---------:|-------:|----------:|
-| ApplyPatchSimple  |   328.7 ns |  2.33 ns |  3.41 ns | 0.0677 |     712 B |
-| ApplyPatchComplex | 1,219.4 ns | 11.66 ns | 17.09 ns | 0.2270 |    2392 B |
+| Method            | Mean       | Error   | StdDev   | Gen0   | Allocated |
+|------------------ |-----------:|--------:|---------:|-------:|----------:|
+| ApplyPatchSimple  |   314.9 ns | 2.59 ns |  3.71 ns | 0.0677 |     712 B |
+| ApplyPatchComplex | 1,076.2 ns | 9.28 ns | 13.89 ns | 0.2155 |    2272 B |
 
 
 ```
@@ -31,62 +31,66 @@ Job=MediumRun  Toolchain=InProcessNoEmitToolchain  IterationCount=15
 LaunchCount=2  WarmupCount=10  
 
 ```
-| Method                                           | Categories                      | Mean             | Error          | StdDev         | Median           | Ratio     | RatioSD | Meta Overhead % | Meta/Data Ratio | Gen0     | Gen1    | Gen2    | Allocated | Alloc Ratio |
-|------------------------------------------------- |-------------------------------- |-----------------:|---------------:|---------------:|-----------------:|----------:|--------:|----------------:|----------------:|---------:|--------:|--------:|----------:|------------:|
-| &#39;DVV: 3 Replicas, 0 Dots (Linear)&#39;               | DVV Dimensions                  |        81.113 ns |      4.0854 ns |      6.1149 ns |        80.651 ns |      1.01 |    0.11 |               - |               - |   0.0206 |       - |       - |     216 B |        1.00 |
-| &#39;DVV: 3 Replicas, 5 Dots/Replica&#39;                | DVV Dimensions                  |       710.281 ns |      2.8029 ns |      4.1953 ns |       709.326 ns |      8.80 |    0.65 |               - |               - |   0.0839 |       - |       - |     880 B |        4.07 |
-| &#39;DVV: 10 Replicas, 0 Dots (Linear)&#39;              | DVV Dimensions                  |       473.034 ns |      9.4660 ns |     14.1682 ns |       476.694 ns |      5.86 |    0.47 |               - |               - |   0.0615 |       - |       - |     648 B |        3.00 |
-| &#39;DVV: 10 Replicas, 10 Dots/Replica&#39;              | DVV Dimensions                  |     9,336.863 ns |     35.7200 ns |     53.4641 ns |     9,334.893 ns |    115.74 |    8.59 |               - |               - |   0.4272 |       - |       - |    4608 B |       21.33 |
-| &#39;DVV: 100 Replicas, 0 Dots (Linear)&#39;             | DVV Dimensions                  |     3,994.470 ns |    108.4833 ns |    162.3728 ns |     3,967.126 ns |     49.52 |    4.17 |               - |               - |   0.9460 |  0.0381 |       - |    9928 B |       45.96 |
-| &#39;DVV: 100 Replicas, 20 Dots/Replica&#39;             | DVV Dimensions                  |   129,616.143 ns |    221.4172 ns |    331.4069 ns |   129,618.408 ns |  1,606.78 |  118.98 |               - |               - |  13.1836 |  4.3945 |       - |  139729 B |      646.89 |
-|                                                  |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
-| &#39;DataOnly: CollectionPoco (3x100 items)&#39;         | Doc: CollectionPoco (100 items) |     1,907.693 ns |     24.6505 ns |     36.8957 ns |     1,898.880 ns |      1.00 |    0.03 |     0.0% (Base) |    1.00x (Data) |   0.4807 |  0.0095 |       - |    5040 B |        1.00 |
-| &#39;MetadataOnly: CollectionPoco (3x100 items)&#39;     | Doc: CollectionPoco (100 items) |    15,535.152 ns |    128.0832 ns |    191.7088 ns |    15,500.191 ns |      8.15 |    0.18 |          575.4% |           5.75x |   2.7466 |  0.4578 |       - |   29000 B |        5.75 |
-| &#39;FullDoc: CollectionPoco (3x100 items)&#39;          | Doc: CollectionPoco (100 items) |    17,608.134 ns |    144.2132 ns |    215.8515 ns |    17,544.475 ns |      9.23 |    0.21 |          575.9% |           5.76x |   3.2349 |  0.7935 |       - |   34064 B |        6.76 |
-| &#39;PackedJson: CollectionPoco (3x100 items)&#39;       | Doc: CollectionPoco (100 items) |   152,363.851 ns |    632.5688 ns |    907.2114 ns |   152,194.739 ns |     79.90 |    1.57 |         4551.2% |          45.51x |  22.2168 |  4.3945 |       - |  234418 B |       46.51 |
-| &#39;PackedBrotli: CollectionPoco (3x100 items)&#39;     | Doc: CollectionPoco (100 items) |   199,183.465 ns |  1,430.0447 ns |  2,096.1412 ns |   198,199.243 ns |    104.45 |    2.23 |         4130.6% |          41.31x |  20.2637 |  1.7090 |       - |  213222 B |       42.31 |
-|                                                  |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
-| &#39;DataOnly: CollectionPoco (3x25 items)&#39;          | Doc: CollectionPoco (25 items)  |       490.278 ns |      3.4106 ns |      4.9992 ns |       490.042 ns |      1.00 |    0.01 |     0.0% (Base) |    1.00x (Data) |   0.1583 |  0.0010 |       - |    1656 B |        1.00 |
-| &#39;MetadataOnly: CollectionPoco (3x25 items)&#39;      | Doc: CollectionPoco (25 items)  |     4,285.432 ns |     20.5582 ns |     30.7705 ns |     4,290.398 ns |      8.74 |    0.11 |          503.4% |           5.03x |   0.7935 |  0.0381 |       - |    8336 B |        5.03 |
-| &#39;FullDoc: CollectionPoco (3x25 items)&#39;           | Doc: CollectionPoco (25 items)  |     4,861.174 ns |     16.8494 ns |     25.2193 ns |     4,858.886 ns |      9.92 |    0.11 |          504.8% |           5.05x |   0.9537 |  0.0839 |       - |   10016 B |        6.05 |
-| &#39;PackedJson: CollectionPoco (3x25 items)&#39;        | Doc: CollectionPoco (25 items)  |    39,788.043 ns |    136.0450 ns |    199.4130 ns |    39,834.143 ns |     81.16 |    0.91 |         3574.9% |          35.75x |   5.7983 |  0.4272 |       - |   60856 B |       36.75 |
-| &#39;PackedBrotli: CollectionPoco (3x25 items)&#39;      | Doc: CollectionPoco (25 items)  |    57,339.364 ns |    678.4255 ns |    972.9777 ns |    56,932.718 ns |    116.96 |    2.28 |         3350.4% |          33.50x |   5.4321 |  0.1221 |       - |   57138 B |       34.50 |
-|                                                  |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
-| &#39;DataOnly: CollectionPoco (3x5 items)&#39;           | Doc: CollectionPoco (5 items)   |       138.842 ns |      1.0803 ns |      1.5493 ns |       138.592 ns |      1.00 |    0.02 |     0.0% (Base) |    1.00x (Data) |   0.0687 |  0.0002 |       - |     720 B |        1.00 |
-| &#39;MetadataOnly: CollectionPoco (3x5 items)&#39;       | Doc: CollectionPoco (5 items)   |     1,298.054 ns |      2.9182 ns |      4.3678 ns |     1,297.600 ns |      9.35 |    0.11 |          306.7% |           3.07x |   0.2098 |  0.0019 |       - |    2208 B |        3.07 |
-| &#39;FullDoc: CollectionPoco (3x5 items)&#39;            | Doc: CollectionPoco (5 items)   |     1,477.978 ns |      4.2913 ns |      5.7288 ns |     1,477.131 ns |     10.65 |    0.12 |          310.0% |           3.10x |   0.2823 |  0.0057 |       - |    2952 B |        4.10 |
-| &#39;PackedJson: CollectionPoco (3x5 items)&#39;         | Doc: CollectionPoco (5 items)   |     9,858.654 ns |     31.2593 ns |     45.8195 ns |     9,848.459 ns |     71.01 |    0.84 |         1908.9% |          19.09x |   1.3733 |  0.0305 |       - |   14464 B |       20.09 |
-| &#39;PackedBrotli: CollectionPoco (3x5 items)&#39;       | Doc: CollectionPoco (5 items)   |    18,059.860 ns |    164.2198 ns |    245.7966 ns |    17,994.194 ns |    130.09 |    2.25 |         1944.6% |          19.45x |   1.4038 |       - |       - |   14721 B |       20.45 |
-|                                                  |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
-| &#39;DataOnly: ComplexPoco (5 nested items)&#39;         | Doc: ComplexPoco (5 items)      |        51.642 ns |      0.6706 ns |      1.0037 ns |        52.007 ns |      1.00 |    0.03 |     0.0% (Base) |    1.00x (Data) |   0.0413 |  0.0001 |       - |     432 B |        1.00 |
-| &#39;MetadataOnly: ComplexPoco (5 nested items)&#39;     | Doc: ComplexPoco (5 items)      |     3,197.965 ns |     36.8046 ns |     55.0873 ns |     3,168.187 ns |     61.95 |    1.59 |         1163.0% |          11.63x |   0.4768 |  0.0038 |       - |    5024 B |       11.63 |
-| &#39;FullDoc: ComplexPoco (5 nested items)&#39;          | Doc: ComplexPoco (5 items)      |     3,253.025 ns |     23.2873 ns |     34.1342 ns |     3,258.082 ns |     63.01 |    1.38 |         1163.0% |          11.63x |   0.5188 |  0.0076 |       - |    5456 B |       12.63 |
-| &#39;PackedJson: ComplexPoco (5 nested items)&#39;       | Doc: ComplexPoco (5 items)      |     6,367.257 ns |     62.0791 ns |     92.9170 ns |     6,323.890 ns |    123.34 |    2.96 |         2229.6% |          22.30x |   0.9613 |  0.0153 |       - |   10064 B |       23.30 |
-| &#39;PackedBrotli: ComplexPoco (5 nested items)&#39;     | Doc: ComplexPoco (5 items)      |    12,511.042 ns |     51.6864 ns |     74.1271 ns |    12,521.672 ns |    242.35 |    4.88 |         1970.4% |          19.70x |   0.8545 |       - |       - |    8944 B |       20.70 |
-|                                                  |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
-| &#39;DataOnly: ComplexPoco (50 nested items)&#39;        | Doc: ComplexPoco (50 items)     |       296.461 ns |      2.4991 ns |      3.5841 ns |       296.937 ns |      1.00 |    0.02 |     0.0% (Base) |    1.00x (Data) |   0.2131 |  0.0029 |       - |    2232 B |        1.00 |
-| &#39;MetadataOnly: ComplexPoco (50 nested items)&#39;    | Doc: ComplexPoco (50 items)     |    17,997.267 ns |     74.9295 ns |    109.8307 ns |    18,003.583 ns |     60.72 |    0.82 |         1457.7% |          14.58x |   3.0823 |  0.1526 |       - |   32536 B |       14.58 |
-| &#39;FullDoc: ComplexPoco (50 nested items)&#39;         | Doc: ComplexPoco (50 items)     |    18,512.077 ns |    121.2889 ns |    181.5395 ns |    18,461.705 ns |     62.45 |    0.97 |         1457.7% |          14.58x |   3.2959 |  0.2747 |       - |   34768 B |       15.58 |
-| &#39;PackedJson: ComplexPoco (50 nested items)&#39;      | Doc: ComplexPoco (50 items)     |    39,508.708 ns |    286.3842 ns |    419.7782 ns |    39,380.029 ns |    133.29 |    2.13 |         2834.1% |          28.34x |   6.2256 |  0.7324 |       - |   65488 B |       29.34 |
-| &#39;PackedBrotli: ComplexPoco (50 nested items)&#39;    | Doc: ComplexPoco (50 items)     |    52,984.463 ns |    386.1661 ns |    541.3510 ns |    52,797.736 ns |    178.75 |    2.81 |         2175.7% |          21.76x |   4.8218 |  0.1221 |       - |   50793 B |       22.76 |
-|                                                  |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
-| &#39;DataOnly: SimplePoco (3 props)&#39;                 | Doc: SimplePoco                 |         3.989 ns |      0.1092 ns |      0.1634 ns |         4.017 ns |      1.00 |    0.06 |     0.0% (Base) |    1.00x (Data) |   0.0046 |       - |       - |      48 B |        1.00 |
-| &#39;MetadataOnly: SimplePoco (3 props)&#39;             | Doc: SimplePoco                 |       247.249 ns |      1.6234 ns |      2.3283 ns |       246.558 ns |     62.09 |    2.60 |         1133.3% |          11.33x |   0.0520 |       - |       - |     544 B |       11.33 |
-| &#39;FullDoc: SimplePoco (Data + Metadata)&#39;          | Doc: SimplePoco                 |       251.069 ns |      2.4957 ns |      3.6581 ns |       249.860 ns |     63.05 |    2.73 |         1133.3% |          11.33x |   0.0563 |       - |       - |     592 B |       12.33 |
-| &#39;PackedJson: SimplePoco (Data + JSON Bytes)&#39;     | Doc: SimplePoco                 |       878.684 ns |      8.7032 ns |     13.0266 ns |       878.511 ns |    220.66 |    9.56 |         2400.0% |          24.00x |   0.1144 |       - |       - |    1200 B |       25.00 |
-| &#39;PackedBrotli: SimplePoco (Data + Brotli Bytes)&#39; | Doc: SimplePoco                 |     4,584.679 ns |     36.7983 ns |     53.9385 ns |     4,558.412 ns |  1,151.33 |   48.80 |         3100.0% |          31.00x |   0.1450 |       - |       - |    1536 B |       32.00 |
-|                                                  |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
-| &#39;DataOnly: WidePoco (21 props)&#39;                  | Doc: WidePoco                   |        14.190 ns |      0.1550 ns |      0.2272 ns |        14.217 ns |      1.00 |    0.02 |     0.0% (Base) |    1.00x (Data) |   0.0168 |       - |       - |     176 B |        1.00 |
-| &#39;MetadataOnly: WidePoco (21 props)&#39;              | Doc: WidePoco                   |     1,621.883 ns |     24.1185 ns |     36.0994 ns |     1,624.335 ns |    114.32 |    3.09 |         1086.4% |          10.86x |   0.1812 |       - |       - |    1912 B |       10.86 |
-| &#39;FullDoc: WidePoco (Data + Metadata)&#39;            | Doc: WidePoco                   |     1,617.285 ns |      8.7764 ns |     13.1362 ns |     1,616.749 ns |    114.00 |    2.02 |         1086.4% |          10.86x |   0.1984 |       - |       - |    2088 B |       11.86 |
-| &#39;PackedJson: WidePoco (Data + JSON Bytes)&#39;       | Doc: WidePoco                   |     3,726.345 ns |     12.4526 ns |     18.2528 ns |     3,724.783 ns |    262.66 |    4.35 |         3381.8% |          33.82x |   0.5836 |  0.0038 |       - |    6128 B |       34.82 |
-| &#39;PackedBrotli: WidePoco (Data + Brotli Bytes)&#39;   | Doc: WidePoco                   |     8,265.196 ns |     77.2951 ns |    115.6916 ns |     8,215.311 ns |    582.59 |   12.23 |         2945.5% |          29.45x |   0.5035 |       - |       - |    5360 B |       30.45 |
-|                                                  |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
-| &#39;Shards: 1 Shard x 5 Replicas (0 Dots)&#39;          | Shard Map Dimensions            |       214.439 ns |      2.4623 ns |      3.6092 ns |       213.375 ns |      1.00 |    0.02 |               - |               - |   0.0503 |       - |       - |     528 B |        1.00 |
-| &#39;Shards: 10 Shards x 5 Replicas (0 Dots)&#39;        | Shard Map Dimensions            |     2,347.868 ns |      7.1893 ns |     10.5379 ns |     2,349.492 ns |     10.95 |    0.19 |               - |               - |   0.4082 |  0.0076 |       - |    4272 B |        8.09 |
-| &#39;Shards: 10 Shards x 25 Replicas (5 Dots)&#39;       | Shard Map Dimensions            |   147,460.146 ns |  1,127.0095 ns |  1,686.8550 ns |   146,713.586 ns |    687.84 |   13.73 |               - |               - |   7.8125 |  1.9531 |       - |   83634 B |      158.40 |
-| &#39;Shards: 100 Shards x 5 Replicas (0 Dots)&#39;       | Shard Map Dimensions            |    23,468.228 ns |    123.0549 ns |    184.1828 ns |    23,453.659 ns |    109.47 |    1.99 |               - |               - |   4.4556 |  0.7324 |       - |   46672 B |       88.39 |
-| &#39;Shards: 100 Shards x 50 Replicas (10 Dots)&#39;     | Shard Map Dimensions            | 4,227,603.529 ns | 35,516.7043 ns | 52,059.9289 ns | 4,208,970.312 ns | 19,720.06 |  403.47 |               - |               - | 257.8125 | 85.9375 | 15.6250 | 2589222 B |    4,903.83 |
+| Method                                                                      | Categories                      | Mean             | Error          | StdDev         | Median           | Ratio     | RatioSD | Meta Overhead % | Meta/Data Ratio | Gen0     | Gen1    | Gen2    | Allocated | Alloc Ratio |
+|---------------------------------------------------------------------------- |-------------------------------- |-----------------:|---------------:|---------------:|-----------------:|----------:|--------:|----------------:|----------------:|---------:|--------:|--------:|----------:|------------:|
+| &#39;DVV: 3 Replicas, 0 Dots (Linear)&#39;                                          | DVV Dimensions                  |        79.567 ns |      2.4303 ns |      3.3266 ns |        78.948 ns |      1.00 |    0.06 |               - |               - |   0.0206 |       - |       - |     216 B |        1.00 |
+| &#39;DVV: 3 Replicas, 5 Dots/Replica&#39;                                           | DVV Dimensions                  |       763.676 ns |      4.5051 ns |      6.4611 ns |       762.109 ns |      9.61 |    0.40 |               - |               - |   0.0839 |       - |       - |     880 B |        4.07 |
+| &#39;DVV: 10 Replicas, 0 Dots (Linear)&#39;                                         | DVV Dimensions                  |       467.723 ns |      7.5676 ns |     11.0924 ns |       473.937 ns |      5.89 |    0.28 |               - |               - |   0.0615 |       - |       - |     648 B |        3.00 |
+| &#39;DVV: 10 Replicas, 10 Dots/Replica&#39;                                         | DVV Dimensions                  |    10,155.084 ns |     39.3526 ns |     58.9011 ns |    10,163.802 ns |    127.84 |    5.30 |               - |               - |   0.4272 |       - |       - |    4608 B |       21.33 |
+| &#39;DVV: 100 Replicas, 0 Dots (Linear)&#39;                                        | DVV Dimensions                  |     3,971.366 ns |     50.5512 ns |     70.8657 ns |     3,963.197 ns |     50.00 |    2.23 |               - |               - |   0.9460 |  0.0381 |       - |    9928 B |       45.96 |
+| &#39;DVV: 100 Replicas, 20 Dots/Replica&#39;                                        | DVV Dimensions                  |   130,992.729 ns |  1,085.0384 ns |  1,590.4353 ns |   130,630.420 ns |  1,649.09 |   70.54 |               - |               - |  13.1836 |  4.3945 |       - |  139729 B |      646.89 |
+|                                                                             |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
+| &#39;DataOnly: CollectionPoco (3x100 items)&#39;                                    | Doc: CollectionPoco (100 items) |     1,847.885 ns |     29.9773 ns |     44.8686 ns |     1,846.437 ns |      1.00 |    0.03 |     0.0% (Base) |    1.00x (Data) |   0.4807 |  0.0095 |       - |    5040 B |        1.00 |
+| &#39;MetadataOnly: CollectionPoco (3x100 items)&#39;                                | Doc: CollectionPoco (100 items) |    15,185.398 ns |    166.1440 ns |    248.6765 ns |    15,120.745 ns |      8.22 |    0.24 |          579.8% |           5.80x |   2.7924 |  0.4578 |       - |   29224 B |        5.80 |
+| &#39;FullDoc: CollectionPoco (3x100 items)&#39;                                     | Doc: CollectionPoco (100 items) |    17,389.049 ns |    128.0743 ns |    191.6956 ns |    17,360.680 ns |      9.42 |    0.25 |          580.3% |           5.80x |   3.2654 |  0.7629 |       - |   34288 B |        6.80 |
+| &#39;PackedJson: CollectionPoco (3x100 items)&#39;                                  | Doc: CollectionPoco (100 items) |   147,469.431 ns |  1,096.6412 ns |  1,641.4010 ns |   147,238.733 ns |     79.85 |    2.10 |         4551.2% |          45.51x |  22.2168 |  4.3945 |       - |  234418 B |       46.51 |
+| &#39;PackedBrotli: CollectionPoco (3x100 items)&#39;                                | Doc: CollectionPoco (100 items) |   195,740.574 ns |  2,222.4929 ns |  3,257.7016 ns |   195,615.308 ns |    105.99 |    3.07 |         4132.8% |          41.33x |  20.2637 |  1.7090 |       - |  213334 B |       42.33 |
+|                                                                             |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
+| &#39;DataOnly: CollectionPoco (3x25 items)&#39;                                     | Doc: CollectionPoco (25 items)  |       490.682 ns |      6.3788 ns |      9.5474 ns |       492.858 ns |      1.00 |    0.03 |     0.0% (Base) |    1.00x (Data) |   0.1583 |  0.0010 |       - |    1656 B |        1.00 |
+| &#39;MetadataOnly: CollectionPoco (3x25 items)&#39;                                 | Doc: CollectionPoco (25 items)  |     4,307.107 ns |     79.6082 ns |    116.6886 ns |     4,265.736 ns |      8.78 |    0.29 |          516.9% |           5.17x |   0.8163 |  0.0381 |       - |    8560 B |        5.17 |
+| &#39;FullDoc: CollectionPoco (3x25 items)&#39;                                      | Doc: CollectionPoco (25 items)  |     4,760.742 ns |     27.5740 ns |     39.5458 ns |     4,764.510 ns |      9.71 |    0.20 |          518.4% |           5.18x |   0.9766 |  0.0839 |       - |   10240 B |        6.18 |
+| &#39;PackedJson: CollectionPoco (3x25 items)&#39;                                   | Doc: CollectionPoco (25 items)  |    38,897.520 ns |    274.8332 ns |    402.8470 ns |    38,837.305 ns |     79.30 |    1.72 |         3574.9% |          35.75x |   5.7983 |  0.4272 |       - |   60856 B |       36.75 |
+| &#39;PackedBrotli: CollectionPoco (3x25 items)&#39;                                 | Doc: CollectionPoco (25 items)  |    55,134.090 ns |    321.7247 ns |    481.5424 ns |    55,225.092 ns |    112.40 |    2.36 |         3352.3% |          33.52x |   5.4321 |  0.1831 |       - |   57170 B |       34.52 |
+|                                                                             |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
+| &#39;DataOnly: CollectionPoco (3x5 items)&#39;                                      | Doc: CollectionPoco (5 items)   |       136.067 ns |      2.6300 ns |      3.6869 ns |       134.384 ns |      1.00 |    0.04 |     0.0% (Base) |    1.00x (Data) |   0.0687 |  0.0002 |       - |     720 B |        1.00 |
+| &#39;MetadataOnly: CollectionPoco (3x5 items)&#39;                                  | Doc: CollectionPoco (5 items)   |     1,326.065 ns |     15.2224 ns |     22.3128 ns |     1,320.333 ns |      9.75 |    0.30 |          337.8% |           3.38x |   0.2308 |  0.0019 |       - |    2432 B |        3.38 |
+| &#39;FullDoc: CollectionPoco (3x5 items)&#39;                                       | Doc: CollectionPoco (5 items)   |     1,512.355 ns |     15.3116 ns |     22.4436 ns |     1,509.810 ns |     11.12 |    0.34 |          341.1% |           3.41x |   0.3033 |  0.0076 |       - |    3176 B |        4.41 |
+| &#39;PackedJson: CollectionPoco (3x5 items)&#39;                                    | Doc: CollectionPoco (5 items)   |    10,048.711 ns |    103.8185 ns |    145.5390 ns |     9,990.396 ns |     73.90 |    2.22 |         1908.9% |          19.09x |   1.3733 |  0.0305 |       - |   14464 B |       20.09 |
+| &#39;PackedBrotli: CollectionPoco (3x5 items)&#39;                                  | Doc: CollectionPoco (5 items)   |    18,301.583 ns |    181.0235 ns |    270.9475 ns |    18,273.692 ns |    134.60 |    4.06 |         1943.5% |          19.43x |   1.4038 |       - |       - |   14713 B |       20.43 |
+|                                                                             |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
+| &#39;DataOnly: ComplexPoco (5 nested items)&#39;                                    | Doc: ComplexPoco (5 items)      |        53.112 ns |      0.9748 ns |      1.3665 ns |        52.812 ns |      1.00 |    0.04 |     0.0% (Base) |    1.00x (Data) |   0.0413 |  0.0001 |       - |     432 B |        1.00 |
+| &#39;MetadataOnly: ComplexPoco (5 nested items)&#39;                                | Doc: ComplexPoco (5 items)      |     3,191.770 ns |     13.5358 ns |     19.4126 ns |     3,192.060 ns |     60.13 |    1.50 |         1227.8% |          12.28x |   0.5035 |  0.0038 |       - |    5304 B |       12.28 |
+| &#39;FullDoc: ComplexPoco (5 nested items)&#39;                                     | Doc: ComplexPoco (5 items)      |     3,274.839 ns |     19.6062 ns |     28.1186 ns |     3,267.315 ns |     61.70 |    1.58 |         1227.8% |          12.28x |   0.5455 |  0.0114 |       - |    5736 B |       13.28 |
+| &#39;PackedJson: ComplexPoco (5 nested items)&#39;                                  | Doc: ComplexPoco (5 items)      |     6,277.580 ns |     71.0151 ns |    104.0931 ns |     6,246.409 ns |    118.27 |    3.45 |         2229.6% |          22.30x |   0.9613 |  0.0153 |       - |   10064 B |       23.30 |
+| &#39;PackedBrotli: ComplexPoco (5 nested items)&#39;                                | Doc: ComplexPoco (5 items)      |    12,526.958 ns |     74.4047 ns |    111.3655 ns |    12,528.027 ns |    236.00 |    6.07 |         1970.4% |          19.70x |   0.8545 |       - |       - |    8944 B |       20.70 |
+|                                                                             |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
+| &#39;DataOnly: ComplexPoco (50 nested items)&#39;                                   | Doc: ComplexPoco (50 items)     |       297.586 ns |      8.8436 ns |     12.1052 ns |       300.653 ns |      1.00 |    0.06 |     0.0% (Base) |    1.00x (Data) |   0.2131 |  0.0029 |       - |    2232 B |        1.00 |
+| &#39;MetadataOnly: ComplexPoco (50 nested items)&#39;                               | Doc: ComplexPoco (50 items)     |    17,013.264 ns |    117.7190 ns |    165.0257 ns |    16,995.804 ns |     57.26 |    2.37 |         1470.3% |          14.70x |   3.1128 |  0.1526 |       - |   32816 B |       14.70 |
+| &#39;FullDoc: ComplexPoco (50 nested items)&#39;                                    | Doc: ComplexPoco (50 items)     |    17,356.124 ns |    160.6191 ns |    235.4334 ns |    17,348.276 ns |     58.42 |    2.48 |         1470.3% |          14.70x |   3.3264 |  0.2747 |       - |   35048 B |       15.70 |
+| &#39;PackedJson: ComplexPoco (50 nested items)&#39;                                 | Doc: ComplexPoco (50 items)     |    39,677.774 ns |    232.1247 ns |    340.2454 ns |    39,637.238 ns |    133.55 |    5.49 |         2834.1% |          28.34x |   6.2256 |  0.7324 |       - |   65488 B |       29.34 |
+| &#39;PackedBrotli: ComplexPoco (50 nested items)&#39;                               | Doc: ComplexPoco (50 items)     |    53,398.255 ns |    278.7302 ns |    399.7465 ns |    53,414.090 ns |    179.73 |    7.35 |         2175.7% |          21.76x |   4.8218 |  0.1221 |       - |   50793 B |       22.76 |
+|                                                                             |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
+| &#39;DataOnly: SimplePoco (3 props)&#39;                                            | Doc: SimplePoco                 |         3.891 ns |      0.0913 ns |      0.1280 ns |         3.871 ns |      1.00 |    0.05 |     0.0% (Base) |    1.00x (Data) |   0.0046 |       - |       - |      48 B |        1.00 |
+| &#39;MetadataOnly: SimplePoco (3 props)&#39;                                        | Doc: SimplePoco                 |       252.740 ns |      2.3598 ns |      3.3844 ns |       252.331 ns |     65.02 |    2.25 |         1483.3% |          14.83x |   0.0677 |       - |       - |     712 B |       14.83 |
+| &#39;FullDoc: SimplePoco (Data + Metadata)&#39;                                     | Doc: SimplePoco                 |       255.965 ns |      1.6220 ns |      2.4277 ns |       256.002 ns |     65.85 |    2.19 |         1483.3% |          14.83x |   0.0725 |       - |       - |     760 B |       15.83 |
+| &#39;PackedJson: SimplePoco (Data + JSON Bytes)&#39;                                | Doc: SimplePoco                 |       851.512 ns |      1.8116 ns |      2.6554 ns |       851.534 ns |    219.06 |    7.03 |         2400.0% |          24.00x |   0.1144 |       - |       - |    1200 B |       25.00 |
+| &#39;PackedBrotli: SimplePoco (Data + Brotli Bytes)&#39;                            | Doc: SimplePoco                 |     4,496.512 ns |     16.4684 ns |     24.6492 ns |     4,498.111 ns |  1,156.78 |   37.49 |         3100.0% |          31.00x |   0.1450 |       - |       - |    1536 B |       32.00 |
+|                                                                             |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
+| &#39;DataOnly: WidePoco (21 props)&#39;                                             | Doc: WidePoco                   |        15.869 ns |      1.6002 ns |      2.3456 ns |        17.691 ns |      1.02 |    0.21 |     0.0% (Base) |    1.00x (Data) |   0.0168 |       - |       - |     176 B |        1.00 |
+| &#39;MetadataOnly: WidePoco (21 props)&#39;                                         | Doc: WidePoco                   |     1,617.435 ns |      6.3987 ns |      9.5773 ns |     1,614.239 ns |    104.14 |   15.31 |         1754.5% |          17.55x |   0.2937 |       - |       - |    3088 B |       17.55 |
+| &#39;FullDoc: WidePoco (Data + Metadata)&#39;                                       | Doc: WidePoco                   |     1,645.227 ns |      8.4872 ns |     12.4404 ns |     1,645.987 ns |    105.93 |   15.58 |         1754.5% |          17.55x |   0.3109 |  0.0019 |       - |    3264 B |       18.55 |
+| &#39;PackedJson: WidePoco (Data + JSON Bytes)&#39;                                  | Doc: WidePoco                   |     3,739.547 ns |     19.5146 ns |     29.2085 ns |     3,737.229 ns |    240.78 |   35.42 |         3381.8% |          33.82x |   0.5836 |  0.0038 |       - |    6128 B |       34.82 |
+| &#39;PackedBrotli: WidePoco (Data + Brotli Bytes)&#39;                              | Doc: WidePoco                   |     8,211.832 ns |     35.3498 ns |     51.8153 ns |     8,226.593 ns |    528.74 |   77.74 |         2945.5% |          29.45x |   0.5035 |       - |       - |    5360 B |       30.45 |
+|                                                                             |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
+| &#39;ReplicaScope: Bare (ReplicaContext only)&#39;                                  | Replica Scope Overhead          |       142.942 ns |      2.2621 ns |      3.2443 ns |       141.589 ns |      1.00 |    0.03 |               - |               - |   0.0329 |       - |       - |     344 B |        1.00 |
+| &#39;ReplicaScope: Core Sync Services (Patcher, Applicator, Merger, MetaMgr)&#39;   | Replica Scope Overhead          |       590.083 ns |      4.5226 ns |      6.7692 ns |       591.837 ns |      4.13 |    0.10 |               - |               - |   0.0792 |       - |       - |     832 B |        2.42 |
+| &#39;ReplicaScope: Async Pipeline (AsyncPatcher, AsyncApplicator, AsyncMerger)&#39; | Replica Scope Overhead          |       828.178 ns |     10.3446 ns |     15.1630 ns |       823.852 ns |      5.80 |    0.17 |               - |               - |   0.1621 |       - |       - |    1704 B |        4.95 |
+|                                                                             |                                 |                  |                |                |                  |           |         |                 |                 |          |         |         |           |             |
+| &#39;Shards: 1 Shard x 5 Replicas (0 Dots)&#39;                                     | Shard Map Dimensions            |       216.784 ns |      1.7352 ns |      2.5972 ns |       216.680 ns |      1.00 |    0.02 |               - |               - |   0.0503 |       - |       - |     528 B |        1.00 |
+| &#39;Shards: 10 Shards x 5 Replicas (0 Dots)&#39;                                   | Shard Map Dimensions            |     2,399.404 ns |     22.9991 ns |     34.4240 ns |     2,385.754 ns |     11.07 |    0.20 |               - |               - |   0.4082 |  0.0076 |       - |    4272 B |        8.09 |
+| &#39;Shards: 10 Shards x 25 Replicas (5 Dots)&#39;                                  | Shard Map Dimensions            |   155,892.943 ns |    242.9453 ns |    356.1060 ns |   155,867.798 ns |    719.22 |    8.62 |               - |               - |   7.8125 |  1.9531 |       - |   83634 B |      158.40 |
+| &#39;Shards: 100 Shards x 5 Replicas (0 Dots)&#39;                                  | Shard Map Dimensions            |    23,980.001 ns |    238.7666 ns |    357.3747 ns |    23,946.790 ns |    110.63 |    2.08 |               - |               - |   4.4556 |  0.7324 |       - |   46672 B |       88.39 |
+| &#39;Shards: 100 Shards x 50 Replicas (10 Dots)&#39;                                | Shard Map Dimensions            | 4,438,869.477 ns | 49,820.1850 ns | 73,025.7872 ns | 4,445,109.375 ns | 20,478.82 |  409.75 |               - |               - | 257.8125 | 85.9375 | 15.6250 | 2589221 B |    4,903.83 |
 
 
 ```
@@ -102,8 +106,8 @@ LaunchCount=2  WarmupCount=10
 ```
 | Method               | Mean       | Error    | StdDev   | Gen0   | Gen1   | Allocated |
 |--------------------- |-----------:|---------:|---------:|-------:|-------:|----------:|
-| GeneratePatchSimple  |   705.7 ns |  8.99 ns | 13.46 ns | 0.1631 |      - |   1.67 KB |
-| GeneratePatchComplex | 3,420.7 ns | 13.35 ns | 19.98 ns | 0.5913 | 0.0038 |   6.06 KB |
+| GeneratePatchSimple  |   734.4 ns |  4.78 ns |  7.16 ns | 0.1659 |      - |    1.7 KB |
+| GeneratePatchComplex | 3,488.7 ns | 26.30 ns | 38.55 ns | 0.5989 | 0.0038 |   6.13 KB |
 
 
 ```
@@ -120,38 +124,38 @@ WarmupCount=10
 ```
 | Method                            | Mean        | Error      | StdDev     | Median      | Allocated |
 |---------------------------------- |------------:|-----------:|-----------:|------------:|----------:|
-| &#39;Strategy.Apply: LWW&#39;             |   323.00 ns |  52.008 ns |  74.588 ns |   287.50 ns |     218 B |
-| &#39;Strategy.Apply: FWW&#39;             |   310.13 ns |  25.839 ns |  38.675 ns |   301.50 ns |     208 B |
-| &#39;Strategy.Apply: Counter&#39;         |   526.68 ns |  77.874 ns | 111.685 ns |   480.00 ns |     646 B |
-| &#39;Strategy.Apply: GCounter&#39;        |   545.55 ns |  74.484 ns | 109.178 ns |   493.00 ns |     582 B |
-| &#39;Strategy.Apply: BoundedCounter&#39;  |    79.93 ns |   6.496 ns |   9.106 ns |    78.00 ns |     152 B |
-| &#39;Strategy.Apply: MaxWins&#39;         |    76.44 ns |   3.074 ns |   4.104 ns |    77.00 ns |     152 B |
-| &#39;Strategy.Apply: MinWins&#39;         |    82.00 ns |   6.922 ns |   9.475 ns |    79.25 ns |     152 B |
-| &#39;Strategy.Apply: AverageRegister&#39; |   640.57 ns | 199.579 ns | 286.230 ns |   478.00 ns |     918 B |
-| &#39;Strategy.Apply: GSet&#39;            |   536.57 ns |  97.157 ns | 145.420 ns |   465.50 ns |     566 B |
-| &#39;Strategy.Apply: TwoPhaseSet&#39;     |   423.24 ns |  68.499 ns | 100.404 ns |   382.00 ns |     438 B |
-| &#39;Strategy.Apply: LwwSet&#39;          | 1,378.10 ns | 281.877 ns | 413.172 ns | 1,027.00 ns |    1054 B |
-| &#39;Strategy.Apply: FwwSet&#39;          |   890.21 ns | 146.627 ns | 210.288 ns |   801.50 ns |     798 B |
-| &#39;Strategy.Apply: OrSet&#39;           | 1,109.00 ns | 277.949 ns | 416.021 ns |   890.00 ns |    1342 B |
-| &#39;Strategy.Apply: ArrayLcs&#39;        |   812.90 ns | 126.560 ns | 185.510 ns |   732.00 ns |     374 B |
-| &#39;Strategy.Apply: FixedSizeArray&#39;  |   459.17 ns |  47.151 ns |  69.113 ns |   437.00 ns |     272 B |
-| &#39;Strategy.Apply: Lseq&#39;            |   802.77 ns | 270.203 ns | 369.857 ns |   517.00 ns |     454 B |
-| &#39;Strategy.Apply: VoteCounter&#39;     |   709.64 ns | 150.540 ns | 215.900 ns |   591.00 ns |     510 B |
-| &#39;Strategy.Apply: StateMachine&#39;    |   567.22 ns |  13.783 ns |  18.400 ns |   565.00 ns |     278 B |
-| &#39;Strategy.Apply: PriorityQueue&#39;   | 6,398.30 ns | 652.150 ns | 914.223 ns | 5,852.00 ns |    8590 B |
-| &#39;Strategy.Apply: SortedSet&#39;       | 3,487.10 ns | 387.452 ns | 567.922 ns | 3,037.00 ns |    4462 B |
-| &#39;Strategy.Apply: RGA&#39;             | 2,157.00 ns | 647.152 ns | 968.626 ns | 1,525.00 ns |    3494 B |
-| &#39;Strategy.Apply: CounterMap&#39;      |   794.00 ns |  14.605 ns |  19.498 ns |   789.00 ns |     734 B |
-| &#39;Strategy.Apply: LwwMap&#39;          |   791.97 ns |  74.064 ns | 110.855 ns |   752.50 ns |     590 B |
-| &#39;Strategy.Apply: FwwMap&#39;          |   469.89 ns |  23.586 ns |  33.827 ns |   461.50 ns |     438 B |
-| &#39;Strategy.Apply: MaxWinsMap&#39;      |   617.82 ns |  40.734 ns |  58.419 ns |   595.50 ns |     398 B |
-| &#39;Strategy.Apply: MinWinsMap&#39;      |   133.96 ns |   5.169 ns |   7.246 ns |   135.00 ns |     304 B |
-| &#39;Strategy.Apply: OrMap&#39;           | 1,110.31 ns | 116.908 ns | 171.362 ns | 1,040.00 ns |    1390 B |
-| &#39;Strategy.Apply: Graph&#39;           |    74.76 ns |   2.271 ns |   3.032 ns |    74.00 ns |     152 B |
-| &#39;Strategy.Apply: TwoPhaseGraph&#39;   |   377.85 ns |   8.802 ns |  12.049 ns |   374.50 ns |     344 B |
-| &#39;Strategy.Apply: ReplicatedTree&#39;  |   480.54 ns |  56.505 ns |  81.038 ns |   442.00 ns |     622 B |
-| &#39;Strategy.Apply: EpochBound&#39;      | 1,631.11 ns |  18.308 ns |  25.666 ns | 1,624.00 ns |     278 B |
-| &#39;Strategy.Apply: ApprovalQuorum&#39;  |    76.92 ns |   2.605 ns |   3.566 ns |    76.50 ns |     152 B |
+| &#39;Strategy.Apply: LWW&#39;             |   319.12 ns |  53.409 ns |  76.598 ns |   275.75 ns |     216 B |
+| &#39;Strategy.Apply: FWW&#39;             |   313.05 ns |  34.521 ns |  49.510 ns |   283.25 ns |     216 B |
+| &#39;Strategy.Apply: Counter&#39;         |   495.13 ns |  66.597 ns |  99.679 ns |   442.00 ns |     654 B |
+| &#39;Strategy.Apply: GCounter&#39;        |   557.23 ns |  80.169 ns | 109.737 ns |   477.50 ns |     590 B |
+| &#39;Strategy.Apply: BoundedCounter&#39;  |    79.39 ns |  12.481 ns |  17.900 ns |    72.00 ns |     160 B |
+| &#39;Strategy.Apply: MaxWins&#39;         |    69.15 ns |   3.786 ns |   5.182 ns |    67.50 ns |     160 B |
+| &#39;Strategy.Apply: MinWins&#39;         |    76.21 ns |   8.477 ns |  12.157 ns |    71.00 ns |     160 B |
+| &#39;Strategy.Apply: AverageRegister&#39; |   701.93 ns | 181.833 ns | 254.905 ns |   865.00 ns |     926 B |
+| &#39;Strategy.Apply: GSet&#39;            |   513.39 ns | 101.250 ns | 145.210 ns |   419.50 ns |     496 B |
+| &#39;Strategy.Apply: TwoPhaseSet&#39;     |   421.52 ns |  91.288 ns | 133.809 ns |   348.00 ns |     389 B |
+| &#39;Strategy.Apply: LwwSet&#39;          | 1,208.48 ns | 251.211 ns | 352.162 ns |   960.00 ns |    1070 B |
+| &#39;Strategy.Apply: FwwSet&#39;          |   906.93 ns | 174.077 ns | 260.551 ns |   755.50 ns |     814 B |
+| &#39;Strategy.Apply: OrSet&#39;           | 1,102.21 ns | 288.137 ns | 422.348 ns |   836.00 ns |    1358 B |
+| &#39;Strategy.Apply: ArrayLcs&#39;        |   867.00 ns | 150.191 ns | 220.148 ns |   739.00 ns |     390 B |
+| &#39;Strategy.Apply: FixedSizeArray&#39;  |   390.03 ns |  49.580 ns |  74.210 ns |   352.00 ns |     253 B |
+| &#39;Strategy.Apply: Lseq&#39;            |   850.52 ns | 282.152 ns | 413.575 ns | 1,129.00 ns |     462 B |
+| &#39;Strategy.Apply: VoteCounter&#39;     |   653.80 ns | 115.442 ns | 172.788 ns |   558.50 ns |     518 B |
+| &#39;Strategy.Apply: StateMachine&#39;    |   554.14 ns |  51.389 ns |  73.700 ns |   509.00 ns |     286 B |
+| &#39;Strategy.Apply: PriorityQueue&#39;   | 6,160.59 ns | 529.736 ns | 742.616 ns | 5,688.00 ns |    8614 B |
+| &#39;Strategy.Apply: SortedSet&#39;       | 3,498.55 ns | 262.930 ns | 385.399 ns | 3,284.00 ns |    4478 B |
+| &#39;Strategy.Apply: RGA&#39;             | 2,151.77 ns | 633.406 ns | 948.052 ns | 1,719.50 ns |    3510 B |
+| &#39;Strategy.Apply: CounterMap&#39;      |   817.04 ns |  64.773 ns |  90.803 ns |   771.00 ns |     750 B |
+| &#39;Strategy.Apply: LwwMap&#39;          |   746.71 ns |  86.028 ns | 123.379 ns |   679.50 ns |     606 B |
+| &#39;Strategy.Apply: FwwMap&#39;          |   441.22 ns |  21.862 ns |  30.647 ns |   429.00 ns |     376 B |
+| &#39;Strategy.Apply: MaxWinsMap&#39;      |   584.00 ns |  42.404 ns |  62.155 ns |   548.00 ns |     414 B |
+| &#39;Strategy.Apply: MinWinsMap&#39;      |   133.25 ns |  12.026 ns |  17.247 ns |   128.50 ns |     320 B |
+| &#39;Strategy.Apply: OrMap&#39;           | 1,174.83 ns | 171.374 ns | 256.505 ns | 1,030.00 ns |    1406 B |
+| &#39;Strategy.Apply: Graph&#39;           |    71.23 ns |   2.421 ns |   3.314 ns |    71.00 ns |     160 B |
+| &#39;Strategy.Apply: TwoPhaseGraph&#39;   |   402.71 ns |  39.242 ns |  56.280 ns |   383.00 ns |     388 B |
+| &#39;Strategy.Apply: ReplicatedTree&#39;  |   453.39 ns |  37.335 ns |  53.545 ns |   426.00 ns |     620 B |
+| &#39;Strategy.Apply: EpochBound&#39;      | 1,616.62 ns |  15.687 ns |  22.994 ns | 1,610.00 ns |     286 B |
+| &#39;Strategy.Apply: ApprovalQuorum&#39;  |    73.23 ns |   3.046 ns |   4.169 ns |    73.00 ns |     160 B |
 
 
 ```
@@ -165,40 +169,40 @@ Job=MediumRun  Toolchain=InProcessNoEmitToolchain  IterationCount=15
 LaunchCount=2  WarmupCount=10  
 
 ```
-| Method                               | Mean       | Error    | StdDev   | Median     | Gen0   | Allocated |
-|------------------------------------- |-----------:|---------:|---------:|-----------:|-------:|----------:|
-| &#39;Strategy.Generate: LWW&#39;             |   130.7 ns |  0.41 ns |  0.62 ns |   130.6 ns | 0.0143 |     152 B |
-| &#39;Strategy.Generate: FWW&#39;             |   128.7 ns |  1.14 ns |  1.71 ns |   127.7 ns | 0.0143 |     152 B |
-| &#39;Strategy.Generate: Counter&#39;         |   151.1 ns |  0.54 ns |  0.79 ns |   151.2 ns | 0.0329 |     344 B |
-| &#39;Strategy.Generate: GCounter&#39;        |   183.6 ns |  1.53 ns |  2.29 ns |   182.6 ns | 0.0329 |     344 B |
-| &#39;Strategy.Generate: BoundedCounter&#39;  |   153.4 ns |  1.32 ns |  1.93 ns |   154.4 ns | 0.0329 |     344 B |
-| &#39;Strategy.Generate: MaxWins&#39;         |   114.3 ns |  0.91 ns |  1.34 ns |   114.7 ns | 0.0191 |     200 B |
-| &#39;Strategy.Generate: MinWins&#39;         |   111.2 ns |  0.33 ns |  0.50 ns |   111.2 ns | 0.0191 |     200 B |
-| &#39;Strategy.Generate: AverageRegister&#39; |   112.1 ns |  1.77 ns |  2.59 ns |   112.3 ns | 0.0206 |     216 B |
-| &#39;Strategy.Generate: GSet&#39;            |   374.1 ns |  1.21 ns |  1.77 ns |   374.4 ns | 0.0677 |     712 B |
-| &#39;Strategy.Generate: TwoPhaseSet&#39;     |   623.9 ns |  3.30 ns |  4.94 ns |   624.3 ns | 0.1059 |    1112 B |
-| &#39;Strategy.Generate: LwwSet&#39;          |   366.0 ns |  2.54 ns |  3.81 ns |   366.1 ns | 0.0558 |     584 B |
-| &#39;Strategy.Generate: FwwSet&#39;          |   373.4 ns |  1.21 ns |  1.77 ns |   373.5 ns | 0.0558 |     584 B |
-| &#39;Strategy.Generate: OrSet&#39;           |   913.9 ns |  3.17 ns |  4.65 ns |   914.6 ns | 0.1364 |    1432 B |
-| &#39;Strategy.Generate: ArrayLcs&#39;        |   905.8 ns |  3.18 ns |  4.56 ns |   906.2 ns | 0.1125 |    1184 B |
-| &#39;Strategy.Generate: FixedSizeArray&#39;  |   408.0 ns |  3.04 ns |  4.55 ns |   406.6 ns | 0.0596 |     624 B |
-| &#39;Strategy.Generate: Lseq&#39;            |   273.5 ns |  0.72 ns |  1.08 ns |   273.6 ns | 0.0443 |     464 B |
-| &#39;Strategy.Generate: VoteCounter&#39;     |   428.9 ns |  5.36 ns |  7.86 ns |   426.9 ns | 0.1044 |    1096 B |
-| &#39;Strategy.Generate: StateMachine&#39;    |   166.2 ns |  2.09 ns |  3.06 ns |   164.7 ns | 0.0143 |     152 B |
-| &#39;Strategy.Generate: PriorityQueue&#39;   | 4,847.3 ns | 41.31 ns | 61.83 ns | 4,830.1 ns | 0.7401 |    7776 B |
-| &#39;Strategy.Generate: SortedSet&#39;       | 1,787.9 ns |  5.60 ns |  8.39 ns | 1,786.8 ns | 0.3376 |    3536 B |
-| &#39;Strategy.Generate: RGA&#39;             |   564.1 ns |  3.97 ns |  5.94 ns |   564.1 ns | 0.1163 |    1224 B |
-| &#39;Strategy.Generate: CounterMap&#39;      |   794.7 ns |  2.39 ns |  3.58 ns |   795.0 ns | 0.1392 |    1456 B |
-| &#39;Strategy.Generate: LwwMap&#39;          |   952.4 ns |  7.73 ns | 10.84 ns |   947.8 ns | 0.1478 |    1552 B |
-| &#39;Strategy.Generate: FwwMap&#39;          |   840.9 ns |  2.43 ns |  3.64 ns |   841.0 ns | 0.1450 |    1520 B |
-| &#39;Strategy.Generate: MaxWinsMap&#39;      |   489.2 ns |  1.37 ns |  2.05 ns |   489.0 ns | 0.0849 |     888 B |
-| &#39;Strategy.Generate: MinWinsMap&#39;      |   494.8 ns |  5.26 ns |  7.88 ns |   492.7 ns | 0.0849 |     888 B |
-| &#39;Strategy.Generate: OrMap&#39;           | 1,198.3 ns |  5.03 ns |  7.37 ns | 1,196.8 ns | 0.1831 |    1928 B |
-| &#39;Strategy.Generate: Graph&#39;           |   401.4 ns |  2.96 ns |  4.44 ns |   401.3 ns | 0.0968 |    1016 B |
-| &#39;Strategy.Generate: TwoPhaseGraph&#39;   |   441.1 ns |  3.17 ns |  4.65 ns |   440.0 ns | 0.1245 |    1304 B |
-| &#39;Strategy.Generate: ReplicatedTree&#39;  |   552.0 ns |  1.53 ns |  2.29 ns |   552.2 ns | 0.1087 |    1144 B |
-| &#39;Strategy.Generate: EpochBound&#39;      |   747.9 ns |  1.81 ns |  2.71 ns |   747.9 ns | 0.0820 |     864 B |
-| &#39;Strategy.Generate: ApprovalQuorum&#39;  |   427.0 ns |  2.59 ns |  3.79 ns |   426.6 ns | 0.0763 |     800 B |
+| Method                               | Mean       | Error    | StdDev   | Gen0   | Allocated |
+|------------------------------------- |-----------:|---------:|---------:|-------:|----------:|
+| &#39;Strategy.Generate: LWW&#39;             |   125.9 ns |  0.94 ns |  1.41 ns | 0.0153 |     160 B |
+| &#39;Strategy.Generate: FWW&#39;             |   127.9 ns |  1.41 ns |  2.07 ns | 0.0153 |     160 B |
+| &#39;Strategy.Generate: Counter&#39;         |   166.6 ns |  0.83 ns |  1.24 ns | 0.0336 |     352 B |
+| &#39;Strategy.Generate: GCounter&#39;        |   186.6 ns |  1.26 ns |  1.88 ns | 0.0336 |     352 B |
+| &#39;Strategy.Generate: BoundedCounter&#39;  |   150.2 ns |  1.92 ns |  2.81 ns | 0.0336 |     352 B |
+| &#39;Strategy.Generate: MaxWins&#39;         |   110.3 ns |  1.02 ns |  1.53 ns | 0.0198 |     208 B |
+| &#39;Strategy.Generate: MinWins&#39;         |   110.9 ns |  0.74 ns |  1.10 ns | 0.0198 |     208 B |
+| &#39;Strategy.Generate: AverageRegister&#39; |   109.4 ns |  1.84 ns |  2.75 ns | 0.0213 |     224 B |
+| &#39;Strategy.Generate: GSet&#39;            |   350.1 ns |  2.10 ns |  3.07 ns | 0.0687 |     720 B |
+| &#39;Strategy.Generate: TwoPhaseSet&#39;     |   580.1 ns |  1.83 ns |  2.74 ns | 0.1068 |    1120 B |
+| &#39;Strategy.Generate: LwwSet&#39;          |   353.4 ns |  2.08 ns |  3.12 ns | 0.0563 |     592 B |
+| &#39;Strategy.Generate: FwwSet&#39;          |   353.5 ns |  1.65 ns |  2.42 ns | 0.0563 |     592 B |
+| &#39;Strategy.Generate: OrSet&#39;           |   954.4 ns |  4.47 ns |  6.41 ns | 0.1373 |    1440 B |
+| &#39;Strategy.Generate: ArrayLcs&#39;        |   955.6 ns |  2.75 ns |  4.12 ns | 0.1125 |    1192 B |
+| &#39;Strategy.Generate: FixedSizeArray&#39;  |   388.1 ns |  4.58 ns |  6.86 ns | 0.0601 |     632 B |
+| &#39;Strategy.Generate: Lseq&#39;            |   267.1 ns |  2.46 ns |  3.67 ns | 0.0448 |     472 B |
+| &#39;Strategy.Generate: VoteCounter&#39;     |   413.3 ns |  2.61 ns |  3.75 ns | 0.1054 |    1104 B |
+| &#39;Strategy.Generate: StateMachine&#39;    |   150.3 ns |  0.66 ns |  0.97 ns | 0.0153 |     160 B |
+| &#39;Strategy.Generate: PriorityQueue&#39;   | 4,714.8 ns | 44.01 ns | 65.87 ns | 0.7401 |    7784 B |
+| &#39;Strategy.Generate: SortedSet&#39;       | 1,718.4 ns | 18.13 ns | 27.13 ns | 0.3376 |    3544 B |
+| &#39;Strategy.Generate: RGA&#39;             |   541.0 ns |  5.84 ns |  8.74 ns | 0.1173 |    1232 B |
+| &#39;Strategy.Generate: CounterMap&#39;      |   760.9 ns |  6.96 ns | 10.42 ns | 0.1392 |    1464 B |
+| &#39;Strategy.Generate: LwwMap&#39;          |   950.3 ns |  8.20 ns | 12.27 ns | 0.1488 |    1560 B |
+| &#39;Strategy.Generate: FwwMap&#39;          |   836.2 ns |  7.83 ns | 11.22 ns | 0.1459 |    1528 B |
+| &#39;Strategy.Generate: MaxWinsMap&#39;      |   464.7 ns |  2.06 ns |  3.02 ns | 0.0854 |     896 B |
+| &#39;Strategy.Generate: MinWinsMap&#39;      |   463.1 ns |  5.39 ns |  7.91 ns | 0.0854 |     896 B |
+| &#39;Strategy.Generate: OrMap&#39;           | 1,178.8 ns |  9.65 ns | 14.15 ns | 0.1850 |    1952 B |
+| &#39;Strategy.Generate: Graph&#39;           |   384.1 ns |  4.85 ns |  7.26 ns | 0.0978 |    1024 B |
+| &#39;Strategy.Generate: TwoPhaseGraph&#39;   |   417.5 ns |  4.03 ns |  5.66 ns | 0.1254 |    1312 B |
+| &#39;Strategy.Generate: ReplicatedTree&#39;  |   534.0 ns |  3.54 ns |  5.19 ns | 0.1097 |    1152 B |
+| &#39;Strategy.Generate: EpochBound&#39;      |   673.6 ns |  3.94 ns |  5.90 ns | 0.0839 |     880 B |
+| &#39;Strategy.Generate: ApprovalQuorum&#39;  |   401.8 ns |  5.11 ns |  7.64 ns | 0.0777 |     816 B |
 
 
 ```
@@ -212,41 +216,41 @@ Job=MediumRun  Toolchain=InProcessNoEmitToolchain  IterationCount=15
 LaunchCount=2  WarmupCount=10  
 
 ```
-| Method                                 | Mean      | Error    | StdDev   | Median    | Gen0   | Allocated |
-|--------------------------------------- |----------:|---------:|---------:|----------:|-------:|----------:|
-| &#39;Strategy.GenerateOp: LWW&#39;             |  54.11 ns | 0.031 ns | 0.043 ns |  54.11 ns |      - |         - |
-| &#39;Strategy.GenerateOp: FWW&#39;             |  54.58 ns | 0.251 ns | 0.376 ns |  54.66 ns |      - |         - |
-| &#39;Strategy.GenerateOp: Counter&#39;         |  76.91 ns | 0.547 ns | 0.818 ns |  76.61 ns | 0.0084 |      88 B |
-| &#39;Strategy.GenerateOp: GCounter&#39;        | 103.64 ns | 0.248 ns | 0.364 ns | 103.65 ns | 0.0084 |      88 B |
-| &#39;Strategy.GenerateOp: BoundedCounter&#39;  |  54.69 ns | 0.431 ns | 0.646 ns |  54.38 ns |      - |         - |
-| &#39;Strategy.GenerateOp: MaxWins&#39;         |  54.16 ns | 0.039 ns | 0.054 ns |  54.16 ns |      - |         - |
-| &#39;Strategy.GenerateOp: MinWins&#39;         |  54.75 ns | 0.106 ns | 0.155 ns |  54.69 ns |      - |         - |
-| &#39;Strategy.GenerateOp: AverageRegister&#39; |  54.30 ns | 0.238 ns | 0.356 ns |  54.16 ns |      - |         - |
-| &#39;Strategy.GenerateOp: GSet&#39;            |  84.47 ns | 0.307 ns | 0.450 ns |  84.54 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: TwoPhaseSet&#39;     |  54.16 ns | 0.087 ns | 0.121 ns |  54.16 ns |      - |         - |
-| &#39;Strategy.GenerateOp: LwwSet&#39;          |  54.55 ns | 0.369 ns | 0.529 ns |  54.55 ns |      - |         - |
-| &#39;Strategy.GenerateOp: FwwSet&#39;          |  54.90 ns | 0.332 ns | 0.477 ns |  55.19 ns |      - |         - |
-| &#39;Strategy.GenerateOp: OrSet&#39;           | 147.00 ns | 0.170 ns | 0.227 ns | 146.96 ns | 0.0069 |      72 B |
-| &#39;Strategy.GenerateOp: ArrayLcs&#39;        | 394.54 ns | 1.987 ns | 2.912 ns | 395.51 ns | 0.0201 |     216 B |
-| &#39;Strategy.GenerateOp: FixedSizeArray&#39;  |  95.33 ns | 0.402 ns | 0.589 ns |  95.15 ns | 0.0053 |      56 B |
-| &#39;Strategy.GenerateOp: Lseq&#39;            | 117.27 ns | 1.084 ns | 1.447 ns | 118.23 ns | 0.0107 |     112 B |
-| &#39;Strategy.GenerateOp: VoteCounter&#39;     |  59.51 ns | 0.060 ns | 0.090 ns |  59.50 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: StateMachine&#39;    | 226.65 ns | 0.226 ns | 0.324 ns | 226.70 ns |      - |         - |
-| &#39;Strategy.GenerateOp: PriorityQueue&#39;   |  86.22 ns | 1.332 ns | 1.993 ns |  86.24 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: SortedSet&#39;       |  61.92 ns | 0.203 ns | 0.303 ns |  61.87 ns | 0.0053 |      56 B |
-| &#39;Strategy.GenerateOp: RGA&#39;             | 265.95 ns | 1.501 ns | 2.200 ns | 265.77 ns | 0.0580 |     608 B |
-| &#39;Strategy.GenerateOp: CounterMap&#39;      |  59.49 ns | 0.251 ns | 0.376 ns |  59.46 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: LwwMap&#39;          |  60.10 ns | 0.325 ns | 0.487 ns |  60.22 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: FwwMap&#39;          |  60.64 ns | 0.775 ns | 1.160 ns |  59.90 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: MaxWinsMap&#39;      |  59.14 ns | 0.072 ns | 0.098 ns |  59.16 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: MinWinsMap&#39;      |  59.64 ns | 0.319 ns | 0.468 ns |  59.56 ns | 0.0031 |      32 B |
-| &#39;Strategy.GenerateOp: OrMap&#39;           | 175.45 ns | 0.926 ns | 1.357 ns | 174.83 ns | 0.0107 |     112 B |
-| &#39;Strategy.GenerateOp: Graph&#39;           |  59.19 ns | 1.098 ns | 1.539 ns |  57.93 ns | 0.0023 |      24 B |
-| &#39;Strategy.GenerateOp: TwoPhaseGraph&#39;   |  80.86 ns | 0.406 ns | 0.556 ns |  80.86 ns | 0.0023 |      24 B |
-| &#39;Strategy.GenerateOp: ReplicatedTree&#39;  | 136.35 ns | 0.449 ns | 0.672 ns | 136.09 ns | 0.0053 |      56 B |
-| &#39;Strategy.GenerateOp: EpochBound&#39;      | 583.08 ns | 3.469 ns | 5.192 ns | 582.68 ns | 0.0140 |     152 B |
-| &#39;Strategy.GenerateOp: EpochClear&#39;      | 358.44 ns | 1.789 ns | 2.678 ns | 357.16 ns | 0.0079 |      88 B |
-| &#39;Strategy.GenerateOp: ApprovalQuorum&#39;  | 278.73 ns | 2.300 ns | 3.224 ns | 276.85 ns | 0.0082 |      88 B |
+| Method                                 | Mean      | Error    | StdDev   | Gen0   | Allocated |
+|--------------------------------------- |----------:|---------:|---------:|-------:|----------:|
+| &#39;Strategy.GenerateOp: LWW&#39;             |  53.84 ns | 0.171 ns | 0.251 ns |      - |         - |
+| &#39;Strategy.GenerateOp: FWW&#39;             |  53.99 ns | 0.143 ns | 0.214 ns |      - |         - |
+| &#39;Strategy.GenerateOp: Counter&#39;         |  77.97 ns | 0.642 ns | 0.920 ns | 0.0084 |      88 B |
+| &#39;Strategy.GenerateOp: GCounter&#39;        | 103.72 ns | 0.371 ns | 0.532 ns | 0.0084 |      88 B |
+| &#39;Strategy.GenerateOp: BoundedCounter&#39;  |  54.38 ns | 0.150 ns | 0.225 ns |      - |         - |
+| &#39;Strategy.GenerateOp: MaxWins&#39;         |  54.05 ns | 0.362 ns | 0.531 ns |      - |         - |
+| &#39;Strategy.GenerateOp: MinWins&#39;         |  54.20 ns | 0.089 ns | 0.131 ns |      - |         - |
+| &#39;Strategy.GenerateOp: AverageRegister&#39; |  54.46 ns | 0.283 ns | 0.414 ns |      - |         - |
+| &#39;Strategy.GenerateOp: GSet&#39;            |  81.33 ns | 1.175 ns | 1.759 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: TwoPhaseSet&#39;     |  54.24 ns | 0.301 ns | 0.422 ns |      - |         - |
+| &#39;Strategy.GenerateOp: LwwSet&#39;          |  53.99 ns | 0.123 ns | 0.184 ns |      - |         - |
+| &#39;Strategy.GenerateOp: FwwSet&#39;          |  53.93 ns | 0.201 ns | 0.295 ns |      - |         - |
+| &#39;Strategy.GenerateOp: OrSet&#39;           | 141.51 ns | 0.568 ns | 0.814 ns | 0.0069 |      72 B |
+| &#39;Strategy.GenerateOp: ArrayLcs&#39;        | 380.01 ns | 1.664 ns | 2.439 ns | 0.0201 |     216 B |
+| &#39;Strategy.GenerateOp: FixedSizeArray&#39;  |  94.03 ns | 0.727 ns | 1.043 ns | 0.0053 |      56 B |
+| &#39;Strategy.GenerateOp: Lseq&#39;            | 114.65 ns | 0.876 ns | 1.284 ns | 0.0107 |     112 B |
+| &#39;Strategy.GenerateOp: VoteCounter&#39;     |  58.83 ns | 0.223 ns | 0.326 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: StateMachine&#39;    | 202.10 ns | 0.700 ns | 1.048 ns |      - |         - |
+| &#39;Strategy.GenerateOp: PriorityQueue&#39;   |  83.25 ns | 0.815 ns | 1.195 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: SortedSet&#39;       |  60.64 ns | 0.371 ns | 0.532 ns | 0.0053 |      56 B |
+| &#39;Strategy.GenerateOp: RGA&#39;             | 255.23 ns | 1.057 ns | 1.515 ns | 0.0580 |     608 B |
+| &#39;Strategy.GenerateOp: CounterMap&#39;      |  58.52 ns | 0.204 ns | 0.305 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: LwwMap&#39;          |  58.56 ns | 0.323 ns | 0.473 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: FwwMap&#39;          |  60.06 ns | 1.009 ns | 1.511 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: MaxWinsMap&#39;      |  58.57 ns | 0.310 ns | 0.444 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: MinWinsMap&#39;      |  59.58 ns | 0.406 ns | 0.607 ns | 0.0031 |      32 B |
+| &#39;Strategy.GenerateOp: OrMap&#39;           | 172.79 ns | 0.993 ns | 1.455 ns | 0.0107 |     112 B |
+| &#39;Strategy.GenerateOp: Graph&#39;           |  58.21 ns | 0.350 ns | 0.513 ns | 0.0023 |      24 B |
+| &#39;Strategy.GenerateOp: TwoPhaseGraph&#39;   |  89.67 ns | 1.706 ns | 2.447 ns | 0.0023 |      24 B |
+| &#39;Strategy.GenerateOp: ReplicatedTree&#39;  | 136.15 ns | 0.498 ns | 0.745 ns | 0.0053 |      56 B |
+| &#39;Strategy.GenerateOp: EpochBound&#39;      | 548.00 ns | 1.282 ns | 1.839 ns | 0.0140 |     152 B |
+| &#39;Strategy.GenerateOp: EpochClear&#39;      | 356.23 ns | 1.163 ns | 1.669 ns | 0.0079 |      88 B |
+| &#39;Strategy.GenerateOp: ApprovalQuorum&#39;  | 251.75 ns | 2.350 ns | 3.518 ns | 0.0137 |     144 B |
 
 
 <!-- BENCHMARKS_END -->

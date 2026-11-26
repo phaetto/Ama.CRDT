@@ -127,7 +127,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
             "$.configValue",
             OperationType.Upsert,
             new QuorumPayload("ProposedNew"),
-            timestampProvider.Now(),
+            timestampProvider.Now("ReplicaA"),
             1);
 
         applicator.ApplyPatch(doc, new CrdtPatch([op]));
@@ -154,7 +154,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
             "$.configValue",
             OperationType.Upsert,
             new QuorumPayload("ProposedNew"),
-            timestampProvider.Now(),
+            timestampProvider.Now("ReplicaA"),
             1);
 
         var op2 = new CrdtOperation(
@@ -163,7 +163,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
             "$.configValue",
             OperationType.Upsert,
             new QuorumPayload("ProposedNew"),
-            timestampProvider.Now(),
+            timestampProvider.Now("ReplicaA"),
             2);
 
         applicator.ApplyPatch(doc, new CrdtPatch([op1, op2]));
@@ -186,7 +186,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
             "$.configValue",
             OperationType.Upsert,
             new QuorumPayload("ProposedNew"),
-            timestampProvider.Now(),
+            timestampProvider.Now("ReplicaA"),
             1);
 
         var op2 = new CrdtOperation(
@@ -195,7 +195,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
             "$.configValue",
             OperationType.Upsert,
             new QuorumPayload("ProposedNew"),
-            timestampProvider.Now(),
+            timestampProvider.Now("ReplicaB"),
             1);
 
         applicator.ApplyPatch(doc, new CrdtPatch([op1]));
@@ -225,7 +225,7 @@ public sealed class ApprovalQuorumStrategyTests : IDisposable
             "$.configValue",
             OperationType.Upsert,
             "ForcedValue", // Unwrapped value!
-            timestampProvider.Now(),
+            timestampProvider.Now("ReplicaA"),
             1);
 
         applicator.ApplyPatch(doc, new CrdtPatch([unconstrainedOp]));

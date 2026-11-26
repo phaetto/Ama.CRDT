@@ -9,14 +9,14 @@ using System.Threading;
 /// based on the current system UTC time in Unix milliseconds and the current replica's ID.
 /// It ensures timestamps are strictly monotonically increasing across local calls.
 /// </summary>
-public sealed class EpochTimestampProvider(ReplicaContext replicaContext) : ICrdtTimestampProvider
+public sealed class EpochTimestampProvider : ICrdtTimestampProvider
 {
     private static long lastTicks = -1;
 
     /// <inheritdoc/>
-    public CrdtTimestamp Now()
+    public CrdtTimestamp Now(string replicaId)
     {
-        ArgumentNullException.ThrowIfNull(replicaContext);
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
 
         long original, newValue;
         do
@@ -27,14 +27,14 @@ public sealed class EpochTimestampProvider(ReplicaContext replicaContext) : ICrd
         } 
         while (Interlocked.CompareExchange(ref lastTicks, newValue, original) != original);
 
-        return new CrdtTimestamp(newValue, 0, 0, replicaContext.ReplicaId);
+        return new CrdtTimestamp(newValue, 0, 0, replicaId);
     }
 
     /// <inheritdoc/>
-    public CrdtTimestamp Create(long value)
+    public CrdtTimestamp Create(long value, string replicaId)
     {
-        ArgumentNullException.ThrowIfNull(replicaContext);
+        ArgumentException.ThrowIfNullOrWhiteSpace(replicaId);
 
-        return new CrdtTimestamp(value, 0, 0, replicaContext.ReplicaId);
+        return new CrdtTimestamp(value, 0, 0, replicaId);
     }
 }

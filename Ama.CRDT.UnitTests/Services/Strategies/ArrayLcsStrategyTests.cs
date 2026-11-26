@@ -110,7 +110,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
 
         var intent = new InsertIntent(1, "B");
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo, intent, timestampProvider.Now(), 0, "A");
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo, intent, timestampProvider.Now("A"), 0, "A");
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -145,7 +145,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
 
         var intent = new RemoveIntent(1); // Intent to remove "B"
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo, intent, timestampProvider.Now(), 0, "A");
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo, intent, timestampProvider.Now("A"), 0, "A");
 
         // Act
         var operation = strategy.GenerateOperation(context);
@@ -179,7 +179,7 @@ public sealed class ArrayLcsStrategyTests : IDisposable
         var strategy = scopeA.ServiceProvider.GetServices<ICrdtStrategy>().OfType<ArrayLcsStrategy>().Single();
 
         var intent = new InvalidIntent();
-        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo, intent, timestampProvider.Now(), 0, "A");
+        var context = new GenerateOperationContext(doc, meta, "$.tags", propertyInfo, intent, timestampProvider.Now("A"), 0, "A");
 
         // Act & Assert
         Should.Throw<NotSupportedException>(() => strategy.GenerateOperation(context));
